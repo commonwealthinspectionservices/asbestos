@@ -1,0 +1,198 @@
+import { NextRequest, NextResponse } from "next/server";
+import { getSupabaseAdmin } from "@/lib/supabase";
+import { requireAdminApi } from "@/lib/admin-api";
+import { withApiErrors } from "@/lib/api-handler";
+import { parseLineItems, lineItemsTotalCents } from "@/lib/invoice-line-items";
+import { parseSampleItems, parseSampleCounts } from "@/lib/sample-items";
+
+const EDITABLE_FIELDS = [
+  "project_number",
+  "requested_date",
+  "end_date",
+  "paid_date",
+  "payment_due_date",
+  "requested_time",
+  "notes",
+  "duration_minutes",
+  "status",
+  "site_contact_name",
+  "site_contact_phone",
+  "project_name",
+  "job_classification",
+  "payment_method",
+  "po_number",
+  "invoice_number",
+  "service_address",
+  "service_type",
+  "scope_of_work",
+  "customer_id",
+  "sample_count",
+  "report_emails",
+  "invoice_emails",
+  "asbestos_result",
+  "invoice_auto",
+  "lab_turnaround",
+  "lab_name",
+  "lab_nist_cert",
+  "lab_massdls_cert",
+  "is_homeowner",
+] as const;
+
+export const PATCH = withApiErrors(async (
+  req: NextRequest,
+  { params }: { params: { id: string } }
+) => {
+  const unauthorized = requireAdminApi(req);
+  if (unauthorized) return unauthorized;
+
+  const body = await req.json().catch(() => null);
+  if (!body || typeof body !== "object") {
+    return NextResponse.json({ error: "Invalid body" }, { status: 400 });
+  }
+
+  const patch: Record<string, unknown> = {};
+  for (const field of EDITABLE_FIELDS) {
+    if (field in body) patch[field] = body[field];
+  }
+
+  // Invoice line items are admin-editable directly from the Invoicing tab,
+  // independent of the "Enter lab results" flow — validated the same way
+  // .../complete/route.ts does, with the total always derived server-side
+  // rather than trusted from the client.
+  if ("invoice_line_items" in body) {
+    const parsed = parseLineItems(body.invoice_line_items);
+    if ("error" in parsed) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
+    }
+    patch.invoice_line_items = parsed.items;
+    patch.invoice_total_cents = lineItemsTotalCents(parsed.items);
+  }
+
+  // sample_count is its own editable field (see EDITABLE_FIELDS) — settable
+  // by hand from the lab's results, independent of how many rows are
+  // logged in sample_items — so only default it to the row count here when
+  // the admin isn't setting it explicitly in the same request.
+  if ("sample_items" in body) {
+    const parsed = parseSampleItems(body.sample_items);
+    if ("error" in parsed) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
+    }
+    patch.sample_items = parsed.items;
+    if (!("sample_count" in body)) {
+      patch.sample_count = parsed.items.length;
+    }
+  }
+
+  // One sample count per service type label (e.g. "Mold Air Sampling": 3),
+  // shown as its own cell per service type on the Samples tab.
+  if ("sample_counts" in body) {
+    const parsed = parseSampleCounts(body.sample_counts);
+    if ("error" in parsed) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
+    }
+    patch.sample_counts = parsed.counts;
+  }
+
+  if (Object.keys(patch).length === 0) {
+    return NextResponse.json({ error: "No editable fields provided" }, { status: 400 });
+  }
+
+  const supabase = getSupabaseAdmin();
+
+  // Auto-advance "To Be Scheduled" -> "Scheduled" the moment a date lands
+  // on the job, same as picking it manually — but never overrides an
+  // explicit status change in the same request.
+  if ("requested_date" in patch && !("status" in patch)) {
+    const { data: current } = await supabase
+      .from("jobs")
+      .select("status")
+      .eq("id", params.id)
+      .single();
+    if (current?.status === "needs_scheduling" && patch.requested_date) {
+      patch.status = "scheduled";
+    }
+  }
+
+  // Records when a job first lands on "paid" — doesn't overwrite a date
+  // that was already set (e.g. re-saving the job after it's paid) or one
+  // the admin is explicitly backfilling in the same request. Tolerates the
+  // paid_date column not existing yet (pending migration) rather than
+  // failing the whole save over it. Also the trigger for auto-drafting the
+  // final report (see autoDraftReportIfJustPaid below) — the report is
+  // deliberately held back until payment, this is what releases it — so
+  // this needs to know whether the job is newly becoming paid even when
+  // paid_date itself is being explicitly backfilled in the same request.
+  let justBecamePaid = false;
+  if (patch.status === "paid") {
+    const { data: current, error: selectError } = await supabase.from("jobs").select("status, paid_date").eq("id", params.id).single();
+    if (!selectError && current?.status !== "paid") {
+      justBecamePaid = true;
+      if (!("paid_date" in patch) && !current?.paid_date) {
+        patch.paid_date = new Date().toISOString().slice(0, 10);
+      }
+    }
+  }
+
+  // Columns added after this route was first written — tolerated in case
+  // the migration adding them hasn't been run against this database yet,
+  // so a save never hard-fails over one of them being missing.
+  const TOLERATED_MISSING_COLUMNS = ["paid_date", "sample_counts", "report_emails", "invoice_emails", "scope_of_work", "payment_due_date", "asbestos_result", "invoice_auto"];
+
+  let currentPatch = patch;
+  let data: Record<string, unknown> | null = null;
+  let error: { message?: string } | null = null;
+  for (let attempt = 0; attempt <= TOLERATED_MISSING_COLUMNS.length; attempt++) {
+    if (Object.keys(currentPatch).length === 0) {
+      return NextResponse.json(
+        { error: "This field isn't available yet — its database migration hasn't been run." },
+        { status: 409 }
+      );
+    }
+    ({ data, error } = await supabase
+      .from("jobs")
+      .update(currentPatch)
+      .eq("id", params.id)
+      .select("*")
+      .single());
+    if (!error) break;
+    const missingColumn = TOLERATED_MISSING_COLUMNS.find(
+      (col) => col in currentPatch && new RegExp(col, "i").test(error?.message ?? "")
+    );
+    if (!missingColumn) break;
+    const { [missingColumn]: _omit, ...rest } = currentPatch;
+    currentPatch = rest;
+  }
+
+  if (error || !data) {
+    return NextResponse.json({ error: error?.message ?? "Project not found" }, { status: 404 });
+  }
+
+  if (justBecamePaid) {
+    // Dynamic import: lab-email.ts statically imports pdf-parse, which
+    // corrupts state @react-pdf/renderer depends on if the two ever load
+    // in the same module graph before pdf-parse is used — see the comment
+    // at the top of lab-email.ts. Best-effort; must never fail the save
+    // that already succeeded above.
+    const { autoDraftReportIfJustPaid } = await import("@/lib/lab-email");
+    await autoDraftReportIfJustPaid(params.id).catch((e) =>
+      console.error(`Failed to auto-draft report for job ${params.id}:`, e)
+    );
+  }
+
+  return NextResponse.json({ job: data });
+});
+
+export const DELETE = withApiErrors(async (
+  req: NextRequest,
+  { params }: { params: { id: string } }
+) => {
+  const unauthorized = requireAdminApi(req);
+  if (unauthorized) return unauthorized;
+
+  const supabase = getSupabaseAdmin();
+  const { error } = await supabase.from("jobs").delete().eq("id", params.id);
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+  return NextResponse.json({ ok: true });
+});

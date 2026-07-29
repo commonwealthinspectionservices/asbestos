@@ -1,0 +1,41 @@
+{
+  "name": "commonwealth-inspection-scheduler",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "test": "vitest run",
+    "postinstall": "cp node_modules/pdfjs-dist/build/pdf.worker.min.mjs public/pdf.worker.min.mjs"
+  },
+  "dependencies": {
+    "@react-pdf/renderer": "^4.5.1",
+    "@supabase/ssr": "^0.12.3",
+    "@supabase/supabase-js": "^2.45.4",
+    "exceljs": "^4.4.0",
+    "next": "^14.2.15",
+    "pdf-lib": "^1.17.1",
+    "pdf-parse": "^1.1.1",
+    "pdfjs-dist": "^4.10.38",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "resend": "^4.0.0",
+    "stripe": "^17.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.10",
+    "@types/pdf-parse": "^1.1.5",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "autoprefixer": "^10.4.19",
+    "postcss": "^8.4.39",
+    "tailwindcss": "^3.4.4",
+    "typescript": "^5.5.3",
+    "vitest": "^2.1.3"
+  },
+  "engines": {
+    "node": ">=18.18.0"
+  }
+}

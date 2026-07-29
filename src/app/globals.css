@@ -1,0 +1,24 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  color: #16213a;
+}
+
+/* Money/quantity inputs use type="number" for the numeric keyboard and
+   validation, but the browser's hover spin buttons are just visual noise
+   here — nobody increments a dollar amount by clicking tiny arrows. */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+}

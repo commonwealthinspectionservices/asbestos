@@ -11,7 +11,7 @@ function getResend(): Resend {
   return resendClient;
 }
 
-const FROM = "Commonwealth Inspection Services <booking@commonwealthinspection.com>";
+const FROM = "Commonwealth Inspection Services <booking@commonwealthinspectionservices.com>";
 
 export async function sendEmail(opts: {
   to: string | string[];

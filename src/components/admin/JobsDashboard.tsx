@@ -867,7 +867,7 @@ function JobRow({
         <div className="flex shrink-0 items-center gap-1.5">
           {overdueDays !== null && (
             <span className="shrink-0 whitespace-nowrap rounded-full bg-red-600 px-2 py-1 text-xs font-bold text-white">
-              {overdueDays}d overdue
+              {overdueDays} day{overdueDays === 1 ? "" : "s"} overdue
             </span>
           )}
           {CLOSED_STATUSES.has(job.status) ? (

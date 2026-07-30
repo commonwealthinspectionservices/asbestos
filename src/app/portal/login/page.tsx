@@ -30,7 +30,11 @@ export default function PortalLoginPage() {
 
   return (
     <div className="mx-auto max-w-sm px-4 py-16">
-      <h1 className="text-xl font-semibold text-brand-700">Contractor sign in</h1>
+      <div className="flex flex-col items-center">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo.png" alt="" width={140} height={140} className="rounded-full" />
+        <h1 className="mt-3 text-xl font-semibold text-brand-700">Sign in</h1>
+      </div>
 
       {error && <div className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 

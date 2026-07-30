@@ -8,6 +8,8 @@ import { parseSampleItems, parseSampleCounts } from "@/lib/sample-items";
 const EDITABLE_FIELDS = [
   "project_number",
   "requested_date",
+  "confirmed_date",
+  "confirmed_time",
   "end_date",
   "paid_date",
   "payment_due_date",
@@ -101,15 +103,28 @@ export const PATCH = withApiErrors(async (
 
   // Auto-advance "To Be Scheduled" -> "Scheduled" the moment a date lands
   // on the job, same as picking it manually — but never overrides an
-  // explicit status change in the same request.
-  if ("requested_date" in patch && !("status" in patch)) {
+  // explicit status change in the same request. Also covers the initial
+  // confirmed_date/confirmed_time sync below (needs the same current row).
+  if ("requested_date" in patch || "requested_time" in patch) {
     const { data: current } = await supabase
       .from("jobs")
-      .select("status")
+      .select("status, confirmed_date, requested_date, requested_time")
       .eq("id", params.id)
       .single();
-    if (current?.status === "needs_scheduling" && patch.requested_date) {
+
+    if (current?.status === "needs_scheduling" && "requested_date" in patch && patch.requested_date && !("status" in patch)) {
       patch.status = "scheduled";
+    }
+
+    // The very first date/time ever set on a job (nothing confirmed to the
+    // client yet) auto-syncs confirmed_date/confirmed_time — the client
+    // learning "it's now scheduled" IS the confirmation here, no extra
+    // click needed. Once something's been confirmed once, later reschedules
+    // go back to requiring the explicit "Confirm & send" button (JobRow) so
+    // an in-progress edit is never shown before it's actually settled.
+    if (current && current.confirmed_date == null) {
+      patch.confirmed_date = "requested_date" in patch ? patch.requested_date : current.requested_date;
+      patch.confirmed_time = "requested_time" in patch ? patch.requested_time : current.requested_time;
     }
   }
 
@@ -136,7 +151,7 @@ export const PATCH = withApiErrors(async (
   // Columns added after this route was first written — tolerated in case
   // the migration adding them hasn't been run against this database yet,
   // so a save never hard-fails over one of them being missing.
-  const TOLERATED_MISSING_COLUMNS = ["paid_date", "sample_counts", "report_emails", "invoice_emails", "scope_of_work", "payment_due_date", "asbestos_result", "invoice_auto"];
+  const TOLERATED_MISSING_COLUMNS = ["paid_date", "sample_counts", "report_emails", "invoice_emails", "scope_of_work", "payment_due_date", "asbestos_result", "invoice_auto", "confirmed_date", "confirmed_time"];
 
   let currentPatch = patch;
   let data: Record<string, unknown> | null = null;

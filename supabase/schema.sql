@@ -509,6 +509,33 @@ alter table jobs add column if not exists invoice_emails text;
 -- in lib/lab-email.ts.
 alter table companies add column if not exists invoice_cc_contact_ids uuid[] not null default '{}';
 
+-- Set once at portal signup (Homeowner vs Contractor choice — see
+-- src/app/portal/signup/page.tsx). Lets new jobs booked by this account
+-- default their own is_homeowner flag (see its comment above) from the
+-- account type instead of the admin having to check it by hand every time.
+-- Still false/unset for customers created via the anonymous booking flow
+-- or added directly by the admin, who can keep using the per-job checkbox.
+alter table customers add column if not exists is_homeowner boolean not null default false;
+
+-- Snapshot of requested_date/requested_time the moment the admin clicks
+-- "Confirm & send to client" — kept separate from requested_date/
+-- requested_time (which the admin can freely retune while coordinating
+-- logistics with the contractor/lab) so the contractor portal never shows
+-- a schedule change before it's been deliberately confirmed. Set to match
+-- requested_date/requested_time at creation time (an initial date is
+-- already "agreed", not a tentative edit), then only re-synced by the
+-- explicit confirm action after that. See JobsDashboard's JobRow.
+alter table jobs add column if not exists confirmed_date date;
+alter table jobs add column if not exists confirmed_time text;
+
+-- Per-job override of who the invoice goes to — the portal's "Billing
+-- contact for this project" selector on a single job. Must reference a
+-- customers row sharing the job's own customer's company_id (enforced in
+-- app code, see /api/portal/projects/[id]). Null falls back to the
+-- company-wide companies.billing_contact_id default, same as today. See
+-- draftInvoiceEmailForJob in lib/lab-email.ts.
+alter table jobs add column if not exists billing_contact_id uuid references customers (id);
+
 alter table customers enable row level security;
 alter table jobs enable row level security;
 alter table saved_addresses enable row level security;

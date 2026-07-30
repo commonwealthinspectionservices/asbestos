@@ -1,15 +1,16 @@
 export default function MarketingFooter() {
   return (
-    <footer className="border-t border-slate-200 bg-white px-4 py-6 text-center text-sm text-slate-500">
-      <p className="font-semibold text-brand-700">Commonwealth Inspection Services, LLC.</p>
-      <p className="mt-1">
-        <a href="tel:617-390-4778" className="hover:text-brand-600">617-390-4778</a>
-        {" · "}
-        <a href="mailto:maasbestos@gmail.com" className="hover:text-brand-600">maasbestos@gmail.com</a>
-      </p>
-      <p className="mt-1">Serving Massachusetts</p>
-      <p className="mt-3 text-xs text-slate-400">
-        © {new Date().getFullYear()} Commonwealth Inspection Services, LLC. All rights reserved.
+    <footer className="overflow-x-auto border-t-4 border-brand-700 bg-brand-50 px-4 py-6 text-center text-sm text-brand-700">
+      <p className="flex w-max min-w-full flex-nowrap items-center justify-center gap-x-2 whitespace-nowrap">
+        <span className="font-semibold text-brand-700">Commonwealth Inspection Services, LLC</span>
+        <span>·</span>
+        <a href="tel:617-390-4778" className="text-brand-700 hover:text-brand-600">617-390-4778</a>
+        <span>·</span>
+        <a href="mailto:maasbestos@gmail.com" className="text-brand-700 hover:text-brand-600">maasbestos@gmail.com</a>
+        <span>·</span>
+        <span className="text-xs text-brand-700">
+          © {new Date().getFullYear()} Commonwealth Inspection Services, LLC — All rights reserved.
+        </span>
       </p>
     </footer>
   );

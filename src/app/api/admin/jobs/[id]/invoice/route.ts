@@ -17,7 +17,7 @@ export const GET = withApiErrors(async (
   const supabase = getSupabaseAdmin();
   const { data: job, error } = await supabase
     .from("jobs")
-    .select("*, customers(*, companies!company_id(*))")
+    .select("*, customers!customer_id(*, companies!company_id(*))")
     .eq("id", params.id)
     .single();
 

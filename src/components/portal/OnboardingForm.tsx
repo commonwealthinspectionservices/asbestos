@@ -3,7 +3,13 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-export default function OnboardingForm({ email }: { email: string }) {
+export default function OnboardingForm({
+  email,
+  accountType,
+}: {
+  email: string;
+  accountType: "contractor" | "homeowner" | null;
+}) {
   const router = useRouter();
   const [name, setName] = useState("");
   const [company, setCompany] = useState("");
@@ -19,7 +25,7 @@ export default function OnboardingForm({ email }: { email: string }) {
       const res = await fetch("/api/portal/profile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, company, phone, billingAddress }),
+        body: JSON.stringify({ name, company, phone, billingAddress, accountType }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to save profile");

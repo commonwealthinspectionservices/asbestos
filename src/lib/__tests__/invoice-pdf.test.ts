@@ -47,6 +47,7 @@ const customer: Customer = {
   billing_address: "123 Main St",
   stripe_customer_id: null,
   auth_user_id: null,
+  is_homeowner: false,
   created_at: new Date().toISOString(),
 };
 
@@ -89,11 +90,14 @@ const job: Job = {
   job_classification: null,
   payment_method: null,
   requested_date: "2026-07-18",
+  confirmed_date: "2026-07-18",
+  confirmed_time: null,
   end_date: null,
   paid_date: null,
   payment_due_date: null,
   report_emails: null,
   invoice_emails: null,
+  billing_contact_id: null,
   asbestos_result: null,
   sample_results: [],
   requested_time: null,

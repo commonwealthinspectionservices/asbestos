@@ -103,3 +103,15 @@ export function buildBillingAddress({ street, unit, city, state, zip }: AddressF
     .join(", ");
   return [streetLine, cityStateZip].filter(Boolean).join(", ");
 }
+
+// Google's Place Details formatted_address doesn't always carry the zip —
+// append it (and drop the trailing ", USA") so addresses picked from
+// autocomplete never need a manual zip lookup afterward.
+export function withZip(formattedAddress: string, zip: string | null | undefined): string {
+  // Always drop the trailing country — it isn't useful here and, left in,
+  // it'd throw off splitAddress's "last two segments are city/state[zip]"
+  // assumption regardless of whether zip needed appending.
+  const withoutCountry = formattedAddress.replace(/,\s*USA$/, "");
+  if (!zip || withoutCountry.includes(zip)) return withoutCountry;
+  return `${withoutCountry} ${zip}`;
+}

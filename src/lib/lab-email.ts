@@ -427,10 +427,13 @@ async function draftInvoiceEmailForJob(params: {
 
   // A company can designate a specific contact (e.g. its AP person) as who
   // invoices go to, distinct from whichever contact this job itself is tied
-  // to — see the `billing_contact_id` column comment. Falls back to the
-  // job's own contact when unset, so most jobs are unaffected; when it is
-  // set, the job's own contact is Cc'd rather than dropped.
-  const billingContactId = pricedJob.customers.companies?.billing_contact_id;
+  // to — see the `billing_contact_id` column comment. This specific job's
+  // own override (set from the portal's "Billing contact for this project"
+  // selector) wins over the company-wide default when both are set. Falls
+  // back to the job's own contact when neither is set, so most jobs are
+  // unaffected; when one is set, the job's own contact is Cc'd rather than
+  // dropped.
+  const billingContactId = pricedJob.billing_contact_id ?? pricedJob.customers.companies?.billing_contact_id;
   const billingContact = billingContactId
     ? (await supabase.from("customers").select("*").eq("id", billingContactId).maybeSingle()).data
     : null;

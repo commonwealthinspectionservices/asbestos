@@ -61,7 +61,7 @@ export default function AddressBook() {
       <div className="mt-4 rounded-lg border border-slate-200 bg-white p-3">
         <input
           className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-          placeholder="Label (optional) — e.g. 'Smith renovation'"
+          placeholder="Label (optional) — e.g. 'Home'"
           value={label}
           onChange={(e) => setLabel(e.target.value)}
         />

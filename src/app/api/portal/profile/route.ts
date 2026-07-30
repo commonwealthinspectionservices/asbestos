@@ -18,6 +18,8 @@ export const POST = withApiErrors(async (req: NextRequest) => {
   const phone = body?.phone?.trim();
   const company = body?.company?.trim() || null;
   const billingAddress = body?.billingAddress?.trim() || null;
+  const accountType = body?.accountType;
+  const isHomeowner = accountType === "homeowner";
 
   if (!name || !phone) {
     return NextResponse.json({ error: "Name and phone are required" }, { status: 400 });
@@ -45,6 +47,7 @@ export const POST = withApiErrors(async (req: NextRequest) => {
     company,
     phone,
     billing_address: billingAddress,
+    is_homeowner: isHomeowner,
   };
 
   const { data: customer, error } = existing

@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { checkPassword, createSessionToken, ADMIN_COOKIE_NAME } from "@/lib/auth";
+import { checkCredentials, createSessionToken, ADMIN_COOKIE_NAME } from "@/lib/auth";
 import { withApiErrors } from "@/lib/api-handler";
 
 export const POST = withApiErrors(async (req: NextRequest) => {
   const body = await req.json().catch(() => null);
+  const username = body?.username;
   const password = body?.password;
-  if (typeof password !== "string" || !checkPassword(password)) {
-    return NextResponse.json({ error: "Incorrect password" }, { status: 401 });
+  if (typeof username !== "string" || typeof password !== "string" || !checkCredentials(username, password)) {
+    return NextResponse.json({ error: "Incorrect username or password" }, { status: 401 });
   }
 
   const res = NextResponse.json({ ok: true });

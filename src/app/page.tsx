@@ -1,27 +1,43 @@
 import Link from "next/link";
 import MarketingNav from "@/components/marketing/MarketingNav";
 import MarketingFooter from "@/components/marketing/MarketingFooter";
+import PricingCalculator from "@/components/marketing/PricingCalculator";
 import { blogPosts } from "@/lib/blog-posts";
 
 const SERVICE_AREAS = [
-  "Boston",
   "Greater Boston",
+  "Boston",
   "North Shore",
   "South Shore",
+  "Martha's Vineyard + Nantucket",
   "MetroWest",
   "Central Massachusetts",
-  "Cape Cod, Martha's Vineyard, Nantucket",
+  "Cape Cod",
   "Western Massachusetts",
 ];
 
-const AUDIENCES = [
-  "Homeowners",
-  "General contractors",
-  "Demolition contractors",
-  "Restoration companies",
-  "Asbestos abatement companies",
-  "Real estate investors",
-  "Property managers",
+const SERVICES = [
+  {
+    href: "/services/asbestos",
+    title: "Asbestos Inspections",
+    caption: "Limited asbestos (PLM bulk sample) inspections for renovation, demolition and permits.",
+    image: "/marketing/hero-inspection-notes.jpg",
+    imageAlt: "Inspector recording findings on-site",
+  },
+  {
+    href: "/services/mold",
+    title: "Mold Inspections",
+    caption: "Visual assessment and lab sampling to identify and clear mold before renovation.",
+    image: "/marketing/mold-sample.jpg",
+    imageAlt: "Mold growth on framing material",
+  },
+  {
+    href: "/services/lead",
+    title: "Lead Inspections",
+    caption: "Lead bulk sampling of painted surfaces for renovation and demolition compliance.",
+    image: "/marketing/lead-sample.jpg",
+    imageAlt: "Framing and insulation during a renovation",
+  },
 ];
 
 export default function HomePage() {
@@ -31,95 +47,98 @@ export default function HomePage() {
     <div className="min-h-screen bg-white">
       <MarketingNav />
 
-      <section className="mx-auto max-w-3xl px-4 py-12 text-center">
-        <h1 className="text-3xl font-bold text-brand-700 sm:text-4xl">
-          Licensed, Independent MA Asbestos Inspectors
-        </h1>
-        <p className="mt-3 text-slate-600">Serving Boston and all of Massachusetts</p>
-        <p className="mt-1 text-lg font-semibold text-slate-800">
-          <a href="tel:617-390-4778" className="hover:text-brand-600">617-390-4778</a>
+      <section className="relative mt-10 overflow-hidden py-12 text-center">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/marketing/hero-bathroom-prep.jpg"
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover opacity-15"
+        />
+        <div className="relative mx-auto max-w-3xl px-4">
+        <div className="relative flex items-center justify-center gap-4 sm:gap-8">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/marketing/massachusetts-outline.png" alt="" className="h-16 w-auto shrink-0 sm:h-32" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.png" alt="Commonwealth Inspection Services" className="h-48 w-48 shrink-0 rounded-full sm:h-56 sm:w-56" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/marketing/massachusetts-outline.png" alt="" className="h-16 w-auto shrink-0 sm:h-32" />
+        </div>
+        <p className="relative mt-8 text-xs font-black uppercase text-brand-700 sm:text-xl">
+          Serving Boston + all of Massachusetts
         </p>
-        <div className="mt-6 flex justify-center gap-3">
+        <div className="relative mt-8 flex justify-center gap-3">
           <Link
             href="/portal"
-            className="rounded-lg bg-brand-600 px-5 py-3 text-sm font-bold text-white hover:bg-brand-700"
+            className="inline-flex h-[22px] sm:h-[29px] items-center border-[3px] border-brand-700 bg-brand-50 px-4 text-sm font-extrabold uppercase leading-none text-brand-700 hover:bg-yellow-100"
           >
-            Client Portal
+            Book an Inspection
           </Link>
           <Link
             href="/contact"
-            className="rounded-lg border border-slate-300 px-5 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50"
+            className="inline-flex h-[22px] sm:h-[29px] items-center border-[3px] border-brand-700 bg-brand-50 px-4 text-sm font-extrabold uppercase leading-none text-brand-700 hover:bg-yellow-100"
           >
             Contact Us
           </Link>
         </div>
-        <p className="mt-6 text-sm font-medium text-brand-700">
-          Fully Independent — No Abatement, No Conflict of Interest
-        </p>
+        </div>
       </section>
 
-      <section className="bg-slate-50 px-4 py-10">
-        <div className="mx-auto max-w-3xl">
-          <h2 className="text-center text-xl font-bold text-slate-800">
-            We coordinate asbestos inspections across all of Massachusetts
+      <section className="relative bg-white pt-10">
+        <div className="mx-auto grid max-w-4xl grid-cols-3 gap-4 px-4">
+          {SERVICES.map((service) => (
+            <Link
+              key={service.href}
+              href={service.href}
+              className="group block overflow-hidden rounded-lg border border-slate-200 hover:border-brand-400"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={service.image}
+                alt={service.imageAlt}
+                className="h-48 w-full object-cover transition group-hover:opacity-90 sm:h-64"
+              />
+              <div className="p-4 text-center">
+                <p className="font-bold uppercase text-brand-700">{service.title}</p>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      <section className="bg-white px-4 pt-10">
+        <div className="mx-auto max-w-4xl">
+          <h2 className="text-center text-xl font-black uppercase text-brand-700">
+            Inspections across all of Massachusetts
           </h2>
-          <div className="mt-4 flex flex-wrap justify-center gap-2">
+          <ul className="mx-auto mt-4 grid max-w-4xl grid-cols-3 gap-4">
             {SERVICE_AREAS.map((area) => (
-              <span key={area} className="rounded-full bg-white px-3 py-1.5 text-sm text-slate-600 shadow-sm">
-                {area}
-              </span>
+              <li
+                key={area}
+                className="flex items-center justify-center overflow-hidden rounded-lg bg-slate-100 px-2 py-5 text-center shadow-sm [container-type:inline-size]"
+              >
+                <span className="whitespace-nowrap font-bold uppercase text-brand-700 text-[clamp(0.6rem,4.2cqw,1rem)]">
+                  {area}
+                </span>
+              </li>
             ))}
-          </div>
+          </ul>
         </div>
       </section>
 
-      <section className="px-4 py-10">
-        <div className="mx-auto max-w-3xl">
-          <h2 className="text-center text-xl font-bold text-slate-800">
-            We coordinate asbestos inspections in Massachusetts for
-          </h2>
-          <div className="mt-4 flex flex-wrap justify-center gap-2">
-            {AUDIENCES.map((a) => (
-              <span key={a} className="rounded-full bg-brand-50 px-3 py-1.5 text-sm text-brand-700">
-                {a}
-              </span>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="bg-slate-50 px-4 py-10">
-        <div className="mx-auto max-w-2xl text-center">
-          <p className="text-slate-700">
-            Inspection reports are formatted to meet requirements of Massachusetts DEP, DLS and
-            local building department requirements for building permits and compliance.
-          </p>
-        </div>
-      </section>
-
-      <section className="px-4 py-10">
-        <div className="mx-auto max-w-2xl space-y-4 text-slate-700">
-          <p>
-            Asbestos was commonly used in residential building materials for decades, particularly
-            in homes built before 1980. It is often found in insulation around pipes, boilers and
-            furnaces. Other common spots include vinyl floor tiles and flooring adhesives. Ceiling
-            tiles, textured ceilings are hot spots as well as joint compound materials and
-            roofing/siding materials. An asbestos inspection helps identify these materials before
-            renovation or demolition work begins.
-          </p>
-          <p>
-            Commonwealth Inspection Services specializes exclusively in asbestos inspection and
-            testing and does not do asbestos removal. Independence guarantees unbiased findings and
-            transparent recommendations.
-          </p>
+      <section className="px-4 pt-10">
+        <h2 className="text-center text-xl font-black uppercase text-brand-700">
+          Pricing Calculator
+        </h2>
+        <div className="mt-6">
+          <PricingCalculator />
         </div>
       </section>
 
       {latestPosts.length > 0 && (
-        <section className="bg-slate-50 px-4 py-10">
-          <div className="mx-auto max-w-3xl">
-            <h2 className="text-center text-xl font-bold text-slate-800">From the blog</h2>
-            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+        <section className="bg-white px-4 pt-10">
+          <div className="mx-auto max-w-4xl">
+            <h2 className="text-center text-xl font-black uppercase text-brand-700">Blog</h2>
+            <div className="mt-4 grid grid-cols-3 gap-4">
               {latestPosts.map((post) => (
                 <Link
                   key={post.slug}
@@ -127,7 +146,7 @@ export default function HomePage() {
                   className="rounded-lg border border-slate-200 bg-white p-4 hover:border-brand-400"
                 >
                   <div className="text-xs text-slate-400">{post.date}</div>
-                  <div className="mt-1 font-semibold text-slate-800">{post.title}</div>
+                  <div className="mt-1 font-semibold text-brand-700">{post.title}</div>
                 </Link>
               ))}
             </div>
@@ -139,6 +158,11 @@ export default function HomePage() {
           </div>
         </section>
       )}
+
+      <div className="flex justify-start px-4 pt-10">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/marketing/icon-inspector-ppe.png" alt="" className="h-40 w-auto" />
+      </div>
 
       <MarketingFooter />
     </div>

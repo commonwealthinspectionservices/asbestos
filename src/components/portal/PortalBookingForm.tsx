@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { SavedAddress } from "@/lib/types";
+import AddressAutocompleteInput from "@/components/shared/AddressAutocompleteInput";
 
 interface ServiceTypeOption {
   key: string;
@@ -10,10 +11,42 @@ interface ServiceTypeOption {
   rateLabel: string;
 }
 
-type Step = "address" | "service" | "date" | "confirm" | "done";
+type Step = "address" | "category" | "service" | "date" | "contact" | "review" | "done";
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+// Clarifies what's being sampled for the service types where it isn't
+// obvious from the label alone. Keyed off service_type.key (see supabase
+// settings.service_types) rather than the label text, so an admin
+// relabeling a service type in Settings doesn't silently drop this note.
+function serviceTypeSubtext(key: string): string | null {
+  if (key === "asbestos_bulk") return "Sampling of specific area(s) as determined by the client";
+  if (key === "mold_bulk") return "Sampling physical building materials";
+  if (key === "mold_swab") return "Sampling of surfaces";
+  return null;
+}
+
+// Groups the underlying per-sample-type service types (see
+// supabase settings.service_types) into the 3 broad categories a client
+// picks from first — the specific subtype (with its own pricing/duration)
+// is still chosen one screen later. Keyed off the key prefix before "_" so
+// a category with only one subtype today (lead) still works if a second
+// lead service type is ever added. An unrecognized prefix falls back to
+// its own single-item category rather than silently disappearing.
+const CATEGORY_LABELS: Record<string, string> = {
+  asbestos: "Asbestos Inspection",
+  mold: "Mold Inspection",
+  lead: "Lead Inspection",
+};
+
+function categoryKeyOf(serviceTypeKey: string): string {
+  return serviceTypeKey.split("_")[0];
+}
+
+function categoryLabelOf(categoryKeyValue: string): string {
+  return CATEGORY_LABELS[categoryKeyValue] ?? categoryKeyValue;
 }
 
 export default function PortalBookingForm() {
@@ -32,18 +65,18 @@ export default function PortalBookingForm() {
   const [distanceMiles, setDistanceMiles] = useState<number | null>(null);
   const [state, setState] = useState<string | null>(null);
   const [serviceTypes, setServiceTypes] = useState<ServiceTypeOption[]>([]);
-  const [disclaimerText, setDisclaimerText] = useState("");
 
+  const [categoryKey, setCategoryKey] = useState("");
   const [serviceTypeKey, setServiceTypeKey] = useState("");
 
   const [date, setDate] = useState(todayIso());
   const [window_, setWindow] = useState<"AM" | "PM" | "ANY">("ANY");
   const [suggestedDate, setSuggestedDate] = useState<string | null>(null);
+  const [scheduleViaContact, setScheduleViaContact] = useState(false);
 
   const [siteContactName, setSiteContactName] = useState("");
   const [siteContactPhone, setSiteContactPhone] = useState("");
   const [notes, setNotes] = useState("");
-  const [disclaimerAck, setDisclaimerAck] = useState(false);
   const [confirmedDate, setConfirmedDate] = useState<string | null>(null);
   const [dateChanged, setDateChanged] = useState(false);
 
@@ -73,12 +106,28 @@ export default function PortalBookingForm() {
       setDistanceMiles(data.distanceMiles);
       setState(data.state);
       setServiceTypes(data.serviceTypes);
-      setDisclaimerText(data.disclaimerText);
-      setStep("service");
+      setCategoryKey("");
+      setServiceTypeKey("");
+      setStep("category");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong");
     } finally {
       setLoading(false);
+    }
+  }
+
+  // A category with only one subtype (lead) skips straight past the subtype
+  // list — nothing to pick there — while a category with several (asbestos,
+  // mold) still needs its own screen for the pricing/duration differences.
+  function pickCategory(pickedCategoryKey: string) {
+    setCategoryKey(pickedCategoryKey);
+    const matches = serviceTypes.filter((s) => categoryKeyOf(s.key) === pickedCategoryKey);
+    if (matches.length === 1) {
+      setServiceTypeKey(matches[0].key);
+      setStep("date");
+    } else {
+      setServiceTypeKey("");
+      setStep("service");
     }
   }
 
@@ -123,8 +172,11 @@ export default function PortalBookingForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           address, lat, lng, distanceMiles, state,
-          serviceTypeKey, date, window: window_,
-          siteContactName, siteContactPhone, notes, disclaimerAck,
+          serviceTypeKey,
+          date: scheduleViaContact ? null : date,
+          window: window_,
+          scheduleViaContact,
+          siteContactName, siteContactPhone, notes, disclaimerAck: true,
         }),
       });
       const data = await res.json();
@@ -166,16 +218,18 @@ export default function PortalBookingForm() {
           )}
 
           <div>
-            <label className="block text-sm font-medium text-slate-700">Or enter a new address</label>
-            <input
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-              value={newAddressInput}
-              onChange={(e) => setNewAddressInput(e.target.value)}
-              placeholder="123 Main St, Boston, MA"
-            />
+            <label className="block text-sm font-medium text-slate-700">Enter an address</label>
+            <div className="mt-1">
+              <AddressAutocompleteInput
+                apiBase="/api/portal"
+                value={newAddressInput}
+                onChange={setNewAddressInput}
+                placeholder="123 Main St, Boston, MA"
+              />
+            </div>
             <label className="mt-2 flex items-center gap-2 text-sm text-slate-600">
               <input type="checkbox" checked={saveNewAddress} onChange={(e) => setSaveNewAddress(e.target.checked)} />
-              Save this address for next time
+              Save this address
             </label>
           </div>
 
@@ -189,11 +243,34 @@ export default function PortalBookingForm() {
         </section>
       )}
 
+      {step === "category" && (
+        <section className="mt-6 space-y-4">
+          <button className="text-sm text-brand-600 underline" onClick={() => setStep("address")}>
+            ← Back
+          </button>
+          <p className="text-sm text-slate-600">{address}</p>
+          <div className="space-y-2">
+            {Array.from(new Set(serviceTypes.map((s) => categoryKeyOf(s.key)))).map((c) => (
+              <button
+                key={c}
+                className="w-full rounded-lg border border-slate-300 px-4 py-3 text-left font-medium hover:border-brand-600"
+                onClick={() => pickCategory(c)}
+              >
+                {categoryLabelOf(c)}
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
       {step === "service" && (
         <section className="mt-6 space-y-4">
           <p className="text-sm text-slate-600">{address}</p>
+          <button className="text-sm text-brand-600 underline" onClick={() => setStep("category")}>
+            ← Back
+          </button>
           <div className="space-y-2">
-            {serviceTypes.map((s) => (
+            {serviceTypes.filter((s) => categoryKeyOf(s.key) === categoryKey).map((s) => (
               <button
                 key={s.key}
                 className={`w-full rounded-lg border px-4 py-3 text-left ${
@@ -202,7 +279,9 @@ export default function PortalBookingForm() {
                 onClick={() => setServiceTypeKey(s.key)}
               >
                 <div className="font-medium">{s.label}</div>
-                <div className="text-sm text-slate-500">{s.rateLabel}</div>
+                {serviceTypeSubtext(s.key) && (
+                  <div className="text-xs text-slate-400">{serviceTypeSubtext(s.key)}</div>
+                )}
               </button>
             ))}
           </div>
@@ -218,66 +297,91 @@ export default function PortalBookingForm() {
 
       {step === "date" && (
         <section className="mt-6 space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-700">Date</label>
+          <button
+            className="text-sm text-brand-600 underline"
+            onClick={() => {
+              const matches = serviceTypes.filter((s) => categoryKeyOf(s.key) === categoryKey);
+              setStep(matches.length > 1 ? "service" : "category");
+            }}
+          >
+            ← Back
+          </button>
+          <label className="flex items-start gap-2 rounded-lg border border-slate-200 px-4 py-3 text-sm text-slate-700">
             <input
-              type="date"
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-              min={todayIso()}
-              value={date}
+              type="checkbox"
+              className="mt-1"
+              checked={scheduleViaContact}
               onChange={(e) => {
-                setDate(e.target.value);
-                checkDate(e.target.value);
+                setScheduleViaContact(e.target.checked);
+                setSuggestedDate(null);
               }}
             />
-          </div>
-          {suggestedDate && (
-            <div className="rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800">
-              {date} is fully booked. Next available date is{" "}
-              <button className="font-semibold underline" onClick={() => { setDate(suggestedDate); setSuggestedDate(null); }}>
-                {suggestedDate}
-              </button>.
-            </div>
+            Coordinate date and time with on-site contact.
+          </label>
+          {!scheduleViaContact && (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-slate-700">Date</label>
+                <input
+                  type="date"
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+                  min={todayIso()}
+                  value={date}
+                  onChange={(e) => {
+                    setDate(e.target.value);
+                    checkDate(e.target.value);
+                  }}
+                />
+              </div>
+              {suggestedDate && (
+                <div className="rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                  {date} is fully booked. Next available date is{" "}
+                  <button className="font-semibold underline" onClick={() => { setDate(suggestedDate); setSuggestedDate(null); }}>
+                    {suggestedDate}
+                  </button>.
+                </div>
+              )}
+              <div>
+                <label className="block text-sm font-medium text-slate-700">Preferred window</label>
+                <div className="mt-1 grid grid-cols-3 gap-2">
+                  {(["AM", "PM", "ANY"] as const).map((w) => (
+                    <button
+                      key={w}
+                      className={`rounded-lg border px-3 py-2 text-sm ${window_ === w ? "border-brand-600 bg-brand-50" : "border-slate-300"}`}
+                      onClick={() => setWindow(w)}
+                    >
+                      {w === "ANY" ? "No preference" : w}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
           )}
-          <div>
-            <label className="block text-sm font-medium text-slate-700">Preferred window</label>
-            <div className="mt-1 grid grid-cols-3 gap-2">
-              {(["AM", "PM", "ANY"] as const).map((w) => (
-                <button
-                  key={w}
-                  className={`rounded-lg border px-3 py-2 text-sm ${window_ === w ? "border-brand-600 bg-brand-50" : "border-slate-300"}`}
-                  onClick={() => setWindow(w)}
-                >
-                  {w === "ANY" ? "No preference" : w}
-                </button>
-              ))}
-            </div>
-          </div>
           <button
             className="w-full rounded-lg bg-brand-600 px-4 py-3 font-medium text-white disabled:opacity-50"
-            disabled={loading || !!suggestedDate}
-            onClick={() => setStep("confirm")}
+            disabled={loading || (!scheduleViaContact && !!suggestedDate)}
+            onClick={() => setStep("contact")}
           >
             Continue
           </button>
         </section>
       )}
 
-      {step === "confirm" && (
+      {step === "contact" && (
         <section className="mt-6 space-y-4">
-          <div>
-            <p className="text-sm font-medium text-slate-700">On-site contact</p>
-            <p className="text-xs text-slate-500">Who we should coordinate scheduling with at the property (e.g. the homeowner).</p>
-          </div>
+          <button className="text-sm text-brand-600 underline" onClick={() => setStep("date")}>
+            ← Back
+          </button>
+          <p className="text-sm font-medium text-slate-700">On-site contact</p>
           <input
             className="w-full rounded-lg border border-slate-300 px-3 py-2"
-            placeholder="Site contact name (optional)"
+            placeholder="Site contact name"
             value={siteContactName}
             onChange={(e) => setSiteContactName(e.target.value)}
           />
           <input
             className="w-full rounded-lg border border-slate-300 px-3 py-2"
-            placeholder="Site contact phone (optional)"
+            placeholder="Site contact phone"
             type="tel"
             value={siteContactPhone}
             onChange={(e) => setSiteContactPhone(e.target.value)}
@@ -288,14 +392,71 @@ export default function PortalBookingForm() {
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
           />
-          <div className="rounded-lg border border-slate-200 px-4 py-3 text-xs text-slate-600">{disclaimerText}</div>
-          <label className="flex items-start gap-2 text-sm text-slate-700">
-            <input type="checkbox" className="mt-1" checked={disclaimerAck} onChange={(e) => setDisclaimerAck(e.target.checked)} />
-            I acknowledge the above.
-          </label>
           <button
             className="w-full rounded-lg bg-brand-600 px-4 py-3 font-medium text-white disabled:opacity-50"
-            disabled={loading || !disclaimerAck}
+            disabled={!siteContactName.trim() || !siteContactPhone.trim()}
+            onClick={() => setStep("review")}
+          >
+            Continue
+          </button>
+        </section>
+      )}
+
+      {step === "review" && (
+        <section className="mt-6 space-y-4">
+          <button className="text-sm text-brand-600 underline" onClick={() => setStep("contact")}>
+            ← Back
+          </button>
+
+          <div className="space-y-3 rounded-lg border border-slate-200 px-4 py-3 text-sm">
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Address</div>
+              <div className="text-slate-700">{address}</div>
+            </div>
+            {(() => {
+              const selected = serviceTypes.find((s) => s.key === serviceTypeKey);
+              return selected ? (
+                <div>
+                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Service</div>
+                  <div className="text-slate-700">{selected.label}</div>
+                  {serviceTypeSubtext(selected.key) && (
+                    <div className="text-xs text-slate-500">{serviceTypeSubtext(selected.key)}</div>
+                  )}
+                  {/* Rate already reflects the zone pricing for the address picked earlier — see resolveZoneBaseFeeCents in /api/book. */}
+                  <div className="text-slate-500">{selected.rateLabel}</div>
+                </div>
+              ) : null;
+            })()}
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Date</div>
+              <div className="text-slate-700">
+                {scheduleViaContact ? (
+                  "To be scheduled with the on-site contact"
+                ) : (
+                  <>
+                    {date}
+                    {window_ !== "ANY" && ` — ${window_}`}
+                  </>
+                )}
+              </div>
+            </div>
+            {(siteContactName || siteContactPhone) && (
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">On-site contact</div>
+                <div className="text-slate-700">{[siteContactName, siteContactPhone].filter(Boolean).join(" — ")}</div>
+              </div>
+            )}
+            {notes && (
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Notes</div>
+                <div className="text-slate-700">{notes}</div>
+              </div>
+            )}
+          </div>
+
+          <button
+            className="w-full rounded-lg bg-brand-600 px-4 py-3 font-medium text-white disabled:opacity-50"
+            disabled={loading}
             onClick={submitBooking}
           >
             {loading ? "Booking…" : "Confirm booking"}
@@ -306,7 +467,9 @@ export default function PortalBookingForm() {
       {step === "done" && (
         <section className="mt-6 space-y-3">
           <div className="rounded-lg bg-emerald-50 px-4 py-4 text-sm text-emerald-800">
-            <p className="font-medium">Booked for {confirmedDate}.</p>
+            <p className="font-medium">
+              {confirmedDate ? `Booked for ${confirmedDate}.` : "Booked — we'll coordinate scheduling directly with your on-site contact."}
+            </p>
             {dateChanged && <p className="mt-1">Your requested date was full, so we moved you to the next available date.</p>}
           </div>
           <button className="text-sm text-brand-600 underline" onClick={() => router.push("/portal/dashboard")}>

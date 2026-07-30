@@ -12,6 +12,7 @@ const customer: Customer = {
   billing_address: null,
   stripe_customer_id: null,
   auth_user_id: null,
+  is_homeowner: false,
   created_at: new Date().toISOString(),
 };
 

@@ -4,14 +4,13 @@ import { formatCents } from "@/lib/pricing";
 import { lineItemsTotalCents } from "@/lib/invoice-line-items";
 import type { Job, Customer, Company, Settings, InvoiceLineItem } from "@/lib/types";
 
-const LOGO_PATH = path.join(process.cwd(), "public", "logo.png");
+const LETTERHEAD_PATH = path.join(process.cwd(), "public", "letterhead.png");
 
 const styles = StyleSheet.create({
   page: { padding: 40, fontSize: 11, fontFamily: "Helvetica", color: "#16213a" },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20, paddingBottom: 16, borderBottomWidth: 2, borderBottomColor: "#193466" },
   headerLeft: { flexDirection: "row", alignItems: "center" },
-  logo: { width: 32, height: 32, borderRadius: 16, marginRight: 10 },
-  businessName: { fontSize: 12, fontWeight: 700, color: "#193466" },
+  letterhead: { width: 190, height: 35 },
   invoiceLabel: { fontSize: 9, color: "#64748b", marginTop: 2 },
   headerRight: { alignItems: "flex-end" },
   invoiceTitle: { fontSize: 14, fontWeight: 700, color: "#193466" },
@@ -65,8 +64,7 @@ function InvoiceDocument({ job, customer, company, settings }: InvoiceData) {
       <Page size="LETTER" style={styles.page}>
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <Image src={LOGO_PATH} style={styles.logo} />
-            <Text style={styles.businessName}>{settings.business_name}</Text>
+            <Image src={LETTERHEAD_PATH} style={styles.letterhead} />
           </View>
           <View style={styles.headerRight}>
             <Text style={styles.invoiceTitle}>

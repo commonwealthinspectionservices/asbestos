@@ -21,10 +21,14 @@ export const POST = withApiErrors(async (req: NextRequest) => {
   const body = await req.json().catch(() => null);
   const {
     address, lat, lng, distanceMiles, state, serviceTypeKey, date: requestedDate, window,
-    siteContactName, siteContactPhone, notes, disclaimerAck,
+    scheduleViaContact, siteContactName, siteContactPhone, notes, disclaimerAck,
   } = body ?? {};
 
-  if (!address || lat == null || lng == null || !serviceTypeKey || !requestedDate || !window) {
+  if (
+    !address || lat == null || lng == null || !serviceTypeKey ||
+    (!scheduleViaContact && (!requestedDate || !window)) ||
+    !siteContactName?.trim() || !siteContactPhone?.trim()
+  ) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
   if (!disclaimerAck) {
@@ -45,9 +49,17 @@ export const POST = withApiErrors(async (req: NextRequest) => {
   const zoneBaseFeeCents = resolveZoneBaseFeeCents(address, settings.pricing_zones);
   const baseFeeCents = zoneBaseFeeCents ?? serviceType.base_fee_cents;
 
-  let date = requestedDate;
-  if (await isDateFull(date, settings.max_jobs_per_day)) {
-    date = await findNextAvailableDate(date, settings.max_jobs_per_day);
+  // A contractor who'd rather have us coordinate directly with the on-site
+  // contact skips picking a date/capacity slot entirely — the job lands in
+  // "needs_scheduling" (same status/queue as an admin-added job with no
+  // date yet) instead of "scheduled".
+  let date: string | null = requestedDate ?? null;
+  if (!scheduleViaContact) {
+    let confirmedDate: string = requestedDate;
+    if (await isDateFull(confirmedDate, settings.max_jobs_per_day)) {
+      confirmedDate = await findNextAvailableDate(confirmedDate, settings.max_jobs_per_day);
+    }
+    date = confirmedDate;
   }
 
   const supabase = getSupabaseAdmin();
@@ -62,16 +74,21 @@ export const POST = withApiErrors(async (req: NextRequest) => {
       lat, lng,
       site_contact_name: siteContactName || null,
       site_contact_phone: siteContactPhone || null,
-      service_type: serviceType.key,
+      service_type: serviceType.label,
       base_fee_cents: baseFeeCents,
       per_sample_cents: serviceType.per_sample_cents,
       duration_minutes: serviceType.duration_minutes,
-      requested_date: date,
-      window,
-      status: "scheduled",
+      requested_date: scheduleViaContact ? null : date,
+      // The client just picked this themselves, so it's already "agreed" —
+      // auto-confirmed rather than waiting on the admin to click "Confirm &
+      // send to client" (that flow is for the admin's own later reschedules).
+      confirmed_date: scheduleViaContact ? null : date,
+      window: scheduleViaContact ? "ANY" : window,
+      status: scheduleViaContact ? "needs_scheduling" : "scheduled",
       notes: notes || null,
       disclaimer_ack: true,
       distance_miles: distanceMiles ?? null,
+      is_homeowner: auth.customer.is_homeowner,
     })
     .select("*")
     .single();
@@ -86,5 +103,10 @@ export const POST = withApiErrors(async (req: NextRequest) => {
     console.error("Area-health immediate check failed:", err);
   }
 
-  return NextResponse.json({ ok: true, jobId: job.id, date, dateChanged: date !== requestedDate });
+  return NextResponse.json({
+    ok: true,
+    jobId: job.id,
+    date: scheduleViaContact ? null : date,
+    dateChanged: !scheduleViaContact && date !== requestedDate,
+  });
 });

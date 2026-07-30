@@ -13,6 +13,9 @@ const config: Config = {
           700: "#193466",
         },
       },
+      fontFamily: {
+        sans: ["var(--font-league-spartan)", "ui-sans-serif", "system-ui", "sans-serif"],
+      },
     },
   },
   plugins: [],

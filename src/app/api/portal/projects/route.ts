@@ -16,5 +16,12 @@ export const GET = withApiErrors(async () => {
     .order("requested_date", { ascending: false });
 
   if (error) throw new Error(error.message);
-  return NextResponse.json({ projects: data });
+
+  // requested_date/requested_time are the admin's own working values while
+  // coordinating scheduling — never sent to the portal. confirmed_date/
+  // confirmed_time (only ever set by the admin's explicit "Confirm & send
+  // to client" action) are what the contractor is allowed to see.
+  const projects = (data ?? []).map(({ requested_date: _requestedDate, requested_time: _requestedTime, ...rest }) => rest);
+
+  return NextResponse.json({ projects, customer: auth.customer });
 });

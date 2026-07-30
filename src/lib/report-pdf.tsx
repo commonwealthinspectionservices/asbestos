@@ -4,7 +4,7 @@ import type { Style } from "@react-pdf/types";
 import { splitAddress } from "@/lib/address";
 import type { Job, Customer, Settings } from "@/lib/types";
 
-const LOGO_PATH = path.join(process.cwd(), "public", "logo.png");
+const LETTERHEAD_PATH = path.join(process.cwd(), "public", "letterhead.png");
 const SIGNATURE_PATH = path.join(process.cwd(), "public", "signature.png");
 
 // Matches the real FLI letter (measured off an actual exported PDF: 10pt
@@ -20,8 +20,7 @@ const styles = StyleSheet.create({
   page: { paddingTop: 30, paddingBottom: 32, paddingHorizontal: 69, fontSize: 10, fontFamily: "Times-Roman", color: "#16213a", lineHeight: 1.28 },
   header: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 18, paddingBottom: 12, borderBottomWidth: 2, borderBottomColor: "#193466" },
   headerLeft: { flexDirection: "row", alignItems: "center" },
-  logo: { width: 44, height: 44, borderRadius: 22, marginRight: 12 },
-  businessName: { fontFamily: "Helvetica", fontSize: 14, fontWeight: 700, color: "#193466" },
+  letterhead: { width: 210, height: 39 },
   headerRight: { alignItems: "flex-end" },
   headerRightLine: { fontFamily: "Helvetica", fontSize: 8.5, color: "#193466", marginBottom: 2 },
   recipientRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 0 },
@@ -136,8 +135,7 @@ function ProjectReportDocument({ job, customer, settings }: ProjectReportData) {
       <Page size="LETTER" style={styles.page}>
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <Image src={LOGO_PATH} style={styles.logo} />
-            <Text style={styles.businessName}>{settings.business_name}</Text>
+            <Image src={LETTERHEAD_PATH} style={styles.letterhead} />
           </View>
           <View style={styles.headerRight}>
             {addressLines.map((line, i) => (

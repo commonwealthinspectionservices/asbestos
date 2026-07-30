@@ -25,10 +25,11 @@ export default function PortalNav() {
       <div className="flex items-center gap-2">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/logo.png" alt="" width={24} height={24} className="rounded-full" />
-        <span className="text-sm font-semibold text-brand-700">Commonwealth — Contractor Portal</span>
+        <span className="text-sm font-semibold text-brand-700">Commonwealth Inspection Services</span>
         <Link href="/portal/dashboard" className={linkClass("/portal/dashboard")}>My Projects</Link>
         <Link href="/portal/book" className={linkClass("/portal/book")}>Book a Project</Link>
         <Link href="/portal/addresses" className={linkClass("/portal/addresses")}>Addresses</Link>
+        <Link href="/portal/contacts" className={linkClass("/portal/contacts")}>Contacts</Link>
       </div>
       <button onClick={logout} className="text-sm text-slate-500 hover:text-slate-800">
         Sign out

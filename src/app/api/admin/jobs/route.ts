@@ -21,7 +21,7 @@ export const GET = withApiErrors(async (req: NextRequest) => {
   const supabase = getSupabaseAdmin();
   let query = supabase
     .from("jobs")
-    .select("*, customers(*, companies!company_id(*, billing_contact:customers!billing_contact_id(name, email)))")
+    .select("*, customers!customer_id(*, companies!company_id(*, billing_contact:customers!billing_contact_id(name, email)))")
     .order("requested_date", { ascending: true })
     .order("created_at", { ascending: true });
 
@@ -152,6 +152,12 @@ export const POST = withApiErrors(async (req: NextRequest) => {
     duration_minutes: durationMinutes,
     requested_date: body.requestedDate || null,
     requested_time: body.requestedTime || null,
+    // A date/time entered while adding the project is already agreed, not
+    // a tentative edit — auto-confirmed so the portal shows it right away.
+    // Any later change made from the dashboard's date/time inputs needs an
+    // explicit "Confirm & send to client" click before the portal updates.
+    confirmed_date: body.requestedDate || null,
+    confirmed_time: body.requestedTime || null,
     status: startingStatus,
     notes: body.notes || null,
     project_name: body.projectName || null,
@@ -163,18 +169,22 @@ export const POST = withApiErrors(async (req: NextRequest) => {
     payment_due_date: body.paymentDueDate || null,
     report_emails: body.reportEmails || null,
     disclaimer_ack: true,
+    // Defaults from the customer's portal-signup account type (see
+    // customers.is_homeowner); the Invoice tab checkbox still lets the
+    // admin override per job for customers without an account of their own.
+    is_homeowner: customer.is_homeowner,
   };
 
   // These columns predate this route being written — tolerate a migration
   // not having been run yet rather than failing project creation entirely.
-  const TOLERATED_MISSING_COLUMNS = ["report_emails", "scope_of_work", "payment_due_date"];
+  const TOLERATED_MISSING_COLUMNS = ["report_emails", "scope_of_work", "payment_due_date", "confirmed_date", "confirmed_time"];
   let job = null;
   let jobError: { message?: string } | null = null;
   for (let attempt = 0; attempt <= TOLERATED_MISSING_COLUMNS.length; attempt++) {
     ({ data: job, error: jobError } = await supabase
       .from("jobs")
       .insert(newJob)
-      .select("*, customers(*)")
+      .select("*, customers!customer_id(*)")
       .single());
     if (!jobError) break;
     const missingColumn = TOLERATED_MISSING_COLUMNS.find(

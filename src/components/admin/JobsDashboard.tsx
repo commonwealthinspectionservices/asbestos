@@ -6,6 +6,8 @@ import type { Company, Customer, InvoiceLineItem, JobDocument, JobWithCustomer, 
 import { defaultInvoiceLineItems, sampleDescriptionForServiceType } from "@/lib/invoice-defaults";
 import { splitAddress, parseAddressToFields, buildBillingAddress } from "@/lib/address";
 import type { AddressFields } from "@/lib/address";
+import AddressAutocompleteInput from "@/components/shared/AddressAutocompleteInput";
+import PdfPreview from "@/components/shared/PdfPreview";
 
 // The full job-flow pipeline, in order — every open project is tracked
 // somewhere along this list from intake to close-out. Admin-controlled via a
@@ -121,18 +123,6 @@ function matchesAnyWord(target: string, query: string): boolean {
   if (words.length === 0) return true;
   const t = target.toLowerCase();
   return words.every((w) => t.includes(w));
-}
-
-// Google's Place Details formatted_address doesn't always carry the zip —
-// append it (and drop the trailing ", USA") so addresses picked from
-// autocomplete never need a manual zip lookup afterward.
-function withZip(formattedAddress: string, zip: string | null | undefined): string {
-  // Always drop the trailing country — it isn't useful here and, left in,
-  // it'd throw off splitAddress's "last two segments are city/state[zip]"
-  // assumption regardless of whether zip needed appending.
-  const withoutCountry = formattedAddress.replace(/,\s*USA$/, "");
-  if (!zip || withoutCountry.includes(zip)) return withoutCountry;
-  return `${withoutCountry} ${zip}`;
 }
 
 // Shared by the billing address and job site address fields — once a
@@ -930,6 +920,15 @@ function JobRow({
                 onChange={(e) => onFieldChange({ requested_time: e.target.value || null })}
                 className="w-32 rounded-lg border border-slate-300 px-1.5 py-1 text-xs text-slate-600"
               />
+              {(job.requested_date !== job.confirmed_date || job.requested_time !== job.confirmed_time) && (
+                <button
+                  onClick={() => onFieldChange({ confirmed_date: job.requested_date, confirmed_time: job.requested_time })}
+                  title="The client's portal keeps showing the last confirmed date/time until you click this — it never sees these inputs directly"
+                  className="w-32 rounded-lg bg-brand-600 px-1.5 py-1 text-xs font-medium text-white"
+                >
+                  Confirm & send
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -1364,7 +1363,7 @@ export function ProjectDetailDialog({
             <DetailField label="Billing address" value={job.customers?.billing_address ?? "—"} nowrap />
           </div>
           <div className="space-y-1">
-            <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Job site contact</h4>
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">On-site contact</h4>
             <DetailField label="Name" value={job.site_contact_name ?? "—"} />
             <DetailField label="Phone" value={job.site_contact_phone ?? "—"} />
           </div>
@@ -1983,66 +1982,6 @@ function DocumentViewerModal({
 // without having to download anything first. `revision` is a plain-string
 // fingerprint of everything that feeds the report; passing a new value
 // forces a re-fetch and re-render even though the URL itself never changes.
-// Shared by the Final Report tab and the Invoice tab's "View invoice"
-// toggle — renders every page of a PDF endpoint as canvases instead of just
-// linking out to it, so both previews look and behave the same way. `url`
-// already carries its own cache-busting revision query param; `revision` is
-// passed separately too so the effect re-fetches even if the caller forgot
-// to fold it into the URL.
-function PdfPreview({ url, revision }: { url: string; revision: string }) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
-
-  useEffect(() => {
-    let cancelled = false;
-    setStatus("loading");
-    (async () => {
-      try {
-        const pdfjsLib = await import("pdfjs-dist");
-        pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
-        const pdf = await pdfjsLib.getDocument(url).promise;
-        const container = containerRef.current;
-        if (!container || cancelled) return;
-        container.innerHTML = "";
-        for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-          const page = await pdf.getPage(pageNum);
-          const unscaled = page.getViewport({ scale: 1 });
-          const viewport = page.getViewport({ scale: Math.min(700 / unscaled.width, 1.5) });
-          const canvas = document.createElement("canvas");
-          canvas.width = viewport.width;
-          canvas.height = viewport.height;
-          canvas.className = "mx-auto mb-3 max-w-full shadow";
-          const ctx = canvas.getContext("2d");
-          if (!ctx || cancelled) return;
-          await page.render({ canvasContext: ctx, viewport }).promise;
-          if (cancelled) return;
-          container.appendChild(canvas);
-        }
-        if (!cancelled) setStatus("ready");
-      } catch {
-        if (!cancelled) setStatus("error");
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [url, revision]);
-
-  if (status === "error") {
-    return (
-      <p className="text-sm text-slate-500">
-        Preview unavailable — make sure a job site address and customer are set.
-      </p>
-    );
-  }
-  return (
-    <div className="max-h-[600px] overflow-y-auto rounded-lg border border-slate-200 bg-slate-100 p-3">
-      {status === "loading" && <p className="py-10 text-center text-sm text-slate-400">Loading preview…</p>}
-      <div ref={containerRef} />
-    </div>
-  );
-}
-
 // One of the six general-purpose upload slots on the Lab Paperwork tab —
 // deliberately generic (no fixed meaning per station yet) until he settles
 // on exactly what he needs each one for (chain of custody, lab receipt,
@@ -2305,89 +2244,6 @@ function DocumentsPanel({ job, onChanged }: { job: JobWithCustomer; onChanged: (
   );
 }
 
-function AddressAutocompleteInput({
-  value, onChange, onSelectAddress, placeholder, mode = "address", townHint,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  onSelectAddress?: (fields: AddressFields) => void;
-  placeholder?: string;
-  /** "city" restricts suggestions to town/locality matches (no street) — for a Town field used before a street is known. */
-  mode?: "address" | "city";
-  /** An already-known town to scope street suggestions to (e.g. "Newton") — only used in "address" mode. */
-  townHint?: string;
-}) {
-  const [suggestions, setSuggestions] = useState<{ placeId: string; description: string }[]>([]);
-  const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  function handleInput(v: string) {
-    onChange(v);
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (v.trim().length < 4) {
-      setSuggestions([]);
-      setOpen(false);
-      return;
-    }
-    debounceRef.current = setTimeout(async () => {
-      setLoading(true);
-      try {
-        const townParam = mode === "address" && townHint?.trim() ? `&town=${encodeURIComponent(townHint.trim())}` : "";
-        const res = await fetch(`/api/admin/places-autocomplete?input=${encodeURIComponent(v)}&mode=${mode}${townParam}`);
-        const data = await res.json();
-        setSuggestions(data.suggestions ?? []);
-        setOpen(true);
-      } finally {
-        setLoading(false);
-      }
-    }, 300);
-  }
-
-  async function select(suggestion: { placeId: string; description: string }) {
-    setOpen(false);
-    setSuggestions([]);
-    try {
-      const res = await fetch(`/api/admin/place-details?placeId=${suggestion.placeId}`);
-      const data = await res.json();
-      const formatted = withZip(data.formattedAddress ?? suggestion.description, data.zip);
-      if (onSelectAddress) {
-        onSelectAddress(parseAddressToFields(formatted));
-      } else {
-        onChange(formatted);
-      }
-    } catch {
-      onChange(suggestion.description);
-    }
-  }
-
-  return (
-    <div className="relative">
-      <input
-        className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-        value={value}
-        placeholder={placeholder}
-        onChange={(e) => handleInput(e.target.value)}
-        onFocus={() => suggestions.length > 0 && setOpen(true)}
-        onBlur={() => setTimeout(() => setOpen(false), 150)}
-      />
-      {open && (suggestions.length > 0 || loading) && (
-        <ul className="absolute z-10 mt-1 w-full rounded-lg border border-slate-200 bg-white text-sm shadow-lg">
-          {loading && <li className="px-3 py-2 text-slate-400">Searching…</li>}
-          {suggestions.map((s) => (
-            <li
-              key={s.placeId}
-              onMouseDown={() => select(s)}
-              className="cursor-pointer px-3 py-2 hover:bg-slate-50"
-            >
-              {s.description}
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
 
 // Extra Cc's for one specific draft (invoice or report) — see the
 // invoice_emails/report_emails column comments in lib/types.ts for why
@@ -2701,6 +2557,7 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
         <div className="mt-1 flex gap-1.5">
           <div className="w-0 flex-1">
             <AddressAutocompleteInput
+              apiBase="/api/admin"
               value={serviceStreet}
               onChange={setServiceStreet}
               onSelectAddress={(fields) => {
@@ -2723,6 +2580,7 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
         </div>
         <div className="mt-1.5 grid grid-cols-3 gap-1.5">
           <AddressAutocompleteInput
+            apiBase="/api/admin"
             value={serviceCity}
             onChange={(v) => {
               setServiceCity(v);
@@ -2839,7 +2697,7 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
           onChange={(e) => setScopeOfWork(e.target.value)}
         />
 
-        <label className="mt-3 block text-sm font-medium text-slate-700">Job site contact</label>
+        <label className="mt-3 block text-sm font-medium text-slate-700">On-site contact</label>
         <div className="mt-1 flex gap-2">
           <div className="flex-1">
             <input
@@ -2896,7 +2754,7 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
               }
             }}
           />
-          Customer contact is also job site contact
+          Customer contact is also on-site contact
         </label>
 
         <label className="mt-3 block text-sm font-medium text-slate-700">Notes</label>
@@ -3258,6 +3116,7 @@ export function EditProjectDialog({
         <div className="mt-1 flex gap-1.5">
           <div className="w-0 flex-1">
             <AddressAutocompleteInput
+              apiBase="/api/admin"
               value={serviceStreet}
               onChange={setServiceStreet}
               onSelectAddress={(fields) => {
@@ -3378,7 +3237,7 @@ export function EditProjectDialog({
           onChange={(e) => setScopeOfWork(e.target.value)}
         />
 
-        <label className="mt-3 block text-sm font-medium text-slate-700">Job site contact</label>
+        <label className="mt-3 block text-sm font-medium text-slate-700">On-site contact</label>
         <div className="mt-1 flex gap-2">
           <div className="flex-1">
             <input
@@ -3435,7 +3294,7 @@ export function EditProjectDialog({
               }
             }}
           />
-          Customer contact is also job site contact
+          Customer contact is also on-site contact
         </label>
 
         <label className="mt-3 block text-sm font-medium text-slate-700">Email results to:</label>

@@ -6,6 +6,8 @@ import type { Customer } from "@/lib/types";
 export interface ContractorSession {
   authUserId: string;
   email: string | undefined;
+  /** Homeowner-vs-contractor choice from signup (src/app/portal/signup), stored in auth user metadata. */
+  accountType: "contractor" | "homeowner" | null;
   /** null if the auth account exists but hasn't finished onboarding (src/app/portal/onboarding) yet. */
   customer: Customer | null;
 }
@@ -35,9 +37,12 @@ export async function getContractorSession(): Promise<ContractorSession | null> 
     .eq("auth_user_id", user.id)
     .single();
 
+  const accountType = user.user_metadata?.account_type;
+
   return {
     authUserId: user.id,
     email: user.email,
+    accountType: accountType === "contractor" || accountType === "homeowner" ? accountType : null,
     customer: (customer as unknown as Customer) ?? null,
   };
 }

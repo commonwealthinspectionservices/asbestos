@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
+import { League_Spartan } from "next/font/google";
 import "./globals.css";
+
+const leagueSpartan = League_Spartan({ subsets: ["latin"], variable: "--font-league-spartan" });
 
 export const metadata: Metadata = {
   title: "Commonwealth Inspection Services, LLC.",
@@ -13,8 +16,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className="min-h-screen bg-slate-50 antialiased">{children}</body>
+    <html lang="en" className={leagueSpartan.variable}>
+      <body className="min-h-screen bg-slate-50 antialiased font-sans">{children}</body>
     </html>
   );
 }

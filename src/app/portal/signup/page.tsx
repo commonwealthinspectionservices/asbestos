@@ -9,6 +9,7 @@ export default function PortalSignupPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [accountType, setAccountType] = useState<"contractor" | "homeowner" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [checkEmail, setCheckEmail] = useState(false);
@@ -22,6 +23,11 @@ export default function PortalSignupPage() {
         email,
         password,
         options: {
+          // Stored in auth user metadata (not the customers row, which
+          // doesn't exist yet) so it survives the email-confirmation
+          // round trip — read back in getContractorSession() and applied
+          // to the customers row on /portal/onboarding.
+          data: { account_type: accountType },
           emailRedirectTo: `${window.location.origin}/auth/callback?next=/portal/onboarding`,
         },
       });
@@ -54,14 +60,35 @@ export default function PortalSignupPage() {
 
   return (
     <div className="mx-auto max-w-sm px-4 py-16">
-      <h1 className="text-xl font-semibold text-brand-700">Create a contractor account</h1>
+      <h1 className="text-xl font-semibold text-brand-700">Create an account</h1>
       <p className="mt-1 text-sm text-slate-500">Save your info and addresses for faster booking.</p>
 
       {error && <div className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
+      <div className="mt-6 flex gap-4 text-sm text-slate-700">
+        <label className="flex items-center gap-1.5">
+          <input
+            type="radio"
+            name="accountType"
+            checked={accountType === "contractor"}
+            onChange={() => setAccountType("contractor")}
+          />
+          Contractor
+        </label>
+        <label className="flex items-center gap-1.5">
+          <input
+            type="radio"
+            name="accountType"
+            checked={accountType === "homeowner"}
+            onChange={() => setAccountType("homeowner")}
+          />
+          Homeowner
+        </label>
+      </div>
+
       <input
         type="email"
-        className="mt-6 w-full rounded-lg border border-slate-300 px-3 py-2"
+        className="mt-3 w-full rounded-lg border border-slate-300 px-3 py-2"
         placeholder="Email"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
@@ -69,13 +96,13 @@ export default function PortalSignupPage() {
       <input
         type="password"
         className="mt-3 w-full rounded-lg border border-slate-300 px-3 py-2"
-        placeholder="Password"
+        placeholder="Create a password"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
       />
       <button
         className="mt-4 w-full rounded-lg bg-brand-600 px-4 py-3 font-medium text-white disabled:opacity-50"
-        disabled={loading || !email || password.length < 6}
+        disabled={loading || !email || password.length < 6 || !accountType}
         onClick={signUp}
       >
         {loading ? "Creating account…" : "Create account"}

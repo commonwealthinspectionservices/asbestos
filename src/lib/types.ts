@@ -91,6 +91,7 @@ export interface Customer {
   billing_address: string | null;
   stripe_customer_id: string | null;
   auth_user_id: string | null;
+  is_homeowner: boolean;
   created_at: string;
 }
 
@@ -195,6 +196,9 @@ export interface Job {
   job_classification: string | null;
   payment_method: string | null;
   requested_date: string | null;
+  /** Snapshot of requested_date/requested_time from the moment the admin last clicked "Confirm & send to client" — this, not requested_date/requested_time, is what the portal shows the contractor. */
+  confirmed_date: string | null;
+  confirmed_time: string | null;
   end_date: string | null;
   paid_date: string | null;
   /** Editable, defaults to 30 days after requested_date but can be overridden per job. */
@@ -203,6 +207,8 @@ export interface Job {
   report_emails: string | null;
   /** Same idea as report_emails, but for the invoice email — kept separate since who's cc'd on billing often isn't who's cc'd on results. */
   invoice_emails: string | null;
+  /** Per-job override of who the invoice goes to (references a customers row sharing this job's customer's company_id) — falls back to companies.billing_contact_id when null. Set from the portal's "Billing contact for this project" selector. */
+  billing_contact_id: string | null;
   /** Auto-detected from the uploaded EMSL lab report; manually overridable in case detection gets it wrong. Null until a lab report's been parsed. */
   asbestos_result: "positive" | "negative" | null;
   /** Per-sample field code + result text, pulled from the same uploaded lab report — plain-text reference for the admin, not billing data. */

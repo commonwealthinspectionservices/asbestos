@@ -2,7 +2,7 @@ import path from "path";
 import { Document, Page, Text, View, Image, StyleSheet, renderToBuffer } from "@react-pdf/renderer";
 import type { Job, Customer, Settings } from "@/lib/types";
 
-const LOGO_PATH = path.join(process.cwd(), "public", "logo.png");
+const LETTERHEAD_PATH = path.join(process.cwd(), "public", "letterhead.png");
 const BLANK_ROW_COUNT = 20;
 const TURNAROUND_OPTIONS = ["Rush", "24-Hr", "48-Hr", "3-Day", "4-Day", "5-Day"];
 
@@ -10,8 +10,7 @@ const styles = StyleSheet.create({
   page: { padding: 28, fontSize: 9, fontFamily: "Helvetica", color: "#16213a" },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10, paddingBottom: 8, borderBottomWidth: 2, borderBottomColor: "#193466" },
   headerLeft: { flexDirection: "row", alignItems: "center" },
-  logo: { width: 26, height: 26, borderRadius: 13, marginRight: 8 },
-  businessName: { fontSize: 13, fontWeight: 700, color: "#193466" },
+  letterhead: { width: 170, height: 31 },
   title: { fontSize: 11, fontWeight: 700, textAlign: "center" },
   metaGrid: { marginBottom: 8 },
   metaRow: { flexDirection: "row", marginBottom: 3 },
@@ -45,8 +44,7 @@ function BlankCocDocument({ job, customer, settings }: BlankCocData) {
       <Page size="LETTER" style={styles.page}>
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <Image src={LOGO_PATH} style={styles.logo} />
-            <Text style={styles.businessName}>{settings.business_name}</Text>
+            <Image src={LETTERHEAD_PATH} style={styles.letterhead} />
           </View>
           <Text style={styles.title}>ASBESTOS BULK SAMPLE{"\n"}CHAIN OF CUSTODY RECORD</Text>
         </View>

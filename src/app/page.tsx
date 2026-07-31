@@ -21,8 +21,8 @@ const SERVICES = [
     href: "/services/asbestos",
     title: "Asbestos Inspections",
     caption: "Limited asbestos (PLM bulk sample) inspections for renovation, demolition and permits.",
-    image: "/marketing/hero-inspection-notes.jpg",
-    imageAlt: "Inspector recording findings on-site",
+    image: "/marketing/hero-bathroom-vanity.jpg",
+    imageAlt: "Bathroom vanity prepared for sampling during a renovation",
   },
   {
     href: "/services/mold",
@@ -33,7 +33,7 @@ const SERVICES = [
   },
   {
     href: "/services/lead",
-    title: "Lead Inspections",
+    title: "Lead Paint Sampling",
     caption: "Lead bulk sampling of painted surfaces for renovation and demolition compliance.",
     image: "/marketing/lead-sample.jpg",
     imageAlt: "Framing and insulation during a renovation",
@@ -50,7 +50,7 @@ export default function HomePage() {
       <section className="relative mt-10 overflow-hidden py-12 text-center">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/marketing/hero-bathroom-prep.jpg"
+          src="/marketing/boston-skyline.jpg"
           alt=""
           className="absolute inset-0 h-full w-full object-cover opacity-15"
         />
@@ -69,15 +69,15 @@ export default function HomePage() {
         <div className="relative mt-8 flex justify-center gap-3">
           <Link
             href="/portal"
-            className="inline-flex h-[22px] sm:h-[29px] items-center border-[3px] border-brand-700 bg-brand-50 px-4 text-sm font-extrabold uppercase leading-none text-brand-700 hover:bg-yellow-100"
+            className="inline-flex h-[22px] sm:h-[29px] items-center border-[3px] border-brand-700 bg-brand-50 px-4 text-sm font-extrabold uppercase pt-0.5 leading-none text-brand-700 hover:bg-yellow-100"
           >
             Book an Inspection
           </Link>
           <Link
             href="/contact"
-            className="inline-flex h-[22px] sm:h-[29px] items-center border-[3px] border-brand-700 bg-brand-50 px-4 text-sm font-extrabold uppercase leading-none text-brand-700 hover:bg-yellow-100"
+            className="inline-flex h-[22px] sm:h-[29px] items-center border-[3px] border-brand-700 bg-brand-50 px-4 text-sm font-extrabold uppercase pt-0.5 leading-none text-brand-700 hover:bg-yellow-100"
           >
-            Contact Us
+            Contact
           </Link>
         </div>
         </div>
@@ -105,7 +105,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="bg-white px-4 pt-10">
+      <section className="bg-white px-4 py-16">
         <div className="mx-auto max-w-4xl">
           <h2 className="text-center text-xl font-black uppercase text-brand-700">
             Inspections across all of Massachusetts
@@ -125,9 +125,9 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="px-4 pt-10">
+      <section className="px-4">
         <h2 className="text-center text-xl font-black uppercase text-brand-700">
-          Pricing Calculator
+          Pricing Estimator
         </h2>
         <div className="mt-6">
           <PricingCalculator />
@@ -135,25 +135,32 @@ export default function HomePage() {
       </section>
 
       {latestPosts.length > 0 && (
-        <section className="bg-white px-4 pt-10">
+        <section className="bg-white px-4 pt-16">
           <div className="mx-auto max-w-4xl">
-            <h2 className="text-center text-xl font-black uppercase text-brand-700">Blog</h2>
+            <div className="flex items-baseline justify-center gap-3">
+              <h2 className="text-xl font-black uppercase text-brand-700">Blog</h2>
+              <Link href="/blog" className="text-sm font-bold text-brand-600 hover:underline">
+                View all posts
+              </Link>
+            </div>
             <div className="mt-4 grid grid-cols-3 gap-4">
               {latestPosts.map((post) => (
                 <Link
                   key={post.slug}
                   href={`/blog/${post.slug}`}
-                  className="rounded-lg border border-slate-200 bg-white p-4 hover:border-brand-400"
+                  className="group block overflow-hidden rounded-lg border border-slate-200 hover:border-brand-400"
                 >
-                  <div className="text-xs text-slate-400">{post.date}</div>
-                  <div className="mt-1 font-semibold text-brand-700">{post.title}</div>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={post.image}
+                    alt=""
+                    className="h-40 w-full bg-white object-contain p-4 transition group-hover:opacity-90"
+                  />
+                  <div className="p-4">
+                    <div className="font-semibold text-brand-700 group-hover:underline">{post.title}</div>
+                  </div>
                 </Link>
               ))}
-            </div>
-            <div className="mt-4 text-center">
-              <Link href="/blog" className="text-sm font-bold text-brand-600 underline">
-                View all posts
-              </Link>
             </div>
           </div>
         </section>

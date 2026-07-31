@@ -6,19 +6,19 @@ import { usePathname } from "next/navigation";
 const SERVICE_LINKS = [
   { href: "/services/asbestos", label: "Asbestos Inspections" },
   { href: "/services/mold", label: "Mold Inspections" },
-  { href: "/services/lead", label: "Lead Inspections" },
+  { href: "/services/lead", label: "Lead Paint Sampling" },
 ];
 
 export default function MarketingNav() {
   const pathname = usePathname();
 
   const linkClass = (href: string) =>
-    `shrink-0 whitespace-nowrap px-2 py-1 text-sm font-bold uppercase text-brand-700 hover:underline ${
+    `shrink-0 whitespace-nowrap px-1.5 py-1 text-sm font-bold uppercase text-brand-700 hover:underline ${
       pathname === href ? "underline" : ""
     }`;
 
   return (
-    <nav className="flex flex-nowrap items-center justify-between gap-3 border-b-4 border-brand-700 bg-brand-50 px-4 py-1.5">
+    <nav className="flex flex-nowrap items-center justify-between gap-2 border-b-4 border-brand-700 bg-brand-50 px-3 py-1.5">
       <Link href="/" className="inline-flex shrink-0 items-center">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/letterhead.png" alt="Commonwealth Inspection Services, LLC" className="h-12 w-auto sm:h-16" />
@@ -49,7 +49,7 @@ export default function MarketingNav() {
         <Link href="/contact" className={linkClass("/contact")}>Contact</Link>
         <Link
           href="/portal"
-          className="ml-2 shrink-0 whitespace-nowrap inline-flex h-[22px] sm:h-[29px] items-center border-[3px] border-brand-700 bg-brand-50 px-2 text-sm font-extrabold uppercase leading-none text-brand-700 hover:bg-yellow-100"
+          className="ml-1 shrink-0 whitespace-nowrap inline-flex h-[22px] sm:h-[29px] items-center border-[3px] border-brand-700 bg-brand-50 px-2 text-sm font-extrabold uppercase pt-0.5 leading-none text-brand-700 hover:bg-yellow-100"
         >
           Client Portal
         </Link>

@@ -19,12 +19,27 @@ function mergeAsbestosTypes(types: ServiceTypeQuote[]): ServiceTypeQuote[] {
     .map((s) => (s.key === "asbestos_bulk" ? { ...s, label: "Asbestos Inspection" } : s));
 }
 
-// For the calculator only: asbestos and lead are priced per "material"
-// tested (each material is actually 2 lab samples under the hood, at $25
-// each) rather than per raw sample — simpler for a customer to estimate,
-// and it works out to a flat $50/material.
-const MATERIAL_BASED_KEYS = ["asbestos_bulk", "asbestos_pre_demo", "lead_bulk"];
-const PRICE_PER_MATERIAL_CENTS = 5000;
+// The calculator quotes its own simplified per-sample rate for each service
+// type rather than pulling the real per_sample_cents from Settings.
+const PRICE_PER_SAMPLE_CENTS_BY_KEY: Record<string, number> = {
+  asbestos_bulk: 2500,
+  asbestos_pre_demo: 2500,
+  mold_air: 8500,
+  mold_bulk: 2500,
+  mold_swab: 8500,
+  lead_bulk: 2500,
+};
+const DEFAULT_PRICE_PER_SAMPLE_CENTS = 2500;
+
+const MAX_SAMPLES_BY_KEY: Record<string, number> = {
+  asbestos_bulk: 40,
+  asbestos_pre_demo: 40,
+  mold_air: 20,
+  mold_bulk: 40,
+  mold_swab: 20,
+  lead_bulk: 20,
+};
+const DEFAULT_MAX_SAMPLES = 40;
 
 export default function PricingCalculator() {
   const [address, setAddress] = useState("");
@@ -45,7 +60,10 @@ export default function PricingCalculator() {
         setServiceTypes(merged);
         const first = merged[0];
         setSelectedKey(first?.key ?? null);
-        if (first) setSampleCount(first.typical_samples_min || 10);
+        if (first) {
+          const max = MAX_SAMPLES_BY_KEY[first.key] ?? DEFAULT_MAX_SAMPLES;
+          setSampleCount(Math.min(first.typical_samples_min || 10, max));
+        }
       })
       .catch(() => {});
   }, []);
@@ -84,16 +102,22 @@ export default function PricingCalculator() {
 
   function selectService(service: ServiceTypeQuote) {
     setSelectedKey(service.key);
-    setSampleCount(service.typical_samples_min || 10);
+    const max = MAX_SAMPLES_BY_KEY[service.key] ?? DEFAULT_MAX_SAMPLES;
+    setSampleCount(Math.min(service.typical_samples_min || 10, max));
   }
 
-  const isMaterialBased = selected ? MATERIAL_BASED_KEYS.includes(selected.key) : false;
-  const unitLabel = isMaterialBased ? "Materials" : "Samples";
-  const unitCents = selected ? (isMaterialBased ? PRICE_PER_MATERIAL_CENTS : selected.per_sample_cents) : 0;
+  const unitCents = selected
+    ? (PRICE_PER_SAMPLE_CENTS_BY_KEY[selected.key] ?? DEFAULT_PRICE_PER_SAMPLE_CENTS)
+    : 0;
+  const maxSamples = selected ? (MAX_SAMPLES_BY_KEY[selected.key] ?? DEFAULT_MAX_SAMPLES) : DEFAULT_MAX_SAMPLES;
 
   const estimateCents = selected
     ? computeInvoiceTotalCents(selected.base_fee_cents, unitCents, sampleCount)
     : null;
+
+  const ESTIMATE_RANGE_CENTS = 15000;
+  const estimateLowCents = estimateCents !== null ? Math.max(0, estimateCents - ESTIMATE_RANGE_CENTS) : null;
+  const estimateHighCents = estimateCents !== null ? estimateCents + ESTIMATE_RANGE_CENTS : null;
 
   return (
     <div className="mx-auto max-w-4xl rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
@@ -112,7 +136,7 @@ export default function PricingCalculator() {
         {(serviceTypes ?? []).map((service) => (
           <label
             key={service.key}
-            className={`group flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm ${
+            className={`group flex cursor-pointer items-center gap-2 overflow-hidden rounded-lg border px-3 py-2 text-xs ${
               selectedKey === service.key
                 ? "border-brand-700 bg-brand-50 font-semibold text-brand-700"
                 : "border-slate-200 text-slate-600 hover:border-brand-400"
@@ -122,9 +146,9 @@ export default function PricingCalculator() {
               type="checkbox"
               checked={selectedKey === service.key}
               onChange={() => selectService(service)}
-              className="accent-brand-700"
+              className="shrink-0 accent-brand-700"
             />
-            <span className="group-hover:underline">{service.label}</span>
+            <span className="truncate group-hover:underline">{service.label}</span>
           </label>
         ))}
       </div>
@@ -132,7 +156,7 @@ export default function PricingCalculator() {
       {selected && (
         <div className="mt-6">
           <label className="flex items-center justify-between text-sm font-semibold uppercase text-slate-700" htmlFor="sample-count">
-            <span>Estimated Number of {unitLabel}</span>
+            <span>Estimated Number of Samples</span>
             <span>{sampleCount}</span>
           </label>
           <input
@@ -140,21 +164,23 @@ export default function PricingCalculator() {
             type="range"
             min={1}
             step={1}
-            max={isMaterialBased ? 20 : 40}
+            max={maxSamples}
             value={sampleCount}
             onChange={(e) => setSampleCount(Number(e.target.value))}
             className="mt-2 w-full accent-brand-700"
           />
 
           <div className="mt-6 rounded-lg bg-slate-50 p-4 text-center">
-            <p className="text-xs uppercase tracking-wide text-slate-500">Estimated total</p>
-            <p className="text-3xl font-black text-brand-700">{formatCents(estimateCents ?? 0)}</p>
+            <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Estimated total</p>
+            <p className="text-3xl font-black text-brand-700">
+              {formatCents(estimateLowCents ?? 0)} &ndash; {formatCents(estimateHighCents ?? 0)}
+            </p>
           </div>
 
           <div className="mt-6 flex justify-center">
             <Link
               href="/portal"
-              className="inline-flex h-[22px] items-center border-[3px] border-brand-700 bg-brand-50 px-4 text-sm font-extrabold uppercase leading-none text-brand-700 hover:bg-yellow-100 sm:h-[29px]"
+              className="inline-flex h-[22px] items-center border-[3px] border-brand-700 bg-brand-50 px-4 text-sm font-extrabold uppercase pt-0.5 leading-none text-brand-700 hover:bg-yellow-100 sm:h-[29px]"
             >
               Book an Inspection
             </Link>

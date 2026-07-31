@@ -33,13 +33,13 @@ export function renderLiteMarkdown(text: string): React.ReactNode {
     flushList(`ul-${i}`);
     if (line.startsWith("## ")) {
       nodes.push(
-        <h2 key={i} className="mt-6 text-lg font-bold text-slate-800 first:mt-0">
+        <h2 key={i} className="mt-6 text-lg font-bold text-brand-700 first:mt-0">
           {line.slice(3)}
         </h2>
       );
     } else {
       nodes.push(
-        <p key={i} className="text-slate-700">
+        <p key={i} className="text-brand-700">
           {line}
         </p>
       );

@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { SavedAddress } from "@/lib/types";
 import AddressAutocompleteInput from "@/components/shared/AddressAutocompleteInput";
+import ZipInput, { useAutoZip } from "@/components/shared/ZipInput";
+import { buildBillingAddress, parseAddressToFields, US_STATES } from "@/lib/address";
 import { formatPhoneNumber } from "@/lib/phone";
 
 interface ServiceTypeOption {
@@ -58,8 +60,21 @@ export default function PortalBookingForm() {
   const [error, setError] = useState<string | null>(null);
 
   const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
-  const [newAddressInput, setNewAddressInput] = useState("");
   const [saveNewAddress, setSaveNewAddress] = useState(true);
+  // Same structured street/unit/town/state/zip fields as the admin's Add
+  // Project form (see JobsDashboard.tsx) — kept separate from `address`
+  // below, which is the server's own validated/formatted result once this
+  // is checked, not what the user is actively typing.
+  const [street, setStreet] = useState("");
+  const [unit, setUnit] = useState("");
+  const [city, setCity] = useState("");
+  const [addrState, setAddrState] = useState("MA");
+  const [zip, setZip] = useState("");
+  // Distinguishes "just typed a new address" (offer to save it) from "just
+  // picked an already-saved one" (already saved, don't re-save) — both
+  // populate the same street/unit/city/addrState/zip fields above, so the
+  // fields themselves can't tell the two cases apart.
+  const [addressWasTyped, setAddressWasTyped] = useState(false);
 
   const [address, setAddress] = useState("");
   const [lat, setLat] = useState<number | null>(null);
@@ -88,6 +103,8 @@ export default function PortalBookingForm() {
       .then((r) => r.json())
       .then((data) => setSavedAddresses(data.addresses ?? []));
   }, []);
+
+  useAutoZip(street, city, addrState, setZip, "/api/portal");
 
   async function checkAddress(candidateAddress: string) {
     setLoading(true);
@@ -135,6 +152,13 @@ export default function PortalBookingForm() {
   }
 
   function pickSavedAddress(a: SavedAddress) {
+    const fields = parseAddressToFields(a.address);
+    setStreet(fields.street);
+    setUnit(fields.unit);
+    setCity(fields.city);
+    setAddrState(fields.state || "MA");
+    setZip(fields.zip);
+    setAddressWasTyped(false);
     checkAddress(a.address);
   }
 
@@ -162,7 +186,7 @@ export default function PortalBookingForm() {
     setLoading(true);
     setError(null);
     try {
-      if (saveNewAddress && newAddressInput.trim()) {
+      if (saveNewAddress && addressWasTyped) {
         await fetch("/api/portal/addresses", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -214,13 +238,68 @@ export default function PortalBookingForm() {
         <section className="mt-6 space-y-4">
           <div>
             <label className="block text-sm font-medium uppercase text-slate-700">Enter an address</label>
-            <div className="mt-1">
+            <div className="mt-1 flex gap-1.5">
+              <div className="w-0 flex-1">
+                <AddressAutocompleteInput
+                  apiBase="/api/portal"
+                  value={street}
+                  onChange={(v) => {
+                    setStreet(v);
+                    setAddressWasTyped(true);
+                  }}
+                  onSelectAddress={(fields) => {
+                    setStreet(fields.street);
+                    setUnit(fields.unit);
+                    setCity(fields.city);
+                    setAddrState(fields.state || "MA");
+                    setZip(fields.zip);
+                    setAddressWasTyped(true);
+                  }}
+                  placeholder="Street address"
+                  townHint={city}
+                />
+              </div>
+              <input
+                className="w-20 shrink-0 rounded-lg border border-slate-300 px-2 py-2 text-sm"
+                placeholder="Unit #"
+                value={unit}
+                onChange={(e) => {
+                  setUnit(e.target.value);
+                  setAddressWasTyped(true);
+                }}
+              />
+            </div>
+            <div className="mt-1.5 grid grid-cols-3 gap-1.5">
               <AddressAutocompleteInput
                 apiBase="/api/portal"
-                value={newAddressInput}
-                onChange={setNewAddressInput}
-                placeholder="123 Main St, Boston, MA"
+                value={city}
+                onChange={(v) => {
+                  setCity(v);
+                  setAddressWasTyped(true);
+                  if (!v.trim()) setZip("");
+                }}
+                mode="city"
+                onSelectAddress={(fields) => {
+                  setCity(fields.city);
+                  setAddrState("MA");
+                  setZip(fields.zip);
+                  setAddressWasTyped(true);
+                }}
+                placeholder="Town"
               />
+              <select
+                className="rounded-lg border border-slate-300 px-2 py-2 text-sm"
+                value={addrState}
+                onChange={(e) => {
+                  setAddrState(e.target.value);
+                  setAddressWasTyped(true);
+                }}
+              >
+                {US_STATES.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+              <ZipInput street={street} city={city} state={addrState} zip={zip} setZip={setZip} apiBase="/api/portal" />
             </div>
             <label className="mt-2 flex items-center gap-2 text-sm text-slate-600">
               <input type="checkbox" checked={saveNewAddress} onChange={(e) => setSaveNewAddress(e.target.checked)} />
@@ -248,8 +327,8 @@ export default function PortalBookingForm() {
 
           <button
             className="flex w-full items-center justify-center border-[3px] border-brand-700 bg-brand-50 py-3 pt-[14px] text-sm font-extrabold uppercase leading-none text-brand-700 hover:bg-yellow-100 disabled:opacity-50"
-            disabled={loading || !newAddressInput.trim()}
-            onClick={() => checkAddress(newAddressInput)}
+            disabled={loading || !street.trim() || !city.trim() || !addrState.trim()}
+            onClick={() => checkAddress(buildBillingAddress({ street, unit, city, state: addrState, zip }))}
           >
             {loading ? "Checking…" : "Continue"}
           </button>

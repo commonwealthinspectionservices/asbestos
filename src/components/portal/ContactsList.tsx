@@ -105,7 +105,7 @@ export default function ContactsList() {
       {loading ? (
         <p className="mt-6 text-sm text-slate-500">Loading…</p>
       ) : contacts.length === 0 ? (
-        <p className="mt-6 text-sm text-slate-500">No contacts yet — you'll appear here once you add one.</p>
+        <p className="mt-6 text-sm text-slate-500">No contacts yet — they'll appear here once you add one.</p>
       ) : (
         <div className="mt-4 space-y-2">
           {contacts.map((c) => (

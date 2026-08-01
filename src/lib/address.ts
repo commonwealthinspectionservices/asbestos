@@ -1,3 +1,16 @@
+// Every US state's two-letter abbreviation, for the State field on every
+// structured address form (admin Add/Edit Project, portal Book a Project
+// and Saved Addresses) — a dropdown instead of free text avoids "Ma" vs
+// "MA" vs "Massachusetts" typos, even though this business currently only
+// serves Massachusetts.
+export const US_STATES = [
+  "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA",
+  "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD",
+  "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ",
+  "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC",
+  "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY",
+];
+
 // Used wherever a job's address is shown as a clickable link out to Google
 // Maps (admin project list/detail, portal project list/detail) — a plain
 // search URL rather than a place ID, since all we have on file is the

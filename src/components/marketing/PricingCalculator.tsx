@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import AddressAutocompleteInput from "@/components/shared/AddressAutocompleteInput";
+import ZipInput, { useAutoZip } from "@/components/shared/ZipInput";
+import { buildBillingAddress, US_STATES } from "@/lib/address";
 import { formatCents, computeInvoiceTotalCents } from "@/lib/pricing";
 import type { ServiceType } from "@/lib/types";
 
@@ -42,13 +44,21 @@ const MAX_SAMPLES_BY_KEY: Record<string, number> = {
 const DEFAULT_MAX_SAMPLES = 40;
 
 export default function PricingCalculator() {
-  const [address, setAddress] = useState("");
+  // Same structured street/unit/town/state/zip layout as Book a Project and
+  // the admin's Add Project form (see AddressBook.tsx / PortalBookingForm.tsx).
+  const [street, setStreet] = useState("");
+  const [unit, setUnit] = useState("");
+  const [city, setCity] = useState("");
+  const [addrState, setAddrState] = useState("MA");
+  const [zip, setZip] = useState("");
   const [serviceTypes, setServiceTypes] = useState<ServiceTypeQuote[] | null>(null);
   const [withinArea, setWithinArea] = useState(true);
   const [addressChecked, setAddressChecked] = useState(false);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [sampleCount, setSampleCount] = useState(10);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useAutoZip(street, city, addrState, setZip, "");
 
   // Unzoned defaults, shown immediately so the whole calculator (service
   // types + slider + estimate) is usable before any address is entered.
@@ -73,10 +83,11 @@ export default function PricingCalculator() {
   // the rest of the calculator behind a separate step.
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (address.trim().length < 8) {
+    if (!street.trim() || !city.trim() || !addrState.trim()) {
       setAddressChecked(false);
       return;
     }
+    const address = buildBillingAddress({ street, unit, city, state: addrState, zip });
     debounceRef.current = setTimeout(async () => {
       try {
         const res = await fetch("/api/book", {
@@ -93,7 +104,7 @@ export default function PricingCalculator() {
         // Silently keep the unzoned defaults — this is an estimate, not a booking.
       }
     }, 500);
-  }, [address]);
+  }, [street, unit, city, addrState, zip]);
 
   const selected = useMemo(
     () => serviceTypes?.find((s) => s.key === selectedKey) ?? null,
@@ -122,8 +133,56 @@ export default function PricingCalculator() {
   return (
     <div className="mx-auto max-w-4xl rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
       <p className="text-sm font-semibold uppercase text-slate-700">Service Address</p>
-      <div className="mt-2">
-        <AddressAutocompleteInput value={address} onChange={setAddress} apiBase="" />
+      <div className="mt-2 flex gap-1.5">
+        <div className="w-0 flex-1">
+          <AddressAutocompleteInput
+            apiBase="/api"
+            value={street}
+            onChange={setStreet}
+            onSelectAddress={(fields) => {
+              setStreet(fields.street);
+              setUnit(fields.unit);
+              setCity(fields.city);
+              setAddrState(fields.state || "MA");
+              setZip(fields.zip);
+            }}
+            placeholder="Street address"
+            townHint={city}
+          />
+        </div>
+        <input
+          className="w-20 shrink-0 rounded-lg border border-slate-300 px-2 py-2 text-sm"
+          placeholder="Unit #"
+          value={unit}
+          onChange={(e) => setUnit(e.target.value)}
+        />
+      </div>
+      <div className="mt-1.5 grid grid-cols-3 gap-1.5">
+        <AddressAutocompleteInput
+          apiBase="/api"
+          value={city}
+          onChange={(v) => {
+            setCity(v);
+            if (!v.trim()) setZip("");
+          }}
+          mode="city"
+          onSelectAddress={(fields) => {
+            setCity(fields.city);
+            setAddrState("MA");
+            setZip(fields.zip);
+          }}
+          placeholder="Town"
+        />
+        <select
+          className="rounded-lg border border-slate-300 px-2 py-2 text-sm"
+          value={addrState}
+          onChange={(e) => setAddrState(e.target.value)}
+        >
+          {US_STATES.map((s) => (
+            <option key={s} value={s}>{s}</option>
+          ))}
+        </select>
+        <ZipInput street={street} city={city} state={addrState} zip={zip} setZip={setZip} apiBase="/api" />
       </div>
       {addressChecked && !withinArea && (
         <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">

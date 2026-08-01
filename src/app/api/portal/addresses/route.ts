@@ -44,6 +44,23 @@ export const POST = withApiErrors(async (req: NextRequest) => {
   }
 
   const supabase = getSupabaseAdmin();
+
+  // geo.formattedAddress is the canonical, geocoded form — comparing
+  // against that (rather than the raw typed string) catches the same
+  // address saved twice even if it was typed slightly differently.
+  // .limit(1) + array-length check rather than .maybeSingle(), which
+  // throws on more than one match — a real possibility here, since
+  // duplicates from before this check existed may already be on file.
+  const { data: existing } = await supabase
+    .from("saved_addresses")
+    .select("id")
+    .eq("customer_id", auth.customer.id)
+    .ilike("address", geo.formattedAddress)
+    .limit(1);
+  if (existing && existing.length > 0) {
+    return NextResponse.json({ error: "That address is already saved." }, { status: 409 });
+  }
+
   const { data, error } = await supabase
     .from("saved_addresses")
     .insert({

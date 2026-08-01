@@ -1188,15 +1188,6 @@ export function ProjectDetailDialog({
     onChanged();
   }
 
-  async function setIsHomeowner(value: boolean) {
-    await fetch(`/api/admin/jobs/${job.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ is_homeowner: value }),
-    });
-    onChanged();
-  }
-
   // Extra Cc's on top of whoever the invoice/report already goes to — kept
   // as two separate lists (report_emails / invoice_emails) since who should
   // be looped in on billing often isn't who should be looped in on results.
@@ -1668,17 +1659,8 @@ export function ProjectDetailDialog({
                   disabled={payLinkLoading}
                   className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-bold uppercase text-slate-700 disabled:opacity-50"
                 >
-                  {payLinkLoading ? "Loading…" : "Get payment link"}
+                  {payLinkLoading ? "Loading…" : "Payment link"}
                 </button>
-                <label className="ml-auto flex items-center gap-1.5 text-sm text-slate-600" title="Hold the report back until this project is marked Paid, instead of drafting it immediately">
-                  <input
-                    type="checkbox"
-                    checked={job.is_homeowner}
-                    onChange={(e) => setIsHomeowner(e.target.checked)}
-                    className="h-4 w-4 rounded border-slate-300"
-                  />
-                  Homeowner
-                </label>
               </div>
             )}
             {payLinkError && <p className="mt-2 text-sm text-red-600">{payLinkError}</p>}

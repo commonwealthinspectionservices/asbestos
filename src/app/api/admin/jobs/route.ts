@@ -169,9 +169,8 @@ export const POST = withApiErrors(async (req: NextRequest) => {
     payment_due_date: body.paymentDueDate || null,
     report_emails: body.reportEmails || null,
     disclaimer_ack: true,
-    // Defaults from the customer's portal-signup account type (see
-    // customers.is_homeowner); the Invoice tab checkbox still lets the
-    // admin override per job for customers without an account of their own.
+    // Driven entirely by the customer's account type (see customers.is_homeowner,
+    // set from the portal-signup homeowner/contractor choice) — no per-job override.
     is_homeowner: customer.is_homeowner,
   };
 

@@ -47,6 +47,22 @@ export async function getContractorSession(): Promise<ContractorSession | null> 
   };
 }
 
+/**
+ * Every `customers` row id sharing the given customer's company_id — the
+ * full set of accounts whose projects this customer should be able to see,
+ * since a company (e.g. a restoration company) can have several logins.
+ * Falls back to just the customer's own id when they aren't linked to a
+ * company yet (e.g. a homeowner, or a contractor account pre-onboarding).
+ */
+export async function getCompanyCustomerIds(customer: Customer): Promise<string[]> {
+  if (!customer.company_id) return [customer.id];
+
+  const admin = getSupabaseAdmin();
+  const { data } = await admin.from("customers").select("id").eq("company_id", customer.company_id);
+  const ids = (data ?? []).map((row) => row.id as string);
+  return ids.length ? ids : [customer.id];
+}
+
 type ContractorAuthResult =
   | { customer: Customer; error?: undefined }
   | { customer?: undefined; error: NextResponse };

@@ -4,7 +4,17 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
 
-export default function PortalNav() {
+// Same breakdown pages the public marketing site links to (see
+// SERVICE_LINKS in marketing/MarketingNav.tsx) — logged-in clients get the
+// same dropdown so they don't have to leave the portal to look up what a
+// service type actually involves.
+const SERVICE_LINKS = [
+  { href: "/services/asbestos", label: "Asbestos Inspections" },
+  { href: "/services/mold", label: "Mold Inspections" },
+  { href: "/services/lead", label: "Lead Paint Sampling" },
+];
+
+export default function PortalNav({ isHomeowner = false }: { isHomeowner?: boolean }) {
   const pathname = usePathname();
   const router = useRouter();
 
@@ -16,24 +26,49 @@ export default function PortalNav() {
   }
 
   const linkClass = (href: string) =>
-    `px-3 py-2 text-sm rounded-lg ${
-      pathname === href ? "bg-brand-600 text-white" : "text-slate-600 hover:bg-slate-100"
+    `shrink-0 whitespace-nowrap px-1.5 py-1 text-sm font-semibold uppercase text-brand-700 hover:underline ${
+      pathname === href ? "underline" : ""
     }`;
 
   return (
-    <nav className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3">
-      <div className="flex items-center gap-2">
+    <nav className="flex flex-nowrap items-center justify-between gap-2 border-b border-slate-200 bg-white px-3 py-1.5">
+      <Link href="/portal/dashboard" className="flex shrink-0 items-center gap-1.5 whitespace-nowrap">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo.png" alt="" width={24} height={24} className="rounded-full" />
-        <span className="text-sm font-semibold text-brand-700">Commonwealth Inspection Services</span>
+        <img src="/logo.png" alt="" width={24} height={24} className="shrink-0 rounded-full" />
+        <span className="text-sm font-semibold uppercase text-brand-700">Commonwealth Inspection Services</span>
+      </Link>
+      <div className="flex shrink-0 items-center gap-1 whitespace-nowrap">
         <Link href="/portal/dashboard" className={linkClass("/portal/dashboard")}>My Projects</Link>
         <Link href="/portal/book" className={linkClass("/portal/book")}>Book a Project</Link>
+        <div className="group relative shrink-0">
+          <button type="button" className={linkClass("/services")}>
+            Services
+          </button>
+          <div className="invisible absolute left-0 top-full z-10 min-w-[9rem] pt-1 opacity-0 transition group-hover:visible group-hover:opacity-100">
+            <div className="overflow-hidden border border-slate-200 bg-white shadow-md">
+              {SERVICE_LINKS.map((service) => (
+                <Link
+                  key={service.href}
+                  href={service.href}
+                  className="block whitespace-nowrap px-3 py-2 text-sm font-semibold uppercase text-brand-700 hover:underline"
+                >
+                  {service.label}
+                </Link>
+              ))}
+            </div>
+          </div>
+        </div>
         <Link href="/portal/addresses" className={linkClass("/portal/addresses")}>Addresses</Link>
-        <Link href="/portal/contacts" className={linkClass("/portal/contacts")}>Contacts</Link>
+        {!isHomeowner && (
+          <Link href="/portal/contacts" className={linkClass("/portal/contacts")}>Contacts</Link>
+        )}
+        <button
+          onClick={logout}
+          className="ml-1 inline-flex h-[22px] shrink-0 items-center whitespace-nowrap border-[3px] border-brand-700 bg-brand-50 px-1.5 pt-0.5 text-sm font-semibold uppercase leading-none text-brand-700 hover:bg-yellow-100 sm:h-[29px]"
+        >
+          Sign out
+        </button>
       </div>
-      <button onClick={logout} className="text-sm text-slate-500 hover:text-slate-800">
-        Sign out
-      </button>
     </nav>
   );
 }

@@ -2,12 +2,59 @@
 
 import { useState } from "react";
 import type { Customer, Job } from "@/lib/types";
+import { googleMapsUrl } from "@/lib/address";
 import PdfPreview from "@/components/shared/PdfPreview";
 import JobRecipients from "@/components/portal/JobRecipients";
+import JobChat from "@/components/shared/JobChat";
 
-type Tab = "info" | "report" | "invoice";
+type Tab = "info" | "report" | "invoice" | "chat";
+
+const PORTAL_ACTION_BUTTON =
+  "inline-flex h-[22px] items-center border-[3px] border-brand-700 bg-brand-50 px-4 pt-0.5 text-sm font-extrabold uppercase leading-none text-brand-700 hover:bg-yellow-100 disabled:opacity-50 sm:h-[29px]";
 
 const REPORT_READY_STATUSES = new Set(["completed", "invoiced", "ready_to_send", "paid"]);
+
+// Mirrors the admin dashboard's tracker (JobsDashboard.tsx's TRACKER_STATUSES/
+// TRACKER_SEGMENTS) — same steps and labels, kept as a separate read-only
+// copy since the portal can't click a segment to change status the way the
+// admin can, and for the same client-bundle-size reason as the format
+// helpers above. One real difference: "ready_to_send" is deliberately
+// omitted — it means the report/invoice are drafted but still awaiting the
+// admin's own approval to actually send, which isn't something a client
+// needs (or should) see as a distinct step. A job at that status reads as
+// still "Pending Lab Results" until it's actually sent.
+const TRACKER_STATUSES = ["needs_scheduling", "scheduled", "pending_lab_results", "paid"] as const;
+function clientTrackerStatus(status: string): string {
+  return status === "ready_to_send" ? "pending_lab_results" : status;
+}
+type TrackerSegment = {
+  key: string;
+  label: React.ReactNode;
+  done: (job: Job, currentIndex: number) => boolean;
+};
+const BASE_TRACKER_SEGMENTS: TrackerSegment[] = [
+  { key: "needs_scheduling", label: <>To Be<br />Scheduled</>, done: (_job, i) => i >= 0 },
+  { key: "scheduled", label: "Scheduled", done: (_job, i) => i >= 1 },
+  { key: "pending_lab_results", label: <>Pending<br />Lab Results</>, done: (_job, i) => i >= 2 },
+];
+const PAID_SEGMENT: TrackerSegment = { key: "paid", label: "Paid", done: (_job, i) => i >= 3 };
+
+// A homeowner job holds its report back until it's marked Paid (see
+// autoDraftReportIfJustPaid / lib/lab-email.ts) — the opposite order from a
+// contractor job, where the report and invoice go out immediately and
+// payment follows later. The tracker's step order (and the "sent" segment's
+// done check) flips to match: no "already sent, just waiting on payment"
+// fallback for a homeowner, since here paid can genuinely happen first.
+function trackerSegmentsFor(isHomeowner: boolean): TrackerSegment[] {
+  const sentSegment: TrackerSegment = {
+    key: "sent",
+    label: <>Report and<br />Invoice Sent</>,
+    done: (job, i) => (Boolean(job.invoice_sent_at) && Boolean(job.report_sent_at)) || (!isHomeowner && i >= 3),
+  };
+  return isHomeowner
+    ? [...BASE_TRACKER_SEGMENTS, PAID_SEGMENT, sentSegment]
+    : [...BASE_TRACKER_SEGMENTS, sentSegment, PAID_SEGMENT];
+}
 
 // Invoice pricing gets auto-computed the moment lab results land, but that's
 // an unreviewed draft — the admin dashboard's own "Ready to Send" station is
@@ -29,12 +76,33 @@ function formatDate(date: string | null | undefined): string {
   return `${m}/${d}/${y}`;
 }
 
-function formatTime(time: string | null | undefined): string {
-  if (!time) return "";
-  const [h, m] = time.split(":").map(Number);
+function formatClockTime(totalMinutes: number): string {
+  const normalized = ((totalMinutes % 1440) + 1440) % 1440;
+  const h = Math.floor(normalized / 60);
+  const m = normalized % 60;
   const period = h >= 12 ? "PM" : "AM";
   const hour12 = h % 12 || 12;
   return `${hour12}:${String(m).padStart(2, "0")} ${period}`;
+}
+
+// Clients see a one-hour-either-side window around the admin's specific
+// confirmed_time (e.g. 2:00 PM confirmed -> "1:00 PM - 3:00 PM") rather
+// than the exact time — actual arrival can slide a bit with same-day
+// routing, so a window is more honest than a precise minute. Falls back to
+// the coarser AM/PM window only when the admin hasn't set a specific time
+// yet; shows nothing at all for "ANY" with no time set, since there's
+// genuinely nothing to tell the client until one is picked.
+function formatTimeWindow(confirmedTime: string | null | undefined, window: string | null | undefined): string {
+  if (confirmedTime) {
+    const [h, m] = confirmedTime.split(":").map(Number);
+    if (!Number.isNaN(h) && !Number.isNaN(m)) {
+      const totalMinutes = h * 60 + m;
+      return `${formatClockTime(totalMinutes - 60)} - ${formatClockTime(totalMinutes + 60)}`;
+    }
+  }
+  if (window === "AM") return "Morning";
+  if (window === "PM") return "Afternoon";
+  return "";
 }
 
 function DetailField({ label, value, nowrap }: { label: string; value: React.ReactNode; nowrap?: boolean }) {
@@ -59,6 +127,26 @@ export default function ProjectDetailModal({
   const [payLoading, setPayLoading] = useState(false);
   const [payError, setPayError] = useState<string | null>(null);
   const [showInvoicePreview, setShowInvoicePreview] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelSent, setCancelSent] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
+
+  async function requestCancellation() {
+    setCancelling(true);
+    setCancelError(null);
+    try {
+      const res = await fetch(`/api/portal/projects/${job.id}/request-cancellation`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Something went wrong");
+      setShowCancelConfirm(false);
+      setCancelSent(true);
+    } catch (e) {
+      setCancelError(e instanceof Error ? e.message : "Something went wrong");
+    } finally {
+      setCancelling(false);
+    }
+  }
 
   async function payNow() {
     setPayLoading(true);
@@ -78,6 +166,7 @@ export default function ProjectDetailModal({
   const reportReady = REPORT_READY_STATUSES.has(job.status);
   const invoiced = job.invoice_total_cents != null && INVOICE_FINALIZED_STATUSES.has(job.status);
   const paid = job.status === "paid";
+  const trackerSegments = trackerSegmentsFor(job.is_homeowner);
   // Cache-busting key for PdfPreview — re-fetches/re-renders whenever
   // anything that would change the invoice's actual content changes.
   const invoiceRevision = JSON.stringify({
@@ -91,15 +180,16 @@ export default function ProjectDetailModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 px-4 py-8">
-      <div className="w-full max-w-lg rounded-xl bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
-          <div>
-            <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-              Project {job.project_number ?? ""}
+      <div className="w-full max-w-xl rounded-xl bg-white shadow-xl">
+        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-2">
+          {tab === "chat" || tab === "report" || tab === "invoice" ? (
+            <div className="truncate whitespace-nowrap text-sm text-slate-600">
+              {job.project_number ? `${job.project_number} · ` : ""}{job.service_address}
             </div>
-            <div className="text-sm text-slate-600">{job.service_address}</div>
-          </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600" aria-label="Close">
+          ) : (
+            <div />
+          )}
+          <button onClick={onClose} className="shrink-0 text-slate-400 hover:text-slate-600" aria-label="Close">
             ✕
           </button>
         </div>
@@ -109,11 +199,12 @@ export default function ProjectDetailModal({
             ["info", "Project Information"],
             ["report", "Final Report"],
             ["invoice", "Invoice"],
+            ["chat", "Chat"],
           ] as const).map(([key, label]) => (
             <button
               key={key}
               onClick={() => setTab(key)}
-              className={`border-b-2 px-3 py-2.5 text-sm font-medium ${
+              className={`flex-1 whitespace-nowrap border-b-2 px-1 py-2.5 text-xs font-medium uppercase hover:underline ${
                 tab === key ? "border-brand-600 text-brand-700" : "border-transparent text-slate-500"
               }`}
             >
@@ -127,12 +218,26 @@ export default function ProjectDetailModal({
             <div className="grid grid-cols-1 gap-y-4">
               <div className="space-y-1">
                 <DetailField label="Project #" value={job.project_number} />
-                <DetailField label="Job site address" value={job.service_address} nowrap />
-                <DetailField label="Scope of Work" value={job.scope_of_work} />
+                <DetailField
+                  label="Job site address"
+                  value={job.service_address ? (
+                    <a href={googleMapsUrl(job.service_address)} target="_blank" rel="noreferrer" className="hover:underline">
+                      {job.service_address}
+                    </a>
+                  ) : null}
+                  nowrap
+                />
                 <DetailField label="Service type" value={job.service_type} nowrap />
-                <DetailField label="Time" value={formatTime(job.confirmed_time)} />
+                <DetailField label="Time" value={formatTimeWindow(job.confirmed_time, job.window)} />
                 <DetailField label="Date" value={formatDate(job.confirmed_date)} />
               </div>
+
+              {job.scope_of_work && job.scope_of_work.trim() && (
+                <div className="space-y-1">
+                  <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Scope of Work</h4>
+                  <p className="text-sm text-slate-800">{job.scope_of_work}</p>
+                </div>
+              )}
 
               <div className="space-y-1">
                 <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Customer contact</h4>
@@ -154,7 +259,7 @@ export default function ProjectDetailModal({
 
               {(job.site_contact_name || job.site_contact_phone) && (
                 <div className="space-y-1">
-                  <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">On-site contact</h4>
+                  <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Job site contact</h4>
                   <DetailField label="Name" value={job.site_contact_name} />
                   <DetailField label="Phone" value={job.site_contact_phone} />
                 </div>
@@ -185,6 +290,21 @@ export default function ProjectDetailModal({
                   <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Report</h4>
                   <p className="text-sm text-slate-800">{job.report_summary}</p>
                   {job.report_notes && <p className="text-sm text-slate-600">{job.report_notes}</p>}
+                </div>
+              )}
+
+              {job.status !== "cancelled" && job.status !== "paid" && (
+                <div className="flex justify-end">
+                  {cancelSent ? (
+                    <span className="text-sm text-slate-500">Cancellation request sent.</span>
+                  ) : (
+                    <button
+                      onClick={() => setShowCancelConfirm(true)}
+                      className="text-sm text-red-600 hover:underline"
+                    >
+                      Request Cancellation
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -255,8 +375,76 @@ export default function ProjectDetailModal({
               )}
             </div>
           )}
+
+          {tab === "chat" && (
+            <JobChat
+              endpoint={`/api/portal/projects/${job.id}/messages`}
+              photoUploadEndpoint={`/api/portal/projects/${job.id}/photos`}
+              photoViewEndpointBase={`/api/portal/projects/${job.id}/photos`}
+              senderRole="customer"
+              sendButtonClassName={PORTAL_ACTION_BUTTON}
+            />
+          )}
         </div>
+
+        {tab !== "chat" && (
+        <div className="border-t border-slate-200 px-5 py-4">
+          {job.status === "cancelled" ? (
+            <div className="flex h-2.5 items-center rounded-full bg-red-500">
+              <span className="w-full text-center text-xs font-bold text-white">&nbsp;</span>
+            </div>
+          ) : (
+            <div className="flex gap-1">
+              {trackerSegments.map((seg) => {
+                const currentIndex = TRACKER_STATUSES.indexOf(clientTrackerStatus(job.status) as (typeof TRACKER_STATUSES)[number]);
+                const done = seg.done(job, currentIndex);
+                return (
+                  <div key={seg.key} className={`h-2.5 flex-1 rounded-full ${done ? "bg-emerald-500" : "bg-slate-200"}`} />
+                );
+              })}
+            </div>
+          )}
+          <div className="mt-1.5 flex gap-1">
+            {job.status === "cancelled" ? (
+              <span className="flex-1 text-center text-xs font-bold text-red-600">Cancelled</span>
+            ) : (
+              trackerSegments.map((seg) => (
+                <span key={seg.key} className="flex-1 text-center text-[11px] font-bold leading-tight text-slate-500">
+                  {seg.label}
+                </span>
+              ))
+            )}
+          </div>
+        </div>
+        )}
       </div>
+
+      {showCancelConfirm && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-sm rounded-xl bg-white p-5 shadow-xl">
+            <h3 className="font-semibold text-slate-800">Are you sure?</h3>
+            <p className="mt-2 text-sm text-slate-600">
+              This will let us know you&apos;d like to cancel this project. We&apos;ll follow up to confirm.
+            </p>
+            {cancelError && <div className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{cancelError}</div>}
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                onClick={() => setShowCancelConfirm(false)}
+                className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-bold text-slate-700"
+              >
+                Never mind
+              </button>
+              <button
+                onClick={requestCancellation}
+                disabled={cancelling}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+              >
+                {cancelling ? "Sending…" : "Request Cancellation"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

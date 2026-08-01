@@ -12,27 +12,9 @@ export default function AsbestosServicePage() {
     <div className="min-h-screen bg-white">
       <MarketingNav />
       <div className="mx-auto max-w-2xl px-4 py-10">
-        <h1 className="text-2xl font-bold text-brand-700">Asbestos Inspections</h1>
-        <p className="mt-4 text-slate-700">
-          Before a renovation, demolition or building permit application, Massachusetts requires a
-          licensed asbestos inspection of the affected materials. We provide limited asbestos
-          (PLM bulk sample) inspections — an independent, licensed inspector visits the property,
-          collects bulk samples from suspect materials, and sends them to an accredited lab for
-          analysis.
-        </p>
-        <p className="mt-4 text-slate-700">
-          Commonly sampled materials include pipe and boiler insulation, vinyl floor tile and
-          mastic, joint compound, textured ceilings, and roofing or siding materials. The final
-          report is formatted to meet Massachusetts DEP, DLS and local building department
-          requirements, so it can be submitted directly with a permit application.
-        </p>
-        <p className="mt-4 text-slate-700">
-          We specialize exclusively in inspection and testing — we don&apos;t perform abatement —
-          so findings and recommendations are always independent and conflict-free.
-        </p>
+        <h1 className="text-2xl font-bold uppercase text-brand-700">Asbestos Inspection Services</h1>
 
-        <h2 className="mt-10 text-lg font-bold text-brand-700">Types of Asbestos Inspections</h2>
-        <div className="mt-4 space-y-4">
+        <div className="mt-6 space-y-4">
           <div className="rounded-lg border border-slate-200 p-4">
             <h3 className="font-bold text-brand-700">Limited Asbestos Inspection</h3>
             <p className="mt-1 text-slate-700">
@@ -66,22 +48,6 @@ export default function AsbestosServicePage() {
               tear-downs, and whole-house gut renovations.
             </p>
           </div>
-        </div>
-
-        <div className="mt-10 space-y-4 text-slate-700">
-          <p>
-            Asbestos was commonly used in residential building materials for decades,
-            particularly in homes built before 1980. It is often found in insulation around
-            pipes, boilers and furnaces. Other common spots include vinyl floor tiles and
-            flooring adhesives. Ceiling tiles, textured ceilings are hot spots as well as joint
-            compound materials and roofing/siding materials. An asbestos inspection helps
-            identify these materials before renovation or demolition work begins.
-          </p>
-          <p>
-            Commonwealth Inspection Services specializes exclusively in asbestos inspection and
-            testing and does not do asbestos removal. Independence guarantees unbiased findings
-            and transparent recommendations.
-          </p>
         </div>
 
         <div className="mt-8 flex justify-center gap-3">

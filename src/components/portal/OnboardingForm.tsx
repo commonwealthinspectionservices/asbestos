@@ -4,10 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 export default function OnboardingForm({
-  email,
   accountType,
 }: {
-  email: string;
   accountType: "contractor" | "homeowner" | null;
 }) {
   const router = useRouter();
@@ -40,21 +38,16 @@ export default function OnboardingForm({
 
   return (
     <div className="mx-auto max-w-sm px-4 py-16">
-      <h1 className="text-xl font-semibold text-brand-700">A few details</h1>
-      <p className="mt-1 text-sm text-slate-500">
-        Signed in as {email}. This saves your info so future bookings are one click.
-      </p>
+      {error && <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
-      {error && <div className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
-
-      <input className="mt-6 w-full rounded-lg border border-slate-300 px-3 py-2" placeholder="Full name" value={name} onChange={(e) => setName(e.target.value)} />
-      <input className="mt-3 w-full rounded-lg border border-slate-300 px-3 py-2" placeholder="Company (optional)" value={company} onChange={(e) => setCompany(e.target.value)} />
+      <input className="w-full rounded-lg border border-slate-300 px-3 py-2" placeholder="Full name" value={name} onChange={(e) => setName(e.target.value)} />
+      <input className="mt-3 w-full rounded-lg border border-slate-300 px-3 py-2" placeholder="Company" value={company} onChange={(e) => setCompany(e.target.value)} />
       <input className="mt-3 w-full rounded-lg border border-slate-300 px-3 py-2" placeholder="Phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
       <input className="mt-3 w-full rounded-lg border border-slate-300 px-3 py-2" placeholder="Billing address" value={billingAddress} onChange={(e) => setBillingAddress(e.target.value)} />
 
       <button
-        className="mt-4 w-full rounded-lg bg-brand-600 px-4 py-3 font-medium text-white disabled:opacity-50"
-        disabled={loading || !name || !phone}
+        className="mt-4 flex w-full items-center justify-center border-[3px] border-brand-700 bg-brand-50 py-3 pt-[14px] text-sm font-extrabold uppercase leading-none text-brand-700 hover:bg-yellow-100 disabled:opacity-50"
+        disabled={loading || !name || !phone || !company}
         onClick={submit}
       >
         {loading ? "Saving…" : "Continue"}

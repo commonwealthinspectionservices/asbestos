@@ -1,3 +1,11 @@
+// Used wherever a job's address is shown as a clickable link out to Google
+// Maps (admin project list/detail, portal project list/detail) — a plain
+// search URL rather than a place ID, since all we have on file is the
+// formatted address string, not a Places ID.
+export function googleMapsUrl(address: string): string {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
+}
+
 // Splits a formatted address into a street/business/unit line and a
 // city/state/zip line — the last two comma-separated segments are always
 // "City" and "State [Zip]", regardless of what comes before (a business
@@ -22,9 +30,14 @@ const STREET_SUFFIX_RE = /\b(Street|St|Road|Rd|Avenue|Ave|Lane|Ln|Drive|Dr|Way|C
 const TRAILING_STATE_RE = /,?\s*([A-Z]{2})(\s+\d{5}(?:-\d{4})?)?\s*$/;
 const UNIT_PREFIX_RE = /^(Unit|Apt|Apartment|Suite|Ste|#)\s*\S+\s*/i;
 
+// Google's formatted_address (and some manually typed addresses) can carry
+// a trailing country segment — strip it before splitting on commas, or
+// it'd get mistaken for part of the city/state/zip line below.
+const TRAILING_COUNTRY_RE = /,\s*(USA|United States)\s*$/i;
+
 export function splitAddress(address: string | null | undefined): { locationName: string; street: string; cityStateZip: string } {
   if (!address) return { locationName: "", street: "", cityStateZip: "" };
-  const trimmed = address.trim();
+  const trimmed = address.trim().replace(TRAILING_COUNTRY_RE, "");
   const commaParts = trimmed.split(",").map((p) => p.trim()).filter(Boolean);
 
   // Well-formed, comma-separated address (e.g. from Google Places) — the

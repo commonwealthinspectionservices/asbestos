@@ -4,10 +4,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import type { Company, Customer, InvoiceLineItem, JobDocument, JobWithCustomer, LabProfile, PricingZone, SampleItem, ServiceType } from "@/lib/types";
 import { defaultInvoiceLineItems, sampleDescriptionForServiceType } from "@/lib/invoice-defaults";
-import { splitAddress, parseAddressToFields, buildBillingAddress } from "@/lib/address";
+import { splitAddress, parseAddressToFields, buildBillingAddress, googleMapsUrl } from "@/lib/address";
 import type { AddressFields } from "@/lib/address";
 import AddressAutocompleteInput from "@/components/shared/AddressAutocompleteInput";
 import PdfPreview from "@/components/shared/PdfPreview";
+import JobChat from "@/components/shared/JobChat";
+import JobPhotos from "@/components/shared/JobPhotos";
 
 // The full job-flow pipeline, in order — every open project is tracked
 // somewhere along this list from intake to close-out. Admin-controlled via a
@@ -103,7 +105,7 @@ const STATUS_DOT_COLOR: Record<string, string> = {
 const SERVICE_TYPE_LABEL: Record<string, string> = {
   asbestos: "Asbestos Inspection",
   mold: "Mold Inspection",
-  lead: "Lead Inspection",
+  lead: "Lead Paint Sampling",
 };
 function serviceTypeLabel(value: string | null): string {
   if (!value) return "—";
@@ -849,7 +851,7 @@ function JobRow({
       <div className="flex w-full items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
           {job.project_number && (
-            <span className="shrink-0 whitespace-nowrap rounded bg-slate-200 px-2 py-0.5 text-sm font-mono font-bold text-slate-800">{job.project_number}</span>
+            <span className="shrink-0 whitespace-nowrap rounded bg-slate-200 px-2 py-0.5 text-sm font-mono font-bold text-slate-800 hover:underline">{job.project_number}</span>
           )}
           <div className="whitespace-nowrap font-medium text-slate-800">{job.customers?.company || job.customers?.name}</div>
         </div>
@@ -861,7 +863,7 @@ function JobRow({
             </span>
           )}
           {CLOSED_STATUSES.has(job.status) ? (
-            <span className={`shrink-0 rounded-full px-2 py-1 text-xs font-medium ${STATUS_COLOR[job.status]}`}>
+            <span className={`shrink-0 whitespace-nowrap rounded px-2 py-0.5 text-sm font-bold uppercase ${STATUS_COLOR[job.status]}`}>
               {STATUS_LABEL[job.status]}
             </span>
           ) : (
@@ -869,7 +871,7 @@ function JobRow({
               value={job.status}
               onChange={(e) => onFieldChange({ status: e.target.value })}
               onClick={(e) => e.stopPropagation()}
-              className={`shrink-0 rounded-full border-0 px-2 py-1 text-xs font-medium ${STATUS_COLOR[job.status]}`}
+              className={`shrink-0 whitespace-nowrap rounded border-0 px-2 py-0.5 text-sm font-bold uppercase ${STATUS_COLOR[job.status]}`}
             >
               {PIPELINE_STATUSES.map((s) => (
                 <option key={s} value={s}>{STATUS_LABEL[s]}</option>
@@ -882,11 +884,17 @@ function JobRow({
       <div className="text-sm text-slate-500">&nbsp;</div>
 
       <div className="flex w-full items-start gap-3">
-        <div className="min-w-0 flex-[0.9]">
+        <a
+          href={googleMapsUrl(job.service_address)}
+          target="_blank"
+          rel="noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="min-w-0 flex-[0.9] hover:underline"
+        >
           {locationName && <div className="truncate whitespace-nowrap text-sm text-slate-500">{locationName}</div>}
           <div className="truncate whitespace-nowrap text-sm text-slate-500">{street}</div>
           {cityStateZip && <div className="truncate whitespace-nowrap text-sm text-slate-500">{cityStateZip}</div>}
-        </div>
+        </a>
 
         <div className="min-w-0 flex-[1.2]">
           {(() => {
@@ -1039,7 +1047,7 @@ export function ProjectDetailDialog({
   onEnterResults: () => void;
   onStatusChange: (status: string) => void;
 }) {
-  const [tab, setTab] = useState<"info" | "samples" | "report" | "invoicing" | "email">("info");
+  const [tab, setTab] = useState<"info" | "samples" | "report" | "invoicing" | "email" | "chat" | "photos">("info");
   const [serviceTypeSettings, setServiceTypeSettings] = useState<ServiceType[]>([]);
   const [pricingZones, setPricingZones] = useState<PricingZone[]>([]);
   const [labs, setLabs] = useState<LabProfile[]>([]);
@@ -1065,6 +1073,22 @@ export function ProjectDetailDialog({
   const [invoiceLineItems, setInvoiceLineItems] = useState<LineItemRowState[]>(() => defaultLineItems(job, serviceTypeSettings, pricingZones));
   const [savingInvoice, setSavingInvoice] = useState(false);
   const [showInvoicePreview, setShowInvoicePreview] = useState(false);
+  const [payLinkLoading, setPayLinkLoading] = useState(false);
+  const [payLinkError, setPayLinkError] = useState<string | null>(null);
+  async function getPaymentLink() {
+    setPayLinkLoading(true);
+    setPayLinkError(null);
+    try {
+      const res = await fetch(`/api/admin/jobs/${job.id}/pay-link`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Something went wrong");
+      window.open(data.url, "_blank", "noreferrer");
+    } catch (e) {
+      setPayLinkError(e instanceof Error ? e.message : "Something went wrong");
+    } finally {
+      setPayLinkLoading(false);
+    }
+  }
   const lastAppliedInvoiceDefaultRef = useRef<string>(JSON.stringify(defaultLineItems(job, serviceTypeSettings, pricingZones)));
   const invoiceHasMountedRef = useRef(false);
   const invoiceDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1318,6 +1342,18 @@ export function ProjectDetailDialog({
           >
             Email
           </button>
+          <button
+            onClick={() => setTab("chat")}
+            className={`px-3 py-1.5 text-sm font-bold ${tab === "chat" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
+          >
+            Chat
+          </button>
+          <button
+            onClick={() => setTab("photos")}
+            className={`px-3 py-1.5 text-sm font-bold ${tab === "photos" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
+          >
+            Photos
+          </button>
           <button onClick={onClose} className="ml-auto shrink-0 pl-2 text-slate-400 hover:text-slate-600">✕</button>
         </div>
 
@@ -1332,7 +1368,15 @@ export function ProjectDetailDialog({
               </button>
             </div>
             <DetailField label="Project #" value={job.project_number} />
-            <DetailField label="Job site address" value={job.service_address} nowrap />
+            <DetailField
+              label="Job site address"
+              value={job.service_address ? (
+                <a href={googleMapsUrl(job.service_address)} target="_blank" rel="noreferrer" className="hover:underline">
+                  {job.service_address}
+                </a>
+              ) : null}
+              nowrap
+            />
             <div className="flex gap-2 text-sm">
               <span className="w-32 shrink-0 text-slate-500">Scope of Work</span>
               <span className="text-slate-800">{job.scope_of_work || "—"}</span>
@@ -1363,7 +1407,7 @@ export function ProjectDetailDialog({
             <DetailField label="Billing address" value={job.customers?.billing_address ?? "—"} nowrap />
           </div>
           <div className="space-y-1">
-            <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">On-site contact</h4>
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Job site contact</h4>
             <DetailField label="Name" value={job.site_contact_name ?? "—"} />
             <DetailField label="Phone" value={job.site_contact_phone ?? "—"} />
           </div>
@@ -1405,6 +1449,17 @@ export function ProjectDetailDialog({
                 .xlsm
               </a>
             </div>
+
+            {job.report_sent_at && (() => {
+              const recipients = [job.customers?.email, ...(job.report_emails?.split(",") ?? [])]
+                .map((e) => e?.trim())
+                .filter(Boolean);
+              return (
+                <p className="text-xs text-slate-500">
+                  Sent {formatDateTime(job.report_sent_at)} to {recipients.join(", ")}
+                </p>
+              );
+            })()}
 
             {reportComplete ? (
               <PdfPreview
@@ -1608,6 +1663,13 @@ export function ProjectDetailDialog({
                 >
                   Download invoice
                 </a>
+                <button
+                  onClick={getPaymentLink}
+                  disabled={payLinkLoading}
+                  className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-bold uppercase text-slate-700 disabled:opacity-50"
+                >
+                  {payLinkLoading ? "Loading…" : "Get payment link"}
+                </button>
                 <label className="ml-auto flex items-center gap-1.5 text-sm text-slate-600" title="Hold the report back until this project is marked Paid, instead of drafting it immediately">
                   <input
                     type="checkbox"
@@ -1619,6 +1681,7 @@ export function ProjectDetailDialog({
                 </label>
               </div>
             )}
+            {payLinkError && <p className="mt-2 text-sm text-red-600">{payLinkError}</p>}
             {showInvoicePreview && job.invoice_total_cents != null && (
               <div className="mt-3">
                 <PdfPreview
@@ -1791,6 +1854,32 @@ export function ProjectDetailDialog({
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {tab === "chat" && (
+          <div className="mt-4">
+            <JobChat
+              endpoint={`/api/admin/jobs/${job.id}/messages`}
+              photoUploadEndpoint={`/api/admin/jobs/${job.id}/photos`}
+              photoViewEndpointBase={`/api/admin/jobs/${job.id}/photos`}
+              onPhotoSent={onChanged}
+              senderRole="admin"
+              sendButtonClassName="rounded-lg bg-brand-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+            />
+          </div>
+        )}
+
+        {tab === "photos" && (
+          <div className="mt-4">
+            <JobPhotos
+              photos={job.photos ?? []}
+              uploadEndpoint={`/api/admin/jobs/${job.id}/photos`}
+              viewEndpointBase={`/api/admin/jobs/${job.id}/photos`}
+              deleteEndpointBase={`/api/admin/jobs/${job.id}/photos`}
+              onChanged={onChanged}
+              uploadButtonClassName="rounded-lg bg-brand-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+            />
           </div>
         )}
 
@@ -2697,7 +2786,7 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
           onChange={(e) => setScopeOfWork(e.target.value)}
         />
 
-        <label className="mt-3 block text-sm font-medium text-slate-700">On-site contact</label>
+        <label className="mt-3 block text-sm font-medium text-slate-700">Job site contact</label>
         <div className="mt-1 flex gap-2">
           <div className="flex-1">
             <input
@@ -2754,7 +2843,7 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
               }
             }}
           />
-          Customer contact is also on-site contact
+          Customer contact is also job site contact
         </label>
 
         <label className="mt-3 block text-sm font-medium text-slate-700">Notes</label>
@@ -3237,7 +3326,7 @@ export function EditProjectDialog({
           onChange={(e) => setScopeOfWork(e.target.value)}
         />
 
-        <label className="mt-3 block text-sm font-medium text-slate-700">On-site contact</label>
+        <label className="mt-3 block text-sm font-medium text-slate-700">Job site contact</label>
         <div className="mt-1 flex gap-2">
           <div className="flex-1">
             <input
@@ -3294,7 +3383,7 @@ export function EditProjectDialog({
               }
             }}
           />
-          Customer contact is also on-site contact
+          Customer contact is also job site contact
         </label>
 
         <label className="mt-3 block text-sm font-medium text-slate-700">Email results to:</label>

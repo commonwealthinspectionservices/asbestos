@@ -12,7 +12,7 @@ export default async function PortalBookPage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <PortalNav />
+      <PortalNav isHomeowner={session.customer.is_homeowner} />
       <PortalBookingForm />
     </div>
   );

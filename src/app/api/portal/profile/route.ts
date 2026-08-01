@@ -21,8 +21,8 @@ export const POST = withApiErrors(async (req: NextRequest) => {
   const accountType = body?.accountType;
   const isHomeowner = accountType === "homeowner";
 
-  if (!name || !phone) {
-    return NextResponse.json({ error: "Name and phone are required" }, { status: 400 });
+  if (!name || !phone || !company) {
+    return NextResponse.json({ error: "Name, phone, and company are required" }, { status: 400 });
   }
 
   const email = (session.email ?? "").toLowerCase();

@@ -140,7 +140,7 @@ function JobCard({ job, onOpen }: { job: JobWithCustomer; onOpen: () => void }) 
           </div>
           {(job.site_contact_name || job.site_contact_phone) && (
             <div className="mt-1 text-xs text-slate-500">
-              On-site: {job.site_contact_name}{job.site_contact_name && job.site_contact_phone ? " · " : ""}{job.site_contact_phone}
+              Job site contact: {job.site_contact_name}{job.site_contact_name && job.site_contact_phone ? " · " : ""}{job.site_contact_phone}
             </div>
           )}
         </div>

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { SavedAddress } from "@/lib/types";
 import AddressAutocompleteInput from "@/components/shared/AddressAutocompleteInput";
+import { formatPhoneNumber } from "@/lib/phone";
 
 interface ServiceTypeOption {
   key: string;
@@ -11,7 +12,7 @@ interface ServiceTypeOption {
   rateLabel: string;
 }
 
-type Step = "address" | "category" | "service" | "date" | "contact" | "review" | "done";
+type Step = "address" | "category" | "service" | "scope" | "date" | "contact" | "review" | "done";
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
@@ -23,6 +24,7 @@ function todayIso(): string {
 // relabeling a service type in Settings doesn't silently drop this note.
 function serviceTypeSubtext(key: string): string | null {
   if (key === "asbestos_bulk") return "Sampling of specific area(s) as determined by the client";
+  if (key === "mold_air") return "Sampling of indoor air quality";
   if (key === "mold_bulk") return "Sampling physical building materials";
   if (key === "mold_swab") return "Sampling of surfaces";
   return null;
@@ -38,7 +40,7 @@ function serviceTypeSubtext(key: string): string | null {
 const CATEGORY_LABELS: Record<string, string> = {
   asbestos: "Asbestos Inspection",
   mold: "Mold Inspection",
-  lead: "Lead Inspection",
+  lead: "Lead Paint Sampling",
 };
 
 function categoryKeyOf(serviceTypeKey: string): string {
@@ -68,6 +70,7 @@ export default function PortalBookingForm() {
 
   const [categoryKey, setCategoryKey] = useState("");
   const [serviceTypeKey, setServiceTypeKey] = useState("");
+  const [scopeOfWork, setScopeOfWork] = useState("");
 
   const [date, setDate] = useState(todayIso());
   const [window_, setWindow] = useState<"AM" | "PM" | "ANY">("ANY");
@@ -124,7 +127,7 @@ export default function PortalBookingForm() {
     const matches = serviceTypes.filter((s) => categoryKeyOf(s.key) === pickedCategoryKey);
     if (matches.length === 1) {
       setServiceTypeKey(matches[0].key);
-      setStep("date");
+      setStep("scope");
     } else {
       setServiceTypeKey("");
       setStep("service");
@@ -173,6 +176,7 @@ export default function PortalBookingForm() {
         body: JSON.stringify({
           address, lat, lng, distanceMiles, state,
           serviceTypeKey,
+          scopeOfWork,
           date: scheduleViaContact ? null : date,
           window: window_,
           scheduleViaContact,
@@ -193,15 +197,40 @@ export default function PortalBookingForm() {
 
   return (
     <div className="mx-auto max-w-md px-4 py-8">
-      <h1 className="text-lg font-semibold text-slate-800">Book a project</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-sm font-bold uppercase text-brand-700">Book a project</h1>
+        <button
+          onClick={() => router.push("/portal/dashboard")}
+          aria-label="Cancel"
+          className="text-slate-400 hover:text-slate-600"
+        >
+          ✕
+        </button>
+      </div>
 
       {error && <div className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
       {step === "address" && (
         <section className="mt-6 space-y-4">
+          <div>
+            <label className="block text-sm font-medium uppercase text-slate-700">Enter an address</label>
+            <div className="mt-1">
+              <AddressAutocompleteInput
+                apiBase="/api/portal"
+                value={newAddressInput}
+                onChange={setNewAddressInput}
+                placeholder="123 Main St, Boston, MA"
+              />
+            </div>
+            <label className="mt-2 flex items-center gap-2 text-sm text-slate-600">
+              <input type="checkbox" checked={saveNewAddress} onChange={(e) => setSaveNewAddress(e.target.checked)} />
+              Save this address
+            </label>
+          </div>
+
           {savedAddresses.length > 0 && (
             <div>
-              <label className="block text-sm font-medium text-slate-700">Saved addresses</label>
+              <label className="block text-sm font-medium uppercase text-slate-700">Saved addresses</label>
               <div className="mt-2 space-y-2">
                 {savedAddresses.map((a) => (
                   <button
@@ -217,24 +246,8 @@ export default function PortalBookingForm() {
             </div>
           )}
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700">Enter an address</label>
-            <div className="mt-1">
-              <AddressAutocompleteInput
-                apiBase="/api/portal"
-                value={newAddressInput}
-                onChange={setNewAddressInput}
-                placeholder="123 Main St, Boston, MA"
-              />
-            </div>
-            <label className="mt-2 flex items-center gap-2 text-sm text-slate-600">
-              <input type="checkbox" checked={saveNewAddress} onChange={(e) => setSaveNewAddress(e.target.checked)} />
-              Save this address
-            </label>
-          </div>
-
           <button
-            className="w-full rounded-lg bg-brand-600 px-4 py-3 font-medium text-white disabled:opacity-50"
+            className="flex w-full items-center justify-center border-[3px] border-brand-700 bg-brand-50 py-3 pt-[14px] text-sm font-extrabold uppercase leading-none text-brand-700 hover:bg-yellow-100 disabled:opacity-50"
             disabled={loading || !newAddressInput.trim()}
             onClick={() => checkAddress(newAddressInput)}
           >
@@ -286,8 +299,42 @@ export default function PortalBookingForm() {
             ))}
           </div>
           <button
-            className="w-full rounded-lg bg-brand-600 px-4 py-3 font-medium text-white disabled:opacity-50"
+            className="flex w-full items-center justify-center border-[3px] border-brand-700 bg-brand-50 py-3 pt-[14px] text-sm font-extrabold uppercase leading-none text-brand-700 hover:bg-yellow-100 disabled:opacity-50"
             disabled={!serviceTypeKey}
+            onClick={() => setStep("scope")}
+          >
+            Continue
+          </button>
+        </section>
+      )}
+
+      {step === "scope" && (
+        <section className="mt-6 space-y-4">
+          <button
+            className="text-sm text-brand-600 underline"
+            onClick={() => {
+              const matches = serviceTypes.filter((s) => categoryKeyOf(s.key) === categoryKey);
+              setStep(matches.length > 1 ? "service" : "category");
+            }}
+          >
+            ← Back
+          </button>
+          <div>
+            <label className="block text-sm font-medium uppercase text-slate-700">Scope of work</label>
+            <p className="mt-1 text-xs text-slate-500">
+              What needs to be inspected or sampled? e.g. &ldquo;kitchen and bathroom flooring, basement pipe insulation&rdquo;
+            </p>
+            <textarea
+              className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2"
+              rows={4}
+              placeholder="Describe the scope of work"
+              value={scopeOfWork}
+              onChange={(e) => setScopeOfWork(e.target.value)}
+            />
+          </div>
+          <button
+            className="flex w-full items-center justify-center border-[3px] border-brand-700 bg-brand-50 py-3 pt-[14px] text-sm font-extrabold uppercase leading-none text-brand-700 hover:bg-yellow-100 disabled:opacity-50"
+            disabled={!scopeOfWork.trim()}
             onClick={() => setStep("date")}
           >
             Continue
@@ -297,13 +344,7 @@ export default function PortalBookingForm() {
 
       {step === "date" && (
         <section className="mt-6 space-y-4">
-          <button
-            className="text-sm text-brand-600 underline"
-            onClick={() => {
-              const matches = serviceTypes.filter((s) => categoryKeyOf(s.key) === categoryKey);
-              setStep(matches.length > 1 ? "service" : "category");
-            }}
-          >
+          <button className="text-sm text-brand-600 underline" onClick={() => setStep("scope")}>
             ← Back
           </button>
           <label className="flex items-start gap-2 rounded-lg border border-slate-200 px-4 py-3 text-sm text-slate-700">
@@ -316,7 +357,7 @@ export default function PortalBookingForm() {
                 setSuggestedDate(null);
               }}
             />
-            Coordinate date and time with on-site contact.
+            Coordinate date and time with job site contact.
           </label>
           {!scheduleViaContact && (
             <>
@@ -358,7 +399,7 @@ export default function PortalBookingForm() {
             </>
           )}
           <button
-            className="w-full rounded-lg bg-brand-600 px-4 py-3 font-medium text-white disabled:opacity-50"
+            className="flex w-full items-center justify-center border-[3px] border-brand-700 bg-brand-50 py-3 pt-[14px] text-sm font-extrabold uppercase leading-none text-brand-700 hover:bg-yellow-100 disabled:opacity-50"
             disabled={loading || (!scheduleViaContact && !!suggestedDate)}
             onClick={() => setStep("contact")}
           >
@@ -372,7 +413,7 @@ export default function PortalBookingForm() {
           <button className="text-sm text-brand-600 underline" onClick={() => setStep("date")}>
             ← Back
           </button>
-          <p className="text-sm font-medium text-slate-700">On-site contact</p>
+          <p className="text-sm font-medium text-slate-700">Job site contact</p>
           <input
             className="w-full rounded-lg border border-slate-300 px-3 py-2"
             placeholder="Site contact name"
@@ -384,7 +425,7 @@ export default function PortalBookingForm() {
             placeholder="Site contact phone"
             type="tel"
             value={siteContactPhone}
-            onChange={(e) => setSiteContactPhone(e.target.value)}
+            onChange={(e) => setSiteContactPhone(formatPhoneNumber(e.target.value))}
           />
           <textarea
             className="w-full rounded-lg border border-slate-300 px-3 py-2"
@@ -393,7 +434,7 @@ export default function PortalBookingForm() {
             onChange={(e) => setNotes(e.target.value)}
           />
           <button
-            className="w-full rounded-lg bg-brand-600 px-4 py-3 font-medium text-white disabled:opacity-50"
+            className="flex w-full items-center justify-center border-[3px] border-brand-700 bg-brand-50 py-3 pt-[14px] text-sm font-extrabold uppercase leading-none text-brand-700 hover:bg-yellow-100 disabled:opacity-50"
             disabled={!siteContactName.trim() || !siteContactPhone.trim()}
             onClick={() => setStep("review")}
           >
@@ -428,10 +469,14 @@ export default function PortalBookingForm() {
               ) : null;
             })()}
             <div>
+              <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Scope of work</div>
+              <div className="whitespace-pre-wrap text-slate-700">{scopeOfWork}</div>
+            </div>
+            <div>
               <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Date</div>
               <div className="text-slate-700">
                 {scheduleViaContact ? (
-                  "To be scheduled with the on-site contact"
+                  "To be scheduled with the job site contact"
                 ) : (
                   <>
                     {date}
@@ -442,7 +487,7 @@ export default function PortalBookingForm() {
             </div>
             {(siteContactName || siteContactPhone) && (
               <div>
-                <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">On-site contact</div>
+                <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Job site contact</div>
                 <div className="text-slate-700">{[siteContactName, siteContactPhone].filter(Boolean).join(" — ")}</div>
               </div>
             )}
@@ -455,7 +500,7 @@ export default function PortalBookingForm() {
           </div>
 
           <button
-            className="w-full rounded-lg bg-brand-600 px-4 py-3 font-medium text-white disabled:opacity-50"
+            className="flex w-full items-center justify-center border-[3px] border-brand-700 bg-brand-50 py-3 pt-[14px] text-sm font-extrabold uppercase leading-none text-brand-700 hover:bg-yellow-100 disabled:opacity-50"
             disabled={loading}
             onClick={submitBooking}
           >
@@ -468,7 +513,7 @@ export default function PortalBookingForm() {
         <section className="mt-6 space-y-3">
           <div className="rounded-lg bg-emerald-50 px-4 py-4 text-sm text-emerald-800">
             <p className="font-medium">
-              {confirmedDate ? `Booked for ${confirmedDate}.` : "Booked — we'll coordinate scheduling directly with your on-site contact."}
+              {confirmedDate ? `Booked for ${confirmedDate}.` : "Booked — we'll coordinate scheduling directly with your job site contact."}
             </p>
             {dateChanged && <p className="mt-1">Your requested date was full, so we moved you to the next available date.</p>}
           </div>

@@ -94,7 +94,7 @@ export default function ContactsList() {
           onChange={(e) => setEmail(e.target.value)}
         />
         <button
-          className="mt-2 rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+          className="mt-2 inline-flex h-[22px] items-center border-[3px] border-brand-700 bg-brand-50 px-4 pt-0.5 text-sm font-extrabold uppercase leading-none text-brand-700 hover:bg-yellow-100 disabled:opacity-50 sm:h-[29px]"
           disabled={adding || !name.trim() || !email.trim()}
           onClick={addContact}
         >

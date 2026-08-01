@@ -75,6 +75,7 @@ function baseJob(overrides: Partial<JobWithCustomer> = {}): JobWithCustomer {
     distance_miles: null,
     stripe_invoice_id: null,
     documents: [],
+    photos: [],
     report_drafted_at: null,
     report_draft_gmail_id: null,
     report_draft_gmail_message_id: null,

@@ -12,7 +12,7 @@ export default async function PortalAddressesPage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <PortalNav />
+      <PortalNav isHomeowner={session.customer.is_homeowner} />
       <AddressBook />
     </div>
   );

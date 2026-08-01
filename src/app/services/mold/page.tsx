@@ -12,25 +12,9 @@ export default function MoldServicePage() {
     <div className="min-h-screen bg-white">
       <MarketingNav />
       <div className="mx-auto max-w-2xl px-4 py-10">
-        <h1 className="text-2xl font-bold text-brand-700">Mold Inspections</h1>
-        <p className="mt-4 text-slate-700">
-          Visible mold, water damage, musty odors or a recent leak can all be reasons to have a
-          property assessed before a renovation, sale or remediation project. We perform an
-          independent visual assessment of the affected areas and collect samples — surface,
-          air or bulk material, depending on what&apos;s found — for lab analysis.
-        </p>
-        <p className="mt-4 text-slate-700">
-          The lab results come back with a clear report identifying what was found and where, so
-          you know exactly what needs to be addressed before hiring a remediation company —
-          and can verify the work afterward with a follow-up clearance inspection.
-        </p>
-        <p className="mt-4 text-slate-700">
-          As with our asbestos work, we only inspect and test — we don&apos;t perform remediation —
-          so our findings stay independent and unbiased.
-        </p>
+        <h1 className="text-2xl font-bold uppercase text-brand-700">Mold Inspection Services</h1>
 
-        <h2 className="mt-10 text-lg font-bold text-brand-700">Types of Mold Testing</h2>
-        <div className="mt-4 space-y-4">
+        <div className="mt-6 space-y-4">
           <div className="rounded-lg border border-slate-200 p-4">
             <h3 className="font-bold text-brand-700">Mold Air Sampling</h3>
             <p className="mt-1 text-slate-700">

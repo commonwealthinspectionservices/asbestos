@@ -145,6 +145,27 @@ export interface JobDocument {
   project_number_mismatch?: string | null;
 }
 
+/** A photo uploaded to a project's Photos tab (job-photos storage bucket) — either side can add these, unlike `documents` which is admin-only lab paperwork. */
+export interface JobPhoto {
+  id: string;
+  file_name: string;
+  storage_path: string;
+  uploaded_at: string;
+  uploaded_by: "admin" | "customer";
+}
+
+/** A single message in a project's Chat tab (job_messages table) — not embedded on Job since it's an unbounded, append-only log fetched separately. */
+export interface JobMessage {
+  id: string;
+  job_id: string;
+  sender_role: "admin" | "customer";
+  sender_name: string;
+  body: string;
+  created_at: string;
+  read_by_admin: boolean;
+  read_by_customer: boolean;
+}
+
 /** A manually-entered invoice line — total is quantity * unit_cost_cents, not stored separately. */
 export interface InvoiceLineItem {
   description: string;
@@ -221,6 +242,7 @@ export interface Job {
   distance_miles: number | null;
   stripe_invoice_id: string | null;
   documents: JobDocument[];
+  photos: JobPhoto[];
   /** Set automatically whenever a Gmail draft gets created for this project (the automatic email-match path or the manual "Create Email Draft" button) — never cleared, so it survives a second draft being made. */
   report_drafted_at: string | null;
   /** Gmail's id for the most recently created draft — checked live via /draft-status to confirm it's still sitting in Drafts, since report_drafted_at alone can't tell a waiting draft from one already sent or deleted by hand. */

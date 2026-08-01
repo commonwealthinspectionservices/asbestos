@@ -536,6 +536,31 @@ alter table jobs add column if not exists confirmed_time text;
 -- draftInvoiceEmailForJob in lib/lab-email.ts.
 alter table jobs add column if not exists billing_contact_id uuid references customers (id);
 
+-- Per-project photo gallery — a lightweight, admin-and-client-uploadable
+-- counterpart to `documents` above (which is lab paperwork specifically,
+-- grouped by service type). Same storage-bucket-plus-jsonb-array pattern,
+-- just a flat list with no service-type stations, since a site photo isn't
+-- tied to a particular sample. Stored in the "job-photos" bucket.
+alter table jobs add column if not exists photos jsonb not null default '[]'::jsonb;
+
+-- Per-project chat between the admin and the client (customer account),
+-- shown as its own tab on the project detail view on both sides. A
+-- separate table (not a jsonb column on jobs, unlike documents/photos)
+-- since it's an append-only log that can grow unbounded and doesn't need
+-- to be read back as a whole on every job fetch — see /api/admin/jobs/[id]/
+-- messages and /api/portal/projects/[id]/messages.
+create table if not exists job_messages (
+  id uuid primary key default gen_random_uuid(),
+  job_id uuid not null references jobs (id) on delete cascade,
+  sender_role text not null check (sender_role in ('admin', 'customer')),
+  sender_name text not null,
+  body text not null,
+  created_at timestamptz not null default now(),
+  read_by_admin boolean not null default false,
+  read_by_customer boolean not null default false
+);
+create index if not exists job_messages_job_id_idx on job_messages (job_id, created_at);
+
 alter table customers enable row level security;
 alter table jobs enable row level security;
 alter table saved_addresses enable row level security;
@@ -543,3 +568,4 @@ alter table daily_routes enable row level security;
 alter table settings enable row level security;
 alter table companies enable row level security;
 alter table gmail_connection enable row level security;
+alter table job_messages enable row level security;

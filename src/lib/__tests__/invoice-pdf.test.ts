@@ -108,6 +108,7 @@ const job: Job = {
   distance_miles: 0.5,
   stripe_invoice_id: null,
   documents: [],
+  photos: [],
   report_drafted_at: null,
   report_draft_gmail_id: null,
   report_draft_gmail_message_id: null,

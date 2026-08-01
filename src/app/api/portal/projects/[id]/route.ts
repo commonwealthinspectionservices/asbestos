@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireContractorApi } from "@/lib/contractor-api";
+import { requireContractorApi, getCompanyCustomerIds } from "@/lib/contractor-api";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { withApiErrors } from "@/lib/api-handler";
 
@@ -14,12 +14,14 @@ export const PATCH = withApiErrors(async (
   const auth = await requireContractorApi();
   if (auth.error) return auth.error;
 
+  const companyCustomerIds = await getCompanyCustomerIds(auth.customer);
+
   const supabase = getSupabaseAdmin();
   const { data: job } = await supabase
     .from("jobs")
     .select("id")
     .eq("id", params.id)
-    .eq("customer_id", auth.customer.id)
+    .in("customer_id", companyCustomerIds)
     .maybeSingle();
   if (!job) return NextResponse.json({ error: "Project not found" }, { status: 404 });
 

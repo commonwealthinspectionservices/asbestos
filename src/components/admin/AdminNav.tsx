@@ -22,8 +22,10 @@ export default function AdminNav() {
     <nav className="border-b border-slate-200 bg-white">
       <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
         <div className="flex items-center gap-2">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="Commonwealth Inspection Services, LLC." width={44} height={44} className="rounded-full" />
+          <Link href="/admin/dashboard">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.png" alt="Commonwealth Inspection Services, LLC." width={44} height={44} className="rounded-full" />
+          </Link>
           <div className="ml-2 flex items-center gap-2">
             <Link href="/admin/dashboard" className={linkClass("/admin/dashboard")}>Projects</Link>
             <Link href="/admin/invoices" className={linkClass("/admin/invoices")}>Invoices</Link>

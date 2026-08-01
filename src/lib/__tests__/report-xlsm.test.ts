@@ -77,6 +77,7 @@ const job: Job = {
   distance_miles: 0.5,
   stripe_invoice_id: null,
   documents: [],
+  photos: [],
   created_at: new Date().toISOString(),
 };
 

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireContractorApi } from "@/lib/contractor-api";
+import { requireContractorApi, getCompanyCustomerIds } from "@/lib/contractor-api";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { withApiErrors } from "@/lib/api-handler";
 
@@ -7,11 +7,13 @@ export const GET = withApiErrors(async () => {
   const auth = await requireContractorApi();
   if (auth.error) return auth.error;
 
+  const companyCustomerIds = await getCompanyCustomerIds(auth.customer);
+
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
     .from("jobs")
     .select("*")
-    .eq("customer_id", auth.customer.id)
+    .in("customer_id", companyCustomerIds)
     .neq("status", "waitlist_out_of_area")
     .order("requested_date", { ascending: false });
 

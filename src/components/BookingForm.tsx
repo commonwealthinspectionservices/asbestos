@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { formatPhoneNumber } from "@/lib/phone";
 
 interface ServiceTypeOption {
   key: string;
@@ -321,11 +322,11 @@ export default function BookingForm() {
           <input className="w-full rounded-lg border border-slate-300 px-3 py-2" placeholder="Billing address" value={billingAddress} onChange={(e) => setBillingAddress(e.target.value)} />
 
           <div>
-            <p className="text-sm font-medium text-slate-700">On-site contact (if different from above)</p>
+            <p className="text-sm font-medium text-slate-700">Job site contact (if different from above)</p>
             <p className="text-xs text-slate-500">Who we should coordinate scheduling with at the property — e.g. the homeowner.</p>
           </div>
           <input className="w-full rounded-lg border border-slate-300 px-3 py-2" placeholder="Site contact name (optional)" value={siteContactName} onChange={(e) => setSiteContactName(e.target.value)} />
-          <input className="w-full rounded-lg border border-slate-300 px-3 py-2" placeholder="Site contact phone (optional)" type="tel" value={siteContactPhone} onChange={(e) => setSiteContactPhone(e.target.value)} />
+          <input className="w-full rounded-lg border border-slate-300 px-3 py-2" placeholder="Site contact phone (optional)" type="tel" value={siteContactPhone} onChange={(e) => setSiteContactPhone(formatPhoneNumber(e.target.value))} />
 
           <textarea className="w-full rounded-lg border border-slate-300 px-3 py-2" placeholder="Notes — gate code, contact on site, etc. (optional)" value={notes} onChange={(e) => setNotes(e.target.value)} />
 

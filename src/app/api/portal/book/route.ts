@@ -21,7 +21,7 @@ export const POST = withApiErrors(async (req: NextRequest) => {
   const body = await req.json().catch(() => null);
   const {
     address, lat, lng, distanceMiles, state, serviceTypeKey, date: requestedDate, window,
-    scheduleViaContact, siteContactName, siteContactPhone, notes, disclaimerAck,
+    scheduleViaContact, siteContactName, siteContactPhone, notes, scopeOfWork, disclaimerAck,
   } = body ?? {};
 
   if (
@@ -86,6 +86,7 @@ export const POST = withApiErrors(async (req: NextRequest) => {
       window: scheduleViaContact ? "ANY" : window,
       status: scheduleViaContact ? "needs_scheduling" : "scheduled",
       notes: notes || null,
+      scope_of_work: scopeOfWork || null,
       disclaimer_ack: true,
       distance_miles: distanceMiles ?? null,
       is_homeowner: auth.customer.is_homeowner,

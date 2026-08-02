@@ -1732,7 +1732,7 @@ export function ProjectDetailDialog({
                       }
                       className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-bold text-slate-700 disabled:opacity-50"
                     >
-                      {invoiceDraft.creating ? "Creating…" : job.invoice_drafted_at ? "Recreate Invoice Draft" : "Create Invoice Draft"}
+                      {invoiceDraft.creating ? "Creating…" : "New Invoice Draft"}
                     </button>
                     {job.invoice_draft_gmail_message_id && (
                       <a
@@ -1756,7 +1756,7 @@ export function ProjectDetailDialog({
                     Include payment now link
                   </label>
                   <p className="mt-1.5 text-xs text-slate-500">
-                    {draftStatusText(job.invoice_drafted_at, job.invoice_sent_at, invoiceDraft.status, "No draft created yet", "No draft in Gmail — click Create Invoice Draft")}
+                    {draftStatusText(job.invoice_drafted_at, job.invoice_sent_at, invoiceDraft.status, "No draft created yet", "No draft in Gmail — click New Invoice Draft")}
                   </p>
                 </div>
                 {job.invoice_recipient && (
@@ -1795,7 +1795,7 @@ export function ProjectDetailDialog({
                       }
                       className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-bold text-slate-700 disabled:opacity-50"
                     >
-                      {reportDraft.creating ? "Creating…" : job.report_drafted_at ? "Recreate Report Draft" : "Create Report Draft"}
+                      {reportDraft.creating ? "Creating…" : "New Report Draft"}
                     </button>
                     {job.report_draft_gmail_message_id && (
                       <a
@@ -1812,7 +1812,7 @@ export function ProjectDetailDialog({
                   <p className="mt-1.5 text-xs text-slate-500">
                     {job.is_homeowner && job.status !== "paid"
                       ? "Held back from the customer until this project is marked Paid."
-                      : draftStatusText(job.report_drafted_at, job.report_sent_at, reportDraft.status, "No draft created yet", "No draft in Gmail — click Create Report Draft")}
+                      : draftStatusText(job.report_drafted_at, job.report_sent_at, reportDraft.status, "No draft created yet", "No draft in Gmail — click New Report Draft")}
                   </p>
                 </div>
                 {job.report_recipient && (

@@ -520,13 +520,6 @@ alter table companies add column if not exists billing_contact_id uuid reference
 -- isn't who should be looped in on the results.
 alter table jobs add column if not exists invoice_emails text;
 
--- Contacts at a company who should always be Cc'd on every invoice for
--- that company, in addition to whatever billing_contact_id/the per-job
--- Also Cc list already add — set once, applies to every future invoice
--- without re-adding the same people job by job. See draftInvoiceEmailForJob
--- in lib/lab-email.ts.
-alter table companies add column if not exists invoice_cc_contact_ids uuid[] not null default '{}';
-
 -- Set once at portal signup (Homeowner vs Contractor choice — see
 -- src/app/portal/signup/page.tsx). Lets new jobs booked by this account
 -- default their own is_homeowner flag (see its comment above) from the
@@ -616,8 +609,6 @@ begin
   update jobs set billing_contact_id = survivor_id where billing_contact_id = loser_id;
   update saved_addresses set customer_id = survivor_id where customer_id = loser_id;
   update companies set billing_contact_id = survivor_id where billing_contact_id = loser_id;
-  update companies set invoice_cc_contact_ids = array_replace(invoice_cc_contact_ids, loser_id, survivor_id)
-    where loser_id = any(invoice_cc_contact_ids);
 
   if loser_auth_id is not null and survivor_auth_id is null then
     update customers set auth_user_id = null where id = loser_id;

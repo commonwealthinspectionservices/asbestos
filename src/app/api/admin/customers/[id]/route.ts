@@ -129,18 +129,6 @@ export const DELETE = withApiErrors(async (
     );
   }
 
-  const { data: ccCompany } = await supabase
-    .from("companies")
-    .select("name")
-    .contains("invoice_cc_contact_ids", [params.id])
-    .maybeSingle();
-  if (ccCompany) {
-    return NextResponse.json(
-      { error: `Cannot delete — this contact is set as an invoice Cc recipient for ${ccCompany.name}.` },
-      { status: 400 }
-    );
-  }
-
   const { error } = await supabase.from("customers").delete().eq("id", params.id);
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

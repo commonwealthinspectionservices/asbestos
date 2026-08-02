@@ -440,18 +440,8 @@ async function draftInvoiceEmailForJob(params: {
     : null;
   const toCustomer = billingContact ?? customer;
 
-  // Contacts locked in at the company level to always Cc on every invoice
-  // (see the invoice_cc_contact_ids column comment) — set once, applies
-  // automatically instead of re-adding the same people via the per-job Also
-  // Cc list on every new project.
-  const ccContactIds = pricedJob.customers.companies?.invoice_cc_contact_ids ?? [];
-  const lockedInCc = ccContactIds.length
-    ? ((await supabase.from("customers").select("email").in("id", ccContactIds)).data ?? [])
-    : [];
-
   const ccRecipients = [
     ...(billingContact ? [customer.email] : []),
-    ...lockedInCc.map((c) => c.email),
     ...(pricedJob.invoice_emails?.split(",") ?? []),
   ]
     .map((e) => e.trim())

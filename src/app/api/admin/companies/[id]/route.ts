@@ -60,7 +60,6 @@ export const PATCH = withApiErrors(async (
   if ("phone" in body) patch.phone = body.phone || null;
   if ("email" in body) patch.email = body.email || null;
   if ("billing_contact_id" in body) patch.billing_contact_id = body.billing_contact_id || null;
-  if ("invoice_cc_contact_ids" in body) patch.invoice_cc_contact_ids = Array.isArray(body.invoice_cc_contact_ids) ? body.invoice_cc_contact_ids : [];
 
   const supabase = getSupabaseAdmin();
   const { data: company, error } = await supabase

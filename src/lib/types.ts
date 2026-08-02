@@ -104,8 +104,6 @@ export interface Company {
   email: string | null;
   /** A specific contact at this company (e.g. an AP person) who invoices go to instead of whichever contact a given job happens to be tied to. Null falls back to the job's own contact. */
   billing_contact_id: string | null;
-  /** Contacts at this company who always get Cc'd on every invoice, on top of billing_contact_id/the per-job Also Cc list — set once at the company level instead of re-added job by job. */
-  invoice_cc_contact_ids: string[];
   created_at: string;
 }
 

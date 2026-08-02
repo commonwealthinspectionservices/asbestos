@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import AddressAutocompleteInput from "@/components/shared/AddressAutocompleteInput";
 import ZipInput, { useAutoZip } from "@/components/shared/ZipInput";
 import { buildBillingAddress, US_STATES } from "@/lib/address";
+import { formatPhoneNumber } from "@/lib/phone";
 
 export default function OnboardingForm({
   accountType,
@@ -70,7 +71,7 @@ export default function OnboardingForm({
       {accountType !== "homeowner" && (
         <input className="mt-4 w-full rounded-lg border border-slate-300 px-4 py-3 text-base" placeholder="Company" value={company} onChange={(e) => setCompany(e.target.value)} />
       )}
-      <input className="mt-4 w-full rounded-lg border border-slate-300 px-4 py-3 text-base" placeholder="Phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
+      <input className="mt-4 w-full rounded-lg border border-slate-300 px-4 py-3 text-base" placeholder="Phone" type="tel" value={phone} onChange={(e) => setPhone(formatPhoneNumber(e.target.value))} />
 
       <div className="mt-4 flex gap-2">
         <div className="w-0 flex-1">

@@ -2481,8 +2481,7 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
   const [serviceCity, setServiceCity] = useState("");
   const [serviceState, setServiceState] = useState("");
   const [serviceZip, setServiceZip] = useState("");
-  const [siteContactFirstName, setSiteContactFirstName] = useState("");
-  const [siteContactLastName, setSiteContactLastName] = useState("");
+  const [siteContactName, setSiteContactName] = useState("");
   const [siteContactPhone, setSiteContactPhone] = useState("");
   const [siteContactSameAsContact, setSiteContactSameAsContact] = useState(false);
   const [selectedServiceTypeKeys, setSelectedServiceTypeKeys] = useState<string[]>([]);
@@ -2514,9 +2513,7 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
 
   useEffect(() => {
     if (!siteContactSameAsContact) return;
-    const split = splitFullName(contactName);
-    setSiteContactFirstName(split.first);
-    setSiteContactLastName(split.last);
+    setSiteContactName(contactName);
     setSiteContactPhone(phone);
   }, [siteContactSameAsContact, contactName, phone]);
 
@@ -2588,7 +2585,7 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
           serviceAddress: buildBillingAddress({
             street: serviceStreet, unit: serviceUnit, city: serviceCity, state: serviceState, zip: serviceZip,
           }) || undefined,
-          siteContactName: joinName(siteContactFirstName, siteContactLastName) || undefined,
+          siteContactName: siteContactName.trim() || undefined,
           siteContactPhone: siteContactPhone.trim() || undefined,
           serviceTypeKeys: selectedServiceTypeKeys,
           customServiceType: customServiceType.trim() || undefined,
@@ -2796,19 +2793,13 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
         <div className="mt-1 flex gap-2">
           <div className="w-0 flex-1">
             <ComboboxInput
-              value={joinName(siteContactFirstName, siteContactLastName)}
-              onChange={(v) => {
-                const split = splitFullName(v);
-                setSiteContactFirstName(split.first);
-                setSiteContactLastName(split.last);
-              }}
+              value={siteContactName}
+              onChange={setSiteContactName}
               options={companyContacts}
               getLabel={(c) => c.name}
               getSublabel={(c) => c.email}
               onSelect={(c) => {
-                const split = splitFullName(c.name);
-                setSiteContactFirstName(split.first);
-                setSiteContactLastName(split.last);
+                setSiteContactName(c.name);
                 setSiteContactPhone(c.phone);
               }}
               placeholder="Name"
@@ -2854,8 +2845,7 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
               const checked = e.target.checked;
               setSiteContactSameAsContact(checked);
               if (!checked) {
-                setSiteContactFirstName("");
-                setSiteContactLastName("");
+                setSiteContactName("");
                 setSiteContactPhone("");
               }
             }}
@@ -2941,9 +2931,7 @@ export function EditProjectDialog({
   const [serviceCity, setServiceCity] = useState(serviceInit.city);
   const [serviceState, setServiceState] = useState(serviceInit.state);
   const [serviceZip, setServiceZip] = useState(serviceInit.zip);
-  const siteContactInit = splitFullName(job.site_contact_name);
-  const [siteContactFirstName, setSiteContactFirstName] = useState(siteContactInit.first);
-  const [siteContactLastName, setSiteContactLastName] = useState(siteContactInit.last);
+  const [siteContactName, setSiteContactName] = useState(job.site_contact_name ?? "");
   const [siteContactPhone, setSiteContactPhone] = useState(job.site_contact_phone ?? "");
   const [siteContactSameAsContact, setSiteContactSameAsContact] = useState(false);
   const [selectedServiceTypeKeys, setSelectedServiceTypeKeys] = useState<string[]>([]);
@@ -3018,9 +3006,7 @@ export function EditProjectDialog({
 
   useEffect(() => {
     if (!siteContactSameAsContact) return;
-    const split = splitFullName(contactName);
-    setSiteContactFirstName(split.first);
-    setSiteContactLastName(split.last);
+    setSiteContactName(contactName);
     setSiteContactPhone(phone);
   }, [siteContactSameAsContact, contactName, phone]);
 
@@ -3127,7 +3113,7 @@ export function EditProjectDialog({
             paid_date: paidDate || null,
             payment_due_date: dueDate || null,
             notes,
-            site_contact_name: joinName(siteContactFirstName, siteContactLastName) || null,
+            site_contact_name: siteContactName.trim() || null,
             site_contact_phone: siteContactPhone || null,
             service_address: serviceAddress || null,
             service_type: serviceTypeLabel || null,
@@ -3181,7 +3167,7 @@ export function EditProjectDialog({
     projectNumber, status, companyName, companyId, customerId, contactName, email, phone,
     additionalReportEmails,
     serviceStreet, serviceUnit, serviceCity, serviceState, serviceZip,
-    siteContactFirstName, siteContactLastName, siteContactPhone, selectedServiceTypeKeys, customServiceType, scopeOfWork,
+    siteContactName, siteContactPhone, selectedServiceTypeKeys, customServiceType, scopeOfWork,
     requestedDate, requestedTime, paidDate, dueDate, notes,
   ]);
 
@@ -3351,19 +3337,13 @@ export function EditProjectDialog({
         <div className="mt-1 flex gap-2">
           <div className="w-0 flex-1">
             <ComboboxInput
-              value={joinName(siteContactFirstName, siteContactLastName)}
-              onChange={(v) => {
-                const split = splitFullName(v);
-                setSiteContactFirstName(split.first);
-                setSiteContactLastName(split.last);
-              }}
+              value={siteContactName}
+              onChange={setSiteContactName}
               options={companyContacts}
               getLabel={(c) => c.name}
               getSublabel={(c) => c.email}
               onSelect={(c) => {
-                const split = splitFullName(c.name);
-                setSiteContactFirstName(split.first);
-                setSiteContactLastName(split.last);
+                setSiteContactName(c.name);
                 setSiteContactPhone(c.phone);
               }}
               placeholder="Name"
@@ -3409,8 +3389,7 @@ export function EditProjectDialog({
               const checked = e.target.checked;
               setSiteContactSameAsContact(checked);
               if (!checked) {
-                setSiteContactFirstName("");
-                setSiteContactLastName("");
+                setSiteContactName("");
                 setSiteContactPhone("");
               }
             }}

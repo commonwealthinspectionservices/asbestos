@@ -177,7 +177,7 @@ export default function HomePage() {
         </section>
       )}
 
-      <div className="flex justify-start px-4 pt-10">
+      <div className="mx-auto flex max-w-4xl justify-start px-4 pt-10">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/marketing/icon-inspector-ppe.png" alt="" className="h-40 w-auto" />
       </div>

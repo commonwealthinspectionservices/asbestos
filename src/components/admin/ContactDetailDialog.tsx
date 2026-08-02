@@ -234,9 +234,8 @@ export function ContactDetailDialog({
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [inviting, setInviting] = useState(false);
-  const [inviteLink, setInviteLink] = useState<string | null>(null);
+  const [inviteDrafted, setInviteDrafted] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
-  const [linkCopied, setLinkCopied] = useState(false);
   const [merging, setMerging] = useState(false);
   const [mergeQuery, setMergeQuery] = useState("");
   const [mergeTarget, setMergeTarget] = useState<Customer | null>(null);
@@ -280,23 +279,16 @@ export function ContactDetailDialog({
   async function sendInvite() {
     setInviting(true);
     setInviteError(null);
-    setLinkCopied(false);
     try {
       const res = await fetch(`/api/admin/customers/${customerId}/invite`, { method: "POST" });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Failed to create invite");
-      setInviteLink(data.inviteLink);
+      if (!res.ok) throw new Error(data.error ?? "Failed to create invite draft");
+      setInviteDrafted(true);
     } catch (e) {
-      setInviteError(e instanceof Error ? e.message : "Failed to create invite");
+      setInviteError(e instanceof Error ? e.message : "Failed to create invite draft");
     } finally {
       setInviting(false);
     }
-  }
-
-  async function copyInviteLink() {
-    if (!inviteLink) return;
-    await navigator.clipboard.writeText(inviteLink);
-    setLinkCopied(true);
   }
 
   async function mergeIntoTarget() {
@@ -362,33 +354,16 @@ export function ContactDetailDialog({
                 <>
                   <p className="mt-1 text-sm text-slate-500">No portal login yet.</p>
                   {inviteError && <p className="mt-2 text-sm text-red-600">{inviteError}</p>}
-                  {inviteLink ? (
-                    <div className="mt-2 flex items-center gap-2">
-                      <input
-                        readOnly
-                        value={inviteLink}
-                        onFocus={(e) => e.target.select()}
-                        className="w-0 flex-1 rounded-lg border border-slate-300 bg-slate-50 px-2 py-1.5 text-xs text-slate-600"
-                      />
-                      <button
-                        onClick={copyInviteLink}
-                        className="shrink-0 rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs"
-                      >
-                        {linkCopied ? "Copied" : "Copy"}
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={sendInvite}
-                      disabled={inviting || !customer.email}
-                      className="mt-2 rounded-lg border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-50"
-                    >
-                      {inviting ? "Creating link…" : "Get invite link"}
-                    </button>
-                  )}
-                  {inviteLink && (
+                  <button
+                    onClick={sendInvite}
+                    disabled={inviting || !customer.email}
+                    className="mt-2 rounded-lg border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-50"
+                  >
+                    {inviting ? "Drafting…" : "Send invite link"}
+                  </button>
+                  {inviteDrafted && (
                     <p className="mt-1.5 text-xs text-slate-400">
-                      Send this to them yourself — clicking it lets them set a password and links straight to this contact.
+                      Drafted in Gmail — review it in your Drafts folder and hit send yourself.
                     </p>
                   )}
                 </>
@@ -408,9 +383,6 @@ export function ContactDetailDialog({
               ) : (
                 <div>
                   <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Merge into another contact</h4>
-                  <p className="mt-1 text-xs text-slate-500">
-                    This contact&apos;s projects, saved addresses, and portal login (if any) move onto the one you pick below, and this record is deleted.
-                  </p>
                   {mergeError && <p className="mt-2 text-sm text-red-600">{mergeError}</p>}
                   <div className="mt-2">
                     <ComboboxInput

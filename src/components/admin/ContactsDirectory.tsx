@@ -1,8 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Customer } from "@/lib/types";
 import { ContactDetailDialog, ContactForm } from "@/components/admin/ContactDetailDialog";
+
+function ContactRow({ c, onClick }: { c: Customer; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="w-full rounded-lg border border-slate-200 bg-white p-3 text-left hover:border-brand-400"
+    >
+      <div className="font-medium text-slate-800">{c.name}</div>
+      {c.company && <div className="text-sm text-slate-500">{c.company}</div>}
+    </button>
+  );
+}
 
 // Every individual on file, whether they're a standalone client (a
 // homeowner who's the client themselves) or one of several contacts at a
@@ -36,6 +48,9 @@ export default function ContactsDirectory() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const needsPortalAccount = useMemo(() => contacts.filter((c) => !c.auth_user_id), [contacts]);
+  const hasPortalAccount = useMemo(() => contacts.filter((c) => c.auth_user_id), [contacts]);
+
   return (
     <div>
       <div className="flex items-center justify-end gap-2">
@@ -67,18 +82,35 @@ export default function ContactsDirectory() {
       ) : contacts.length === 0 ? (
         <p className="mt-6 text-sm text-slate-500">No contacts found.</p>
       ) : (
-        <div className="mt-4 space-y-2">
-          {contacts.map((c) => (
-            <button
-              key={c.id}
-              onClick={() => setSelectedId(c.id)}
-              className="w-full rounded-lg border border-slate-200 bg-white p-3 text-left hover:border-brand-400"
-            >
-              <div className="font-medium text-slate-800">{c.name}</div>
-              {c.company && <div className="text-sm text-slate-500">{c.company}</div>}
-            </button>
-          ))}
-        </div>
+        <>
+          {needsPortalAccount.length > 0 && (
+            <div className="mt-4">
+              <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                Needs portal account ({needsPortalAccount.length})
+              </h4>
+              <div className="mt-2 space-y-2">
+                {needsPortalAccount.map((c) => (
+                  <ContactRow key={c.id} c={c} onClick={() => setSelectedId(c.id)} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {hasPortalAccount.length > 0 && (
+            <div className="mt-4">
+              {needsPortalAccount.length > 0 && (
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  All contacts
+                </h4>
+              )}
+              <div className="mt-2 space-y-2">
+                {hasPortalAccount.map((c) => (
+                  <ContactRow key={c.id} c={c} onClick={() => setSelectedId(c.id)} />
+                ))}
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {adding && (

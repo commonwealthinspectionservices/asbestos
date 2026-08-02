@@ -2,14 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { requireAdminApi } from "@/lib/admin-api";
 import { withApiErrors } from "@/lib/api-handler";
+import { getValidAccessToken, createDraft } from "@/lib/gmail";
+import { getSettings } from "@/lib/settings";
 
 // Generates a one-time portal signup link for an existing contact who
-// doesn't have a login yet — handed to them directly (text, email,
-// whatever) rather than relying on Supabase's own rate-limited email
-// sender to deliver it. When they click it and set a password, they land
-// in onboarding under this exact email; /api/portal/profile then links
-// their new auth account to THIS existing customers row (matched by
-// email) instead of creating a duplicate.
+// doesn't have a login yet, and drafts (never sends — same as every other
+// Gmail draft this app creates) an email with it addressed to them. The
+// admin reviews it in their own Drafts folder and hits send themselves,
+// same as the invoice/report drafts. When the contact clicks the link and
+// sets a password, they land in onboarding under this exact email;
+// /api/portal/profile then links their new auth account to THIS existing
+// customers row (matched by email) instead of creating a duplicate.
 export const POST = withApiErrors(async (
   req: NextRequest,
   { params }: { params: { id: string } }
@@ -20,7 +23,7 @@ export const POST = withApiErrors(async (
   const supabase = getSupabaseAdmin();
   const { data: customer, error: customerError } = await supabase
     .from("customers")
-    .select("id, email, auth_user_id")
+    .select("id, name, email, auth_user_id")
     .eq("id", params.id)
     .single();
   if (customerError || !customer) {
@@ -31,6 +34,11 @@ export const POST = withApiErrors(async (
   }
   if (!customer.email) {
     return NextResponse.json({ error: "This contact has no email on file" }, { status: 400 });
+  }
+
+  const accessToken = await getValidAccessToken();
+  if (!accessToken) {
+    return NextResponse.json({ error: "Gmail is not connected — connect it in Settings first" }, { status: 400 });
   }
 
   const { data, error } = await supabase.auth.admin.generateLink({
@@ -52,5 +60,24 @@ export const POST = withApiErrors(async (
     );
   }
 
-  return NextResponse.json({ inviteLink: data.properties.action_link });
+  const inviteLink = data.properties.action_link;
+  const settings = await getSettings();
+  const firstName = customer.name?.split(" ")[0] || "there";
+
+  const draft = await createDraft(accessToken, {
+    to: customer.email,
+    subject: `Set up your ${settings.business_name} client portal login`,
+    bodyText: [
+      `Hi ${firstName},`,
+      "",
+      "You can now track your projects, view reports and invoices, and book new inspections online.",
+      "",
+      `Click here to set up your login: ${inviteLink}`,
+      "",
+      `Should you have any questions, please contact our office at ${settings.business_phone}.`,
+    ].join("\n"),
+    attachments: [],
+  });
+
+  return NextResponse.json({ draftId: draft.id });
 });

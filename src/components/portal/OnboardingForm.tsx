@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import AddressAutocompleteInput from "@/components/shared/AddressAutocompleteInput";
+import ZipInput, { useAutoZip } from "@/components/shared/ZipInput";
+import { buildBillingAddress, US_STATES } from "@/lib/address";
 
 export default function OnboardingForm({
   accountType,
@@ -12,14 +15,28 @@ export default function OnboardingForm({
   const [name, setName] = useState("");
   const [company, setCompany] = useState("");
   const [phone, setPhone] = useState("");
-  const [billingAddress, setBillingAddress] = useState("");
+  // Same structured street/unit/town/state/zip layout as Book a Project and
+  // the admin's Add Project form (see AddressBook.tsx / PortalBookingForm.tsx).
+  const [street, setStreet] = useState("");
+  const [unit, setUnit] = useState("");
+  const [city, setCity] = useState("");
+  const [addrState, setAddrState] = useState("MA");
+  const [zip, setZip] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // No customer row exists yet at this point in the flow, so the
+  // auth-gated /api/portal address routes 404 here (they require one) —
+  // use the public, unauthenticated routes instead, same as the marketing
+  // pricing calculator. Fine either way: this page is itself only
+  // reachable with a valid logged-in session.
+  useAutoZip(street, city, addrState, setZip, "/api");
 
   async function submit() {
     setLoading(true);
     setError(null);
     try {
+      const billingAddress = buildBillingAddress({ street, unit, city, state: addrState, zip });
       const res = await fetch("/api/portal/profile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -43,7 +60,58 @@ export default function OnboardingForm({
       <input className="w-full rounded-lg border border-slate-300 px-3 py-2" placeholder="Full name" value={name} onChange={(e) => setName(e.target.value)} />
       <input className="mt-3 w-full rounded-lg border border-slate-300 px-3 py-2" placeholder="Company" value={company} onChange={(e) => setCompany(e.target.value)} />
       <input className="mt-3 w-full rounded-lg border border-slate-300 px-3 py-2" placeholder="Phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
-      <input className="mt-3 w-full rounded-lg border border-slate-300 px-3 py-2" placeholder="Billing address" value={billingAddress} onChange={(e) => setBillingAddress(e.target.value)} />
+
+      <div className="mt-3 flex gap-1.5">
+        <div className="w-0 flex-1">
+          <AddressAutocompleteInput
+            apiBase="/api"
+            value={street}
+            onChange={setStreet}
+            onSelectAddress={(fields) => {
+              setStreet(fields.street);
+              setUnit(fields.unit);
+              setCity(fields.city);
+              setAddrState(fields.state || "MA");
+              setZip(fields.zip);
+            }}
+            placeholder="Street address"
+            townHint={city}
+          />
+        </div>
+        <input
+          className="w-20 shrink-0 rounded-lg border border-slate-300 px-2 py-2 text-sm"
+          placeholder="Unit #"
+          value={unit}
+          onChange={(e) => setUnit(e.target.value)}
+        />
+      </div>
+      <div className="mt-1.5 grid grid-cols-3 gap-1.5">
+        <AddressAutocompleteInput
+          apiBase="/api"
+          value={city}
+          onChange={(v) => {
+            setCity(v);
+            if (!v.trim()) setZip("");
+          }}
+          mode="city"
+          onSelectAddress={(fields) => {
+            setCity(fields.city);
+            setAddrState("MA");
+            setZip(fields.zip);
+          }}
+          placeholder="Town"
+        />
+        <select
+          className="rounded-lg border border-slate-300 px-2 py-2 text-sm"
+          value={addrState}
+          onChange={(e) => setAddrState(e.target.value)}
+        >
+          {US_STATES.map((s) => (
+            <option key={s} value={s}>{s}</option>
+          ))}
+        </select>
+        <ZipInput street={street} city={city} state={addrState} zip={zip} setZip={setZip} apiBase="/api" />
+      </div>
 
       <button
         className="mt-4 flex w-full items-center justify-center border-[3px] border-brand-700 bg-brand-50 py-3 pt-[14px] text-sm font-extrabold uppercase leading-none text-brand-700 hover:bg-yellow-100 disabled:opacity-50"

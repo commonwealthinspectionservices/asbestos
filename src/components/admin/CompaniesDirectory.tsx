@@ -3,6 +3,9 @@
 import { useEffect, useState } from "react";
 import type { Customer, Company } from "@/lib/types";
 import { ContactDetailDialog, JobList, formatPhoneInput, type JobSummary } from "@/components/admin/ContactDetailDialog";
+import AddressAutocompleteInput from "@/components/shared/AddressAutocompleteInput";
+import ZipInput, { useAutoZip } from "@/components/shared/ZipInput";
+import { buildBillingAddress, parseAddressToFields, US_STATES } from "@/lib/address";
 
 export default function CompaniesDirectory() {
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -105,21 +108,28 @@ function CompanyAddForm({
   onDone: () => void;
 }) {
   const [name, setName] = useState("");
-  const [billingAddress, setBillingAddress] = useState("");
+  const [street, setStreet] = useState("");
+  const [unit, setUnit] = useState("");
+  const [city, setCity] = useState("");
+  const [addrState, setAddrState] = useState("MA");
+  const [zip, setZip] = useState("");
   const [phone, setPhone] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useAutoZip(street, city, addrState, setZip, "/api/admin");
 
   async function submit() {
     setSubmitting(true);
     setError(null);
     try {
+      const billingAddress = buildBillingAddress({ street, unit, city, state: addrState, zip });
       const res = await fetch("/api/admin/companies", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: name.trim(),
-          billingAddress: billingAddress.trim() || undefined,
+          billingAddress: billingAddress || undefined,
           phone: phone.trim() || undefined,
         }),
       });
@@ -144,7 +154,57 @@ function CompanyAddForm({
         <input className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Boston Harbor Water Restoration" />
 
         <label className="mt-3 block text-sm font-medium text-slate-700">Billing address</label>
-        <input className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value={billingAddress} onChange={(e) => setBillingAddress(e.target.value)} />
+        <div className="mt-1 flex gap-2">
+          <div className="w-0 flex-1">
+            <AddressAutocompleteInput
+              apiBase="/api/admin"
+              value={street}
+              onChange={setStreet}
+              onSelectAddress={(fields) => {
+                setStreet(fields.street);
+                setUnit(fields.unit);
+                setCity(fields.city);
+                setAddrState(fields.state || "MA");
+                setZip(fields.zip);
+              }}
+              placeholder="Street address"
+              townHint={city}
+            />
+          </div>
+          <input
+            className="w-20 shrink-0 rounded-lg border border-slate-300 px-2 py-2 text-sm"
+            placeholder="Unit #"
+            value={unit}
+            onChange={(e) => setUnit(e.target.value)}
+          />
+        </div>
+        <div className="mt-1.5 grid grid-cols-3 gap-2">
+          <AddressAutocompleteInput
+            apiBase="/api/admin"
+            value={city}
+            onChange={(v) => {
+              setCity(v);
+              if (!v.trim()) setZip("");
+            }}
+            mode="city"
+            onSelectAddress={(fields) => {
+              setCity(fields.city);
+              setAddrState("MA");
+              setZip(fields.zip);
+            }}
+            placeholder="Town"
+          />
+          <select
+            className="rounded-lg border border-slate-300 px-2 py-2 text-sm"
+            value={addrState}
+            onChange={(e) => setAddrState(e.target.value)}
+          >
+            {US_STATES.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+          <ZipInput street={street} city={city} state={addrState} zip={zip} setZip={setZip} apiBase="/api/admin" />
+        </div>
 
         <label className="mt-3 block text-sm font-medium text-slate-700">Phone</label>
         <input className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value={phone} onChange={(e) => setPhone(formatPhoneInput(e.target.value))} />
@@ -174,21 +234,29 @@ function CompanyEditForm({
   onDone: () => void;
 }) {
   const [name, setName] = useState(company.name);
-  const [billingAddress, setBillingAddress] = useState(company.billing_address ?? "");
+  const billingInit = parseAddressToFields(company.billing_address);
+  const [street, setStreet] = useState(billingInit.street);
+  const [unit, setUnit] = useState(billingInit.unit);
+  const [city, setCity] = useState(billingInit.city);
+  const [addrState, setAddrState] = useState(billingInit.state || "MA");
+  const [zip, setZip] = useState(billingInit.zip);
   const [phone, setPhone] = useState(company.phone ?? "");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useAutoZip(street, city, addrState, setZip, "/api/admin");
 
   async function submit() {
     setSubmitting(true);
     setError(null);
     try {
+      const billingAddress = buildBillingAddress({ street, unit, city, state: addrState, zip });
       const res = await fetch(`/api/admin/companies/${company.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: name.trim(),
-          billing_address: billingAddress.trim() || null,
+          billing_address: billingAddress || null,
           phone: phone.trim() || null,
         }),
       });
@@ -213,7 +281,57 @@ function CompanyEditForm({
         <input className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value={name} onChange={(e) => setName(e.target.value)} />
 
         <label className="mt-3 block text-sm font-medium text-slate-700">Billing address</label>
-        <input className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value={billingAddress} onChange={(e) => setBillingAddress(e.target.value)} />
+        <div className="mt-1 flex gap-2">
+          <div className="w-0 flex-1">
+            <AddressAutocompleteInput
+              apiBase="/api/admin"
+              value={street}
+              onChange={setStreet}
+              onSelectAddress={(fields) => {
+                setStreet(fields.street);
+                setUnit(fields.unit);
+                setCity(fields.city);
+                setAddrState(fields.state || "MA");
+                setZip(fields.zip);
+              }}
+              placeholder="Street address"
+              townHint={city}
+            />
+          </div>
+          <input
+            className="w-20 shrink-0 rounded-lg border border-slate-300 px-2 py-2 text-sm"
+            placeholder="Unit #"
+            value={unit}
+            onChange={(e) => setUnit(e.target.value)}
+          />
+        </div>
+        <div className="mt-1.5 grid grid-cols-3 gap-2">
+          <AddressAutocompleteInput
+            apiBase="/api/admin"
+            value={city}
+            onChange={(v) => {
+              setCity(v);
+              if (!v.trim()) setZip("");
+            }}
+            mode="city"
+            onSelectAddress={(fields) => {
+              setCity(fields.city);
+              setAddrState("MA");
+              setZip(fields.zip);
+            }}
+            placeholder="Town"
+          />
+          <select
+            className="rounded-lg border border-slate-300 px-2 py-2 text-sm"
+            value={addrState}
+            onChange={(e) => setAddrState(e.target.value)}
+          >
+            {US_STATES.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+          <ZipInput street={street} city={city} state={addrState} zip={zip} setZip={setZip} apiBase="/api/admin" />
+        </div>
 
         <label className="mt-3 block text-sm font-medium text-slate-700">Phone</label>
         <input className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value={phone} onChange={(e) => setPhone(formatPhoneInput(e.target.value))} />

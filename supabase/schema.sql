@@ -59,13 +59,15 @@ create type job_status as enum (
   'waitlist_out_of_area'
 );
 
--- Human-readable project numbers (e.g. "26-1301"), matching the numbering
+-- Human-readable project numbers (e.g. "26-0001"), matching the numbering
 -- the owner already uses. A Postgres sequence + wrapper function (rather
 -- than `select max(...)+1`) so concurrent bookings can never collide.
+-- Zero-padded to 4 digits so early-year numbers still sort/read consistently
+-- with later ones (e.g. "26-0001" not "26-1").
 create sequence if not exists project_number_seq start 1;
 
 create or replace function next_project_number() returns text as $$
-  select to_char(now(), 'YY') || '-' || nextval('project_number_seq')::text;
+  select to_char(now(), 'YY') || '-' || lpad(nextval('project_number_seq')::text, 4, '0');
 $$ language sql;
 
 create table if not exists jobs (
@@ -312,7 +314,7 @@ alter table jobs add column if not exists report_notes text;
 alter type job_status add value if not exists 'awaiting_lab_results' before 'completed';
 create sequence if not exists project_number_seq start 1;
 create or replace function next_project_number() returns text as $$
-  select to_char(now(), 'YY') || '-' || nextval('project_number_seq')::text;
+  select to_char(now(), 'YY') || '-' || lpad(nextval('project_number_seq')::text, 4, '0');
 $$ language sql;
 alter table jobs add column if not exists project_number text unique;
 create index if not exists jobs_project_number_idx on jobs (project_number);

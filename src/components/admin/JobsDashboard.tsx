@@ -929,7 +929,7 @@ function JobRow({
                 onChange={(e) => onFieldChange({ requested_time: e.target.value || null })}
                 className="w-32 rounded-lg border border-slate-300 px-1.5 py-1 text-xs text-slate-600"
               />
-              {job.requested_date && job.requested_time && (
+              {job.status === "scheduled" && job.requested_date && job.requested_time && (
                 <label
                   className="flex shrink-0 items-center justify-end gap-1.5 whitespace-nowrap text-xs uppercase text-slate-600"
                   title="Off by default — the client's portal never shows a date/time until this is on. While on, it stays live-synced to the date/time above as you edit them."

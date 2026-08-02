@@ -51,7 +51,7 @@ export default function MarketingNav() {
       <div className="mx-auto flex max-w-4xl items-center justify-between gap-2">
         <Link href="/" className="inline-flex shrink-0 items-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/letterhead.png" alt="Commonwealth Inspection Services, LLC" className="h-9 w-auto sm:h-9 md:h-11" />
+          <img src="/letterhead.png" alt="Commonwealth Inspection Services, LLC" className="h-[22px] w-auto md:h-[29px]" />
         </Link>
 
         <div className="hidden shrink-0 items-center gap-0.5 whitespace-nowrap sm:flex md:gap-1">

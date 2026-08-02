@@ -53,7 +53,7 @@ export default function MarketingNav() {
     // card and the Service Type grid, so on wide desktop screens the header
     // content lines up with the body content's width instead of stretching
     // out to the edges of the browser window.
-    <nav className="relative border-b-4 border-brand-700 bg-brand-50 px-4 py-1.5">
+    <nav className="relative border-b-4 border-brand-700 bg-brand-50 px-4 py-3">
       <div className="mx-auto flex max-w-4xl items-center justify-between gap-2">
         <Link href="/" className={`shrink-0 ${homeButtonClass}`}>
           Commonwealth Inspection Services, LLC

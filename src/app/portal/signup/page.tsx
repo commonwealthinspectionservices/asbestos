@@ -65,8 +65,7 @@ export default function PortalSignupPage() {
 
   return (
     <div className="mx-auto max-w-sm px-4 py-16">
-      <h1 className="text-xl font-semibold text-brand-700">Create an account</h1>
-      <p className="mt-1 text-sm text-slate-500">Save your info and addresses for faster booking.</p>
+      <h1 className="text-xl font-semibold uppercase text-brand-700">Create an account</h1>
 
       {error && <div className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
@@ -78,7 +77,7 @@ export default function PortalSignupPage() {
             checked={accountType === "contractor"}
             onChange={() => setAccountType("contractor")}
           />
-          Contractor
+          Company
         </label>
         <label className="flex items-center gap-1.5">
           <input

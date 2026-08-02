@@ -97,7 +97,7 @@ export default function OnboardingForm({
           onChange={(e) => setUnit(e.target.value)}
         />
       </div>
-      <div className="mt-2 grid grid-cols-3 gap-2">
+      <div className="mt-2 grid grid-cols-[2fr_0.8fr_1fr] gap-2">
         <AddressAutocompleteInput
           apiBase="/api"
           value={city}

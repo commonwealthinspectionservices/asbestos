@@ -87,7 +87,7 @@ export default function PortalSignupPage() {
             checked={accountType === "homeowner"}
             onChange={() => setAccountType("homeowner")}
           />
-          Homeowner
+          Individual
         </label>
       </div>
 

@@ -14,8 +14,8 @@ export default function AdminNav() {
   }
 
   const linkClass = (href: string) =>
-    `px-3 py-2 text-sm rounded-lg ${
-      pathname === href ? "bg-brand-600 text-white" : "text-slate-600 hover:bg-slate-100"
+    `px-3 py-2 text-sm font-medium uppercase ${
+      pathname === href ? "text-brand-700 underline" : "text-slate-600 hover:underline"
     }`;
 
   return (
@@ -34,7 +34,7 @@ export default function AdminNav() {
             <Link href="/admin/settings" className={linkClass("/admin/settings")}>Settings</Link>
           </div>
         </div>
-        <button onClick={logout} className="text-sm text-slate-500 hover:text-slate-800">
+        <button onClick={logout} className="text-sm uppercase text-slate-500 hover:text-slate-800">
           Sign out
         </button>
       </div>

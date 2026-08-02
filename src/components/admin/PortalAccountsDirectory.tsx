@@ -14,6 +14,14 @@ interface PortalAccount {
   company: string | null;
 }
 
+// Matches the signup choice (contractor/homeowner) to how it should read
+// everywhere in the admin — "homeowner" is displayed as "Individual".
+function accountTypeLabel(accountType: string | null): string | null {
+  if (accountType === "contractor") return "Company";
+  if (accountType === "homeowner") return "Individual";
+  return null;
+}
+
 // Every Supabase Auth account, not just the ones that finished onboarding
 // into a customers row — surfaces accounts stuck mid-signup, which are
 // otherwise invisible anywhere in the admin.
@@ -56,20 +64,20 @@ export default function PortalAccountsDirectory() {
                       Unconfirmed
                     </span>
                   )}
-                  {!u.onboardingComplete && (
-                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
-                      Onboarding incomplete
+                  {accountTypeLabel(u.accountType) && (
+                    <span className="shrink-0 whitespace-nowrap rounded bg-slate-200 px-2 py-0.5 text-xs font-mono font-bold uppercase text-slate-800">
+                      {accountTypeLabel(u.accountType)}
                     </span>
                   )}
                 </div>
               </div>
               <div className="text-sm text-slate-500">{u.email}</div>
               {u.company && <div className="text-sm text-slate-500">{u.company}</div>}
-              <div className="mt-1 text-xs text-slate-400">
-                {u.accountType && <span className="uppercase">{u.accountType} · </span>}
-                Signed up {new Date(u.createdAt).toLocaleDateString()}
-                {u.lastSignInAt && ` · Last sign-in ${new Date(u.lastSignInAt).toLocaleDateString()}`}
-              </div>
+              {u.lastSignInAt && (
+                <div className="mt-1 text-xs text-slate-400">
+                  Last sign-in {new Date(u.lastSignInAt).toLocaleString()}
+                </div>
+              )}
             </div>
           ))}
         </div>

@@ -576,7 +576,7 @@ export default function JobsDashboard() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
       <div className="flex items-center justify-between gap-2">
-        <h1 className="text-lg font-semibold text-slate-800">Projects</h1>
+        <h1 className="text-lg font-semibold uppercase text-slate-800">Projects</h1>
         <div className="flex gap-2">
           <button
             onClick={() => setAddingProject(true)}
@@ -587,22 +587,22 @@ export default function JobsDashboard() {
         </div>
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-2">
+      <div className="mt-4 flex flex-wrap items-center gap-2">
         <button
           onClick={() => selectStatusView("all")}
-          className={`rounded-lg px-3 py-1.5 text-sm font-medium ${statusFilter.size === 0 && statusView === "all" ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}
+          className={`rounded-lg px-3 py-1.5 text-sm font-medium uppercase ${statusFilter.size === 0 && statusView === "all" ? "text-brand-700 underline" : "text-slate-600 hover:underline"}`}
         >
           All Projects
         </button>
         <button
           onClick={() => selectStatusView("open")}
-          className={`rounded-lg px-3 py-1.5 text-sm font-medium ${statusFilter.size === 0 && statusView === "open" ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}
+          className={`rounded-lg px-3 py-1.5 text-sm font-medium uppercase ${statusFilter.size === 0 && statusView === "open" ? "text-brand-700 underline" : "text-slate-600 hover:underline"}`}
         >
           Open Projects
         </button>
         <button
           onClick={() => selectStatusView("closed")}
-          className={`rounded-lg px-3 py-1.5 text-sm font-medium ${statusFilter.size === 0 && statusView === "closed" ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}
+          className={`rounded-lg px-3 py-1.5 text-sm font-medium uppercase ${statusFilter.size === 0 && statusView === "closed" ? "text-brand-700 underline" : "text-slate-600 hover:underline"}`}
         >
           Closed Projects
         </button>
@@ -626,13 +626,13 @@ export default function JobsDashboard() {
         </button>
       )}
 
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <span className="text-xs font-medium text-slate-500">Sort by:</span>
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <span className="text-sm font-medium uppercase text-slate-500">Sort by:</span>
         {SORT_FIELDS.map((f) => (
           <button
             key={f.key}
             onClick={() => toggleSort(f.key)}
-            className={`rounded-lg px-2.5 py-1 text-xs font-medium ${sortEnabled && sortBy === f.key ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
+            className={`rounded-lg px-2.5 py-1 text-sm font-medium uppercase ${sortEnabled && sortBy === f.key ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
           >
             {f.label}{sortEnabled && sortBy === f.key ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
           </button>
@@ -643,7 +643,7 @@ export default function JobsDashboard() {
           onMouseLeave={closeStatusFilter}
         >
           <button
-            className={`rounded-lg px-2.5 py-1 text-xs font-medium ${statusFilter.size > 0 ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
+            className={`rounded-lg px-2.5 py-1 text-sm font-medium uppercase ${statusFilter.size > 0 ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
           >
             Status{statusFilter.size > 0 ? ` (${statusFilter.size})` : ""} ▾
           </button>
@@ -689,7 +689,7 @@ export default function JobsDashboard() {
           onMouseLeave={closeServiceTypeFilter}
         >
           <button
-            className={`rounded-lg px-2.5 py-1 text-xs font-medium ${serviceTypeFilter.size > 0 ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
+            className={`rounded-lg px-2.5 py-1 text-sm font-medium uppercase ${serviceTypeFilter.size > 0 ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
           >
             Service Type{serviceTypeFilter.size > 0 ? ` (${serviceTypeFilter.size})` : ""} ▾
           </button>
@@ -721,31 +721,31 @@ export default function JobsDashboard() {
         )}
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <span className="text-xs font-medium text-slate-500">Search by:</span>
+      <div className="mt-4 flex flex-nowrap items-center gap-2">
+        <span className="shrink-0 text-sm font-medium uppercase text-slate-500">Search by:</span>
         <input
           value={projectNumberQuery}
           onChange={(e) => setProjectNumberQuery(e.target.value)}
           placeholder="Project #"
-          className="rounded-lg border border-slate-300 px-2.5 py-1 text-xs"
+          className="w-0 min-w-0 flex-1 rounded-lg border border-slate-300 px-2.5 py-1 text-sm uppercase placeholder:uppercase"
         />
         <input
           value={companyQuery}
           onChange={(e) => setCompanyQuery(e.target.value)}
           placeholder="Company"
-          className="rounded-lg border border-slate-300 px-2.5 py-1 text-xs"
+          className="w-0 min-w-0 flex-1 rounded-lg border border-slate-300 px-2.5 py-1 text-sm uppercase placeholder:uppercase"
         />
         <input
           value={addressQuery}
           onChange={(e) => setAddressQuery(e.target.value)}
           placeholder="Address"
-          className="rounded-lg border border-slate-300 px-2.5 py-1 text-xs"
+          className="w-0 min-w-0 flex-1 rounded-lg border border-slate-300 px-2.5 py-1 text-sm uppercase placeholder:uppercase"
         />
         <input
           type="date"
           value={dateQuery}
           onChange={(e) => setDateQuery(e.target.value)}
-          className="rounded-lg border border-slate-300 px-2.5 py-1 text-xs"
+          className="w-36 shrink-0 rounded-lg border border-slate-300 px-2.5 py-1 text-sm uppercase"
         />
         {dateQuery && (
           <button onClick={() => setDateQuery("")} className="text-xs text-brand-600 underline">
@@ -757,11 +757,11 @@ export default function JobsDashboard() {
       {error && <div className="mt-3 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>}
 
       {(() => {
-        if (loading) return <p className="mt-6 text-sm text-slate-500">Loading…</p>;
+        if (loading) return <p className="mt-4 text-sm text-slate-500">Loading…</p>;
 
         if (sortedJobs.length === 0) {
           return (
-            <p className="mt-6 text-sm text-slate-500">
+            <p className="mt-4 text-sm uppercase text-slate-500">
               {statusView === "open" ? "No open projects." : statusView === "closed" ? "No closed projects." : "No projects found."}
             </p>
           );
@@ -1678,7 +1678,7 @@ export function ProjectDetailDialog({
                     onChange={(e) => setIsHomeowner(e.target.checked)}
                     className="h-4 w-4 rounded border-slate-300"
                   />
-                  Homeowner
+                  Individual
                 </label>
               </div>
             )}

@@ -17,24 +17,24 @@ export default function CustomersDirectory() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
-      <h1 className="text-lg font-semibold text-slate-800">Directory</h1>
+      <h1 className="text-lg font-semibold uppercase text-slate-800">Directory</h1>
 
       <div className="mt-3 flex gap-1 border-b border-slate-200">
         <button
           onClick={() => setTab("companies")}
-          className={`px-3 py-2 text-sm font-medium ${tab === "companies" ? "border-b-2 border-brand-600 text-brand-600" : "text-slate-500"}`}
+          className={`px-3 py-2 text-sm font-medium uppercase ${tab === "companies" ? "border-b-2 border-brand-600 text-brand-600" : "text-slate-500 hover:underline"}`}
         >
           Companies
         </button>
         <button
           onClick={() => setTab("contacts")}
-          className={`px-3 py-2 text-sm font-medium ${tab === "contacts" ? "border-b-2 border-brand-600 text-brand-600" : "text-slate-500"}`}
+          className={`px-3 py-2 text-sm font-medium uppercase ${tab === "contacts" ? "border-b-2 border-brand-600 text-brand-600" : "text-slate-500 hover:underline"}`}
         >
           Individuals
         </button>
         <button
           onClick={() => setTab("accounts")}
-          className={`px-3 py-2 text-sm font-medium ${tab === "accounts" ? "border-b-2 border-brand-600 text-brand-600" : "text-slate-500"}`}
+          className={`px-3 py-2 text-sm font-medium uppercase ${tab === "accounts" ? "border-b-2 border-brand-600 text-brand-600" : "text-slate-500 hover:underline"}`}
         >
           Portal Accounts
         </button>

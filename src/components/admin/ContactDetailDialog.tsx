@@ -100,7 +100,7 @@ export function ContactForm({
             onClick={() => setIsCompany(false)}
             className={`flex-1 rounded-lg px-3 py-1.5 text-sm font-medium ${!isCompany ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}
           >
-            Standalone
+            Individual
           </button>
           <button
             onClick={() => setIsCompany(true)}

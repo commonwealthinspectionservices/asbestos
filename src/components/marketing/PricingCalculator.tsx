@@ -60,8 +60,9 @@ export default function PricingCalculator() {
 
   useAutoZip(street, city, addrState, setZip, "");
 
-  // Unzoned defaults, shown immediately so the whole calculator (service
-  // types + slider + estimate) is usable before any address is entered.
+  // Unzoned defaults, shown immediately so service type + sample count can
+  // be picked before an address is entered — the estimate itself stays
+  // hidden until addressChecked (an unzoned price could be misleading).
   useEffect(() => {
     fetch("/api/pricing")
       .then((res) => res.json())
@@ -230,10 +231,16 @@ export default function PricingCalculator() {
           />
 
           <div className="mt-6 rounded-lg bg-slate-50 p-4 text-center">
-            <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Estimated total</p>
-            <p className="text-3xl font-black text-brand-700">
-              {formatCents(estimateLowCents ?? 0)} &ndash; {formatCents(estimateHighCents ?? 0)}
-            </p>
+            {addressChecked ? (
+              <>
+                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Estimated total</p>
+                <p className="text-3xl font-black text-brand-700">
+                  {formatCents(estimateLowCents ?? 0)} &ndash; {formatCents(estimateHighCents ?? 0)}
+                </p>
+              </>
+            ) : (
+              <p className="text-sm text-slate-500">Enter your address above to see a price estimate.</p>
+            )}
           </div>
 
           <div className="mt-6 flex justify-center">

@@ -359,7 +359,7 @@ export function ContactDetailDialog({
                     disabled={inviting || !customer.email}
                     className="mt-2 rounded-lg border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-50"
                   >
-                    {inviting ? "Drafting…" : "Send invite link"}
+                    {inviting ? "Drafting…" : "Draft invite link"}
                   </button>
                   {inviteDrafted && (
                     <p className="mt-1.5 text-xs text-slate-400">

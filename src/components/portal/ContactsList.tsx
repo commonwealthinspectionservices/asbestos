@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { joinName } from "@/lib/name";
 
 interface Contact {
   id: string;
@@ -15,7 +16,8 @@ export default function ContactsList() {
   const [selfId, setSelfId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [name, setName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [adding, setAdding] = useState(false);
 
@@ -42,11 +44,12 @@ export default function ContactsList() {
       const res = await fetch("/api/portal/contacts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email }),
+        body: JSON.stringify({ name: joinName(firstName, lastName), email }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to save contact");
-      setName("");
+      setFirstName("");
+      setLastName("");
       setEmail("");
       load();
     } catch (e) {
@@ -80,12 +83,20 @@ export default function ContactsList() {
       {error && <div className="mt-3 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>}
 
       <div className="mt-4 rounded-lg border border-slate-200 bg-white p-3">
-        <input
-          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-          placeholder="Name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
+        <div className="flex gap-2">
+          <input
+            className="w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            placeholder="First name"
+            value={firstName}
+            onChange={(e) => setFirstName(e.target.value)}
+          />
+          <input
+            className="w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            placeholder="Last name"
+            value={lastName}
+            onChange={(e) => setLastName(e.target.value)}
+          />
+        </div>
         <input
           className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
           placeholder="Email"
@@ -95,7 +106,7 @@ export default function ContactsList() {
         />
         <button
           className="mt-2 inline-flex h-[22px] items-center border-[3px] border-brand-700 bg-brand-50 px-4 pt-0.5 text-sm font-extrabold uppercase leading-none text-brand-700 hover:bg-yellow-100 disabled:opacity-50 sm:h-[29px]"
-          disabled={adding || !name.trim() || !email.trim()}
+          disabled={adding || !firstName.trim() || !lastName.trim() || !email.trim()}
           onClick={addContact}
         >
           {adding ? "Saving…" : "Add contact"}

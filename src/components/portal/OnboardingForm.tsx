@@ -7,6 +7,7 @@ import AddressAutocompleteInput from "@/components/shared/AddressAutocompleteInp
 import ZipInput, { useAutoZip } from "@/components/shared/ZipInput";
 import { buildBillingAddress, US_STATES } from "@/lib/address";
 import { formatPhoneNumber } from "@/lib/phone";
+import { joinName } from "@/lib/name";
 
 export default function OnboardingForm({
   accountType,
@@ -14,7 +15,8 @@ export default function OnboardingForm({
   accountType: "contractor" | "homeowner" | null;
 }) {
   const router = useRouter();
-  const [name, setName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [company, setCompany] = useState("");
   const [phone, setPhone] = useState("");
   // Same structured street/unit/town/state/zip layout as Book a Project and
@@ -39,6 +41,7 @@ export default function OnboardingForm({
     setError(null);
     try {
       const billingAddress = buildBillingAddress({ street, unit, city, state: addrState, zip });
+      const name = joinName(firstName, lastName);
       const res = await fetch("/api/portal/profile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -67,7 +70,10 @@ export default function OnboardingForm({
 
       {error && <div className="rounded-lg bg-red-50 px-5 py-4 text-base text-red-700">{error}</div>}
 
-      <input className="w-full rounded-lg border border-slate-300 px-4 py-3 text-base" placeholder="Full name" value={name} onChange={(e) => setName(e.target.value)} />
+      <div className="flex gap-2">
+        <input className="w-0 flex-1 rounded-lg border border-slate-300 px-4 py-3 text-base" placeholder="First name" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+        <input className="w-0 flex-1 rounded-lg border border-slate-300 px-4 py-3 text-base" placeholder="Last name" value={lastName} onChange={(e) => setLastName(e.target.value)} />
+      </div>
       {accountType !== "homeowner" && (
         <input className="mt-4 w-full rounded-lg border border-slate-300 px-4 py-3 text-base" placeholder="Company" value={company} onChange={(e) => setCompany(e.target.value)} />
       )}
@@ -137,7 +143,7 @@ export default function OnboardingForm({
 
       <button
         className="mt-5 flex w-full items-center justify-center border-[3px] border-brand-700 bg-brand-50 py-4 pt-[18px] text-base font-extrabold uppercase leading-none text-brand-700 hover:bg-yellow-100 disabled:opacity-50"
-        disabled={loading || !name || !phone || (accountType !== "homeowner" && !company)}
+        disabled={loading || !firstName || !lastName || !phone || (accountType !== "homeowner" && !company)}
         onClick={submit}
       >
         {loading ? "Saving…" : "Continue"}

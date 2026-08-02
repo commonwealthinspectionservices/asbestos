@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { Customer } from "@/lib/types";
 import { STATUS_LABEL } from "@/components/admin/JobsDashboard";
+import { joinName, splitFullName } from "@/lib/name";
 
 export interface JobSummary {
   id: string;
@@ -49,14 +50,16 @@ export function ContactForm({
 }) {
   const [isCompany, setIsCompany] = useState(!!initial?.company);
   const [company, setCompany] = useState(initial?.company ?? "");
-  const [name, setName] = useState(initial?.name ?? "");
+  const initialName = splitFullName(initial?.name);
+  const [firstName, setFirstName] = useState(initialName.first);
+  const [lastName, setLastName] = useState(initialName.last);
   const [email, setEmail] = useState(initial?.email ?? "");
   const [phone, setPhone] = useState(initial?.phone ?? "");
   const [billingAddress, setBillingAddress] = useState(initial?.billing_address ?? "");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const canSubmit = name.trim() && email.trim() && (!isCompany || company.trim());
+  const canSubmit = firstName.trim() && lastName.trim() && email.trim() && (!isCompany || company.trim());
 
   async function submit() {
     setSubmitting(true);
@@ -67,7 +70,7 @@ export function ContactForm({
         method: initial ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: name.trim(),
+          name: joinName(firstName, lastName),
           company: isCompany ? company.trim() : null,
           email: email.trim(),
           phone: phone.trim(),
@@ -115,7 +118,10 @@ export function ContactForm({
         )}
 
         <label className="mt-3 block text-sm font-medium text-slate-700">Name *</label>
-        <input className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value={name} onChange={(e) => setName(e.target.value)} placeholder={isCompany ? "e.g. Joe Kline" : "e.g. Karen Stahl"} />
+        <div className="mt-1 flex gap-2">
+          <input className="w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm" value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder={isCompany ? "e.g. Joe" : "e.g. Karen"} />
+          <input className="w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm" value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder={isCompany ? "Kline" : "Stahl"} />
+        </div>
 
         <div className="mt-3 flex gap-2">
           <div className="flex-1">

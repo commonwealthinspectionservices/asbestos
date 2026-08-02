@@ -5,6 +5,7 @@ import type { Dispatch, ReactNode, SetStateAction } from "react";
 import type { Company, Customer, InvoiceLineItem, JobDocument, JobWithCustomer, LabProfile, PricingZone, SampleItem, ServiceType } from "@/lib/types";
 import { defaultInvoiceLineItems, sampleDescriptionForServiceType } from "@/lib/invoice-defaults";
 import { splitAddress, parseAddressToFields, buildBillingAddress, googleMapsUrl } from "@/lib/address";
+import { joinName, splitFullName } from "@/lib/name";
 import type { AddressFields } from "@/lib/address";
 import AddressAutocompleteInput from "@/components/shared/AddressAutocompleteInput";
 import PdfPreview from "@/components/shared/PdfPreview";
@@ -2478,7 +2479,8 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
   const [serviceCity, setServiceCity] = useState("");
   const [serviceState, setServiceState] = useState("");
   const [serviceZip, setServiceZip] = useState("");
-  const [siteContactName, setSiteContactName] = useState("");
+  const [siteContactFirstName, setSiteContactFirstName] = useState("");
+  const [siteContactLastName, setSiteContactLastName] = useState("");
   const [siteContactPhone, setSiteContactPhone] = useState("");
   const [siteContactSameAsContact, setSiteContactSameAsContact] = useState(false);
   const [selectedServiceTypeKeys, setSelectedServiceTypeKeys] = useState<string[]>([]);
@@ -2510,7 +2512,9 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
 
   useEffect(() => {
     if (!siteContactSameAsContact) return;
-    setSiteContactName(contactName);
+    const split = splitFullName(contactName);
+    setSiteContactFirstName(split.first);
+    setSiteContactLastName(split.last);
     setSiteContactPhone(phone);
   }, [siteContactSameAsContact, contactName, phone]);
 
@@ -2582,7 +2586,7 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
           serviceAddress: buildBillingAddress({
             street: serviceStreet, unit: serviceUnit, city: serviceCity, state: serviceState, zip: serviceZip,
           }) || undefined,
-          siteContactName: siteContactName.trim() || undefined,
+          siteContactName: joinName(siteContactFirstName, siteContactLastName) || undefined,
           siteContactPhone: siteContactPhone.trim() || undefined,
           serviceTypeKeys: selectedServiceTypeKeys,
           customServiceType: customServiceType.trim() || undefined,
@@ -2788,24 +2792,27 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
 
         <label className="mt-3 block text-sm font-medium text-slate-700">Job site contact</label>
         <div className="mt-1 flex gap-2">
-          <div className="flex-1">
-            <input
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-500"
-              placeholder="Name"
-              value={siteContactName}
-              disabled={siteContactSameAsContact}
-              onChange={(e) => setSiteContactName(e.target.value)}
-            />
-          </div>
-          <div className="flex-1">
-            <input
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-500"
-              placeholder="Phone"
-              value={siteContactPhone}
-              disabled={siteContactSameAsContact}
-              onChange={(e) => setSiteContactPhone(formatPhoneInput(e.target.value))}
-            />
-          </div>
+          <input
+            className="w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-500"
+            placeholder="First name"
+            value={siteContactFirstName}
+            disabled={siteContactSameAsContact}
+            onChange={(e) => setSiteContactFirstName(e.target.value)}
+          />
+          <input
+            className="w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-500"
+            placeholder="Last name"
+            value={siteContactLastName}
+            disabled={siteContactSameAsContact}
+            onChange={(e) => setSiteContactLastName(e.target.value)}
+          />
+          <input
+            className="w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-500"
+            placeholder="Phone"
+            value={siteContactPhone}
+            disabled={siteContactSameAsContact}
+            onChange={(e) => setSiteContactPhone(formatPhoneInput(e.target.value))}
+          />
         </div>
 
         <label className="mt-3 block text-sm font-medium text-slate-700">Customer contact</label>
@@ -2838,7 +2845,8 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
               const checked = e.target.checked;
               setSiteContactSameAsContact(checked);
               if (!checked) {
-                setSiteContactName("");
+                setSiteContactFirstName("");
+                setSiteContactLastName("");
                 setSiteContactPhone("");
               }
             }}
@@ -2924,7 +2932,9 @@ export function EditProjectDialog({
   const [serviceCity, setServiceCity] = useState(serviceInit.city);
   const [serviceState, setServiceState] = useState(serviceInit.state);
   const [serviceZip, setServiceZip] = useState(serviceInit.zip);
-  const [siteContactName, setSiteContactName] = useState(job.site_contact_name ?? "");
+  const siteContactInit = splitFullName(job.site_contact_name);
+  const [siteContactFirstName, setSiteContactFirstName] = useState(siteContactInit.first);
+  const [siteContactLastName, setSiteContactLastName] = useState(siteContactInit.last);
   const [siteContactPhone, setSiteContactPhone] = useState(job.site_contact_phone ?? "");
   const [siteContactSameAsContact, setSiteContactSameAsContact] = useState(false);
   const [selectedServiceTypeKeys, setSelectedServiceTypeKeys] = useState<string[]>([]);
@@ -2999,7 +3009,9 @@ export function EditProjectDialog({
 
   useEffect(() => {
     if (!siteContactSameAsContact) return;
-    setSiteContactName(contactName);
+    const split = splitFullName(contactName);
+    setSiteContactFirstName(split.first);
+    setSiteContactLastName(split.last);
     setSiteContactPhone(phone);
   }, [siteContactSameAsContact, contactName, phone]);
 
@@ -3106,7 +3118,7 @@ export function EditProjectDialog({
             paid_date: paidDate || null,
             payment_due_date: dueDate || null,
             notes,
-            site_contact_name: siteContactName || null,
+            site_contact_name: joinName(siteContactFirstName, siteContactLastName) || null,
             site_contact_phone: siteContactPhone || null,
             service_address: serviceAddress || null,
             service_type: serviceTypeLabel || null,
@@ -3160,7 +3172,7 @@ export function EditProjectDialog({
     projectNumber, status, companyName, companyId, customerId, contactName, email, phone,
     additionalReportEmails,
     serviceStreet, serviceUnit, serviceCity, serviceState, serviceZip,
-    siteContactName, siteContactPhone, selectedServiceTypeKeys, customServiceType, scopeOfWork,
+    siteContactFirstName, siteContactLastName, siteContactPhone, selectedServiceTypeKeys, customServiceType, scopeOfWork,
     requestedDate, requestedTime, paidDate, dueDate, notes,
   ]);
 
@@ -3328,24 +3340,27 @@ export function EditProjectDialog({
 
         <label className="mt-3 block text-sm font-medium text-slate-700">Job site contact</label>
         <div className="mt-1 flex gap-2">
-          <div className="flex-1">
-            <input
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-500"
-              placeholder="Name"
-              value={siteContactName}
-              disabled={siteContactSameAsContact}
-              onChange={(e) => setSiteContactName(e.target.value)}
-            />
-          </div>
-          <div className="flex-1">
-            <input
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-500"
-              placeholder="Phone"
-              value={siteContactPhone}
-              disabled={siteContactSameAsContact}
-              onChange={(e) => setSiteContactPhone(formatPhoneInput(e.target.value))}
-            />
-          </div>
+          <input
+            className="w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-500"
+            placeholder="First name"
+            value={siteContactFirstName}
+            disabled={siteContactSameAsContact}
+            onChange={(e) => setSiteContactFirstName(e.target.value)}
+          />
+          <input
+            className="w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-500"
+            placeholder="Last name"
+            value={siteContactLastName}
+            disabled={siteContactSameAsContact}
+            onChange={(e) => setSiteContactLastName(e.target.value)}
+          />
+          <input
+            className="w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-500"
+            placeholder="Phone"
+            value={siteContactPhone}
+            disabled={siteContactSameAsContact}
+            onChange={(e) => setSiteContactPhone(formatPhoneInput(e.target.value))}
+          />
         </div>
 
         <label className="mt-3 block text-sm font-medium text-slate-700">Customer contact</label>
@@ -3378,7 +3393,8 @@ export function EditProjectDialog({
               const checked = e.target.checked;
               setSiteContactSameAsContact(checked);
               if (!checked) {
-                setSiteContactName("");
+                setSiteContactFirstName("");
+                setSiteContactLastName("");
                 setSiteContactPhone("");
               }
             }}

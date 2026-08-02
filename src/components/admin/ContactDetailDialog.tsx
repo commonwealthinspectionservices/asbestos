@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { Customer } from "@/lib/types";
-import { STATUS_LABEL } from "@/components/admin/JobsDashboard";
+import { STATUS_LABEL, ComboboxInput } from "@/components/admin/JobsDashboard";
 import { joinName, splitFullName } from "@/lib/name";
 import AddressAutocompleteInput from "@/components/shared/AddressAutocompleteInput";
 import ZipInput, { useAutoZip } from "@/components/shared/ZipInput";
@@ -233,6 +233,16 @@ export function ContactDetailDialog({
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [inviting, setInviting] = useState(false);
+  const [inviteLink, setInviteLink] = useState<string | null>(null);
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
+  const [merging, setMerging] = useState(false);
+  const [mergeQuery, setMergeQuery] = useState("");
+  const [mergeTarget, setMergeTarget] = useState<Customer | null>(null);
+  const [mergeSubmitting, setMergeSubmitting] = useState(false);
+  const [mergeError, setMergeError] = useState<string | null>(null);
+  const [confirmingMerge, setConfirmingMerge] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -264,6 +274,50 @@ export function ContactDetailDialog({
     } catch (e) {
       setDeleteError(e instanceof Error ? e.message : "Failed to delete contact");
       setDeleting(false);
+    }
+  }
+
+  async function sendInvite() {
+    setInviting(true);
+    setInviteError(null);
+    setLinkCopied(false);
+    try {
+      const res = await fetch(`/api/admin/customers/${customerId}/invite`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to create invite");
+      setInviteLink(data.inviteLink);
+    } catch (e) {
+      setInviteError(e instanceof Error ? e.message : "Failed to create invite");
+    } finally {
+      setInviting(false);
+    }
+  }
+
+  async function copyInviteLink() {
+    if (!inviteLink) return;
+    await navigator.clipboard.writeText(inviteLink);
+    setLinkCopied(true);
+  }
+
+  async function mergeIntoTarget() {
+    if (!mergeTarget) return;
+    setMergeSubmitting(true);
+    setMergeError(null);
+    try {
+      const res = await fetch("/api/admin/customers/merge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ survivorId: mergeTarget.id, loserId: customerId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to merge contacts");
+      onChanged();
+      onClose();
+    } catch (e) {
+      setMergeError(e instanceof Error ? e.message : "Failed to merge contacts");
+      setConfirmingMerge(false);
+    } finally {
+      setMergeSubmitting(false);
     }
   }
 
@@ -301,8 +355,106 @@ export function ContactDetailDialog({
             </div>
 
             <div className="mt-4 border-t border-slate-100 pt-4">
+              <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Portal login</h4>
+              {customer.auth_user_id ? (
+                <p className="mt-1 text-sm text-emerald-700">Connected — this contact can sign in to the portal.</p>
+              ) : (
+                <>
+                  <p className="mt-1 text-sm text-slate-500">No portal login yet.</p>
+                  {inviteError && <p className="mt-2 text-sm text-red-600">{inviteError}</p>}
+                  {inviteLink ? (
+                    <div className="mt-2 flex items-center gap-2">
+                      <input
+                        readOnly
+                        value={inviteLink}
+                        onFocus={(e) => e.target.select()}
+                        className="w-0 flex-1 rounded-lg border border-slate-300 bg-slate-50 px-2 py-1.5 text-xs text-slate-600"
+                      />
+                      <button
+                        onClick={copyInviteLink}
+                        className="shrink-0 rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs"
+                      >
+                        {linkCopied ? "Copied" : "Copy"}
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={sendInvite}
+                      disabled={inviting || !customer.email}
+                      className="mt-2 rounded-lg border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-50"
+                    >
+                      {inviting ? "Creating link…" : "Get invite link"}
+                    </button>
+                  )}
+                  {inviteLink && (
+                    <p className="mt-1.5 text-xs text-slate-400">
+                      Send this to them yourself — clicking it lets them set a password and links straight to this contact.
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
+
+            <div className="mt-4 border-t border-slate-100 pt-4">
               <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Projects ({jobs.length})</h4>
               <JobList jobs={jobs} />
+            </div>
+
+            <div className="mt-4 border-t border-slate-100 pt-4">
+              {!merging ? (
+                <button onClick={() => setMerging(true)} className="text-sm text-brand-600 underline">
+                  Merge into another contact…
+                </button>
+              ) : (
+                <div>
+                  <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Merge into another contact</h4>
+                  <p className="mt-1 text-xs text-slate-500">
+                    This contact&apos;s projects, saved addresses, and portal login (if any) move onto the one you pick below, and this record is deleted.
+                  </p>
+                  {mergeError && <p className="mt-2 text-sm text-red-600">{mergeError}</p>}
+                  <div className="mt-2">
+                    <ComboboxInput
+                      value={mergeTarget ? mergeTarget.name : mergeQuery}
+                      onChange={(v) => {
+                        setMergeQuery(v);
+                        setMergeTarget(null);
+                      }}
+                      fetchOptions={async (q) => {
+                        const res = await fetch(`/api/admin/customers?q=${encodeURIComponent(q)}`);
+                        const data = await res.json();
+                        return ((data.customers ?? []) as Customer[]).filter((c) => c.id !== customerId);
+                      }}
+                      getLabel={(c: Customer) => c.name}
+                      getSublabel={(c: Customer) => c.email}
+                      onSelect={(c: Customer) => {
+                        setMergeTarget(c);
+                        setMergeQuery("");
+                      }}
+                      placeholder="Search contacts by name, company, or email…"
+                    />
+                  </div>
+                  <div className="mt-3 flex gap-2">
+                    <button
+                      onClick={() => setConfirmingMerge(true)}
+                      disabled={!mergeTarget}
+                      className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+                    >
+                      Merge
+                    </button>
+                    <button
+                      onClick={() => {
+                        setMerging(false);
+                        setMergeTarget(null);
+                        setMergeQuery("");
+                        setMergeError(null);
+                      }}
+                      className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-4">
@@ -320,6 +472,33 @@ export function ContactDetailDialog({
           </>
         )}
       </div>
+
+      {confirmingMerge && mergeTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-sm rounded-xl bg-white p-5">
+            <h3 className="font-semibold text-slate-800">Merge into {mergeTarget.name}?</h3>
+            <p className="mt-2 text-sm text-slate-600">
+              This action is permanent. {customer?.name}&apos;s projects, saved addresses, and portal login (if any) move onto {mergeTarget.name}, and this record is deleted.
+            </p>
+            <div className="mt-4 flex gap-2">
+              <button
+                onClick={mergeIntoTarget}
+                disabled={mergeSubmitting}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+              >
+                {mergeSubmitting ? "MERGING…" : "MERGE"}
+              </button>
+              <button
+                onClick={() => setConfirmingMerge(false)}
+                disabled={mergeSubmitting}
+                className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-bold"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {confirmingDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">

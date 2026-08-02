@@ -2433,7 +2433,7 @@ function CcPicker({
   );
 }
 
-function ComboboxInput<T>({
+export function ComboboxInput<T>({
   value, onChange, options, fetchOptions, getLabel, getSublabel, onSelect, placeholder, disabled, onEnter,
 }: {
   value: string;

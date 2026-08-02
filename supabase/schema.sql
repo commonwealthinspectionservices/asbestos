@@ -589,3 +589,41 @@ alter table settings enable row level security;
 alter table companies enable row level security;
 alter table gmail_connection enable row level security;
 alter table job_messages enable row level security;
+
+-- Consolidates a duplicate contact into the one being kept — e.g. someone
+-- who self-signed-up through the portal with a different email than the
+-- one an admin had already put on file for them, creating a second
+-- customers row instead of linking to the existing one. Reassigns every
+-- reference to loser_id (jobs, saved addresses, company billing/cc links)
+-- over to survivor_id, carries over the portal login if only one side has
+-- one, then deletes the duplicate — all in one transaction so a failure
+-- partway through can't leave things half-merged. Refuses to merge two
+-- records that each already have their own distinct portal login, since
+-- deciding which one wins isn't something to do silently.
+create or replace function merge_customers(survivor_id uuid, loser_id uuid) returns void as $$
+declare
+  loser_auth_id uuid;
+  survivor_auth_id uuid;
+begin
+  select auth_user_id into loser_auth_id from customers where id = loser_id;
+  select auth_user_id into survivor_auth_id from customers where id = survivor_id;
+
+  if loser_auth_id is not null and survivor_auth_id is not null and loser_auth_id != survivor_auth_id then
+    raise exception 'Both records have their own portal login — resolve manually before merging';
+  end if;
+
+  update jobs set customer_id = survivor_id where customer_id = loser_id;
+  update jobs set billing_contact_id = survivor_id where billing_contact_id = loser_id;
+  update saved_addresses set customer_id = survivor_id where customer_id = loser_id;
+  update companies set billing_contact_id = survivor_id where billing_contact_id = loser_id;
+  update companies set invoice_cc_contact_ids = array_replace(invoice_cc_contact_ids, loser_id, survivor_id)
+    where loser_id = any(invoice_cc_contact_ids);
+
+  if loser_auth_id is not null and survivor_auth_id is null then
+    update customers set auth_user_id = null where id = loser_id;
+    update customers set auth_user_id = loser_auth_id where id = survivor_id;
+  end if;
+
+  delete from customers where id = loser_id;
+end;
+$$ language plpgsql;

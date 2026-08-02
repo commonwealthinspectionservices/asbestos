@@ -632,8 +632,27 @@ export function CompanyDetailDialog({
               </div>
 
               <div className="mt-1">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
                   <span className="text-slate-500">Send every invoice to:</span>
+                  <select
+                    className="flex-1 rounded-md border border-transparent px-1.5 py-0.5 text-sm hover:border-slate-200 focus:border-slate-300 focus:outline-none"
+                    value=""
+                    title="Every invoice for this company's projects Cc's everyone on this list automatically, on top of the project's own contact"
+                    onChange={(e) => {
+                      const id = e.target.value;
+                      const current = company.invoice_cc_contact_ids ?? [];
+                      if (id && !current.includes(id)) {
+                        saveInvoiceCcContacts([...current, id]);
+                      }
+                    }}
+                  >
+                    <option value="">+ Add a contact</option>
+                    {contacts
+                      .filter((c) => !(company.invoice_cc_contact_ids ?? []).includes(c.id))
+                      .map((c) => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                  </select>
                   {savingInvoiceCc && <span className="text-xs text-slate-400">Saving…</span>}
                 </div>
                 {(company.invoice_cc_contact_ids ?? []).length > 0 && (
@@ -656,25 +675,6 @@ export function CompanyDetailDialog({
                     })}
                   </div>
                 )}
-                <select
-                  className="mt-1.5 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
-                  value=""
-                  title="Every invoice for this company's projects Cc's everyone on this list automatically, on top of the project's own contact"
-                  onChange={(e) => {
-                    const id = e.target.value;
-                    const current = company.invoice_cc_contact_ids ?? [];
-                    if (id && !current.includes(id)) {
-                      saveInvoiceCcContacts([...current, id]);
-                    }
-                  }}
-                >
-                  <option value="">+ Add a contact to always Cc…</option>
-                  {contacts
-                    .filter((c) => !(company.invoice_cc_contact_ids ?? []).includes(c.id))
-                    .map((c) => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                </select>
               </div>
             </div>
 

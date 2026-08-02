@@ -48,7 +48,7 @@ function useTownZipOptions(street: string, city: string, state: string, apiBase:
 // ZIP, and offers a one-click pick-list instead of leaving the user to type
 // one when the town has several.
 export default function ZipInput({
-  street, city, state, zip, setZip, apiBase,
+  street, city, state, zip, setZip, apiBase, inputClassName,
 }: {
   street: string;
   city: string;
@@ -57,6 +57,8 @@ export default function ZipInput({
   setZip: (v: string) => void;
   /** "/api/admin" or "/api/portal" — which auth-gated zip routes to call. */
   apiBase: string;
+  /** Overrides the input's own classes (size/padding) — see AddressAutocompleteInput's version of this prop. */
+  inputClassName?: string;
 }) {
   const options = useTownZipOptions(street, city, state, apiBase);
   const [open, setOpen] = useState(false);
@@ -77,7 +79,7 @@ export default function ZipInput({
     <div className="relative">
       <div className="flex gap-1">
         <input
-          className="w-full rounded-lg border border-slate-300 px-2 py-2 text-sm"
+          className={inputClassName ?? "w-full rounded-lg border border-slate-300 px-2 py-2 text-sm"}
           placeholder="ZIP"
           value={zip}
           onChange={(e) => setZip(e.target.value)}

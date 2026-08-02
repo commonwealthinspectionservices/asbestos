@@ -87,10 +87,11 @@ export default function OnboardingForm({
             }}
             placeholder="Street address"
             townHint={city}
+            inputClassName="w-full rounded-lg border border-slate-300 px-4 py-3 text-base"
           />
         </div>
         <input
-          className="w-24 shrink-0 rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          className="w-24 shrink-0 rounded-lg border border-slate-300 px-4 py-3 text-base"
           placeholder="Unit #"
           value={unit}
           onChange={(e) => setUnit(e.target.value)}
@@ -111,9 +112,10 @@ export default function OnboardingForm({
             setZip(fields.zip);
           }}
           placeholder="Town"
+          inputClassName="w-full rounded-lg border border-slate-300 px-4 py-3 text-base"
         />
         <select
-          className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          className="rounded-lg border border-slate-300 px-4 py-3 text-base"
           value={addrState}
           onChange={(e) => setAddrState(e.target.value)}
         >
@@ -121,7 +123,15 @@ export default function OnboardingForm({
             <option key={s} value={s}>{s}</option>
           ))}
         </select>
-        <ZipInput street={street} city={city} state={addrState} zip={zip} setZip={setZip} apiBase="/api" />
+        <ZipInput
+          street={street}
+          city={city}
+          state={addrState}
+          zip={zip}
+          setZip={setZip}
+          apiBase="/api"
+          inputClassName="w-full rounded-lg border border-slate-300 px-4 py-3 text-base"
+        />
       </div>
 
       <button

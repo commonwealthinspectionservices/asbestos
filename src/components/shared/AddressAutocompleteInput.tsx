@@ -8,7 +8,7 @@ import type { AddressFields } from "@/lib/address";
 // Book a Project form — same type-ahead behavior, pointed at either
 // /api/admin or /api/portal so each surface hits its own auth-gated route.
 export default function AddressAutocompleteInput({
-  value, onChange, onSelectAddress, placeholder, mode = "address", townHint, apiBase,
+  value, onChange, onSelectAddress, placeholder, mode = "address", townHint, apiBase, inputClassName,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -20,6 +20,8 @@ export default function AddressAutocompleteInput({
   townHint?: string;
   /** "/api/admin" or "/api/portal" — which auth-gated autocomplete routes to call. */
   apiBase: string;
+  /** Overrides the input's own classes (size/padding) — callers that need to match a different field size on their form (e.g. onboarding's larger inputs) can pass one instead of the default compact styling. */
+  inputClassName?: string;
 }) {
   const [suggestions, setSuggestions] = useState<{ placeId: string; description: string }[]>([]);
   const [open, setOpen] = useState(false);
@@ -68,7 +70,7 @@ export default function AddressAutocompleteInput({
   return (
     <div className="relative">
       <input
-        className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+        className={inputClassName ?? "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"}
         value={value}
         placeholder={placeholder}
         onChange={(e) => handleInput(e.target.value)}

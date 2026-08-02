@@ -2817,7 +2817,7 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
 
         <label className="mt-3 block text-sm font-medium text-slate-700">Customer contact</label>
         <div className="mt-1 flex gap-2">
-          <div className="flex-1">
+          <div className="w-0 flex-1">
             <ComboboxInput
               value={contactName}
               onChange={(v) => { setContactName(v); setEmail(""); setPhone(""); }}
@@ -2828,7 +2828,7 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
               placeholder="Name"
             />
           </div>
-          <div className="flex-1">
+          <div className="w-0 flex-1">
             <input
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
               placeholder="Phone"
@@ -3361,7 +3361,7 @@ export function EditProjectDialog({
 
         <label className="mt-3 block text-sm font-medium text-slate-700">Customer contact</label>
         <div className="mt-1 flex gap-2">
-          <div className="flex-1">
+          <div className="w-0 flex-1">
             <ComboboxInput
               value={contactName}
               onChange={(v) => { setContactName(v); setEmail(""); setPhone(""); setCustomerId(""); }}
@@ -3372,7 +3372,7 @@ export function EditProjectDialog({
               placeholder="Name"
             />
           </div>
-          <div className="flex-1">
+          <div className="w-0 flex-1">
             <input
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
               placeholder="Phone"

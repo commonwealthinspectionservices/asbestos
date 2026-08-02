@@ -65,7 +65,6 @@ function invoiceStatus(job: JobWithCustomer): InvoiceStatus {
 type FilterKey = "all" | "not_ready" | "ready_to_send" | "sent" | "overdue" | "paid";
 const FILTERS: { key: FilterKey; label: string }[] = [
   { key: "all", label: "All" },
-  { key: "not_ready", label: "Not Ready" },
   { key: "ready_to_send", label: "Ready to Send" },
   { key: "sent", label: "Sent (Unpaid)" },
   { key: "overdue", label: "Overdue" },

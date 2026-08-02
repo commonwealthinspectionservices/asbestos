@@ -59,6 +59,7 @@ function baseJob(overrides: Partial<JobWithCustomer> = {}): JobWithCustomer {
     requested_date: null,
     confirmed_date: null,
     confirmed_time: null,
+    schedule_visible_to_customer: false,
     end_date: null,
     paid_date: null,
     payment_due_date: null,

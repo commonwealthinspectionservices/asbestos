@@ -85,19 +85,15 @@ function formatClockTime(totalMinutes: number): string {
   return `${hour12}:${String(m).padStart(2, "0")} ${period}`;
 }
 
-// Clients see a one-hour-either-side window around the admin's specific
-// confirmed_time (e.g. 2:00 PM confirmed -> "1:00 PM - 3:00 PM") rather
-// than the exact time — actual arrival can slide a bit with same-day
-// routing, so a window is more honest than a precise minute. Falls back to
-// the coarser AM/PM window only when the admin hasn't set a specific time
-// yet; shows nothing at all for "ANY" with no time set, since there's
+// Clients see the admin's exact confirmed_time (e.g. "2:00 PM"). Falls back
+// to the coarser AM/PM window only when the admin hasn't set a specific
+// time yet; shows nothing at all for "ANY" with no time set, since there's
 // genuinely nothing to tell the client until one is picked.
 function formatTimeWindow(confirmedTime: string | null | undefined, window: string | null | undefined): string {
   if (confirmedTime) {
     const [h, m] = confirmedTime.split(":").map(Number);
     if (!Number.isNaN(h) && !Number.isNaN(m)) {
-      const totalMinutes = h * 60 + m;
-      return `${formatClockTime(totalMinutes - 60)} - ${formatClockTime(totalMinutes + 60)}`;
+      return formatClockTime(h * 60 + m);
     }
   }
   if (window === "AM") return "Morning";

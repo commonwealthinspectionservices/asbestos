@@ -80,9 +80,13 @@ export const POST = withApiErrors(async (req: NextRequest) => {
       duration_minutes: serviceType.duration_minutes,
       requested_date: scheduleViaContact ? null : date,
       // The client just picked this themselves, so it's already "agreed" —
-      // auto-confirmed rather than waiting on the admin to click "Confirm &
-      // send to client" (that flow is for the admin's own later reschedules).
+      // auto-confirmed rather than waiting on the admin to flip the
+      // "Visible to customer" toggle (that's for the admin's own later
+      // reschedules). schedule_visible_to_customer mirrors this so the
+      // toggle shown on the dashboard reflects reality, and any later
+      // requested_date/time edit made from there keeps live-syncing.
       confirmed_date: scheduleViaContact ? null : date,
+      schedule_visible_to_customer: !scheduleViaContact,
       window: scheduleViaContact ? "ANY" : window,
       status: scheduleViaContact ? "needs_scheduling" : "scheduled",
       notes: notes || null,

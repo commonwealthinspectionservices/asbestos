@@ -24,17 +24,15 @@ function formatClockTime(totalMinutes: number): string {
   return `${hour12}:${String(m).padStart(2, "0")} ${period}`;
 }
 
-// Mirrors ProjectDetailModal.tsx's formatTimeWindow — a one-hour-either-side
-// window around the admin's specific confirmed_time (e.g. 2:00 PM confirmed
-// -> "1:00 PM - 3:00 PM"), falling back to the coarser AM/PM window only
-// when no specific time has been set yet, and to nothing at all for "ANY"
-// with no time set.
+// Mirrors ProjectDetailModal.tsx's formatTimeWindow — the admin's exact
+// confirmed_time (e.g. "2:00 PM"), falling back to the coarser AM/PM window
+// only when no specific time has been set yet, and to nothing at all for
+// "ANY" with no time set.
 function formatTimeWindow(confirmedTime: string | null | undefined, window: string | null | undefined): string {
   if (confirmedTime) {
     const [h, m] = confirmedTime.split(":").map(Number);
     if (!Number.isNaN(h) && !Number.isNaN(m)) {
-      const totalMinutes = h * 60 + m;
-      return `${formatClockTime(totalMinutes - 60)} - ${formatClockTime(totalMinutes + 60)}`;
+      return formatClockTime(h * 60 + m);
     }
   }
   if (window === "AM") return "Morning";

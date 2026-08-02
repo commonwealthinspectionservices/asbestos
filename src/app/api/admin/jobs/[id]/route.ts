@@ -10,6 +10,7 @@ const EDITABLE_FIELDS = [
   "requested_date",
   "confirmed_date",
   "confirmed_time",
+  "schedule_visible_to_customer",
   "end_date",
   "paid_date",
   "payment_due_date",
@@ -103,28 +104,41 @@ export const PATCH = withApiErrors(async (
 
   // Auto-advance "To Be Scheduled" -> "Scheduled" the moment a date lands
   // on the job, same as picking it manually — but never overrides an
-  // explicit status change in the same request. Also covers the initial
+  // explicit status change in the same request. Also covers the
   // confirmed_date/confirmed_time sync below (needs the same current row).
-  if ("requested_date" in patch || "requested_time" in patch) {
-    const { data: current } = await supabase
+  if ("requested_date" in patch || "requested_time" in patch || "schedule_visible_to_customer" in patch) {
+    let current: { status?: string; requested_date?: string | null; requested_time?: string | null; schedule_visible_to_customer?: boolean } | null = null;
+    const { data, error: selectError } = await supabase
       .from("jobs")
-      .select("status, confirmed_date, requested_date, requested_time")
+      .select("status, requested_date, requested_time, schedule_visible_to_customer")
       .eq("id", params.id)
       .single();
+    if (!selectError) {
+      current = data;
+    } else {
+      // schedule_visible_to_customer not migrated onto this database yet —
+      // fall back to without it so the save doesn't hard-fail; the visibility
+      // sync below just no-ops until the migration runs.
+      current = (await supabase.from("jobs").select("status, requested_date, requested_time").eq("id", params.id).single()).data;
+    }
 
     if (current?.status === "needs_scheduling" && "requested_date" in patch && patch.requested_date && !("status" in patch)) {
       patch.status = "scheduled";
     }
 
-    // The very first date/time ever set on a job (nothing confirmed to the
-    // client yet) auto-syncs confirmed_date/confirmed_time — the client
-    // learning "it's now scheduled" IS the confirmation here, no extra
-    // click needed. Once something's been confirmed once, later reschedules
-    // go back to requiring the explicit "Confirm & send" button (JobRow) so
-    // an in-progress edit is never shown before it's actually settled.
-    if (current && current.confirmed_date == null) {
-      patch.confirmed_date = "requested_date" in patch ? patch.requested_date : current.requested_date;
-      patch.confirmed_time = "requested_time" in patch ? patch.requested_time : current.requested_time;
+    // Only ever reaches the client when schedule_visible_to_customer is on
+    // (see the toggle on JobRow) — defaults off, so a date is never shown
+    // until the admin explicitly flips it. While on, confirmed_date/
+    // confirmed_time stay live-mirrored to requested_date/requested_time as
+    // the admin keeps editing, so no separate "confirm & send" click is
+    // needed on every reschedule. Flipping it off hides the date again.
+    const willBeVisible = "schedule_visible_to_customer" in patch ? patch.schedule_visible_to_customer : current?.schedule_visible_to_customer;
+    if (willBeVisible) {
+      patch.confirmed_date = "requested_date" in patch ? patch.requested_date : current?.requested_date ?? null;
+      patch.confirmed_time = "requested_time" in patch ? patch.requested_time : current?.requested_time ?? null;
+    } else if ("schedule_visible_to_customer" in patch) {
+      patch.confirmed_date = null;
+      patch.confirmed_time = null;
     }
   }
 
@@ -151,7 +165,7 @@ export const PATCH = withApiErrors(async (
   // Columns added after this route was first written — tolerated in case
   // the migration adding them hasn't been run against this database yet,
   // so a save never hard-fails over one of them being missing.
-  const TOLERATED_MISSING_COLUMNS = ["paid_date", "sample_counts", "report_emails", "invoice_emails", "scope_of_work", "payment_due_date", "asbestos_result", "invoice_auto", "confirmed_date", "confirmed_time"];
+  const TOLERATED_MISSING_COLUMNS = ["paid_date", "sample_counts", "report_emails", "invoice_emails", "scope_of_work", "payment_due_date", "asbestos_result", "invoice_auto", "confirmed_date", "confirmed_time", "schedule_visible_to_customer"];
 
   let currentPatch = patch;
   let data: Record<string, unknown> | null = null;

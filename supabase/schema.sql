@@ -540,11 +540,13 @@ alter table customers add column if not exists is_homeowner boolean not null def
 -- requested_time (which the admin can freely retune while coordinating
 -- logistics with the contractor/lab) so the contractor portal never shows
 -- a schedule change before it's been deliberately confirmed. Set to match
--- requested_date/requested_time at creation time (an initial date is
--- already "agreed", not a tentative edit), then only re-synced by the
--- explicit confirm action after that. See JobsDashboard's JobRow.
+-- requested_date/requested_time only while schedule_visible_to_customer is
+-- on — off by default, flipped per job from JobsDashboard's JobRow, and
+-- kept live-synced to requested_date/requested_time while on so no repeat
+-- click is needed after every reschedule.
 alter table jobs add column if not exists confirmed_date date;
 alter table jobs add column if not exists confirmed_time text;
+alter table jobs add column if not exists schedule_visible_to_customer boolean not null default false;
 
 -- Per-job override of who the invoice goes to — the portal's "Billing
 -- contact for this project" selector on a single job. Must reference a

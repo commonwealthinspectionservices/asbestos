@@ -217,9 +217,11 @@ export interface Job {
   job_classification: string | null;
   payment_method: string | null;
   requested_date: string | null;
-  /** Snapshot of requested_date/requested_time from the moment the admin last clicked "Confirm & send to client" — this, not requested_date/requested_time, is what the portal shows the contractor. */
+  /** Mirrors requested_date/requested_time whenever schedule_visible_to_customer is on, and null when it's off — this, not requested_date/requested_time, is what the portal shows the contractor. */
   confirmed_date: string | null;
   confirmed_time: string | null;
+  /** Admin-controlled visibility gate for the schedule — defaults off, so a date/time is never shown to the client until the admin explicitly flips it on. While on, confirmed_date/confirmed_time stay live-synced to requested_date/requested_time as the admin keeps editing. */
+  schedule_visible_to_customer: boolean;
   end_date: string | null;
   paid_date: string | null;
   /** Editable, defaults to 30 days after requested_date but can be overridden per job. */

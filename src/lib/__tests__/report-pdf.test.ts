@@ -95,6 +95,7 @@ const job: Job = {
   requested_date: "2026-07-18",
   confirmed_date: "2026-07-18",
   confirmed_time: null,
+  schedule_visible_to_customer: true,
   end_date: null,
   paid_date: null,
   payment_due_date: null,

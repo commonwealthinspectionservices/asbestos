@@ -152,12 +152,12 @@ export const POST = withApiErrors(async (req: NextRequest) => {
     duration_minutes: durationMinutes,
     requested_date: body.requestedDate || null,
     requested_time: body.requestedTime || null,
-    // A date/time entered while adding the project is already agreed, not
-    // a tentative edit — auto-confirmed so the portal shows it right away.
-    // Any later change made from the dashboard's date/time inputs needs an
-    // explicit "Confirm & send to client" click before the portal updates.
-    confirmed_date: body.requestedDate || null,
-    confirmed_time: body.requestedTime || null,
+    // Hidden from the portal until the admin explicitly flips the "Visible
+    // to customer" toggle (see JobRow) — schedule_visible_to_customer
+    // defaults off, so confirmed_date/confirmed_time start null even when a
+    // date's already set here.
+    confirmed_date: null,
+    confirmed_time: null,
     status: startingStatus,
     notes: body.notes || null,
     project_name: body.projectName || null,

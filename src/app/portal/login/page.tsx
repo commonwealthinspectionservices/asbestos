@@ -19,7 +19,11 @@ export default function PortalLoginPage() {
       const supabase = createSupabaseBrowserClient();
       const { error: loginError } = await supabase.auth.signInWithPassword({ email, password });
       if (loginError) throw loginError;
-      router.push("/portal");
+      // Not "/portal" — that's the passive nav-link entry point and never
+      // resumes onboarding (see src/app/portal/page.tsx). An explicit sign-in
+      // still needs to route a mid-onboarding account back to onboarding,
+      // which the dashboard route's own redirect already handles.
+      router.push("/portal/dashboard");
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Sign in failed");

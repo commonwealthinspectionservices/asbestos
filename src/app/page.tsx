@@ -47,7 +47,7 @@ export default function HomePage() {
     <div className="min-h-screen bg-white">
       <MarketingNav />
 
-      <section className="relative mt-10 overflow-hidden py-12 text-center">
+      <section className="relative mt-4 overflow-hidden py-4 text-center sm:mt-10 sm:py-12">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/marketing/boston-skyline.jpg"
@@ -59,23 +59,23 @@ export default function HomePage() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/marketing/massachusetts-outline.png" alt="" className="h-10 w-auto shrink-0 sm:h-32" />
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="Commonwealth Inspection Services" className="h-40 w-40 shrink-0 rounded-full sm:h-56 sm:w-56" />
+          <img src="/logo.png" alt="Commonwealth Inspection Services" className="h-32 w-32 shrink-0 rounded-full sm:h-56 sm:w-56" />
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/marketing/massachusetts-outline.png" alt="" className="h-10 w-auto shrink-0 sm:h-32" />
         </div>
-        <p className="relative mt-8 text-xs font-black uppercase text-brand-700 sm:text-xl">
+        <p className="relative mt-3 text-xs font-black uppercase text-brand-700 sm:mt-8 sm:text-xl">
           Serving Boston + all of Massachusetts
         </p>
-        <div className="relative mt-8 flex justify-center gap-3">
+        <div className="relative mt-3 flex justify-center gap-3 sm:mt-8">
           <Link
             href="/portal"
-            className="inline-flex h-[22px] sm:h-[29px] items-center border-[3px] border-brand-700 bg-brand-50 px-4 text-sm font-extrabold uppercase pt-0.5 leading-none text-brand-700 hover:bg-yellow-100"
+            className="inline-flex h-[22px] items-center border-[3px] border-brand-700 bg-brand-50 px-4 text-[9px] font-extrabold uppercase pt-0.5 leading-none text-brand-700 hover:bg-yellow-100 sm:h-[29px] sm:text-xs md:text-sm"
           >
             Book an Inspection
           </Link>
           <Link
             href="/contact"
-            className="inline-flex h-[22px] sm:h-[29px] items-center border-[3px] border-brand-700 bg-brand-50 px-4 text-sm font-extrabold uppercase pt-0.5 leading-none text-brand-700 hover:bg-yellow-100"
+            className="inline-flex h-[22px] items-center border-[3px] border-brand-700 bg-brand-50 px-4 text-[9px] font-extrabold uppercase pt-0.5 leading-none text-brand-700 hover:bg-yellow-100 sm:h-[29px] sm:text-xs md:text-sm"
           >
             Contact
           </Link>
@@ -83,7 +83,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="relative bg-white pt-10">
+      <section className="relative bg-white pt-4 sm:pt-10">
         <div className="mx-auto grid max-w-4xl grid-cols-1 gap-4 px-4 sm:grid-cols-3">
           {SERVICES.map((service) => (
             <Link
@@ -118,7 +118,7 @@ export default function HomePage() {
               >
                 <span className="line-clamp-2 font-bold uppercase text-brand-700 text-[clamp(0.6rem,4.2cqw,1rem)]">
                   {area === "Martha's Vineyard + Nantucket" ? (
-                    <>Martha&apos;s Vineyard<br />+ Nantucket</>
+                    <>Martha&apos;s Vineyard<br />Nantucket</>
                   ) : (
                     area
                   )}

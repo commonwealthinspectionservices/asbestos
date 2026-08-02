@@ -1107,6 +1107,24 @@ export function ProjectDetailDialog({
       setPayLinkLoading(false);
     }
   }
+  const [copyLinkLoading, setCopyLinkLoading] = useState(false);
+  const [copyLinkDone, setCopyLinkDone] = useState(false);
+  async function copyPaymentLink() {
+    setCopyLinkLoading(true);
+    setPayLinkError(null);
+    try {
+      const res = await fetch(`/api/admin/jobs/${job.id}/pay-link`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Something went wrong");
+      await navigator.clipboard.writeText(data.url);
+      setCopyLinkDone(true);
+      setTimeout(() => setCopyLinkDone(false), 2000);
+    } catch (e) {
+      setPayLinkError(e instanceof Error ? e.message : "Something went wrong");
+    } finally {
+      setCopyLinkLoading(false);
+    }
+  }
   const lastAppliedInvoiceDefaultRef = useRef<string>(JSON.stringify(defaultLineItems(job, serviceTypeSettings, pricingZones)));
   const invoiceHasMountedRef = useRef(false);
   const invoiceDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1661,14 +1679,22 @@ export function ProjectDetailDialog({
               <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-4">
                 <button
                   onClick={() => setShowInvoicePreview((v) => !v)}
-                  className="rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-bold uppercase text-white"
+                  className={`rounded-lg px-3 py-1.5 text-sm font-bold uppercase ${
+                    reportComplete
+                      ? "bg-emerald-600 text-white"
+                      : "border border-slate-300 bg-white text-slate-700"
+                  }`}
                 >
                   {showInvoicePreview ? "Hide invoice" : "View invoice"}
                 </button>
                 <a
                   href={`/api/admin/jobs/${job.id}/invoice?download=1`}
                   download={`invoice-${job.project_number ?? job.id}.pdf`}
-                  className="rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-bold uppercase text-white"
+                  className={`rounded-lg px-3 py-1.5 text-sm font-bold uppercase ${
+                    reportComplete
+                      ? "bg-emerald-600 text-white"
+                      : "border border-slate-300 bg-white text-slate-700"
+                  }`}
                 >
                   Download invoice
                 </a>
@@ -1678,6 +1704,13 @@ export function ProjectDetailDialog({
                   className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-bold uppercase text-slate-700 disabled:opacity-50"
                 >
                   {payLinkLoading ? "Loading…" : "Payment link"}
+                </button>
+                <button
+                  onClick={copyPaymentLink}
+                  disabled={copyLinkLoading}
+                  className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-bold uppercase text-slate-700 disabled:opacity-50"
+                >
+                  {copyLinkLoading ? "Loading…" : copyLinkDone ? "Copied!" : "Copy payment link"}
                 </button>
               </div>
             )}

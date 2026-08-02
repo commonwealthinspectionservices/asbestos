@@ -505,7 +505,14 @@ export default function JobsDashboard() {
   }, []);
 
   const overdueJobs = useMemo(() => jobs.filter((j) => daysOverdue(j) !== null), [jobs]);
-  const readyToSendJobs = useMemo(() => jobs.filter((j) => j.status === "ready_to_send"), [jobs]);
+  // Not just status === "ready_to_send" — that can be set by hand without the
+  // report/invoice actually being drafted yet. This banner is specifically
+  // "there's a finished draft sitting here to review and send," so it also
+  // requires both drafts to actually exist.
+  const readyToSendJobs = useMemo(
+    () => jobs.filter((j) => j.status === "ready_to_send" && j.report_drafted_at != null && j.invoice_drafted_at != null),
+    [jobs]
+  );
 
   const filteredJobs = useMemo(() => {
     let result = jobs;

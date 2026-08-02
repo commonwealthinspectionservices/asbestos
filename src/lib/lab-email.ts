@@ -7,6 +7,7 @@ import { getSettings } from "@/lib/settings";
 import { withCompanyBillingAddress } from "@/lib/customer-billing";
 import {
   createDraft,
+  deleteDraft,
   findPdfParts,
   getAttachmentData,
   getHeader,
@@ -471,6 +472,18 @@ async function draftInvoiceEmailForJob(params: {
     }
   }
 
+  // Recreating a draft (the admin already had one, is now clicking
+  // "Recreate Invoice Draft") replaces it rather than leaving the stale
+  // copy sitting in Gmail alongside the new one — best-effort, since a
+  // draft that's already been sent or manually deleted is expected to 404.
+  if (job.invoice_draft_gmail_id) {
+    try {
+      await deleteDraft(accessToken, job.invoice_draft_gmail_id);
+    } catch (e) {
+      console.error(`Failed to delete previous invoice draft for job ${job.id}:`, e);
+    }
+  }
+
   const draft = await createDraft(accessToken, {
     to: toCustomer.email,
     cc: [...new Set(ccRecipients)].join(", ") || undefined,
@@ -512,6 +525,18 @@ async function draftReportEmailForJob(params: {
   const recipients = [customer.email, ...(job.report_emails?.split(",") ?? [])]
     .map((e) => e.trim())
     .filter(Boolean);
+
+  // Recreating a draft (the admin already had one, is now clicking
+  // "Recreate Report Draft") replaces it rather than leaving the stale
+  // copy sitting in Gmail alongside the new one — best-effort, since a
+  // draft that's already been sent or manually deleted is expected to 404.
+  if (job.report_draft_gmail_id) {
+    try {
+      await deleteDraft(accessToken, job.report_draft_gmail_id);
+    } catch (e) {
+      console.error(`Failed to delete previous report draft for job ${job.id}:`, e);
+    }
+  }
 
   const draft = await createDraft(accessToken, {
     to: [...new Set(recipients)].join(", "),

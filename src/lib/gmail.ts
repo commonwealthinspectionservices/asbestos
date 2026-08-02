@@ -254,6 +254,20 @@ export async function createDraft(
   return { id: data.id, messageId: data.message.id };
 }
 
+// Best-effort cleanup when a draft is being recreated — if the previous one
+// was already sent (or deleted by hand), its draft id is already gone from
+// Gmail and this just 404s harmlessly; sending a draft consumes it, so this
+// can never end up deleting an already-sent message.
+export async function deleteDraft(accessToken: string, draftId: string): Promise<void> {
+  const res = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/drafts/${draftId}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok && res.status !== 404) {
+    throw new Error(`Gmail API DELETE /drafts/${draftId} failed (${res.status}): ${await res.text()}`);
+  }
+}
+
 // A draft the owner has since sent or deleted from Gmail no longer exists
 // there — this is checked live (not inferred from our own stored
 // timestamp) so the Final Report tab never claims a draft is waiting when

@@ -49,14 +49,12 @@ export default function MarketingNav() {
     "inline-flex h-[22px] shrink-0 items-center whitespace-nowrap border-[3px] border-brand-700 bg-brand-50 px-1.5 pt-0.5 text-[9px] font-extrabold uppercase leading-none text-brand-700 sm:px-2 sm:text-xs md:h-[29px] md:text-sm";
 
   return (
-    // px-4 matches the horizontal padding every body section (and the
-    // pricing estimator card) uses, so the logo and Client Portal don't sit
-    // closer to the screen edge than the page content does — but the row
-    // itself spans the full header width rather than centering within a
-    // max-width band, so the logo stays pinned to the true left edge and
-    // Client Portal to the true right edge even on very wide screens.
+    // The inner row is capped at max-w-4xl, same as the pricing estimator
+    // card and the Service Type grid, so on wide desktop screens the header
+    // content lines up with the body content's width instead of stretching
+    // out to the edges of the browser window.
     <nav className="relative border-b-4 border-brand-700 bg-brand-50 px-4 py-1.5">
-      <div className="flex items-center justify-between gap-2">
+      <div className="mx-auto flex max-w-4xl items-center justify-between gap-2">
         <Link href="/" className={`shrink-0 ${homeButtonClass}`}>
           Commonwealth Inspection Services, LLC
         </Link>

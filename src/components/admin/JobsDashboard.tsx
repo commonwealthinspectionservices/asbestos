@@ -2811,7 +2811,7 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
                 setSiteContactLastName(split.last);
                 setSiteContactPhone(c.phone);
               }}
-              placeholder="Name — the customer's own contact, or pick someone else at the company"
+              placeholder="Name"
               disabled={siteContactSameAsContact}
             />
           </div>
@@ -3366,7 +3366,7 @@ export function EditProjectDialog({
                 setSiteContactLastName(split.last);
                 setSiteContactPhone(c.phone);
               }}
-              placeholder="Name — the customer's own contact, or pick someone else at the company"
+              placeholder="Name"
               disabled={siteContactSameAsContact}
             />
           </div>

@@ -55,13 +55,13 @@ export default function HomePage() {
           className="absolute inset-0 h-full w-full object-cover opacity-15"
         />
         <div className="relative mx-auto max-w-3xl px-4">
-        <div className="relative flex items-center justify-center gap-4 sm:gap-8">
+        <div className="relative flex items-center justify-center gap-2 sm:gap-8">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/marketing/massachusetts-outline.png" alt="" className="h-16 w-auto shrink-0 sm:h-32" />
+          <img src="/marketing/massachusetts-outline.png" alt="" className="h-10 w-auto shrink-0 sm:h-32" />
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="Commonwealth Inspection Services" className="h-48 w-48 shrink-0 rounded-full sm:h-56 sm:w-56" />
+          <img src="/logo.png" alt="Commonwealth Inspection Services" className="h-40 w-40 shrink-0 rounded-full sm:h-56 sm:w-56" />
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/marketing/massachusetts-outline.png" alt="" className="h-16 w-auto shrink-0 sm:h-32" />
+          <img src="/marketing/massachusetts-outline.png" alt="" className="h-10 w-auto shrink-0 sm:h-32" />
         </div>
         <p className="relative mt-8 text-xs font-black uppercase text-brand-700 sm:text-xl">
           Serving Boston + all of Massachusetts
@@ -116,8 +116,12 @@ export default function HomePage() {
                 key={area}
                 className="flex min-w-0 items-center justify-center overflow-hidden rounded-lg bg-slate-100 px-2 py-5 text-center shadow-sm [container-type:inline-size]"
               >
-                <span className="font-bold uppercase text-brand-700 text-[clamp(0.6rem,4.2cqw,1rem)]">
-                  {area}
+                <span className="line-clamp-2 font-bold uppercase text-brand-700 text-[clamp(0.6rem,4.2cqw,1rem)]">
+                  {area === "Martha's Vineyard + Nantucket" ? (
+                    <>Martha&apos;s Vineyard<br />+ Nantucket</>
+                  ) : (
+                    area
+                  )}
                 </span>
               </li>
             ))}

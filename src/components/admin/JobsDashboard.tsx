@@ -384,7 +384,7 @@ function reportChecklist(job: JobWithCustomer): { label: string; done: boolean }
   ];
 }
 
-function reportIsComplete(job: JobWithCustomer): boolean {
+export function reportIsComplete(job: JobWithCustomer): boolean {
   return reportChecklist(job).every((item) => item.done);
 }
 

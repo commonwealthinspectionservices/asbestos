@@ -3,11 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import type { JobWithCustomer } from "@/lib/types";
 import { formatCents } from "@/lib/pricing";
-import { ProjectDetailDialog, EditProjectDialog, EnterLabResultsDialog } from "@/components/admin/JobsDashboard";
+import { ProjectDetailDialog, EditProjectDialog, EnterLabResultsDialog, reportIsComplete } from "@/components/admin/JobsDashboard";
 
-type InvoiceStatus = "ready_to_send" | "sent" | "overdue" | "paid";
+type InvoiceStatus = "not_ready" | "ready_to_send" | "sent" | "overdue" | "paid";
 
 const STATUS_LABEL: Record<InvoiceStatus, string> = {
+  not_ready: "Not Ready",
   ready_to_send: "Ready to Send",
   sent: "Sent",
   overdue: "Overdue",
@@ -15,6 +16,7 @@ const STATUS_LABEL: Record<InvoiceStatus, string> = {
 };
 
 const STATUS_COLOR: Record<InvoiceStatus, string> = {
+  not_ready: "bg-amber-100 text-amber-700",
   ready_to_send: "bg-slate-200 text-slate-700",
   sent: "bg-blue-100 text-blue-700",
   overdue: "bg-red-100 text-red-700",
@@ -56,12 +58,14 @@ function isPastDue(dueIso: string | null): boolean {
 function invoiceStatus(job: JobWithCustomer): InvoiceStatus {
   if (job.paid_date) return "paid";
   if (job.invoice_sent_at) return isPastDue(dueDateFor(job)) ? "overdue" : "sent";
+  if (!reportIsComplete(job)) return "not_ready";
   return "ready_to_send";
 }
 
-type FilterKey = "all" | "ready_to_send" | "sent" | "overdue" | "paid";
+type FilterKey = "all" | "not_ready" | "ready_to_send" | "sent" | "overdue" | "paid";
 const FILTERS: { key: FilterKey; label: string }[] = [
   { key: "all", label: "All" },
+  { key: "not_ready", label: "Not Ready" },
   { key: "ready_to_send", label: "Ready to Send" },
   { key: "sent", label: "Sent (Unpaid)" },
   { key: "overdue", label: "Overdue" },

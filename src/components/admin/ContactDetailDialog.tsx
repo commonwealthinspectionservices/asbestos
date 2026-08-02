@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 import type { Customer } from "@/lib/types";
 import { STATUS_LABEL } from "@/components/admin/JobsDashboard";
 import { joinName, splitFullName } from "@/lib/name";
+import AddressAutocompleteInput from "@/components/shared/AddressAutocompleteInput";
+import ZipInput, { useAutoZip } from "@/components/shared/ZipInput";
+import { buildBillingAddress, parseAddressToFields, US_STATES } from "@/lib/address";
 
 export interface JobSummary {
   id: string;
@@ -55,9 +58,16 @@ export function ContactForm({
   const [lastName, setLastName] = useState(initialName.last);
   const [email, setEmail] = useState(initial?.email ?? "");
   const [phone, setPhone] = useState(initial?.phone ?? "");
-  const [billingAddress, setBillingAddress] = useState(initial?.billing_address ?? "");
+  const addressInit = parseAddressToFields(initial?.billing_address);
+  const [street, setStreet] = useState(addressInit.street);
+  const [unit, setUnit] = useState(addressInit.unit);
+  const [city, setCity] = useState(addressInit.city);
+  const [addrState, setAddrState] = useState(addressInit.state || "MA");
+  const [zip, setZip] = useState(addressInit.zip);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useAutoZip(street, city, addrState, setZip, "/api/admin");
 
   const canSubmit = firstName.trim() && lastName.trim() && email.trim() && (!isCompany || company.trim());
 
@@ -65,6 +75,7 @@ export function ContactForm({
     setSubmitting(true);
     setError(null);
     try {
+      const billingAddress = buildBillingAddress({ street, unit, city, state: addrState, zip });
       const url = initial ? `/api/admin/customers/${initial.id}` : "/api/admin/customers";
       const res = await fetch(url, {
         method: initial ? "PATCH" : "POST",
@@ -137,7 +148,57 @@ export function ContactForm({
         {!isCompany && (
           <>
             <label className="mt-3 block text-sm font-medium text-slate-700">Billing address</label>
-            <input className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value={billingAddress} onChange={(e) => setBillingAddress(e.target.value)} />
+            <div className="mt-1 flex gap-1.5">
+              <div className="w-0 flex-1">
+                <AddressAutocompleteInput
+                  apiBase="/api/admin"
+                  value={street}
+                  onChange={setStreet}
+                  onSelectAddress={(fields) => {
+                    setStreet(fields.street);
+                    setUnit(fields.unit);
+                    setCity(fields.city);
+                    setAddrState(fields.state || "MA");
+                    setZip(fields.zip);
+                  }}
+                  placeholder="Street address"
+                  townHint={city}
+                />
+              </div>
+              <input
+                className="w-20 shrink-0 rounded-lg border border-slate-300 px-2 py-2 text-sm"
+                placeholder="Unit #"
+                value={unit}
+                onChange={(e) => setUnit(e.target.value)}
+              />
+            </div>
+            <div className="mt-1.5 grid grid-cols-3 gap-1.5">
+              <AddressAutocompleteInput
+                apiBase="/api/admin"
+                value={city}
+                onChange={(v) => {
+                  setCity(v);
+                  if (!v.trim()) setZip("");
+                }}
+                mode="city"
+                onSelectAddress={(fields) => {
+                  setCity(fields.city);
+                  setAddrState("MA");
+                  setZip(fields.zip);
+                }}
+                placeholder="Town"
+              />
+              <select
+                className="rounded-lg border border-slate-300 px-2 py-2 text-sm"
+                value={addrState}
+                onChange={(e) => setAddrState(e.target.value)}
+              >
+                {US_STATES.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+              <ZipInput street={street} city={city} state={addrState} zip={zip} setZip={setZip} apiBase="/api/admin" />
+            </div>
           </>
         )}
 

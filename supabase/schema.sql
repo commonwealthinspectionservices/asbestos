@@ -70,6 +70,16 @@ create or replace function next_project_number() returns text as $$
   select to_char(now(), 'YY') || '-' || lpad(nextval('project_number_seq')::text, 4, '0');
 $$ language sql;
 
+-- Non-consuming counterpart for the "GET NEXT #" preview button — reads
+-- what nextval() would return without actually advancing the sequence, so
+-- looking at the number (without creating a project) never burns it.
+create or replace function peek_next_project_number() returns text as $$
+  select to_char(now(), 'YY') || '-' || lpad(
+    (case when is_called then last_value + 1 else last_value end)::text, 4, '0'
+  )
+  from project_number_seq;
+$$ language sql;
+
 create table if not exists jobs (
   id uuid primary key default gen_random_uuid(),
   -- human-readable id shown throughout the app and on reports; nullable because
@@ -315,6 +325,12 @@ alter type job_status add value if not exists 'awaiting_lab_results' before 'com
 create sequence if not exists project_number_seq start 1;
 create or replace function next_project_number() returns text as $$
   select to_char(now(), 'YY') || '-' || lpad(nextval('project_number_seq')::text, 4, '0');
+$$ language sql;
+create or replace function peek_next_project_number() returns text as $$
+  select to_char(now(), 'YY') || '-' || lpad(
+    (case when is_called then last_value + 1 else last_value end)::text, 4, '0'
+  )
+  from project_number_seq;
 $$ language sql;
 alter table jobs add column if not exists project_number text unique;
 create index if not exists jobs_project_number_idx on jobs (project_number);

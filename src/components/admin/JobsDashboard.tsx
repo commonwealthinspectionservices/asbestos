@@ -2625,7 +2625,7 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
               <button
                 onClick={getNextNumber}
                 disabled={fetchingNumber}
-                className="shrink-0 rounded-lg border border-blue-900 bg-sky-300 px-2 py-2 text-xs font-bold text-blue-900 disabled:opacity-50"
+                className="shrink-0 rounded-lg border border-brand-700 bg-brand-100 px-2 py-2 text-xs font-bold text-brand-700 disabled:opacity-50"
               >
                 {fetchingNumber ? "…" : "#"}
               </button>

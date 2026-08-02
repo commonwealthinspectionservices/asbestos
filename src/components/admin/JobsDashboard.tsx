@@ -2387,32 +2387,54 @@ function CcPicker({
           ))}
         </div>
       )}
-      <div className="mt-2">
-        <ComboboxInput
-          value={query}
-          onChange={setQuery}
-          fetchOptions={async (q) => {
-            const res = await fetch(`/api/admin/customers?q=${encodeURIComponent(q)}`);
-            const data = await res.json();
-            return (data.customers ?? []) as Customer[];
-          }}
-          getLabel={(c: Customer) => c.name}
-          getSublabel={(c: Customer) => c.email}
-          onSelect={(c: Customer) => {
-            if (c.email && c.email !== excludeEmail && !emails.includes(c.email)) {
-              onAdd(c.email);
+      <div className="mt-2 flex gap-1.5">
+        <div className="w-0 flex-1">
+          <ComboboxInput
+            value={query}
+            onChange={setQuery}
+            fetchOptions={async (q) => {
+              const res = await fetch(`/api/admin/customers?q=${encodeURIComponent(q)}`);
+              const data = await res.json();
+              return (data.customers ?? []) as Customer[];
+            }}
+            getLabel={(c: Customer) => c.name}
+            getSublabel={(c: Customer) => c.email}
+            onSelect={(c: Customer) => {
+              if (c.email && c.email !== excludeEmail && !emails.includes(c.email)) {
+                onAdd(c.email);
+              }
+              setQuery("");
+            }}
+            onEnter={(v) => {
+              const email = v.trim();
+              if (email && /^\S+@\S+\.\S+$/.test(email) && email !== excludeEmail && !emails.includes(email)) {
+                onAdd(email);
+                setQuery("");
+              }
+            }}
+            placeholder="Add a contact from your Directory, or type an email and hit Enter…"
+          />
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            const email = query.trim();
+            if (email && /^\S+@\S+\.\S+$/.test(email) && email !== excludeEmail && !emails.includes(email)) {
+              onAdd(email);
+              setQuery("");
             }
-            setQuery("");
           }}
-          placeholder="Add a contact from your Directory…"
-        />
+          className="shrink-0 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50"
+        >
+          Enter
+        </button>
       </div>
     </div>
   );
 }
 
 function ComboboxInput<T>({
-  value, onChange, options, fetchOptions, getLabel, getSublabel, onSelect, placeholder, disabled,
+  value, onChange, options, fetchOptions, getLabel, getSublabel, onSelect, placeholder, disabled, onEnter,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -2423,6 +2445,8 @@ function ComboboxInput<T>({
   onSelect: (o: T) => void;
   placeholder?: string;
   disabled?: boolean;
+  /** Pressing Enter with no suggestion list open — lets a caller add whatever's typed directly (e.g. CcPicker adding a raw email not in the Directory). */
+  onEnter?: (value: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [asyncOptions, setAsyncOptions] = useState<T[]>([]);
@@ -2463,6 +2487,13 @@ function ComboboxInput<T>({
         }}
         onFocus={() => setOpen(true)}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && onEnter) {
+            e.preventDefault();
+            onEnter(value);
+            setOpen(false);
+          }
+        }}
       />
       {!disabled && open && filtered.length > 0 && (
         <ul className="absolute z-10 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white text-sm shadow-lg">

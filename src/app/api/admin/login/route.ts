@@ -4,10 +4,9 @@ import { withApiErrors } from "@/lib/api-handler";
 
 export const POST = withApiErrors(async (req: NextRequest) => {
   const body = await req.json().catch(() => null);
-  const username = body?.username;
   const password = body?.password;
-  if (typeof username !== "string" || typeof password !== "string" || !checkCredentials(username, password)) {
-    return NextResponse.json({ error: "Incorrect username or password" }, { status: 401 });
+  if (typeof password !== "string" || !checkCredentials(password)) {
+    return NextResponse.json({ error: "Incorrect password" }, { status: 401 });
   }
 
   const res = NextResponse.json({ ok: true });

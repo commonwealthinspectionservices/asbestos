@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 
 export default function AdminLoginPage() {
   const router = useRouter();
-  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -17,7 +16,7 @@ export default function AdminLoginPage() {
       const res = await fetch("/api/admin/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ password }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -34,21 +33,12 @@ export default function AdminLoginPage() {
 
   return (
     <div className="mx-auto max-w-sm px-4 py-16">
-      <h1 className="text-xl font-semibold text-brand-700">Admin sign in</h1>
+      <h1 className="text-xl font-semibold uppercase text-brand-700">Admin sign in</h1>
       {error && <div className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
-      <input
-        type="text"
-        autoComplete="username"
-        className="mt-6 w-full rounded-lg border border-slate-300 px-3 py-2"
-        placeholder="Username"
-        value={username}
-        onChange={(e) => setUsername(e.target.value)}
-        onKeyDown={(e) => e.key === "Enter" && submit()}
-      />
       <input
         type="password"
         autoComplete="current-password"
-        className="mt-3 w-full rounded-lg border border-slate-300 px-3 py-2"
+        className="mt-6 w-full rounded-lg border border-slate-300 px-3 py-2"
         placeholder="Password"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
@@ -56,7 +46,7 @@ export default function AdminLoginPage() {
       />
       <button
         className="mt-4 w-full rounded-lg bg-brand-600 px-4 py-3 font-medium text-white disabled:opacity-50"
-        disabled={loading || !username || !password}
+        disabled={loading || !password}
         onClick={submit}
       >
         {loading ? "Signing in…" : "Sign in"}

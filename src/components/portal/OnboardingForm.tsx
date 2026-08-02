@@ -58,7 +58,9 @@ export default function OnboardingForm({
       {error && <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
       <input className="w-full rounded-lg border border-slate-300 px-3 py-2" placeholder="Full name" value={name} onChange={(e) => setName(e.target.value)} />
-      <input className="mt-3 w-full rounded-lg border border-slate-300 px-3 py-2" placeholder="Company" value={company} onChange={(e) => setCompany(e.target.value)} />
+      {accountType !== "homeowner" && (
+        <input className="mt-3 w-full rounded-lg border border-slate-300 px-3 py-2" placeholder="Company" value={company} onChange={(e) => setCompany(e.target.value)} />
+      )}
       <input className="mt-3 w-full rounded-lg border border-slate-300 px-3 py-2" placeholder="Phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
 
       <div className="mt-3 flex gap-1.5">
@@ -115,7 +117,7 @@ export default function OnboardingForm({
 
       <button
         className="mt-4 flex w-full items-center justify-center border-[3px] border-brand-700 bg-brand-50 py-3 pt-[14px] text-sm font-extrabold uppercase leading-none text-brand-700 hover:bg-yellow-100 disabled:opacity-50"
-        disabled={loading || !name || !phone || !company}
+        disabled={loading || !name || !phone || (accountType !== "homeowner" && !company)}
         onClick={submit}
       >
         {loading ? "Saving…" : "Continue"}

@@ -19,17 +19,10 @@ function timingSafeStringEqual(candidate: string, expected: string): boolean {
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
-export function checkCredentials(username: string, password: string): boolean {
-  const expectedUsername = process.env.ADMIN_USERNAME;
+export function checkCredentials(password: string): boolean {
   const expectedPassword = process.env.ADMIN_PASSWORD;
-  if (!expectedUsername) throw new Error("Missing ADMIN_USERNAME env var");
   if (!expectedPassword) throw new Error("Missing ADMIN_PASSWORD env var");
-  // Both compared timing-safe and both required to match — no short-circuit
-  // that would let a mistyped username alone leak whether the password was
-  // otherwise correct.
-  const usernameOk = timingSafeStringEqual(username, expectedUsername);
-  const passwordOk = timingSafeStringEqual(password, expectedPassword);
-  return usernameOk && passwordOk;
+  return timingSafeStringEqual(password, expectedPassword);
 }
 
 export function createSessionToken(): string {

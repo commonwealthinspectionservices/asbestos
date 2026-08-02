@@ -33,18 +33,17 @@ export default function PortalLoginPage() {
   }
 
   return (
-    <div className="mx-auto max-w-sm px-4 py-16">
+    <div className="mx-auto max-w-md px-4 py-24">
       <div className="flex flex-col items-center">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo.png" alt="" width={140} height={140} className="rounded-full" />
-        <h1 className="mt-3 text-xl font-semibold text-brand-700">Sign in</h1>
+        <img src="/logo.png" alt="" width={190} height={190} className="rounded-full" />
       </div>
 
-      {error && <div className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+      {error && <div className="mt-6 rounded-lg bg-red-50 px-4 py-3 text-base text-red-700">{error}</div>}
 
       <input
         type="email"
-        className="mt-6 w-full rounded-lg border border-slate-300 px-3 py-2"
+        className="mt-8 w-full rounded-lg border border-slate-300 px-4 py-3 text-base"
         placeholder="Email"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
@@ -52,21 +51,24 @@ export default function PortalLoginPage() {
       />
       <input
         type="password"
-        className="mt-3 w-full rounded-lg border border-slate-300 px-3 py-2"
+        className="mt-4 w-full rounded-lg border border-slate-300 px-4 py-3 text-base"
         placeholder="Password"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
         onKeyDown={(e) => e.key === "Enter" && login()}
       />
       <button
-        className="mt-4 w-full rounded-lg bg-brand-600 px-4 py-3 font-medium text-white disabled:opacity-50"
+        className="mt-5 w-full rounded-lg bg-brand-600 px-4 py-4 text-lg font-medium uppercase text-white disabled:opacity-50"
         disabled={loading || !email || !password}
         onClick={login}
       >
         {loading ? "Signing in…" : "Sign in"}
       </button>
 
-      <p className="mt-4 text-center text-sm text-slate-500">
+      <p className="mt-4 text-center text-base text-slate-500">
+        <Link href="/portal/forgot-password" className="text-brand-600 underline">Forgot password?</Link>
+      </p>
+      <p className="mt-2 text-center text-base text-slate-500">
         New here? <Link href="/portal/signup" className="text-brand-600 underline">Create an account</Link>
       </p>
     </div>

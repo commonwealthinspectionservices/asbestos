@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import AddressAutocompleteInput from "@/components/shared/AddressAutocompleteInput";
 import ZipInput, { useAutoZip } from "@/components/shared/ZipInput";
@@ -54,16 +55,24 @@ export default function OnboardingForm({
   }
 
   return (
-    <div className="mx-auto max-w-sm px-4 py-16">
-      {error && <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+    <div className="relative mx-auto max-w-lg px-4 py-16">
+      <Link
+        href="/"
+        aria-label="Close"
+        className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center text-3xl text-slate-400 hover:text-slate-600"
+      >
+        ×
+      </Link>
 
-      <input className="w-full rounded-lg border border-slate-300 px-3 py-2" placeholder="Full name" value={name} onChange={(e) => setName(e.target.value)} />
+      {error && <div className="rounded-lg bg-red-50 px-5 py-4 text-base text-red-700">{error}</div>}
+
+      <input className="w-full rounded-lg border border-slate-300 px-4 py-3 text-base" placeholder="Full name" value={name} onChange={(e) => setName(e.target.value)} />
       {accountType !== "homeowner" && (
-        <input className="mt-3 w-full rounded-lg border border-slate-300 px-3 py-2" placeholder="Company" value={company} onChange={(e) => setCompany(e.target.value)} />
+        <input className="mt-4 w-full rounded-lg border border-slate-300 px-4 py-3 text-base" placeholder="Company" value={company} onChange={(e) => setCompany(e.target.value)} />
       )}
-      <input className="mt-3 w-full rounded-lg border border-slate-300 px-3 py-2" placeholder="Phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
+      <input className="mt-4 w-full rounded-lg border border-slate-300 px-4 py-3 text-base" placeholder="Phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
 
-      <div className="mt-3 flex gap-1.5">
+      <div className="mt-4 flex gap-2">
         <div className="w-0 flex-1">
           <AddressAutocompleteInput
             apiBase="/api"
@@ -81,13 +90,13 @@ export default function OnboardingForm({
           />
         </div>
         <input
-          className="w-20 shrink-0 rounded-lg border border-slate-300 px-2 py-2 text-sm"
+          className="w-24 shrink-0 rounded-lg border border-slate-300 px-3 py-2 text-sm"
           placeholder="Unit #"
           value={unit}
           onChange={(e) => setUnit(e.target.value)}
         />
       </div>
-      <div className="mt-1.5 grid grid-cols-3 gap-1.5">
+      <div className="mt-2 grid grid-cols-3 gap-2">
         <AddressAutocompleteInput
           apiBase="/api"
           value={city}
@@ -104,7 +113,7 @@ export default function OnboardingForm({
           placeholder="Town"
         />
         <select
-          className="rounded-lg border border-slate-300 px-2 py-2 text-sm"
+          className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
           value={addrState}
           onChange={(e) => setAddrState(e.target.value)}
         >
@@ -116,7 +125,7 @@ export default function OnboardingForm({
       </div>
 
       <button
-        className="mt-4 flex w-full items-center justify-center border-[3px] border-brand-700 bg-brand-50 py-3 pt-[14px] text-sm font-extrabold uppercase leading-none text-brand-700 hover:bg-yellow-100 disabled:opacity-50"
+        className="mt-5 flex w-full items-center justify-center border-[3px] border-brand-700 bg-brand-50 py-4 pt-[18px] text-base font-extrabold uppercase leading-none text-brand-700 hover:bg-yellow-100 disabled:opacity-50"
         disabled={loading || !name || !phone || (accountType !== "homeowner" && !company)}
         onClick={submit}
       >

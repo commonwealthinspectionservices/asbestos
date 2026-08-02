@@ -2395,7 +2395,7 @@ function CcPicker({
 }
 
 function ComboboxInput<T>({
-  value, onChange, options, fetchOptions, getLabel, getSublabel, onSelect, placeholder,
+  value, onChange, options, fetchOptions, getLabel, getSublabel, onSelect, placeholder, disabled,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -2405,6 +2405,7 @@ function ComboboxInput<T>({
   getSublabel?: (o: T) => string | null | undefined;
   onSelect: (o: T) => void;
   placeholder?: string;
+  disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [asyncOptions, setAsyncOptions] = useState<T[]>([]);
@@ -2435,9 +2436,10 @@ function ComboboxInput<T>({
   return (
     <div className="relative">
       <input
-        className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+        className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-500"
         value={value}
         placeholder={placeholder}
+        disabled={disabled}
         onChange={(e) => {
           onChange(e.target.value);
           setOpen(true);
@@ -2445,7 +2447,7 @@ function ComboboxInput<T>({
         onFocus={() => setOpen(true)}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
       />
-      {open && filtered.length > 0 && (
+      {!disabled && open && filtered.length > 0 && (
         <ul className="absolute z-10 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white text-sm shadow-lg">
           {filtered.map((o, i) => (
             <li
@@ -2792,20 +2794,27 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
 
         <label className="mt-3 block text-sm font-medium text-slate-700">Job site contact</label>
         <div className="mt-1 flex gap-2">
-          <input
-            className="w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-500"
-            placeholder="First name"
-            value={siteContactFirstName}
-            disabled={siteContactSameAsContact}
-            onChange={(e) => setSiteContactFirstName(e.target.value)}
-          />
-          <input
-            className="w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-500"
-            placeholder="Last name"
-            value={siteContactLastName}
-            disabled={siteContactSameAsContact}
-            onChange={(e) => setSiteContactLastName(e.target.value)}
-          />
+          <div className="w-0 flex-1">
+            <ComboboxInput
+              value={joinName(siteContactFirstName, siteContactLastName)}
+              onChange={(v) => {
+                const split = splitFullName(v);
+                setSiteContactFirstName(split.first);
+                setSiteContactLastName(split.last);
+              }}
+              options={companyContacts}
+              getLabel={(c) => c.name}
+              getSublabel={(c) => c.email}
+              onSelect={(c) => {
+                const split = splitFullName(c.name);
+                setSiteContactFirstName(split.first);
+                setSiteContactLastName(split.last);
+                setSiteContactPhone(c.phone);
+              }}
+              placeholder="Name — the customer's own contact, or pick someone else at the company"
+              disabled={siteContactSameAsContact}
+            />
+          </div>
           <input
             className="w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-500"
             placeholder="Phone"
@@ -3340,20 +3349,27 @@ export function EditProjectDialog({
 
         <label className="mt-3 block text-sm font-medium text-slate-700">Job site contact</label>
         <div className="mt-1 flex gap-2">
-          <input
-            className="w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-500"
-            placeholder="First name"
-            value={siteContactFirstName}
-            disabled={siteContactSameAsContact}
-            onChange={(e) => setSiteContactFirstName(e.target.value)}
-          />
-          <input
-            className="w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-500"
-            placeholder="Last name"
-            value={siteContactLastName}
-            disabled={siteContactSameAsContact}
-            onChange={(e) => setSiteContactLastName(e.target.value)}
-          />
+          <div className="w-0 flex-1">
+            <ComboboxInput
+              value={joinName(siteContactFirstName, siteContactLastName)}
+              onChange={(v) => {
+                const split = splitFullName(v);
+                setSiteContactFirstName(split.first);
+                setSiteContactLastName(split.last);
+              }}
+              options={companyContacts}
+              getLabel={(c) => c.name}
+              getSublabel={(c) => c.email}
+              onSelect={(c) => {
+                const split = splitFullName(c.name);
+                setSiteContactFirstName(split.first);
+                setSiteContactLastName(split.last);
+                setSiteContactPhone(c.phone);
+              }}
+              placeholder="Name — the customer's own contact, or pick someone else at the company"
+              disabled={siteContactSameAsContact}
+            />
+          </div>
           <input
             className="w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-500"
             placeholder="Phone"

@@ -39,19 +39,26 @@ export default function MarketingNav() {
     `block px-1 py-2 text-sm font-bold uppercase text-brand-700 ${pathname === href ? "underline" : ""}`;
 
   const clientPortalClass =
-    "inline-flex h-[22px] shrink-0 items-center whitespace-nowrap border-[3px] border-brand-700 bg-brand-50 px-2 pt-0.5 text-xs font-extrabold uppercase leading-none text-brand-700 hover:bg-yellow-100 md:h-[29px] md:text-sm";
+    "inline-flex h-[22px] shrink-0 items-center whitespace-nowrap border-[3px] border-brand-700 bg-brand-50 px-1.5 pt-0.5 text-[9px] font-extrabold uppercase leading-none text-brand-700 hover:bg-yellow-100 sm:px-2 sm:text-xs md:h-[29px] md:text-sm";
+
+  // Same border/height format as the Client Portal button, but no yellow
+  // hover fill (this one's just branding/home, not an action) and a
+  // smaller mobile font so the full company name fits next to Client
+  // Portal + the hamburger without overflowing the header.
+  const homeButtonClass =
+    "inline-flex h-[22px] shrink-0 items-center whitespace-nowrap border-[3px] border-brand-700 bg-brand-50 px-1.5 pt-0.5 text-[9px] font-extrabold uppercase leading-none text-brand-700 sm:px-2 sm:text-xs md:h-[29px] md:text-sm";
 
   return (
-    // The inner row is capped at max-w-4xl, same as the pricing estimator
-    // card (src/components/marketing/PricingCalculator.tsx) and every other
-    // body section's content — px-4 outer padding matches too, so the logo
-    // and Client Portal line up with the page content's edges instead of
-    // sitting closer to the screen edge than the content does.
+    // px-4 matches the horizontal padding every body section (and the
+    // pricing estimator card) uses, so the logo and Client Portal don't sit
+    // closer to the screen edge than the page content does — but the row
+    // itself spans the full header width rather than centering within a
+    // max-width band, so the logo stays pinned to the true left edge and
+    // Client Portal to the true right edge even on very wide screens.
     <nav className="relative border-b-4 border-brand-700 bg-brand-50 px-4 py-1.5">
-      <div className="mx-auto flex max-w-4xl items-center justify-between gap-2">
-        <Link href="/" className="inline-flex shrink-0 items-center">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/letterhead.png" alt="Commonwealth Inspection Services, LLC" className="h-[22px] w-auto md:h-[29px]" />
+      <div className="flex items-center justify-between gap-2">
+        <Link href="/" className={`shrink-0 ${homeButtonClass}`}>
+          Commonwealth Inspection Services, LLC
         </Link>
 
         <div className="hidden shrink-0 items-center gap-0.5 whitespace-nowrap sm:flex md:gap-1">

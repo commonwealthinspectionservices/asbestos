@@ -191,7 +191,7 @@ export default function PricingCalculator() {
       )}
 
       <p className="mt-6 text-sm font-semibold uppercase text-slate-700">Service Type</p>
-      <div className="mt-2 grid grid-cols-3 gap-4">
+      <div className="mt-2 grid grid-cols-1 gap-4 sm:grid-cols-3">
         {(serviceTypes ?? []).map((service) => (
           <label
             key={service.key}

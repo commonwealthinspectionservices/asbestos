@@ -84,7 +84,7 @@ export default function HomePage() {
       </section>
 
       <section className="relative bg-white pt-10">
-        <div className="mx-auto grid max-w-4xl grid-cols-3 gap-4 px-4">
+        <div className="mx-auto grid max-w-4xl grid-cols-1 gap-4 px-4 sm:grid-cols-3">
           {SERVICES.map((service) => (
             <Link
               key={service.href}
@@ -108,15 +108,15 @@ export default function HomePage() {
       <section className="bg-white px-4 py-16">
         <div className="mx-auto max-w-4xl">
           <h2 className="text-center text-xl font-black uppercase text-brand-700">
-            Inspections across all of Massachusetts
+            Inspections across<br className="sm:hidden" /> all of Massachusetts
           </h2>
           <ul className="mx-auto mt-4 grid max-w-4xl grid-cols-3 gap-4">
             {SERVICE_AREAS.map((area) => (
               <li
                 key={area}
-                className="flex items-center justify-center overflow-hidden rounded-lg bg-slate-100 px-2 py-5 text-center shadow-sm [container-type:inline-size]"
+                className="flex min-w-0 items-center justify-center overflow-hidden rounded-lg bg-slate-100 px-2 py-5 text-center shadow-sm [container-type:inline-size]"
               >
-                <span className="whitespace-nowrap font-bold uppercase text-brand-700 text-[clamp(0.6rem,4.2cqw,1rem)]">
+                <span className="font-bold uppercase text-brand-700 text-[clamp(0.6rem,4.2cqw,1rem)]">
                   {area}
                 </span>
               </li>
@@ -143,7 +143,7 @@ export default function HomePage() {
                 View all posts
               </Link>
             </div>
-            <div className="mt-4 grid grid-cols-3 gap-4">
+            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
               {latestPosts.map((post) => (
                 <Link
                   key={post.slug}

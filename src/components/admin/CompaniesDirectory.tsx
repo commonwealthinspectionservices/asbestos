@@ -451,7 +451,6 @@ export function CompanyDetailDialog({
   const [savingPhone, setSavingPhone] = useState(false);
   const [savingBillingContact, setSavingBillingContact] = useState(false);
   const [savingInvoiceCc, setSavingInvoiceCc] = useState(false);
-  const [invoiceCcSelect, setInvoiceCcSelect] = useState("");
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -630,6 +629,52 @@ export function CompanyDetailDialog({
                   ))}
                 </select>
                 {savingBillingContact && <span className="text-xs text-slate-400">Saving…</span>}
+              </div>
+
+              <div className="mt-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500">Send every invoice to:</span>
+                  {savingInvoiceCc && <span className="text-xs text-slate-400">Saving…</span>}
+                </div>
+                {(company.invoice_cc_contact_ids ?? []).length > 0 && (
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {company.invoice_cc_contact_ids.map((id) => {
+                      const c = contacts.find((x) => x.id === id);
+                      if (!c) return null;
+                      return (
+                        <span key={id} className="flex items-center gap-1 rounded-full bg-slate-100 py-1 pl-2.5 pr-1.5 text-xs text-slate-700">
+                          {c.name}
+                          <button
+                            onClick={() => saveInvoiceCcContacts(company.invoice_cc_contact_ids.filter((x) => x !== id))}
+                            className="rounded-full px-1 text-slate-400 hover:text-slate-600"
+                            aria-label={`Remove ${c.name}`}
+                          >
+                            ✕
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+                <select
+                  className="mt-1.5 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+                  value=""
+                  title="Every invoice for this company's projects Cc's everyone on this list automatically, on top of the project's own contact"
+                  onChange={(e) => {
+                    const id = e.target.value;
+                    const current = company.invoice_cc_contact_ids ?? [];
+                    if (id && !current.includes(id)) {
+                      saveInvoiceCcContacts([...current, id]);
+                    }
+                  }}
+                >
+                  <option value="">+ Add a contact to always Cc…</option>
+                  {contacts
+                    .filter((c) => !(company.invoice_cc_contact_ids ?? []).includes(c.id))
+                    .map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                </select>
               </div>
             </div>
 

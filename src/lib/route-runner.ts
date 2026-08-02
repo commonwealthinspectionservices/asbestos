@@ -23,7 +23,7 @@ export async function runMorningRoute(dateIso: string): Promise<RunMorningRouteR
 
   const { data: jobs, error } = await supabase
     .from("jobs")
-    .select("*, customers(*)")
+    .select("*, customers!customer_id(*)")
     .eq("requested_date", dateIso)
     .eq("status", "scheduled")
     .order("created_at", { ascending: true });

@@ -147,7 +147,7 @@ export async function checkForLabResultEmails(): Promise<LabEmailCheckResult> {
 
           const { data: job } = await supabase
             .from("jobs")
-            .select("*, customers(*, companies!company_id(*))")
+            .select("*, customers!customer_id(*, companies!company_id(*))")
             .ilike("project_number", projectNumber)
             .maybeSingle();
           if (job) {
@@ -199,7 +199,7 @@ export async function checkForLabResultEmails(): Promise<LabEmailCheckResult> {
       if (cocProjectNumber && cocPart) {
         const { data: job } = await supabase
           .from("jobs")
-          .select("*, customers(*, companies!company_id(*))")
+          .select("*, customers!customer_id(*, companies!company_id(*))")
           .ilike("project_number", cocProjectNumber)
           .maybeSingle();
         if (job) {
@@ -362,7 +362,7 @@ async function processMatchedLabEmail(params: {
     .from("jobs")
     .update(update)
     .eq("id", job.id)
-    .select("*, customers(*, companies!company_id(*))")
+    .select("*, customers!customer_id(*, companies!company_id(*))")
     .single();
   if (updateError || !updatedRow) {
     throw new Error(`Failed to update project from lab email: ${updateError?.message}`);
@@ -553,7 +553,7 @@ async function loadJobForDraft(jobId: string): Promise<{
 
   const { data: jobRow, error } = await supabase
     .from("jobs")
-    .select("*, customers(*, companies!company_id(*))")
+    .select("*, customers!customer_id(*, companies!company_id(*))")
     .eq("id", jobId)
     .single();
   if (error || !jobRow) throw new Error("Project not found");

@@ -1722,7 +1722,8 @@ export function ProjectDetailDialog({
                   <div className="flex flex-wrap items-center gap-2">
                     <button
                       onClick={() => invoiceDraft.create(false, includePayNowLink)}
-                      disabled={invoiceDraft.creating}
+                      disabled={invoiceDraft.creating || job.invoice_total_cents == null}
+                      title={job.invoice_total_cents == null ? "Available once the invoice total is calculated (add a base fee or sample count)" : undefined}
                       className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-bold text-slate-700 disabled:opacity-50"
                     >
                       {invoiceDraft.creating ? "Creating…" : job.invoice_drafted_at ? "Recreate Invoice Draft" : "Create Invoice Draft"}
@@ -1778,8 +1779,14 @@ export function ProjectDetailDialog({
                   <div className="flex flex-wrap items-center gap-2">
                     <button
                       onClick={() => reportDraft.create()}
-                      disabled={reportDraft.creating || (job.is_homeowner && job.status !== "paid")}
-                      title={job.is_homeowner && job.status !== "paid" ? "Available once this project is marked Paid" : undefined}
+                      disabled={reportDraft.creating || (job.is_homeowner && job.status !== "paid") || !reportComplete}
+                      title={
+                        job.is_homeowner && job.status !== "paid"
+                          ? "Available once this project is marked Paid"
+                          : !reportComplete
+                          ? "Available once every item on the Final Report tab's checklist is complete"
+                          : undefined
+                      }
                       className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-bold text-slate-700 disabled:opacity-50"
                     >
                       {reportDraft.creating ? "Creating…" : job.report_drafted_at ? "Recreate Report Draft" : "Create Report Draft"}

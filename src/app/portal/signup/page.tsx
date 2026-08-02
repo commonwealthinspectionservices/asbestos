@@ -9,12 +9,17 @@ export default function PortalSignupPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [accountType, setAccountType] = useState<"contractor" | "homeowner" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [checkEmail, setCheckEmail] = useState(false);
 
   async function signUp() {
+    if (password !== confirmPassword) {
+      setError("Passwords don't match");
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -100,9 +105,16 @@ export default function PortalSignupPage() {
         value={password}
         onChange={(e) => setPassword(e.target.value)}
       />
+      <input
+        type="password"
+        className="mt-3 w-full rounded-lg border border-slate-300 px-3 py-2"
+        placeholder="Confirm password"
+        value={confirmPassword}
+        onChange={(e) => setConfirmPassword(e.target.value)}
+      />
       <button
         className="mt-4 w-full rounded-lg bg-brand-600 px-4 py-3 font-medium text-white disabled:opacity-50"
-        disabled={loading || !email || password.length < 6 || !accountType}
+        disabled={loading || !email || password.length < 6 || password !== confirmPassword || !accountType}
         onClick={signUp}
       >
         {loading ? "Creating account…" : "Create account"}

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { JobWithCustomer } from "@/lib/types";
-import { ProjectDetailDialog, EditProjectDialog, EnterLabResultsDialog } from "@/components/admin/JobsDashboard";
+import { ProjectDetailDialog, EditProjectDialog } from "@/components/admin/JobsDashboard";
 import { googleMapsUrl } from "@/lib/address";
 
 const STATUS_LABEL: Record<string, string> = {
@@ -159,7 +159,6 @@ export default function ScheduleView() {
   const [selectedDate, setSelectedDate] = useState(() => toISO(new Date()));
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [editingJobId, setEditingJobId] = useState<string | null>(null);
-  const [resultsJob, setResultsJob] = useState<JobWithCustomer | null>(null);
   const dateInputRef = useRef<HTMLInputElement>(null);
 
   function loadJobs() {
@@ -384,7 +383,6 @@ export default function ScheduleView() {
             onClose={() => setSelectedJobId(null)}
             onChanged={() => loadJobs()}
             onEdit={() => setEditingJobId(detailJob.id)}
-            onEnterResults={() => setResultsJob(detailJob)}
             onStatusChange={(status) => patchJob(detailJob, { status })}
           />
         );
@@ -401,17 +399,6 @@ export default function ScheduleView() {
           />
         );
       })()}
-
-      {resultsJob && (
-        <EnterLabResultsDialog
-          job={resultsJob}
-          onClose={() => setResultsJob(null)}
-          onDone={() => {
-            setResultsJob(null);
-            loadJobs();
-          }}
-        />
-      )}
     </div>
   );
 }

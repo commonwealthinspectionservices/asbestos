@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { JobWithCustomer } from "@/lib/types";
 import { formatCents } from "@/lib/pricing";
-import { ProjectDetailDialog, EditProjectDialog, EnterLabResultsDialog, reportIsComplete } from "@/components/admin/JobsDashboard";
+import { ProjectDetailDialog, EditProjectDialog, reportIsComplete } from "@/components/admin/JobsDashboard";
 
 type InvoiceStatus = "ready_to_send" | "sent" | "overdue" | "paid";
 
@@ -75,7 +75,6 @@ export default function InvoicesView() {
   const [filter, setFilter] = useState<FilterKey>("all");
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [editingJobId, setEditingJobId] = useState<string | null>(null);
-  const [resultsJob, setResultsJob] = useState<JobWithCustomer | null>(null);
 
   function loadJobs() {
     setLoading(true);
@@ -263,7 +262,6 @@ export default function InvoicesView() {
             onClose={() => setSelectedJobId(null)}
             onChanged={() => loadJobs()}
             onEdit={() => setEditingJobId(detailJob.id)}
-            onEnterResults={() => setResultsJob(detailJob)}
             onStatusChange={(status) => patchJob(detailJob, { status })}
           />
         );
@@ -280,17 +278,6 @@ export default function InvoicesView() {
           />
         );
       })()}
-
-      {resultsJob && (
-        <EnterLabResultsDialog
-          job={resultsJob}
-          onClose={() => setResultsJob(null)}
-          onDone={() => {
-            setResultsJob(null);
-            loadJobs();
-          }}
-        />
-      )}
     </div>
   );
 }

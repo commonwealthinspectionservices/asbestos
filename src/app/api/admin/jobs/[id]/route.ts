@@ -39,6 +39,9 @@ const EDITABLE_FIELDS = [
   "lab_name",
   "lab_nist_cert",
   "lab_massdls_cert",
+  "lab_cost_cents",
+  "report_summary",
+  "report_notes",
   "is_homeowner",
 ] as const;
 

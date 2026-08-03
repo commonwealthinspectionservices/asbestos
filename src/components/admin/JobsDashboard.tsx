@@ -411,7 +411,6 @@ export default function JobsDashboard() {
   const [jobs, setJobs] = useState<JobWithCustomer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [resultsJob, setResultsJob] = useState<JobWithCustomer | null>(null);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [editingJobId, setEditingJobId] = useState<string | null>(null);
   const [statusView, setStatusView] = useState<"open" | "closed" | "all">("open");
@@ -810,7 +809,6 @@ export default function JobsDashboard() {
             onClose={() => setSelectedJobId(null)}
             onChanged={() => loadJobs()}
             onEdit={() => setEditingJobId(detailJob.id)}
-            onEnterResults={() => setResultsJob(detailJob)}
             onStatusChange={(status) => patchJob(detailJob, { status })}
           />
         );
@@ -827,17 +825,6 @@ export default function JobsDashboard() {
           />
         );
       })()}
-
-      {resultsJob && (
-        <EnterLabResultsDialog
-          job={resultsJob}
-          onClose={() => setResultsJob(null)}
-          onDone={() => {
-            setResultsJob(null);
-            loadJobs();
-          }}
-        />
-      )}
 
       {addingProject && (
         <AddProjectDialog
@@ -1076,19 +1063,21 @@ function useDraftTracking(params: {
 }
 
 export function ProjectDetailDialog({
-  job, onClose, onChanged, onEdit, onEnterResults, onStatusChange,
+  job, onClose, onChanged, onEdit, onStatusChange,
 }: {
   job: JobWithCustomer;
   onClose: () => void;
   onChanged: () => void;
   onEdit: () => void;
-  onEnterResults: () => void;
   onStatusChange: (status: string) => void;
 }) {
   const [tab, setTab] = useState<"info" | "samples" | "report" | "invoicing" | "email" | "chat" | "photos">("info");
   const [serviceTypeSettings, setServiceTypeSettings] = useState<ServiceType[]>([]);
   const [pricingZones, setPricingZones] = useState<PricingZone[]>([]);
   const [labs, setLabs] = useState<LabProfile[]>([]);
+  const [labCostInput, setLabCostInput] = useState(job.lab_cost_cents != null ? (job.lab_cost_cents / 100).toFixed(2) : "");
+  const [reportSummaryInput, setReportSummaryInput] = useState(job.report_summary ?? "");
+  const [reportNotesInput, setReportNotesInput] = useState(job.report_notes ?? "");
   const [invoiceCcQuery, setInvoiceCcQuery] = useState("");
   const [reportCcQuery, setReportCcQuery] = useState("");
   const [includePayNowLink, setIncludePayNowLink] = useState(true);
@@ -1213,6 +1202,37 @@ export function ProjectDetailDialog({
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ lead_result: value }),
+    });
+    onChanged();
+  }
+
+  // Lab cost and the report write-up (Discussion of Results/Conclusions for
+  // mold, Overall findings/Field notes for asbestos and lead) — nothing a
+  // lab report ever states, so there's no auto-fill for these; saved on
+  // blur straight from the Final Report tab.
+  async function saveLabCost(value: string) {
+    await fetch(`/api/admin/jobs/${job.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lab_cost_cents: value ? Math.round(Number(value) * 100) : null }),
+    });
+    onChanged();
+  }
+
+  async function saveReportSummary(value: string) {
+    await fetch(`/api/admin/jobs/${job.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ report_summary: value.trim() || null }),
+    });
+    onChanged();
+  }
+
+  async function saveReportNotes(value: string) {
+    await fetch(`/api/admin/jobs/${job.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ report_notes: value.trim() || null }),
     });
     onChanged();
   }
@@ -1505,6 +1525,47 @@ export function ProjectDetailDialog({
               <a href={`/api/admin/jobs/${job.id}/report-xlsm`} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-bold text-slate-700">
                 .xlsm
               </a>
+            </div>
+
+            <div className="rounded-lg border border-slate-200 p-3">
+              <div className="max-w-[160px]">
+                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">Lab cost ($)</label>
+                <input
+                  type="number"
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+                  value={labCostInput}
+                  onChange={(e) => setLabCostInput(e.target.value)}
+                  onBlur={(e) => saveLabCost(e.target.value)}
+                />
+              </div>
+
+              <label className="mt-3 block text-xs font-semibold uppercase tracking-wide text-slate-400">
+                {isMoldJob(job) ? "Discussion of Results" : "Overall findings"}
+              </label>
+              <textarea
+                className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+                rows={isMoldJob(job) ? 6 : 2}
+                value={reportSummaryInput}
+                onChange={(e) => setReportSummaryInput(e.target.value)}
+                onBlur={(e) => saveReportSummary(e.target.value)}
+                placeholder={
+                  isMoldJob(job)
+                    ? "Paste or write the Discussion of Results section — one paragraph or bullet per line."
+                    : "e.g. None of the suspect materials sampled were determined to have asbestos fibers present."
+                }
+              />
+
+              <label className="mt-3 block text-xs font-semibold uppercase tracking-wide text-slate-400">
+                {isMoldJob(job) ? "Conclusions & Recommendations" : "Field notes (optional)"}
+              </label>
+              <textarea
+                className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+                rows={isMoldJob(job) ? 6 : 2}
+                value={reportNotesInput}
+                onChange={(e) => setReportNotesInput(e.target.value)}
+                onBlur={(e) => saveReportNotes(e.target.value)}
+                placeholder={isMoldJob(job) ? "Paste or write the Conclusions & Recommendations section — one paragraph or bullet per line." : undefined}
+              />
             </div>
 
             {job.report_sent_at && (() => {
@@ -3941,187 +4002,6 @@ function LineItemsEditor({
           </button>
           <button onClick={() => addSample()} className="text-sm text-brand-600 underline">
             + Samples
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-export function EnterLabResultsDialog({
-  job, onClose, onDone,
-}: {
-  job: JobWithCustomer;
-  onClose: () => void;
-  onDone: () => void;
-}) {
-  const [serviceTypeSettings, setServiceTypeSettings] = useState<ServiceType[]>([]);
-  const [pricingZones, setPricingZones] = useState<PricingZone[]>([]);
-  const [lineItems, setLineItems] = useState<LineItemRowState[]>(() => defaultLineItems(job, serviceTypeSettings, pricingZones));
-  const lastAppliedLineItemsDefaultRef = useRef<string>(JSON.stringify(defaultLineItems(job, serviceTypeSettings, pricingZones)));
-  const [labs, setLabs] = useState<LabProfile[]>([]);
-  const [labName, setLabName] = useState(job.lab_name ?? "");
-  const [labCost, setLabCost] = useState(job.lab_cost_cents != null ? (job.lab_cost_cents / 100).toFixed(2) : "");
-  const [labNistCert, setLabNistCert] = useState(job.lab_nist_cert ?? "");
-  const [labMassdlsCert, setLabMassdlsCert] = useState(job.lab_massdls_cert ?? "");
-  const [reportSummary, setReportSummary] = useState(job.report_summary ?? "");
-  const [reportNotes, setReportNotes] = useState(job.report_notes ?? "");
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetch("/api/admin/settings")
-      .then((r) => r.json())
-      .then((data) => {
-        setLabs(data.settings?.labs ?? []);
-        setServiceTypeSettings(data.settings?.service_types ?? []);
-        setPricingZones(data.settings?.pricing_zones ?? []);
-      });
-  }, []);
-
-  useEffect(() => {
-    const nextDefault = defaultLineItems(job, serviceTypeSettings, pricingZones);
-    const nextDefaultJson = JSON.stringify(nextDefault);
-    const lastDefaultJson = lastAppliedLineItemsDefaultRef.current;
-    if (nextDefaultJson === lastDefaultJson) return;
-    setLineItems((current) => (JSON.stringify(current) === lastDefaultJson ? nextDefault : current));
-    lastAppliedLineItemsDefaultRef.current = nextDefaultJson;
-  }, [job, serviceTypeSettings, pricingZones]);
-
-  function selectLab(name: string) {
-    const lab = labs.find((l) => l.name === name);
-    if (!lab) return;
-    setLabName(lab.name);
-    setLabNistCert(lab.nist_cert);
-    setLabMassdlsCert(lab.massdls_cert);
-  }
-
-  const payloadItems = lineItems
-    .filter((r) => r.description.trim())
-    .map((r) => ({
-      description: r.description.trim(),
-      quantity: Number(r.quantity),
-      billing_unit: r.billingUnit.trim() || "Each",
-      unit_cost_cents: Math.round(Number(r.unitCost || "0") * 100),
-    }));
-  const canSubmit = payloadItems.length > 0 && payloadItems.every((li) => li.quantity > 0);
-
-  async function submit() {
-    setSubmitting(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/admin/jobs/${job.id}/complete`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          lineItems: payloadItems,
-          labName: labName.trim() || undefined,
-          labCostCents: labCost ? Math.round(Number(labCost) * 100) : undefined,
-          labNistCert: labNistCert.trim() || undefined,
-          labMassdlsCert: labMassdlsCert.trim() || undefined,
-          reportSummary: reportSummary.trim() || undefined,
-          reportNotes: reportNotes.trim() || undefined,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Failed to complete project");
-      onDone();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to complete project");
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black/40 px-4">
-      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-5">
-        <h3 className="font-semibold text-slate-800">Enter lab results — {job.customers?.name}</h3>
-        {(() => {
-          const { locationName, street, cityStateZip } = splitAddress(job.service_address);
-          return (
-            <>
-              <p className="mt-1 truncate whitespace-nowrap text-sm text-slate-500">{serviceTypeLabel(job.service_type)} at {locationName || street}</p>
-              {locationName && <p className="truncate whitespace-nowrap text-sm text-slate-500">{street}</p>}
-              {cityStateZip && <p className="truncate whitespace-nowrap text-sm text-slate-500">{cityStateZip}</p>}
-            </>
-          );
-        })()}
-
-        {error && <div className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
-
-        {labs.length > 0 && (
-          <>
-            <label className="mt-4 block text-sm font-medium text-slate-700">Select lab</label>
-            <select className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" defaultValue="" onChange={(e) => selectLab(e.target.value)}>
-              <option value="" disabled>Choose a saved lab…</option>
-              {labs.map((lab) => (
-                <option key={lab.name} value={lab.name}>{lab.name}</option>
-              ))}
-            </select>
-          </>
-        )}
-
-        <label className="mt-4 block text-sm font-medium text-slate-700">Lab name</label>
-        <input className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value={labName} onChange={(e) => setLabName(e.target.value)} placeholder="e.g. Crystal Analytical, LLC." />
-
-        <div className="mt-3 flex gap-2">
-          <div className="flex-1">
-            <label className="block text-sm font-medium text-slate-700">Lab cost ($)</label>
-            <input type="number" className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value={labCost} onChange={(e) => setLabCost(e.target.value)} />
-          </div>
-        </div>
-
-        <div className="mt-3 flex gap-2">
-          <div className="flex-1">
-            <label className="block text-sm font-medium text-slate-700">Lab NIST/NVLAP cert #</label>
-            <input className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value={labNistCert} onChange={(e) => setLabNistCert(e.target.value)} placeholder="e.g. 600387-0" />
-          </div>
-          <div className="flex-1">
-            <label className="block text-sm font-medium text-slate-700">Lab MassDLS cert #</label>
-            <input className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value={labMassdlsCert} onChange={(e) => setLabMassdlsCert(e.target.value)} placeholder="e.g. AA000259" />
-          </div>
-        </div>
-
-        <label className="mt-3 block text-sm font-medium text-slate-700">
-          {isMoldJob(job) ? "Discussion of Results (for report)" : "Overall findings (for report)"}
-        </label>
-        <textarea
-          className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-          rows={isMoldJob(job) ? 6 : 2}
-          value={reportSummary}
-          onChange={(e) => setReportSummary(e.target.value)}
-          placeholder={
-            isMoldJob(job)
-              ? "Paste or write the Discussion of Results section — one paragraph or bullet per line."
-              : "e.g. None of the suspect materials sampled were determined to have asbestos fibers present."
-          }
-        />
-
-        <label className="mt-3 block text-sm font-medium text-slate-700">
-          {isMoldJob(job) ? "Conclusions & Recommendations (for report)" : "Field notes (optional)"}
-        </label>
-        <textarea
-          className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-          rows={isMoldJob(job) ? 6 : 2}
-          value={reportNotes}
-          onChange={(e) => setReportNotes(e.target.value)}
-          placeholder={isMoldJob(job) ? "Paste or write the Conclusions & Recommendations section — one paragraph or bullet per line." : undefined}
-        />
-
-        <label className="mt-3 block text-sm font-medium text-slate-700">Invoice line items</label>
-        <LineItemsEditor items={lineItems} setItems={setLineItems} serviceTypeSettings={serviceTypeSettings} />
-
-        <div className="mt-4 flex gap-2">
-          <button
-            onClick={submit}
-            disabled={submitting || !canSubmit}
-            className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
-          >
-            {submitting ? "Saving…" : "Complete & generate invoice"}
-          </button>
-          <button onClick={onClose} className="rounded-lg border border-slate-300 px-4 py-2 text-sm">
-            Cancel
           </button>
         </div>
       </div>

@@ -1010,13 +1010,15 @@ function DetailField({ label, value, nowrap }: { label: string; value: React.Rea
 // behavior of only checking while the Final Report tab was open.
 function useDraftTracking(params: {
   kind: "invoice" | "report";
+  /** What create() actually asks create-draft to build — defaults to `kind`. The combined draft writes both invoice_* and report_* columns identically, so either `kind` works for status-checking it; only create-draft's own kind param decides which draft it builds. */
+  createKind?: "invoice" | "report" | "combined";
   active: boolean;
   jobId: string;
   draftedAt: string | null;
   sentAt: string | null;
   onChanged: () => void;
 }) {
-  const { kind, active, jobId, draftedAt, sentAt, onChanged } = params;
+  const { kind, createKind = kind, active, jobId, draftedAt, sentAt, onChanged } = params;
   const [creating, setCreating] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [confirmingRedraft, setConfirmingRedraft] = useState(false);
@@ -1056,7 +1058,7 @@ function useDraftTracking(params: {
   // draftedAt/sentAt columns, since those only say a draft was created at
   // some point, not whether it's still there (the owner may have deleted it
   // from Gmail without sending, which the live check already caught).
-  async function create(skipConfirm = false, includePayNowLink = true) {
+  async function create(skipConfirm = false) {
     if (!skipConfirm && status?.status === "drafted") {
       setConfirmingRedraft(true);
       return;
@@ -1066,7 +1068,7 @@ function useDraftTracking(params: {
     setMessage(null);
     try {
       const res = await fetch(
-        `/api/admin/jobs/${jobId}/create-draft?kind=${kind}&includePayNowLink=${includePayNowLink}`,
+        `/api/admin/jobs/${jobId}/create-draft?kind=${createKind}`,
         { method: "POST" }
       );
       const data = await res.json();
@@ -1107,23 +1109,13 @@ export function ProjectDetailDialog({
   const [serviceAddressInput, setServiceAddressInput] = useState(job.service_address ?? "");
   const [projectNumberInput, setProjectNumberInput] = useState(job.project_number ?? "");
   const [requestedDateInput, setRequestedDateInput] = useState(job.requested_date ?? "");
-  const [invoiceCcQuery, setInvoiceCcQuery] = useState("");
-  const [reportCcQuery, setReportCcQuery] = useState("");
-  const [includePayNowLink, setIncludePayNowLink] = useState(true);
-  const invoiceDraft = useDraftTracking({
+  const combinedDraft = useDraftTracking({
     kind: "invoice",
+    createKind: "combined",
     active: tab === "email",
     jobId: job.id,
     draftedAt: job.invoice_drafted_at,
     sentAt: job.invoice_sent_at,
-    onChanged,
-  });
-  const reportDraft = useDraftTracking({
-    kind: "report",
-    active: tab === "email",
-    jobId: job.id,
-    draftedAt: job.report_drafted_at,
-    sentAt: job.report_sent_at,
     onChanged,
   });
   const [invoiceLineItems, setInvoiceLineItems] = useState<LineItemRowState[]>(() => defaultLineItems(job, serviceTypeSettings, pricingZones));
@@ -1308,34 +1300,6 @@ export function ProjectDetailDialog({
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ lab_turnaround: value ? "Rush" : null }),
-    });
-    onChanged();
-  }
-
-  // Extra Cc's on top of whoever the invoice/report already goes to — kept
-  // as two separate lists (report_emails / invoice_emails) since who should
-  // be looped in on billing often isn't who should be looped in on results.
-  // Each field's own first address is always the customer contact's own
-  // email (see the comments on these fields in lib/types.ts), so these
-  // derived lists only ever hold the additional people.
-  const additionalReportCcEmails = (job.report_emails ?? "")
-    .split(",")
-    .map((e) => e.trim())
-    .filter((e) => e && e !== job.customers?.email);
-  const additionalInvoiceCcEmails = (job.invoice_emails ?? "")
-    .split(",")
-    .map((e) => e.trim())
-    .filter((e) => e && e !== job.customers?.email);
-
-  async function updateCcList(field: "report_emails" | "invoice_emails", emails: string[]) {
-    const value = [job.customers?.email, ...emails]
-      .map((e) => e?.trim())
-      .filter((e, i, arr): e is string => Boolean(e) && arr.indexOf(e) === i)
-      .join(", ");
-    await fetch(`/api/admin/jobs/${job.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ [field]: value || null }),
     });
     onChanged();
   }
@@ -1985,170 +1949,71 @@ export function ProjectDetailDialog({
         )}
 
         {tab === "email" && (
-          <div className="mt-4 space-y-4">
-
+          <div className="mt-4 space-y-3">
             <div className="rounded-lg border border-slate-200 p-3">
-              <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Invoice email</h4>
-              <div className="mt-2 flex items-end justify-between gap-2">
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      onClick={() => invoiceDraft.create(false, includePayNowLink)}
-                      disabled={invoiceDraft.creating || job.invoice_total_cents == null || !reportComplete}
-                      title={
-                        job.invoice_total_cents == null
-                          ? "Available once the invoice total is calculated (add a base fee or sample count)"
-                          : !reportComplete
-                          ? "Available once every item on the Final Report tab's checklist is complete"
-                          : undefined
-                      }
-                      className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-bold text-slate-700 disabled:opacity-50"
-                    >
-                      {invoiceDraft.creating ? "Creating…" : "New Invoice Draft"}
-                    </button>
-                    {job.invoice_draft_gmail_message_id && (
-                      <a
-                        href={gmailMessageUrl(job.invoice_draft_gmail_message_id, Boolean(job.invoice_sent_at))}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-sm font-bold text-brand-600 underline"
-                      >
-                        View in Gmail ↗
-                      </a>
-                    )}
-                    {invoiceDraft.message && <span className="text-xs text-slate-500">{invoiceDraft.message}</span>}
-                  </div>
-                  <label className="mt-1.5 flex items-center gap-1.5 text-xs text-slate-500" title="Adds a Stripe Pay Now link to the invoice email — uncheck to bill this one by check/Zelle/ACH instead and avoid the card processing fee">
-                    <input
-                      type="checkbox"
-                      checked={includePayNowLink}
-                      onChange={(e) => setIncludePayNowLink(e.target.checked)}
-                      className="h-3.5 w-3.5 rounded border-slate-300"
-                    />
-                    Include payment now link
-                  </label>
-                  <p className="mt-1.5 text-xs text-slate-500">
-                    {draftStatusText(job.invoice_drafted_at, job.invoice_sent_at, invoiceDraft.status, "No draft created yet", "No draft in Gmail — click New Invoice Draft")}
-                  </p>
-                </div>
-                {job.invoice_recipient && (
-                  <div className="shrink-0 text-right text-xs leading-tight">
-                    <div className="font-medium text-slate-700">{job.invoice_recipient.name}</div>
-                    <div className="text-slate-500">{job.invoice_recipient.email}</div>
-                  </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => combinedDraft.create()}
+                  disabled={
+                    combinedDraft.creating ||
+                    job.invoice_total_cents == null ||
+                    !reportComplete ||
+                    (job.is_homeowner && job.status !== "paid")
+                  }
+                  title={
+                    job.invoice_total_cents == null
+                      ? "Available once the invoice total is calculated (add a base fee or sample count)"
+                      : !reportComplete
+                      ? "Available once every item on the Final Report tab's checklist is complete"
+                      : job.is_homeowner && job.status !== "paid"
+                      ? "Available once this project is marked Paid"
+                      : undefined
+                  }
+                  className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-bold text-slate-700 disabled:opacity-50"
+                >
+                  {combinedDraft.creating ? "Creating…" : "Create Draft"}
+                </button>
+                {job.invoice_draft_gmail_message_id && (
+                  <a
+                    href={gmailMessageUrl(job.invoice_draft_gmail_message_id, Boolean(job.invoice_sent_at))}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-sm font-bold text-brand-600 underline"
+                  >
+                    View in Gmail ↗
+                  </a>
                 )}
+                {combinedDraft.message && <span className="text-xs text-slate-500">{combinedDraft.message}</span>}
               </div>
-              <CcPicker
-                label="Also Cc"
-                hint="Anyone added here gets Cc'd on the invoice email only."
-                emails={additionalInvoiceCcEmails}
-                excludeEmail={job.customers?.email}
-                query={invoiceCcQuery}
-                setQuery={setInvoiceCcQuery}
-                onAdd={(addr) => updateCcList("invoice_emails", [...additionalInvoiceCcEmails, addr])}
-                onRemove={(addr) => updateCcList("invoice_emails", additionalInvoiceCcEmails.filter((e) => e !== addr))}
-              />
+              <p className="mt-1.5 text-xs text-slate-500">
+                {job.is_homeowner && job.status !== "paid"
+                  ? "Held back from the customer until this project is marked Paid."
+                  : draftStatusText(job.invoice_drafted_at, job.invoice_sent_at, combinedDraft.status, "No draft created yet", "No draft in Gmail — click Create Draft")}
+              </p>
+              {job.invoice_recipient && (
+                <p className="mt-1.5 text-xs text-slate-500">
+                  Sends the final report and invoice (with a payment link) to {job.invoice_recipient.name} &lt;{job.invoice_recipient.email}&gt;.
+                </p>
+              )}
             </div>
 
-            <div className="rounded-lg border border-slate-200 p-3">
-              <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Report email</h4>
-              <div className="mt-2 flex items-end justify-between gap-2">
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      onClick={() => reportDraft.create()}
-                      disabled={reportDraft.creating || (job.is_homeowner && job.status !== "paid") || !reportComplete}
-                      title={
-                        job.is_homeowner && job.status !== "paid"
-                          ? "Available once this project is marked Paid"
-                          : !reportComplete
-                          ? "Available once every item on the Final Report tab's checklist is complete"
-                          : undefined
-                      }
-                      className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-bold text-slate-700 disabled:opacity-50"
-                    >
-                      {reportDraft.creating ? "Creating…" : "New Report Draft"}
-                    </button>
-                    {job.report_draft_gmail_message_id && (
-                      <a
-                        href={gmailMessageUrl(job.report_draft_gmail_message_id, Boolean(job.report_sent_at))}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-sm font-bold text-brand-600 underline"
-                      >
-                        View in Gmail ↗
-                      </a>
-                    )}
-                    {reportDraft.message && <span className="text-xs text-slate-500">{reportDraft.message}</span>}
-                  </div>
-                  <p className="mt-1.5 text-xs text-slate-500">
-                    {job.is_homeowner && job.status !== "paid"
-                      ? "Held back from the customer until this project is marked Paid."
-                      : draftStatusText(job.report_drafted_at, job.report_sent_at, reportDraft.status, "No draft created yet", "No draft in Gmail — click New Report Draft")}
-                  </p>
-                </div>
-                {job.report_recipient && (
-                  <div className="shrink-0 text-right text-xs leading-tight">
-                    <div className="font-medium text-slate-700">{job.report_recipient.name}</div>
-                    <div className="text-slate-500">{job.report_recipient.email}</div>
-                  </div>
-                )}
-              </div>
-              <CcPicker
-                label="Also Cc"
-                hint="Anyone added here gets Cc'd on the report email only."
-                emails={additionalReportCcEmails}
-                excludeEmail={job.customers?.email}
-                query={reportCcQuery}
-                setQuery={setReportCcQuery}
-                onAdd={(addr) => updateCcList("report_emails", [...additionalReportCcEmails, addr])}
-                onRemove={(addr) => updateCcList("report_emails", additionalReportCcEmails.filter((e) => e !== addr))}
-              />
-            </div>
-
-            {invoiceDraft.confirmingRedraft && (
+            {combinedDraft.confirmingRedraft && (
               <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
                 <div className="w-full max-w-sm rounded-xl bg-white p-5">
-                  <h3 className="font-semibold text-slate-800">Create another invoice draft?</h3>
+                  <h3 className="font-semibold text-slate-800">Create another draft?</h3>
                   <p className="mt-2 text-sm text-slate-600">
-                    An invoice draft was already created for this project on {job.invoice_drafted_at && formatDateTime(job.invoice_drafted_at)} and
+                    A draft was already created for this project on {job.invoice_drafted_at && formatDateTime(job.invoice_drafted_at)} and
                     hasn&apos;t been sent yet. Create a new draft anyway?
                   </p>
                   <div className="mt-4 flex gap-2">
                     <button
-                      onClick={() => invoiceDraft.create(true, includePayNowLink)}
+                      onClick={() => combinedDraft.create(true)}
                       className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-bold text-white"
                     >
                       Create Anyway
                     </button>
                     <button
-                      onClick={() => invoiceDraft.setConfirmingRedraft(false)}
-                      className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-bold"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {reportDraft.confirmingRedraft && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-                <div className="w-full max-w-sm rounded-xl bg-white p-5">
-                  <h3 className="font-semibold text-slate-800">Create another report draft?</h3>
-                  <p className="mt-2 text-sm text-slate-600">
-                    A report draft was already created for this project on {job.report_drafted_at && formatDateTime(job.report_drafted_at)} and
-                    hasn&apos;t been sent yet. Create a new draft anyway?
-                  </p>
-                  <div className="mt-4 flex gap-2">
-                    <button
-                      onClick={() => reportDraft.create(true)}
-                      className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-bold text-white"
-                    >
-                      Create Anyway
-                    </button>
-                    <button
-                      onClick={() => reportDraft.setConfirmingRedraft(false)}
+                      onClick={() => combinedDraft.setConfirmingRedraft(false)}
                       className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-bold"
                     >
                       Cancel
@@ -2640,84 +2505,6 @@ function DocumentsPanel({ job, onChanged }: { job: JobWithCustomer; onChanged: (
 // Extra Cc's for one specific draft (invoice or report) — see the
 // invoice_emails/report_emails column comments in lib/types.ts for why
 // these are kept separate rather than one shared list.
-function CcPicker({
-  label, hint, emails, excludeEmail, query, setQuery, onAdd, onRemove,
-}: {
-  label: string;
-  hint: string;
-  emails: string[];
-  excludeEmail?: string;
-  query: string;
-  setQuery: (v: string) => void;
-  onAdd: (email: string) => void;
-  onRemove: (email: string) => void;
-}) {
-  return (
-    <div className="mt-3 border-t border-slate-100 pt-3">
-      <h5 className="text-xs font-semibold uppercase tracking-wide text-slate-400">{label}</h5>
-      <p className="mt-1 text-xs text-slate-500">{hint}</p>
-      {emails.length > 0 && (
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          {emails.map((addr) => (
-            <span key={addr} className="flex items-center gap-1 rounded-full bg-slate-100 py-1 pl-2.5 pr-1.5 text-xs text-slate-700">
-              {addr}
-              <button
-                onClick={() => onRemove(addr)}
-                className="rounded-full px-1 text-slate-400 hover:text-slate-600"
-                aria-label={`Remove ${addr}`}
-              >
-                ✕
-              </button>
-            </span>
-          ))}
-        </div>
-      )}
-      <div className="mt-2 flex gap-1.5">
-        <div className="w-0 flex-1">
-          <ComboboxInput
-            value={query}
-            onChange={setQuery}
-            fetchOptions={async (q) => {
-              const res = await fetch(`/api/admin/customers?q=${encodeURIComponent(q)}`);
-              const data = await res.json();
-              return (data.customers ?? []) as Customer[];
-            }}
-            getLabel={(c: Customer) => c.name}
-            getSublabel={(c: Customer) => c.email}
-            onSelect={(c: Customer) => {
-              if (c.email && c.email !== excludeEmail && !emails.includes(c.email)) {
-                onAdd(c.email);
-              }
-              setQuery("");
-            }}
-            onEnter={(v) => {
-              const email = v.trim();
-              if (email && /^\S+@\S+\.\S+$/.test(email) && email !== excludeEmail && !emails.includes(email)) {
-                onAdd(email);
-                setQuery("");
-              }
-            }}
-            placeholder="Add a contact from your Directory, or type an email and hit Enter…"
-          />
-        </div>
-        <button
-          type="button"
-          onClick={() => {
-            const email = query.trim();
-            if (email && /^\S+@\S+\.\S+$/.test(email) && email !== excludeEmail && !emails.includes(email)) {
-              onAdd(email);
-              setQuery("");
-            }
-          }}
-          className="shrink-0 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50"
-        >
-          Enter
-        </button>
-      </div>
-    </div>
-  );
-}
-
 export function ComboboxInput<T>({
   value, onChange, options, fetchOptions, getLabel, getSublabel, onSelect, placeholder, disabled, onEnter, onBlur, filterOptions = true,
 }: {

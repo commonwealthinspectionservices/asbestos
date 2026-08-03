@@ -115,6 +115,30 @@ function invoiceDraftBodyText(job: Job, settings: Settings, totalCents: number, 
   ].join("\n");
 }
 
+// The Email tab's single manual send — attached report + invoice covering
+// both in one note rather than stitching the two standalone bodies above
+// together.
+function combinedDraftBodyText(job: Job, settings: Settings, totalCents: number, payNowUrl: string | null): string {
+  return [
+    "Hi,",
+    "",
+    "Please find attached the asbestos bulk sample analytical report and invoice for:",
+    "",
+    `Site: ${job.service_address}`,
+    "",
+    `Date of Sampling: ${formatDateMMDDYYYY(job.requested_date)}`,
+    "",
+    "All laboratory results and analytical data sheets are included in the attached report.",
+    "",
+    `Total due: ${formatCents(totalCents)}`,
+    ...(payNowUrl ? ["", `Pay online: ${payNowUrl}`] : []),
+    "",
+    `Should you have any questions or need additional information, please contact our office at ${settings.business_phone}.`,
+    "",
+    "Thank you for the opportunity to provide you with our services and we look forward to working together in the future.",
+  ].join("\n");
+}
+
 /** Checks the connected inbox for lab result emails, matches them to a project by the project number printed in the PDF, and drafts the final report + invoice. Also catches chain-of-custody receipt emails (matched by subject line), lab-bundled COC attachments, and EMSL's separate billing invoice emails (recorded as lab cost, not drafted). Draft only — never sent automatically. */
 export async function checkForLabResultEmails(): Promise<LabEmailCheckResult> {
   const accessToken = await getValidAccessToken();
@@ -555,6 +579,115 @@ async function draftReportEmailForJob(params: {
     .eq("id", job.id);
 }
 
+// The Email tab's one manual send — the final report packet and invoice
+// as two attachments on a single draft, with a Stripe payment link in the
+// body. Replaces having to separately draft-then-send an invoice email
+// and a report email for the same project. Doesn't touch the automatic
+// pipeline (processMatchedLabEmail/autoDraftReportIfJustPaid above still
+// draft the invoice and report separately, at the two different moments
+// each is actually ready) — this is only the manual, everything's-done,
+// send-it-now path.
+async function draftCombinedEmailForJob(params: {
+  job: Job & { customers: Customer & { companies: Company | null } };
+  settings: Settings;
+  accessToken: string;
+}): Promise<void> {
+  const { job, settings, accessToken } = params;
+  const supabase = getSupabaseAdmin();
+
+  const { data: settingsRow } = await supabase.from("settings").select("service_types, pricing_zones").eq("id", 1).single();
+  const lineItems = defaultInvoiceLineItems(
+    job as JobWithCustomer,
+    settingsRow?.service_types ?? [],
+    settingsRow?.pricing_zones ?? []
+  );
+  const totalCents = invoiceLineItemsTotalCents(lineItems);
+  await supabase
+    .from("jobs")
+    .update({ invoice_line_items: lineItems, invoice_total_cents: totalCents, invoice_auto: true })
+    .eq("id", job.id);
+  const pricedJob = { ...job, invoice_line_items: lineItems, invoice_total_cents: totalCents };
+
+  const customer = withCompanyBillingAddress(pricedJob.customers, pricedJob.customers.companies);
+
+  const { renderInvoicePdf } = await import("@/lib/invoice-pdf");
+  const invoicePdf = await renderInvoicePdf({ job: pricedJob, customer, company: pricedJob.customers.companies, settings });
+
+  const { buildFinalReportPacket } = await import("@/lib/report-packet");
+  const reportPdf = await buildFinalReportPacket(pricedJob, customer, settings);
+
+  // Same billing-contact-aware "to" as the standalone invoice draft (see
+  // its own comment) — whoever the invoice reaches should also be who
+  // gets the report, since this is now one email covering both.
+  const billingContactId = pricedJob.billing_contact_id ?? pricedJob.customers.companies?.billing_contact_id;
+  const billingContact = billingContactId
+    ? (await supabase.from("customers").select("*").eq("id", billingContactId).maybeSingle()).data
+    : null;
+  const toCustomer = billingContact ?? customer;
+
+  const ccRecipients = [
+    ...(billingContact ? [customer.email] : []),
+    ...(pricedJob.invoice_emails?.split(",") ?? []),
+    ...(pricedJob.report_emails?.split(",") ?? []),
+  ]
+    .map((e) => e.trim())
+    .filter((e) => e && e !== toCustomer.email);
+
+  // Best-effort, same as the standalone invoice draft — a Stripe hiccup
+  // must never block the Gmail draft itself.
+  let payNowUrl: string | null = null;
+  try {
+    const { hostedInvoiceUrl } = await createStripeInvoiceForJob(pricedJob, toCustomer);
+    payNowUrl = hostedInvoiceUrl;
+  } catch (e) {
+    console.error(`Failed to create Stripe invoice for job ${job.id}:`, e);
+  }
+
+  // Recreating (the admin already had a draft, is clicking again) replaces
+  // whatever's there rather than leaving stale copies sitting in Gmail —
+  // covers both a previous combined draft and any leftover separate
+  // invoice/report drafts from before. Best-effort, since a draft that's
+  // already been sent or manually deleted is expected to 404.
+  const staleDraftIds = new Set([job.invoice_draft_gmail_id, job.report_draft_gmail_id].filter((id): id is string => Boolean(id)));
+  for (const id of staleDraftIds) {
+    try {
+      await deleteDraft(accessToken, id);
+    } catch (e) {
+      console.error(`Failed to delete previous draft ${id} for job ${job.id}:`, e);
+    }
+  }
+
+  const draft = await createDraft(accessToken, {
+    to: toCustomer.email,
+    cc: [...new Set(ccRecipients)].join(", ") || undefined,
+    subject: `Final Report & Invoice - ${pricedJob.service_address}`,
+    bodyText: combinedDraftBodyText(pricedJob, settings, totalCents, payNowUrl),
+    attachments: [
+      { filename: `Final-Report-${pricedJob.project_number ?? job.id}.pdf`, mimeType: "application/pdf", content: reportPdf },
+      { filename: `Invoice-${pricedJob.project_number ?? job.id}.pdf`, mimeType: "application/pdf", content: invoicePdf },
+    ],
+  });
+
+  // Both the invoice and report drafted/gmail-id/message-id columns point
+  // at this same draft — from Gmail's perspective it's one email, but the
+  // rest of the app (project list drafted-but-not-sent badge, draft-status
+  // polling, confirm-before-duplicate check) already reads these two
+  // column pairs independently, so pointing both at the same message keeps
+  // all of that working without a schema change.
+  const draftedAt = new Date().toISOString();
+  await supabase
+    .from("jobs")
+    .update({
+      invoice_drafted_at: draftedAt,
+      invoice_draft_gmail_id: draft.id,
+      invoice_draft_gmail_message_id: draft.messageId,
+      report_drafted_at: draftedAt,
+      report_draft_gmail_id: draft.id,
+      report_draft_gmail_message_id: draft.messageId,
+    })
+    .eq("id", job.id);
+}
+
 async function loadJobForDraft(jobId: string): Promise<{
   job: Job & { customers: Customer & { companies: Company | null } };
   settings: Settings;
@@ -588,6 +721,11 @@ export async function createInvoiceDraftForJob(jobId: string, includePayNowLink 
 /** Manual "Create Report Draft" button on the Email tab — same draft-creation path the automatic email check uses, callable on demand for any project. */
 export async function createReportDraftForJob(jobId: string): Promise<void> {
   await draftReportEmailForJob(await loadJobForDraft(jobId));
+}
+
+/** The Email tab's one "Create Draft" button — final report + invoice as two attachments on a single Gmail draft, with a payment link. */
+export async function createCombinedDraftForJob(jobId: string): Promise<void> {
+  await draftCombinedEmailForJob(await loadJobForDraft(jobId));
 }
 
 /**

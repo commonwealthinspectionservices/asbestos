@@ -63,10 +63,7 @@ export default function PortalNav({ isIndividual = false }: { isIndividual?: boo
             </div>
           </div>
           {!isIndividual && (
-            <>
-              <Link href="/portal/addresses" className={linkClass("/portal/addresses")}>Addresses</Link>
-              <Link href="/portal/contacts" className={linkClass("/portal/contacts")}>Contacts</Link>
-            </>
+            <Link href="/portal/addresses" className={linkClass("/portal/addresses")}>Addresses</Link>
           )}
           <Link href="/portal/account" className={linkClass("/portal/account")}>{isIndividual ? "My Account" : "Account"}</Link>
           <button

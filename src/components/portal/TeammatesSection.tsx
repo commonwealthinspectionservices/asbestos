@@ -11,7 +11,12 @@ interface Contact {
   hasLogin: boolean;
 }
 
-export default function ContactsList() {
+// Company-account-only section on My Account (see AccountForm.tsx) — lets
+// any logged-in member of a company invite teammates, who land already
+// linked to the same company and immediately see all of its projects. Was
+// previously its own "Contacts" nav tab; folded in here since it's really
+// just another account-settings concern, not a separate destination.
+export default function TeammatesSection() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [billingContactId, setBillingContactId] = useState<string | null>(null);
   const [selfId, setSelfId] = useState<string | null>(null);
@@ -29,12 +34,12 @@ export default function ContactsList() {
     fetch("/api/portal/contacts")
       .then(async (r) => {
         const data = await r.json();
-        if (!r.ok) throw new Error(data.error ?? "Failed to load contacts");
+        if (!r.ok) throw new Error(data.error ?? "Failed to load teammates");
         setContacts(data.contacts);
         setBillingContactId(data.billingContactId);
         setSelfId(data.selfId);
       })
-      .catch((e) => setError(e instanceof Error ? e.message : "Failed to load contacts"))
+      .catch((e) => setError(e instanceof Error ? e.message : "Failed to load teammates"))
       .finally(() => setLoading(false));
   }
 
@@ -50,11 +55,11 @@ export default function ContactsList() {
         body: JSON.stringify({ name: joinName(firstName, lastName), email }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Failed to save contact");
+      if (!res.ok) throw new Error(data.error ?? "Failed to save teammate");
 
       const inviteRes = await fetch(`/api/portal/contacts/${data.contact.id}/invite`, { method: "POST" });
       const inviteData = await inviteRes.json();
-      if (!inviteRes.ok) throw new Error(inviteData.error ?? "Contact saved, but the invite failed to send");
+      if (!inviteRes.ok) throw new Error(inviteData.error ?? "Teammate saved, but the invite failed to send");
 
       setFirstName("");
       setLastName("");
@@ -99,53 +104,51 @@ export default function ContactsList() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-6">
-      <h1 className="text-lg font-semibold text-slate-800">Contacts</h1>
+    <div className="mt-4 rounded-lg border border-slate-200 bg-white p-3">
+      <h2 className="text-xs font-bold uppercase text-slate-500">Teammates</h2>
       <p className="mt-1 text-sm text-slate-500">
-        Invite people at your company to set up their own login — they'll immediately see all of your company's projects.
+        Invite people at your company to set up their own login — they&apos;ll immediately see all of your company&apos;s projects.
       </p>
 
-      {error && <div className="mt-3 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>}
+      {error && <div className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
 
-      <div className="mt-4 rounded-lg border border-slate-200 bg-white p-3">
-        <div className="flex gap-2">
-          <input
-            className="w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm"
-            placeholder="First name"
-            value={firstName}
-            onChange={(e) => setFirstName(e.target.value)}
-          />
-          <input
-            className="w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm"
-            placeholder="Last name"
-            value={lastName}
-            onChange={(e) => setLastName(e.target.value)}
-          />
-        </div>
+      <div className="mt-3 flex gap-2">
         <input
-          className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-          placeholder="Email"
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          className="w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          placeholder="First name"
+          value={firstName}
+          onChange={(e) => setFirstName(e.target.value)}
         />
-        <button
-          className="mt-2 inline-flex h-[22px] items-center border-[3px] border-brand-700 bg-brand-50 px-4 pt-0.5 text-sm font-extrabold uppercase leading-none text-brand-700 hover:bg-yellow-100 disabled:opacity-50 sm:h-[29px]"
-          disabled={adding || !firstName.trim() || !lastName.trim() || !email.trim()}
-          onClick={addAndInvite}
-        >
-          {adding ? "Sending…" : "Send invite"}
-        </button>
+        <input
+          className="w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          placeholder="Last name"
+          value={lastName}
+          onChange={(e) => setLastName(e.target.value)}
+        />
       </div>
+      <input
+        className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+        placeholder="Email"
+        type="email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+      />
+      <button
+        className="mt-2 inline-flex h-[22px] items-center border-[3px] border-brand-700 bg-brand-50 px-4 pt-0.5 text-sm font-extrabold uppercase leading-none text-brand-700 hover:bg-yellow-100 disabled:opacity-50 sm:h-[29px]"
+        disabled={adding || !firstName.trim() || !lastName.trim() || !email.trim()}
+        onClick={addAndInvite}
+      >
+        {adding ? "Sending…" : "Add teammate"}
+      </button>
 
       {loading ? (
-        <p className="mt-6 text-sm text-slate-500">Loading…</p>
+        <p className="mt-4 text-sm text-slate-500">Loading…</p>
       ) : contacts.length === 0 ? (
-        <p className="mt-6 text-sm text-slate-500">No contacts yet — they'll appear here once you invite one.</p>
+        <p className="mt-4 text-sm text-slate-500">No teammates yet — they&apos;ll appear here once you invite one.</p>
       ) : (
-        <div className="mt-4 space-y-2">
+        <div className="mt-3 space-y-2">
           {contacts.map((c) => (
-            <div key={c.id} className="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-3">
+            <div key={c.id} className="flex items-center justify-between rounded-lg border border-slate-200 p-3">
               <div>
                 <div className="text-sm font-medium text-slate-800">
                   {c.name}

@@ -11,8 +11,7 @@ export default async function PortalAddressesPage() {
   if (!session.customer) redirect("/portal/onboarding");
   // Saved addresses (multiple job sites to pick from when booking) is a
   // company concept — individuals don't have this tab in the nav, so don't
-  // leave the page reachable by direct URL either. Same pattern as
-  // /portal/contacts.
+  // leave the page reachable by direct URL either.
   if (session.customer.is_individual) redirect("/portal/dashboard");
 
   return (

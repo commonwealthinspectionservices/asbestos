@@ -10,9 +10,10 @@ interface Contact {
   phone: string | null;
 }
 
-// Only renders once the account has actually added other contacts (see
-// /portal/contacts) — most accounts never touch this, so it stays out of
-// the way rather than showing an empty picker with just yourself in it.
+// Only renders once the account has actually added other teammates (see
+// TeammatesSection.tsx on My Account) — most accounts never touch this, so
+// it stays out of the way rather than showing an empty picker with just
+// yourself in it.
 export default function JobRecipients({ job, onChanged }: { job: Job; onChanged: () => void }) {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [billingContactId, setBillingContactId] = useState<string | null>(null);

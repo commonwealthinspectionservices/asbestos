@@ -7,6 +7,7 @@ import { buildBillingAddress, parseAddressToFields, US_STATES } from "@/lib/addr
 import { formatPhoneNumber } from "@/lib/phone";
 import { splitFullName, joinName } from "@/lib/name";
 import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
+import TeammatesSection from "@/components/portal/TeammatesSection";
 import type { Customer } from "@/lib/types";
 
 export default function AccountForm({
@@ -187,6 +188,8 @@ export default function AccountForm({
           {savedMessage && <span className="text-sm text-emerald-600">{savedMessage}</span>}
         </div>
       </div>
+
+      {!isIndividual && <TeammatesSection />}
 
       <div className="mt-4 rounded-lg border border-slate-200 bg-white p-3">
         <h2 className="text-xs font-bold uppercase text-slate-500">Change password</h2>

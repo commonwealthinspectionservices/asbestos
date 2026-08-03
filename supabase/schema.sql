@@ -78,15 +78,21 @@ declare
   yr text := to_char(now(), 'YY');
   max_existing integer;
   seq_current bigint;
+  seq_called boolean;
 begin
   select coalesce(max(substring(project_number from '-(\d+)$')::integer), 0)
     into max_existing
     from jobs
     where project_number like yr || '-%';
 
-  select last_value into seq_current from project_number_seq;
+  -- A sequence's last_value reads as its start value even before nextval()
+  -- has ever been called on it (is_called stays false) — comparing against
+  -- last_value directly would wrongly treat a never-touched sequence as
+  -- already at position 1, so this must fall back to 0 when is_called is
+  -- false, not last_value.
+  select last_value, is_called into seq_current, seq_called from project_number_seq;
 
-  if max_existing > seq_current then
+  if max_existing > (case when seq_called then seq_current else 0 end) then
     perform setval('project_number_seq', max_existing);
   end if;
 
@@ -113,7 +119,7 @@ begin
 
   select last_value, is_called into seq_current, seq_called from project_number_seq;
 
-  if max_existing > seq_current then
+  if max_existing > (case when seq_called then seq_current else 0 end) then
     return yr || '-' || lpad((max_existing + 1)::text, 4, '0');
   end if;
 

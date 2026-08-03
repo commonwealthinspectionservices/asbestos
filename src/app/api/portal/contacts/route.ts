@@ -21,14 +21,14 @@ export const GET = withApiErrors(async () => {
   const [{ data: contacts }, { data: company }] = await Promise.all([
     supabase
       .from("customers")
-      .select("id, name, email, phone")
+      .select("id, name, email, phone, auth_user_id")
       .eq("company_id", auth.customer.company_id)
       .order("created_at", { ascending: true }),
     supabase.from("companies").select("billing_contact_id").eq("id", auth.customer.company_id).single(),
   ]);
 
   return NextResponse.json({
-    contacts: contacts ?? [],
+    contacts: (contacts ?? []).map(({ auth_user_id, ...rest }) => ({ ...rest, hasLogin: Boolean(auth_user_id) })),
     billingContactId: company?.billing_contact_id ?? null,
     selfId: auth.customer.id,
   });

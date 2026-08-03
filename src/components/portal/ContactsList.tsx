@@ -8,6 +8,7 @@ interface Contact {
   name: string;
   email: string;
   phone: string | null;
+  hasLogin: boolean;
 }
 
 export default function ContactsList() {
@@ -20,6 +21,8 @@ export default function ContactsList() {
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [adding, setAdding] = useState(false);
+  const [invitingId, setInvitingId] = useState<string | null>(null);
+  const [invitedId, setInvitedId] = useState<string | null>(null);
 
   function load() {
     setLoading(true);
@@ -71,6 +74,21 @@ export default function ContactsList() {
       body: JSON.stringify({ isBillingContact: true }),
     });
     if (res.ok) load();
+  }
+
+  async function invite(id: string) {
+    setInvitingId(id);
+    setError(null);
+    try {
+      const res = await fetch(`/api/portal/contacts/${id}/invite`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to send invite");
+      setInvitedId(id);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to send invite");
+    } finally {
+      setInvitingId(null);
+    }
   }
 
   return (
@@ -137,6 +155,19 @@ export default function ContactsList() {
                   <button onClick={() => makeBillingContact(c.id)} className="text-xs text-brand-600 underline">
                     Make billing contact
                   </button>
+                )}
+                {c.id !== selfId && !c.hasLogin && (
+                  invitedId === c.id ? (
+                    <span className="text-xs font-medium text-emerald-700">Invite sent</span>
+                  ) : (
+                    <button
+                      onClick={() => invite(c.id)}
+                      disabled={invitingId === c.id}
+                      className="text-xs text-brand-600 underline disabled:opacity-50"
+                    >
+                      {invitingId === c.id ? "Sending…" : "Invite"}
+                    </button>
+                  )
                 )}
                 {c.id !== selfId && (
                   <button onClick={() => removeContact(c.id)} className="text-sm text-red-600">

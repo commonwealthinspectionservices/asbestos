@@ -54,8 +54,8 @@ export default function PricingCalculator() {
   const [serviceTypes, setServiceTypes] = useState<ServiceTypeQuote[] | null>(null);
   const [withinArea, setWithinArea] = useState(true);
   const [addressChecked, setAddressChecked] = useState(false);
-  const [selectedKey, setSelectedKey] = useState<string | null>(null);
-  const [sampleCount, setSampleCount] = useState(10);
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+  const [sampleCounts, setSampleCounts] = useState<Record<string, number>>({});
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useAutoZip(street, city, addrState, setZip, "");
@@ -70,10 +70,10 @@ export default function PricingCalculator() {
         const merged = mergeAsbestosTypes(data.serviceTypes ?? []);
         setServiceTypes(merged);
         const first = merged[0];
-        setSelectedKey(first?.key ?? null);
         if (first) {
+          setSelectedKeys(new Set([first.key]));
           const max = MAX_SAMPLES_BY_KEY[first.key] ?? DEFAULT_MAX_SAMPLES;
-          setSampleCount(Math.min(10, max));
+          setSampleCounts({ [first.key]: Math.min(10, max) });
         }
       })
       .catch(() => {});
@@ -107,24 +107,46 @@ export default function PricingCalculator() {
     }, 500);
   }, [street, unit, city, addrState, zip]);
 
-  const selected = useMemo(
-    () => serviceTypes?.find((s) => s.key === selectedKey) ?? null,
-    [serviceTypes, selectedKey]
+  const selectedServices = useMemo(
+    () => (serviceTypes ?? []).filter((s) => selectedKeys.has(s.key)),
+    [serviceTypes, selectedKeys]
   );
 
-  function selectService(service: ServiceTypeQuote) {
-    setSelectedKey(service.key);
-    const max = MAX_SAMPLES_BY_KEY[service.key] ?? DEFAULT_MAX_SAMPLES;
-    setSampleCount(Math.min(10, max));
+  function toggleService(service: ServiceTypeQuote) {
+    setSelectedKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(service.key)) {
+        next.delete(service.key);
+      } else {
+        next.add(service.key);
+        setSampleCounts((counts) => {
+          if (service.key in counts) return counts;
+          const max = MAX_SAMPLES_BY_KEY[service.key] ?? DEFAULT_MAX_SAMPLES;
+          return { ...counts, [service.key]: Math.min(10, max) };
+        });
+      }
+      return next;
+    });
   }
 
-  const unitCents = selected
-    ? (PRICE_PER_SAMPLE_CENTS_BY_KEY[selected.key] ?? DEFAULT_PRICE_PER_SAMPLE_CENTS)
-    : 0;
-  const maxSamples = selected ? (MAX_SAMPLES_BY_KEY[selected.key] ?? DEFAULT_MAX_SAMPLES) : DEFAULT_MAX_SAMPLES;
+  function setSampleCountFor(key: string, count: number) {
+    setSampleCounts((counts) => ({ ...counts, [key]: count }));
+  }
 
-  const estimateCents = selected
-    ? computeInvoiceTotalCents(selected.base_fee_cents, unitCents, sampleCount)
+  // Base fee is address/zone-driven only — it's charged once regardless of
+  // how many service types are selected on the same visit (matches the real
+  // booking flow in api/admin/jobs/route.ts: zone fee, or the sum fallback,
+  // never per-selected-type multiplication).
+  const baseFeeCents = selectedServices[0]?.base_fee_cents ?? 0;
+
+  const samplesTotalCents = selectedServices.reduce((sum, service) => {
+    const unitCents = PRICE_PER_SAMPLE_CENTS_BY_KEY[service.key] ?? DEFAULT_PRICE_PER_SAMPLE_CENTS;
+    const count = sampleCounts[service.key] ?? 0;
+    return sum + unitCents * count;
+  }, 0);
+
+  const estimateCents = selectedServices.length > 0
+    ? computeInvoiceTotalCents(baseFeeCents, 1, samplesTotalCents)
     : null;
 
   const ESTIMATE_RANGE_CENTS = 15000;
@@ -191,21 +213,21 @@ export default function PricingCalculator() {
         </p>
       )}
 
-      <p className="mt-6 text-sm font-semibold uppercase text-slate-700">Service Type</p>
+      <p className="mt-6 text-sm font-semibold uppercase text-slate-700">Service Type(s)</p>
       <div className="mt-2 grid grid-cols-1 gap-4 sm:grid-cols-3">
         {(serviceTypes ?? []).map((service) => (
           <label
             key={service.key}
             className={`group flex cursor-pointer items-center gap-2 overflow-hidden rounded-lg border px-3 py-2 text-xs ${
-              selectedKey === service.key
+              selectedKeys.has(service.key)
                 ? "border-brand-700 bg-brand-50 font-semibold text-brand-700"
                 : "border-slate-200 text-slate-600 hover:border-brand-400"
             }`}
           >
             <input
               type="checkbox"
-              checked={selectedKey === service.key}
-              onChange={() => selectService(service)}
+              checked={selectedKeys.has(service.key)}
+              onChange={() => toggleService(service)}
               className="shrink-0 accent-brand-700"
             />
             <span className="truncate group-hover:underline">{service.label}</span>
@@ -213,22 +235,33 @@ export default function PricingCalculator() {
         ))}
       </div>
 
-      {selected && (
+      {selectedServices.length > 0 && (
         <div className="mt-6">
-          <label className="flex items-center justify-between text-sm font-semibold uppercase text-slate-700" htmlFor="sample-count">
-            <span>Estimated Number of Samples</span>
-            <span>{sampleCount}</span>
-          </label>
-          <input
-            id="sample-count"
-            type="range"
-            min={1}
-            step={1}
-            max={maxSamples}
-            value={sampleCount}
-            onChange={(e) => setSampleCount(Number(e.target.value))}
-            className="mt-2 w-full accent-brand-700"
-          />
+          {selectedServices.map((service) => {
+            const maxSamples = MAX_SAMPLES_BY_KEY[service.key] ?? DEFAULT_MAX_SAMPLES;
+            const count = sampleCounts[service.key] ?? Math.min(10, maxSamples);
+            return (
+              <div key={service.key} className="mt-4 first:mt-0">
+                <label
+                  className="flex items-center justify-between text-sm font-semibold uppercase text-slate-700"
+                  htmlFor={`sample-count-${service.key}`}
+                >
+                  <span>{service.label} &mdash; Est. Samples</span>
+                  <span>{count}</span>
+                </label>
+                <input
+                  id={`sample-count-${service.key}`}
+                  type="range"
+                  min={1}
+                  step={1}
+                  max={maxSamples}
+                  value={count}
+                  onChange={(e) => setSampleCountFor(service.key, Number(e.target.value))}
+                  className="mt-2 w-full accent-brand-700"
+                />
+              </div>
+            );
+          })}
 
           <div className="mt-6 rounded-lg bg-slate-50 p-4 text-center">
             {addressChecked ? (

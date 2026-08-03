@@ -1086,7 +1086,6 @@ export function ProjectDetailDialog({
   const [serviceTypeSettings, setServiceTypeSettings] = useState<ServiceType[]>([]);
   const [pricingZones, setPricingZones] = useState<PricingZone[]>([]);
   const [labs, setLabs] = useState<LabProfile[]>([]);
-  const [labCostInput, setLabCostInput] = useState(job.lab_cost_cents != null ? (job.lab_cost_cents / 100).toFixed(2) : "");
   const [reportSummaryInput, setReportSummaryInput] = useState(job.report_summary ?? "");
   const [reportNotesInput, setReportNotesInput] = useState(job.report_notes ?? "");
   // Editable, auto-populated versions of every item on the Final Report
@@ -1222,19 +1221,6 @@ export function ProjectDetailDialog({
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ lead_result: value }),
-    });
-    onChanged();
-  }
-
-  // Lab cost and the report write-up (Discussion of Results/Conclusions for
-  // mold, Overall findings/Field notes for asbestos and lead) — nothing a
-  // lab report ever states, so there's no auto-fill for these; saved on
-  // blur straight from the Final Report tab.
-  async function saveLabCost(value: string) {
-    await fetch(`/api/admin/jobs/${job.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ lab_cost_cents: value ? Math.round(Number(value) * 100) : null }),
     });
     onChanged();
   }
@@ -1543,7 +1529,7 @@ export function ProjectDetailDialog({
             </div>
             {job.customers?.companies && (
               <div className="space-y-2">
-                <h4 className="text-sm font-bold uppercase tracking-wide text-black underline">Company contact information</h4>
+                <h4 className="text-sm font-bold uppercase tracking-wide text-black underline">Billing contact</h4>
                 <DetailField label="Phone" value={job.customers.companies.phone} />
                 <DetailField label="Billing address" value={job.customers.companies.billing_address} nowrap />
                 {job.customers.companies.billing_contact && (
@@ -1564,6 +1550,16 @@ export function ProjectDetailDialog({
               </div>
             )}
           </div>
+          {job.report_emails && job.report_emails.trim() && (
+            <div className="flex gap-2 text-sm">
+              <span className="w-32 shrink-0 uppercase font-bold text-black">Email results to</span>
+              <span className="text-black">
+                {job.report_emails.split(",").map((e) => e.trim()).filter(Boolean).map((addr, i) => (
+                  <div key={i} className="whitespace-nowrap">{addr}</div>
+                ))}
+              </span>
+            </div>
+          )}
           <div className="space-y-2">
             <h4 className="text-sm font-bold uppercase tracking-wide text-black underline">Job site contact</h4>
             <DetailField label="Name" value={job.site_contact_name ?? "—"} />
@@ -1601,58 +1597,21 @@ export function ProjectDetailDialog({
               </a>
             </div>
 
-            <div className="rounded-lg border border-slate-200 p-3">
-              <div className="max-w-[160px]">
-                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">Lab cost ($)</label>
-                <input
-                  type="number"
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
-                  value={labCostInput}
-                  onChange={(e) => setLabCostInput(e.target.value)}
-                  onBlur={(e) => saveLabCost(e.target.value)}
-                />
-              </div>
-
-              <label className="mt-3 block text-xs font-semibold uppercase tracking-wide text-slate-400">
-                {isMoldJob(job) ? "Discussion of Results" : "Overall findings"}
-              </label>
-              {isMoldJob(job) ? (
+            {isMoldJob(job) && (
+              <div className="rounded-lg border border-slate-200 p-3">
+                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  Conclusions &amp; Recommendations
+                </label>
                 <textarea
                   className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
                   rows={6}
-                  value={reportSummaryInput}
-                  onChange={(e) => setReportSummaryInput(e.target.value)}
-                  onBlur={(e) => saveReportSummary(e.target.value)}
-                  placeholder="Paste or write the Discussion of Results section — one paragraph or bullet per line."
+                  value={reportNotesInput}
+                  onChange={(e) => setReportNotesInput(e.target.value)}
+                  onBlur={(e) => saveReportNotes(e.target.value)}
+                  placeholder="Paste or write the Conclusions & Recommendations section — one paragraph or bullet per line."
                 />
-              ) : (
-                <ComboboxInput
-                  value={reportSummaryInput}
-                  onChange={setReportSummaryInput}
-                  options={isLeadJob(job) ? [LEAD_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK] : [ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK]}
-                  getLabel={(o) => o}
-                  onSelect={(o) => {
-                    setReportSummaryInput(o);
-                    saveReportSummary(o);
-                  }}
-                  onEnter={(v) => saveReportSummary(v)}
-                  onBlur={(v) => saveReportSummary(v)}
-                  placeholder="e.g. None of the suspect materials sampled were determined to have asbestos fibers present."
-                />
-              )}
-
-              <label className="mt-3 block text-xs font-semibold uppercase tracking-wide text-slate-400">
-                {isMoldJob(job) ? "Conclusions & Recommendations" : "Field notes (optional)"}
-              </label>
-              <textarea
-                className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
-                rows={isMoldJob(job) ? 6 : 2}
-                value={reportNotesInput}
-                onChange={(e) => setReportNotesInput(e.target.value)}
-                onBlur={(e) => saveReportNotes(e.target.value)}
-                placeholder={isMoldJob(job) ? "Paste or write the Conclusions & Recommendations section — one paragraph or bullet per line." : undefined}
-              />
-            </div>
+              </div>
+            )}
 
             {/* Editable, auto-populated version of every item on the checklist
                 below — lets the admin fix a typo'd address or project # right
@@ -1763,6 +1722,35 @@ export function ProjectDetailDialog({
                   </div>
                 );
               })}
+              <div className="col-span-2">
+                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  {isMoldJob(job) ? "Discussion of Results" : "Overall findings"}
+                </label>
+                {isMoldJob(job) ? (
+                  <textarea
+                    className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+                    rows={6}
+                    value={reportSummaryInput}
+                    onChange={(e) => setReportSummaryInput(e.target.value)}
+                    onBlur={(e) => saveReportSummary(e.target.value)}
+                    placeholder="Paste or write the Discussion of Results section — one paragraph or bullet per line."
+                  />
+                ) : (
+                  <ComboboxInput
+                    value={reportSummaryInput}
+                    onChange={setReportSummaryInput}
+                    options={isLeadJob(job) ? [LEAD_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK] : [ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK]}
+                    getLabel={(o) => o}
+                    onSelect={(o) => {
+                      setReportSummaryInput(o);
+                      saveReportSummary(o);
+                    }}
+                    onEnter={(v) => saveReportSummary(v)}
+                    onBlur={(v) => saveReportSummary(v)}
+                    placeholder="e.g. None of the suspect materials sampled were determined to have asbestos fibers present."
+                  />
+                )}
+              </div>
             </div>
 
             {job.report_sent_at && (() => {
@@ -1782,22 +1770,9 @@ export function ProjectDetailDialog({
                 revision={reportRevision}
               />
             ) : (
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                <ul className="space-y-1.5">
-                  {reportChecklist(job).map(({ label, done }) => (
-                    <li key={label} className="flex items-center gap-2 text-sm">
-                      <span
-                        className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px] font-bold ${
-                          done ? "border-emerald-500 bg-emerald-500 text-white" : "border-slate-300 text-transparent"
-                        }`}
-                      >
-                        ✓
-                      </span>
-                      <span className="text-slate-700">{label}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+              <p className="text-sm text-slate-500">
+                Fill in every field above (an empty one is still missing) to generate the report preview.
+              </p>
             )}
           </div>
         )}

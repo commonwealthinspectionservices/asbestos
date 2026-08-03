@@ -34,7 +34,7 @@ export default function AdminNav() {
             <Link href="/admin/settings" className={linkClass("/admin/settings")}>Settings</Link>
           </div>
         </div>
-        <button onClick={logout} className="text-sm uppercase text-slate-500 hover:text-slate-800">
+        <button onClick={logout} className="text-sm font-medium uppercase text-slate-500 hover:text-slate-800">
           Sign out
         </button>
       </div>

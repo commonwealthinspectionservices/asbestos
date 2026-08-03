@@ -85,7 +85,7 @@ export default function PortalSignupPage() {
           <span>
             <span className="font-medium">Company</span>
             <span className="block text-slate-500">
-              Start a new account for your business — if your company's already on here, ask a teammate to invite you.
+              Start a new company account. Already have one? Ask a teammate to invite you.
             </span>
           </span>
         </label>

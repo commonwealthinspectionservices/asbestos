@@ -30,7 +30,12 @@ export const GET = withApiErrors(async (
   }
 
   const jobRow = job as unknown as Job & { customers: Customer };
-  if (!REPORT_READY_STATUSES.has(jobRow.status)) {
+  // Homeowners (paying out of pocket) don't get the report until they've
+  // actually paid — a contractor job has no such gate, since net-30
+  // billing means the report is often needed well before payment for
+  // permits/project use. Mirrors ProjectDetailModal.tsx's own reportReady.
+  const reportReady = REPORT_READY_STATUSES.has(jobRow.status) && (!jobRow.is_homeowner || jobRow.status === "paid");
+  if (!reportReady) {
     return NextResponse.json({ error: "Report isn't available until the project is complete" }, { status: 400 });
   }
 

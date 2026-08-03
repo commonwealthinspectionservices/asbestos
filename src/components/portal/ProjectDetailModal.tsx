@@ -159,9 +159,13 @@ export default function ProjectDetailModal({
     }
   }
 
-  const reportReady = REPORT_READY_STATUSES.has(job.status);
-  const invoiced = job.invoice_total_cents != null && INVOICE_FINALIZED_STATUSES.has(job.status);
   const paid = job.status === "paid";
+  // Homeowners (paying out of pocket, not a contractor on terms) don't get
+  // the report until they've actually paid — a contractor job has no such
+  // gate, since net-30 billing means the report is often needed well
+  // before payment for permits/project use.
+  const reportReady = REPORT_READY_STATUSES.has(job.status) && (!job.is_homeowner || paid);
+  const invoiced = job.invoice_total_cents != null && INVOICE_FINALIZED_STATUSES.has(job.status);
   const trackerSegments = trackerSegmentsFor(job.is_homeowner);
   // Cache-busting key for PdfPreview — re-fetches/re-renders whenever
   // anything that would change the invoice's actual content changes.
@@ -317,6 +321,8 @@ export default function ProjectDetailModal({
                 >
                   View report
                 </a>
+              ) : job.is_homeowner && REPORT_READY_STATUSES.has(job.status) && !paid ? (
+                <p className="text-slate-500">Your final report will be available here once payment is received.</p>
               ) : (
                 <p className="text-slate-500">The final report isn&apos;t available yet — we&apos;ll email you once it&apos;s in.</p>
               )}

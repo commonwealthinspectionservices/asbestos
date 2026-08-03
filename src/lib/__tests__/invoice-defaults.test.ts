@@ -7,9 +7,6 @@ const asbestosBulk: ServiceType = {
   label: "Limited Asbestos Inspection",
   base_fee_cents: 45000,
   per_sample_cents: 2500,
-  duration_minutes: 30,
-  typical_samples_min: 7,
-  typical_samples_max: 15,
 };
 
 const moldAir: ServiceType = {
@@ -17,9 +14,6 @@ const moldAir: ServiceType = {
   label: "Mold Air Sampling",
   base_fee_cents: 45000,
   per_sample_cents: 8500,
-  duration_minutes: 45,
-  typical_samples_min: 3,
-  typical_samples_max: 5,
 };
 
 function baseJob(overrides: Partial<JobWithCustomer> = {}): JobWithCustomer {

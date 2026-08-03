@@ -9,6 +9,7 @@ import { sendEmail, emailShell } from "@/lib/email";
 import { maybeSendImmediateAreaAlert } from "@/lib/area-health";
 import { escapeHtml } from "@/lib/html";
 import { getAppUrl } from "@/lib/app-url";
+import { estimateDurationMinutes } from "@/lib/pricing";
 import type { JobWithCustomer } from "@/lib/types";
 
 export interface RunMorningRouteResult {
@@ -60,11 +61,14 @@ export async function runMorningRoute(dateIso: string): Promise<RunMorningRouteR
   const departureTime = new Date(Math.max(workdayStartUtc.getTime(), Date.now() + 60_000));
   const matrix = await computeTravelTimeMatrixSeconds(locations, departureTime);
 
-  const stops: RouteStop[] = jobList.map((j) => ({
-    id: j.id,
-    window: j.window,
-    durationMinutes: j.duration_minutes ?? settings.default_service_minutes,
-  }));
+  const stops: RouteStop[] = jobList.map((j) => {
+    const totalSamples = Object.values(j.sample_counts ?? {}).reduce((sum, n) => sum + (n || 0), 0) || j.sample_count || 0;
+    return {
+      id: j.id,
+      window: j.window,
+      durationMinutes: j.duration_minutes ?? estimateDurationMinutes(totalSamples, settings.default_service_minutes),
+    };
+  });
 
   const workdayStartMinutes = parseHHMMToMinutes(settings.workday_start);
   const workdayEndMinutes = parseHHMMToMinutes(settings.workday_end);

@@ -19,9 +19,6 @@ export interface ServiceType {
   label: string;
   base_fee_cents: number;
   per_sample_cents: number;
-  duration_minutes: number;
-  typical_samples_min: number;
-  typical_samples_max: number;
 }
 
 /**

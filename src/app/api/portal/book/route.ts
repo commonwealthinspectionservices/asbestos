@@ -77,7 +77,6 @@ export const POST = withApiErrors(async (req: NextRequest) => {
       service_type: serviceType.label,
       base_fee_cents: baseFeeCents,
       per_sample_cents: serviceType.per_sample_cents,
-      duration_minutes: serviceType.duration_minutes,
       requested_date: scheduleViaContact ? null : date,
       // The client just picked this themselves, so it's already "agreed" —
       // auto-confirmed rather than waiting on the admin to flip the

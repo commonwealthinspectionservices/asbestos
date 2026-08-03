@@ -88,9 +88,6 @@ export const POST = withApiErrors(async (req: NextRequest) => {
     : null;
   const baseFeeCents =
     zoneBaseFeeCents ?? (matchedTypes.length ? matchedTypes.reduce((sum: number, s: ServiceType) => sum + s.base_fee_cents, 0) : null);
-  const durationMinutes = matchedTypes.length
-    ? matchedTypes.reduce((sum: number, s: ServiceType) => sum + s.duration_minutes, 0)
-    : null;
   const perSampleCents = matchedTypes[0]?.per_sample_cents ?? null;
 
   const supabase = getSupabaseAdmin();
@@ -149,7 +146,6 @@ export const POST = withApiErrors(async (req: NextRequest) => {
     scope_of_work: body.scopeOfWork || null,
     base_fee_cents: baseFeeCents,
     per_sample_cents: perSampleCents,
-    duration_minutes: durationMinutes,
     requested_date: body.requestedDate || null,
     requested_time: body.requestedTime || null,
     // Hidden from the portal until the admin explicitly flips the "Visible

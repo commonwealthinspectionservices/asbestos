@@ -40,7 +40,7 @@ export default function SettingsEditor() {
     if (!form) return;
     update("service_types", [
       ...form.service_types,
-      { key: `service_${form.service_types.length + 1}`, label: "New service", base_fee_cents: 0, per_sample_cents: 0, duration_minutes: 30, typical_samples_min: 1, typical_samples_max: 5 },
+      { key: `service_${form.service_types.length + 1}`, label: "New service", base_fee_cents: 0, per_sample_cents: 0 },
     ]);
   }
 
@@ -271,16 +271,6 @@ export default function SettingsEditor() {
                 </Field>
                 <Field label="Per-sample fee ($)">
                   <NumberInput value={Number(centsToDollarsStr(s.per_sample_cents))} onChange={(v) => updateServiceType(i, { per_sample_cents: Math.round(v * 100) })} step="1" />
-                </Field>
-                <Field label="Duration (min)">
-                  <NumberInput value={s.duration_minutes} onChange={(v) => updateServiceType(i, { duration_minutes: v })} step="5" />
-                </Field>
-                <Field label="Typical samples">
-                  <div className="flex items-center gap-1">
-                    <NumberInput value={s.typical_samples_min} onChange={(v) => updateServiceType(i, { typical_samples_min: v })} step="1" />
-                    <span className="text-slate-400">–</span>
-                    <NumberInput value={s.typical_samples_max} onChange={(v) => updateServiceType(i, { typical_samples_max: v })} step="1" />
-                  </div>
                 </Field>
               </div>
             </div>

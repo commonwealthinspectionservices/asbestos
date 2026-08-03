@@ -9,7 +9,6 @@ interface ServiceTypeOption {
   label: string;
   base_fee_cents: number;
   per_sample_cents: number;
-  duration_minutes: number;
   rateLabel: string;
 }
 

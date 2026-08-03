@@ -276,8 +276,8 @@ create table if not exists settings (
   disclaimer_text text not null default
     'This inspection is provided for informational purposes. Commonwealth Inspection Services performs sampling in accordance with Massachusetts DLS/MassDEP guidance; results are reported by an accredited laboratory. This is not a guarantee of the absence of asbestos or mold outside of sampled locations.',
   service_types jsonb not null default '[
-    {"key":"asbestos","label":"Asbestos Inspection","base_fee_cents":45000,"per_sample_cents":2500,"duration_minutes":30,"typical_samples_min":7,"typical_samples_max":15},
-    {"key":"mold","label":"Mold Inspection","base_fee_cents":45000,"per_sample_cents":8500,"duration_minutes":45,"typical_samples_min":3,"typical_samples_max":5}
+    {"key":"asbestos","label":"Asbestos Inspection","base_fee_cents":45000,"per_sample_cents":2500},
+    {"key":"mold","label":"Mold Inspection","base_fee_cents":45000,"per_sample_cents":8500}
   ]'::jsonb,
   -- overrides a service type's base_fee_cents by region (src/lib/pricing-zones.ts);
   -- matched by checking each zone's town list against the geocoded address,

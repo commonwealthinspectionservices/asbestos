@@ -20,3 +20,10 @@ export function computeInvoiceTotalCents(
 ): number {
   return baseFeeCents + sampleCount * perSampleCents;
 }
+
+const MINUTES_PER_SAMPLE = 5; // ten minutes for every two samples
+
+/** Estimated on-site time from actual sample count — falls back when there's no sample data yet (e.g. before a visit). */
+export function estimateDurationMinutes(sampleCount: number, fallbackMinutes: number): number {
+  return sampleCount > 0 ? Math.round(sampleCount * MINUTES_PER_SAMPLE) : fallbackMinutes;
+}

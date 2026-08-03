@@ -26,7 +26,7 @@ const settings: Settings = {
   owner_title: "Project Manager",
   disclaimer_text: "This is a disclaimer.",
   service_types: [
-    { key: "asbestos", label: "Asbestos Inspection", base_fee_cents: 45000, per_sample_cents: 2500, duration_minutes: 30, typical_samples_min: 7, typical_samples_max: 15 },
+    { key: "asbestos", label: "Asbestos Inspection", base_fee_cents: 45000, per_sample_cents: 2500 },
   ],
   pricing_zones: [],
   labs: [],

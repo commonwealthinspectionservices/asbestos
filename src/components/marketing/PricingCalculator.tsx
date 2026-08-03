@@ -73,7 +73,7 @@ export default function PricingCalculator() {
         setSelectedKey(first?.key ?? null);
         if (first) {
           const max = MAX_SAMPLES_BY_KEY[first.key] ?? DEFAULT_MAX_SAMPLES;
-          setSampleCount(Math.min(first.typical_samples_min || 10, max));
+          setSampleCount(Math.min(10, max));
         }
       })
       .catch(() => {});
@@ -115,7 +115,7 @@ export default function PricingCalculator() {
   function selectService(service: ServiceTypeQuote) {
     setSelectedKey(service.key);
     const max = MAX_SAMPLES_BY_KEY[service.key] ?? DEFAULT_MAX_SAMPLES;
-    setSampleCount(Math.min(service.typical_samples_min || 10, max));
+    setSampleCount(Math.min(10, max));
   }
 
   const unitCents = selected

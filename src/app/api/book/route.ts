@@ -189,7 +189,6 @@ async function handleSubmit(body: SubmitBody) {
       service_type: serviceType.key,
       base_fee_cents: baseFeeCents,
       per_sample_cents: serviceType.per_sample_cents,
-      duration_minutes: serviceType.duration_minutes,
       requested_date: date,
       window: body.window,
       status: "scheduled",

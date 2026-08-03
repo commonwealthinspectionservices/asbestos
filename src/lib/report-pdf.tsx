@@ -528,7 +528,7 @@ function SignatureBlock({ settings, showLicense }: { settings: Settings; showLic
       <Image src={SIGNATURE_PATH} style={styles.signatureImage} />
       <Text style={styles.signatureLine}>{settings.owner_name}</Text>
       <Text style={styles.signatureLine}>
-        {settings.owner_title}{showLicense && settings.license_number ? ` — License #${settings.license_number}` : ""}
+        {settings.owner_title}{showLicense && settings.license_number ? ` — Asbestos Inspector License #${settings.license_number}` : ""}
       </Text>
     </View>
   );

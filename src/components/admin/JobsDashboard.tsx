@@ -430,6 +430,13 @@ export default function JobsDashboard() {
   // moment it's turned off, so status/date edits afterward can't reshuffle
   // cards out from under the admin's eyes.
   const frozenOrderRef = useRef<string[]>([]);
+  // Guards against out-of-order responses: several fields on the Final
+  // Report tab each save-then-reload independently, so editing more than
+  // one in quick succession can fire overlapping GETs. Without this, an
+  // older response resolving after a newer one could silently overwrite
+  // the just-saved field, leaving the report looking incomplete until an
+  // unrelated edit happened to trigger yet another reload.
+  const loadJobsRequestIdRef = useRef(0);
   const [projectNumberQuery, setProjectNumberQuery] = useState("");
   const [companyQuery, setCompanyQuery] = useState("");
   const [addressQuery, setAddressQuery] = useState("");
@@ -501,17 +508,20 @@ export default function JobsDashboard() {
   }
 
   async function loadJobs() {
+    const requestId = ++loadJobsRequestIdRef.current;
     setLoading(true);
     setError(null);
     try {
       const res = await fetch("/api/admin/jobs");
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to load projects");
+      if (requestId !== loadJobsRequestIdRef.current) return;
       setJobs(data.jobs);
     } catch (e) {
+      if (requestId !== loadJobsRequestIdRef.current) return;
       setError(e instanceof Error ? e.message : "Failed to load projects");
     } finally {
-      setLoading(false);
+      if (requestId === loadJobsRequestIdRef.current) setLoading(false);
     }
   }
 
@@ -1716,17 +1726,24 @@ export function ProjectDetailDialog({
                     getLabel={(o) => o}
                     onSelect={(o) => {
                       setReportSummaryInput(o);
-                      saveReportSummary(o);
                       // Picking one of the two canned findings sentences IS
                       // the positive/negative determination — no separate
                       // Results button needed to duplicate that choice.
+                      // One combined PATCH (not two separate save calls,
+                      // each with its own onChanged()/loadJobs() refetch) —
+                      // two independent fetches racing could let an older
+                      // GET overwrite the newer one's field, leaving the
+                      // report looking incomplete until an unrelated edit
+                      // happened to trigger another refetch.
                       const negativeRemark = isLeadJob(job) ? LEAD_NEGATIVE_REMARK : ASBESTOS_NEGATIVE_REMARK;
                       const positiveRemark = isLeadJob(job) ? LEAD_POSITIVE_REMARK : ASBESTOS_POSITIVE_REMARK;
+                      const patch: Record<string, unknown> = { report_summary: o.trim() || null };
                       if (o === negativeRemark) {
-                        isLeadJob(job) ? setLeadResult("negative") : setAsbestosResult("negative");
+                        patch[isLeadJob(job) ? "lead_result" : "asbestos_result"] = "negative";
                       } else if (o === positiveRemark) {
-                        isLeadJob(job) ? setLeadResult("positive") : setAsbestosResult("positive");
+                        patch[isLeadJob(job) ? "lead_result" : "asbestos_result"] = "positive";
                       }
+                      saveJobField(patch);
                     }}
                     onEnter={(v) => saveReportSummary(v)}
                     onBlur={(v) => saveReportSummary(v)}

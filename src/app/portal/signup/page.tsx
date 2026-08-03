@@ -85,7 +85,7 @@ export default function PortalSignupPage() {
           <span>
             <span className="font-medium">Company</span>
             <span className="block text-slate-500">
-              You're booking on behalf of a business. Teammates you invite later will see the same projects.
+              Start a new account for your business — if your company's already on here, ask a teammate to invite you.
             </span>
           </span>
         </label>

@@ -98,14 +98,9 @@ function monthGridDays(anchor: Date): Date[] {
   const gridStart = startOfWeek(firstOfMonth);
   return Array.from({ length: 42 }, (_, i) => addDays(gridStart, i));
 }
-function weekDays(anchor: Date): Date[] {
-  const start = startOfWeek(anchor);
-  return Array.from({ length: 7 }, (_, i) => addDays(start, i));
-}
-
 const WEEKDAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-type ViewMode = "day" | "week" | "month";
+type ViewMode = "day" | "month";
 
 function JobCard({ job, onOpen }: { job: JobWithCustomer; onOpen: () => void }) {
   const { locationName, street, cityStateZip } = splitAddress(job.service_address);
@@ -159,7 +154,7 @@ export default function ScheduleView() {
   const [jobs, setJobs] = useState<JobWithCustomer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>("week");
+  const [viewMode, setViewMode] = useState<ViewMode>("month");
   const [anchorDate, setAnchorDate] = useState(() => new Date());
   const [selectedDate, setSelectedDate] = useState(() => toISO(new Date()));
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
@@ -208,8 +203,8 @@ export default function ScheduleView() {
   }, [jobs]);
 
   // Navigating (Prev/Next/Today) moves both the visible range and which
-  // day's cards are shown below; clicking a specific cell in week/month
-  // view only changes the selected day, leaving the range in place.
+  // day's cards are shown below; clicking a specific cell in month view
+  // only changes the selected day, leaving the range in place.
   function goTo(nextAnchor: Date) {
     setAnchorDate(nextAnchor);
     setSelectedDate(toISO(nextAnchor));
@@ -217,19 +212,12 @@ export default function ScheduleView() {
 
   function step(n: number) {
     if (viewMode === "day") goTo(addDays(anchorDate, n));
-    else if (viewMode === "week") goTo(addDays(anchorDate, n * 7));
     else goTo(addMonths(anchorDate, n));
   }
 
   const rangeLabel = useMemo(() => {
     if (viewMode === "day") {
       return anchorDate.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
-    }
-    if (viewMode === "week") {
-      const [start, end] = [startOfWeek(anchorDate), addDays(startOfWeek(anchorDate), 6)];
-      const startLabel = start.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-      const endLabel = end.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-      return `${startLabel} – ${endLabel}`;
     }
     return anchorDate.toLocaleDateString("en-US", { month: "long", year: "numeric" });
   }, [viewMode, anchorDate]);
@@ -239,7 +227,7 @@ export default function ScheduleView() {
   }, [selectedDate]);
 
   // Switching into Day view snaps its single date to whatever was already
-  // selected (from Week/Month), so the header and the cards below it never
+  // selected (from Month), so the header and the cards below it never
   // disagree about which day is showing.
   function selectView(v: ViewMode) {
     setViewMode(v);
@@ -252,9 +240,9 @@ export default function ScheduleView() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-lg font-semibold text-slate-800">Schedule</h1>
+        <h1 className="text-lg font-semibold uppercase text-slate-800">Schedule</h1>
         <div className="flex gap-1">
-          {(["day", "week", "month"] as ViewMode[]).map((v) => (
+          {(["day", "month"] as ViewMode[]).map((v) => (
             <button
               key={v}
               onClick={() => selectView(v)}
@@ -277,7 +265,7 @@ export default function ScheduleView() {
           <button onClick={() => step(1)} className="rounded-lg bg-slate-100 px-2.5 py-1.5 text-sm font-bold text-slate-600">
             ›
           </button>
-          {(viewMode === "day" || viewMode === "week") && (
+          {viewMode === "day" && (
             <div className="relative">
               <button
                 onClick={() => dateInputRef.current?.showPicker?.() ?? dateInputRef.current?.focus()}
@@ -345,9 +333,9 @@ export default function ScheduleView() {
             </div>
           )}
 
-          {(viewMode === "day" || viewMode === "week") && (
+          {viewMode === "day" && (
             <div className="mt-4 space-y-6">
-              {(viewMode === "day" ? [anchorDate] : weekDays(anchorDate)).map((d) => {
+              {[anchorDate].map((d) => {
                 const iso = toISO(d);
                 const dayJobs = jobsByDate.get(iso) ?? [];
                 const isToday = iso === todayIso;

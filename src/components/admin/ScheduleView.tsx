@@ -65,11 +65,6 @@ function formatTime(time: string | null | undefined): string {
   return `${hour12}:${String(m).padStart(2, "0")} ${period}`;
 }
 
-function formatCents(cents: number | null): string {
-  if (cents == null) return "—";
-  return `$${(cents / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
 // Local-component based, never through toISOString() — that converts
 // through UTC first, which silently rolls the date backward or forward for
 // any US timezone once the local clock is close enough to midnight.
@@ -125,26 +120,25 @@ function JobCard({ job, onOpen }: { job: JobWithCustomer; onOpen: () => void }) 
         <div className="min-w-0">
           <div className="flex min-w-0 items-center gap-2">
             {job.project_number && (
-              <span className="shrink-0 whitespace-nowrap rounded bg-slate-100 px-1.5 py-0.5 text-xs font-mono text-slate-600">{job.project_number}</span>
+              <span className="shrink-0 whitespace-nowrap rounded bg-slate-100 px-1.5 py-0.5 text-sm font-mono text-slate-600">{job.project_number}</span>
             )}
-            <div className="min-w-0 truncate whitespace-nowrap font-medium text-slate-800">
-              {job.customers?.name}
-              {job.customers?.company ? ` (${job.customers.company})` : ""}
+            <div className="min-w-0 truncate whitespace-nowrap text-sm font-medium text-slate-800">
+              {job.customers?.company || job.customers?.name}
             </div>
           </div>
           {locationName && <div className="truncate whitespace-nowrap text-sm text-slate-500">{locationName}</div>}
           <div className="truncate whitespace-nowrap text-sm text-slate-500">{street}</div>
           {cityStateZip && <div className="truncate whitespace-nowrap text-sm text-slate-500">{cityStateZip}</div>}
           <div className="truncate whitespace-nowrap text-sm text-slate-600">
-            {formatTime(job.requested_time) || "--:--"} · {formatCents(job.base_fee_cents)}
+            {formatTime(job.requested_time) || "--:--"}
           </div>
           {(job.site_contact_name || job.site_contact_phone) && (
-            <div className="mt-1 text-xs text-slate-500">
+            <div className="mt-1 text-sm text-slate-500">
               Job site contact: {job.site_contact_name}{job.site_contact_name && job.site_contact_phone ? " · " : ""}{job.site_contact_phone}
             </div>
           )}
         </div>
-        <span className={`shrink-0 rounded-full px-2 py-1 text-xs font-medium ${STATUS_COLOR[job.status]}`}>
+        <span className={`shrink-0 rounded-full px-2 py-1 text-sm font-medium ${STATUS_COLOR[job.status]}`}>
           {STATUS_LABEL[job.status]}
         </span>
       </div>

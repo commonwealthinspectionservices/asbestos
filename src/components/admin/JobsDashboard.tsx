@@ -1949,77 +1949,52 @@ export function ProjectDetailDialog({
         )}
 
         {tab === "email" && (
-          <div className="mt-4 space-y-3">
-            <div className="rounded-lg border border-slate-200 p-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  onClick={() => combinedDraft.create()}
-                  disabled={
-                    combinedDraft.creating ||
-                    job.invoice_total_cents == null ||
-                    !reportComplete ||
-                    (job.is_homeowner && job.status !== "paid")
-                  }
-                  title={
-                    job.invoice_total_cents == null
-                      ? "Available once the invoice total is calculated (add a base fee or sample count)"
-                      : !reportComplete
-                      ? "Available once every item on the Final Report tab's checklist is complete"
-                      : job.is_homeowner && job.status !== "paid"
-                      ? "Available once this project is marked Paid"
-                      : undefined
-                  }
-                  className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-bold text-slate-700 disabled:opacity-50"
+          <div className="mt-4">
+            {job.invoice_draft_gmail_message_id ? (
+              <div className="rounded-lg border border-slate-200 p-3">
+                <a
+                  href={gmailMessageUrl(job.invoice_draft_gmail_message_id, Boolean(job.invoice_sent_at))}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-sm font-bold text-brand-600 underline"
                 >
-                  {combinedDraft.creating ? "Creating…" : "Create Draft"}
-                </button>
-                {job.invoice_draft_gmail_message_id && (
-                  <a
-                    href={gmailMessageUrl(job.invoice_draft_gmail_message_id, Boolean(job.invoice_sent_at))}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-sm font-bold text-brand-600 underline"
-                  >
-                    View in Gmail ↗
-                  </a>
-                )}
-                {combinedDraft.message && <span className="text-xs text-slate-500">{combinedDraft.message}</span>}
-              </div>
-              <p className="mt-1.5 text-xs text-slate-500">
-                {job.is_homeowner && job.status !== "paid"
-                  ? "Held back from the customer until this project is marked Paid."
-                  : draftStatusText(job.invoice_drafted_at, job.invoice_sent_at, combinedDraft.status, "No draft created yet", "No draft in Gmail — click Create Draft")}
-              </p>
-              {job.invoice_recipient && (
+                  View in Gmail ↗
+                </a>
                 <p className="mt-1.5 text-xs text-slate-500">
-                  Sends the final report and invoice (with a payment link) to {job.invoice_recipient.name} &lt;{job.invoice_recipient.email}&gt;.
+                  {draftStatusText(job.invoice_drafted_at, job.invoice_sent_at, combinedDraft.status, "Drafted", "Drafted")}
                 </p>
-              )}
-            </div>
-
-            {combinedDraft.confirmingRedraft && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-                <div className="w-full max-w-sm rounded-xl bg-white p-5">
-                  <h3 className="font-semibold text-slate-800">Create another draft?</h3>
-                  <p className="mt-2 text-sm text-slate-600">
-                    A draft was already created for this project on {job.invoice_drafted_at && formatDateTime(job.invoice_drafted_at)} and
-                    hasn&apos;t been sent yet. Create a new draft anyway?
-                  </p>
-                  <div className="mt-4 flex gap-2">
-                    <button
-                      onClick={() => combinedDraft.create(true)}
-                      className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-bold text-white"
-                    >
-                      Create Anyway
-                    </button>
-                    <button
-                      onClick={() => combinedDraft.setConfirmingRedraft(false)}
-                      className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-bold"
-                    >
-                      Cancel
-                    </button>
-                  </div>
+              </div>
+            ) : job.invoice_total_cents == null || !reportComplete ? (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                <p className="text-sm font-bold uppercase text-amber-800">Not complete</p>
+                <p className="mt-1 text-sm text-amber-800">
+                  {job.invoice_total_cents == null
+                    ? "Available once the invoice total is calculated (add a base fee or sample count)."
+                    : "Available once every field on the Final Report tab is filled in."}
+                </p>
+              </div>
+            ) : job.is_homeowner && job.status !== "paid" ? (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                <p className="text-sm font-bold uppercase text-amber-800">Draft can&apos;t be created yet</p>
+                <p className="mt-1 text-sm text-amber-800">Held back from the customer until this project is marked Paid.</p>
+              </div>
+            ) : (
+              <div className="rounded-lg border border-slate-200 p-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={() => combinedDraft.create()}
+                    disabled={combinedDraft.creating}
+                    className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-bold text-slate-700 disabled:opacity-50"
+                  >
+                    {combinedDraft.creating ? "Creating…" : "Create Draft"}
+                  </button>
+                  {combinedDraft.message && <span className="text-xs text-slate-500">{combinedDraft.message}</span>}
                 </div>
+                {job.invoice_recipient && (
+                  <p className="mt-1.5 text-xs text-slate-500">
+                    Sends the final report and invoice (with a payment link) to {job.invoice_recipient.name} &lt;{job.invoice_recipient.email}&gt;.
+                  </p>
+                )}
               </div>
             )}
           </div>

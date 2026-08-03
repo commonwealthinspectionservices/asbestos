@@ -42,7 +42,7 @@ export default function PortalNav({ isIndividual = false }: { isIndividual?: boo
           <span className="text-sm font-semibold uppercase text-brand-700">Commonwealth Inspection Services</span>
         </Link>
         <div className="flex shrink-0 items-center gap-1 whitespace-nowrap">
-          <Link href="/portal/dashboard" className={linkClass("/portal/dashboard")}>My Projects</Link>
+          <Link href="/portal/dashboard" className={linkClass("/portal/dashboard")}>{isIndividual ? "My Projects" : "Projects"}</Link>
           <Link href="/portal/chat" className={linkClass("/portal/chat")}>Chat</Link>
           <div className="group relative shrink-0">
             <button type="button" className={linkClass("/services")}>
@@ -62,11 +62,13 @@ export default function PortalNav({ isIndividual = false }: { isIndividual?: boo
               </div>
             </div>
           </div>
-          <Link href="/portal/addresses" className={linkClass("/portal/addresses")}>Addresses</Link>
           {!isIndividual && (
-            <Link href="/portal/contacts" className={linkClass("/portal/contacts")}>Contacts</Link>
+            <>
+              <Link href="/portal/addresses" className={linkClass("/portal/addresses")}>Addresses</Link>
+              <Link href="/portal/contacts" className={linkClass("/portal/contacts")}>Contacts</Link>
+            </>
           )}
-          <Link href="/portal/account" className={linkClass("/portal/account")}>My Account</Link>
+          <Link href="/portal/account" className={linkClass("/portal/account")}>{isIndividual ? "My Account" : "Account"}</Link>
           <button
             onClick={logout}
             className="ml-1 inline-flex h-[22px] shrink-0 items-center whitespace-nowrap border-[3px] border-brand-700 bg-brand-50 px-1.5 pt-0.5 text-sm font-semibold uppercase leading-none text-brand-700 hover:bg-yellow-100 sm:h-[29px]"

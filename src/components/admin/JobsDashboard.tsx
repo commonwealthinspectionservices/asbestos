@@ -1529,23 +1529,22 @@ export function ProjectDetailDialog({
             </div>
             {job.customers?.companies && (
               <div className="space-y-2">
-                <h4 className="text-sm font-bold uppercase tracking-wide text-black underline">Billing contact</h4>
+                <h4 className="text-sm font-bold uppercase tracking-wide text-black underline">Company info</h4>
                 <DetailField label="Phone" value={job.customers.companies.phone} />
                 <DetailField label="Billing address" value={job.customers.companies.billing_address} nowrap />
                 {job.customers.companies.billing_contact && (
-                  <div>
-                    <DetailField label="Billing contact" value={job.customers.companies.billing_contact.name} nowrap />
-                    {job.customers.companies.billing_contact.phone && (
-                      <div className="flex gap-2 text-sm">
-                        <span className="w-32 shrink-0" />
-                        <span className="text-black">{job.customers.companies.billing_contact.phone}</span>
-                      </div>
-                    )}
-                    <div className="flex gap-2 text-sm">
-                      <span className="w-32 shrink-0" />
-                      <span className="text-black">{job.customers.companies.billing_contact.email}</span>
-                    </div>
-                  </div>
+                  <DetailField
+                    label="Billing contact"
+                    value={
+                      <a
+                        href={`/admin/customers?tab=contacts&contactId=${job.customers.companies.billing_contact.id}`}
+                        className="hover:underline"
+                      >
+                        {job.customers.companies.billing_contact.name}
+                      </a>
+                    }
+                    nowrap
+                  />
                 )}
               </div>
             )}

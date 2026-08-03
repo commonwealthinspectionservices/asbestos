@@ -109,7 +109,7 @@ export interface Company {
   billing_contact_id: string | null;
   created_at: string;
   /** The resolved billing_contact_id record — only populated by endpoints that join it in (e.g. GET /api/admin/jobs). */
-  billing_contact?: { name: string; email: string; phone: string } | null;
+  billing_contact?: { id: string; name: string; email: string; phone: string } | null;
 }
 
 export interface SavedAddress {

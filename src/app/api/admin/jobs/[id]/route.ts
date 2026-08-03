@@ -33,6 +33,7 @@ const EDITABLE_FIELDS = [
   "report_emails",
   "invoice_emails",
   "asbestos_result",
+  "lead_result",
   "invoice_auto",
   "lab_turnaround",
   "lab_name",
@@ -165,7 +166,7 @@ export const PATCH = withApiErrors(async (
   // Columns added after this route was first written — tolerated in case
   // the migration adding them hasn't been run against this database yet,
   // so a save never hard-fails over one of them being missing.
-  const TOLERATED_MISSING_COLUMNS = ["paid_date", "sample_counts", "report_emails", "invoice_emails", "scope_of_work", "payment_due_date", "asbestos_result", "invoice_auto", "confirmed_date", "confirmed_time", "schedule_visible_to_customer"];
+  const TOLERATED_MISSING_COLUMNS = ["paid_date", "sample_counts", "report_emails", "invoice_emails", "scope_of_work", "payment_due_date", "asbestos_result", "lead_result", "invoice_auto", "confirmed_date", "confirmed_time", "schedule_visible_to_customer"];
 
   let currentPatch = patch;
   let data: Record<string, unknown> | null = null;

@@ -61,6 +61,7 @@ function baseJob(overrides: Partial<JobWithCustomer> = {}): JobWithCustomer {
     invoice_emails: null,
   billing_contact_id: null,
     asbestos_result: null,
+    lead_result: null,
     sample_results: [],
     requested_time: null,
     window: "ANY",

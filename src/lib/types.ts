@@ -233,6 +233,8 @@ export interface Job {
   billing_contact_id: string | null;
   /** Auto-detected from the uploaded EMSL lab report; manually overridable in case detection gets it wrong. Null until a lab report's been parsed. */
   asbestos_result: "positive" | "negative" | null;
+  /** Set by hand on the Final Report tab's Positive/Negative toggle (no auto-detection — lead labs aren't EMSL-format). Null until set. */
+  lead_result: "positive" | "negative" | null;
   /** Per-sample field code + result text, pulled from the same uploaded lab report — plain-text reference for the admin, not billing data. */
   sample_results: { fieldCode: string; result: string }[];
   requested_time: string | null;

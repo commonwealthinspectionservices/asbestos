@@ -378,9 +378,18 @@ function isMoldJob(job: JobWithCustomer): boolean {
   return (job.service_type ?? "").toLowerCase().includes("mold");
 }
 
+// Lead labs (SanAir/Crystal Analytical) carry an AIHA cert, not MassDLS —
+// same reasoning as mold above. Lead does have its own positive/negative
+// result, just in its own field (lead_result) rather than asbestos_result.
+// See LeadReportDocument in lib/report-pdf.tsx.
+function isLeadJob(job: JobWithCustomer): boolean {
+  return (job.service_type ?? "").toLowerCase().includes("lead");
+}
+
 function reportChecklist(job: JobWithCustomer): { label: string; done: boolean }[] {
   const totalSamples = Object.values(job.sample_counts ?? {}).reduce((sum, n) => sum + (n || 0), 0) || job.sample_count || 0;
   const mold = isMoldJob(job);
+  const lead = isLeadJob(job);
   return [
     { label: "Customer", done: Boolean(job.customers?.name && job.customers.name !== "Unknown contact") },
     { label: "Billing address", done: Boolean(job.customers?.billing_address) },
@@ -388,8 +397,8 @@ function reportChecklist(job: JobWithCustomer): { label: string; done: boolean }
     { label: "Project #", done: Boolean(job.project_number) },
     { label: "Date", done: Boolean(job.requested_date) },
     { label: "Sample count", done: totalSamples > 0 },
-    { label: "Lab info", done: Boolean(job.lab_name && job.lab_nist_cert && (mold || job.lab_massdls_cert)) },
-    { label: "Results", done: mold ? Boolean(job.report_summary) : Boolean(job.asbestos_result) },
+    { label: "Lab info", done: Boolean(job.lab_name && job.lab_nist_cert && (mold || lead || job.lab_massdls_cert)) },
+    { label: "Results", done: mold ? Boolean(job.report_summary) : lead ? Boolean(job.lead_result) : Boolean(job.asbestos_result) },
   ];
 }
 
@@ -1197,6 +1206,15 @@ export function ProjectDetailDialog({
     onChanged();
   }
 
+  async function setLeadResult(value: "positive" | "negative") {
+    await fetch(`/api/admin/jobs/${job.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lead_result: value }),
+    });
+    onChanged();
+  }
+
   // Manual overrides for whenever an emailed-in lab report doesn't get
   // auto-recognized (a new lab format, an unusual page layout) — the admin
   // can just pick the lab and type the count directly rather than being
@@ -1322,6 +1340,7 @@ export function ProjectDetailDialog({
   const reportRevision = JSON.stringify({
     documents: job.documents,
     asbestos_result: job.asbestos_result,
+    lead_result: job.lead_result,
     service_address: job.service_address,
     service_type: job.service_type,
     scope_of_work: job.scope_of_work,
@@ -1546,6 +1565,14 @@ export function ProjectDetailDialog({
                   const hasLabReport = (job.documents ?? []).some((d) => d.kind === "lab_report" && d.service_type === label);
                   const labReportMismatch = (job.documents ?? []).find((d) => d.kind === "lab_report" && d.service_type === label)?.project_number_mismatch;
                   const sampleCount = job.sample_counts?.[label];
+                  // Positive/Negative is a real binary for asbestos and lead
+                  // (each has its own result field) but not for mold — a
+                  // mold "result" is the pasted Discussion of Results
+                  // narrative, not a single positive/negative call, so no
+                  // toggle is shown for it at all rather than writing into a
+                  // field that means something else.
+                  const isAsbestosLabel = /asbestos/i.test(label);
+                  const isLeadLabel = /lead/i.test(label);
                   return (
                   <div key={label}>
                     <p className="mb-2 flex items-center gap-2 text-sm font-bold text-slate-700">
@@ -1590,17 +1617,17 @@ export function ProjectDetailDialog({
                             </div>
                           </div>
                         )}
-                        {hasLabReport && (
+                        {hasLabReport && (isAsbestosLabel || isLeadLabel) && (
                           <div className="mt-2 flex gap-2">
                             <button
-                              onClick={() => setAsbestosResult("positive")}
-                              className={`rounded px-2 py-0.5 text-xs font-bold uppercase ${job.asbestos_result === "positive" ? "bg-red-600 text-white" : "bg-slate-100 text-slate-600"}`}
+                              onClick={() => (isLeadLabel ? setLeadResult("positive") : setAsbestosResult("positive"))}
+                              className={`rounded px-2 py-0.5 text-xs font-bold uppercase ${(isLeadLabel ? job.lead_result : job.asbestos_result) === "positive" ? "bg-red-600 text-white" : "bg-slate-100 text-slate-600"}`}
                             >
                               Positive
                             </button>
                             <button
-                              onClick={() => setAsbestosResult("negative")}
-                              className={`rounded px-2 py-0.5 text-xs font-bold uppercase ${job.asbestos_result === "negative" ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-600"}`}
+                              onClick={() => (isLeadLabel ? setLeadResult("negative") : setAsbestosResult("negative"))}
+                              className={`rounded px-2 py-0.5 text-xs font-bold uppercase ${(isLeadLabel ? job.lead_result : job.asbestos_result) === "negative" ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-600"}`}
                             >
                               Negative
                             </button>

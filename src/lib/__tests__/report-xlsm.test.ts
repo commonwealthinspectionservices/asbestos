@@ -69,6 +69,7 @@ const job: Job = {
   invoice_emails: null,
   billing_contact_id: null,
   asbestos_result: "positive",
+  lead_result: null,
   sample_results: [],
   requested_time: null,
   window: "AM",

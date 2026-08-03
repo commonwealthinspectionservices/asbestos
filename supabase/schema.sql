@@ -175,6 +175,10 @@ create table if not exists jobs (
   -- Detected) — manually editable in case the detection gets it wrong.
   -- Null until a lab report's been uploaded and parsed.
   asbestos_result text check (asbestos_result in ('positive', 'negative')),
+  -- set by hand on the Final Report tab's Positive/Negative toggle — lead
+  -- labs (SanAir/Crystal Analytical) aren't EMSL-format, so there's no
+  -- auto-detection for this one, unlike asbestos_result above.
+  lead_result text check (lead_result in ('positive', 'negative')),
   -- per-sample field code + result text, pulled straight from the same
   -- uploaded lab report, for showing the admin the breakdown behind the
   -- auto-detected result above (e.g. [{"fieldCode":"03A","result":"15%
@@ -615,3 +619,7 @@ $$ language plpgsql;
 -- in Settings. Not yet wired into report/invoice/CoC generation, which
 -- still uses the single owner_name/owner_title/license_number columns above.
 alter table settings add column if not exists inspectors jsonb not null default '[]'::jsonb;
+
+-- Lead's own positive/negative, parallel to asbestos_result — set by hand
+-- on the Final Report tab (no auto-detection; lead labs aren't EMSL-format).
+alter table jobs add column if not exists lead_result text check (lead_result in ('positive', 'negative'));

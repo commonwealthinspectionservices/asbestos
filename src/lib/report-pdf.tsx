@@ -96,9 +96,16 @@ function isMoldJob(job: Job): boolean {
   return (job.service_type ?? "").toLowerCase().includes("mold");
 }
 
+function isLeadJob(job: Job): boolean {
+  return (job.service_type ?? "").toLowerCase().includes("lead");
+}
+
 function ProjectReportDocument({ job, customer, settings }: ProjectReportData) {
   if (isMoldJob(job)) {
     return <MoldReportDocument job={job} customer={customer} settings={settings} />;
+  }
+  if (isLeadJob(job)) {
+    return <LeadReportDocument job={job} customer={customer} settings={settings} />;
   }
   return <AsbestosReportDocument job={job} customer={customer} settings={settings} />;
 }
@@ -211,6 +218,118 @@ function AsbestosReportDocument({ job, customer, settings }: ProjectReportData) 
         </Text>
 
         <SignatureBlock settings={settings} showLicense />
+      </Page>
+    </Document>
+  );
+}
+
+// Modeled directly on two real final lead reports ("LEAD 26-2617 443 Moraine
+// Street" and "LEAD 26-2711 64 Old Farm Road") — structurally almost
+// identical to the asbestos letter (same Sampling Summary box, same
+// Remarks-and-Limitations list shape), just paint-chip/lead wording and an
+// AIHA accreditation # in place of NIST/NVLAP + MassDLS (lead labs like
+// SanAir don't carry a MassDLS cert). Neither real example showed a
+// license # under the signature, so this omits it like the mold letter
+// does. No "Field Technician" row — both real letters leave it blank and
+// nothing in this app tracks who was on site, so there's no value to show.
+function LeadReportDocument({ job, customer, settings }: ProjectReportData) {
+  const sampleCountsTotal = Object.values(job.sample_counts ?? {}).reduce((sum, n) => sum + (n || 0), 0);
+  const totalSamples = sampleCountsTotal > 0 ? sampleCountsTotal : job.sample_count ?? 0;
+
+  const remarks = [
+    "Sampling was limited to the specific paints and areas identified by the client. Additional suspect materials may be present and if discovered during building renovation, maintenance or demolition, should be sampled independently.",
+  ];
+  const resultRemarkIndex = remarks.length;
+  if (job.lead_result === "positive") {
+    remarks.push(
+      "One or more of the sampled paints was determined to contain lead at a concentration meeting or exceeding the Massachusetts Department of Public Health (MassDPH) and Federal HUD lead-based paint threshold of 0.5% by weight (5,000 ppm). Materials determined to be lead-based paint should be managed in accordance with applicable state and federal regulations prior to being disturbed by building maintenance, renovation, or demolition activities."
+    );
+  } else if (job.lead_result === "negative") {
+    remarks.push("None of the sampled paints contained detectable levels of lead based on analysis for Total Concentration of Lead.");
+  } else {
+    remarks.push("NO RESULTS YET.");
+  }
+  if (job.report_summary) remarks.push(job.report_summary);
+  if (job.report_notes) remarks.push(job.report_notes);
+
+  const { knownCustomerName, dateText, addressLines, billingStreet, billing, serviceStreet, service } = commonLetterFields(job, customer, settings);
+
+  return (
+    <Document title={`Bulk Paint Chip Sample Analytical Results — ${job.service_address}`}>
+      <Page size="LETTER" style={styles.page}>
+        <LetterHeader settings={settings} addressLines={addressLines} />
+
+        <View style={styles.recipientBlock}>
+          <View style={styles.recipientRow}>
+            <ValueOrBlank style={styles.recipient} value={knownCustomerName} inline />
+            <Text style={styles.dateLine}>{dateText}</Text>
+          </View>
+          {customer.company && <Text style={styles.recipient}>{customer.company}</Text>}
+          <ValueOrBlank style={styles.recipient} value={billingStreet} inline />
+          <ValueOrBlank style={styles.recipient} value={billing.cityStateZip} inline />
+        </View>
+
+        <View style={styles.reBlock}>
+          <View style={styles.reRow}>
+            <Text style={styles.reLabel}>RE:</Text>
+            <Text style={styles.reValue}>Bulk Paint Chip Sample Analytical Results</Text>
+          </View>
+          <View style={styles.reRow}>
+            <Text style={styles.reLabel} />
+            <ValueOrBlank style={styles.reValue} value={serviceStreet} inline />
+          </View>
+          <View style={styles.reRow}>
+            <Text style={styles.reLabel} />
+            <ValueOrBlank style={styles.reValue} value={service.cityStateZip} inline />
+          </View>
+          <View style={styles.reRow}>
+            <Text style={styles.reLabel} />
+            <Text style={styles.reProjectLabel}>Project #:</Text>
+            <ValueOrBlank style={styles.reValue} value={job.project_number} inline />
+          </View>
+        </View>
+
+        <Text style={styles.salutation}>Dear <ValueOrBlank style={styles.salutation} value={knownCustomerName} inline />:</Text>
+
+        <Text style={styles.paragraph}>
+          {settings.business_name} collected paint chip samples as directed from the address noted above. Samples were
+          transported under chain-of-custody protocol to an accredited laboratory for analysis.
+        </Text>
+
+        <Text style={styles.sectionTitleTight}>Sampling Summary:</Text>
+        <View style={styles.summaryBlock}>
+          <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Date of Sampling:</Text><ValueOrBlank style={styles.summaryValue} value={job.requested_date} /></View>
+          <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Total # of Samples:</Text><ValueOrBlank style={styles.summaryValue} value={totalSamples} /></View>
+          <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Samples Analyzed At:</Text><ValueOrBlank style={styles.summaryValue} value={job.lab_name} /></View>
+          <View style={styles.summaryRow}><Text style={styles.summaryLabel}>AIHA Certification#:</Text><ValueOrBlank style={styles.summaryValue} value={job.lab_nist_cert} /></View>
+        </View>
+
+        <Text style={styles.paragraph}>
+          Paint chip samples were collected in a random manner and submitted via chain of custody to the analytical
+          laboratory. The samples were analyzed for Total Concentration of Lead by EPA Method SW846/3050B/7000B. Any
+          sample containing detectable amounts of lead is considered lead containing paint. However, MassDPH and
+          Federal HUD guidelines consider paint containing lead concentrations greater than or equal to 0.5% by
+          weight (5,000 ppm) to be lead-based paint (LBP). Laboratory Analytical Data Sheets are attached and provide
+          details about each sample collected.
+        </Text>
+
+        <Text style={styles.sectionTitle}>Remarks and Limitations:</Text>
+        <View style={styles.listBlock}>
+          {remarks.map((text, i) => (
+            <View style={styles.listItem} key={i}>
+              <Text style={styles.listIndex}>{i + 1}.</Text>
+              <Text style={i === resultRemarkIndex ? styles.resultRemarkText : styles.listText}>{text}</Text>
+            </View>
+          ))}
+        </View>
+
+        <Text style={styles.paragraph}>
+          Should you have any questions or need additional information, please contact our office
+          {settings.business_phone ? ` at ${settings.business_phone}` : ""}. Thank you for the opportunity to provide
+          you with our services and we look forward to working together in the future.
+        </Text>
+
+        <SignatureBlock settings={settings} showLicense={false} />
       </Page>
     </Document>
   );

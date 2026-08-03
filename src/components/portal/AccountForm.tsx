@@ -113,7 +113,7 @@ export default function AccountForm({
         )}
         <input className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="Phone" type="tel" value={phone} onChange={(e) => setPhone(formatPhoneNumber(e.target.value))} />
 
-        <p className="mt-3 text-xs text-slate-500">Billing address — where invoices go, not job site addresses.</p>
+        <p className="mt-3 text-xs font-semibold uppercase text-slate-500">Billing address</p>
         <div className="mt-1 flex gap-2">
           <div className="w-0 flex-1">
             <AddressAutocompleteInput

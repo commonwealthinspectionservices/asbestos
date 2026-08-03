@@ -79,10 +79,7 @@ export default function OnboardingForm({
       )}
       <input className="mt-4 w-full rounded-lg border border-slate-300 px-4 py-3 text-base" placeholder="Phone" type="tel" value={phone} onChange={(e) => setPhone(formatPhoneNumber(e.target.value))} />
 
-      <p className="mt-4 text-sm text-slate-500">
-        Billing address — where invoices go, not necessarily where the inspection happens. You&apos;ll enter the job
-        site address separately when you book.
-      </p>
+      <p className="mt-4 text-sm font-semibold uppercase text-slate-500">Billing address</p>
       <div className="mt-2 flex gap-2">
         <div className="w-0 flex-1">
           <AddressAutocompleteInput

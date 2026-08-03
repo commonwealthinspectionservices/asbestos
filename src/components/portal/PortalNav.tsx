@@ -62,6 +62,7 @@ export default function PortalNav({ isHomeowner = false }: { isHomeowner?: boole
         {!isHomeowner && (
           <Link href="/portal/contacts" className={linkClass("/portal/contacts")}>Contacts</Link>
         )}
+        <Link href="/portal/account" className={linkClass("/portal/account")}>My Account</Link>
         <button
           onClick={logout}
           className="ml-1 inline-flex h-[22px] shrink-0 items-center whitespace-nowrap border-[3px] border-brand-700 bg-brand-50 px-1.5 pt-0.5 text-sm font-semibold uppercase leading-none text-brand-700 hover:bg-yellow-100 sm:h-[29px]"

@@ -85,7 +85,7 @@ export default function PortalSignupPage() {
           <span>
             <span className="font-medium">Company</span>
             <span className="block text-slate-500">
-              This will start a new company account. If you're looking to join an existing one, ask a teammate to invite you.
+              This will start a new company account. If you're looking to join an existing one, ask a teammate to invite you in.
             </span>
           </span>
         </label>

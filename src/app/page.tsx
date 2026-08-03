@@ -54,28 +54,28 @@ export default function HomePage() {
           alt=""
           className="absolute inset-0 h-full w-full object-cover opacity-15"
         />
-        <div className="relative mx-auto max-w-3xl px-4">
-        <div className="relative flex items-center justify-center gap-4 sm:gap-8">
+        <div className="relative mx-auto grid w-full max-w-4xl grid-cols-3 items-center px-4">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/marketing/massachusetts-outline.png" alt="" className="h-14 w-auto shrink-0 sm:h-32" />
+          <img src="/marketing/massachusetts-outline.png" alt="" className="h-16 w-auto shrink-0 justify-self-start sm:h-40" />
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="Commonwealth Inspection Services" className="h-36 w-36 shrink-0 rounded-full sm:h-56 sm:w-56" />
+          <img src="/logo.png" alt="Commonwealth Inspection Services" className="mx-auto h-48 w-48 shrink-0 rounded-full sm:h-72 sm:w-72" />
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/marketing/massachusetts-outline.png" alt="" className="h-14 w-auto shrink-0 sm:h-32" />
+          <img src="/marketing/massachusetts-outline.png" alt="" className="h-16 w-auto shrink-0 justify-self-end sm:h-40" />
         </div>
-        <p className="relative mt-4 text-[13px] font-bold uppercase text-brand-700 sm:mt-8 sm:text-base">
+        <div className="relative mx-auto max-w-3xl px-4">
+        <p className="relative mt-6 text-lg font-bold uppercase text-brand-700 sm:mt-10 sm:text-2xl">
           Serving Boston + all of Massachusetts
         </p>
-        <div className="relative mt-4 flex justify-center gap-3 sm:mt-8">
+        <div className="relative mt-6 flex justify-center gap-4 sm:mt-10">
           <Link
             href="/portal"
-            className="inline-flex h-[22px] items-center border-[3px] border-brand-700 bg-brand-50 px-4 text-[9px] font-extrabold uppercase pt-0.5 leading-none text-brand-700 hover:bg-yellow-100 sm:h-[29px] sm:text-xs md:text-sm"
+            className="inline-flex h-10 items-center border-4 border-brand-700 bg-brand-50 px-6 text-sm font-extrabold uppercase leading-none text-brand-700 hover:bg-yellow-100 sm:h-14 sm:px-10 sm:text-lg"
           >
             Book an Inspection
           </Link>
           <Link
             href="/contact"
-            className="inline-flex h-[22px] items-center border-[3px] border-brand-700 bg-brand-50 px-4 text-[9px] font-extrabold uppercase pt-0.5 leading-none text-brand-700 hover:bg-yellow-100 sm:h-[29px] sm:text-xs md:text-sm"
+            className="inline-flex h-10 items-center border-4 border-brand-700 bg-brand-50 px-6 text-sm font-extrabold uppercase leading-none text-brand-700 hover:bg-yellow-100 sm:h-14 sm:px-10 sm:text-lg"
           >
             Contact
           </Link>

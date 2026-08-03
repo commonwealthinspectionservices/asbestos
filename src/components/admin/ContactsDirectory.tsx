@@ -28,6 +28,17 @@ export default function ContactsDirectory() {
   const [adding, setAdding] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
+  // Lets another page deep-link straight to one contact (e.g. a job's
+  // "Customer" link) via /admin/customers?tab=contacts&contactId=<id>.
+  // Read in an effect, not the useState initializer above — the initializer
+  // also runs during SSR (no window there), so reading location from it
+  // would make the client's first render diverge from the server's and
+  // trip a hydration mismatch instead of just opening the dialog a render late.
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("contactId");
+    if (id) setSelectedId(id);
+  }, []);
+
   async function loadContacts(q = search) {
     setLoading(true);
     setError(null);

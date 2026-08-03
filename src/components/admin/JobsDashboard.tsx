@@ -522,6 +522,16 @@ export default function JobsDashboard() {
       .then((data) => setAvailableServiceTypes(data.settings?.service_types ?? []));
   }, []);
 
+  // Lets another page deep-link straight to one project (e.g. a contact's
+  // own project list) via /admin/dashboard?jobId=<id>. Read in an effect,
+  // not a useState initializer — the initializer also runs during SSR (no
+  // window there), so reading location from it would make the client's
+  // first render diverge from the server's and trip a hydration mismatch.
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("jobId");
+    if (id) setSelectedJobId(id);
+  }, []);
+
   const overdueJobs = useMemo(() => jobs.filter((j) => daysOverdue(j) !== null), [jobs]);
   // Not just status === "ready_to_send" — that can be set by hand without the
   // report/invoice actually being drafted yet. This banner is specifically
@@ -975,8 +985,8 @@ function DetailField({ label, value, nowrap }: { label: string; value: React.Rea
   if (value == null || value === "" || (typeof value === "string" && !value.trim())) return null;
   return (
     <div className="flex gap-2 text-sm">
-      <span className="w-32 shrink-0 text-slate-500">{label}</span>
-      <span className={`text-slate-800 ${nowrap ? "whitespace-nowrap" : ""}`}>{value}</span>
+      <span className="w-32 shrink-0 uppercase font-bold text-black">{label}</span>
+      <span className={`text-black ${nowrap ? "whitespace-nowrap" : ""}`}>{value}</span>
     </div>
   );
 }
@@ -1489,13 +1499,13 @@ export function ProjectDetailDialog({
             />
             <DetailField label="Service type" value={serviceTypeLabel(job.service_type)} nowrap />
             <div className="flex gap-2 text-sm">
-              <span className="w-32 shrink-0 text-slate-500">Scope of Work</span>
-              <span className="text-slate-800">{job.scope_of_work || "—"}</span>
+              <span className="w-32 shrink-0 uppercase font-bold text-black">Scope of Work</span>
+              <span className="text-black">{job.scope_of_work || "—"}</span>
             </div>
             <DetailField label="Date" value={job.requested_date ? formatDate(job.requested_date) : "Unscheduled"} />
             <DetailField label="Time" value={formatTime(job.requested_time) || "--:--"} />
             <div className="flex items-center gap-2 text-sm">
-              <span className="w-32 shrink-0 text-slate-500">Turnaround</span>
+              <span className="w-32 shrink-0 uppercase font-bold text-black">Turnaround</span>
               <button
                 onClick={() => setRush(false)}
                 className={`rounded px-2 py-0.5 text-xs font-bold uppercase ${job.lab_turnaround !== "Rush" ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
@@ -1510,37 +1520,61 @@ export function ProjectDetailDialog({
               </button>
             </div>
           </div>
-          <div className="space-y-2">
-            <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Customer contact</h4>
-            <DetailField label="Name" value={job.customers?.name} nowrap />
-            <DetailField label="Phone" value={job.customers?.phone} />
-            <DetailField label="Email" value={job.customers?.email} nowrap />
-            {job.report_emails && job.report_emails.trim() && (
-              <div className="flex gap-2 text-sm">
-                <span className="w-32 shrink-0 text-slate-500">Email results to</span>
-                <span className="text-slate-800">
-                  {job.report_emails.split(",").map((e) => e.trim()).filter(Boolean).map((addr, i) => (
-                    <div key={i} className="whitespace-nowrap">{addr}</div>
-                  ))}
-                </span>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <h4 className="text-sm font-bold uppercase tracking-wide text-black underline">Customer contact</h4>
+              <DetailField
+                label="Name"
+                value={job.customer_id && job.customers?.name ? (
+                  // A plain <a> (not next/link) — Next's client-side router
+                  // doesn't always remount CustomersDirectory on a
+                  // searchParams-only navigation to the same pathname, which
+                  // left the Directory reading stale ?tab=/?contactId=
+                  // values from before the click. A full navigation always
+                  // mounts fresh and reads the real URL.
+                  <a href={`/admin/customers?tab=contacts&contactId=${job.customer_id}`} className="hover:underline">
+                    {job.customers.name}
+                  </a>
+                ) : job.customers?.name}
+                nowrap
+              />
+              <DetailField label="Phone" value={job.customers?.phone} />
+              <DetailField label="Email" value={job.customers?.email} nowrap />
+            </div>
+            {job.customers?.companies && (
+              <div className="space-y-2">
+                <h4 className="text-sm font-bold uppercase tracking-wide text-black underline">Company contact information</h4>
+                <DetailField label="Phone" value={job.customers.companies.phone} />
+                <DetailField label="Billing address" value={job.customers.companies.billing_address} nowrap />
+                {job.customers.companies.billing_contact && (
+                  <div>
+                    <DetailField label="Billing contact" value={job.customers.companies.billing_contact.name} nowrap />
+                    <div className="flex gap-2 text-xs text-slate-500">
+                      <span className="w-32 shrink-0" />
+                      <span className="whitespace-nowrap">
+                        {job.customers.companies.billing_contact.email}
+                        {job.customers.companies.billing_contact.phone ? ` · ${job.customers.companies.billing_contact.phone}` : ""}
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
-            <DetailField label="Billing address" value={job.customers?.billing_address ?? "—"} nowrap />
           </div>
           <div className="space-y-2">
-            <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Job site contact</h4>
+            <h4 className="text-sm font-bold uppercase tracking-wide text-black underline">Job site contact</h4>
             <DetailField label="Name" value={job.site_contact_name ?? "—"} />
             <DetailField label="Phone" value={job.site_contact_phone ?? "—"} />
           </div>
           {job.notes && job.notes.trim() && (
             <div className="space-y-2">
-              <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Notes</h4>
-              <p className="text-sm text-slate-800">{job.notes}</p>
+              <h4 className="text-sm font-bold uppercase tracking-wide text-black underline">Notes</h4>
+              <p className="text-sm text-black">{job.notes}</p>
             </div>
           )}
           {(job.job_classification || job.payment_method || job.po_number || job.invoice_number || job.paid_date) && (
             <div className="space-y-2">
-              <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Job details</h4>
+              <h4 className="text-sm font-bold uppercase tracking-wide text-black underline">Job details</h4>
               <DetailField label="Classification" value={job.job_classification} />
               <DetailField label="Payment method" value={job.payment_method} />
               <DetailField label="PO #" value={job.po_number} />

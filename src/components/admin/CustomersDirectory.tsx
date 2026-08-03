@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import CompaniesDirectory from "@/components/admin/CompaniesDirectory";
 import ContactsDirectory from "@/components/admin/ContactsDirectory";
 import PortalAccountsDirectory from "@/components/admin/PortalAccountsDirectory";
@@ -14,6 +14,18 @@ import PortalAccountsDirectory from "@/components/admin/PortalAccountsDirectory"
 // browsing from.
 export default function CustomersDirectory() {
   const [tab, setTab] = useState<"companies" | "contacts" | "accounts">("companies");
+
+  // Lets other pages deep-link straight into a tab (e.g. a job's "Customer"
+  // link opens here with ?tab=contacts so the right list is already showing
+  // before ContactsDirectory opens the specific contact via ?contactId=).
+  // Read in an effect, not a useState initializer — the initializer runs
+  // during SSR too (no window), so reading location there would make the
+  // client's first render diverge from the server's and trip a hydration
+  // mismatch instead of just picking the tab a render late.
+  useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get("tab");
+    if (t === "contacts" || t === "accounts") setTab(t);
+  }, []);
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">

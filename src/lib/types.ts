@@ -94,6 +94,8 @@ export interface Customer {
   auth_user_id: string | null;
   is_homeowner: boolean;
   created_at: string;
+  /** The linked company's own record (phone, billing address, etc.), distinct from this contact's own — only populated by endpoints that join it in (e.g. GET /api/admin/jobs). */
+  companies?: Company | null;
 }
 
 /** The payer entity (e.g. a restoration company) — customers are individual contacts at one. */
@@ -106,6 +108,8 @@ export interface Company {
   /** A specific contact at this company (e.g. an AP person) who invoices go to instead of whichever contact a given job happens to be tied to. Null falls back to the job's own contact. */
   billing_contact_id: string | null;
   created_at: string;
+  /** The resolved billing_contact_id record — only populated by endpoints that join it in (e.g. GET /api/admin/jobs). */
+  billing_contact?: { name: string; email: string; phone: string } | null;
 }
 
 export interface SavedAddress {

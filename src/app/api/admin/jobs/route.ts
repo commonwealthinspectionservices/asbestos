@@ -21,7 +21,7 @@ export const GET = withApiErrors(async (req: NextRequest) => {
   const supabase = getSupabaseAdmin();
   let query = supabase
     .from("jobs")
-    .select("*, customers!customer_id(*, companies!company_id(*, billing_contact:customers!billing_contact_id(name, email)))")
+    .select("*, customers!customer_id(*, companies!company_id(*, billing_contact:customers!billing_contact_id(name, email, phone)))")
     .order("requested_date", { ascending: true })
     .order("created_at", { ascending: true });
 
@@ -39,7 +39,7 @@ export const GET = withApiErrors(async (req: NextRequest) => {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
   type JobRow = {
-    customers: (Customer & { companies: (Company & { billing_contact: { name: string; email: string } | null }) | null }) | null;
+    customers: (Customer & { companies: (Company & { billing_contact: { name: string; email: string; phone: string } | null }) | null }) | null;
   };
   const jobs = (data as unknown as JobRow[]).map((job) => {
     const customer = job.customers;

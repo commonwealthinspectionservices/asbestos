@@ -8,17 +8,22 @@ import ZipInput, { useAutoZip } from "@/components/shared/ZipInput";
 import { buildBillingAddress, US_STATES } from "@/lib/address";
 import { formatPhoneNumber } from "@/lib/phone";
 import { joinName } from "@/lib/name";
+import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
 
 export default function OnboardingForm({
   accountType,
+  email,
 }: {
   accountType: "company" | "individual" | null;
+  email: string | undefined;
 }) {
   const router = useRouter();
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [company, setCompany] = useState("");
   const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   // Same structured street/unit/town/state/zip layout as Book a Project and
   // the admin's Add Project form (see AddressBook.tsx / PortalBookingForm.tsx).
   const [street, setStreet] = useState("");
@@ -37,9 +42,22 @@ export default function OnboardingForm({
   useAutoZip(street, city, addrState, setZip, "/api");
 
   async function submit() {
+    if (password !== confirmPassword) {
+      setError("Passwords don't match");
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
+      // Nobody arriving here has a real password yet — signup sends an
+      // email-confirmation link with no password involved (see
+      // /portal/signup), and an admin/teammate Invite never sets one
+      // either. This is the first and only place either path lands, so
+      // it's the right place to set one, alongside the rest of the profile.
+      const supabase = createSupabaseBrowserClient();
+      const { error: passwordError } = await supabase.auth.updateUser({ password });
+      if (passwordError) throw passwordError;
+
       const billingAddress = buildBillingAddress({ street, unit, city, state: addrState, zip });
       const name = joinName(firstName, lastName);
       const res = await fetch("/api/portal/profile", {
@@ -70,6 +88,10 @@ export default function OnboardingForm({
 
       {error && <div className="rounded-lg bg-red-50 px-5 py-4 text-base text-red-700">{error}</div>}
 
+      {email && (
+        <div className="mb-4 rounded-lg bg-slate-100 px-4 py-3 text-sm text-slate-600">{email}</div>
+      )}
+
       <div className="flex gap-2">
         <input className="w-0 flex-1 rounded-lg border border-slate-300 px-4 py-3 text-base" placeholder="First name" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
         <input className="w-0 flex-1 rounded-lg border border-slate-300 px-4 py-3 text-base" placeholder="Last name" value={lastName} onChange={(e) => setLastName(e.target.value)} />
@@ -78,6 +100,8 @@ export default function OnboardingForm({
         <input className="mt-4 w-full rounded-lg border border-slate-300 px-4 py-3 text-base" placeholder="Company" value={company} onChange={(e) => setCompany(e.target.value)} />
       )}
       <input className="mt-4 w-full rounded-lg border border-slate-300 px-4 py-3 text-base" placeholder="Phone" type="tel" value={phone} onChange={(e) => setPhone(formatPhoneNumber(e.target.value))} />
+      <input className="mt-4 w-full rounded-lg border border-slate-300 px-4 py-3 text-base" placeholder="Create a password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+      <input className="mt-4 w-full rounded-lg border border-slate-300 px-4 py-3 text-base" placeholder="Confirm password" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
 
       <p className="mt-4 text-sm font-semibold uppercase text-slate-500">Billing address</p>
       <div className="mt-2 flex gap-2">
@@ -144,7 +168,15 @@ export default function OnboardingForm({
 
       <button
         className="mt-5 flex w-full items-center justify-center border-[3px] border-brand-700 bg-brand-50 py-4 pt-[18px] text-base font-extrabold uppercase leading-none text-brand-700 hover:bg-yellow-100 disabled:opacity-50"
-        disabled={loading || !firstName || !lastName || !phone || (accountType !== "individual" && !company)}
+        disabled={
+          loading ||
+          !firstName ||
+          !lastName ||
+          !phone ||
+          (accountType !== "individual" && !company) ||
+          password.length < 6 ||
+          password !== confirmPassword
+        }
         onClick={submit}
       >
         {loading ? "Saving…" : "Continue"}

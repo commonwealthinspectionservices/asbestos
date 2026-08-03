@@ -44,11 +44,19 @@ export const POST = withApiErrors(async (
   const { data, error } = await supabase.auth.admin.generateLink({
     type: "invite",
     email: customer.email,
-    // Without this, the invited contact lands on /portal/onboarding with no
-    // account_type in their auth metadata — OnboardingForm then defaults to
-    // showing the Company field even for an actual individual contact,
-    // since it only hides Company when account_type === "individual".
-    options: { data: { account_type: customer.is_individual ? "individual" : "company" } },
+    options: {
+      // Without this, the invited contact lands on /portal/onboarding with
+      // no account_type in their auth metadata — OnboardingForm then
+      // defaults to showing the Company field even for an actual
+      // individual contact, since it only hides Company when
+      // account_type === "individual".
+      data: { account_type: customer.is_individual ? "individual" : "company" },
+      // Without an explicit redirectTo, Supabase falls back to the bare
+      // Site URL (the marketing homepage) instead of carrying the invite
+      // into onboarding — req.nextUrl.origin rather than a hardcoded
+      // domain so this also works from a local/preview deployment.
+      redirectTo: `${req.nextUrl.origin}/portal/confirm`,
+    },
   });
   if (error) {
     // Most common failure: an auth account with this email already exists

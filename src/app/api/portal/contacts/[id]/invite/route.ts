@@ -42,11 +42,16 @@ export const POST = withApiErrors(async (
   const { data, error } = await supabase.auth.admin.generateLink({
     type: "invite",
     email: contact.email,
-    // Matches the admin's own Invite flow — pre-fills account_type so
-    // OnboardingForm doesn't ask again, and /api/portal/profile's
-    // existing-row lookup (matched by email) preserves this contact's
-    // already-set company_id instead of re-deriving it from scratch.
-    options: { data: { account_type: "company" } },
+    options: {
+      // Matches the admin's own Invite flow — pre-fills account_type so
+      // OnboardingForm doesn't ask again, and /api/portal/profile's
+      // existing-row lookup (matched by email) preserves this contact's
+      // already-set company_id instead of re-deriving it from scratch.
+      data: { account_type: "company" },
+      // Without an explicit redirectTo, Supabase falls back to the bare
+      // Site URL instead of carrying the invite into onboarding.
+      redirectTo: `${req.nextUrl.origin}/portal/confirm`,
+    },
   });
   if (error) {
     // Most common failure: an auth account with this email already exists

@@ -9,5 +9,5 @@ export default async function PortalOnboardingPage() {
   if (!session) redirect("/portal/login");
   if (session.customer) redirect("/portal/dashboard");
 
-  return <OnboardingForm accountType={session.accountType} />;
+  return <OnboardingForm accountType={session.accountType} email={session.email} />;
 }

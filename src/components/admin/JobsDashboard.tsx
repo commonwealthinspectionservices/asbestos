@@ -1465,7 +1465,7 @@ export function ProjectDetailDialog({
 
         {tab === "info" && (
         <>
-        <div className="mt-2 grid grid-cols-1 gap-y-4">
+        <div className="mt-6 grid grid-cols-1 gap-y-4">
           <div className="space-y-2">
             <DetailField label="Project #" value={job.project_number} />
             <div className="flex items-center justify-between gap-2">
@@ -1550,20 +1550,20 @@ export function ProjectDetailDialog({
               </div>
             )}
           </div>
-          {job.report_emails && job.report_emails.trim() && (
-            <div className="flex gap-2 text-sm">
-              <span className="w-32 shrink-0 uppercase font-bold text-black">Email results to</span>
-              <span className="text-black">
-                {job.report_emails.split(",").map((e) => e.trim()).filter(Boolean).map((addr, i) => (
-                  <div key={i} className="whitespace-nowrap">{addr}</div>
-                ))}
-              </span>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <h4 className="text-sm font-bold uppercase tracking-wide text-black underline">Job site contact</h4>
+              <DetailField label="Name" value={job.site_contact_name ?? "—"} />
+              <DetailField label="Phone" value={job.site_contact_phone ?? "—"} />
             </div>
-          )}
-          <div className="space-y-2">
-            <h4 className="text-sm font-bold uppercase tracking-wide text-black underline">Job site contact</h4>
-            <DetailField label="Name" value={job.site_contact_name ?? "—"} />
-            <DetailField label="Phone" value={job.site_contact_phone ?? "—"} />
+            {job.report_emails && job.report_emails.trim() && (
+              <div className="space-y-2">
+                <h4 className="text-sm font-bold uppercase tracking-wide text-black underline">Email results to</h4>
+                {job.report_emails.split(",").map((e) => e.trim()).filter(Boolean).map((addr, i) => (
+                  <div key={i} className="text-sm text-black">{addr}</div>
+                ))}
+              </div>
+            )}
           </div>
           {job.notes && job.notes.trim() && (
             <div className="space-y-2">
@@ -1695,33 +1695,6 @@ export function ProjectDetailDialog({
                   </div>
                 );
               })}
-              {serviceTypeLabels.map((label) => {
-                const isAsbestosLabel = /asbestos/i.test(label);
-                const isLeadLabel = /lead/i.test(label);
-                if (!isAsbestosLabel && !isLeadLabel) return null;
-                const result = isLeadLabel ? job.lead_result : job.asbestos_result;
-                return (
-                  <div key={label}>
-                    <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">{label} — Results</label>
-                    <div className="mt-1 flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => (isLeadLabel ? setLeadResult("positive") : setAsbestosResult("positive"))}
-                        className={`rounded px-2 py-1 text-xs font-bold uppercase ${result === "positive" ? "bg-red-600 text-white" : "bg-slate-100 text-slate-600"}`}
-                      >
-                        Positive
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => (isLeadLabel ? setLeadResult("negative") : setAsbestosResult("negative"))}
-                        className={`rounded px-2 py-1 text-xs font-bold uppercase ${result === "negative" ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-600"}`}
-                      >
-                        Negative
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
               <div className="col-span-2">
                 <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
                   {isMoldJob(job) ? "Discussion of Results" : "Overall findings"}
@@ -1744,6 +1717,16 @@ export function ProjectDetailDialog({
                     onSelect={(o) => {
                       setReportSummaryInput(o);
                       saveReportSummary(o);
+                      // Picking one of the two canned findings sentences IS
+                      // the positive/negative determination — no separate
+                      // Results button needed to duplicate that choice.
+                      const negativeRemark = isLeadJob(job) ? LEAD_NEGATIVE_REMARK : ASBESTOS_NEGATIVE_REMARK;
+                      const positiveRemark = isLeadJob(job) ? LEAD_POSITIVE_REMARK : ASBESTOS_POSITIVE_REMARK;
+                      if (o === negativeRemark) {
+                        isLeadJob(job) ? setLeadResult("negative") : setAsbestosResult("negative");
+                      } else if (o === positiveRemark) {
+                        isLeadJob(job) ? setLeadResult("positive") : setAsbestosResult("positive");
+                      }
                     }}
                     onEnter={(v) => saveReportSummary(v)}
                     onBlur={(v) => saveReportSummary(v)}

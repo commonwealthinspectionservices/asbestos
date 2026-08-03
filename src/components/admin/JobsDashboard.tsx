@@ -1467,13 +1467,13 @@ export function ProjectDetailDialog({
         <>
         <div className="mt-6 grid grid-cols-1 gap-y-4">
           <div className="space-y-2">
-            <DetailField label="Project #" value={job.project_number} />
-            <div className="flex items-center justify-between gap-2">
-              <DetailField label="Customer" value={job.customers?.company} nowrap />
+            <div className="flex items-start justify-between gap-2">
+              <DetailField label="Project #" value={job.project_number} />
               <button onClick={onEdit} className="shrink-0 rounded-lg border border-slate-300 px-3.5 py-1.5 text-sm font-bold">
                 Edit
               </button>
             </div>
+            <DetailField label="Customer" value={job.customers?.company} nowrap />
             <DetailField
               label="Job site address"
               value={job.service_address ? (
@@ -1483,13 +1483,13 @@ export function ProjectDetailDialog({
               ) : null}
               nowrap
             />
+            <DetailField label="Date" value={job.requested_date ? formatDate(job.requested_date) : "Unscheduled"} />
+            <DetailField label="Time" value={formatTime(job.requested_time) || "--:--"} />
             <DetailField label="Service type" value={serviceTypeLabel(job.service_type)} nowrap />
             <div className="flex gap-2 text-sm">
               <span className="w-32 shrink-0 uppercase font-bold text-black">Scope of Work</span>
               <span className="text-black">{job.scope_of_work || "—"}</span>
             </div>
-            <DetailField label="Date" value={job.requested_date ? formatDate(job.requested_date) : "Unscheduled"} />
-            <DetailField label="Time" value={formatTime(job.requested_time) || "--:--"} />
             <div className="flex items-center gap-2 text-sm">
               <span className="w-32 shrink-0 uppercase font-bold text-black">Turnaround</span>
               <button
@@ -1712,6 +1712,7 @@ export function ProjectDetailDialog({
                     value={reportSummaryInput}
                     onChange={setReportSummaryInput}
                     options={isLeadJob(job) ? [LEAD_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK] : [ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK]}
+                    filterOptions={false}
                     getLabel={(o) => o}
                     onSelect={(o) => {
                       setReportSummaryInput(o);
@@ -2701,7 +2702,7 @@ function CcPicker({
 }
 
 export function ComboboxInput<T>({
-  value, onChange, options, fetchOptions, getLabel, getSublabel, onSelect, placeholder, disabled, onEnter, onBlur,
+  value, onChange, options, fetchOptions, getLabel, getSublabel, onSelect, placeholder, disabled, onEnter, onBlur, filterOptions = true,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -2716,6 +2717,8 @@ export function ComboboxInput<T>({
   onEnter?: (value: string) => void;
   /** Free-typed text that was never picked from the list or Entered — saved the same way a plain input's onBlur would. */
   onBlur?: (value: string) => void;
+  /** Set false for a short, fixed option list meant to always be fully visible (e.g. the two canned findings sentences) — once `value` holds one option's full text, substring-filtering against it would filter every other option out. */
+  filterOptions?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [asyncOptions, setAsyncOptions] = useState<T[]>([]);
@@ -2744,7 +2747,7 @@ export function ComboboxInput<T>({
   const query = value.trim().toLowerCase();
   const filtered = fetchOptions
     ? asyncOptions
-    : query
+    : query && filterOptions
     ? (options ?? []).filter((o) => getLabel(o).toLowerCase().includes(query))
     : options ?? [];
 

@@ -9,6 +9,7 @@ import { requireAdminApi } from "@/lib/admin-api";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { withApiErrors } from "@/lib/api-handler";
 import { extractSampleCount, detectAsbestosResult, extractSampleResults, extractReportProjectNumber, detectLabInfo } from "@/lib/parse-lab-report";
+import { splitTrailingCocPages } from "@/lib/split-lab-report-coc";
 import type { Job, JobDocument } from "@/lib/types";
 
 const DOCUMENT_KINDS = new Set(["coc", "lab_report", "lab_invoice", "report", "other"]);
@@ -51,15 +52,6 @@ export const POST = withApiErrors(async (
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
   const storagePath = `${params.id}/${docId}-${safeName}`;
   const fileBuffer = Buffer.from(await file.arrayBuffer());
-
-  const { error: uploadError } = await supabase.storage
-    .from("job-documents")
-    .upload(storagePath, fileBuffer, {
-      contentType: file.type || "application/octet-stream",
-    });
-  if (uploadError) {
-    throw new Error(`Failed to upload document: ${uploadError.message}`);
-  }
 
   const update: Record<string, unknown> = {};
   let projectNumberMismatch: string | null = null;
@@ -122,16 +114,64 @@ export const POST = withApiErrors(async (
     }
   }
 
-  const document: JobDocument = {
-    id: docId,
-    kind: kind as JobDocument["kind"],
-    service_type: typeof serviceType === "string" ? serviceType : "",
-    file_name: file.name,
-    storage_path: storagePath,
-    uploaded_at: new Date().toISOString(),
-    project_number_mismatch: projectNumberMismatch,
-  };
-  update.documents = [...(jobRow.documents ?? []), document];
+  // Crystal Analytical (and similarly-shaped labs) send back one PDF with
+  // the typed lab data pages followed by the scanned, handwritten chain-of-
+  // custody form as the trailing page(s) — never a separate file. Splitting
+  // it here means the Laboratory Results station only ever holds the lab's
+  // own data pages, and the CoC form gets filed on the Chain of Custody
+  // station automatically, same as the inbound-email path already does.
+  // Run only after the pdfParse-based extraction above is fully done —
+  // splitTrailingCocPages dynamically imports pdf-lib, which corrupts
+  // pdf-parse's bundled legacy pdf.js state for any pdfParse call after it
+  // (see split-lab-report-coc.ts's own comment on this).
+  const split =
+    kind === "lab_report" && file.type === "application/pdf"
+      ? await splitTrailingCocPages(fileBuffer).catch(() => null)
+      : null;
+  const reportBuffer = split?.reportBuffer ?? fileBuffer;
+  const cocBuffer = split?.cocBuffer ?? null;
+
+  const { error: uploadError } = await supabase.storage
+    .from("job-documents")
+    .upload(storagePath, reportBuffer, {
+      contentType: file.type || "application/octet-stream",
+    });
+  if (uploadError) {
+    throw new Error(`Failed to upload document: ${uploadError.message}`);
+  }
+
+  const documents: JobDocument[] = [
+    {
+      id: docId,
+      kind: kind as JobDocument["kind"],
+      service_type: typeof serviceType === "string" ? serviceType : "",
+      file_name: file.name,
+      storage_path: storagePath,
+      uploaded_at: new Date().toISOString(),
+      project_number_mismatch: projectNumberMismatch,
+    },
+  ];
+
+  if (cocBuffer) {
+    const cocDocId = randomUUID();
+    const cocStoragePath = `${params.id}/${cocDocId}-coc.pdf`;
+    const { error: cocUploadError } = await supabase.storage
+      .from("job-documents")
+      .upload(cocStoragePath, cocBuffer, { contentType: "application/pdf" });
+    if (!cocUploadError) {
+      documents.push({
+        id: cocDocId,
+        kind: "coc",
+        service_type: typeof serviceType === "string" ? serviceType : "",
+        file_name: "coc.pdf",
+        storage_path: cocStoragePath,
+        uploaded_at: new Date().toISOString(),
+        project_number_mismatch: null,
+      });
+    }
+  }
+
+  update.documents = [...(jobRow.documents ?? []), ...documents];
 
   // asbestos_result/sample_results may not exist yet if these migrations
   // haven't been run — tolerate that rather than losing the document

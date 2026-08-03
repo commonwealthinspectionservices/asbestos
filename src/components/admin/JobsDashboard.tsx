@@ -1549,12 +1549,15 @@ export function ProjectDetailDialog({
                 {job.customers.companies.billing_contact && (
                   <div>
                     <DetailField label="Billing contact" value={job.customers.companies.billing_contact.name} nowrap />
-                    <div className="flex gap-2 text-xs text-slate-500">
+                    {job.customers.companies.billing_contact.phone && (
+                      <div className="flex gap-2 text-sm">
+                        <span className="w-32 shrink-0" />
+                        <span className="text-black">{job.customers.companies.billing_contact.phone}</span>
+                      </div>
+                    )}
+                    <div className="flex gap-2 text-sm">
                       <span className="w-32 shrink-0" />
-                      <span className="whitespace-nowrap">
-                        {job.customers.companies.billing_contact.email}
-                        {job.customers.companies.billing_contact.phone ? ` · ${job.customers.companies.billing_contact.phone}` : ""}
-                      </span>
+                      <span className="text-black">{job.customers.companies.billing_contact.email}</span>
                     </div>
                   </div>
                 )}

@@ -15,8 +15,14 @@ export default function PortalForgotPasswordPage() {
     setError(null);
     try {
       const supabase = createSupabaseBrowserClient();
+      // Straight to /portal/reset-password, not through /auth/callback — a
+      // recovery link's session arrives in the URL hash (#access_token=...),
+      // which browsers never send to a server at all, so routing it through
+      // a server redirect first has nothing to work with and just adds a
+      // hop for the fragment to (usually, but not reliably) survive.
+      // /portal/reset-password reads the hash itself, client-side.
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/callback?next=/portal/reset-password`,
+        redirectTo: `${window.location.origin}/portal/reset-password`,
       });
       if (resetError) throw resetError;
       setSent(true);

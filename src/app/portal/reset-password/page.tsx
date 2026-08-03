@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
 
 export default function PortalResetPasswordPage() {
@@ -10,6 +11,30 @@ export default function PortalResetPasswordPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  // null = still checking the link, true = a recovery session was
+  // established, false = the link is invalid/expired/already used.
+  const [ready, setReady] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    // The recovery link's session arrives as a URL hash fragment
+    // (#access_token=...&type=recovery) — or, if the one-time link was
+    // already used (a second click, or Gmail's own link-scanning silently
+    // opening it before the user does), as #error=access_denied&error_
+    // code=otp_expired instead. Either way it never reaches any server
+    // (fragments aren't sent in HTTP requests), so this can only be
+    // detected client-side. The Supabase browser client auto-establishes
+    // the session from the hash on load; this just waits for that and
+    // checks whether it actually worked before showing the form.
+    const hash = new URLSearchParams(window.location.hash.slice(1));
+    if (hash.get("error")) {
+      setReady(false);
+      return;
+    }
+    const supabase = createSupabaseBrowserClient();
+    supabase.auth.getSession().then(({ data }) => {
+      setReady(Boolean(data.session));
+    });
+  }, []);
 
   async function updatePassword() {
     if (password !== confirmPassword) {
@@ -29,6 +54,32 @@ export default function PortalResetPasswordPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  if (ready === null) {
+    return (
+      <div className="mx-auto max-w-sm px-4 py-16">
+        <p className="text-sm text-slate-500">Loading…</p>
+      </div>
+    );
+  }
+
+  if (!ready) {
+    return (
+      <div className="mx-auto max-w-sm px-4 py-16">
+        <h1 className="text-xl font-semibold text-brand-700">This link has expired</h1>
+        <p className="mt-4 text-sm text-slate-600">
+          Password reset links only work once and expire quickly — this one isn&apos;t valid anymore.
+          Request a new one below.
+        </p>
+        <Link
+          href="/portal/forgot-password"
+          className="mt-6 block w-full rounded-lg bg-brand-600 px-4 py-3 text-center font-medium text-white"
+        >
+          Send a new reset link
+        </Link>
+      </div>
+    );
   }
 
   return (

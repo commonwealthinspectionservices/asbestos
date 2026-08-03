@@ -948,31 +948,33 @@ function JobRow({
                 onChange={(e) => onFieldChange({ requested_date: e.target.value || null })}
                 className="w-32 rounded-lg border border-slate-300 px-1.5 py-1 text-xs text-slate-600"
               />
-              <input
-                type="time"
-                value={isUnscheduled ? "" : job.requested_time ?? ""}
-                onChange={(e) => onFieldChange({ requested_time: e.target.value || null })}
-                className="w-32 rounded-lg border border-slate-300 px-1.5 py-1 text-xs text-slate-600"
-              />
-              {job.status === "scheduled" && job.requested_date && job.requested_time && (
-                <label
-                  className="flex shrink-0 items-center justify-end gap-1.5 whitespace-nowrap text-xs uppercase text-slate-600"
-                  title="Off by default — the client's portal never shows a date/time until this is on. While on, it stays live-synced to the date/time above as you edit them."
-                >
-                  <span>Show customer</span>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={!!job.schedule_visible_to_customer}
-                    onClick={() => onFieldChange({ schedule_visible_to_customer: !job.schedule_visible_to_customer })}
-                    className={`relative h-5 w-9 shrink-0 rounded-full transition ${job.schedule_visible_to_customer ? "bg-emerald-600" : "bg-slate-300"}`}
+              <div className="flex shrink-0 items-center gap-2">
+                {job.status === "scheduled" && job.requested_date && job.requested_time && (
+                  <label
+                    className="flex shrink-0 items-center gap-1.5 whitespace-nowrap text-xs uppercase text-slate-600"
+                    title="Off by default — the client's portal never shows a date/time until this is on. While on, it stays live-synced to the date/time above as you edit them."
                   >
-                    <span
-                      className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition ${job.schedule_visible_to_customer ? "left-4" : "left-0.5"}`}
-                    />
-                  </button>
-                </label>
-              )}
+                    <span>Show customer</span>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={!!job.schedule_visible_to_customer}
+                      onClick={() => onFieldChange({ schedule_visible_to_customer: !job.schedule_visible_to_customer })}
+                      className={`relative h-5 w-9 shrink-0 rounded-full transition ${job.schedule_visible_to_customer ? "bg-emerald-600" : "bg-slate-300"}`}
+                    >
+                      <span
+                        className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition ${job.schedule_visible_to_customer ? "left-4" : "left-0.5"}`}
+                      />
+                    </button>
+                  </label>
+                )}
+                <input
+                  type="time"
+                  value={isUnscheduled ? "" : job.requested_time ?? ""}
+                  onChange={(e) => onFieldChange({ requested_time: e.target.value || null })}
+                  className="w-32 rounded-lg border border-slate-300 px-1.5 py-1 text-xs text-slate-600"
+                />
+              </div>
             </div>
           )}
         </div>

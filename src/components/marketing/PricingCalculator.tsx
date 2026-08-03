@@ -72,8 +72,7 @@ export default function PricingCalculator() {
         const first = merged[0];
         if (first) {
           setSelectedKeys(new Set([first.key]));
-          const max = MAX_SAMPLES_BY_KEY[first.key] ?? DEFAULT_MAX_SAMPLES;
-          setSampleCounts({ [first.key]: Math.min(10, max) });
+          setSampleCounts({ [first.key]: 1 });
         }
       })
       .catch(() => {});
@@ -121,8 +120,7 @@ export default function PricingCalculator() {
         next.add(service.key);
         setSampleCounts((counts) => {
           if (service.key in counts) return counts;
-          const max = MAX_SAMPLES_BY_KEY[service.key] ?? DEFAULT_MAX_SAMPLES;
-          return { ...counts, [service.key]: Math.min(10, max) };
+          return { ...counts, [service.key]: 1 };
         });
       }
       return next;
@@ -239,7 +237,7 @@ export default function PricingCalculator() {
         <div className="mt-6">
           {selectedServices.map((service) => {
             const maxSamples = MAX_SAMPLES_BY_KEY[service.key] ?? DEFAULT_MAX_SAMPLES;
-            const count = sampleCounts[service.key] ?? Math.min(10, maxSamples);
+            const count = sampleCounts[service.key] ?? 1;
             return (
               <div key={service.key} className="mt-4 first:mt-0">
                 <label

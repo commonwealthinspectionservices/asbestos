@@ -246,7 +246,7 @@ export default function PricingCalculator() {
                   className="flex items-center justify-between text-sm font-semibold uppercase text-slate-700"
                   htmlFor={`sample-count-${service.key}`}
                 >
-                  <span>{service.label} &mdash; Est. Samples</span>
+                  <span>{service.label} &mdash; Estimated Samples</span>
                   <span>{count}</span>
                 </label>
                 <input

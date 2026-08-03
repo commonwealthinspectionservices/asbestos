@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { Customer } from "@/lib/types";
-import { ComboboxInput } from "@/components/admin/JobsDashboard";
+import { ComboboxInput, formatDate } from "@/components/admin/JobsDashboard";
 import { joinName, splitFullName } from "@/lib/name";
 import AddressAutocompleteInput from "@/components/shared/AddressAutocompleteInput";
 import ZipInput, { useAutoZip } from "@/components/shared/ZipInput";
@@ -41,7 +41,7 @@ export function JobList({ jobs }: { jobs: JobSummary[] }) {
           className="block overflow-x-auto whitespace-nowrap rounded-lg border border-slate-100 px-2 py-1.5 text-sm hover:border-brand-400"
         >
           <span className="font-mono text-xs text-slate-500">{j.project_number ?? "—"}</span>{" "}
-          {j.service_address} <span className="text-slate-400">· {j.requested_date ?? "unscheduled"}</span>
+          {j.service_address} <span className="text-slate-400">· {j.requested_date ? formatDate(j.requested_date) : "unscheduled"}</span>
         </a>
       ))}
     </div>

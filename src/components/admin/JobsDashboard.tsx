@@ -299,7 +299,7 @@ function formatTime(time: string | null | undefined): string {
 // reads ambiguously, so every plain-text date in this file goes through
 // this to show it the way the rest of the US-facing app (native date
 // inputs, PDFs) already does.
-function formatDate(date: string | null | undefined): string {
+export function formatDate(date: string | null | undefined): string {
   if (!date) return "";
   const [y, m, d] = date.split("-");
   if (!y || !m || !d) return date;

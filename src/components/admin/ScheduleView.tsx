@@ -117,7 +117,7 @@ function JobCard({ job, onOpen }: { job: JobWithCustomer; onOpen: () => void }) 
       className="cursor-pointer rounded-lg border border-slate-200 bg-white p-3 hover:border-brand-400"
     >
       <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
+        <div className="min-w-0 space-y-1">
           <div className="flex min-w-0 items-center gap-2">
             {job.project_number && (
               <span className="shrink-0 whitespace-nowrap rounded bg-slate-100 px-1.5 py-0.5 text-sm font-mono text-slate-600">{job.project_number}</span>
@@ -133,7 +133,7 @@ function JobCard({ job, onOpen }: { job: JobWithCustomer; onOpen: () => void }) 
             {formatTime(job.requested_time) || "--:--"}
           </div>
           {(job.site_contact_name || job.site_contact_phone) && (
-            <div className="mt-1 text-sm text-slate-500">
+            <div className="text-sm text-slate-500">
               Job site contact: {job.site_contact_name}{job.site_contact_name && job.site_contact_phone ? " · " : ""}{job.site_contact_phone}
             </div>
           )}

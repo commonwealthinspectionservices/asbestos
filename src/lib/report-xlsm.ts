@@ -2,6 +2,7 @@ import path from "path";
 import ExcelJS from "exceljs";
 import type { Job, Customer } from "@/lib/types";
 import { splitAddress } from "@/lib/address";
+import { ASBESTOS_POSITIVE_REMARK, ASBESTOS_NEGATIVE_REMARK } from "@/lib/report-findings";
 
 const TEMPLATE_PATH = path.join(process.cwd(), "src", "lib", "templates", "asbestos-limited-template.xlsm");
 
@@ -9,10 +10,8 @@ const TEMPLATE_PATH = path.join(process.cwd(), "src", "lib", "templates", "asbes
 // same two outcomes the PDF report's Remark #2 branches on (see
 // report-pdf.tsx). Left untouched (whatever the template already has) when
 // asbestos_result hasn't been determined yet, rather than guessing.
-const POSITIVE_REMARK =
-  "Each identified asbestos containing material must be removed by a licensed asbestos abatement contractor prior to being disturbed by building maintenance, renovation or demolition activities.";
-const NEGATIVE_REMARK =
-  "None of the suspect materials sampled were determined to have asbestos fibers present when analyzed by Polarized Light Microscopy.";
+const POSITIVE_REMARK = ASBESTOS_POSITIVE_REMARK;
+const NEGATIVE_REMARK = ASBESTOS_NEGATIVE_REMARK;
 
 // The "RE:"/recipient block is a fixed 4-line grid (company, contact name,
 // street, city/state/zip) — when there's no company on file, the remaining

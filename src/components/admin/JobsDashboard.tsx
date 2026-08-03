@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import type { Company, Customer, InvoiceLineItem, JobDocument, JobWithCustomer, LabProfile, PricingZone, SampleItem, ServiceType } from "@/lib/types";
 import { defaultInvoiceLineItems, sampleDescriptionForServiceType } from "@/lib/invoice-defaults";
+import { ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK } from "@/lib/report-findings";
 import { splitAddress, parseAddressToFields, buildBillingAddress, googleMapsUrl } from "@/lib/address";
 import { joinName, splitFullName } from "@/lib/name";
 import type { AddressFields } from "@/lib/address";
@@ -1078,6 +1079,15 @@ export function ProjectDetailDialog({
   const [labCostInput, setLabCostInput] = useState(job.lab_cost_cents != null ? (job.lab_cost_cents / 100).toFixed(2) : "");
   const [reportSummaryInput, setReportSummaryInput] = useState(job.report_summary ?? "");
   const [reportNotesInput, setReportNotesInput] = useState(job.report_notes ?? "");
+  // Editable, auto-populated versions of every item on the Final Report
+  // tab's own checklist (reportChecklist) — lets the admin review and fix
+  // any of it (an address typo, a wrong project #) right before generating
+  // the report, without leaving this tab to find the field elsewhere.
+  const [customerNameInput, setCustomerNameInput] = useState(job.customers?.name ?? "");
+  const [billingAddressInput, setBillingAddressInput] = useState(job.customers?.billing_address ?? "");
+  const [serviceAddressInput, setServiceAddressInput] = useState(job.service_address ?? "");
+  const [projectNumberInput, setProjectNumberInput] = useState(job.project_number ?? "");
+  const [requestedDateInput, setRequestedDateInput] = useState(job.requested_date ?? "");
   const [invoiceCcQuery, setInvoiceCcQuery] = useState("");
   const [reportCcQuery, setReportCcQuery] = useState("");
   const [includePayNowLink, setIncludePayNowLink] = useState(true);
@@ -1237,6 +1247,29 @@ export function ProjectDetailDialog({
     onChanged();
   }
 
+  async function saveJobField(patch: Record<string, unknown>) {
+    await fetch(`/api/admin/jobs/${job.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    });
+    onChanged();
+  }
+
+  // Customer name/billing address live on the customers row, not the job —
+  // editing them here updates the same contact record shown on the
+  // Contacts tab and every other one of their projects, same as editing
+  // them via Edit Project would.
+  async function saveCustomerField(patch: Record<string, unknown>) {
+    if (!job.customer_id) return;
+    await fetch(`/api/admin/customers/${job.customer_id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    });
+    onChanged();
+  }
+
   // Manual overrides for whenever an emailed-in lab report doesn't get
   // auto-recognized (a new lab format, an unusual page layout) — the admin
   // can just pick the lab and type the count directly rather than being
@@ -1387,47 +1420,47 @@ export function ProjectDetailDialog({
 
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black/40 px-4">
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-5">
+      <div className="max-h-[90vh] w-full max-w-5xl overflow-y-auto rounded-xl bg-white p-5">
         <div className="flex items-center gap-1 border-b border-slate-200">
           <button
             onClick={() => setTab("info")}
-            className={`px-3 py-1.5 text-sm font-bold ${tab === "info" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
+            className={`whitespace-nowrap px-3 py-1.5 text-sm font-bold uppercase ${tab === "info" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
           >
-            Project Information
+            Project Info
           </button>
           <button
             onClick={() => setTab("samples")}
-            className={`px-3 py-1.5 text-sm font-bold ${tab === "samples" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
+            className={`whitespace-nowrap px-3 py-1.5 text-sm font-bold uppercase ${tab === "samples" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
           >
             Laboratory Paperwork
           </button>
           <button
             onClick={() => setTab("report")}
-            className={`px-3 py-1.5 text-sm font-bold ${tab === "report" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
+            className={`whitespace-nowrap px-3 py-1.5 text-sm font-bold uppercase ${tab === "report" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
           >
             Final Report
           </button>
           <button
             onClick={() => setTab("invoicing")}
-            className={`px-3 py-1.5 text-sm font-bold ${tab === "invoicing" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
+            className={`whitespace-nowrap px-3 py-1.5 text-sm font-bold uppercase ${tab === "invoicing" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
           >
             Invoice
           </button>
           <button
             onClick={() => setTab("email")}
-            className={`px-3 py-1.5 text-sm font-bold ${tab === "email" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
+            className={`whitespace-nowrap px-3 py-1.5 text-sm font-bold uppercase ${tab === "email" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
           >
             Email
           </button>
           <button
             onClick={() => setTab("chat")}
-            className={`px-3 py-1.5 text-sm font-bold ${tab === "chat" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
+            className={`whitespace-nowrap px-3 py-1.5 text-sm font-bold uppercase ${tab === "chat" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
           >
             Chat
           </button>
           <button
             onClick={() => setTab("photos")}
-            className={`px-3 py-1.5 text-sm font-bold ${tab === "photos" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
+            className={`whitespace-nowrap px-3 py-1.5 text-sm font-bold uppercase ${tab === "photos" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
           >
             Photos
           </button>
@@ -1437,14 +1470,14 @@ export function ProjectDetailDialog({
         {tab === "info" && (
         <>
         <div className="mt-2 grid grid-cols-1 gap-y-4">
-          <div className="space-y-1">
+          <div className="space-y-2">
+            <DetailField label="Project #" value={job.project_number} />
             <div className="flex items-center justify-between gap-2">
               <DetailField label="Customer" value={job.customers?.company} nowrap />
               <button onClick={onEdit} className="shrink-0 rounded-lg border border-slate-300 px-3.5 py-1.5 text-sm font-bold">
                 Edit
               </button>
             </div>
-            <DetailField label="Project #" value={job.project_number} />
             <DetailField
               label="Job site address"
               value={job.service_address ? (
@@ -1454,19 +1487,30 @@ export function ProjectDetailDialog({
               ) : null}
               nowrap
             />
+            <DetailField label="Service type" value={serviceTypeLabel(job.service_type)} nowrap />
             <div className="flex gap-2 text-sm">
               <span className="w-32 shrink-0 text-slate-500">Scope of Work</span>
               <span className="text-slate-800">{job.scope_of_work || "—"}</span>
             </div>
-            <DetailField label="Service type" value={serviceTypeLabel(job.service_type)} nowrap />
-            <DetailField label="Time" value={formatTime(job.requested_time) || "--:--"} />
             <DetailField label="Date" value={job.requested_date ? formatDate(job.requested_date) : "Unscheduled"} />
-            <DetailField
-              label="Payment Due Date"
-              value={formatDate(job.payment_due_date || paymentDueDate(job.requested_date ?? "")) || "—"}
-            />
+            <DetailField label="Time" value={formatTime(job.requested_time) || "--:--"} />
+            <div className="flex items-center gap-2 text-sm">
+              <span className="w-32 shrink-0 text-slate-500">Turnaround</span>
+              <button
+                onClick={() => setRush(false)}
+                className={`rounded px-2 py-0.5 text-xs font-bold uppercase ${job.lab_turnaround !== "Rush" ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
+              >
+                Standard
+              </button>
+              <button
+                onClick={() => setRush(true)}
+                className={`rounded px-2 py-0.5 text-xs font-bold uppercase ${job.lab_turnaround === "Rush" ? "bg-amber-500 text-white" : "bg-slate-100 text-slate-600"}`}
+              >
+                Rush
+              </button>
+            </div>
           </div>
-          <div className="space-y-1">
+          <div className="space-y-2">
             <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Customer contact</h4>
             <DetailField label="Name" value={job.customers?.name} nowrap />
             <DetailField label="Phone" value={job.customers?.phone} />
@@ -1483,32 +1527,25 @@ export function ProjectDetailDialog({
             )}
             <DetailField label="Billing address" value={job.customers?.billing_address ?? "—"} nowrap />
           </div>
-          <div className="space-y-1">
+          <div className="space-y-2">
             <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Job site contact</h4>
             <DetailField label="Name" value={job.site_contact_name ?? "—"} />
             <DetailField label="Phone" value={job.site_contact_phone ?? "—"} />
           </div>
           {job.notes && job.notes.trim() && (
-            <div className="space-y-1">
+            <div className="space-y-2">
               <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Notes</h4>
               <p className="text-sm text-slate-800">{job.notes}</p>
             </div>
           )}
           {(job.job_classification || job.payment_method || job.po_number || job.invoice_number || job.paid_date) && (
-            <div className="space-y-1">
+            <div className="space-y-2">
               <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Job details</h4>
               <DetailField label="Classification" value={job.job_classification} />
               <DetailField label="Payment method" value={job.payment_method} />
               <DetailField label="PO #" value={job.po_number} />
               <DetailField label="Invoice #" value={job.invoice_number} />
               <DetailField label="Paid date" value={formatDate(job.paid_date)} />
-            </div>
-          )}
-          {job.report_summary && (
-            <div className="col-span-2 space-y-1">
-              <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Report</h4>
-              <p className="text-sm text-slate-800">{job.report_summary}</p>
-              {job.report_notes && <p className="text-sm text-slate-600">{job.report_notes}</p>}
             </div>
           )}
         </div>
@@ -1542,18 +1579,30 @@ export function ProjectDetailDialog({
               <label className="mt-3 block text-xs font-semibold uppercase tracking-wide text-slate-400">
                 {isMoldJob(job) ? "Discussion of Results" : "Overall findings"}
               </label>
-              <textarea
-                className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
-                rows={isMoldJob(job) ? 6 : 2}
-                value={reportSummaryInput}
-                onChange={(e) => setReportSummaryInput(e.target.value)}
-                onBlur={(e) => saveReportSummary(e.target.value)}
-                placeholder={
-                  isMoldJob(job)
-                    ? "Paste or write the Discussion of Results section — one paragraph or bullet per line."
-                    : "e.g. None of the suspect materials sampled were determined to have asbestos fibers present."
-                }
-              />
+              {isMoldJob(job) ? (
+                <textarea
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+                  rows={6}
+                  value={reportSummaryInput}
+                  onChange={(e) => setReportSummaryInput(e.target.value)}
+                  onBlur={(e) => saveReportSummary(e.target.value)}
+                  placeholder="Paste or write the Discussion of Results section — one paragraph or bullet per line."
+                />
+              ) : (
+                <ComboboxInput
+                  value={reportSummaryInput}
+                  onChange={setReportSummaryInput}
+                  options={isLeadJob(job) ? [LEAD_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK] : [ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK]}
+                  getLabel={(o) => o}
+                  onSelect={(o) => {
+                    setReportSummaryInput(o);
+                    saveReportSummary(o);
+                  }}
+                  onEnter={(v) => saveReportSummary(v)}
+                  onBlur={(v) => saveReportSummary(v)}
+                  placeholder="e.g. None of the suspect materials sampled were determined to have asbestos fibers present."
+                />
+              )}
 
               <label className="mt-3 block text-xs font-semibold uppercase tracking-wide text-slate-400">
                 {isMoldJob(job) ? "Conclusions & Recommendations" : "Field notes (optional)"}
@@ -1566,6 +1615,117 @@ export function ProjectDetailDialog({
                 onBlur={(e) => saveReportNotes(e.target.value)}
                 placeholder={isMoldJob(job) ? "Paste or write the Conclusions & Recommendations section — one paragraph or bullet per line." : undefined}
               />
+            </div>
+
+            {/* Editable, auto-populated version of every item on the checklist
+                below — lets the admin fix a typo'd address or project # right
+                here instead of hunting through the other tabs first. */}
+            <div className="grid grid-cols-2 gap-3 rounded-lg border border-slate-200 p-3">
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">Customer</label>
+                <input
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+                  value={customerNameInput}
+                  onChange={(e) => setCustomerNameInput(e.target.value)}
+                  onBlur={(e) => saveCustomerField({ name: e.target.value.trim() })}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">Project #</label>
+                <input
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+                  value={projectNumberInput}
+                  onChange={(e) => setProjectNumberInput(e.target.value)}
+                  onBlur={(e) => saveJobField({ project_number: e.target.value.trim() || null })}
+                />
+              </div>
+              <div className="col-span-2">
+                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">Job site address</label>
+                <input
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+                  value={serviceAddressInput}
+                  onChange={(e) => setServiceAddressInput(e.target.value)}
+                  onBlur={(e) => saveJobField({ service_address: e.target.value.trim() })}
+                />
+              </div>
+              <div className="col-span-2">
+                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">Billing address</label>
+                <input
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+                  value={billingAddressInput}
+                  onChange={(e) => setBillingAddressInput(e.target.value)}
+                  onBlur={(e) => saveCustomerField({ billing_address: e.target.value.trim() || null })}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">Date</label>
+                <input
+                  type="date"
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+                  value={requestedDateInput}
+                  onChange={(e) => setRequestedDateInput(e.target.value)}
+                  onBlur={(e) => saveJobField({ requested_date: e.target.value || null })}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">Lab info</label>
+                <select
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+                  value={job.lab_name ?? ""}
+                  onChange={(e) => selectLab(e.target.value)}
+                >
+                  <option value="">— Not set —</option>
+                  {labs.map((l) => (
+                    <option key={l.name} value={l.name}>{l.name}</option>
+                  ))}
+                </select>
+              </div>
+              {serviceTypeLabels.map((label) => {
+                const sampleCount = job.sample_counts?.[label];
+                return (
+                  <div key={label}>
+                    <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">{label} — Sample count</label>
+                    <input
+                      type="number"
+                      min={0}
+                      defaultValue={sampleCount ?? ""}
+                      key={`count-${label}-${sampleCount}`}
+                      onBlur={(e) => {
+                        const next = Number(e.target.value);
+                        if (!Number.isNaN(next) && next !== (sampleCount ?? 0)) setSampleCountForType(label, next);
+                      }}
+                      className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+                    />
+                  </div>
+                );
+              })}
+              {serviceTypeLabels.map((label) => {
+                const isAsbestosLabel = /asbestos/i.test(label);
+                const isLeadLabel = /lead/i.test(label);
+                if (!isAsbestosLabel && !isLeadLabel) return null;
+                const result = isLeadLabel ? job.lead_result : job.asbestos_result;
+                return (
+                  <div key={label}>
+                    <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">{label} — Results</label>
+                    <div className="mt-1 flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => (isLeadLabel ? setLeadResult("positive") : setAsbestosResult("positive"))}
+                        className={`rounded px-2 py-1 text-xs font-bold uppercase ${result === "positive" ? "bg-red-600 text-white" : "bg-slate-100 text-slate-600"}`}
+                      >
+                        Positive
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => (isLeadLabel ? setLeadResult("negative") : setAsbestosResult("negative"))}
+                        className={`rounded px-2 py-1 text-xs font-bold uppercase ${result === "negative" ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-600"}`}
+                      >
+                        Negative
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
 
             {job.report_sent_at && (() => {
@@ -1733,28 +1893,14 @@ export function ProjectDetailDialog({
 
         {tab === "invoicing" && (
           <div className="mt-4">
-            <div className="mb-4 flex items-center gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Turnaround</span>
-              <button
-                onClick={() => setRush(false)}
-                className={`rounded px-2 py-0.5 text-xs font-bold uppercase ${job.lab_turnaround !== "Rush" ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
-              >
-                Standard
-              </button>
-              <button
-                onClick={() => setRush(true)}
-                className={`rounded px-2 py-0.5 text-xs font-bold uppercase ${job.lab_turnaround === "Rush" ? "bg-amber-500 text-white" : "bg-slate-100 text-slate-600"}`}
-              >
-                Rush
-              </button>
+            <div className="mb-4 space-y-1">
+              {job.po_number && <DetailField label="PO #" value={job.po_number} />}
+              {job.invoice_number && <DetailField label="Invoice #" value={job.invoice_number} />}
+              <DetailField
+                label="Payment Due Date"
+                value={formatDate(job.payment_due_date || paymentDueDate(job.requested_date ?? "")) || "—"}
+              />
             </div>
-
-            {(job.po_number || job.invoice_number) && (
-              <div className="mb-4 space-y-1">
-                <DetailField label="PO #" value={job.po_number} />
-                <DetailField label="Invoice #" value={job.invoice_number} />
-              </div>
-            )}
 
             <LineItemsEditor items={invoiceLineItems} setItems={setInvoiceLineItemsFromUser} serviceTypeSettings={serviceTypeSettings} />
             {savingInvoice && <p className="mt-1 text-xs text-slate-400">Saving…</p>}
@@ -2561,7 +2707,7 @@ function CcPicker({
 }
 
 export function ComboboxInput<T>({
-  value, onChange, options, fetchOptions, getLabel, getSublabel, onSelect, placeholder, disabled, onEnter,
+  value, onChange, options, fetchOptions, getLabel, getSublabel, onSelect, placeholder, disabled, onEnter, onBlur,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -2574,10 +2720,17 @@ export function ComboboxInput<T>({
   disabled?: boolean;
   /** Pressing Enter with no suggestion list open — lets a caller add whatever's typed directly (e.g. CcPicker adding a raw email not in the Directory). */
   onEnter?: (value: string) => void;
+  /** Free-typed text that was never picked from the list or Entered — saved the same way a plain input's onBlur would. */
+  onBlur?: (value: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [asyncOptions, setAsyncOptions] = useState<T[]>([]);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The li's onMouseDown (which calls onSelect) always fires before the
+  // input's onBlur — without this guard, onBlur would still fire with the
+  // stale pre-selection value and could race/overwrite the fresh onSelect
+  // save with the old text.
+  const justSelectedRef = useRef(false);
 
   useEffect(() => {
     if (!fetchOptions) return;
@@ -2613,7 +2766,14 @@ export function ComboboxInput<T>({
           setOpen(true);
         }}
         onFocus={() => setOpen(true)}
-        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        onBlur={() => {
+          if (justSelectedRef.current) {
+            justSelectedRef.current = false;
+          } else {
+            onBlur?.(value);
+          }
+          setTimeout(() => setOpen(false), 150);
+        }}
         onKeyDown={(e) => {
           if (e.key === "Enter" && onEnter) {
             e.preventDefault();
@@ -2628,6 +2788,7 @@ export function ComboboxInput<T>({
             <li
               key={i}
               onMouseDown={() => {
+                justSelectedRef.current = true;
                 onSelect(o);
                 setOpen(false);
               }}

@@ -3,6 +3,7 @@ import { Document, Page, Text, View, Image, StyleSheet, renderToBuffer } from "@
 import type { Style } from "@react-pdf/types";
 import { splitAddress } from "@/lib/address";
 import type { Job, Customer, Settings } from "@/lib/types";
+import { ASBESTOS_POSITIVE_REMARK, ASBESTOS_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK } from "@/lib/report-findings";
 
 const LETTERHEAD_PATH = path.join(process.cwd(), "public", "letterhead.png");
 const SIGNATURE_PATH = path.join(process.cwd(), "public", "signature.png");
@@ -127,13 +128,9 @@ function AsbestosReportDocument({ job, customer, settings }: ProjectReportData) 
   // vertical space regardless of which of the 3 possible messages it is.
   const resultRemarkIndex = remarks.length;
   if (job.asbestos_result === "positive") {
-    remarks.push(
-      "Each identified asbestos containing material must be removed by a licensed asbestos abatement contractor prior to being disturbed by building maintenance, renovation or demolition activities."
-    );
+    remarks.push(ASBESTOS_POSITIVE_REMARK);
   } else if (job.asbestos_result === "negative") {
-    remarks.push(
-      "None of the suspect materials sampled were determined to have asbestos fibers present when analyzed by Polarized Light Microscopy."
-    );
+    remarks.push(ASBESTOS_NEGATIVE_REMARK);
   } else {
     remarks.push("NO RESULTS YET.");
   }
@@ -241,11 +238,9 @@ function LeadReportDocument({ job, customer, settings }: ProjectReportData) {
   ];
   const resultRemarkIndex = remarks.length;
   if (job.lead_result === "positive") {
-    remarks.push(
-      "One or more of the sampled paints was determined to contain lead at a concentration meeting or exceeding the Massachusetts Department of Public Health (MassDPH) and Federal HUD lead-based paint threshold of 0.5% by weight (5,000 ppm). Materials determined to be lead-based paint should be managed in accordance with applicable state and federal regulations prior to being disturbed by building maintenance, renovation, or demolition activities."
-    );
+    remarks.push(LEAD_POSITIVE_REMARK);
   } else if (job.lead_result === "negative") {
-    remarks.push("None of the sampled paints contained detectable levels of lead based on analysis for Total Concentration of Lead.");
+    remarks.push(LEAD_NEGATIVE_REMARK);
   } else {
     remarks.push("NO RESULTS YET.");
   }

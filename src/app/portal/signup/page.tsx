@@ -33,7 +33,11 @@ export default function PortalSignupPage() {
           // round trip — read back in getContractorSession() and applied
           // to the customers row on /portal/onboarding.
           data: { account_type: accountType },
-          emailRedirectTo: `${window.location.origin}/auth/callback?next=/portal/onboarding`,
+          // No ?next= query string — /auth/callback defaults to onboarding
+          // on its own now, since a bare path is less likely to trip up
+          // Supabase's Redirect URL allowlist check than one with a query
+          // string tacked on (see its comment for the full story).
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
         },
       });
       if (signUpError) throw signUpError;
@@ -69,24 +73,36 @@ export default function PortalSignupPage() {
 
       {error && <div className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
-      <div className="mt-6 flex gap-4 text-sm text-slate-700">
-        <label className="flex items-center gap-1.5">
+      <div className="mt-6 space-y-3 text-sm text-slate-700">
+        <label className="flex items-start gap-2">
           <input
             type="radio"
             name="accountType"
+            className="mt-0.5"
             checked={accountType === "company"}
             onChange={() => setAccountType("company")}
           />
-          Company
+          <span>
+            <span className="font-medium">Company</span>
+            <span className="block text-slate-500">
+              You're booking on behalf of a business. Teammates you invite later will see the same projects.
+            </span>
+          </span>
         </label>
-        <label className="flex items-center gap-1.5">
+        <label className="flex items-start gap-2">
           <input
             type="radio"
             name="accountType"
+            className="mt-0.5"
             checked={accountType === "individual"}
             onChange={() => setAccountType("individual")}
           />
-          Individual
+          <span>
+            <span className="font-medium">Individual</span>
+            <span className="block text-slate-500">
+              You're paying for this yourself — typically a homeowner. Reports become available once payment is received.
+            </span>
+          </span>
         </label>
       </div>
 

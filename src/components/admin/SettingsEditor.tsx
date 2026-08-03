@@ -409,7 +409,6 @@ export function GmailConnection({ compact = false }: { compact?: boolean } = {})
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [disconnecting, setDisconnecting] = useState(false);
-  const [checking, setChecking] = useState(false);
 
   function load() {
     fetch("/api/admin/gmail/status")
@@ -449,50 +448,14 @@ export function GmailConnection({ compact = false }: { compact?: boolean } = {})
     }
   }
 
-  async function checkNow() {
-    setChecking(true);
-    setError(null);
-    setNotice(null);
-    try {
-      const res = await fetch("/api/admin/gmail/check-now", { method: "POST" });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Check failed");
-      const parts = [`Checked ${data.checked} email${data.checked === 1 ? "" : "s"}.`];
-      if (data.matched?.length) parts.push(`Drafted ${data.matched.length} report${data.matched.length === 1 ? "" : "s"}.`);
-      if (data.cocUploaded?.length) parts.push(`Uploaded ${data.cocUploaded.length} chain of custody form${data.cocUploaded.length === 1 ? "" : "s"}.`);
-      if (data.labInvoicesRecorded?.length) parts.push(`Recorded ${data.labInvoicesRecorded.length} lab invoice${data.labInvoicesRecorded.length === 1 ? "" : "s"}.`);
-      if (data.unmatched) parts.push(`${data.unmatched} unmatched.`);
-      setNotice(parts.join(" "));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Check failed");
-    } finally {
-      setChecking(false);
-    }
-  }
-
   return (
     <div>
-      {!compact && (
-        <p className="text-xs text-slate-500">
-          Connects your Gmail inbox so incoming lab result emails can be matched to a project automatically — a Gmail
-          draft with the final report and invoice gets prepared for you to review and send, nothing goes out on its own.
-        </p>
-      )}
       {notice && <div className="mt-2 rounded bg-emerald-50 px-2 py-1 text-xs text-emerald-700">{notice}</div>}
       {error && <div className="mt-2 rounded bg-red-50 px-2 py-1 text-xs text-red-700">{error}</div>}
       <div className={`flex items-center gap-2 ${compact ? "" : "mt-2"}`}>
         {status?.connected ? (
           <>
             <span className="text-sm text-slate-700">Gmail connected as {status.email}</span>
-            {!compact && (
-              <button
-                onClick={checkNow}
-                disabled={checking}
-                className="rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
-              >
-                {checking ? "Checking…" : "Check for new lab emails"}
-              </button>
-            )}
             <button
               onClick={disconnect}
               disabled={disconnecting}

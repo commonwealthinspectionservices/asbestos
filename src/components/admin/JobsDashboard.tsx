@@ -1985,11 +1985,6 @@ export function ProjectDetailDialog({
                   </button>
                   {combinedDraft.message && <span className="text-xs text-slate-500">{combinedDraft.message}</span>}
                 </div>
-                {job.invoice_recipient && (
-                  <p className="mt-1.5 text-xs text-slate-500">
-                    Creates a Gmail draft (not sent) with the final report and invoice, addressed to {job.invoice_recipient.name} &lt;{job.invoice_recipient.email}&gt;.
-                  </p>
-                )}
               </div>
             )}
           </div>

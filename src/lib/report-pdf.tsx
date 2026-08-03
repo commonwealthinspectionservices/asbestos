@@ -134,7 +134,13 @@ function AsbestosReportDocument({ job, customer, settings }: ProjectReportData) 
   } else {
     remarks.push("NO RESULTS YET.");
   }
-  if (job.report_summary) remarks.push(job.report_summary);
+  // Selecting a canned Overall findings sentence in the admin UI now sets
+  // report_summary AND the matching asbestos_result together (they're the
+  // same determination) — skip re-adding it here when it just repeats the
+  // remark above verbatim.
+  if (job.report_summary && job.report_summary !== ASBESTOS_POSITIVE_REMARK && job.report_summary !== ASBESTOS_NEGATIVE_REMARK) {
+    remarks.push(job.report_summary);
+  }
   if (job.report_notes) remarks.push(job.report_notes);
 
   const { knownCustomerName, dateText, addressLines, billingStreet, billing, serviceStreet, service } = commonLetterFields(job, customer, settings);
@@ -244,7 +250,13 @@ function LeadReportDocument({ job, customer, settings }: ProjectReportData) {
   } else {
     remarks.push("NO RESULTS YET.");
   }
-  if (job.report_summary) remarks.push(job.report_summary);
+  // Selecting a canned Overall findings sentence in the admin UI now sets
+  // report_summary AND the matching lead_result together (they're the same
+  // determination) — skip re-adding it here when it just repeats the
+  // remark above verbatim.
+  if (job.report_summary && job.report_summary !== LEAD_POSITIVE_REMARK && job.report_summary !== LEAD_NEGATIVE_REMARK) {
+    remarks.push(job.report_summary);
+  }
   if (job.report_notes) remarks.push(job.report_notes);
 
   const { knownCustomerName, dateText, addressLines, billingStreet, billing, serviceStreet, service } = commonLetterFields(job, customer, settings);

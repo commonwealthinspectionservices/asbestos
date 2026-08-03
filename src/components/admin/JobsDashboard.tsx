@@ -1530,8 +1530,6 @@ export function ProjectDetailDialog({
             {job.customers?.companies && (
               <div className="space-y-2">
                 <h4 className="text-sm font-bold uppercase tracking-wide text-black underline">Company info</h4>
-                <DetailField label="Phone" value={job.customers.companies.phone} />
-                <DetailField label="Billing address" value={job.customers.companies.billing_address} nowrap />
                 {job.customers.companies.billing_contact && (
                   <DetailField
                     label="Billing contact"
@@ -1546,6 +1544,8 @@ export function ProjectDetailDialog({
                     nowrap
                   />
                 )}
+                <DetailField label="Phone" value={job.customers.companies.phone} />
+                <DetailField label="Billing address" value={job.customers.companies.billing_address} nowrap />
               </div>
             )}
           </div>
@@ -1696,7 +1696,7 @@ export function ProjectDetailDialog({
               })}
               <div className="col-span-2">
                 <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
-                  {isMoldJob(job) ? "Discussion of Results" : "Overall findings"}
+                  {isMoldJob(job) ? "Discussion of Results" : "Result"}
                 </label>
                 {isMoldJob(job) ? (
                   <textarea

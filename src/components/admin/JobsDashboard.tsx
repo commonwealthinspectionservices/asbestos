@@ -1966,12 +1966,15 @@ export function ProjectDetailDialog({
               </div>
             ) : job.invoice_total_cents == null || !reportComplete ? (
               <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
-                <p className="text-sm font-bold uppercase text-amber-800">Not complete</p>
-                <p className="mt-1 text-sm text-amber-800">
-                  {job.invoice_total_cents == null
-                    ? "Available once the invoice total is calculated (add a base fee or sample count)."
-                    : "Available once every field on the Final Report tab is filled in."}
-                </p>
+                <p className="text-sm font-bold uppercase text-amber-800">Email is not fully complete</p>
+                <ul className="mt-1 list-disc space-y-0.5 pl-5 text-sm text-amber-800">
+                  {job.invoice_total_cents == null && (
+                    <li>Invoice — add a base fee or sample count so a total can be calculated.</li>
+                  )}
+                  {!reportComplete && (
+                    <li>Final Report — fill in every field on the Final Report tab.</li>
+                  )}
+                </ul>
               </div>
             ) : job.is_homeowner && job.status !== "paid" ? (
               <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">

@@ -105,11 +105,11 @@ export default function ProjectsList() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-sm font-bold uppercase text-brand-700">My Projects</h1>
+      <div className="mt-6 flex items-center justify-between">
+        <h1 className="text-2xl font-bold uppercase text-brand-700">My Projects</h1>
         <Link
           href="/portal/book"
-          className="inline-flex h-[22px] items-center bg-emerald-600 px-4 pt-0.5 text-sm font-extrabold uppercase leading-none text-white hover:underline sm:h-[29px]"
+          className="inline-flex h-10 items-center bg-emerald-600 px-6 text-lg font-extrabold uppercase leading-none text-white hover:underline sm:h-12"
         >
           Book a project
         </Link>
@@ -120,7 +120,7 @@ export default function ProjectsList() {
       {loading ? (
         <p className="mt-6 text-sm text-slate-500">Loading…</p>
       ) : projects.length === 0 ? (
-        <p className="mt-6 text-sm text-slate-500">No projects yet.</p>
+        <p className="mt-6 text-lg text-slate-500">No projects yet.</p>
       ) : (
         <div className="mt-6 space-y-2">
           {projects.map((p) => {

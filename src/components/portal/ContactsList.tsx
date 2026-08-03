@@ -40,7 +40,7 @@ export default function ContactsList() {
 
   useEffect(load, []);
 
-  async function addContact() {
+  async function addAndInvite() {
     setAdding(true);
     setError(null);
     try {
@@ -51,12 +51,19 @@ export default function ContactsList() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to save contact");
+
+      const inviteRes = await fetch(`/api/portal/contacts/${data.contact.id}/invite`, { method: "POST" });
+      const inviteData = await inviteRes.json();
+      if (!inviteRes.ok) throw new Error(inviteData.error ?? "Contact saved, but the invite failed to send");
+
       setFirstName("");
       setLastName("");
       setEmail("");
+      setInvitedId(data.contact.id);
       load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save contact");
+      setError(e instanceof Error ? e.message : "Failed to send invite");
+      load();
     } finally {
       setAdding(false);
     }
@@ -95,7 +102,7 @@ export default function ContactsList() {
     <div className="mx-auto max-w-2xl px-4 py-6">
       <h1 className="text-lg font-semibold text-slate-800">Contacts</h1>
       <p className="mt-1 text-sm text-slate-500">
-        Add people at your company so you can pick who gets results and invoices, per project.
+        Invite people at your company to set up their own login — they'll immediately see all of your company's projects.
       </p>
 
       {error && <div className="mt-3 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>}
@@ -125,16 +132,16 @@ export default function ContactsList() {
         <button
           className="mt-2 inline-flex h-[22px] items-center border-[3px] border-brand-700 bg-brand-50 px-4 pt-0.5 text-sm font-extrabold uppercase leading-none text-brand-700 hover:bg-yellow-100 disabled:opacity-50 sm:h-[29px]"
           disabled={adding || !firstName.trim() || !lastName.trim() || !email.trim()}
-          onClick={addContact}
+          onClick={addAndInvite}
         >
-          {adding ? "Saving…" : "Add contact"}
+          {adding ? "Sending…" : "Send invite"}
         </button>
       </div>
 
       {loading ? (
         <p className="mt-6 text-sm text-slate-500">Loading…</p>
       ) : contacts.length === 0 ? (
-        <p className="mt-6 text-sm text-slate-500">No contacts yet — they'll appear here once you add one.</p>
+        <p className="mt-6 text-sm text-slate-500">No contacts yet — they'll appear here once you invite one.</p>
       ) : (
         <div className="mt-4 space-y-2">
           {contacts.map((c) => (

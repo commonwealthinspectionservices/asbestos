@@ -293,10 +293,6 @@ create table if not exists settings (
     {"name":"EMSL Analytical, Inc.","nist_cert":"101147-0","massdls_cert":"AA000188"},
     {"name":"Crystal Analytical, LLC.","nist_cert":"600387-0","massdls_cert":"AA000259"}
   ]'::jsonb,
-  -- dropdown options for each project's Job Classification / Payment Method
-  -- fields — plain string lists, editable in Settings, not hardcoded
-  job_classifications jsonb not null default '["Residential", "Commercial"]'::jsonb,
-  payment_methods jsonb not null default '["Check", "Credit Card", "ACH", "Cash", "Other"]'::jsonb,
   constraint settings_singleton check (id = 1)
 );
 
@@ -411,10 +407,6 @@ alter table jobs add column if not exists job_classification text;
 alter table jobs add column if not exists payment_method text;
 alter table jobs add column if not exists po_number text;
 alter table jobs add column if not exists invoice_number text;
-
--- Dropdown options for Job Classification / Payment Method, editable in Settings.
-alter table settings add column if not exists job_classifications jsonb not null default '["Residential", "Commercial"]'::jsonb;
-alter table settings add column if not exists payment_methods jsonb not null default '["Check", "Credit Card", "ACH", "Cash", "Other"]'::jsonb;
 
 -- Collapses 'fieldwork_in_progress' + 'awaiting_lab_results' + 'needs_report'
 -- into one wait state (see the job_status comment above). Run this
@@ -618,3 +610,8 @@ begin
   delete from customers where id = loser_id;
 end;
 $$ language plpgsql;
+
+-- Licensed inspectors who may perform jobs — name/title/license #, editable
+-- in Settings. Not yet wired into report/invoice/CoC generation, which
+-- still uses the single owner_name/owner_title/license_number columns above.
+alter table settings add column if not exists inspectors jsonb not null default '[]'::jsonb;

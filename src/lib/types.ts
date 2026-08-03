@@ -42,6 +42,13 @@ export interface LabProfile {
   massdls_cert: string;
 }
 
+/** A licensed inspector who may perform jobs — not yet wired into report/invoice/CoC generation, which still uses the single owner_name/owner_title/license_number fields below. */
+export interface Inspector {
+  name: string;
+  title: string;
+  license_number: string;
+}
+
 export interface Settings {
   id: number;
   /** The actual booking-acceptance gate — state abbreviations (e.g. ["MA"]) the owner is currently licensed to work in. */
@@ -70,10 +77,7 @@ export interface Settings {
   service_types: ServiceType[];
   pricing_zones: PricingZone[];
   labs: LabProfile[];
-  /** Options for the Job Classification dropdown on each project — editable here, not hardcoded. */
-  job_classifications: string[];
-  /** Options for the Payment Method dropdown on each project. */
-  payment_methods: string[];
+  inspectors: Inspector[];
   /** MA asbestos inspector license # (or equivalent), printed on the COC and report footer. */
   license_number: string;
   /** Storage path (job-documents bucket) of a single PDF combining the owner's license + state certificate — merged into every report packet. */

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Settings, ServiceType, PricingZone, LabProfile } from "@/lib/types";
+import type { Settings, ServiceType, PricingZone, LabProfile, Inspector } from "@/lib/types";
 
 type FormState = Omit<Settings, "id" | "updated_at" | "last_area_alert_sent_at">;
 
@@ -92,6 +92,23 @@ export default function SettingsEditor() {
     update("labs", form.labs.filter((_, i) => i !== index));
   }
 
+  function updateInspector(index: number, patch: Partial<Inspector>) {
+    if (!form) return;
+    const next = [...form.inspectors];
+    next[index] = { ...next[index], ...patch };
+    update("inspectors", next);
+  }
+
+  function addInspector() {
+    if (!form) return;
+    update("inspectors", [...form.inspectors, { name: "New inspector", title: "", license_number: "" }]);
+  }
+
+  function removeInspector(index: number) {
+    if (!form) return;
+    update("inspectors", form.inspectors.filter((_, i) => i !== index));
+  }
+
   async function save() {
     if (!form) return;
     setSaving(true);
@@ -139,30 +156,34 @@ export default function SettingsEditor() {
         <Field label="Business phone">
           <TextInput value={form.business_phone} onChange={(v) => update("business_phone", v)} />
         </Field>
-        <Field label="Owner name">
-          <TextInput value={form.owner_name} onChange={(v) => update("owner_name", v)} />
-        </Field>
-        <Field label="Owner title">
-          <TextInput value={form.owner_title} onChange={(v) => update("owner_title", v)} />
-        </Field>
-        <Field label="License #">
-          <TextInput value={form.license_number} onChange={(v) => update("license_number", v)} />
-        </Field>
+      </Section>
+
+      <Section title="Inspectors">
+        <div className="space-y-3">
+          {form.inspectors.map((inspector, i) => (
+            <div key={i} className="rounded-lg border border-slate-200 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <TextInput value={inspector.name} onChange={(v) => updateInspector(i, { name: v })} placeholder="Name" />
+                <button onClick={() => removeInspector(i)} className="shrink-0 text-sm text-red-600">Remove</button>
+              </div>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <Field label="Title">
+                  <TextInput value={inspector.title} onChange={(v) => updateInspector(i, { title: v })} />
+                </Field>
+                <Field label="License #">
+                  <TextInput value={inspector.license_number} onChange={(v) => updateInspector(i, { license_number: v })} />
+                </Field>
+              </div>
+            </div>
+          ))}
+          <button onClick={addInspector} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm">
+            Add inspector
+          </button>
+        </div>
       </Section>
 
       <Section title="Gmail">
         <GmailConnection />
-      </Section>
-
-      <Section title="Credentials document">
-        <p className="text-xs text-slate-500">
-          A single PDF combining your license and state certificate — merged into the end of every generated
-          report packet automatically.
-        </p>
-        <CredentialsUpload
-          currentPath={form.credentials_document_path}
-          onUploaded={(path) => update("credentials_document_path", path)}
-        />
       </Section>
 
       <Section title="Service area">
@@ -334,24 +355,6 @@ export default function SettingsEditor() {
         </div>
       </Section>
 
-      <Section title="Project details options">
-        <p className="text-xs text-slate-500">
-          Dropdown options shown on each project&apos;s Job Classification and Payment Method fields.
-        </p>
-        <Field label="Job classifications (comma-separated)">
-          <TextInput
-            value={form.job_classifications.join(", ")}
-            onChange={(v) => update("job_classifications", v.split(",").map((s) => s.trim()).filter(Boolean))}
-          />
-        </Field>
-        <Field label="Payment methods (comma-separated)">
-          <TextInput
-            value={form.payment_methods.join(", ")}
-            onChange={(v) => update("payment_methods", v.split(",").map((s) => s.trim()).filter(Boolean))}
-          />
-        </Field>
-      </Section>
-
       <button
         onClick={save}
         disabled={saving}
@@ -474,50 +477,6 @@ export function GmailConnection({ compact = false }: { compact?: boolean } = {})
         ) : (
           <span className="text-sm text-slate-500">Loading…</span>
         )}
-      </div>
-    </div>
-  );
-}
-
-function CredentialsUpload({ currentPath, onUploaded }: { currentPath: string | null; onUploaded: (path: string) => void }) {
-  const [file, setFile] = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function upload() {
-    if (!file) return;
-    setUploading(true);
-    setError(null);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const res = await fetch("/api/admin/settings/credentials-document", { method: "POST", body: formData });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Upload failed");
-      onUploaded(data.settings.credentials_document_path);
-      setFile(null);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Upload failed");
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  return (
-    <div>
-      <p className="text-xs text-slate-500">
-        {currentPath ? "A credentials document is currently on file." : "No credentials document uploaded yet."}
-      </p>
-      {error && <div className="mt-2 rounded bg-red-50 px-2 py-1 text-xs text-red-700">{error}</div>}
-      <div className="mt-2 flex items-center gap-2">
-        <input type="file" accept="application/pdf" className="text-sm" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
-        <button
-          onClick={upload}
-          disabled={!file || uploading}
-          className="rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
-        >
-          {uploading ? "Uploading…" : "Upload"}
-        </button>
       </div>
     </div>
   );

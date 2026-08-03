@@ -156,6 +156,19 @@ export default function SettingsEditor() {
         <Field label="Business phone">
           <TextInput value={form.business_phone} onChange={(v) => update("business_phone", v)} />
         </Field>
+        <p className="text-xs text-slate-500">
+          The name, title, and license # below are what print on every report, invoice, and Chain of Custody
+          form&apos;s signature block — not tied to the Inspectors list yet.
+        </p>
+        <Field label="Owner name">
+          <TextInput value={form.owner_name} onChange={(v) => update("owner_name", v)} />
+        </Field>
+        <Field label="Owner title">
+          <TextInput value={form.owner_title} onChange={(v) => update("owner_title", v)} />
+        </Field>
+        <Field label="License #">
+          <TextInput value={form.license_number} onChange={(v) => update("license_number", v)} />
+        </Field>
       </Section>
 
       <Section title="Inspectors">

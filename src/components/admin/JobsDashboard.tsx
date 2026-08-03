@@ -370,8 +370,17 @@ function daysOverdue(job: JobWithCustomer): number | null {
 // underline for (see ValueOrBlank in report-pdf.tsx) — itemized so the
 // Final Report tab can show admins exactly what's still missing, not just
 // a plain "not ready yet".
+// Mold labs (e.g. EMSL's AIHA LAP/EMLAP accreditation) don't carry a MassDLS
+// cert at all — that's asbestos/MA-DLS-specific — and mold results are a
+// pasted Discussion of Results (report_summary), not the asbestos_result
+// field. See MoldReportDocument in lib/report-pdf.tsx.
+function isMoldJob(job: JobWithCustomer): boolean {
+  return (job.service_type ?? "").toLowerCase().includes("mold");
+}
+
 function reportChecklist(job: JobWithCustomer): { label: string; done: boolean }[] {
   const totalSamples = Object.values(job.sample_counts ?? {}).reduce((sum, n) => sum + (n || 0), 0) || job.sample_count || 0;
+  const mold = isMoldJob(job);
   return [
     { label: "Customer", done: Boolean(job.customers?.name && job.customers.name !== "Unknown contact") },
     { label: "Billing address", done: Boolean(job.customers?.billing_address) },
@@ -379,8 +388,8 @@ function reportChecklist(job: JobWithCustomer): { label: string; done: boolean }
     { label: "Project #", done: Boolean(job.project_number) },
     { label: "Date", done: Boolean(job.requested_date) },
     { label: "Sample count", done: totalSamples > 0 },
-    { label: "Lab info", done: Boolean(job.lab_name && job.lab_nist_cert && job.lab_massdls_cert) },
-    { label: "Results", done: Boolean(job.asbestos_result) },
+    { label: "Lab info", done: Boolean(job.lab_name && job.lab_nist_cert && (mold || job.lab_massdls_cert)) },
+    { label: "Results", done: mold ? Boolean(job.report_summary) : Boolean(job.asbestos_result) },
   ];
 }
 
@@ -4045,15 +4054,30 @@ export function EnterLabResultsDialog({
           </div>
         </div>
 
-        <label className="mt-3 block text-sm font-medium text-slate-700">Overall findings (for report)</label>
-        <input className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value={reportSummary} onChange={(e) => setReportSummary(e.target.value)} placeholder="e.g. None of the suspect materials sampled were determined to have asbestos fibers present." />
-
-        <label className="mt-3 block text-sm font-medium text-slate-700">Field notes (optional)</label>
+        <label className="mt-3 block text-sm font-medium text-slate-700">
+          {isMoldJob(job) ? "Discussion of Results (for report)" : "Overall findings (for report)"}
+        </label>
         <textarea
           className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-          rows={2}
+          rows={isMoldJob(job) ? 6 : 2}
+          value={reportSummary}
+          onChange={(e) => setReportSummary(e.target.value)}
+          placeholder={
+            isMoldJob(job)
+              ? "Paste or write the Discussion of Results section — one paragraph or bullet per line."
+              : "e.g. None of the suspect materials sampled were determined to have asbestos fibers present."
+          }
+        />
+
+        <label className="mt-3 block text-sm font-medium text-slate-700">
+          {isMoldJob(job) ? "Conclusions & Recommendations (for report)" : "Field notes (optional)"}
+        </label>
+        <textarea
+          className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          rows={isMoldJob(job) ? 6 : 2}
           value={reportNotes}
           onChange={(e) => setReportNotes(e.target.value)}
+          placeholder={isMoldJob(job) ? "Paste or write the Conclusions & Recommendations section — one paragraph or bullet per line." : undefined}
         />
 
         <label className="mt-3 block text-sm font-medium text-slate-700">Invoice line items</label>

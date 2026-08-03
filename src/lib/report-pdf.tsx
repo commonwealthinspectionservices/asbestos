@@ -57,6 +57,11 @@ const styles = StyleSheet.create({
   signatureImage: { width: 85, height: 29.3, marginTop: 3, marginBottom: 1 },
   signatureLine: { marginBottom: 1 },
   signatureName: { fontWeight: 700, fontStyle: "italic", marginBottom: 1 },
+  // Mold letter's own section format — bold roman-numeral titles (no
+  // underline, unlike the asbestos letter's underlined titles) and bold
+  // un-underlined sub-headings within Sampling Methodology / Discussion.
+  romanTitle: { fontWeight: 700, marginBottom: STANDARD_GAP },
+  subHeading: { fontWeight: 700, marginBottom: TIGHT_GAP },
 });
 
 export interface ProjectReportData {
@@ -77,7 +82,28 @@ function ValueOrBlank({ value, style, inline }: { value: string | number | null 
   return <Text style={style}>{value}</Text>;
 }
 
+// Splits admin-pasted free text into paragraphs — one per line, so a
+// discussion written as several short paragraphs or bullet points (one per
+// line, as the owner actually writes them) renders as separate justified
+// blocks with normal paragraph spacing between them, matching the real
+// letters this template is modeled on.
+function paragraphsFromText(text: string | null | undefined): string[] {
+  if (!text) return [];
+  return text.split(/\n+/).map((p) => p.trim()).filter(Boolean);
+}
+
+function isMoldJob(job: Job): boolean {
+  return (job.service_type ?? "").toLowerCase().includes("mold");
+}
+
 function ProjectReportDocument({ job, customer, settings }: ProjectReportData) {
+  if (isMoldJob(job)) {
+    return <MoldReportDocument job={job} customer={customer} settings={settings} />;
+  }
+  return <AsbestosReportDocument job={job} customer={customer} settings={settings} />;
+}
+
+function AsbestosReportDocument({ job, customer, settings }: ProjectReportData) {
   // Lab report uploads populate sample_counts (one entry per service type on
   // the job), not the older single sample_count field — sum every entry for
   // the letter's one combined total, falling back to sample_count only for
@@ -107,43 +133,12 @@ function ProjectReportDocument({ job, customer, settings }: ProjectReportData) {
   if (job.report_summary) remarks.push(job.report_summary);
   if (job.report_notes) remarks.push(job.report_notes);
 
-  // "Unknown contact" is the app's own fallback customer.name (see
-  // POST /api/admin/jobs) for a job created with no real contact given —
-  // a real, non-blank string, so ValueOrBlank's own null/empty check
-  // wouldn't catch it. Treated as blank everywhere it'd otherwise print
-  // that placeholder verbatim ("Dear Unknown contact:").
-  const knownCustomerName = customer.name === "Unknown contact" ? null : customer.name;
-
-  const dateText = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
-  // Street and "City, State Zip" on their own line — a naive comma-split
-  // put city and state/zip on two separate short lines with no comma
-  // between them ("Westwood" / "MA 02090"), which read as choppy and
-  // cramped in the header's small right-aligned column.
-  const baseAddress = splitAddress(settings.base_address);
-  const addressLines = [baseAddress.street, baseAddress.cityStateZip].filter(Boolean);
-
-  // Town/state/zip always gets its own line under the street, matching the
-  // real FLI letter's recipient block and RE: block — both the customer's
-  // billing address and the job site address get the same treatment.
-  const billing = splitAddress(customer.billing_address);
-  const billingStreet = billing.locationName ? `${billing.locationName} ${billing.street}` : billing.street;
-  const service = splitAddress(job.service_address);
-  const serviceStreet = service.locationName ? `${service.locationName} ${service.street}` : service.street;
+  const { knownCustomerName, dateText, addressLines, billingStreet, billing, serviceStreet, service } = commonLetterFields(job, customer, settings);
 
   return (
     <Document title={`Bulk Sample Analytical Results — ${job.service_address}`}>
       <Page size="LETTER" style={styles.page}>
-        <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            <Image src={LETTERHEAD_PATH} style={styles.letterhead} />
-          </View>
-          <View style={styles.headerRight}>
-            {addressLines.map((line, i) => (
-              <Text key={i} style={styles.headerRightLine}>{line}</Text>
-            ))}
-            {settings.business_phone && <Text style={styles.headerRightLine}>Phone: {settings.business_phone}</Text>}
-          </View>
-        </View>
+        <LetterHeader settings={settings} addressLines={addressLines} />
 
         <View style={styles.recipientBlock}>
           <View style={styles.recipientRow}>
@@ -215,16 +210,230 @@ function ProjectReportDocument({ job, customer, settings }: ProjectReportData) {
           opportunity to provide you with our services and we look forward to working together in the future.
         </Text>
 
-        <View style={styles.signatureBlock}>
-          <Text style={styles.signatureLine}>Sincerely,</Text>
-          <Text style={styles.signatureName}>{settings.business_name}</Text>
-          <Image src={SIGNATURE_PATH} style={styles.signatureImage} />
-          <Text style={styles.signatureLine}>{settings.owner_name}</Text>
-          <Text style={styles.signatureLine}>{settings.owner_title}{settings.license_number ? ` — License #${settings.license_number}` : ""}</Text>
-        </View>
+        <SignatureBlock settings={settings} showLicense />
       </Page>
     </Document>
   );
+}
+
+// Modeled directly on two real final mold reports (letterhead cover letter +
+// EMSL Air-O-Cell/bulk lab reports as an appendix) — see the "MOLD 26-2641"
+// and "FINAL MOLD REPORT 14 Rawson Road" letters. Scope of Work, Sampling
+// Methodology, and Limitations are fixed boilerplate matched to those
+// letters; Discussion of Results and Conclusions & Recommendations are
+// exactly what the admin enters in report_summary/report_notes (Enter Lab
+// Results dialog) — this letter doesn't try to auto-structure that text,
+// since the real letters are themselves free-form prose written per job.
+function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
+  const { knownCustomerName, dateText, addressLines, billingStreet, billing, serviceStreet, service } = commonLetterFields(job, customer, settings);
+
+  // Which methodology sections apply — inferred from which mold sample
+  // types actually have counts on this job. Falls back to showing both when
+  // there's no sample data yet (e.g. previewing before lab results come in)
+  // rather than guessing wrong and omitting one that turns out to apply.
+  const sampleLabels = Object.keys(job.sample_counts ?? {});
+  const hasAir = sampleLabels.length === 0 || sampleLabels.some((l) => l.toLowerCase().includes("air"));
+  const hasBulk = sampleLabels.length === 0 || sampleLabels.some((l) => l.toLowerCase().includes("bulk") || l.toLowerCase().includes("swab"));
+
+  const scopeItems = [
+    ...(hasAir ? ["Collection of air samples within the subject area for mold;"] : []),
+    ...(hasBulk ? ["Collection of bulk samples within the subject area for mold;"] : []),
+    "Preparation of a summary report detailing the sampling methodology along with analytical results, a discussion of the results, and a conclusion.",
+  ];
+
+  const labName = (job.lab_name || "an accredited laboratory").replace(/\.+$/, "");
+  const methodologySections = [
+    ...(hasAir
+      ? [
+          {
+            title: "Airborne Sampling for Mold:",
+            paragraphs: [
+              `The concentration and identification of the genera of airborne mold was performed through the use of Air-O-Cell cassettes and swabs. This method utilizes an air pump to draw air at a predetermined flow rate through a spore trap cassette containing a slide coated with an optically-transparent adhesive. Airborne particulate, including spores is impacted onto the slide, and then submitted to the laboratory where it is stained and analyzed by optical microscopy at magnifications between 200X and 1000X. Samples collected at the above referenced location were enumerated and speciated by ${labName}.`,
+              "This method does not differentiate between viable and non-viable fungal spores. In addition, this technique does not allow for the differentiation between Aspergillus and Penicillium spores. Other non-distinctive spores are reported in categories such as Ascospores or Basidiospores.",
+            ],
+          },
+        ]
+      : []),
+    ...(hasBulk
+      ? [
+          {
+            title: "Bulk Sampling of Building Materials for Mold:",
+            paragraphs: [
+              `Bulk samples of building materials suspected mold growth were collected to identify the genera of mold, if present. Upon receipt at the laboratory, a sub-sample is prepared and applied directly to a microscopic slide, where it is stained and analyzed by optical microscopy at magnifications between 200X and 1000X. Samples collected at the above referenced location were enumerated and speciated by ${labName}.`,
+              "This method does not differentiate between viable and non-viable fungal spores. In addition, this technique does not allow for the differentiation between Aspergillus and Penicillium spores. Other non-distinctive spores are reported in categories such as Ascospores or Basidiospores.",
+            ],
+          },
+        ]
+      : []),
+  ];
+
+  const discussionParagraphs = paragraphsFromText(job.report_summary);
+  const conclusionParagraphs = paragraphsFromText(job.report_notes);
+
+  return (
+    <Document title={`Limited Mold Assessment & Sampling — ${job.service_address}`}>
+      <Page size="LETTER" style={styles.page}>
+        <LetterHeader settings={settings} addressLines={addressLines} />
+
+        <View style={styles.recipientBlock}>
+          <View style={styles.recipientRow}>
+            <ValueOrBlank style={styles.recipient} value={knownCustomerName} inline />
+            <Text style={styles.dateLine}>{dateText}</Text>
+          </View>
+          {customer.company && <Text style={styles.recipient}>{customer.company}</Text>}
+          <ValueOrBlank style={styles.recipient} value={billingStreet} inline />
+          <ValueOrBlank style={styles.recipient} value={billing.cityStateZip} inline />
+        </View>
+
+        <View style={styles.reBlock}>
+          <View style={styles.reRow}>
+            <Text style={styles.reLabel}>RE:</Text>
+            <Text style={styles.reValue}>Limited Mold Assessment & Sampling</Text>
+          </View>
+          <View style={styles.reRow}>
+            <Text style={styles.reLabel} />
+            <ValueOrBlank style={styles.reValue} value={serviceStreet} inline />
+          </View>
+          <View style={styles.reRow}>
+            <Text style={styles.reLabel} />
+            <ValueOrBlank style={styles.reValue} value={service.cityStateZip} inline />
+          </View>
+          <View style={styles.reRow}>
+            <Text style={styles.reLabel} />
+            <Text style={styles.reProjectLabel}>Project #:</Text>
+            <ValueOrBlank style={styles.reValue} value={job.project_number} inline />
+          </View>
+        </View>
+
+        <Text style={styles.salutation}>Dear <ValueOrBlank style={styles.salutation} value={knownCustomerName} inline />:</Text>
+
+        <Text style={styles.paragraph}>
+          On {dateText} {settings.business_name} conducted a limited mold assessment and baseline sampling in limited
+          areas within the above-mentioned address. The following letter summary represents the assessment including
+          our scope of work, sampling methodology, discussion of results and conclusion.
+        </Text>
+
+        <Text style={styles.romanTitle} minPresenceAhead={30}>I.  SCOPE OF WORK</Text>
+        <View style={styles.listBlock}>
+          {scopeItems.map((text, i) => (
+            <View style={styles.listItem} key={i}>
+              <Text style={styles.listIndex}>{i + 1}.</Text>
+              <Text style={styles.listText}>{text}</Text>
+            </View>
+          ))}
+        </View>
+
+        <Text style={styles.romanTitle} minPresenceAhead={30}>II.  SAMPLING METHODOLOGY</Text>
+        {methodologySections.map((section, i) => (
+          <View key={i}>
+            <Text style={styles.subHeading}>{i + 1}. {section.title}</Text>
+            {section.paragraphs.map((p, j) => (
+              <Text style={styles.paragraph} key={j}>{p}</Text>
+            ))}
+          </View>
+        ))}
+
+        <Text style={styles.romanTitle} minPresenceAhead={30}>III.  DISCUSSION OF RESULTS</Text>
+        {discussionParagraphs.length > 0 ? (
+          discussionParagraphs.map((p, i) => <Text style={styles.paragraph} key={i}>{p}</Text>)
+        ) : (
+          <Text style={styles.paragraph}>NO RESULTS YET.</Text>
+        )}
+
+        <Text style={styles.romanTitle} minPresenceAhead={30}>IV.  CONCLUSIONS & RECOMMENDATIONS</Text>
+        {conclusionParagraphs.length > 0 ? (
+          conclusionParagraphs.map((p, i) => <Text style={styles.paragraph} key={i}>{p}</Text>)
+        ) : (
+          <Text style={styles.paragraph}>NO RECOMMENDATIONS YET.</Text>
+        )}
+
+        <Text style={styles.romanTitle} minPresenceAhead={30}>V.  LIMITATIONS AND CONDITIONS OF THIS REPORT</Text>
+        <Text style={styles.paragraph}>
+          The recommendations and conclusions discussed herein are based solely and in reliance upon information
+          collected as a result of the activities delineated in the Proposal. {settings.business_name} neither attests
+          nor renders an opinion as to the accuracy or comprehensiveness of the analytical results. There is a limit
+          to all investigations of this type in the sense that the researcher must draw conclusions and develop
+          recommendations with information obtained from research, site evaluation and limited sampling and analysis.
+          {" "}{settings.business_name} does not render any warranty, either express or implied, as to the conditions
+          of the Site beyond that observed during the Site survey. The passage of time may also result in a change in
+          the characteristics at the Site. {settings.business_name} does not render an opinion as to conditions which
+          may change subsequent to the date of the Site reconnaissance. {settings.business_name} does not render an
+          opinion as to conditions at uninspected or obstructed portions of the Site (e.g. ceiling plenums or air
+          handling equipment), or those areas not sampled as part of this survey. {settings.business_name} performed
+          professional services and rendered conclusions in accordance with generally accepted practices of other
+          environmental consultants undertaking similar investigations at the same time in the same geographical
+          area. {settings.business_name} exercised the degree of care and skill generally exercised by other
+          environmental consultants under similar circumstances and conditions.
+        </Text>
+
+        <Text style={styles.paragraph}>
+          Thank you for choosing {settings.business_name} to assist you on this project. I hope the information that
+          we provide in this report fulfills your requirements. If you have any questions about the information
+          contained herein, please do not hesitate to contact me{settings.business_phone ? ` at ${settings.business_phone}` : ""}.
+        </Text>
+
+        <SignatureBlock settings={settings} showLicense={false} />
+      </Page>
+    </Document>
+  );
+}
+
+function LetterHeader({ settings, addressLines }: { settings: Settings; addressLines: string[] }) {
+  return (
+    <View style={styles.header}>
+      <View style={styles.headerLeft}>
+        <Image src={LETTERHEAD_PATH} style={styles.letterhead} />
+      </View>
+      <View style={styles.headerRight}>
+        {addressLines.map((line, i) => (
+          <Text key={i} style={styles.headerRightLine}>{line}</Text>
+        ))}
+        {settings.business_phone && <Text style={styles.headerRightLine}>Phone: {settings.business_phone}</Text>}
+      </View>
+    </View>
+  );
+}
+
+function SignatureBlock({ settings, showLicense }: { settings: Settings; showLicense: boolean }) {
+  return (
+    <View style={styles.signatureBlock}>
+      <Text style={styles.signatureLine}>Sincerely,</Text>
+      <Text style={styles.signatureName}>{settings.business_name}</Text>
+      <Image src={SIGNATURE_PATH} style={styles.signatureImage} />
+      <Text style={styles.signatureLine}>{settings.owner_name}</Text>
+      <Text style={styles.signatureLine}>
+        {settings.owner_title}{showLicense && settings.license_number ? ` — License #${settings.license_number}` : ""}
+      </Text>
+    </View>
+  );
+}
+
+// "Unknown contact" is the app's own fallback customer.name (see
+// POST /api/admin/jobs) for a job created with no real contact given — a
+// real, non-blank string, so ValueOrBlank's own null/empty check wouldn't
+// catch it. Treated as blank everywhere it'd otherwise print that
+// placeholder verbatim ("Dear Unknown contact:"). Shared between both
+// letter templates since the recipient/address block is identical.
+function commonLetterFields(job: Job, customer: Customer, settings: Settings) {
+  const knownCustomerName = customer.name === "Unknown contact" ? null : customer.name;
+
+  const dateText = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+  // Street and "City, State Zip" on their own line — a naive comma-split
+  // put city and state/zip on two separate short lines with no comma
+  // between them ("Westwood" / "MA 02090"), which read as choppy and
+  // cramped in the header's small right-aligned column.
+  const baseAddress = splitAddress(settings.base_address);
+  const addressLines = [baseAddress.street, baseAddress.cityStateZip].filter(Boolean);
+
+  // Town/state/zip always gets its own line under the street, matching the
+  // real FLI letter's recipient block and RE: block — both the customer's
+  // billing address and the job site address get the same treatment.
+  const billing = splitAddress(customer.billing_address);
+  const billingStreet = billing.locationName ? `${billing.locationName} ${billing.street}` : billing.street;
+  const service = splitAddress(job.service_address);
+  const serviceStreet = service.locationName ? `${service.locationName} ${service.street}` : service.street;
+
+  return { knownCustomerName, dateText, addressLines, billingStreet, billing, serviceStreet, service };
 }
 
 export async function renderProjectReportPdf(data: ProjectReportData): Promise<Buffer> {

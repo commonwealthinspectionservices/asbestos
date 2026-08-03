@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { JobWithCustomer } from "@/lib/types";
 import { ProjectDetailDialog, EditProjectDialog, EnterLabResultsDialog } from "@/components/admin/JobsDashboard";
+import { googleMapsUrl } from "@/lib/address";
 
 const STATUS_LABEL: Record<string, string> = {
   needs_scheduling: "To Be Scheduled",
@@ -126,9 +127,17 @@ function JobCard({ job, onOpen }: { job: JobWithCustomer; onOpen: () => void }) 
               {job.customers?.company || job.customers?.name}
             </div>
           </div>
-          {locationName && <div className="truncate whitespace-nowrap text-sm text-slate-700">{locationName}</div>}
-          <div className="truncate whitespace-nowrap text-sm text-slate-700">{street}</div>
-          {cityStateZip && <div className="truncate whitespace-nowrap text-sm text-slate-700">{cityStateZip}</div>}
+          {job.service_address && (
+            <a
+              href={googleMapsUrl(job.service_address)}
+              target="_blank"
+              rel="noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="block truncate whitespace-nowrap text-sm text-slate-700 hover:underline"
+            >
+              {[locationName, street, cityStateZip].filter(Boolean).join(", ")}
+            </a>
+          )}
           <div className="truncate whitespace-nowrap text-sm text-slate-700">
             {formatTime(job.requested_time) || "--:--"}
           </div>
@@ -138,7 +147,7 @@ function JobCard({ job, onOpen }: { job: JobWithCustomer; onOpen: () => void }) 
             </div>
           )}
         </div>
-        <span className={`shrink-0 rounded-full px-2 py-1 text-sm font-medium ${STATUS_COLOR[job.status]}`}>
+        <span className={`shrink-0 rounded px-2 py-1 text-sm font-medium ${STATUS_COLOR[job.status]}`}>
           {STATUS_LABEL[job.status]}
         </span>
       </div>

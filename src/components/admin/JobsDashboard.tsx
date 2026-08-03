@@ -1979,7 +1979,7 @@ export function ProjectDetailDialog({
                   <button
                     onClick={() => combinedDraft.create()}
                     disabled={combinedDraft.creating}
-                    className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-bold text-slate-700 disabled:opacity-50"
+                    className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-bold uppercase text-slate-700 disabled:opacity-50"
                   >
                     {combinedDraft.creating ? "Creating…" : "Create Draft"}
                   </button>
@@ -1987,7 +1987,7 @@ export function ProjectDetailDialog({
                 </div>
                 {job.invoice_recipient && (
                   <p className="mt-1.5 text-xs text-slate-500">
-                    Sends the final report and invoice (with a payment link) to {job.invoice_recipient.name} &lt;{job.invoice_recipient.email}&gt;.
+                    Creates a Gmail draft (not sent) with the final report and invoice, addressed to {job.invoice_recipient.name} &lt;{job.invoice_recipient.email}&gt;.
                   </p>
                 )}
               </div>

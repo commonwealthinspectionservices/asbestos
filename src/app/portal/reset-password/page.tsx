@@ -17,21 +17,30 @@ export default function PortalResetPasswordPage() {
 
   useEffect(() => {
     // The recovery link's session arrives as a URL hash fragment
-    // (#access_token=...&type=recovery) — or, if the one-time link was
-    // already used (a second click, or Gmail's own link-scanning silently
-    // opening it before the user does), as #error=access_denied&error_
-    // code=otp_expired instead. Either way it never reaches any server
-    // (fragments aren't sent in HTTP requests), so this can only be
-    // detected client-side. The Supabase browser client auto-establishes
-    // the session from the hash on load; this just waits for that and
-    // checks whether it actually worked before showing the form.
+    // (#access_token=...&refresh_token=...&type=recovery) — or, if the
+    // one-time link was already used (a second click, or Gmail's own
+    // link-scanning silently opening it before the user does), as
+    // #error=access_denied&error_code=otp_expired instead. Either way it
+    // never reaches any server (fragments aren't sent in HTTP requests),
+    // so this can only be detected client-side. Note this needs an
+    // explicit setSession call, not just waiting on getSession() to
+    // "notice" the hash — the ssr package's browser client (needed so
+    // Server Components can read the session via cookies) is tuned for
+    // ?code= exchanges, not implicit-flow hash fragments, and silently
+    // never establishes a session from one on its own.
     const hash = new URLSearchParams(window.location.hash.slice(1));
     if (hash.get("error")) {
       setReady(false);
       return;
     }
+    const accessToken = hash.get("access_token");
+    const refreshToken = hash.get("refresh_token");
+    if (!accessToken || !refreshToken) {
+      setReady(false);
+      return;
+    }
     const supabase = createSupabaseBrowserClient();
-    supabase.auth.getSession().then(({ data }) => {
+    supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken }).then(({ data }) => {
       setReady(Boolean(data.session));
     });
   }, []);

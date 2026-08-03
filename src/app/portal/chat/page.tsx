@@ -12,7 +12,7 @@ export default async function PortalChatPage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <PortalNav isHomeowner={session.customer.is_homeowner} />
+      <PortalNav isIndividual={session.customer.is_individual} />
       <PortalChatHub />
     </div>
   );

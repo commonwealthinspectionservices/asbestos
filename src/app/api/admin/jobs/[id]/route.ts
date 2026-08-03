@@ -42,7 +42,7 @@ const EDITABLE_FIELDS = [
   "lab_cost_cents",
   "report_summary",
   "report_notes",
-  "is_homeowner",
+  "is_individual",
 ] as const;
 
 export const PATCH = withApiErrors(async (

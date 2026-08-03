@@ -190,7 +190,7 @@ export default function BookingForm() {
             {loading ? "Checking address…" : "Continue"}
           </button>
           <p className="text-center text-sm text-slate-500">
-            Repeat contractor?{" "}
+            Returning customer?{" "}
             <Link href="/portal/login" className="text-brand-600 underline">
               Sign in for faster booking
             </Link>

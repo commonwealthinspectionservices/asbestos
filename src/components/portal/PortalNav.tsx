@@ -14,7 +14,7 @@ const SERVICE_LINKS = [
   { href: "/services/lead", label: "Lead Paint Sampling" },
 ];
 
-export default function PortalNav({ isHomeowner = false }: { isHomeowner?: boolean }) {
+export default function PortalNav({ isIndividual = false }: { isIndividual?: boolean }) {
   const pathname = usePathname();
   const router = useRouter();
 
@@ -63,7 +63,7 @@ export default function PortalNav({ isHomeowner = false }: { isHomeowner?: boole
             </div>
           </div>
           <Link href="/portal/addresses" className={linkClass("/portal/addresses")}>Addresses</Link>
-          {!isHomeowner && (
+          {!isIndividual && (
             <Link href="/portal/contacts" className={linkClass("/portal/contacts")}>Contacts</Link>
           )}
           <Link href="/portal/account" className={linkClass("/portal/account")}>My Account</Link>

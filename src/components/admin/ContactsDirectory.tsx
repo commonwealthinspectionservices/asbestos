@@ -16,8 +16,8 @@ function ContactRow({ c, onClick }: { c: Customer; onClick: () => void }) {
   );
 }
 
-// Every individual on file, whether they're a standalone client (a
-// homeowner who's the client themselves) or one of several contacts at a
+// Every individual on file, whether they're a standalone client (an
+// individual who's the client themselves) or one of several contacts at a
 // company (an employee of Boston Harbor Water Restoration) — companies
 // themselves live on their own "Companies" tab, not here.
 export default function ContactsDirectory() {

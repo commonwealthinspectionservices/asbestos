@@ -92,7 +92,7 @@ export interface Customer {
   billing_address: string | null;
   stripe_customer_id: string | null;
   auth_user_id: string | null;
-  is_homeowner: boolean;
+  is_individual: boolean;
   created_at: string;
   /** The linked company's own record (phone, billing address, etc.), distinct from this contact's own — only populated by endpoints that join it in (e.g. GET /api/admin/jobs). */
   companies?: Company | null;
@@ -185,7 +185,7 @@ export interface Job {
   service_address: string;
   lat: number | null;
   lng: number | null;
-  /** The on-site contact (e.g. the homeowner) — distinct from customer_id, which is who pays. */
+  /** The on-site contact (e.g. whoever is present during the inspection) — distinct from customer_id, which is who pays. */
   site_contact_name: string | null;
   site_contact_phone: string | null;
   service_type: string | null;
@@ -266,8 +266,8 @@ export interface Job {
   invoice_draft_gmail_message_id: string | null;
   /** Same idea as report_sent_at, but for the invoice draft. */
   invoice_sent_at: string | null;
-  /** Checked on the Invoice tab for jobs billed directly to a homeowner (most are contractor-billed) — holds the report back until the job is marked Paid instead of drafting it immediately alongside the invoice. */
-  is_homeowner: boolean;
+  /** Checked on the Invoice tab for jobs billed directly to an individual (most are company-billed) — holds the report back until the job is marked Paid instead of drafting it immediately alongside the invoice. */
+  is_individual: boolean;
   created_at: string;
 }
 

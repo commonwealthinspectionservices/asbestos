@@ -14,11 +14,11 @@ interface PortalAccount {
   company: string | null;
 }
 
-// Matches the signup choice (contractor/homeowner) to how it should read
-// everywhere in the admin — "homeowner" is displayed as "Individual".
+// Matches the signup choice (company/individual) to how it should read
+// everywhere in the admin.
 function accountTypeLabel(accountType: string | null): string | null {
-  if (accountType === "contractor") return "Company";
-  if (accountType === "homeowner") return "Individual";
+  if (accountType === "company") return "Company";
+  if (accountType === "individual") return "Individual";
   return null;
 }
 

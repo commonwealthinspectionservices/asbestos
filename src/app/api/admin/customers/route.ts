@@ -4,8 +4,8 @@ import { requireAdminApi } from "@/lib/admin-api";
 import { withApiErrors } from "@/lib/api-handler";
 import { upsertCompany } from "@/lib/companies";
 
-// A directory of every individual contact — a standalone client (e.g. a
-// homeowner) or someone affiliated with a company (e.g. an employee of
+// A directory of every individual contact — a standalone client (e.g. an
+// individual) or someone affiliated with a company (e.g. an employee of
 // Boston Harbor Water Restoration), distinguished by company_id. Backs the
 // "Contacts" tab and the existing-contact picker in Add Project.
 export const GET = withApiErrors(async (req: NextRequest) => {

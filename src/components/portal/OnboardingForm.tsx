@@ -12,7 +12,7 @@ import { joinName } from "@/lib/name";
 export default function OnboardingForm({
   accountType,
 }: {
-  accountType: "contractor" | "homeowner" | null;
+  accountType: "company" | "individual" | null;
 }) {
   const router = useRouter();
   const [firstName, setFirstName] = useState("");
@@ -74,7 +74,7 @@ export default function OnboardingForm({
         <input className="w-0 flex-1 rounded-lg border border-slate-300 px-4 py-3 text-base" placeholder="First name" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
         <input className="w-0 flex-1 rounded-lg border border-slate-300 px-4 py-3 text-base" placeholder="Last name" value={lastName} onChange={(e) => setLastName(e.target.value)} />
       </div>
-      {accountType !== "homeowner" && (
+      {accountType !== "individual" && (
         <input className="mt-4 w-full rounded-lg border border-slate-300 px-4 py-3 text-base" placeholder="Company" value={company} onChange={(e) => setCompany(e.target.value)} />
       )}
       <input className="mt-4 w-full rounded-lg border border-slate-300 px-4 py-3 text-base" placeholder="Phone" type="tel" value={phone} onChange={(e) => setPhone(formatPhoneNumber(e.target.value))} />
@@ -144,7 +144,7 @@ export default function OnboardingForm({
 
       <button
         className="mt-5 flex w-full items-center justify-center border-[3px] border-brand-700 bg-brand-50 py-4 pt-[18px] text-base font-extrabold uppercase leading-none text-brand-700 hover:bg-yellow-100 disabled:opacity-50"
-        disabled={loading || !firstName || !lastName || !phone || (accountType !== "homeowner" && !company)}
+        disabled={loading || !firstName || !lastName || !phone || (accountType !== "individual" && !company)}
         onClick={submit}
       >
         {loading ? "Saving…" : "Continue"}

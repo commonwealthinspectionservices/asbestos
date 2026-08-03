@@ -407,10 +407,9 @@ async function processMatchedLabEmail(params: {
   // exactly the same way.
   await draftInvoiceEmailForJob({ job: updatedJob, settings, accessToken });
   // The report follows immediately too, unless this job is flagged
-  // homeowner-billed (the "Homeowner" checkbox on the Invoice tab) — those
-  // are held back until autoDraftReportIfJustPaid releases them once the
-  // job is marked Paid.
-  if (!updatedJob.is_homeowner) {
+  // individual-billed (job.is_individual) — those are held back until
+  // autoDraftReportIfJustPaid releases them once the job is marked Paid.
+  if (!updatedJob.is_individual) {
     await draftReportEmailForJob({ job: updatedJob, settings, accessToken });
   }
 
@@ -519,7 +518,7 @@ async function draftInvoiceEmailForJob(params: {
 }
 
 // Report half of the split — called the moment lab results land (see
-// processMatchedLabEmail above, which skips this for homeowner-billed jobs)
+// processMatchedLabEmail above, which skips this for individual-billed jobs)
 // and from the manual "Create Report Draft" button. Attaches the full
 // merged packet — cover letter, lab results, chain of custody, license —
 // via the same builder the "Download Final Report" button uses, not just
@@ -734,8 +733,8 @@ export async function createCombinedDraftForJob(jobId: string): Promise<void> {
  * to Paid" button, which already has its own flexible update — this is
  * just the side effect it triggers afterward) and markJobPaid below (used
  * by the Stripe webhook, which has no other fields to combine and so does
- * its own simple status update first). For a homeowner-billed job (see the
- * "Homeowner" checkbox on the Invoice tab) this is what releases the report
+ * its own simple status update first). For an individual-billed job (see
+ * job.is_individual) this is what releases the report
  * that processMatchedLabEmail deliberately skipped — for every other job
  * the report was already drafted at lab-results time, so this is just a
  * no-op safety net (report_drafted_at already set) for cases like Gmail

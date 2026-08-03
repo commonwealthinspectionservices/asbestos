@@ -92,7 +92,7 @@ export const POST = withApiErrors(async (req: NextRequest) => {
       scope_of_work: scopeOfWork || null,
       disclaimer_ack: true,
       distance_miles: distanceMiles ?? null,
-      is_homeowner: auth.customer.is_homeowner,
+      is_individual: auth.customer.is_individual,
     })
     .select("*")
     .single();

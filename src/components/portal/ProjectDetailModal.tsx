@@ -39,19 +39,19 @@ const BASE_TRACKER_SEGMENTS: TrackerSegment[] = [
 ];
 const PAID_SEGMENT: TrackerSegment = { key: "paid", label: "Paid", done: (_job, i) => i >= 3 };
 
-// A homeowner job holds its report back until it's marked Paid (see
+// An individual-billed job holds its report back until it's marked Paid (see
 // autoDraftReportIfJustPaid / lib/lab-email.ts) — the opposite order from a
-// contractor job, where the report and invoice go out immediately and
+// company-billed job, where the report and invoice go out immediately and
 // payment follows later. The tracker's step order (and the "sent" segment's
 // done check) flips to match: no "already sent, just waiting on payment"
-// fallback for a homeowner, since here paid can genuinely happen first.
-function trackerSegmentsFor(isHomeowner: boolean): TrackerSegment[] {
+// fallback for an individual, since here paid can genuinely happen first.
+function trackerSegmentsFor(isIndividual: boolean): TrackerSegment[] {
   const sentSegment: TrackerSegment = {
     key: "sent",
     label: <>Report and<br />Invoice Sent</>,
-    done: (job, i) => (Boolean(job.invoice_sent_at) && Boolean(job.report_sent_at)) || (!isHomeowner && i >= 3),
+    done: (job, i) => (Boolean(job.invoice_sent_at) && Boolean(job.report_sent_at)) || (!isIndividual && i >= 3),
   };
-  return isHomeowner
+  return isIndividual
     ? [...BASE_TRACKER_SEGMENTS, PAID_SEGMENT, sentSegment]
     : [...BASE_TRACKER_SEGMENTS, sentSegment, PAID_SEGMENT];
 }
@@ -160,13 +160,13 @@ export default function ProjectDetailModal({
   }
 
   const paid = job.status === "paid";
-  // Homeowners (paying out of pocket, not a contractor on terms) don't get
-  // the report until they've actually paid — a contractor job has no such
+  // Individuals (paying out of pocket, not a company on terms) don't get
+  // the report until they've actually paid — a company job has no such
   // gate, since net-30 billing means the report is often needed well
   // before payment for permits/project use.
-  const reportReady = REPORT_READY_STATUSES.has(job.status) && (!job.is_homeowner || paid);
+  const reportReady = REPORT_READY_STATUSES.has(job.status) && (!job.is_individual || paid);
   const invoiced = job.invoice_total_cents != null && INVOICE_FINALIZED_STATUSES.has(job.status);
-  const trackerSegments = trackerSegmentsFor(job.is_homeowner);
+  const trackerSegments = trackerSegmentsFor(job.is_individual);
   // Cache-busting key for PdfPreview — re-fetches/re-renders whenever
   // anything that would change the invoice's actual content changes.
   const invoiceRevision = JSON.stringify({
@@ -321,7 +321,7 @@ export default function ProjectDetailModal({
                 >
                   View report
                 </a>
-              ) : job.is_homeowner && REPORT_READY_STATUSES.has(job.status) && !paid ? (
+              ) : job.is_individual && REPORT_READY_STATUSES.has(job.status) && !paid ? (
                 <p className="text-slate-500">Your final report will be available here once payment is received.</p>
               ) : (
                 <p className="text-slate-500">The final report isn&apos;t available yet — we&apos;ll email you once it&apos;s in.</p>

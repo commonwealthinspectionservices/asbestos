@@ -10,7 +10,7 @@ export default function PortalSignupPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [accountType, setAccountType] = useState<"contractor" | "homeowner" | null>(null);
+  const [accountType, setAccountType] = useState<"company" | "individual" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [checkEmail, setCheckEmail] = useState(false);
@@ -74,8 +74,8 @@ export default function PortalSignupPage() {
           <input
             type="radio"
             name="accountType"
-            checked={accountType === "contractor"}
-            onChange={() => setAccountType("contractor")}
+            checked={accountType === "company"}
+            onChange={() => setAccountType("company")}
           />
           Company
         </label>
@@ -83,8 +83,8 @@ export default function PortalSignupPage() {
           <input
             type="radio"
             name="accountType"
-            checked={accountType === "homeowner"}
-            onChange={() => setAccountType("homeowner")}
+            checked={accountType === "individual"}
+            onChange={() => setAccountType("individual")}
           />
           Individual
         </label>

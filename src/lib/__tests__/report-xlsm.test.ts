@@ -13,7 +13,7 @@ const customer: Customer = {
   billing_address: "36 Finnell Drive Suite #1, Weymouth, MA 02188",
   stripe_customer_id: null,
   auth_user_id: null,
-  is_homeowner: false,
+  is_individual: false,
   created_at: new Date().toISOString(),
 };
 
@@ -26,7 +26,7 @@ const job: Job = {
   invoice_draft_gmail_id: null,
   invoice_draft_gmail_message_id: null,
   invoice_sent_at: null,
-  is_homeowner: false,
+  is_individual: false,
   id: "job-1",
   project_number: "26-2760",
   customer_id: "cust-1",

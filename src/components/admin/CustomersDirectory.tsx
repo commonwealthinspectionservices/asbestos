@@ -6,8 +6,8 @@ import ContactsDirectory from "@/components/admin/ContactsDirectory";
 import PortalAccountsDirectory from "@/components/admin/PortalAccountsDirectory";
 
 // One directory, three tabs — companies (Boston Harbor Water Restoration),
-// individual contacts (a homeowner client, or an employee at one of those
-// companies), and every portal account (Supabase Auth), including ones
+// individual contacts (a client who's an individual, or an employee at one
+// of those companies), and every portal account (Supabase Auth), including ones
 // that never finished onboarding into a customers row. A company's own
 // card can still open one of its contacts, and a contact's own card can
 // jump back to their company — the tab is just which list you start

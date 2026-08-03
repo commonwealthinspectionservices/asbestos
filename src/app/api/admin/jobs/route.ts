@@ -166,9 +166,9 @@ export const POST = withApiErrors(async (req: NextRequest) => {
     report_emails: body.reportEmails || null,
     disclaimer_ack: true,
     // Defaults from the customer's portal-signup account type (see
-    // customers.is_homeowner); the Invoice tab checkbox still lets the
+    // customers.is_individual); the Invoice tab checkbox still lets the
     // admin override per job for customers without an account of their own.
-    is_homeowner: customer.is_homeowner,
+    is_individual: customer.is_individual,
   };
 
   // These columns predate this route being written — tolerate a migration

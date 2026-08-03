@@ -23,7 +23,7 @@ export const POST = withApiErrors(async (
   const supabase = getSupabaseAdmin();
   const { data: customer, error: customerError } = await supabase
     .from("customers")
-    .select("id, name, email, auth_user_id, is_homeowner")
+    .select("id, name, email, auth_user_id, is_individual")
     .eq("id", params.id)
     .single();
   if (customerError || !customer) {
@@ -46,9 +46,9 @@ export const POST = withApiErrors(async (
     email: customer.email,
     // Without this, the invited contact lands on /portal/onboarding with no
     // account_type in their auth metadata — OnboardingForm then defaults to
-    // showing the Company field even for an actual individual/homeowner
-    // contact, since it only hides Company when account_type === "homeowner".
-    options: { data: { account_type: customer.is_homeowner ? "homeowner" : "contractor" } },
+    // showing the Company field even for an actual individual contact,
+    // since it only hides Company when account_type === "individual".
+    options: { data: { account_type: customer.is_individual ? "individual" : "company" } },
   });
   if (error) {
     // Most common failure: an auth account with this email already exists

@@ -1950,7 +1950,7 @@ export function ProjectDetailDialog({
 
         {tab === "email" && (
           <div className="mt-4 space-y-3">
-            {job.is_homeowner && job.status !== "paid" && (
+            {job.is_individual && job.status !== "paid" && (
               <div className="rounded-lg border border-red-300 bg-red-50 p-3">
                 <p className="text-sm font-bold uppercase text-red-700">Not paid</p>
               </div>

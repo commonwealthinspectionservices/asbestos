@@ -118,8 +118,8 @@ function AsbestosReportDocument({ job, customer, settings }: ProjectReportData) 
   // jobs from before that per-type tracking existed.
   const sampleCountsTotal = Object.values(job.sample_counts ?? {}).reduce((sum, n) => sum + (n || 0), 0);
   const totalSamples = sampleCountsTotal > 0 ? sampleCountsTotal : job.sample_count ?? 0;
-  // Reports go to the contractor (whoever booked/pays), not the on-site
-  // homeowner — site_contact is for scheduling coordination only.
+  // Reports go to the customer (whoever booked/pays), not the on-site
+  // contact — site_contact is for scheduling coordination only.
   const remarks = [
     "Sampling was limited to the specific materials and areas identified by the client. Additional suspect materials may be present and if discovered during building renovation, maintenance, or demolition, should be sampled and analyzed for asbestos content prior to disturbing.",
   ];

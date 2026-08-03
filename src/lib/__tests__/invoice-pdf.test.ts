@@ -46,7 +46,7 @@ const customer: Customer = {
   billing_address: "123 Main St",
   stripe_customer_id: null,
   auth_user_id: null,
-  is_homeowner: false,
+  is_individual: false,
   created_at: new Date().toISOString(),
 };
 
@@ -118,7 +118,7 @@ const job: Job = {
   invoice_draft_gmail_id: null,
   invoice_draft_gmail_message_id: null,
   invoice_sent_at: null,
-  is_homeowner: false,
+  is_individual: false,
   created_at: new Date().toISOString(),
 };
 

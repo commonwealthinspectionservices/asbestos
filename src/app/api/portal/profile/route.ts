@@ -19,9 +19,9 @@ export const POST = withApiErrors(async (req: NextRequest) => {
   const company = body?.company?.trim() || null;
   const billingAddress = body?.billingAddress?.trim() || null;
   const accountType = body?.accountType;
-  const isHomeowner = accountType === "homeowner";
+  const isIndividual = accountType === "individual";
 
-  if (!name || !phone || (!isHomeowner && !company)) {
+  if (!name || !phone || (!isIndividual && !company)) {
     return NextResponse.json({ error: "Name and phone are required" }, { status: 400 });
   }
 
@@ -32,7 +32,7 @@ export const POST = withApiErrors(async (req: NextRequest) => {
 
   const admin = getSupabaseAdmin();
 
-  // A contractor may already have a customers row from a prior anonymous
+  // This account may already have a customers row from a prior anonymous
   // booking — link that one rather than creating a duplicate, so their
   // existing project history shows up under the new account.
   const { data: existing } = await admin
@@ -47,7 +47,7 @@ export const POST = withApiErrors(async (req: NextRequest) => {
     company,
     phone,
     billing_address: billingAddress,
-    is_homeowner: isHomeowner,
+    is_individual: isIndividual,
   };
 
   const { data: customer, error } = existing

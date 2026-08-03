@@ -6,8 +6,8 @@ import type { Customer } from "@/lib/types";
 export interface ContractorSession {
   authUserId: string;
   email: string | undefined;
-  /** Homeowner-vs-contractor choice from signup (src/app/portal/signup), stored in auth user metadata. */
-  accountType: "contractor" | "homeowner" | null;
+  /** Individual-vs-company choice from signup (src/app/portal/signup), stored in auth user metadata. */
+  accountType: "company" | "individual" | null;
   /** null if the auth account exists but hasn't finished onboarding (src/app/portal/onboarding) yet. */
   customer: Customer | null;
 }
@@ -42,7 +42,7 @@ export async function getContractorSession(): Promise<ContractorSession | null> 
   return {
     authUserId: user.id,
     email: user.email,
-    accountType: accountType === "contractor" || accountType === "homeowner" ? accountType : null,
+    accountType: accountType === "company" || accountType === "individual" ? accountType : null,
     customer: (customer as unknown as Customer) ?? null,
   };
 }
@@ -52,7 +52,7 @@ export async function getContractorSession(): Promise<ContractorSession | null> 
  * full set of accounts whose projects this customer should be able to see,
  * since a company (e.g. a restoration company) can have several logins.
  * Falls back to just the customer's own id when they aren't linked to a
- * company yet (e.g. a homeowner, or a contractor account pre-onboarding).
+ * company yet (e.g. an individual, or a company account pre-onboarding).
  */
 export async function getCompanyCustomerIds(customer: Customer): Promise<string[]> {
   if (!customer.company_id) return [customer.id];

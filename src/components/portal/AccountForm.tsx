@@ -16,9 +16,9 @@ export default function AccountForm({
 }: {
   customer: Customer;
   email: string | undefined;
-  accountType: "contractor" | "homeowner" | null;
+  accountType: "company" | "individual" | null;
 }) {
-  const isHomeowner = accountType === "homeowner";
+  const isIndividual = accountType === "individual";
   const initialName = splitFullName(customer.name);
   const initialAddress = parseAddressToFields(customer.billing_address);
 
@@ -47,7 +47,7 @@ export default function AccountForm({
       const res = await fetch("/api/portal/account", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, phone, company: isHomeowner ? undefined : company, billingAddress }),
+        body: JSON.stringify({ name, phone, company: isIndividual ? undefined : company, billingAddress }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to save");
@@ -96,7 +96,7 @@ export default function AccountForm({
         <h2 className="text-xs font-bold uppercase text-slate-500">Account</h2>
         <div className="mt-2 space-y-1 text-sm">
           <div><span className="text-slate-500">Email </span>{email}</div>
-          <div><span className="text-slate-500">Account type </span>{isHomeowner ? "Individual" : "Company"}</div>
+          <div><span className="text-slate-500">Account type </span>{isIndividual ? "Individual" : "Company"}</div>
         </div>
       </div>
 
@@ -108,7 +108,7 @@ export default function AccountForm({
           <input className="w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="First name" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
           <input className="w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="Last name" value={lastName} onChange={(e) => setLastName(e.target.value)} />
         </div>
-        {!isHomeowner && (
+        {!isIndividual && (
           <input className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="Company" value={company} onChange={(e) => setCompany(e.target.value)} />
         )}
         <input className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="Phone" type="tel" value={phone} onChange={(e) => setPhone(formatPhoneNumber(e.target.value))} />
@@ -179,7 +179,7 @@ export default function AccountForm({
         <div className="mt-3 flex items-center gap-2">
           <button
             className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-            disabled={saving || !firstName || !lastName || !phone || (!isHomeowner && !company)}
+            disabled={saving || !firstName || !lastName || !phone || (!isIndividual && !company)}
             onClick={saveContactInfo}
           >
             {saving ? "Saving…" : "Save"}

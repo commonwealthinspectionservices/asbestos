@@ -48,7 +48,7 @@ export function JobList({ jobs }: { jobs: JobSummary[] }) {
   );
 }
 
-// A contact is any individual person — a homeowner who's the client
+// A contact is any individual person — an individual who's the client
 // themselves, or one of several employees at a company (Boston Harbor Water
 // Restoration might have both Joe Kline and Ryan Hammond on file). The
 // Company field/picker here is what tells the two apart, not a separate

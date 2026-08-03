@@ -532,14 +532,14 @@ alter table jobs add column if not exists invoice_draft_gmail_message_id text;
 -- 'ready_to_send' instead of 'invoiced'.
 alter type job_status add value if not exists 'ready_to_send' after 'pending_lab_results';
 
--- Most jobs are booked through a contractor, not the homeowner directly —
+-- Most jobs are booked through a company, not an individual directly —
 -- for those, the report drafts immediately alongside the invoice the
 -- moment lab results land (see processMatchedLabEmail in lib/lab-email.ts).
--- Checking this box on the Invoice tab flags a job as homeowner-billed,
+-- Checking this box on the Invoice tab flags a job as individual-billed,
 -- which holds its report back until the job is marked Paid instead —
 -- same "Create Report Draft" gate the app used to apply to every job,
 -- now scoped to just this flag.
-alter table jobs add column if not exists is_homeowner boolean not null default false;
+alter table jobs add column if not exists is_individual boolean not null default false;
 
 -- Lets a company designate a specific existing contact as who invoices go
 -- to (e.g. an AP person), separate from whichever contact a given job
@@ -553,13 +553,13 @@ alter table companies add column if not exists billing_contact_id uuid reference
 -- isn't who should be looped in on the results.
 alter table jobs add column if not exists invoice_emails text;
 
--- Set once at portal signup (Homeowner vs Contractor choice — see
+-- Set once at portal signup (Individual vs Company choice — see
 -- src/app/portal/signup/page.tsx). Lets new jobs booked by this account
--- default their own is_homeowner flag (see its comment above) from the
+-- default their own is_individual flag (see its comment above) from the
 -- account type instead of the admin having to check it by hand every time.
 -- Still false/unset for customers created via the anonymous booking flow
 -- or added directly by the admin, who can keep using the per-job checkbox.
-alter table customers add column if not exists is_homeowner boolean not null default false;
+alter table customers add column if not exists is_individual boolean not null default false;
 
 -- Snapshot of requested_date/requested_time the moment the admin clicks
 -- "Confirm & send to client" — kept separate from requested_date/
@@ -656,6 +656,20 @@ $$ language plpgsql;
 -- in Settings. Not yet wired into report/invoice/CoC generation, which
 -- still uses the single owner_name/owner_title/license_number columns above.
 alter table settings add column if not exists inspectors jsonb not null default '[]'::jsonb;
+
+-- One-time rename: is_homeowner -> is_individual on both jobs and customers,
+-- dropping the "homeowner vs contractor" terminology in favor of "individual
+-- vs company" everywhere (including the account_type signup value). Guarded
+-- so this whole file can still be replayed safely after the rename has run.
+do $$
+begin
+  if exists (select 1 from information_schema.columns where table_name = 'jobs' and column_name = 'is_homeowner') then
+    alter table jobs rename column is_homeowner to is_individual;
+  end if;
+  if exists (select 1 from information_schema.columns where table_name = 'customers' and column_name = 'is_homeowner') then
+    alter table customers rename column is_homeowner to is_individual;
+  end if;
+end $$;
 
 -- Lead's own positive/negative, parallel to asbestos_result — set by hand
 -- on the Final Report tab (no auto-detection; lead labs aren't EMSL-format).

@@ -66,19 +66,60 @@ create type job_status as enum (
 -- with later ones (e.g. "26-0001" not "26-1").
 create sequence if not exists project_number_seq start 1;
 
+-- Self-healing against the sequence falling behind reality — e.g. a job
+-- created with a hand-typed project_number (the admin can type a custom
+-- one instead of using the generated value) that's ahead of wherever the
+-- sequence happens to be, which would otherwise make nextval() hand out a
+-- number that collides with one already in use. Bumps the sequence up to
+-- the actual max in-use number for the current year first, if needed, so
+-- generated numbers stay unique no matter how past ones got in.
 create or replace function next_project_number() returns text as $$
-  select to_char(now(), 'YY') || '-' || lpad(nextval('project_number_seq')::text, 4, '0');
-$$ language sql;
+declare
+  yr text := to_char(now(), 'YY');
+  max_existing integer;
+  seq_current bigint;
+begin
+  select coalesce(max(substring(project_number from '-(\d+)$')::integer), 0)
+    into max_existing
+    from jobs
+    where project_number like yr || '-%';
+
+  select last_value into seq_current from project_number_seq;
+
+  if max_existing > seq_current then
+    perform setval('project_number_seq', max_existing);
+  end if;
+
+  return yr || '-' || lpad(nextval('project_number_seq')::text, 4, '0');
+end;
+$$ language plpgsql;
 
 -- Non-consuming counterpart for the "GET NEXT #" preview button — reads
--- what nextval() would return without actually advancing the sequence, so
--- looking at the number (without creating a project) never burns it.
+-- what next_project_number() would return without actually advancing the
+-- sequence, so looking at the number (without creating a project) never
+-- burns it. Mirrors the same self-heal check so the preview is never
+-- stale/wrong relative to what a real save would actually generate.
 create or replace function peek_next_project_number() returns text as $$
-  select to_char(now(), 'YY') || '-' || lpad(
-    (case when is_called then last_value + 1 else last_value end)::text, 4, '0'
-  )
-  from project_number_seq;
-$$ language sql;
+declare
+  yr text := to_char(now(), 'YY');
+  max_existing integer;
+  seq_current bigint;
+  seq_called boolean;
+begin
+  select coalesce(max(substring(project_number from '-(\d+)$')::integer), 0)
+    into max_existing
+    from jobs
+    where project_number like yr || '-%';
+
+  select last_value, is_called into seq_current, seq_called from project_number_seq;
+
+  if max_existing > seq_current then
+    return yr || '-' || lpad((max_existing + 1)::text, 4, '0');
+  end if;
+
+  return yr || '-' || lpad((case when seq_called then seq_current + 1 else seq_current end)::text, 4, '0');
+end;
+$$ language plpgsql;
 
 create table if not exists jobs (
   id uuid primary key default gen_random_uuid(),
@@ -322,18 +363,8 @@ alter table jobs add column if not exists report_notes text;
 -- Real-workflow additions: project numbers, site contact, lab cost/results,
 -- report summary, the awaiting_lab_results status, and report branding settings.
 alter type job_status add value if not exists 'awaiting_lab_results' before 'completed';
-create sequence if not exists project_number_seq start 1;
-create or replace function next_project_number() returns text as $$
-  select to_char(now(), 'YY') || '-' || lpad(nextval('project_number_seq')::text, 4, '0');
-$$ language sql;
-create or replace function peek_next_project_number() returns text as $$
-  select to_char(now(), 'YY') || '-' || lpad(
-    (case when is_called then last_value + 1 else last_value end)::text, 4, '0'
-  )
-  from project_number_seq;
-$$ language sql;
-alter table jobs add column if not exists project_number text unique;
-create index if not exists jobs_project_number_idx on jobs (project_number);
+-- project_number_seq, next_project_number(), and peek_next_project_number()
+-- are defined once, above, near the jobs table itself.
 alter table jobs add column if not exists site_contact_name text;
 alter table jobs add column if not exists site_contact_phone text;
 alter table jobs add column if not exists lab_name text;

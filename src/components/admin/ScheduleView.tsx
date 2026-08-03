@@ -120,20 +120,20 @@ function JobCard({ job, onOpen }: { job: JobWithCustomer; onOpen: () => void }) 
         <div className="min-w-0 space-y-1">
           <div className="flex min-w-0 items-center gap-2">
             {job.project_number && (
-              <span className="shrink-0 whitespace-nowrap rounded bg-slate-100 px-1.5 py-0.5 text-sm font-mono text-slate-600">{job.project_number}</span>
+              <span className="shrink-0 whitespace-nowrap rounded bg-slate-100 px-1.5 py-0.5 text-sm font-mono text-slate-700">{job.project_number}</span>
             )}
-            <div className="min-w-0 truncate whitespace-nowrap text-sm font-medium text-slate-800">
+            <div className="min-w-0 truncate whitespace-nowrap text-sm font-medium text-slate-700">
               {job.customers?.company || job.customers?.name}
             </div>
           </div>
-          {locationName && <div className="truncate whitespace-nowrap text-sm text-slate-500">{locationName}</div>}
-          <div className="truncate whitespace-nowrap text-sm text-slate-500">{street}</div>
-          {cityStateZip && <div className="truncate whitespace-nowrap text-sm text-slate-500">{cityStateZip}</div>}
-          <div className="truncate whitespace-nowrap text-sm text-slate-600">
+          {locationName && <div className="truncate whitespace-nowrap text-sm text-slate-700">{locationName}</div>}
+          <div className="truncate whitespace-nowrap text-sm text-slate-700">{street}</div>
+          {cityStateZip && <div className="truncate whitespace-nowrap text-sm text-slate-700">{cityStateZip}</div>}
+          <div className="truncate whitespace-nowrap text-sm text-slate-700">
             {formatTime(job.requested_time) || "--:--"}
           </div>
           {(job.site_contact_name || job.site_contact_phone) && (
-            <div className="text-sm text-slate-500">
+            <div className="text-sm text-slate-700">
               Job site contact: {job.site_contact_name}{job.site_contact_name && job.site_contact_phone ? " · " : ""}{job.site_contact_phone}
             </div>
           )}

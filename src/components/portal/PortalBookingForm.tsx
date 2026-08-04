@@ -20,6 +20,24 @@ function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+// Mirrors ProjectsList.tsx's formatDate — MM/DD/YYYY instead of the raw
+// YYYY-MM-DD the <input type="date"> stores.
+function formatDate(isoDate: string): string {
+  const [y, m, d] = isoDate.split("-");
+  if (!y || !m || !d) return isoDate;
+  return `${m}/${d}/${y}`;
+}
+
+// Mirrors ProjectsList.tsx's formatClockTime — "2:00 PM" instead of the
+// raw 24-hour "14:00" the <input type="time"> stores.
+function formatPreferredTime(hhmm: string): string {
+  const [h, m] = hhmm.split(":").map(Number);
+  if (Number.isNaN(h) || Number.isNaN(m)) return hhmm;
+  const period = h >= 12 ? "PM" : "AM";
+  const hour12 = h % 12 || 12;
+  return `${hour12}:${String(m).padStart(2, "0")} ${period}`;
+}
+
 // Clarifies what's being sampled for the service types where it isn't
 // obvious from the label alone. Keyed off service_type.key (see supabase
 // settings.service_types) rather than the label text, so an admin
@@ -53,7 +71,7 @@ function categoryLabelOf(categoryKeyValue: string): string {
   return CATEGORY_LABELS[categoryKeyValue] ?? categoryKeyValue;
 }
 
-export default function PortalBookingForm() {
+export default function PortalBookingForm({ isIndividual }: { isIndividual: boolean }) {
   const router = useRouter();
   const [step, setStep] = useState<Step>("address");
   const [loading, setLoading] = useState(false);
@@ -88,7 +106,7 @@ export default function PortalBookingForm() {
   const [scopeOfWork, setScopeOfWork] = useState("");
 
   const [date, setDate] = useState(todayIso());
-  const [window_, setWindow] = useState<"AM" | "PM" | "ANY">("ANY");
+  const [preferredTime, setPreferredTime] = useState("");
   const [suggestedDate, setSuggestedDate] = useState<string | null>(null);
   const [scheduleViaContact, setScheduleViaContact] = useState(false);
 
@@ -96,7 +114,6 @@ export default function PortalBookingForm() {
   const [siteContactPhone, setSiteContactPhone] = useState("");
   const [notes, setNotes] = useState("");
   const [confirmedDate, setConfirmedDate] = useState<string | null>(null);
-  const [dateChanged, setDateChanged] = useState(false);
 
   useEffect(() => {
     fetch("/api/portal/addresses")
@@ -202,7 +219,7 @@ export default function PortalBookingForm() {
           serviceTypeKey,
           scopeOfWork,
           date: scheduleViaContact ? null : date,
-          window: window_,
+          requestedTime: scheduleViaContact ? null : preferredTime || null,
           scheduleViaContact,
           siteContactName, siteContactPhone, notes, disclaimerAck: true,
         }),
@@ -210,7 +227,6 @@ export default function PortalBookingForm() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Something went wrong");
       setConfirmedDate(data.date);
-      setDateChanged(data.dateChanged);
       setStep("done");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong");
@@ -426,22 +442,24 @@ export default function PortalBookingForm() {
           <button className="text-sm text-brand-600 underline" onClick={() => setStep("scope")}>
             ← Back
           </button>
-          <label className="flex items-start gap-2 rounded-lg border border-slate-200 px-4 py-3 text-sm text-slate-700">
-            <input
-              type="checkbox"
-              className="mt-1"
-              checked={scheduleViaContact}
-              onChange={(e) => {
-                setScheduleViaContact(e.target.checked);
-                setSuggestedDate(null);
-              }}
-            />
-            Coordinate date and time with job site contact.
-          </label>
+          {!isIndividual && (
+            <label className="flex items-start gap-2 rounded-lg border border-slate-200 px-4 py-3 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={scheduleViaContact}
+                onChange={(e) => {
+                  setScheduleViaContact(e.target.checked);
+                  setSuggestedDate(null);
+                }}
+              />
+              Coordinate date and time with job site contact.
+            </label>
+          )}
           {!scheduleViaContact && (
             <>
               <div>
-                <label className="block text-sm font-medium text-slate-700">Date</label>
+                <label className="block text-sm font-medium text-slate-700">Preferred date</label>
                 <input
                   type="date"
                   className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
@@ -462,25 +480,32 @@ export default function PortalBookingForm() {
                 </div>
               )}
               <div>
-                <label className="block text-sm font-medium text-slate-700">Preferred window</label>
-                <div className="mt-1 grid grid-cols-3 gap-2">
-                  {(["AM", "PM", "ANY"] as const).map((w) => (
-                    <button
-                      key={w}
-                      className={`rounded-lg border px-3 py-2 text-sm ${window_ === w ? "border-brand-600 bg-brand-50" : "border-slate-300"}`}
-                      onClick={() => setWindow(w)}
-                    >
-                      {w === "ANY" ? "No preference" : w}
-                    </button>
-                  ))}
-                </div>
+                <label className="block text-sm font-medium text-slate-700">Preferred time</label>
+                <input
+                  type="time"
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+                  value={preferredTime}
+                  onChange={(e) => setPreferredTime(e.target.value)}
+                />
+                <p className="mt-1 text-xs text-slate-500">Optional — leave blank if you don&apos;t have a preference.</p>
               </div>
+              {isIndividual && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700">Notes</label>
+                  <textarea
+                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+                    placeholder="Gate code, anything else we should know (optional)"
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                  />
+                </div>
+              )}
             </>
           )}
           <button
             className="flex w-full items-center justify-center border-[3px] border-brand-700 bg-brand-50 py-3 pt-[14px] text-sm font-extrabold uppercase leading-none text-brand-700 hover:bg-yellow-100 disabled:opacity-50"
             disabled={loading || (!scheduleViaContact && !!suggestedDate)}
-            onClick={() => setStep("contact")}
+            onClick={() => setStep(isIndividual ? "review" : "contact")}
           >
             Continue
           </button>
@@ -524,7 +549,7 @@ export default function PortalBookingForm() {
 
       {step === "review" && (
         <section className="mt-6 space-y-4">
-          <button className="text-sm text-brand-600 underline" onClick={() => setStep("contact")}>
+          <button className="text-sm text-brand-600 underline" onClick={() => setStep(isIndividual ? "date" : "contact")}>
             ← Back
           </button>
 
@@ -552,18 +577,17 @@ export default function PortalBookingForm() {
               <div className="whitespace-pre-wrap text-slate-700">{scopeOfWork}</div>
             </div>
             <div>
-              <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Date</div>
+              <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Preferred date</div>
               <div className="text-slate-700">
-                {scheduleViaContact ? (
-                  "To be scheduled with the job site contact"
-                ) : (
-                  <>
-                    {date}
-                    {window_ !== "ANY" && ` — ${window_}`}
-                  </>
-                )}
+                {scheduleViaContact ? "To be scheduled with the job site contact" : formatDate(date)}
               </div>
             </div>
+            {!scheduleViaContact && preferredTime && (
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Preferred time</div>
+                <div className="text-slate-700">{formatPreferredTime(preferredTime)}</div>
+              </div>
+            )}
             {(siteContactName || siteContactPhone) && (
               <div>
                 <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Job site contact</div>
@@ -592,9 +616,9 @@ export default function PortalBookingForm() {
         <section className="mt-6 space-y-3">
           <div className="rounded-lg bg-emerald-50 px-4 py-4 text-sm text-emerald-800">
             <p className="font-medium">
-              {confirmedDate ? `Booked for ${confirmedDate}.` : "Booked — we'll coordinate scheduling directly with your job site contact."}
+              {confirmedDate ? `Request sent for ${confirmedDate}.` : "Request sent — we'll coordinate scheduling directly with your job site contact."}
             </p>
-            {dateChanged && <p className="mt-1">Your requested date was full, so we moved you to the next available date.</p>}
+            <p className="mt-1">We'll follow up to confirm your date and time.</p>
           </div>
           <button className="text-sm text-brand-600 underline" onClick={() => router.push("/portal/dashboard")}>
             Back to my projects

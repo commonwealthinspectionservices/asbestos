@@ -51,7 +51,6 @@ export default function BookingForm() {
   const [notes, setNotes] = useState("");
   const [disclaimerAck, setDisclaimerAck] = useState(false);
   const [confirmedDate, setConfirmedDate] = useState<string | null>(null);
-  const [dateChanged, setDateChanged] = useState(false);
 
   async function submitAddress() {
     setLoading(true);
@@ -145,7 +144,6 @@ export default function BookingForm() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Something went wrong");
       setConfirmedDate(data.date);
-      setDateChanged(data.dateChanged);
       setStep("done");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong");
@@ -350,13 +348,8 @@ export default function BookingForm() {
       {step === "done" && (
         <section className="mt-6 space-y-3">
           <div className="rounded-lg bg-emerald-50 px-4 py-4 text-sm text-emerald-800">
-            <p className="font-medium">You&apos;re booked for {confirmedDate}.</p>
-            {dateChanged && (
-              <p className="mt-1">
-                Your originally requested date was full, so we moved you to the next available
-                date.
-              </p>
-            )}
+            <p className="font-medium">Request sent for {confirmedDate}.</p>
+            <p className="mt-1">We&apos;ll follow up to confirm your date and time.</p>
             <p className="mt-1">A confirmation email is on its way to {email}.</p>
           </div>
         </section>

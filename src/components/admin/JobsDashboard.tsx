@@ -1501,7 +1501,7 @@ export function ProjectDetailDialog({
               <DetailField label="Phone" value={job.customers?.phone} />
               <DetailField label="Email" value={job.customers?.email} nowrap />
             </div>
-            {job.customers?.companies && (
+            {!job.customers?.is_individual && job.customers?.companies && (
               <div className="space-y-2">
                 <h4 className="text-sm font-bold uppercase tracking-wide text-black underline">Company info</h4>
                 {job.customers.companies.billing_contact && (

@@ -1,12 +1,40 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { Customer, Job } from "@/lib/types";
 import { splitAddress, googleMapsUrl } from "@/lib/address";
 import ProjectDetailModal from "@/components/portal/ProjectDetailModal";
 
+const OPEN_STATUSES = new Set(["needs_scheduling", "scheduled", "fieldwork_in_progress", "awaiting_lab_results", "needs_report", "pending_lab_results", "completed", "invoiced", "ready_to_send"]);
 const CLOSED_STATUSES = new Set(["paid", "cancelled"]);
+
+// Matches if the target contains every word of the query as a substring, in
+// any order — mirrors the admin dashboard's own matchesAnyWord.
+function matchesAnyWord(target: string, query: string): boolean {
+  const words = query.toLowerCase().trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return true;
+  const t = target.toLowerCase();
+  return words.every((w) => t.includes(w));
+}
+
+type SortField = "date" | "project_number";
+const SORT_FIELDS: { key: SortField; label: string }[] = [
+  { key: "date", label: "Date" },
+  { key: "project_number", label: "Project #" },
+];
+
+// Same pipeline the admin filters by, collapsed to the statuses a client
+// actually sees distinct labels for — ready_to_send reads identically to
+// pending_lab_results here (see STATUS_LABEL's own comment above), so
+// selecting either one filters for both underlying keys at once.
+const PIPELINE_STATUSES: { key: string; matches: string[] }[] = [
+  { key: "needs_scheduling", matches: ["needs_scheduling"] },
+  { key: "scheduled", matches: ["scheduled"] },
+  { key: "pending_lab_results", matches: ["pending_lab_results", "ready_to_send"] },
+  { key: "paid", matches: ["paid"] },
+  { key: "cancelled", matches: ["cancelled"] },
+];
 
 function formatDate(date: string | null | undefined): string {
   if (!date) return "";
@@ -83,6 +111,40 @@ export default function ProjectsList() {
   const [error, setError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
+  const [statusView, setStatusView] = useState<"all" | "open" | "closed">("open");
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [statusFilterOpen, setStatusFilterOpen] = useState(false);
+  const [serviceTypeFilter, setServiceTypeFilter] = useState<Set<string>>(new Set());
+  const [serviceTypeFilterOpen, setServiceTypeFilterOpen] = useState(false);
+  const [sortBy, setSortBy] = useState<SortField>("date");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [projectNumberQuery, setProjectNumberQuery] = useState("");
+  const [addressQuery, setAddressQuery] = useState("");
+  const [dateQuery, setDateQuery] = useState("");
+
+  function selectStatusView(view: "all" | "open" | "closed") {
+    setStatusView(view);
+    setStatusFilter(null);
+  }
+
+  function toggleServiceTypeFilter(label: string) {
+    setServiceTypeFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(label)) next.delete(label);
+      else next.add(label);
+      return next;
+    });
+  }
+
+  function toggleSort(field: SortField) {
+    if (sortBy === field) {
+      setSortDir(sortDir === "asc" ? "desc" : "asc");
+    } else {
+      setSortBy(field);
+      setSortDir("asc");
+    }
+  }
+
   function load() {
     fetch("/api/portal/projects")
       .then(async (r) => {
@@ -103,6 +165,59 @@ export default function ProjectsList() {
   // close and reopen it.
   const selected = projects.find((p) => p.id === selectedId) ?? null;
 
+  // Options for the Service Type filter — derived from whatever's actually
+  // on this account's own projects rather than a settings fetch, since a
+  // client only ever needs to filter within their own history.
+  const availableServiceTypes = useMemo(() => {
+    const labels = new Set<string>();
+    for (const p of projects) {
+      for (const label of (p.service_type ?? "").split(",").map((s) => s.trim()).filter(Boolean)) {
+        labels.add(label);
+      }
+    }
+    return [...labels].sort();
+  }, [projects]);
+
+  const filteredProjects = useMemo(() => {
+    let result = projects;
+    if (statusFilter) {
+      const matches = PIPELINE_STATUSES.find((s) => s.key === statusFilter)?.matches ?? [statusFilter];
+      result = result.filter((p) => matches.includes(p.status));
+    } else if (statusView === "open") {
+      result = result.filter((p) => OPEN_STATUSES.has(p.status));
+    } else if (statusView === "closed") {
+      result = result.filter((p) => CLOSED_STATUSES.has(p.status));
+    }
+
+    if (serviceTypeFilter.size > 0) {
+      result = result.filter((p) => {
+        const labels = (p.service_type ?? "").split(",").map((s) => s.trim());
+        return labels.some((label) => serviceTypeFilter.has(label));
+      });
+    }
+
+    if (projectNumberQuery.trim()) {
+      result = result.filter((p) => matchesAnyWord(p.project_number ?? "", projectNumberQuery));
+    }
+    if (addressQuery.trim()) {
+      result = result.filter((p) => matchesAnyWord(p.service_address ?? "", addressQuery));
+    }
+    if (dateQuery) {
+      result = result.filter((p) => p.requested_date === dateQuery);
+    }
+    return result;
+  }, [projects, statusView, statusFilter, serviceTypeFilter, projectNumberQuery, addressQuery, dateQuery]);
+
+  const sortedProjects = useMemo(() => {
+    const dir = sortDir === "asc" ? 1 : -1;
+    return [...filteredProjects].sort((a, b) => {
+      if (sortBy === "project_number") {
+        return dir * (a.project_number ?? "").localeCompare(b.project_number ?? "");
+      }
+      return dir * (a.requested_date ?? "").localeCompare(b.requested_date ?? "");
+    });
+  }, [filteredProjects, sortBy, sortDir]);
+
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
       <div className="mt-6 flex items-center justify-between">
@@ -115,15 +230,143 @@ export default function ProjectsList() {
         </Link>
       </div>
 
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <button
+          onClick={() => selectStatusView("all")}
+          className={`rounded-lg px-3 py-1.5 text-sm font-medium uppercase ${!statusFilter && statusView === "all" ? "text-brand-700 underline" : "text-slate-600 hover:underline"}`}
+        >
+          All Projects
+        </button>
+        <button
+          onClick={() => selectStatusView("open")}
+          className={`rounded-lg px-3 py-1.5 text-sm font-medium uppercase ${!statusFilter && statusView === "open" ? "text-brand-700 underline" : "text-slate-600 hover:underline"}`}
+        >
+          Open Projects
+        </button>
+        <button
+          onClick={() => selectStatusView("closed")}
+          className={`rounded-lg px-3 py-1.5 text-sm font-medium uppercase ${!statusFilter && statusView === "closed" ? "text-brand-700 underline" : "text-slate-600 hover:underline"}`}
+        >
+          Closed Projects
+        </button>
+      </div>
+
+      {projects.length > 0 && (
+        <>
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <span className="text-sm font-medium uppercase text-slate-500">Sort by:</span>
+            {SORT_FIELDS.map((f) => (
+              <button
+                key={f.key}
+                onClick={() => toggleSort(f.key)}
+                className={`rounded-lg px-2.5 py-1 text-sm font-medium uppercase ${sortBy === f.key ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
+              >
+                {f.label}{sortBy === f.key ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
+              </button>
+            ))}
+            <div
+              className="relative"
+              onMouseEnter={() => setStatusFilterOpen(true)}
+              onMouseLeave={() => setStatusFilterOpen(false)}
+            >
+              <button className={`rounded-lg px-2.5 py-1 text-sm font-medium uppercase ${statusFilter ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}>
+                Status ▾
+              </button>
+              {statusFilterOpen && (
+                <div className="absolute z-10 mt-1 w-56 rounded-lg border border-slate-200 bg-white p-2 shadow-lg">
+                  {PIPELINE_STATUSES.map((s) => (
+                    <label key={s.key} className="flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-slate-50">
+                      <input
+                        type="radio"
+                        name="statusFilter"
+                        checked={statusFilter === s.key}
+                        onChange={() => setStatusFilter(s.key)}
+                        className="h-3.5 w-3.5 shrink-0"
+                      />
+                      {STATUS_LABEL[s.key]}
+                    </label>
+                  ))}
+                  {statusFilter && (
+                    <button onClick={() => setStatusFilter(null)} className="mt-1 w-full rounded px-2 py-1 text-left text-xs text-brand-600 underline">
+                      Clear
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+            {availableServiceTypes.length > 0 && (
+              <div
+                className="relative"
+                onMouseEnter={() => setServiceTypeFilterOpen(true)}
+                onMouseLeave={() => setServiceTypeFilterOpen(false)}
+              >
+                <button className={`rounded-lg px-2.5 py-1 text-sm font-medium uppercase ${serviceTypeFilter.size > 0 ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}>
+                  Service Type{serviceTypeFilter.size > 0 ? ` (${serviceTypeFilter.size})` : ""} ▾
+                </button>
+                {serviceTypeFilterOpen && (
+                  <div className="absolute z-10 mt-1 w-max max-w-xs rounded-lg border border-slate-200 bg-white p-2 shadow-lg">
+                    {availableServiceTypes.map((label) => (
+                      <label key={label} className="flex items-center gap-2 whitespace-nowrap rounded px-2 py-1.5 text-sm hover:bg-slate-50">
+                        <input
+                          type="checkbox"
+                          checked={serviceTypeFilter.has(label)}
+                          onChange={() => toggleServiceTypeFilter(label)}
+                          className="h-3.5 w-3.5 shrink-0"
+                        />
+                        {label}
+                      </label>
+                    ))}
+                    {serviceTypeFilter.size > 0 && (
+                      <button onClick={() => setServiceTypeFilter(new Set())} className="mt-1 w-full rounded px-2 py-1 text-left text-xs text-brand-600 underline">
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <span className="shrink-0 text-sm font-medium uppercase text-slate-500">Search by:</span>
+            <input
+              value={projectNumberQuery}
+              onChange={(e) => setProjectNumberQuery(e.target.value)}
+              placeholder="Project #"
+              className="w-0 min-w-[8rem] flex-1 rounded-lg border border-slate-300 px-2.5 py-1 text-sm"
+            />
+            <input
+              value={addressQuery}
+              onChange={(e) => setAddressQuery(e.target.value)}
+              placeholder="Address"
+              className="w-0 min-w-[8rem] flex-1 rounded-lg border border-slate-300 px-2.5 py-1 text-sm"
+            />
+            <input
+              type="date"
+              value={dateQuery}
+              onChange={(e) => setDateQuery(e.target.value)}
+              className="w-36 shrink-0 rounded-lg border border-slate-300 px-2.5 py-1 text-sm"
+            />
+            {dateQuery && (
+              <button onClick={() => setDateQuery("")} className="text-xs text-brand-600 underline">
+                Clear date
+              </button>
+            )}
+          </div>
+        </>
+      )}
+
       {error && <div className="mt-3 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>}
 
       {loading ? (
         <p className="mt-6 text-sm text-slate-500">Loading…</p>
       ) : projects.length === 0 ? (
         <p className="mt-6 text-lg text-slate-500">No projects yet.</p>
+      ) : sortedProjects.length === 0 ? (
+        <p className="mt-6 text-sm uppercase text-slate-500">No projects match these filters.</p>
       ) : (
         <div className="mt-6 space-y-2">
-          {projects.map((p) => {
+          {sortedProjects.map((p) => {
             const { locationName, street, cityStateZip } = splitAddress(p.service_address);
             const serviceLabels = (p.service_type ?? "").split(",").map((s) => s.trim()).filter(Boolean);
             const closed = CLOSED_STATUSES.has(p.status);

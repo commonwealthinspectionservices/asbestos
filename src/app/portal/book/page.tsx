@@ -13,7 +13,7 @@ export default async function PortalBookPage() {
   return (
     <div className="min-h-screen bg-slate-50">
       <PortalNav isIndividual={session.customer.is_individual} />
-      <PortalBookingForm />
+      <PortalBookingForm isIndividual={session.customer.is_individual} />
     </div>
   );
 }

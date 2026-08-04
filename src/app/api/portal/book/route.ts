@@ -3,9 +3,9 @@ import { requireContractorApi } from "@/lib/contractor-api";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { getSettings } from "@/lib/settings";
 import { isWithinServiceStates } from "@/lib/geocode";
-import { isDateFull, findNextAvailableDate } from "@/lib/capacity";
 import { withApiErrors } from "@/lib/api-handler";
 import { maybeSendImmediateAreaAlert } from "@/lib/area-health";
+import { sendNewBookingRequestEmail } from "@/lib/booking-notify";
 import { generateProjectNumber } from "@/lib/project-number";
 import { resolveZoneBaseFeeCents } from "@/lib/pricing-zones";
 import type { ServiceType } from "@/lib/types";
@@ -20,14 +20,21 @@ export const POST = withApiErrors(async (req: NextRequest) => {
 
   const body = await req.json().catch(() => null);
   const {
-    address, lat, lng, distanceMiles, state, serviceTypeKey, date: requestedDate, window,
+    address, lat, lng, distanceMiles, state, serviceTypeKey, date: requestedDate, requestedTime,
     scheduleViaContact, siteContactName, siteContactPhone, notes, scopeOfWork, disclaimerAck,
   } = body ?? {};
 
+  // An individual booking on their own behalf IS the job site contact —
+  // no separate "coordinate with job site contact" step exists for them
+  // (see PortalBookingForm.tsx), so fall back to their own name/phone
+  // instead of requiring it twice.
+  const resolvedSiteContactName = siteContactName?.trim() || (auth.customer.is_individual ? auth.customer.name : "");
+  const resolvedSiteContactPhone = siteContactPhone?.trim() || (auth.customer.is_individual ? auth.customer.phone : "");
+
   if (
     !address || lat == null || lng == null || !serviceTypeKey ||
-    (!scheduleViaContact && (!requestedDate || !window)) ||
-    !siteContactName?.trim() || !siteContactPhone?.trim()
+    (!scheduleViaContact && !requestedDate) ||
+    !resolvedSiteContactName?.trim() || !resolvedSiteContactPhone?.trim()
   ) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
@@ -49,21 +56,24 @@ export const POST = withApiErrors(async (req: NextRequest) => {
   const zoneBaseFeeCents = resolveZoneBaseFeeCents(address, settings.pricing_zones);
   const baseFeeCents = zoneBaseFeeCents ?? serviceType.base_fee_cents;
 
-  // A contractor who'd rather have us coordinate directly with the on-site
-  // contact skips picking a date/capacity slot entirely — the job lands in
-  // "needs_scheduling" (same status/queue as an admin-added job with no
-  // date yet) instead of "scheduled".
-  let date: string | null = requestedDate ?? null;
-  if (!scheduleViaContact) {
-    let confirmedDate: string = requestedDate;
-    if (await isDateFull(confirmedDate, settings.max_jobs_per_day)) {
-      confirmedDate = await findNextAvailableDate(confirmedDate, settings.max_jobs_per_day);
-    }
-    date = confirmedDate;
-  }
+  // Every booking is a request now, not a confirmed slot — whether they
+  // picked a date or asked us to coordinate with the job site contact,
+  // nothing becomes "scheduled" until the owner reviews it (see
+  // sendNewBookingRequestEmail below) and sets a real confirmed_date/time
+  // from the admin dashboard. Recording exactly what they asked for rather
+  // than silently bumping a full date, same reasoning as /api/book.
+  const date: string | null = requestedDate ?? null;
 
   const supabase = getSupabaseAdmin();
   const projectNumber = await generateProjectNumber();
+
+  const time: string | null = scheduleViaContact ? null : requestedTime || null;
+  // window (AM/PM/no-preference) predates requested_time (a real clock
+  // time) — see requested_time's comment in schema.sql. Still derived and
+  // stored since route-runner.ts's optimizer reads it as a coarse
+  // constraint; requested_time itself is the more precise value shown
+  // everywhere else.
+  const derivedWindow = scheduleViaContact ? "ANY" : time ? (Number(time.slice(0, 2)) < 12 ? "AM" : "PM") : "ANY";
 
   const { data: job, error: jobError } = await supabase
     .from("jobs")
@@ -72,22 +82,19 @@ export const POST = withApiErrors(async (req: NextRequest) => {
       customer_id: auth.customer.id,
       service_address: address,
       lat, lng,
-      site_contact_name: siteContactName || null,
-      site_contact_phone: siteContactPhone || null,
+      site_contact_name: resolvedSiteContactName || null,
+      site_contact_phone: resolvedSiteContactPhone || null,
       service_type: serviceType.label,
       base_fee_cents: baseFeeCents,
       per_sample_cents: serviceType.per_sample_cents,
       requested_date: scheduleViaContact ? null : date,
-      // The client just picked this themselves, so it's already "agreed" —
-      // auto-confirmed rather than waiting on the admin to flip the
-      // "Visible to customer" toggle (that's for the admin's own later
-      // reschedules). schedule_visible_to_customer mirrors this so the
-      // toggle shown on the dashboard reflects reality, and any later
-      // requested_date/time edit made from there keeps live-syncing.
-      confirmed_date: scheduleViaContact ? null : date,
-      schedule_visible_to_customer: !scheduleViaContact,
-      window: scheduleViaContact ? "ANY" : window,
-      status: scheduleViaContact ? "needs_scheduling" : "scheduled",
+      requested_time: time,
+      // No confirmed_date/time and no schedule_visible_to_customer here —
+      // this is a request, not an agreed slot. Both stay unset until the
+      // owner reviews it (see sendNewBookingRequestEmail below) and
+      // confirms a real date/time from the admin dashboard.
+      window: derivedWindow,
+      status: "needs_scheduling",
       notes: notes || null,
       scope_of_work: scopeOfWork || null,
       disclaimer_ack: true,
@@ -102,6 +109,26 @@ export const POST = withApiErrors(async (req: NextRequest) => {
   }
 
   try {
+    await sendNewBookingRequestEmail({
+      jobId: job.id,
+      projectNumber,
+      customerName: auth.customer.name,
+      company: auth.customer.company,
+      address,
+      serviceLabel: serviceType.label,
+      requestedDate: scheduleViaContact ? null : date,
+      requestedTime: time,
+      scheduleViaContact,
+      scopeOfWork,
+      notes,
+      siteContactName: resolvedSiteContactName,
+      siteContactPhone: resolvedSiteContactPhone,
+    });
+  } catch (err) {
+    console.error("New-booking-request owner alert failed:", err);
+  }
+
+  try {
     await maybeSendImmediateAreaAlert();
   } catch (err) {
     console.error("Area-health immediate check failed:", err);
@@ -111,6 +138,5 @@ export const POST = withApiErrors(async (req: NextRequest) => {
     ok: true,
     jobId: job.id,
     date: scheduleViaContact ? null : date,
-    dateChanged: !scheduleViaContact && date !== requestedDate,
   });
 });

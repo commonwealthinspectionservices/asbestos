@@ -189,64 +189,66 @@ export default function SettingsEditor() {
         <GmailConnection />
       </Section>
 
-      <Section title="Service area">
-        <Field label="Licensed states (comma-separated, e.g. MA)">
-          <TextInput
-            value={form.service_states.join(", ")}
-            onChange={(v) => update("service_states", v.split(",").map((s) => s.trim().toUpperCase()).filter(Boolean))}
-          />
-        </Field>
-        <p className="text-xs text-slate-500">
-          This is the actual booking-acceptance gate — a booking is accepted only if the address is in one
-          of these states. The fields below feed the service-area health digest&apos;s distance metrics only;
-          they no longer gate acceptance.
-        </p>
-        <Field label="Center latitude">
-          <NumberInput value={form.service_area_center_lat} onChange={(v) => update("service_area_center_lat", v)} step="0.0001" />
-        </Field>
-        <Field label="Center longitude">
-          <NumberInput value={form.service_area_center_lng} onChange={(v) => update("service_area_center_lng", v)} step="0.0001" />
-        </Field>
-        <Field label="Radius (miles, informational only)">
-          <NumberInput value={form.service_radius_miles} onChange={(v) => update("service_radius_miles", v)} step="0.1" />
-        </Field>
-      </Section>
+      <CollapsibleSection title="Advanced settings">
+        <SubSection title="Service area">
+          <Field label="Licensed states (comma-separated, e.g. MA)">
+            <TextInput
+              value={form.service_states.join(", ")}
+              onChange={(v) => update("service_states", v.split(",").map((s) => s.trim().toUpperCase()).filter(Boolean))}
+            />
+          </Field>
+          <p className="text-xs text-slate-500">
+            This is the actual booking-acceptance gate — a booking is accepted only if the address is in one
+            of these states. The fields below feed the service-area health digest&apos;s distance metrics only;
+            they no longer gate acceptance.
+          </p>
+          <Field label="Center latitude">
+            <NumberInput value={form.service_area_center_lat} onChange={(v) => update("service_area_center_lat", v)} step="0.0001" />
+          </Field>
+          <Field label="Center longitude">
+            <NumberInput value={form.service_area_center_lng} onChange={(v) => update("service_area_center_lng", v)} step="0.0001" />
+          </Field>
+          <Field label="Radius (miles, informational only)">
+            <NumberInput value={form.service_radius_miles} onChange={(v) => update("service_radius_miles", v)} step="0.1" />
+          </Field>
+        </SubSection>
 
-      <Section title="Route & schedule">
-        <Field label="Timezone">
-          <TextInput value={form.timezone} onChange={(v) => update("timezone", v)} />
-        </Field>
-        <Field label="Workday start">
-          <TextInput value={form.workday_start} onChange={(v) => update("workday_start", v)} placeholder="08:00" />
-        </Field>
-        <Field label="Workday end">
-          <TextInput value={form.workday_end} onChange={(v) => update("workday_end", v)} placeholder="17:00" />
-        </Field>
-        <Field label="Max projects per day">
-          <NumberInput value={form.max_jobs_per_day} onChange={(v) => update("max_jobs_per_day", v)} step="1" />
-        </Field>
-        <Field label="Default service minutes">
-          <NumberInput value={form.default_service_minutes} onChange={(v) => update("default_service_minutes", v)} step="1" />
-        </Field>
-        <Field label="Route email time (local)">
-          <TextInput value={form.route_email_time_local} onChange={(v) => update("route_email_time_local", v)} placeholder="05:00" />
-        </Field>
-      </Section>
+        <SubSection title="Route & schedule">
+          <Field label="Timezone">
+            <TextInput value={form.timezone} onChange={(v) => update("timezone", v)} />
+          </Field>
+          <Field label="Workday start">
+            <TextInput value={form.workday_start} onChange={(v) => update("workday_start", v)} placeholder="08:00" />
+          </Field>
+          <Field label="Workday end">
+            <TextInput value={form.workday_end} onChange={(v) => update("workday_end", v)} placeholder="17:00" />
+          </Field>
+          <Field label="Max projects per day">
+            <NumberInput value={form.max_jobs_per_day} onChange={(v) => update("max_jobs_per_day", v)} step="1" />
+          </Field>
+          <Field label="Default service minutes">
+            <NumberInput value={form.default_service_minutes} onChange={(v) => update("default_service_minutes", v)} step="1" />
+          </Field>
+          <Field label="Route email time (local)">
+            <TextInput value={form.route_email_time_local} onChange={(v) => update("route_email_time_local", v)} placeholder="05:00" />
+          </Field>
+        </SubSection>
 
-      <Section title="Service-area health alert thresholds">
-        <Field label="Median inter-stop drive time (min)">
-          <NumberInput value={form.alert_interstop_minutes} onChange={(v) => update("alert_interstop_minutes", v)} step="0.5" />
-        </Field>
-        <Field label="Avg project distance from center (mi)">
-          <NumberInput value={form.alert_avg_distance_miles} onChange={(v) => update("alert_avg_distance_miles", v)} step="0.1" />
-        </Field>
-        <Field label="Near-miss count (per 4 wks)">
-          <NumberInput value={form.alert_nearmiss_count} onChange={(v) => update("alert_nearmiss_count", v)} step="1" />
-        </Field>
-        <Field label="Centroid offset (mi)">
-          <NumberInput value={form.alert_centroid_offset_miles} onChange={(v) => update("alert_centroid_offset_miles", v)} step="0.1" />
-        </Field>
-      </Section>
+        <SubSection title="Service-area health alert thresholds">
+          <Field label="Median inter-stop drive time (min)">
+            <NumberInput value={form.alert_interstop_minutes} onChange={(v) => update("alert_interstop_minutes", v)} step="0.5" />
+          </Field>
+          <Field label="Avg project distance from center (mi)">
+            <NumberInput value={form.alert_avg_distance_miles} onChange={(v) => update("alert_avg_distance_miles", v)} step="0.1" />
+          </Field>
+          <Field label="Near-miss count (per 4 wks)">
+            <NumberInput value={form.alert_nearmiss_count} onChange={(v) => update("alert_nearmiss_count", v)} step="1" />
+          </Field>
+          <Field label="Centroid offset (mi)">
+            <NumberInput value={form.alert_centroid_offset_miles} onChange={(v) => update("alert_centroid_offset_miles", v)} step="0.1" />
+          </Field>
+        </SubSection>
+      </CollapsibleSection>
 
       <Section title="Disclaimer">
         <textarea
@@ -257,7 +259,7 @@ export default function SettingsEditor() {
         />
       </Section>
 
-      <Section title="Service types">
+      <Section title="Price by service type">
         <div className="space-y-3">
           {form.service_types.map((s, i) => (
             <div key={i} className="rounded-lg border border-slate-200 p-3">
@@ -361,6 +363,32 @@ function Section({ title, children }: { title: string; children: React.ReactNode
     <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
       <h2 className="text-sm font-semibold text-slate-700">{title}</h2>
       <div className="mt-3 space-y-3">{children}</div>
+    </div>
+  );
+}
+
+function CollapsibleSection({ title, children }: { title: string; children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
+      <button
+        type="button"
+        className="flex w-full items-center justify-between text-left"
+        onClick={() => setOpen((o) => !o)}
+      >
+        <h2 className="text-sm font-semibold text-slate-700">{title}</h2>
+        <span className="text-slate-400">{open ? "▲" : "▼"}</span>
+      </button>
+      {open && <div className="mt-3 space-y-6">{children}</div>}
+    </div>
+  );
+}
+
+function SubSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">{title}</h3>
+      <div className="mt-2 space-y-3">{children}</div>
     </div>
   );
 }

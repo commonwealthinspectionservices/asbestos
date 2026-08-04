@@ -75,7 +75,6 @@ async function handleAddress(body: { address?: string }) {
       const effective = zoneBaseFeeCents != null ? { ...s, base_fee_cents: zoneBaseFeeCents } : s;
       return { ...effective, rateLabel: serviceRateLabel(effective) };
     }),
-    disclaimerText: settings.disclaimer_text,
   });
 }
 

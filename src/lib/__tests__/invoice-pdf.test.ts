@@ -22,7 +22,6 @@ const settings: Settings = {
   last_area_alert_sent_at: null,
   business_name: "Commonwealth Inspection Services, LLC.",
   business_phone: "617-390-4778",
-  disclaimer_text: "This is a disclaimer.",
   service_types: [
     { key: "asbestos", label: "Asbestos Inspection", base_fee_cents: 45000, per_sample_cents: 2500 },
   ],

@@ -14,6 +14,9 @@ interface ServiceTypeOption {
 
 type Step = "address" | "waitlist" | "waitlistDone" | "service" | "date" | "contact" | "done";
 
+const DISCLAIMER_TEXT =
+  "Results are determined by an accredited laboratory. This is not a guarantee of the absence of asbestos, lead or mold outside of sampled locations.";
+
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
 }
@@ -30,7 +33,6 @@ export default function BookingForm() {
   const [distanceMiles, setDistanceMiles] = useState<number | null>(null);
   const [state, setState] = useState<string | null>(null);
   const [serviceTypes, setServiceTypes] = useState<ServiceTypeOption[]>([]);
-  const [disclaimerText, setDisclaimerText] = useState("");
 
   // service step
   const [serviceTypeKey, setServiceTypeKey] = useState<string>("");
@@ -74,7 +76,6 @@ export default function BookingForm() {
         setStep("waitlist");
       } else {
         setServiceTypes(data.serviceTypes);
-        setDisclaimerText(data.disclaimerText);
         setStep("service");
       }
     } catch (e) {
@@ -328,7 +329,7 @@ export default function BookingForm() {
           <textarea className="w-full rounded-lg border border-slate-300 px-3 py-2" placeholder="Notes — gate code, contact on site, etc. (optional)" value={notes} onChange={(e) => setNotes(e.target.value)} />
 
           <div className="rounded-lg border border-slate-200 px-4 py-3 text-xs text-slate-600">
-            {disclaimerText}
+            {DISCLAIMER_TEXT}
           </div>
           <label className="flex items-start gap-2 text-sm text-slate-700">
             <input type="checkbox" className="mt-1" checked={disclaimerAck} onChange={(e) => setDisclaimerAck(e.target.checked)} />

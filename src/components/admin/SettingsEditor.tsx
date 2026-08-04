@@ -250,15 +250,6 @@ export default function SettingsEditor() {
         </SubSection>
       </CollapsibleSection>
 
-      <Section title="Disclaimer">
-        <textarea
-          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-          rows={4}
-          value={form.disclaimer_text}
-          onChange={(e) => update("disclaimer_text", e.target.value)}
-        />
-      </Section>
-
       <Section title="Price by service type">
         <div className="space-y-3">
           {form.service_types.map((s, i) => (

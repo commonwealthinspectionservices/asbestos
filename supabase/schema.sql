@@ -666,6 +666,11 @@ alter table settings drop column if exists owner_name;
 alter table settings drop column if exists owner_title;
 alter table settings drop column if exists license_number;
 
+-- disclaimer_text is no longer editable — the booking-acknowledgment wording
+-- is hardcoded (DISCLAIMER_TEXT in src/components/BookingForm.tsx) instead
+-- of a Settings field.
+alter table settings drop column if exists disclaimer_text;
+
 -- One-time rename: is_homeowner -> is_individual on both jobs and customers,
 -- dropping the "homeowner vs contractor" terminology in favor of "individual
 -- vs company" everywhere (including the account_type signup value). Guarded

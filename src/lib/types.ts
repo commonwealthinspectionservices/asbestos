@@ -68,7 +68,6 @@ export interface Settings {
   business_name: string;
   /** Printed in the report letterhead's top-right contact block, alongside base_address. */
   business_phone: string;
-  disclaimer_text: string;
   service_types: ServiceType[];
   pricing_zones: PricingZone[];
   labs: LabProfile[];

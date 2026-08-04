@@ -2,6 +2,7 @@ import path from "path";
 import { Document, Page, Text, View, Image, StyleSheet, renderToBuffer } from "@react-pdf/renderer";
 import type { Style } from "@react-pdf/types";
 import { splitAddress } from "@/lib/address";
+import { primaryInspector } from "@/lib/settings";
 import type { Job, Customer, Settings } from "@/lib/types";
 import { ASBESTOS_POSITIVE_REMARK, ASBESTOS_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK } from "@/lib/report-findings";
 
@@ -521,14 +522,15 @@ function LetterHeader({ settings, addressLines }: { settings: Settings; addressL
 }
 
 function SignatureBlock({ settings, showLicense }: { settings: Settings; showLicense: boolean }) {
+  const inspector = primaryInspector(settings);
   return (
     <View style={styles.signatureBlock}>
       <Text style={styles.signatureLine}>Sincerely,</Text>
       <Text style={styles.signatureName}>{settings.business_name}</Text>
       <Image src={SIGNATURE_PATH} style={styles.signatureImage} />
-      <Text style={styles.signatureLine}>{settings.owner_name}</Text>
+      <Text style={styles.signatureLine}>{inspector.name}</Text>
       <Text style={styles.signatureLine}>
-        {settings.owner_title}{showLicense && settings.license_number ? ` — Asbestos Inspector License #${settings.license_number}` : ""}
+        {inspector.title}{showLicense && inspector.license_number ? ` — Asbestos Inspector License #${inspector.license_number}` : ""}
       </Text>
     </View>
   );

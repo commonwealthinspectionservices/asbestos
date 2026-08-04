@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApi } from "@/lib/admin-api";
 import { getSupabaseAdmin } from "@/lib/supabase";
-import { getSettings } from "@/lib/settings";
+import { getSettings, primaryInspector } from "@/lib/settings";
 import { sendEmail, emailShell } from "@/lib/email";
 import { escapeHtml } from "@/lib/html";
 import { getAppUrl } from "@/lib/app-url";
@@ -60,13 +60,14 @@ export const POST = withApiErrors(async (
   const jobRow = job as unknown as Job & { customers: { email: string; name: string } };
 
   const settings = await getSettings();
+  const inspectorName = primaryInspector(settings).name;
 
   const { data: message, error: insertError } = await supabase
     .from("job_messages")
     .insert({
       job_id: params.id,
       sender_role: "admin",
-      sender_name: settings.owner_name || settings.business_name,
+      sender_name: inspectorName || settings.business_name,
       body: text,
       read_by_admin: true,
       read_by_customer: false,
@@ -85,7 +86,7 @@ export const POST = withApiErrors(async (
       subject: `New message about project ${jobRow.project_number ?? ""}`,
       html: emailShell(`
         <p>Hi ${escapeHtml(jobRow.customers.name)},</p>
-        <p>${escapeHtml(settings.owner_name || settings.business_name)} sent you a message about your project${jobRow.project_number ? ` (${escapeHtml(jobRow.project_number)})` : ""}:</p>
+        <p>${escapeHtml(inspectorName || settings.business_name)} sent you a message about your project${jobRow.project_number ? ` (${escapeHtml(jobRow.project_number)})` : ""}:</p>
         <p style="padding:12px; background:#f4f6fb; border-radius:8px; color:#16213a;">${escapeHtml(text)}</p>
         ${portalLink ? `<p><a href="${portalLink}">View and reply in your project portal</a></p>` : ""}
       `),

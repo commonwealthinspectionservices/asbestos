@@ -2,6 +2,7 @@ import path from "path";
 import { Document, Page, Text, View, Image, StyleSheet, renderToBuffer } from "@react-pdf/renderer";
 import { formatCents } from "@/lib/pricing";
 import { lineItemsTotalCents } from "@/lib/invoice-line-items";
+import { primaryInspector } from "@/lib/settings";
 import type { Job, Customer, Company, Settings, InvoiceLineItem } from "@/lib/types";
 
 const LETTERHEAD_PATH = path.join(process.cwd(), "public", "letterhead.png");
@@ -46,6 +47,7 @@ export interface InvoiceData {
 }
 
 function InvoiceDocument({ job, customer, company, settings }: InvoiceData) {
+  const inspector = primaryInspector(settings);
   const serviceLabel =
     settings.service_types.find((s) => s.key === job.service_type)?.label ?? job.service_type ?? "Inspection";
 
@@ -136,7 +138,7 @@ function InvoiceDocument({ job, customer, company, settings }: InvoiceData) {
         </Text>
 
         <View style={styles.footer}>
-          <Text>{settings.business_name} · {settings.owner_name}, {settings.owner_title}</Text>
+          <Text>{settings.business_name} · {inspector.name}, {inspector.title}</Text>
         </View>
       </Page>
     </Document>

@@ -653,9 +653,18 @@ end;
 $$ language plpgsql;
 
 -- Licensed inspectors who may perform jobs — name/title/license #, editable
--- in Settings. Not yet wired into report/invoice/CoC generation, which
--- still uses the single owner_name/owner_title/license_number columns above.
+-- in Settings. The first entry is what prints on every report, invoice, and
+-- Chain of Custody form's signature block (see primaryInspector() in
+-- src/lib/settings.ts), replacing the old single owner_name/owner_title/
+-- license_number columns dropped below.
 alter table settings add column if not exists inspectors jsonb not null default '[]'::jsonb;
+
+-- owner_name/owner_title/license_number are superseded by inspectors (the
+-- first entry is now the signature-block source) — dropped once any
+-- existing row's values have been migrated into inspectors.
+alter table settings drop column if exists owner_name;
+alter table settings drop column if exists owner_title;
+alter table settings drop column if exists license_number;
 
 -- One-time rename: is_homeowner -> is_individual on both jobs and customers,
 -- dropping the "homeowner vs contractor" terminology in favor of "individual

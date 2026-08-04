@@ -1,5 +1,6 @@
 import path from "path";
 import { Document, Page, Text, View, Image, StyleSheet, renderToBuffer } from "@react-pdf/renderer";
+import { primaryInspector } from "@/lib/settings";
 import type { Job, Customer, Settings } from "@/lib/types";
 
 const LETTERHEAD_PATH = path.join(process.cwd(), "public", "letterhead.png");
@@ -39,6 +40,7 @@ export interface BlankCocData {
 }
 
 function BlankCocDocument({ job, customer, settings }: BlankCocData) {
+  const inspector = primaryInspector(settings);
   return (
     <Document title={`Chain of Custody — ${job.service_address}`}>
       <Page size="LETTER" style={styles.page}>
@@ -66,9 +68,9 @@ function BlankCocDocument({ job, customer, settings }: BlankCocData) {
           </View>
           <View style={styles.metaRow}>
             <Text style={styles.metaLabel}>Sampled by:</Text>
-            <Text style={styles.metaValue}>{settings.owner_name}</Text>
+            <Text style={styles.metaValue}>{inspector.name}</Text>
             <Text style={[styles.metaLabel, { marginLeft: 20 }]}>License #:</Text>
-            <Text style={styles.metaValue}>{settings.license_number}</Text>
+            <Text style={styles.metaValue}>{inspector.license_number}</Text>
           </View>
         </View>
 

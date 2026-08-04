@@ -39,7 +39,7 @@ export interface LabProfile {
   massdls_cert: string;
 }
 
-/** A licensed inspector who may perform jobs — not yet wired into report/invoice/CoC generation, which still uses the single owner_name/owner_title/license_number fields below. */
+/** A licensed inspector who may perform jobs. The first entry prints on every report, invoice, and Chain of Custody form's signature block — see primaryInspector() in settings.ts. */
 export interface Inspector {
   name: string;
   title: string;
@@ -68,15 +68,12 @@ export interface Settings {
   business_name: string;
   /** Printed in the report letterhead's top-right contact block, alongside base_address. */
   business_phone: string;
-  owner_name: string;
-  owner_title: string;
   disclaimer_text: string;
   service_types: ServiceType[];
   pricing_zones: PricingZone[];
   labs: LabProfile[];
+  /** The first entry's name/title/license # print on every report, invoice, and Chain of Custody form's signature block — see primaryInspector() in settings.ts. */
   inspectors: Inspector[];
-  /** MA asbestos inspector license # (or equivalent), printed on the COC and report footer. */
-  license_number: string;
   /** Storage path (job-documents bucket) of a single PDF combining the owner's license + state certificate — merged into every report packet. */
   credentials_document_path: string | null;
   updated_at: string;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Settings, ServiceType, PricingZone, LabProfile, Inspector } from "@/lib/types";
 
 type FormState = Omit<Settings, "id" | "updated_at" | "last_area_alert_sent_at">;
@@ -14,6 +14,7 @@ export default function SettingsEditor() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const isFirstLoad = useRef(true);
 
   useEffect(() => {
     fetch("/api/admin/settings")
@@ -24,6 +25,22 @@ export default function SettingsEditor() {
       })
       .catch((e) => setError(e instanceof Error ? e.message : "Failed to load settings"));
   }, []);
+
+  // Autosaves on any change, debounced so a run of keystrokes lands one
+  // request instead of one per character. Skips the very first form set
+  // (the initial fetch above populating the form, not a user edit).
+  useEffect(() => {
+    if (!form) return;
+    if (isFirstLoad.current) {
+      isFirstLoad.current = false;
+      return;
+    }
+    const timer = setTimeout(() => {
+      save();
+    }, 800);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form]);
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((f) => (f ? { ...f, [key]: value } : f));
@@ -122,7 +139,6 @@ export default function SettingsEditor() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Save failed");
-      setForm(data.settings);
       setMessage("Saved.");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Save failed");
@@ -146,7 +162,6 @@ export default function SettingsEditor() {
   return (
     <div className="mx-auto max-w-2xl px-4 py-6 pb-16">
       <h1 className="text-lg font-semibold text-slate-800">Settings</h1>
-      {message && <div className="mt-3 rounded-lg bg-emerald-50 px-4 py-2 text-sm text-emerald-700">{message}</div>}
       {error && <div className="mt-3 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>}
 
       <Section title="Business">
@@ -185,8 +200,96 @@ export default function SettingsEditor() {
         </div>
       </Section>
 
+      <Section title="Labs">
+        <p className="text-xs text-slate-500">
+          Picking a lab in &quot;Enter lab results&quot; auto-fills its name and cert numbers instead of retyping them.
+        </p>
+        <div className="space-y-3">
+          {form.labs.map((lab, i) => (
+            <div key={i} className="rounded-lg border border-slate-200 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <TextInput value={lab.name} onChange={(v) => updateLab(i, { name: v })} placeholder="Lab name" />
+                <button onClick={() => removeLab(i)} className="shrink-0 text-sm text-red-600">Remove</button>
+              </div>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <Field label="NIST/NVLAP cert #">
+                  <TextInput value={lab.nist_cert} onChange={(v) => updateLab(i, { nist_cert: v })} />
+                </Field>
+                <Field label="MassDLS cert #">
+                  <TextInput value={lab.massdls_cert} onChange={(v) => updateLab(i, { massdls_cert: v })} />
+                </Field>
+              </div>
+            </div>
+          ))}
+          <button onClick={addLab} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm">
+            Add lab
+          </button>
+        </div>
+      </Section>
+
       <Section title="Gmail">
         <GmailConnection />
+      </Section>
+
+      <Section title="Price by service type">
+        <div className="space-y-3">
+          {form.service_types.map((s, i) => (
+            <div key={i} className="rounded-lg border border-slate-200 p-3">
+              <div className="flex justify-between">
+                <TextInput value={s.label} onChange={(v) => updateServiceType(i, { label: v })} placeholder="Label" />
+                <button onClick={() => removeServiceType(i)} className="ml-2 text-sm text-red-600">Remove</button>
+              </div>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <Field label="Base fee ($)">
+                  <NumberInput value={Number(centsToDollarsStr(s.base_fee_cents))} onChange={(v) => updateServiceType(i, { base_fee_cents: Math.round(v * 100) })} step="1" />
+                </Field>
+                <Field label="Per-sample fee ($)">
+                  <NumberInput value={Number(centsToDollarsStr(s.per_sample_cents))} onChange={(v) => updateServiceType(i, { per_sample_cents: Math.round(v * 100) })} step="1" />
+                </Field>
+              </div>
+            </div>
+          ))}
+          <button onClick={addServiceType} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm">
+            Add service type
+          </button>
+        </div>
+      </Section>
+
+      <Section title="Pricing zones">
+        <p className="text-xs text-slate-500">
+          Overrides a service&apos;s base fee by region — checked top to bottom, first matching town wins,
+          falls back to the service&apos;s own base fee if nothing matches. Order matters: put more specific
+          zones (e.g. islands) above broader ones.
+        </p>
+        <div className="space-y-3">
+          {form.pricing_zones.map((z, i) => (
+            <div key={i} className="rounded-lg border border-slate-200 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <TextInput value={z.name} onChange={(v) => updatePricingZone(i, { name: v })} placeholder="Zone name" />
+                <div className="flex shrink-0 gap-1">
+                  <button onClick={() => movePricingZone(i, -1)} disabled={i === 0} className="text-sm text-slate-500 disabled:opacity-30">↑</button>
+                  <button onClick={() => movePricingZone(i, 1)} disabled={i === form.pricing_zones.length - 1} className="text-sm text-slate-500 disabled:opacity-30">↓</button>
+                  <button onClick={() => removePricingZone(i)} className="text-sm text-red-600">Remove</button>
+                </div>
+              </div>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <Field label="Base fee ($)">
+                  <NumberInput value={Number(centsToDollarsStr(z.base_fee_cents))} onChange={(v) => updatePricingZone(i, { base_fee_cents: Math.round(v * 100) })} step="1" />
+                </Field>
+                <Field label="Towns (comma-separated)">
+                  <TextInput
+                    value={z.towns.join(", ")}
+                    onChange={(v) => updatePricingZone(i, { towns: v.split(",").map((t) => t.trim()).filter(Boolean) })}
+                    placeholder="Worcester, Fitchburg, Leominster"
+                  />
+                </Field>
+              </div>
+            </div>
+          ))}
+          <button onClick={addPricingZone} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm">
+            Add pricing zone
+          </button>
+        </div>
       </Section>
 
       <CollapsibleSection title="Advanced settings">
@@ -250,101 +353,9 @@ export default function SettingsEditor() {
         </SubSection>
       </CollapsibleSection>
 
-      <Section title="Price by service type">
-        <div className="space-y-3">
-          {form.service_types.map((s, i) => (
-            <div key={i} className="rounded-lg border border-slate-200 p-3">
-              <div className="flex justify-between">
-                <TextInput value={s.label} onChange={(v) => updateServiceType(i, { label: v })} placeholder="Label" />
-                <button onClick={() => removeServiceType(i)} className="ml-2 text-sm text-red-600">Remove</button>
-              </div>
-              <div className="mt-2 grid grid-cols-2 gap-2">
-                <Field label="Base fee ($)">
-                  <NumberInput value={Number(centsToDollarsStr(s.base_fee_cents))} onChange={(v) => updateServiceType(i, { base_fee_cents: Math.round(v * 100) })} step="1" />
-                </Field>
-                <Field label="Per-sample fee ($)">
-                  <NumberInput value={Number(centsToDollarsStr(s.per_sample_cents))} onChange={(v) => updateServiceType(i, { per_sample_cents: Math.round(v * 100) })} step="1" />
-                </Field>
-              </div>
-            </div>
-          ))}
-          <button onClick={addServiceType} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm">
-            Add service type
-          </button>
-        </div>
-      </Section>
-
-      <Section title="Pricing zones">
-        <p className="text-xs text-slate-500">
-          Overrides a service&apos;s base fee by region — checked top to bottom, first matching town wins,
-          falls back to the service&apos;s own base fee if nothing matches. Order matters: put more specific
-          zones (e.g. islands) above broader ones.
-        </p>
-        <div className="space-y-3">
-          {form.pricing_zones.map((z, i) => (
-            <div key={i} className="rounded-lg border border-slate-200 p-3">
-              <div className="flex items-center justify-between gap-2">
-                <TextInput value={z.name} onChange={(v) => updatePricingZone(i, { name: v })} placeholder="Zone name" />
-                <div className="flex shrink-0 gap-1">
-                  <button onClick={() => movePricingZone(i, -1)} disabled={i === 0} className="text-sm text-slate-500 disabled:opacity-30">↑</button>
-                  <button onClick={() => movePricingZone(i, 1)} disabled={i === form.pricing_zones.length - 1} className="text-sm text-slate-500 disabled:opacity-30">↓</button>
-                  <button onClick={() => removePricingZone(i)} className="text-sm text-red-600">Remove</button>
-                </div>
-              </div>
-              <div className="mt-2 grid grid-cols-2 gap-2">
-                <Field label="Base fee ($)">
-                  <NumberInput value={Number(centsToDollarsStr(z.base_fee_cents))} onChange={(v) => updatePricingZone(i, { base_fee_cents: Math.round(v * 100) })} step="1" />
-                </Field>
-                <Field label="Towns (comma-separated)">
-                  <TextInput
-                    value={z.towns.join(", ")}
-                    onChange={(v) => updatePricingZone(i, { towns: v.split(",").map((t) => t.trim()).filter(Boolean) })}
-                    placeholder="Worcester, Fitchburg, Leominster"
-                  />
-                </Field>
-              </div>
-            </div>
-          ))}
-          <button onClick={addPricingZone} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm">
-            Add pricing zone
-          </button>
-        </div>
-      </Section>
-
-      <Section title="Labs">
-        <p className="text-xs text-slate-500">
-          Picking a lab in &quot;Enter lab results&quot; auto-fills its name and cert numbers instead of retyping them.
-        </p>
-        <div className="space-y-3">
-          {form.labs.map((lab, i) => (
-            <div key={i} className="rounded-lg border border-slate-200 p-3">
-              <div className="flex items-center justify-between gap-2">
-                <TextInput value={lab.name} onChange={(v) => updateLab(i, { name: v })} placeholder="Lab name" />
-                <button onClick={() => removeLab(i)} className="shrink-0 text-sm text-red-600">Remove</button>
-              </div>
-              <div className="mt-2 grid grid-cols-2 gap-2">
-                <Field label="NIST/NVLAP cert #">
-                  <TextInput value={lab.nist_cert} onChange={(v) => updateLab(i, { nist_cert: v })} />
-                </Field>
-                <Field label="MassDLS cert #">
-                  <TextInput value={lab.massdls_cert} onChange={(v) => updateLab(i, { massdls_cert: v })} />
-                </Field>
-              </div>
-            </div>
-          ))}
-          <button onClick={addLab} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm">
-            Add lab
-          </button>
-        </div>
-      </Section>
-
-      <button
-        onClick={save}
-        disabled={saving}
-        className="mt-6 rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-medium text-white disabled:opacity-50"
-      >
-        {saving ? "Saving…" : "Save settings"}
-      </button>
+      <div className="mt-6 text-right text-sm text-slate-500">
+        {saving ? "Saving…" : message ? "Saved." : ""}
+      </div>
     </div>
   );
 }

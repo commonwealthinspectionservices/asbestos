@@ -370,22 +370,28 @@ export default function PortalBookingForm({ isIndividual }: { isIndividual: bool
               — a single-subtype category (e.g. lead) auto-selects instead
               of showing a redundant one-item list, see pickCategory. */}
           {categoryKey && serviceTypes.filter((s) => categoryKeyOf(s.key) === categoryKey).length > 1 && (
-            <div className="space-y-2">
-              {serviceTypes.filter((s) => categoryKeyOf(s.key) === categoryKey).map((s) => (
-                <button
-                  key={s.key}
-                  className={`w-full rounded-lg border px-4 py-3 text-left ${
-                    serviceTypeKey === s.key ? "border-brand-600 bg-brand-50" : "border-slate-300"
-                  }`}
-                  onClick={() => setServiceTypeKey(s.key)}
-                >
-                  <div className="font-medium">{s.label}</div>
-                  {serviceTypeSubtext(s.key) && (
-                    <div className="text-xs text-slate-400">{serviceTypeSubtext(s.key)}</div>
-                  )}
-                </button>
-              ))}
-            </div>
+            <>
+              <hr className="!mt-10 border-slate-200" />
+              <div className="!mt-4 space-y-2">
+                {serviceTypes.filter((s) => categoryKeyOf(s.key) === categoryKey).map((s) => (
+                  <div key={s.key} className="group relative">
+                    <button
+                      className={`w-full rounded-lg border px-4 py-3 text-left font-medium ${
+                        serviceTypeKey === s.key ? "border-brand-600 bg-brand-50" : "border-slate-300"
+                      }`}
+                      onClick={() => setServiceTypeKey(s.key)}
+                    >
+                      {s.label}
+                    </button>
+                    {serviceTypeSubtext(s.key) && (
+                      <div className="invisible absolute left-0 top-full z-10 mt-1 w-64 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 opacity-0 shadow-md transition group-hover:visible group-hover:opacity-100">
+                        {serviceTypeSubtext(s.key)}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </>
           )}
           <button
             className="flex w-full items-center justify-center border-[3px] border-brand-700 bg-brand-50 py-3 pt-[14px] text-sm font-extrabold uppercase leading-none text-brand-700 hover:bg-yellow-100 disabled:opacity-50"
@@ -408,7 +414,7 @@ export default function PortalBookingForm({ isIndividual }: { isIndividual: bool
           <div>
             <label className="block text-sm font-medium uppercase text-slate-700">Scope of work</label>
             <p className="mt-1 text-xs text-slate-500">
-              What needs to be inspected or sampled? e.g. &ldquo;kitchen and bathroom flooring, basement pipe insulation&rdquo;
+              What needs to be inspected or sampled? e.g. &ldquo;kitchen and bathroom flooring, basement pipe insulation&rdquo; or &ldquo;renovating a bathroom and removing tiles + walls&rdquo;
             </p>
             <textarea
               className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2"

@@ -14,7 +14,7 @@ interface ServiceTypeOption {
   rateLabel: string;
 }
 
-type Step = "address" | "category" | "service" | "scope" | "date" | "contact" | "review" | "done";
+type Step = "address" | "category" | "scope" | "date" | "contact" | "review" | "done";
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
@@ -153,19 +153,14 @@ export default function PortalBookingForm({ isIndividual }: { isIndividual: bool
     }
   }
 
-  // A category with only one subtype (lead) skips straight past the subtype
-  // list — nothing to pick there — while a category with several (asbestos,
-  // mold) still needs its own screen for the pricing/duration differences.
+  // Both cells live on the same "category" step now — picking a category
+  // just populates the subtype cell below it (or auto-selects when there's
+  // only one subtype, e.g. lead, so it isn't shown as a redundant
+  // one-item list) rather than navigating to a separate screen.
   function pickCategory(pickedCategoryKey: string) {
     setCategoryKey(pickedCategoryKey);
     const matches = serviceTypes.filter((s) => categoryKeyOf(s.key) === pickedCategoryKey);
-    if (matches.length === 1) {
-      setServiceTypeKey(matches[0].key);
-      setStep("scope");
-    } else {
-      setServiceTypeKey("");
-      setStep("service");
-    }
+    setServiceTypeKey(matches.length === 1 ? matches[0].key : "");
   }
 
   function pickSavedAddress(a: SavedAddress) {
@@ -253,7 +248,7 @@ export default function PortalBookingForm({ isIndividual }: { isIndividual: bool
       {step === "address" && (
         <section className="mt-6 space-y-4">
           <div>
-            <label className="block text-sm font-medium uppercase text-slate-700">Enter an address</label>
+            <label className="block text-sm font-medium uppercase text-slate-700">Enter job site address</label>
             <div className="mt-1 flex gap-1.5">
               <div className="w-0 flex-1">
                 <AddressAutocompleteInput
@@ -357,42 +352,41 @@ export default function PortalBookingForm({ isIndividual }: { isIndividual: bool
             ← Back
           </button>
           <p className="text-sm text-slate-600">{address}</p>
+          <label className="block text-sm font-medium uppercase text-slate-700">Service type</label>
           <div className="space-y-2">
             {Array.from(new Set(serviceTypes.map((s) => categoryKeyOf(s.key)))).map((c) => (
               <button
                 key={c}
-                className="w-full rounded-lg border border-slate-300 px-4 py-3 text-left font-medium hover:border-brand-600"
+                className={`w-full rounded-lg border px-4 py-3 text-left font-medium ${
+                  categoryKey === c ? "border-brand-600 bg-brand-50" : "border-slate-300 hover:border-brand-600"
+                }`}
                 onClick={() => pickCategory(c)}
               >
                 {categoryLabelOf(c)}
               </button>
             ))}
           </div>
-        </section>
-      )}
-
-      {step === "service" && (
-        <section className="mt-6 space-y-4">
-          <p className="text-sm text-slate-600">{address}</p>
-          <button className="text-sm text-brand-600 underline" onClick={() => setStep("category")}>
-            ← Back
-          </button>
-          <div className="space-y-2">
-            {serviceTypes.filter((s) => categoryKeyOf(s.key) === categoryKey).map((s) => (
-              <button
-                key={s.key}
-                className={`w-full rounded-lg border px-4 py-3 text-left ${
-                  serviceTypeKey === s.key ? "border-brand-600 bg-brand-50" : "border-slate-300"
-                }`}
-                onClick={() => setServiceTypeKey(s.key)}
-              >
-                <div className="font-medium">{s.label}</div>
-                {serviceTypeSubtext(s.key) && (
-                  <div className="text-xs text-slate-400">{serviceTypeSubtext(s.key)}</div>
-                )}
-              </button>
-            ))}
-          </div>
+          {/* Populates once a category with more than one subtype is picked
+              — a single-subtype category (e.g. lead) auto-selects instead
+              of showing a redundant one-item list, see pickCategory. */}
+          {categoryKey && serviceTypes.filter((s) => categoryKeyOf(s.key) === categoryKey).length > 1 && (
+            <div className="space-y-2">
+              {serviceTypes.filter((s) => categoryKeyOf(s.key) === categoryKey).map((s) => (
+                <button
+                  key={s.key}
+                  className={`w-full rounded-lg border px-4 py-3 text-left ${
+                    serviceTypeKey === s.key ? "border-brand-600 bg-brand-50" : "border-slate-300"
+                  }`}
+                  onClick={() => setServiceTypeKey(s.key)}
+                >
+                  <div className="font-medium">{s.label}</div>
+                  {serviceTypeSubtext(s.key) && (
+                    <div className="text-xs text-slate-400">{serviceTypeSubtext(s.key)}</div>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
           <button
             className="flex w-full items-center justify-center border-[3px] border-brand-700 bg-brand-50 py-3 pt-[14px] text-sm font-extrabold uppercase leading-none text-brand-700 hover:bg-yellow-100 disabled:opacity-50"
             disabled={!serviceTypeKey}
@@ -407,10 +401,7 @@ export default function PortalBookingForm({ isIndividual }: { isIndividual: bool
         <section className="mt-6 space-y-4">
           <button
             className="text-sm text-brand-600 underline"
-            onClick={() => {
-              const matches = serviceTypes.filter((s) => categoryKeyOf(s.key) === categoryKey);
-              setStep(matches.length > 1 ? "service" : "category");
-            }}
+            onClick={() => setStep("category")}
           >
             ← Back
           </button>
@@ -487,7 +478,7 @@ export default function PortalBookingForm({ isIndividual }: { isIndividual: bool
                   value={preferredTime}
                   onChange={(e) => setPreferredTime(e.target.value)}
                 />
-                <p className="mt-1 text-xs text-slate-500">Optional — leave blank if you don&apos;t have a preference.</p>
+                <p className="mt-1 text-xs text-slate-500">Leave blank if you don&apos;t have a preference.</p>
               </div>
               {isIndividual && (
                 <div>

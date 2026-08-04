@@ -104,6 +104,7 @@ export default function PortalBookingForm({ isIndividual }: { isIndividual: bool
   const [categoryKey, setCategoryKey] = useState("");
   const [serviceTypeKey, setServiceTypeKey] = useState("");
   const [scopeOfWork, setScopeOfWork] = useState("");
+  const [showAllServiceTypes, setShowAllServiceTypes] = useState(false);
 
   const [date, setDate] = useState(todayIso());
   const [preferredTime, setPreferredTime] = useState("");
@@ -352,47 +353,82 @@ export default function PortalBookingForm({ isIndividual }: { isIndividual: bool
             ← Back
           </button>
           <p className="text-sm text-slate-600">{address}</p>
-          <label className="block text-sm font-medium uppercase text-slate-700">Service type</label>
-          <div className="space-y-2">
-            {Array.from(new Set(serviceTypes.map((s) => categoryKeyOf(s.key)))).map((c) => (
-              <button
-                key={c}
-                className={`w-full rounded-lg border px-4 py-3 text-left font-medium ${
-                  categoryKey === c ? "border-brand-600 bg-brand-50" : "border-slate-300 hover:border-brand-600"
-                }`}
-                onClick={() => pickCategory(c)}
-              >
-                {categoryLabelOf(c)}
-              </button>
-            ))}
+          <div className="flex items-center justify-between">
+            <label className="block text-sm font-medium uppercase text-slate-700">Service type</label>
+            <button
+              type="button"
+              className="text-xs text-brand-600 underline"
+              onClick={() => setShowAllServiceTypes(true)}
+            >
+              See all service types
+            </button>
           </div>
-          {/* Populates once a category with more than one subtype is picked
-              — a single-subtype category (e.g. lead) auto-selects instead
-              of showing a redundant one-item list, see pickCategory. */}
-          {categoryKey && serviceTypes.filter((s) => categoryKeyOf(s.key) === categoryKey).length > 1 && (
-            <>
-              <hr className="!mt-10 border-slate-200" />
-              <div className="!mt-4 space-y-2">
-                {serviceTypes.filter((s) => categoryKeyOf(s.key) === categoryKey).map((s) => (
-                  <div key={s.key} className="group relative">
-                    <button
-                      className={`w-full rounded-lg border px-4 py-3 text-left font-medium ${
-                        serviceTypeKey === s.key ? "border-brand-600 bg-brand-50" : "border-slate-300"
-                      }`}
-                      onClick={() => setServiceTypeKey(s.key)}
-                    >
-                      {s.label}
-                    </button>
-                    {serviceTypeSubtext(s.key) && (
-                      <div className="invisible absolute left-0 top-full z-10 mt-1 w-64 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 opacity-0 shadow-md transition group-hover:visible group-hover:opacity-100">
-                        {serviceTypeSubtext(s.key)}
+          {showAllServiceTypes && (
+            <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/40 px-4" onClick={() => setShowAllServiceTypes(false)}>
+              <div
+                className="max-h-[80vh] w-full max-w-md overflow-y-auto rounded-xl bg-white p-5"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold text-slate-800">All service types</h3>
+                  <button className="text-slate-400 hover:text-slate-600" onClick={() => setShowAllServiceTypes(false)}>✕</button>
+                </div>
+                <div className="mt-4 space-y-5">
+                  {Array.from(new Set(serviceTypes.map((s) => categoryKeyOf(s.key)))).map((c) => (
+                    <div key={c}>
+                      <h4 className="text-sm font-bold uppercase tracking-wide text-slate-500">{categoryLabelOf(c)}</h4>
+                      <div className="mt-2 space-y-2">
+                        {serviceTypes.filter((s) => categoryKeyOf(s.key) === c).map((s) => (
+                          <div key={s.key}>
+                            <div className="text-sm font-medium text-slate-800">{s.label}</div>
+                            {serviceTypeSubtext(s.key) && (
+                              <div className="text-xs text-slate-500">{serviceTypeSubtext(s.key)}</div>
+                            )}
+                          </div>
+                        ))}
                       </div>
-                    )}
-                  </div>
-                ))}
+                    </div>
+                  ))}
+                </div>
               </div>
-            </>
+            </div>
           )}
+          <div className="space-y-2">
+            {Array.from(new Set(serviceTypes.map((s) => categoryKeyOf(s.key)))).map((c) => {
+              const subtypes = serviceTypes.filter((s) => categoryKeyOf(s.key) === c);
+              return (
+                <div key={c}>
+                  <button
+                    className={`w-full rounded-lg border px-4 py-3 text-left font-medium ${
+                      categoryKey === c ? "border-brand-600 bg-brand-50" : "border-slate-300 hover:border-brand-600"
+                    }`}
+                    onClick={() => pickCategory(c)}
+                  >
+                    {categoryLabelOf(c)}
+                  </button>
+                  {/* Only a category with more than one subtype needs this —
+                      a single-subtype category (e.g. lead) auto-selects
+                      instead of showing a redundant one-item list, see
+                      pickCategory. */}
+                  {categoryKey === c && subtypes.length > 1 && (
+                    <div className="ml-8 mt-2 space-y-2">
+                      {subtypes.map((s) => (
+                        <button
+                          key={s.key}
+                          className={`w-full rounded-lg border px-4 py-3 text-left font-medium ${
+                            serviceTypeKey === s.key ? "border-brand-600 bg-brand-50" : "border-slate-300"
+                          }`}
+                          onClick={() => setServiceTypeKey(s.key)}
+                        >
+                          {s.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
           <button
             className="flex w-full items-center justify-center border-[3px] border-brand-700 bg-brand-50 py-3 pt-[14px] text-sm font-extrabold uppercase leading-none text-brand-700 hover:bg-yellow-100 disabled:opacity-50"
             disabled={!serviceTypeKey}

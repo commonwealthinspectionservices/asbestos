@@ -60,7 +60,7 @@ export function ContactForm({
   onDone: () => void;
   initial?: Customer;
 }) {
-  const [isCompany, setIsCompany] = useState(!!initial?.company);
+  const [isCompany, setIsCompany] = useState(initial ? !initial.is_individual : false);
   const [company, setCompany] = useState(initial?.company ?? "");
   const initialName = splitFullName(initial?.name);
   const [firstName, setFirstName] = useState(initialName.first);
@@ -92,6 +92,12 @@ export function ContactForm({
         body: JSON.stringify({
           name: joinName(firstName, lastName),
           company: isCompany ? company.trim() : null,
+          // Explicit null (not just omitted) when switching to Individual —
+          // otherwise a contact whose company/company_id was already set
+          // (stray data, or a prior Company-contact save) keeps pointing at
+          // that company even though it now reads as an individual.
+          ...(isCompany ? {} : { companyId: null }),
+          is_individual: !isCompany,
           email: email.trim(),
           phone: phone.trim(),
           billingAddress: billingAddress.trim() || null,

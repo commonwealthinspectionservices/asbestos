@@ -4,7 +4,7 @@ import { requireAdminApi } from "@/lib/admin-api";
 import { withApiErrors } from "@/lib/api-handler";
 import { upsertCompany } from "@/lib/companies";
 
-const EDITABLE_FIELDS = ["name", "company", "email", "phone", "billing_address"] as const;
+const EDITABLE_FIELDS = ["name", "company", "email", "phone", "billing_address", "is_individual"] as const;
 
 export const GET = withApiErrors(async (
   req: NextRequest,

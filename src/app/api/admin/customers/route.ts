@@ -73,6 +73,7 @@ export const POST = withApiErrors(async (req: NextRequest) => {
         email: email.toLowerCase(),
         phone: body?.phone?.trim() || "",
         billing_address: company?.billing_address ?? billingAddress,
+        is_individual: body?.is_individual === true,
       },
       { onConflict: "email" }
     )

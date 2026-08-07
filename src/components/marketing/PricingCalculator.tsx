@@ -111,12 +111,22 @@ export default function PricingCalculator() {
     [serviceTypes, selectedKeys]
   );
 
+  // Asbestos Inspection and Pre-Demolition Asbestos Inspection cover
+  // overlapping scope, so picking one clears the other — every other
+  // service type stays freely combinable.
+  const MUTUALLY_EXCLUSIVE_KEYS = ["asbestos_bulk", "asbestos_pre_demo"];
+
   function toggleService(service: ServiceTypeQuote) {
     setSelectedKeys((prev) => {
       const next = new Set(prev);
       if (next.has(service.key)) {
         next.delete(service.key);
       } else {
+        if (MUTUALLY_EXCLUSIVE_KEYS.includes(service.key)) {
+          for (const key of MUTUALLY_EXCLUSIVE_KEYS) {
+            if (key !== service.key) next.delete(key);
+          }
+        }
         next.add(service.key);
         setSampleCounts((counts) => {
           if (service.key in counts) return counts;

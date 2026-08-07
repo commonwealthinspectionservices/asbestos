@@ -112,6 +112,10 @@ export default function PendingRequestEditor({
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Editing doesn't save as you go — it's a deliberate resubmission, so
+  // "Resubmit request" opens a confirm step instead of saving immediately.
+  // Closing the modal without confirming discards the in-progress edits.
+  const [confirmingResubmit, setConfirmingResubmit] = useState(false);
 
   // Seeded once per job, keyed on job.id only — NOT on the whole `job`
   // object, which gets a new identity on every unrelated save in this same
@@ -137,6 +141,7 @@ export default function PendingRequestEditor({
     setSiteContactPhone(job.site_contact_phone ?? "");
     setNotes(job.notes ?? "");
     setSaved(false);
+    setConfirmingResubmit(false);
     setError(null);
 
     if (!job.service_address) return;
@@ -232,7 +237,7 @@ export default function PendingRequestEditor({
     }
   }
 
-  async function save() {
+  async function resubmit() {
     setSaving(true);
     setSaved(false);
     setError(null);
@@ -255,6 +260,7 @@ export default function PendingRequestEditor({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Something went wrong");
       setSaved(true);
+      setConfirmingResubmit(false);
       onSaved();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong");
@@ -444,14 +450,39 @@ export default function PendingRequestEditor({
         />
       </div>
 
-      <button
-        type="button"
-        disabled={saving || selectedKeys.size === 0 || !address}
-        className="flex w-full items-center justify-center border-[3px] border-brand-700 bg-brand-50 py-2.5 text-sm font-extrabold uppercase leading-none text-brand-700 hover:bg-yellow-100 disabled:opacity-50"
-        onClick={save}
-      >
-        {saving ? "Saving…" : saved ? "Saved" : "Save changes"}
-      </button>
+      {confirmingResubmit ? (
+        <div className="rounded-lg border border-brand-200 bg-white p-3">
+          <p className="text-sm font-medium text-slate-700">Resubmit this request with your changes?</p>
+          <p className="mt-1 text-xs text-slate-500">We'll review the updated request the same way as your original one.</p>
+          <div className="mt-2 flex gap-2">
+            <button
+              type="button"
+              disabled={saving}
+              className="flex-1 rounded-lg bg-brand-700 py-2 text-sm font-bold uppercase text-white disabled:opacity-50"
+              onClick={resubmit}
+            >
+              {saving ? "Resubmitting…" : "Yes, resubmit"}
+            </button>
+            <button
+              type="button"
+              disabled={saving}
+              className="flex-1 rounded-lg border border-slate-300 py-2 text-sm font-bold uppercase text-slate-600 disabled:opacity-50"
+              onClick={() => setConfirmingResubmit(false)}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          type="button"
+          disabled={selectedKeys.size === 0 || !address}
+          className="flex w-full items-center justify-center border-[3px] border-brand-700 bg-brand-50 py-2.5 text-sm font-extrabold uppercase leading-none text-brand-700 hover:bg-yellow-100 disabled:opacity-50"
+          onClick={() => setConfirmingResubmit(true)}
+        >
+          {saved ? "Saved — resubmit again?" : "Resubmit request"}
+        </button>
+      )}
     </div>
   );
 }

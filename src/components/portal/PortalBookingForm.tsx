@@ -684,7 +684,7 @@ export default function PortalBookingForm({ isIndividual }: { isIndividual: bool
             <p className="font-medium">
               {confirmedDate ? `Your request has been sent for ${formatDate(confirmedDate)}.` : "Request sent — we'll coordinate scheduling directly with your job site contact."}
             </p>
-            <p className="mt-1">We'll follow up to confirm your date and time.</p>
+            <p className="mt-1">We'll confirm that date and time.</p>
           </div>
           <button className="text-sm text-brand-600 underline" onClick={() => router.push("/portal/dashboard")}>
             Back to my projects

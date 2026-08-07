@@ -77,7 +77,7 @@ function formatTimeWindow(confirmedTime: string | null | undefined, window: stri
 // a distinction a client needs to see. It should just still look pending
 // until it's actually sent.
 export const STATUS_LABEL: Record<string, string> = {
-  needs_scheduling: "To Be Scheduled",
+  needs_scheduling: "Pending Approval",
   scheduled: "Scheduled",
   fieldwork_in_progress: "Fieldwork In Progress",
   awaiting_lab_results: "Awaiting Lab Results",

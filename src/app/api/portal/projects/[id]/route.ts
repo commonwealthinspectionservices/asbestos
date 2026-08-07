@@ -1,12 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireContractorApi, getCompanyCustomerIds } from "@/lib/contractor-api";
 import { getSupabaseAdmin } from "@/lib/supabase";
+import { getSettings } from "@/lib/settings";
+import { isWithinServiceStates } from "@/lib/geocode";
+import { resolveServiceSelection } from "@/lib/portal-booking";
 import { withApiErrors } from "@/lib/api-handler";
 
-// The only two portal-writable fields on an existing job: who gets the
-// results email (report_emails) and who this specific job's invoice goes
-// to (billing_contact_id, overriding the company-wide default) — both
-// scoped to contacts sharing the requesting account's company_id.
+// Two independent things this route can do to an existing job:
+// 1. Always-allowed fields (report_emails, billing_contact_id) — who this
+//    specific job's results/invoice go to, editable regardless of status.
+// 2. The "request" itself (address, service types, scope, requested date/
+//    time, notes, site contact) — editable only while job.status is still
+//    "needs_scheduling" (see PendingRequestEditor.tsx). Once the owner
+//    accepts it via AcceptScheduleControl, this locks — see the 409 below.
 export const PATCH = withApiErrors(async (
   req: NextRequest,
   { params }: { params: { id: string } }
@@ -19,7 +25,7 @@ export const PATCH = withApiErrors(async (
   const supabase = getSupabaseAdmin();
   const { data: job } = await supabase
     .from("jobs")
-    .select("id")
+    .select("*")
     .eq("id", params.id)
     .in("customer_id", companyCustomerIds)
     .maybeSingle();
@@ -56,6 +62,66 @@ export const PATCH = withApiErrors(async (
       }
     }
     patch.billing_contact_id = billingContactId || null;
+  }
+
+  if (body?.request) {
+    // Not malformed input — the target's state just changed underneath this
+    // request (the owner accepted it) — so this is a 409, not a 400.
+    if (job.status !== "needs_scheduling") {
+      return NextResponse.json(
+        { error: "This request has already been accepted and can no longer be edited." },
+        { status: 409 }
+      );
+    }
+
+    const {
+      address, lat, lng, distanceMiles, state, serviceTypeKeys, date: requestedDate, requestedTime,
+      scheduleViaContact, siteContactName, siteContactPhone, notes, scopeOfWork,
+    } = body.request ?? {};
+
+    // Same fallback as creation (api/portal/book/route.ts) — an individual
+    // booking on their own behalf IS the job site contact.
+    const resolvedSiteContactName = siteContactName?.trim() || (auth.customer.is_individual ? auth.customer.name : "");
+    const resolvedSiteContactPhone = siteContactPhone?.trim() || (auth.customer.is_individual ? auth.customer.phone : "");
+
+    if (
+      !address || lat == null || lng == null ||
+      !Array.isArray(serviceTypeKeys) || serviceTypeKeys.length === 0 ||
+      (!scheduleViaContact && !requestedDate) ||
+      !resolvedSiteContactName?.trim() || !resolvedSiteContactPhone?.trim()
+    ) {
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    }
+
+    const settings = await getSettings();
+
+    if (!isWithinServiceStates(state, settings.service_states)) {
+      return NextResponse.json({ error: "Address is outside the service area" }, { status: 400 });
+    }
+
+    const resolved = resolveServiceSelection(serviceTypeKeys, address, settings);
+    if ("error" in resolved) {
+      return NextResponse.json({ error: resolved.error }, { status: 400 });
+    }
+
+    const time: string | null = scheduleViaContact ? null : requestedTime || null;
+    const derivedWindow = scheduleViaContact ? "ANY" : time ? (Number(time.slice(0, 2)) < 12 ? "AM" : "PM") : "ANY";
+
+    Object.assign(patch, {
+      service_address: address,
+      lat, lng,
+      distance_miles: distanceMiles ?? null,
+      site_contact_name: resolvedSiteContactName || null,
+      site_contact_phone: resolvedSiteContactPhone || null,
+      service_type: resolved.serviceTypeLabel,
+      base_fee_cents: resolved.baseFeeCents,
+      per_sample_cents: resolved.perSampleCents,
+      requested_date: scheduleViaContact ? null : requestedDate,
+      requested_time: time,
+      window: derivedWindow,
+      notes: notes || null,
+      scope_of_work: scopeOfWork || null,
+    });
   }
 
   if (Object.keys(patch).length === 0) {

@@ -6,6 +6,7 @@ import { googleMapsUrl } from "@/lib/address";
 import PdfPreview from "@/components/shared/PdfPreview";
 import JobRecipients from "@/components/portal/JobRecipients";
 import JobChat from "@/components/shared/JobChat";
+import PendingRequestEditor from "@/components/portal/PendingRequestEditor";
 
 type Tab = "info" | "report" | "invoice" | "chat";
 
@@ -33,7 +34,7 @@ type TrackerSegment = {
   done: (job: Job, currentIndex: number) => boolean;
 };
 const BASE_TRACKER_SEGMENTS: TrackerSegment[] = [
-  { key: "needs_scheduling", label: <>To Be<br />Scheduled</>, done: (_job, i) => i >= 0 },
+  { key: "needs_scheduling", label: <>Pending<br />Approval</>, done: (_job, i) => i >= 0 },
   { key: "scheduled", label: "Scheduled", done: (_job, i) => i >= 1 },
   { key: "pending_lab_results", label: <>Pending<br />Lab Results</>, done: (_job, i) => i >= 2 },
 ];
@@ -216,27 +217,48 @@ export default function ProjectDetailModal({
         <div className="max-h-[60vh] overflow-y-auto px-5 py-4">
           {tab === "info" && (
             <div className="grid grid-cols-1 gap-y-4">
-              <div className="space-y-1">
-                <DetailField label="Project #" value={job.project_number} />
-                <DetailField
-                  label="Job site address"
-                  value={job.service_address ? (
-                    <a href={googleMapsUrl(job.service_address)} target="_blank" rel="noreferrer" className="hover:underline">
-                      {job.service_address}
-                    </a>
-                  ) : null}
-                  nowrap
-                />
-                <DetailField label="Service type" value={job.service_type} nowrap />
-                <DetailField label="Time" value={formatTimeWindow(job.confirmed_time, job.window)} />
-                <DetailField label="Date" value={formatDate(job.confirmed_date)} />
-              </div>
+              {job.status === "needs_scheduling" ? (
+                <PendingRequestEditor job={job} isIndividual={job.is_individual} onSaved={onChanged} />
+              ) : (
+                <>
+                  <div className="space-y-1">
+                    <DetailField label="Project #" value={job.project_number} />
+                    <DetailField
+                      label="Job site address"
+                      value={job.service_address ? (
+                        <a href={googleMapsUrl(job.service_address)} target="_blank" rel="noreferrer" className="hover:underline">
+                          {job.service_address}
+                        </a>
+                      ) : null}
+                      nowrap
+                    />
+                    <DetailField label="Service type" value={job.service_type} nowrap />
+                    <DetailField label="Time" value={formatTimeWindow(job.confirmed_time, job.window)} />
+                    <DetailField label="Date" value={formatDate(job.confirmed_date)} />
+                  </div>
 
-              {job.scope_of_work && job.scope_of_work.trim() && (
-                <div className="space-y-1">
-                  <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Scope of Work</h4>
-                  <p className="text-sm text-slate-800">{job.scope_of_work}</p>
-                </div>
+                  {job.scope_of_work && job.scope_of_work.trim() && (
+                    <div className="space-y-1">
+                      <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Scope of Work</h4>
+                      <p className="text-sm text-slate-800">{job.scope_of_work}</p>
+                    </div>
+                  )}
+
+                  {(job.site_contact_name || job.site_contact_phone) && (
+                    <div className="space-y-1">
+                      <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Job site contact</h4>
+                      <DetailField label="Name" value={job.site_contact_name} />
+                      <DetailField label="Phone" value={job.site_contact_phone} />
+                    </div>
+                  )}
+
+                  {job.notes && job.notes.trim() && (
+                    <div className="space-y-1">
+                      <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Notes</h4>
+                      <p className="text-sm text-slate-800">{job.notes}</p>
+                    </div>
+                  )}
+                </>
               )}
 
               <div className="space-y-1">
@@ -257,22 +279,7 @@ export default function ProjectDetailModal({
                 <DetailField label="Billing address" value={customer.billing_address} nowrap />
               </div>
 
-              {(job.site_contact_name || job.site_contact_phone) && (
-                <div className="space-y-1">
-                  <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Job site contact</h4>
-                  <DetailField label="Name" value={job.site_contact_name} />
-                  <DetailField label="Phone" value={job.site_contact_phone} />
-                </div>
-              )}
-
               <JobRecipients job={job} onChanged={onChanged} />
-
-              {job.notes && job.notes.trim() && (
-                <div className="space-y-1">
-                  <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Notes</h4>
-                  <p className="text-sm text-slate-800">{job.notes}</p>
-                </div>
-              )}
 
               {(job.job_classification || job.payment_method || job.po_number || job.invoice_number || job.paid_date) && (
                 <div className="space-y-1">

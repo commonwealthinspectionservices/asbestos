@@ -7,8 +7,7 @@ import { withApiErrors } from "@/lib/api-handler";
 import { maybeSendImmediateAreaAlert } from "@/lib/area-health";
 import { sendNewBookingRequestEmail } from "@/lib/booking-notify";
 import { generateProjectNumber } from "@/lib/project-number";
-import { resolveZoneBaseFeeCents } from "@/lib/pricing-zones";
-import type { ServiceType } from "@/lib/types";
+import { resolveServiceSelection } from "@/lib/portal-booking";
 
 // Thinner sibling of /api/book's "submit" step: same acceptance rules
 // (service-area + capacity), but identity comes from the session instead of
@@ -50,24 +49,11 @@ export const POST = withApiErrors(async (req: NextRequest) => {
     return NextResponse.json({ error: "Address is outside the service area" }, { status: 400 });
   }
 
-  // Kept in settings.service_types order (not client selection order) so
-  // the stored comma-joined label list is deterministic — matches how
-  // EditProjectDialog (JobsDashboard.tsx) builds job.service_type, and how
-  // resolveBaseFeeCents/defaultInvoiceLineItems (invoice-defaults.ts) treat
-  // the first label in that list as "the" base-fee-driving type.
-  const matchedServiceTypes = settings.service_types.filter((s: ServiceType) => serviceTypeKeys.includes(s.key));
-  if (matchedServiceTypes.length !== serviceTypeKeys.length) {
-    return NextResponse.json({ error: "Unknown service type" }, { status: 400 });
+  const resolved = resolveServiceSelection(serviceTypeKeys, address, settings);
+  if ("error" in resolved) {
+    return NextResponse.json({ error: resolved.error }, { status: 400 });
   }
-  const serviceTypeLabel = matchedServiceTypes.map((s) => s.label).join(", ");
-
-  const zoneBaseFeeCents = resolveZoneBaseFeeCents(address, settings.pricing_zones);
-  // Only one visit happens per job regardless of how many service types are
-  // picked, so the base fee is charged once — the zone override if one
-  // applies, else the first (settings-order) matched type's own fee. Mirrors
-  // resolveBaseFeeCents in invoice-defaults.ts and PricingCalculator.tsx's
-  // own baseFeeCents rule.
-  const baseFeeCents = zoneBaseFeeCents ?? matchedServiceTypes[0].base_fee_cents;
+  const { matchedServiceTypes, serviceTypeLabel, baseFeeCents } = resolved;
 
   // Every booking is a request now, not a confirmed slot — whether they
   // picked a date or asked us to coordinate with the job site contact,

@@ -49,8 +49,8 @@ function formatPreferredTime(hhmm: string): string {
 
 function serviceTypeSubtext(key: string): string | null {
   if (key === "asbestos_bulk") return "Sampling of specific area(s) as determined by the client";
-  if (key === "asbestos_pre_reno") return "For renovating a limited area when you're not sure what needs testing";
-  if (key === "asbestos_pre_demo") return "For demolishing an entire structure";
+  if (key === "asbestos_pre_reno") return "Renovating a limited area and not sure what needs testing";
+  if (key === "asbestos_pre_demo") return "Demolishing an entire structure";
   if (key === "mold_air") return "Sampling of indoor air quality";
   if (key === "mold_bulk") return "Sampling physical building materials";
   if (key === "mold_swab") return "Sampling of surfaces";

@@ -349,7 +349,11 @@ export function ContactDetailDialog({
             </div>
 
             <div className="mt-3 space-y-1 text-sm">
-              {customer.company && <div><span className="text-slate-500">Company </span>{customer.company}</div>}
+              {customer.is_individual ? (
+                <div><span className="text-slate-500">Type </span>Individual</div>
+              ) : (
+                customer.company && <div><span className="text-slate-500">Company </span>{customer.company}</div>
+              )}
               <div><span className="text-slate-500">Phone </span>{customer.phone || "—"}</div>
               <div><span className="text-slate-500">Email </span>{customer.email}</div>
               {/* Billing address is a company-level concern once this contact

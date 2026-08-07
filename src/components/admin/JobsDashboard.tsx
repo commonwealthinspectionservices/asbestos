@@ -12,12 +12,13 @@ import AddressAutocompleteInput from "@/components/shared/AddressAutocompleteInp
 import PdfPreview from "@/components/shared/PdfPreview";
 import JobChat from "@/components/shared/JobChat";
 import JobPhotos from "@/components/shared/JobPhotos";
+import { AcceptScheduleControl } from "@/components/admin/AcceptScheduleControl";
 
 // The full job-flow pipeline, in order — every open project is tracked
 // somewhere along this list from intake to close-out. Admin-controlled via a
 // plain status dropdown (JobRow and ProjectDetailDialog); "scheduled" is
-// also set automatically once both a date and time are on the job (see
-// patchJob's use in the jobs PATCH route), same as if picked manually.
+// also set by AcceptScheduleControl (see JobRow/ProjectDetailDialog), which
+// bundles it with confirmed_date/confirmed_time and visibility in one action.
 // "fieldwork_in_progress"/"awaiting_lab_results"/"needs_report"/"completed"/
 // "invoiced" predate this six-step pipeline and are no longer assigned by
 // new code — "completed" ("Report Ready") and "invoiced" collapsed into the
@@ -870,8 +871,8 @@ function JobRow({
   const { locationName, street, cityStateZip } = splitAddress(job.service_address);
   // Blank while unscheduled rather than showing whatever placeholder date
   // came in with the job — the empty calendar/clock is the visual cue that
-  // nothing's booked yet. Filling either one in still writes through
-  // normally, which is what flips the status to "Scheduled" server-side.
+  // nothing's booked yet. Editing these just updates what was requested;
+  // AcceptScheduleControl (below) is the only thing that promotes status.
   const isUnscheduled = job.status === "needs_scheduling";
   const overdueDays = daysOverdue(job);
   return (
@@ -956,8 +957,11 @@ function JobRow({
                 onChange={(e) => onFieldChange({ requested_date: e.target.value || null })}
                 className="w-32 rounded-lg border border-slate-300 px-1.5 py-1 text-xs text-slate-600"
               />
+              {isUnscheduled && (
+                <AcceptScheduleControl job={job} variant="button" onAccept={onFieldChange} stopPropagation />
+              )}
               <div className="flex shrink-0 items-center gap-2">
-                {job.status === "scheduled" && job.requested_date && job.requested_time && (
+                {job.status === "scheduled" && job.confirmed_date && (
                   <label
                     className="flex shrink-0 items-center gap-1.5 whitespace-nowrap text-xs uppercase text-slate-600"
                     title="Off by default — the client's portal never shows a date/time until this is on. While on, it stays live-synced to the date/time above as you edit them."
@@ -1304,6 +1308,15 @@ export function ProjectDetailDialog({
     onChanged();
   }
 
+  async function acceptSchedule(patch: Record<string, unknown>) {
+    await fetch(`/api/admin/jobs/${job.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    });
+    onChanged();
+  }
+
   async function saveInvoice() {
     setSavingInvoice(true);
     // Captured before the request goes out, not after — this save might be
@@ -1457,8 +1470,20 @@ export function ProjectDetailDialog({
               ) : null}
               nowrap
             />
-            <DetailField label="Date" value={job.requested_date ? formatDate(job.requested_date) : "Unscheduled"} />
-            <DetailField label="Time" value={formatTime(job.requested_time) || "--:--"} />
+            <DetailField
+              label="Date"
+              value={
+                job.confirmed_date
+                  ? formatDate(job.confirmed_date)
+                  : job.requested_date
+                  ? `${formatDate(job.requested_date)} (requested — not yet accepted)`
+                  : "Unscheduled"
+              }
+            />
+            <DetailField label="Time" value={formatTime(job.confirmed_time ?? job.requested_time) || "--:--"} />
+            {job.status === "needs_scheduling" && (
+              <AcceptScheduleControl job={job} variant="panel" onAccept={acceptSchedule} />
+            )}
             <DetailField label="Service type" value={serviceTypeLabel(job.service_type)} nowrap />
             <div className="flex gap-2 text-sm">
               <span className="w-32 shrink-0 uppercase font-bold text-black">Scope of Work</span>

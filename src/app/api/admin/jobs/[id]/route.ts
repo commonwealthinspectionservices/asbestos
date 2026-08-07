@@ -106,11 +106,14 @@ export const PATCH = withApiErrors(async (
 
   const supabase = getSupabaseAdmin();
 
-  // Auto-advance "To Be Scheduled" -> "Scheduled" the moment a date lands
-  // on the job, same as picking it manually — but never overrides an
-  // explicit status change in the same request. Also covers the
-  // confirmed_date/confirmed_time sync below (needs the same current row).
-  if ("requested_date" in patch || "requested_time" in patch || "schedule_visible_to_customer" in patch) {
+  // confirmed_date/confirmed_time/status are only ever advanced by a
+  // deliberate action now — either AcceptScheduleControl (sends status,
+  // confirmed_date, confirmed_time, and schedule_visible_to_customer
+  // together) or the schedule_visible_to_customer toggle on JobRow (mirrors
+  // from requested_date/requested_time, see below). A bare requested_date/
+  // requested_time edit no longer silently promotes status — that used to
+  // happen here, but it stood in for the accept step before one existed.
+  if ("requested_date" in patch || "requested_time" in patch || "schedule_visible_to_customer" in patch || "confirmed_date" in patch || "confirmed_time" in patch) {
     let current: { status?: string; requested_date?: string | null; requested_time?: string | null; schedule_visible_to_customer?: boolean } | null = null;
     const { data, error: selectError } = await supabase
       .from("jobs")
@@ -126,20 +129,22 @@ export const PATCH = withApiErrors(async (
       current = (await supabase.from("jobs").select("status, requested_date, requested_time").eq("id", params.id).single()).data;
     }
 
-    if (current?.status === "needs_scheduling" && "requested_date" in patch && patch.requested_date && !("status" in patch)) {
-      patch.status = "scheduled";
-    }
-
     // Only ever reaches the client when schedule_visible_to_customer is on
     // (see the toggle on JobRow) — defaults off, so a date is never shown
-    // until the admin explicitly flips it. While on, confirmed_date/
-    // confirmed_time stay live-mirrored to requested_date/requested_time as
-    // the admin keeps editing, so no separate "confirm & send" click is
-    // needed on every reschedule. Flipping it off hides the date again.
+    // until the admin explicitly flips it. An explicit confirmed_date/
+    // confirmed_time in this same patch (AcceptScheduleControl's
+    // counter-proposal path) always wins; otherwise it stays live-mirrored
+    // to requested_date/requested_time as the admin keeps editing, so a
+    // plain reschedule doesn't need a separate confirm click. Flipping
+    // visibility off hides the date again.
     const willBeVisible = "schedule_visible_to_customer" in patch ? patch.schedule_visible_to_customer : current?.schedule_visible_to_customer;
     if (willBeVisible) {
-      patch.confirmed_date = "requested_date" in patch ? patch.requested_date : current?.requested_date ?? null;
-      patch.confirmed_time = "requested_time" in patch ? patch.requested_time : current?.requested_time ?? null;
+      if (!("confirmed_date" in patch)) {
+        patch.confirmed_date = "requested_date" in patch ? patch.requested_date : current?.requested_date ?? null;
+      }
+      if (!("confirmed_time" in patch)) {
+        patch.confirmed_time = "requested_time" in patch ? patch.requested_time : current?.requested_time ?? null;
+      }
     } else if ("schedule_visible_to_customer" in patch) {
       patch.confirmed_date = null;
       patch.confirmed_time = null;

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { JobWithCustomer } from "@/lib/types";
 import { ProjectDetailDialog, EditProjectDialog } from "@/components/admin/JobsDashboard";
+import { AcceptScheduleControl } from "@/components/admin/AcceptScheduleControl";
 import { googleMapsUrl } from "@/lib/address";
 
 const STATUS_LABEL: Record<string, string> = {
@@ -102,15 +103,18 @@ const WEEKDAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 type ViewMode = "day" | "month";
 
-function JobCard({ job, onOpen }: { job: JobWithCustomer; onOpen: () => void }) {
+function JobCard({ job, onOpen, onAccept }: { job: JobWithCustomer; onOpen: () => void; onAccept: (patch: Record<string, unknown>) => void }) {
   const { locationName, street, cityStateZip } = splitAddress(job.service_address);
+  const isPending = job.status === "needs_scheduling";
   return (
     <div
       onClick={onOpen}
       role="button"
       tabIndex={0}
       onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onOpen()}
-      className="cursor-pointer rounded-lg border border-slate-200 bg-white p-3 hover:border-brand-400"
+      className={`cursor-pointer rounded-lg border p-3 hover:border-brand-400 ${
+        isPending ? "border-dashed border-slate-300 bg-slate-50" : "border-slate-200 bg-white"
+      }`}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 space-y-1">
@@ -134,7 +138,9 @@ function JobCard({ job, onOpen }: { job: JobWithCustomer; onOpen: () => void }) 
             </a>
           )}
           <div className="truncate whitespace-nowrap text-sm text-slate-700">
-            {formatTime(job.requested_time) || "--:--"}
+            {isPending
+              ? job.requested_time ? `Requested ${formatTime(job.requested_time)}` : "Requested — no time given"
+              : formatTime(job.confirmed_time ?? job.requested_time) || "--:--"}
           </div>
           {(job.site_contact_name || job.site_contact_phone) && (
             <div className="text-sm text-slate-700">
@@ -142,9 +148,12 @@ function JobCard({ job, onOpen }: { job: JobWithCustomer; onOpen: () => void }) 
             </div>
           )}
         </div>
-        <span className={`shrink-0 rounded px-2 py-1 text-sm font-medium ${STATUS_COLOR[job.status]}`}>
-          {STATUS_LABEL[job.status]}
-        </span>
+        <div className="flex shrink-0 flex-col items-end gap-1.5">
+          <span className={`shrink-0 rounded px-2 py-1 text-sm font-medium ${STATUS_COLOR[job.status]}`}>
+            {STATUS_LABEL[job.status]}
+          </span>
+          <AcceptScheduleControl job={job} variant="button" onAccept={onAccept} stopPropagation />
+        </div>
       </div>
     </div>
   );
@@ -190,13 +199,13 @@ export default function ScheduleView() {
   const jobsByDate = useMemo(() => {
     const map = new Map<string, JobWithCustomer[]>();
     for (const job of jobs) {
-      if (!SCHEDULE_STATUSES.has(job.status) || !job.requested_date) continue;
-      const key = job.requested_date;
+      const key = job.confirmed_date ?? job.requested_date;
+      if (!SCHEDULE_STATUSES.has(job.status) || !key) continue;
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(job);
     }
     for (const dateJobs of map.values()) {
-      dateJobs.sort((a, b) => (a.requested_time ?? "99:99").localeCompare(b.requested_time ?? "99:99"));
+      dateJobs.sort((a, b) => ((a.confirmed_time ?? a.requested_time) ?? "99:99").localeCompare((b.confirmed_time ?? b.requested_time) ?? "99:99"));
     }
     return map;
   }, [jobs]);
@@ -350,7 +359,7 @@ export default function ScheduleView() {
                       {dayJobs.length === 0 ? (
                         <p className="text-sm text-slate-500">Nothing scheduled.</p>
                       ) : (
-                        dayJobs.map((job) => <JobCard key={job.id} job={job} onOpen={() => setSelectedJobId(job.id)} />)
+                        dayJobs.map((job) => <JobCard key={job.id} job={job} onOpen={() => setSelectedJobId(job.id)} onAccept={(patch) => patchJob(job, patch)} />)
                       )}
                     </div>
                   </section>
@@ -366,7 +375,7 @@ export default function ScheduleView() {
                 {selectedJobs.length === 0 ? (
                   <p className="text-sm text-slate-500">Nothing scheduled.</p>
                 ) : (
-                  selectedJobs.map((job) => <JobCard key={job.id} job={job} onOpen={() => setSelectedJobId(job.id)} />)
+                  selectedJobs.map((job) => <JobCard key={job.id} job={job} onOpen={() => setSelectedJobId(job.id)} onAccept={(patch) => patchJob(job, patch)} />)
                 )}
               </div>
             </section>

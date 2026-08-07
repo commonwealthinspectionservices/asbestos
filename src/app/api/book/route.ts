@@ -208,19 +208,35 @@ async function handleSubmit(body: SubmitBody) {
     throw new Error(`Failed to create job: ${jobError?.message}`);
   }
 
+  const receiptRows: [string, string][] = [
+    ["Project #", projectNumber],
+    ["Service", serviceType.label],
+    ["Requested date", date],
+    ["Window", body.window === "ANY" ? "No preference" : body.window],
+    ["Address", body.address],
+  ];
+  if (body.company) receiptRows.push(["Company", body.company]);
+  receiptRows.push(["Phone", body.phone]);
+  receiptRows.push(["Billing address", body.billingAddress]);
+  if (body.siteContactName || body.siteContactPhone) {
+    receiptRows.push(["Site contact", [body.siteContactName, body.siteContactPhone].filter(Boolean).join(" — ")]);
+  }
+  if (body.notes) receiptRows.push(["Notes", body.notes]);
+
+  const receiptTableRows = receiptRows
+    .map(
+      ([label, value]) =>
+        `<tr><td style="padding:4px 8px 4px 0; color:#64748b; white-space:nowrap; vertical-align:top;">${escapeHtml(label)}</td><td>${escapeHtml(value)}</td></tr>`
+    )
+    .join("");
+
   await sendEmail({
     to: customer.email,
     subject: `Request received — ${date}`,
     html: emailShell(`
       <p>Hi ${escapeHtml(body.name)},</p>
       <p>We've received your inspection request. Here's what you sent:</p>
-      <table style="width:100%; font-size:14px; color:#16213a;">
-        <tr><td style="padding:4px 0; color:#64748b;">Project #</td><td>${escapeHtml(projectNumber)}</td></tr>
-        <tr><td style="padding:4px 0; color:#64748b;">Service</td><td>${escapeHtml(serviceType.label)}</td></tr>
-        <tr><td style="padding:4px 0; color:#64748b;">Requested date</td><td>${date}</td></tr>
-        <tr><td style="padding:4px 0; color:#64748b;">Window</td><td>${body.window === "ANY" ? "No preference" : body.window}</td></tr>
-        <tr><td style="padding:4px 0; color:#64748b;">Address</td><td>${escapeHtml(body.address)}</td></tr>
-      </table>
+      <table style="width:100%; font-size:14px; color:#16213a;">${receiptTableRows}</table>
       <p style="margin-top:16px;">${escapeHtml(serviceRateLabel({ ...serviceType, base_fee_cents: baseFeeCents }))}</p>
       <p><strong>No payment is due today.</strong> We'll invoice you after the inspection, with 30 days to pay.</p>
       <p>We'll follow up shortly to confirm your date and time.</p>

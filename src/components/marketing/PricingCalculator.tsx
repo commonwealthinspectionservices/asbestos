@@ -164,8 +164,8 @@ export default function PricingCalculator() {
   return (
     <div className="mx-auto max-w-4xl rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
       <p className="text-sm font-semibold uppercase text-slate-700">Service Address</p>
-      <div className="mt-2 flex gap-1.5">
-        <div className="w-0 flex-1">
+      <div className="mt-2 flex flex-col gap-1.5 sm:flex-row">
+        <div className="w-full flex-1 sm:w-0">
           <AddressAutocompleteInput
             apiBase="/api"
             value={street}
@@ -182,13 +182,13 @@ export default function PricingCalculator() {
           />
         </div>
         <input
-          className="w-20 shrink-0 rounded-lg border border-slate-300 px-2 py-2 text-sm"
+          className="w-full shrink-0 rounded-lg border border-slate-300 px-2 py-2 text-sm sm:w-20"
           placeholder="Unit #"
           value={unit}
           onChange={(e) => setUnit(e.target.value)}
         />
       </div>
-      <div className="mt-1.5 grid grid-cols-3 gap-1.5">
+      <div className="mt-1.5 grid grid-cols-1 gap-1.5 sm:grid-cols-3">
         <AddressAutocompleteInput
           apiBase="/api"
           value={city}
@@ -280,7 +280,7 @@ export default function PricingCalculator() {
                 </p>
               </>
             ) : (
-              <p className="text-sm text-slate-500">Enter your address above to see a price estimate.</p>
+              <p className="text-[11px] whitespace-nowrap text-slate-500 sm:text-sm">Enter your address above to see a price estimate.</p>
             )}
           </div>
 

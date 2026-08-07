@@ -376,14 +376,14 @@ export default function PortalBookingForm({ isIndividual }: { isIndividual: bool
             ← Back
           </button>
           <p className="text-sm text-slate-600">{address}</p>
-          <div className="flex items-center justify-between">
-            <label className="block text-sm font-medium uppercase text-slate-700">Service type</label>
+          <div className="flex items-center gap-2">
+            <label className="block text-sm font-medium uppercase text-slate-700">Service types</label>
             <button
               type="button"
-              className="text-xs text-brand-600 underline"
+              className="text-xs uppercase text-brand-600 underline"
               onClick={() => setShowAllServiceTypes(true)}
             >
-              Descriptions of service types
+              (Descriptions)
             </button>
           </div>
           {showAllServiceTypes && (
@@ -465,7 +465,7 @@ export default function PortalBookingForm({ isIndividual }: { isIndividual: bool
           <div>
             <label className="block text-sm font-medium uppercase text-slate-700">Scope of work</label>
             <p className="mt-1 text-xs text-slate-500">
-              What needs to be inspected or sampled? e.g. &ldquo;kitchen and bathroom flooring, basement pipe insulation&rdquo; or &ldquo;renovating a bathroom and removing tiles + walls&rdquo;
+              What needs to be inspected or sampled? e.g. &ldquo;air quality concerns in my bedroom&rdquo; or &ldquo;renovating a bathroom and removing tiles + walls&rdquo;
             </p>
             <textarea
               className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2"
@@ -631,7 +631,7 @@ export default function PortalBookingForm({ isIndividual }: { isIndividual: bool
                   </div>
                   {selected.length > 1 && (
                     <div className="mt-1 text-xs text-slate-400">
-                      One visit fee applies regardless of how many services are selected.
+                      One base fee applies regardless of how many services are selected.
                     </div>
                   )}
                 </div>

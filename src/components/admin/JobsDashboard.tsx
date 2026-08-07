@@ -957,9 +957,6 @@ function JobRow({
                 onChange={(e) => onFieldChange({ requested_date: e.target.value || null })}
                 className="w-32 rounded-lg border border-slate-300 px-1.5 py-1 text-xs text-slate-600"
               />
-              {isUnscheduled && (
-                <AcceptScheduleControl job={job} variant="button" onAccept={onFieldChange} stopPropagation />
-              )}
               <div className="flex shrink-0 items-center gap-2">
                 {job.status === "scheduled" && job.confirmed_date && (
                   <label
@@ -987,6 +984,9 @@ function JobRow({
                   className="w-32 rounded-lg border border-slate-300 px-1.5 py-1 text-xs text-slate-600"
                 />
               </div>
+              {isUnscheduled && (
+                <AcceptScheduleControl job={job} variant="button" onAccept={onFieldChange} stopPropagation />
+              )}
             </div>
           )}
         </div>

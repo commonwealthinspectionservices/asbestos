@@ -121,7 +121,6 @@ export default function PortalBookingForm({ isIndividual }: { isIndividual: bool
 
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const [scopeOfWork, setScopeOfWork] = useState("");
-  const [showAllServiceTypes, setShowAllServiceTypes] = useState(false);
 
   const [date, setDate] = useState(todayIso());
   const [preferredTime, setPreferredTime] = useState("");
@@ -272,7 +271,7 @@ export default function PortalBookingForm({ isIndividual }: { isIndividual: bool
       {step === "address" && (
         <section className="mt-6 space-y-4">
           <div>
-            <label className="block text-sm font-medium uppercase text-slate-700">Enter job site address</label>
+            <label className="block text-sm font-medium text-slate-700">Enter job site address</label>
             <div className="mt-1 flex gap-1.5">
               <div className="w-0 flex-1">
                 <AddressAutocompleteInput
@@ -344,7 +343,7 @@ export default function PortalBookingForm({ isIndividual }: { isIndividual: bool
 
           {savedAddresses.length > 0 && (
             <div>
-              <label className="block text-sm font-medium uppercase text-slate-700">Saved addresses</label>
+              <label className="block text-sm font-medium text-slate-700">Saved addresses</label>
               <div className="mt-2 space-y-2">
                 {savedAddresses.map((a) => (
                   <button
@@ -377,45 +376,19 @@ export default function PortalBookingForm({ isIndividual }: { isIndividual: bool
           </button>
           <p className="text-sm text-slate-600">{address}</p>
           <div className="flex items-center gap-2">
-            <label className="block text-sm font-medium uppercase text-slate-700">Service types</label>
-            <button
-              type="button"
-              className="text-xs uppercase text-brand-600 underline"
-              onClick={() => setShowAllServiceTypes(true)}
+            <label className="block text-sm font-medium text-slate-700">Service types</label>
+            {/* Opens in its own tab (src/app/service-descriptions/page.tsx)
+                rather than an in-page modal, so it can never disturb this
+                form's in-progress state. */}
+            <a
+              href="/service-descriptions"
+              target="_blank"
+              rel="noreferrer"
+              className="text-xs italic text-brand-600 underline"
             >
-              (Descriptions)
-            </button>
+              link to descriptions
+            </a>
           </div>
-          {showAllServiceTypes && (
-            <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/40 px-4" onClick={() => setShowAllServiceTypes(false)}>
-              <div
-                className="max-h-[80vh] w-full max-w-md overflow-y-auto rounded-xl bg-white p-5"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-slate-800">All service types</h3>
-                  <button className="text-slate-400 hover:text-slate-600" onClick={() => setShowAllServiceTypes(false)}>✕</button>
-                </div>
-                <div className="mt-4 space-y-5">
-                  {Array.from(new Set(serviceTypes.map((s) => categoryKeyOf(s.key)))).map((c) => (
-                    <div key={c}>
-                      <h4 className="text-sm font-bold uppercase tracking-wide text-slate-500">{categoryLabelOf(c)}</h4>
-                      <div className="mt-2 space-y-2">
-                        {serviceTypes.filter((s) => categoryKeyOf(s.key) === c).map((s) => (
-                          <div key={s.key}>
-                            <div className="text-sm font-medium text-slate-800">{s.label}</div>
-                            {serviceTypeSubtext(s.key) && (
-                              <div className="text-xs text-slate-500">{serviceTypeSubtext(s.key)}</div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
           <div className="space-y-4">
             {Array.from(new Set(serviceTypes.map((s) => categoryKeyOf(s.key)))).map((c) => {
               const subtypes = serviceTypes.filter((s) => categoryKeyOf(s.key) === c);
@@ -463,7 +436,7 @@ export default function PortalBookingForm({ isIndividual }: { isIndividual: bool
             ← Back
           </button>
           <div>
-            <label className="block text-sm font-medium uppercase text-slate-700">Scope of work</label>
+            <label className="block text-sm font-medium text-slate-700">Scope of work</label>
             <p className="mt-1 text-xs text-slate-500">
               What needs to be inspected or sampled? e.g. &ldquo;air quality concerns in my bedroom&rdquo; or &ldquo;renovating a bathroom and removing tiles + walls&rdquo;
             </p>

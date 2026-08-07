@@ -3078,21 +3078,27 @@ export function EditProjectDialog({
   // yet by the time the admin saves.
   const legacyServiceTypeRef = useRef("");
   const [scopeOfWork, setScopeOfWork] = useState(job.scope_of_work ?? "");
-  const [requestedDate, setRequestedDate] = useState(job.requested_date ?? "");
-  const [requestedTime, setRequestedTime] = useState(job.requested_time ?? "");
+  // The actual schedule — separate from job.requested_date/requested_time,
+  // which is the customer's original ask and is never written to from this
+  // dialog (shown read-only below instead, see "Original customer request").
+  // Defaults to whatever's already confirmed, falling back to the request
+  // as a starting point if nothing's been accepted yet — same default
+  // AcceptScheduleControl uses.
+  const [confirmedDate, setConfirmedDate] = useState(job.confirmed_date ?? job.requested_date ?? "");
+  const [confirmedTime, setConfirmedTime] = useState(job.confirmed_time ?? job.requested_time ?? "");
   const [paidDate, setPaidDate] = useState(job.paid_date ?? "");
-  const [dueDate, setDueDate] = useState(job.payment_due_date || paymentDueDate(job.requested_date ?? "") || "");
-  // Tracks the auto-computed (requested_date + 30) value last applied, so
-  // editing the due date by hand sticks even as requested_date keeps
+  const [dueDate, setDueDate] = useState(job.payment_due_date || paymentDueDate(confirmedDate) || "");
+  // Tracks the auto-computed (confirmed date + 30) value last applied, so
+  // editing the due date by hand sticks even as the confirmed date keeps
   // changing — only a due date that's still exactly the computed default
   // gets recomputed when the project date changes.
-  const lastAppliedDueDateDefaultRef = useRef(paymentDueDate(job.requested_date ?? "") || "");
+  const lastAppliedDueDateDefaultRef = useRef(paymentDueDate(confirmedDate) || "");
   useEffect(() => {
-    const nextDefault = paymentDueDate(requestedDate) || "";
+    const nextDefault = paymentDueDate(confirmedDate) || "";
     setDueDate((current) => (current === lastAppliedDueDateDefaultRef.current ? nextDefault : current));
     lastAppliedDueDateDefaultRef.current = nextDefault;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [requestedDate]);
+  }, [confirmedDate]);
   const [notes, setNotes] = useState(job.notes ?? "");
   const [submitting, setSubmitting] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
@@ -3237,8 +3243,8 @@ export function EditProjectDialog({
           body: JSON.stringify({
             project_number: projectNumber.trim() || null,
             status,
-            requested_date: requestedDate || null,
-            requested_time: requestedTime || null,
+            confirmed_date: confirmedDate || null,
+            confirmed_time: confirmedTime || null,
             paid_date: paidDate || null,
             payment_due_date: dueDate || null,
             notes,
@@ -3297,7 +3303,7 @@ export function EditProjectDialog({
     additionalReportEmails,
     serviceStreet, serviceUnit, serviceCity, serviceState, serviceZip,
     siteContactName, siteContactPhone, selectedServiceTypeKeys, customServiceType, scopeOfWork,
-    requestedDate, requestedTime, paidDate, dueDate, notes,
+    confirmedDate, confirmedTime, paidDate, dueDate, notes,
   ]);
 
   useEffect(() => {
@@ -3398,14 +3404,20 @@ export function EditProjectDialog({
 
         <div className="mt-3 flex gap-2">
           <div className="flex-1">
-            <label className="block text-sm font-medium text-slate-700">Date</label>
-            <input type="date" className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value={requestedDate} onChange={(e) => setRequestedDate(e.target.value)} />
+            <label className="block text-sm font-medium text-slate-700">Scheduled date</label>
+            <input type="date" className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value={confirmedDate} onChange={(e) => setConfirmedDate(e.target.value)} />
           </div>
           <div className="flex-1">
             <label className="block text-sm font-medium text-slate-700">Scheduled time</label>
-            <input type="time" className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value={requestedTime} onChange={(e) => setRequestedTime(e.target.value)} />
+            <input type="time" className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value={confirmedTime} onChange={(e) => setConfirmedTime(e.target.value)} />
           </div>
         </div>
+        {job.requested_date && (
+          <p className="mt-1.5 text-xs text-slate-500">
+            Original customer request: {formatDate(job.requested_date)}
+            {job.requested_time ? ` at ${formatTime(job.requested_time)}` : ""}
+          </p>
+        )}
 
         <label className="mt-3 block text-sm font-medium text-slate-700">Service type</label>
         <div className="mt-1 flex gap-4">

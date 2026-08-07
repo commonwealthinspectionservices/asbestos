@@ -255,7 +255,7 @@ export default function SettingsEditor() {
         </div>
       </Section>
 
-      <Section title="Pricing zones">
+      <CollapsibleSection title="Pricing zones">
         <p className="text-xs text-slate-500">
           Overrides a service&apos;s base fee by region — checked top to bottom, first matching town wins,
           falls back to the service&apos;s own base fee if nothing matches. Order matters: put more specific
@@ -290,7 +290,7 @@ export default function SettingsEditor() {
             Add pricing zone
           </button>
         </div>
-      </Section>
+      </CollapsibleSection>
 
       <CollapsibleSection title="Advanced settings">
         <SubSection title="Service area">

@@ -110,7 +110,14 @@ const WEEKDAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 type ViewMode = "day" | "month";
 
-function JobCard({ job, onOpen, onAccept }: { job: JobWithCustomer; onOpen: () => void; onAccept: (patch: Record<string, unknown>) => void }) {
+function JobCard({
+  job, onOpen, onOpenChat, onAccept,
+}: {
+  job: JobWithCustomer;
+  onOpen: () => void;
+  onOpenChat: () => void;
+  onAccept: (patch: Record<string, unknown>) => void;
+}) {
   const { locationName, street, cityStateZip } = splitAddress(job.service_address);
   const isPending = job.status === "needs_scheduling";
   return (
@@ -159,7 +166,7 @@ function JobCard({ job, onOpen, onAccept }: { job: JobWithCustomer; onOpen: () =
           <span className={`shrink-0 rounded px-2 py-1 text-sm font-medium ${STATUS_COLOR[job.status]}`}>
             {STATUS_LABEL[job.status]}
           </span>
-          <AcceptScheduleControl job={job} variant="button" onAccept={onAccept} stopPropagation />
+          <AcceptScheduleControl job={job} variant="button" onAccept={onAccept} onOpenChat={onOpenChat} stopPropagation />
         </div>
       </div>
     </div>
@@ -174,6 +181,7 @@ export default function ScheduleView() {
   const [anchorDate, setAnchorDate] = useState(() => new Date());
   const [selectedDate, setSelectedDate] = useState(() => toISO(new Date()));
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+  const [selectedJobInitialTab, setSelectedJobInitialTab] = useState<"info" | "chat">("info");
   const [editingJobId, setEditingJobId] = useState<string | null>(null);
   const dateInputRef = useRef<HTMLInputElement>(null);
 
@@ -366,7 +374,13 @@ export default function ScheduleView() {
                       {dayJobs.length === 0 ? (
                         <p className="text-sm text-slate-500">Nothing scheduled.</p>
                       ) : (
-                        dayJobs.map((job) => <JobCard key={job.id} job={job} onOpen={() => setSelectedJobId(job.id)} onAccept={(patch) => patchJob(job, patch)} />)
+                        dayJobs.map((job) => <JobCard
+                          key={job.id}
+                          job={job}
+                          onOpen={() => { setSelectedJobInitialTab("info"); setSelectedJobId(job.id); }}
+                          onOpenChat={() => { setSelectedJobInitialTab("chat"); setSelectedJobId(job.id); }}
+                          onAccept={(patch) => patchJob(job, patch)}
+                        />)
                       )}
                     </div>
                   </section>
@@ -382,7 +396,13 @@ export default function ScheduleView() {
                 {selectedJobs.length === 0 ? (
                   <p className="text-sm text-slate-500">Nothing scheduled.</p>
                 ) : (
-                  selectedJobs.map((job) => <JobCard key={job.id} job={job} onOpen={() => setSelectedJobId(job.id)} onAccept={(patch) => patchJob(job, patch)} />)
+                  selectedJobs.map((job) => <JobCard
+                          key={job.id}
+                          job={job}
+                          onOpen={() => { setSelectedJobInitialTab("info"); setSelectedJobId(job.id); }}
+                          onOpenChat={() => { setSelectedJobInitialTab("chat"); setSelectedJobId(job.id); }}
+                          onAccept={(patch) => patchJob(job, patch)}
+                        />)
                 )}
               </div>
             </section>
@@ -400,6 +420,7 @@ export default function ScheduleView() {
             onChanged={() => loadJobs()}
             onEdit={() => setEditingJobId(detailJob.id)}
             onStatusChange={(status) => patchJob(detailJob, { status })}
+            initialTab={selectedJobInitialTab}
           />
         );
       })()}

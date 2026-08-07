@@ -40,15 +40,16 @@ function formatTime(time: string | null | undefined): string {
 // turn on schedule_visible_to_customer before finalizing (rather than
 // always defaulting it on) — the answer becomes the toggle's starting
 // state, still changeable afterward from JobRow. The "button" variant's
-// red X declines just the requested date/time (clears both, job stays
-// "needs_scheduling") rather than the job itself — the admin re-enters a
-// workable date/time by hand afterward. Renders nothing once a job is past
+// red X opens the job's chat instead of taking any direct action on the
+// request itself — for working out a real time with the customer rather
+// than guessing at one. Renders nothing once a job is past
 // "needs_scheduling".
 export function AcceptScheduleControl({
-  job, onAccept, variant, stopPropagation,
+  job, onAccept, onOpenChat, variant, stopPropagation,
 }: {
   job: JobWithCustomer;
   onAccept: (patch: Record<string, unknown>) => void | Promise<void>;
+  onOpenChat?: () => void;
   variant: "button" | "panel";
   stopPropagation?: boolean;
 }) {
@@ -123,11 +124,10 @@ export function AcceptScheduleControl({
         </button>
         <button
           type="button"
-          title="Decline this requested time — clears it so you can set your own"
-          aria-label="Decline this requested time"
-          disabled={!job.requested_date}
-          onClick={() => onAccept({ requested_date: null, requested_time: null })}
-          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-red-600 text-sm font-bold leading-none text-white disabled:opacity-50"
+          title="Message the customer about this request"
+          aria-label="Message the customer about this request"
+          onClick={() => onOpenChat?.()}
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-red-600 text-sm font-bold leading-none text-white"
         >
           ✕
         </button>

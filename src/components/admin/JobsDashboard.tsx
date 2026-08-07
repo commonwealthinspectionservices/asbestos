@@ -414,6 +414,7 @@ export default function JobsDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+  const [selectedJobInitialTab, setSelectedJobInitialTab] = useState<"info" | "chat">("info");
   const [editingJobId, setEditingJobId] = useState<string | null>(null);
   const [statusView, setStatusView] = useState<"open" | "closed" | "all">("open");
   const [statusFilter, setStatusFilter] = useState<Set<string>>(new Set());
@@ -816,7 +817,13 @@ export default function JobsDashboard() {
         return (
           <div className="mt-4 space-y-2">
             {sortedJobs.map((job) => (
-              <JobRow key={job.id} job={job} onOpen={() => setSelectedJobId(job.id)} onFieldChange={(patch) => patchJob(job, patch)} />
+              <JobRow
+                key={job.id}
+                job={job}
+                onOpen={() => { setSelectedJobInitialTab("info"); setSelectedJobId(job.id); }}
+                onOpenChat={() => { setSelectedJobInitialTab("chat"); setSelectedJobId(job.id); }}
+                onFieldChange={(patch) => patchJob(job, patch)}
+              />
             ))}
           </div>
         );
@@ -832,6 +839,7 @@ export default function JobsDashboard() {
             onChanged={() => loadJobs()}
             onEdit={() => setEditingJobId(detailJob.id)}
             onStatusChange={(status) => patchJob(detailJob, { status })}
+            initialTab={selectedJobInitialTab}
           />
         );
       })()}
@@ -862,10 +870,11 @@ export default function JobsDashboard() {
 }
 
 function JobRow({
-  job, onOpen, onFieldChange,
+  job, onOpen, onOpenChat, onFieldChange,
 }: {
   job: JobWithCustomer;
   onOpen: () => void;
+  onOpenChat: () => void;
   onFieldChange: (patch: Record<string, unknown>) => void;
 }) {
   const { locationName, street, cityStateZip } = splitAddress(job.service_address);
@@ -919,17 +928,11 @@ function JobRow({
       <div className="text-sm text-slate-500">&nbsp;</div>
 
       <div className="flex w-full items-start gap-3">
-        <a
-          href={googleMapsUrl(job.service_address)}
-          target="_blank"
-          rel="noreferrer"
-          onClick={(e) => e.stopPropagation()}
-          className="min-w-0 flex-[0.9] hover:underline"
-        >
+        <div className="min-w-0 flex-[0.9]">
           {locationName && <div className="truncate whitespace-nowrap text-sm text-slate-500">{locationName}</div>}
           <div className="truncate whitespace-nowrap text-sm text-slate-500">{street}</div>
           {cityStateZip && <div className="truncate whitespace-nowrap text-sm text-slate-500">{cityStateZip}</div>}
-        </a>
+        </div>
 
         <div className="min-w-0 flex-[1.2]">
           {(() => {
@@ -959,7 +962,7 @@ function JobRow({
               />
               <div className="flex shrink-0 items-center gap-2">
                 {isUnscheduled ? (
-                  <AcceptScheduleControl job={job} variant="button" onAccept={onFieldChange} stopPropagation />
+                  <AcceptScheduleControl job={job} variant="button" onAccept={onFieldChange} onOpenChat={onOpenChat} stopPropagation />
                 ) : job.status === "scheduled" && job.confirmed_date && (
                   <label
                     className="flex shrink-0 items-center gap-1.5 whitespace-nowrap text-xs uppercase text-slate-600"
@@ -1089,15 +1092,16 @@ function useDraftTracking(params: {
 }
 
 export function ProjectDetailDialog({
-  job, onClose, onChanged, onEdit, onStatusChange,
+  job, onClose, onChanged, onEdit, onStatusChange, initialTab,
 }: {
   job: JobWithCustomer;
   onClose: () => void;
   onChanged: () => void;
   onEdit: () => void;
   onStatusChange: (status: string) => void;
+  initialTab?: "info" | "samples" | "report" | "invoicing" | "email" | "chat" | "photos";
 }) {
-  const [tab, setTab] = useState<"info" | "samples" | "report" | "invoicing" | "email" | "chat" | "photos">("info");
+  const [tab, setTab] = useState<"info" | "samples" | "report" | "invoicing" | "email" | "chat" | "photos">(initialTab ?? "info");
   const [serviceTypeSettings, setServiceTypeSettings] = useState<ServiceType[]>([]);
   const [pricingZones, setPricingZones] = useState<PricingZone[]>([]);
   const [labs, setLabs] = useState<LabProfile[]>([]);

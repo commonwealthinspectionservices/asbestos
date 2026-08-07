@@ -54,13 +54,13 @@ export default function HomePage() {
           alt=""
           className="absolute inset-0 h-full w-full object-cover opacity-15"
         />
-        <div className="relative mx-auto grid w-full max-w-4xl grid-cols-3 items-center px-4">
+        <div className="relative mx-auto flex w-full max-w-4xl items-center justify-center gap-8 px-4 sm:gap-10">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/marketing/massachusetts-outline.png" alt="" className="h-16 w-auto shrink-0 justify-self-start sm:h-40" />
+          <img src="/marketing/massachusetts-outline.png" alt="" className="h-16 w-auto shrink-0 sm:h-40" />
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="Commonwealth Inspection Services" className="mx-auto h-24 w-24 max-w-none shrink-0 rounded-full sm:h-72 sm:w-72" />
+          <img src="/logo.png" alt="Commonwealth Inspection Services" className="h-24 w-24 max-w-none shrink-0 rounded-full sm:h-72 sm:w-72" />
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/marketing/massachusetts-outline.png" alt="" className="h-16 w-auto shrink-0 justify-self-end sm:h-40" />
+          <img src="/marketing/massachusetts-outline.png" alt="" className="h-16 w-auto shrink-0 sm:h-40" />
         </div>
         <div className="relative mx-auto max-w-3xl px-4">
         <p className="relative mt-6 whitespace-nowrap text-[9px] font-bold uppercase text-brand-700 sm:mt-10 sm:text-2xl">
@@ -69,13 +69,13 @@ export default function HomePage() {
         <div className="relative mt-6 flex justify-center gap-4 sm:mt-10">
           <Link
             href="/portal"
-            className="inline-flex h-10 items-center border-4 border-brand-700 bg-brand-50 px-6 text-[9px] font-extrabold uppercase leading-none text-brand-700 hover:bg-yellow-100 sm:h-14 sm:px-10 sm:text-lg"
+            className="inline-flex h-7 items-center border-[3px] border-brand-700 bg-brand-50 px-3 text-[9px] font-extrabold uppercase leading-none text-brand-700 hover:bg-yellow-100 sm:h-14 sm:border-4 sm:px-10 sm:text-lg"
           >
             Book an Inspection
           </Link>
           <Link
             href="/contact"
-            className="inline-flex h-10 items-center border-4 border-brand-700 bg-brand-50 px-6 text-[9px] font-extrabold uppercase leading-none text-brand-700 hover:bg-yellow-100 sm:h-14 sm:px-10 sm:text-lg"
+            className="inline-flex h-7 items-center border-[3px] border-brand-700 bg-brand-50 px-3 text-[9px] font-extrabold uppercase leading-none text-brand-700 hover:bg-yellow-100 sm:h-14 sm:border-4 sm:px-10 sm:text-lg"
           >
             Contact
           </Link>

@@ -81,6 +81,14 @@ function categoryLabelOf(categoryKeyValue: string): string {
   return CATEGORY_LABELS[categoryKeyValue] ?? categoryKeyValue;
 }
 
+// The three asbestos subtypes are alternative reasons for the same single
+// inspection, not separate services — only one at a time. Everything else
+// combines freely with each other and with whichever one of these (if any)
+// is picked. Narrower scope than PricingCalculator.tsx's own exclusion
+// pair — that form merges Limited+Pre-Renovation into one option and only
+// excludes it against Pre-Demolition; this form shows all 3 real subtypes.
+const ASBESTOS_EXCLUSIVE_KEYS = ["asbestos_bulk", "asbestos_pre_reno", "asbestos_pre_demo"];
+
 export default function PortalBookingForm({ isIndividual }: { isIndividual: boolean }) {
   const router = useRouter();
   const [step, setStep] = useState<Step>("address");
@@ -111,8 +119,7 @@ export default function PortalBookingForm({ isIndividual }: { isIndividual: bool
   const [state, setState] = useState<string | null>(null);
   const [serviceTypes, setServiceTypes] = useState<ServiceTypeOption[]>([]);
 
-  const [categoryKey, setCategoryKey] = useState("");
-  const [serviceTypeKey, setServiceTypeKey] = useState("");
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const [scopeOfWork, setScopeOfWork] = useState("");
   const [showAllServiceTypes, setShowAllServiceTypes] = useState(false);
 
@@ -154,8 +161,7 @@ export default function PortalBookingForm({ isIndividual }: { isIndividual: bool
       setDistanceMiles(data.distanceMiles);
       setState(data.state);
       setServiceTypes(data.serviceTypes);
-      setCategoryKey("");
-      setServiceTypeKey("");
+      setSelectedKeys(new Set());
       setStep("category");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong");
@@ -164,14 +170,21 @@ export default function PortalBookingForm({ isIndividual }: { isIndividual: bool
     }
   }
 
-  // Both cells live on the same "category" step now — picking a category
-  // just populates the subtype cell below it (or auto-selects when there's
-  // only one subtype, e.g. lead, so it isn't shown as a redundant
-  // one-item list) rather than navigating to a separate screen.
-  function pickCategory(pickedCategoryKey: string) {
-    setCategoryKey(pickedCategoryKey);
-    const matches = serviceTypes.filter((s) => categoryKeyOf(s.key) === pickedCategoryKey);
-    setServiceTypeKey(matches.length === 1 ? matches[0].key : "");
+  function toggleServiceType(key: string) {
+    setSelectedKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        if (ASBESTOS_EXCLUSIVE_KEYS.includes(key)) {
+          for (const exclusiveKey of ASBESTOS_EXCLUSIVE_KEYS) {
+            if (exclusiveKey !== key) next.delete(exclusiveKey);
+          }
+        }
+        next.add(key);
+      }
+      return next;
+    });
   }
 
   function pickSavedAddress(a: SavedAddress) {
@@ -222,7 +235,7 @@ export default function PortalBookingForm({ isIndividual }: { isIndividual: bool
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           address, lat, lng, distanceMiles, state,
-          serviceTypeKey,
+          serviceTypeKeys: Array.from(selectedKeys),
           scopeOfWork,
           date: scheduleViaContact ? null : date,
           requestedTime: scheduleViaContact ? null : preferredTime || null,
@@ -403,45 +416,37 @@ export default function PortalBookingForm({ isIndividual }: { isIndividual: bool
               </div>
             </div>
           )}
-          <div className="space-y-2">
+          <div className="space-y-4">
             {Array.from(new Set(serviceTypes.map((s) => categoryKeyOf(s.key)))).map((c) => {
               const subtypes = serviceTypes.filter((s) => categoryKeyOf(s.key) === c);
               return (
                 <div key={c}>
-                  <button
-                    className={`w-full rounded-lg border px-4 py-3 text-left font-medium ${
-                      categoryKey === c ? "border-brand-600 bg-brand-50" : "border-slate-300 hover:border-brand-600"
-                    }`}
-                    onClick={() => pickCategory(c)}
-                  >
-                    {categoryLabelOf(c)}
-                  </button>
-                  {/* Only a category with more than one subtype needs this —
-                      a single-subtype category (e.g. lead) auto-selects
-                      instead of showing a redundant one-item list, see
-                      pickCategory. */}
-                  {categoryKey === c && subtypes.length > 1 && (
-                    <div className="ml-8 mt-2 space-y-2">
-                      {subtypes.map((s) => (
-                        <button
-                          key={s.key}
-                          className={`w-full rounded-lg border px-4 py-3 text-left font-medium ${
-                            serviceTypeKey === s.key ? "border-brand-600 bg-brand-50" : "border-slate-300"
-                          }`}
-                          onClick={() => setServiceTypeKey(s.key)}
-                        >
-                          {s.label}
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                  <div className="text-sm font-medium text-slate-700">{categoryLabelOf(c)}</div>
+                  <div className="mt-2 space-y-2">
+                    {subtypes.map((s) => (
+                      <label
+                        key={s.key}
+                        className={`flex w-full cursor-pointer items-center gap-2 rounded-lg border px-4 py-3 text-left font-medium ${
+                          selectedKeys.has(s.key) ? "border-brand-600 bg-brand-50" : "border-slate-300 hover:border-brand-600"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedKeys.has(s.key)}
+                          onChange={() => toggleServiceType(s.key)}
+                          className="shrink-0 accent-brand-700"
+                        />
+                        {s.label}
+                      </label>
+                    ))}
+                  </div>
                 </div>
               );
             })}
           </div>
           <button
             className="flex w-full items-center justify-center border-[3px] border-brand-700 bg-brand-50 py-3 pt-[14px] text-sm font-extrabold uppercase leading-none text-brand-700 hover:bg-yellow-100 disabled:opacity-50"
-            disabled={!serviceTypeKey}
+            disabled={selectedKeys.size === 0}
             onClick={() => setStep("scope")}
           >
             Continue
@@ -606,16 +611,29 @@ export default function PortalBookingForm({ isIndividual }: { isIndividual: bool
               <div className="text-slate-700">{address}</div>
             </div>
             {(() => {
-              const selected = serviceTypes.find((s) => s.key === serviceTypeKey);
-              return selected ? (
+              const selected = serviceTypes.filter((s) => selectedKeys.has(s.key));
+              return selected.length > 0 ? (
                 <div>
-                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Service</div>
-                  <div className="text-slate-700">{selected.label}</div>
-                  {serviceTypeSubtext(selected.key) && (
-                    <div className="text-xs text-slate-500">{serviceTypeSubtext(selected.key)}</div>
+                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                    Service{selected.length > 1 ? "s" : ""}
+                  </div>
+                  <div className="space-y-2">
+                    {selected.map((s) => (
+                      <div key={s.key}>
+                        <div className="text-slate-700">{s.label}</div>
+                        {serviceTypeSubtext(s.key) && (
+                          <div className="text-xs text-slate-500">{serviceTypeSubtext(s.key)}</div>
+                        )}
+                        {/* Rate already reflects the zone pricing for the address picked earlier — see resolveZoneBaseFeeCents in /api/book. */}
+                        <div className="text-slate-500">{s.rateLabel}</div>
+                      </div>
+                    ))}
+                  </div>
+                  {selected.length > 1 && (
+                    <div className="mt-1 text-xs text-slate-400">
+                      One visit fee applies regardless of how many services are selected.
+                    </div>
                   )}
-                  {/* Rate already reflects the zone pricing for the address picked earlier — see resolveZoneBaseFeeCents in /api/book. */}
-                  <div className="text-slate-500">{selected.rateLabel}</div>
                 </div>
               ) : null;
             })()}

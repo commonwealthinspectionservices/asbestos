@@ -20,7 +20,7 @@ export const POST = withApiErrors(async (req: NextRequest) => {
 
   const body = await req.json().catch(() => null);
   const {
-    address, lat, lng, distanceMiles, state, serviceTypeKey, date: requestedDate, requestedTime,
+    address, lat, lng, distanceMiles, state, serviceTypeKeys, date: requestedDate, requestedTime,
     scheduleViaContact, siteContactName, siteContactPhone, notes, scopeOfWork, disclaimerAck,
   } = body ?? {};
 
@@ -32,7 +32,8 @@ export const POST = withApiErrors(async (req: NextRequest) => {
   const resolvedSiteContactPhone = siteContactPhone?.trim() || (auth.customer.is_individual ? auth.customer.phone : "");
 
   if (
-    !address || lat == null || lng == null || !serviceTypeKey ||
+    !address || lat == null || lng == null ||
+    !Array.isArray(serviceTypeKeys) || serviceTypeKeys.length === 0 ||
     (!scheduleViaContact && !requestedDate) ||
     !resolvedSiteContactName?.trim() || !resolvedSiteContactPhone?.trim()
   ) {
@@ -49,12 +50,24 @@ export const POST = withApiErrors(async (req: NextRequest) => {
     return NextResponse.json({ error: "Address is outside the service area" }, { status: 400 });
   }
 
-  const serviceType = settings.service_types.find((s: ServiceType) => s.key === serviceTypeKey);
-  if (!serviceType) {
+  // Kept in settings.service_types order (not client selection order) so
+  // the stored comma-joined label list is deterministic — matches how
+  // EditProjectDialog (JobsDashboard.tsx) builds job.service_type, and how
+  // resolveBaseFeeCents/defaultInvoiceLineItems (invoice-defaults.ts) treat
+  // the first label in that list as "the" base-fee-driving type.
+  const matchedServiceTypes = settings.service_types.filter((s: ServiceType) => serviceTypeKeys.includes(s.key));
+  if (matchedServiceTypes.length !== serviceTypeKeys.length) {
     return NextResponse.json({ error: "Unknown service type" }, { status: 400 });
   }
+  const serviceTypeLabel = matchedServiceTypes.map((s) => s.label).join(", ");
+
   const zoneBaseFeeCents = resolveZoneBaseFeeCents(address, settings.pricing_zones);
-  const baseFeeCents = zoneBaseFeeCents ?? serviceType.base_fee_cents;
+  // Only one visit happens per job regardless of how many service types are
+  // picked, so the base fee is charged once — the zone override if one
+  // applies, else the first (settings-order) matched type's own fee. Mirrors
+  // resolveBaseFeeCents in invoice-defaults.ts and PricingCalculator.tsx's
+  // own baseFeeCents rule.
+  const baseFeeCents = zoneBaseFeeCents ?? matchedServiceTypes[0].base_fee_cents;
 
   // Every booking is a request now, not a confirmed slot — whether they
   // picked a date or asked us to coordinate with the job site contact,
@@ -84,9 +97,9 @@ export const POST = withApiErrors(async (req: NextRequest) => {
       lat, lng,
       site_contact_name: resolvedSiteContactName || null,
       site_contact_phone: resolvedSiteContactPhone || null,
-      service_type: serviceType.label,
+      service_type: serviceTypeLabel,
       base_fee_cents: baseFeeCents,
-      per_sample_cents: serviceType.per_sample_cents,
+      per_sample_cents: matchedServiceTypes[0].per_sample_cents,
       requested_date: scheduleViaContact ? null : date,
       requested_time: time,
       // No confirmed_date/time and no schedule_visible_to_customer here —
@@ -115,7 +128,7 @@ export const POST = withApiErrors(async (req: NextRequest) => {
       customerName: auth.customer.name,
       company: auth.customer.company,
       address,
-      serviceLabel: serviceType.label,
+      serviceLabel: serviceTypeLabel,
       requestedDate: scheduleViaContact ? null : date,
       requestedTime: time,
       scheduleViaContact,

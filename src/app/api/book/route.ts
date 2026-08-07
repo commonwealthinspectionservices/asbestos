@@ -235,7 +235,7 @@ async function handleSubmit(body: SubmitBody) {
     subject: `Request received — ${date}`,
     html: emailShell(`
       <p>Hi ${escapeHtml(body.name)},</p>
-      <p>We've received your inspection request. Here's what you sent:</p>
+      <p>We've received your Inspection request:</p>
       <table style="width:100%; font-size:14px; color:#16213a;">${receiptTableRows}</table>
       <p style="margin-top:16px;">${escapeHtml(serviceRateLabel({ ...serviceType, base_fee_cents: baseFeeCents }))}</p>
       <p><strong>No payment is due today.</strong> We'll invoice you after the inspection, with 30 days to pay.</p>

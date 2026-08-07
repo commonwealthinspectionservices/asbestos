@@ -67,6 +67,13 @@ function formatTime(time: string | null | undefined): string {
   return `${hour12}:${String(m).padStart(2, "0")} ${period}`;
 }
 
+function formatDate(date: string | null | undefined): string {
+  if (!date) return "";
+  const [y, m, d] = date.split("-");
+  if (!y || !m || !d) return date;
+  return `${m}/${d}/${y}`;
+}
+
 // Local-component based, never through toISOString() — that converts
 // through UTC first, which silently rolls the date backward or forward for
 // any US timezone once the local clock is close enough to midnight.
@@ -139,7 +146,7 @@ function JobCard({ job, onOpen, onAccept }: { job: JobWithCustomer; onOpen: () =
           )}
           <div className="truncate whitespace-nowrap text-sm text-slate-700">
             {isPending
-              ? job.requested_time ? `Requested ${formatTime(job.requested_time)}` : "Requested — no time given"
+              ? `Requested for: ${formatDate(job.requested_date)}${job.requested_time ? ` ${formatTime(job.requested_time)}` : ""}`
               : formatTime(job.confirmed_time ?? job.requested_time) || "--:--"}
           </div>
           {(job.site_contact_name || job.site_contact_phone) && (

@@ -30,6 +30,19 @@ for (let totalMinutes = 5 * 60; totalMinutes <= 19 * 60 + 30; totalMinutes += 30
   TIME_OPTIONS.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
 }
 
+// Booking today still needs at least an hour's notice — every slot before
+// that is dropped entirely rather than just discouraged. A future date has
+// nothing to filter against, so the full slot list applies.
+function availableTimeOptions(selectedDate: string): string[] {
+  if (selectedDate !== todayIso()) return TIME_OPTIONS;
+  const now = new Date();
+  const earliestMinutes = now.getHours() * 60 + now.getMinutes() + 60;
+  return TIME_OPTIONS.filter((t) => {
+    const [h, m] = t.split(":").map(Number);
+    return h * 60 + m >= earliestMinutes;
+  });
+}
+
 // Mirrors ProjectsList.tsx's formatDate — MM/DD/YYYY instead of the raw
 // YYYY-MM-DD the <input type="date"> stores.
 function formatDate(isoDate: string): string {
@@ -137,6 +150,17 @@ export default function PortalBookingForm({ isIndividual }: { isIndividual: bool
       .then((r) => r.json())
       .then((data) => setSavedAddresses(data.addresses ?? []));
   }, []);
+
+  // A previously-picked time can fall inside the 1-hour notice window once
+  // the date changes to today (or time just passes while the form sits
+  // open) — clear it rather than silently submitting a slot that's no
+  // longer offered.
+  useEffect(() => {
+    if (preferredTime && !availableTimeOptions(date).includes(preferredTime)) {
+      setPreferredTime("");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [date, preferredTime]);
 
   useAutoZip(street, city, addrState, setZip, "/api/portal");
 
@@ -256,7 +280,7 @@ export default function PortalBookingForm({ isIndividual }: { isIndividual: bool
   return (
     <div className="mx-auto max-w-md px-4 py-8">
       <div className="flex items-center justify-between">
-        <h1 className="text-sm font-bold uppercase text-brand-700">Book a project</h1>
+        <h1 className="text-base font-bold uppercase text-brand-700">Book a project</h1>
         <button
           onClick={() => router.push("/portal/dashboard")}
           aria-label="Cancel"
@@ -271,7 +295,7 @@ export default function PortalBookingForm({ isIndividual }: { isIndividual: bool
       {step === "address" && (
         <section className="mt-6 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700">Enter job site address</label>
+            <label className="block text-base font-medium text-slate-700">Enter job site address</label>
             <div className="mt-1 flex gap-1.5">
               <div className="w-0 flex-1">
                 <AddressAutocompleteInput
@@ -343,7 +367,7 @@ export default function PortalBookingForm({ isIndividual }: { isIndividual: bool
 
           {savedAddresses.length > 0 && (
             <div>
-              <label className="block text-sm font-medium text-slate-700">Saved addresses</label>
+              <label className="block text-base font-medium text-slate-700">Saved addresses</label>
               <div className="mt-2 space-y-2">
                 {savedAddresses.map((a) => (
                   <button
@@ -376,7 +400,7 @@ export default function PortalBookingForm({ isIndividual }: { isIndividual: bool
           </button>
           <p className="text-sm text-slate-600">{address}</p>
           <div className="flex items-center gap-2">
-            <label className="block text-sm font-medium text-slate-700">Service types</label>
+            <label className="block text-base font-medium text-slate-700">Service types</label>
             {/* Opens in its own tab (src/app/service-descriptions/page.tsx)
                 rather than an in-page modal, so it can never disturb this
                 form's in-progress state. */}
@@ -436,7 +460,7 @@ export default function PortalBookingForm({ isIndividual }: { isIndividual: bool
             ← Back
           </button>
           <div>
-            <label className="block text-sm font-medium text-slate-700">Scope of work</label>
+            <label className="block text-base font-medium text-slate-700">Scope of work</label>
             <p className="mt-1 text-xs text-slate-500">
               What needs to be inspected or sampled? e.g. &ldquo;air quality concerns in my bedroom&rdquo; or &ldquo;renovating a bathroom and removing tiles + walls&rdquo;
             </p>
@@ -508,11 +532,15 @@ export default function PortalBookingForm({ isIndividual }: { isIndividual: bool
                   onChange={(e) => setPreferredTime(e.target.value)}
                 >
                   <option value="">No preference</option>
-                  {TIME_OPTIONS.map((t) => (
+                  {availableTimeOptions(date).map((t) => (
                     <option key={t} value={t}>{formatPreferredTime(t)}</option>
                   ))}
                 </select>
-                <p className="mt-1 text-xs text-slate-500">Leave blank if you don&apos;t have a preference.</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  {date === todayIso()
+                    ? "Leave blank if you don't have a preference. Same-day booking needs at least an hour's notice."
+                    : "Leave blank if you don't have a preference."}
+                </p>
               </div>
               {isIndividual && (
                 <div>

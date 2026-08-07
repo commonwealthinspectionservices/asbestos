@@ -350,7 +350,7 @@ export function ContactDetailDialog({
 
             <div className="mt-3 space-y-1 text-sm">
               {customer.is_individual ? (
-                <div><span className="text-slate-500">Type </span>Individual</div>
+                <div>Individual</div>
               ) : (
                 customer.company && <div><span className="text-slate-500">Company </span>{customer.company}</div>
               )}

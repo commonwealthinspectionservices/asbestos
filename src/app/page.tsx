@@ -58,7 +58,7 @@ export default function HomePage() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/marketing/massachusetts-outline.png" alt="" className="h-16 w-auto shrink-0 justify-self-start sm:h-40" />
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="Commonwealth Inspection Services" className="mx-auto h-48 w-48 max-w-none shrink-0 rounded-full sm:h-72 sm:w-72" />
+          <img src="/logo.png" alt="Commonwealth Inspection Services" className="mx-auto h-24 w-24 max-w-none shrink-0 rounded-full sm:h-72 sm:w-72" />
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/marketing/massachusetts-outline.png" alt="" className="h-16 w-auto shrink-0 justify-self-end sm:h-40" />
         </div>

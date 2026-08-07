@@ -81,6 +81,7 @@ function baseJob(overrides: Partial<JobWithCustomer> = {}): JobWithCustomer {
     invoice_draft_gmail_message_id: null,
     invoice_sent_at: null,
     is_individual: false,
+    source: "portal_booking",
     created_at: new Date().toISOString(),
     ...overrides,
   };

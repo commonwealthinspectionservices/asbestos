@@ -126,9 +126,10 @@ export const POST = withApiErrors(async (req: NextRequest) => {
   const projectNumber = body.projectNumber?.trim() || (await generateProjectNumber());
 
   // The admin can pick an explicit starting status; otherwise fall back to
-  // inferring it from whether a date is already set — matching the PATCH
-  // route's same auto-advance-on-date rule, so a job never ends up with a
-  // date on the calendar while still showing "To Be Scheduled".
+  // inferring it from whether a date is already set. This is a deliberate,
+  // one-time choice made right here at creation — unlike the jobs PATCH
+  // route, which no longer auto-advances status on a bare date edit (see
+  // AcceptScheduleControl for that job's real promotion path).
   const startingStatus =
     body.status === "needs_scheduling" || body.status === "scheduled"
       ? body.status
@@ -155,6 +156,10 @@ export const POST = withApiErrors(async (req: NextRequest) => {
     confirmed_date: null,
     confirmed_time: null,
     status: startingStatus,
+    // Distinguishes a real customer request (AcceptScheduleControl only
+    // shows for those) from a project the admin entered directly, which
+    // may also start at "needs_scheduling" but has no request to accept.
+    source: "admin",
     notes: body.notes || null,
     project_name: body.projectName || null,
     job_classification: body.jobClassification || null,

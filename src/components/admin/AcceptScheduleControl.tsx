@@ -43,7 +43,9 @@ function formatTime(time: string | null | undefined): string {
 // red X opens the job's chat instead of taking any direct action on the
 // request itself — for working out a real time with the customer rather
 // than guessing at one. Renders nothing once a job is past
-// "needs_scheduling".
+// "needs_scheduling", or if it's needs_scheduling for a reason other than
+// a real customer request (source !== "portal_booking" — e.g. the admin
+// entered it directly via Add Project and left it unscheduled on purpose).
 export function AcceptScheduleControl({
   job, onAccept, onOpenChat, variant, stopPropagation,
 }: {
@@ -58,7 +60,7 @@ export function AcceptScheduleControl({
   const [submitting, setSubmitting] = useState(false);
   const [confirmingVisibility, setConfirmingVisibility] = useState(false);
 
-  if (job.status !== "needs_scheduling") return null;
+  if (job.status !== "needs_scheduling" || job.source !== "portal_booking") return null;
 
   async function finalize(confirmedDate: string | null, confirmedTime: string | null, visibleToCustomer: boolean) {
     setSubmitting(true);

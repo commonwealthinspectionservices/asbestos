@@ -108,6 +108,10 @@ export const POST = withApiErrors(async (req: NextRequest) => {
       // confirms a real date/time from the admin dashboard.
       window: derivedWindow,
       status: "needs_scheduling",
+      // Marks this as a real customer request — AcceptScheduleControl
+      // (JobRow/JobCard) only shows for jobs with this source, not ones
+      // the admin entered directly (see api/admin/jobs/route.ts).
+      source: "portal_booking",
       notes: notes || null,
       scope_of_work: scopeOfWork || null,
       disclaimer_ack: true,

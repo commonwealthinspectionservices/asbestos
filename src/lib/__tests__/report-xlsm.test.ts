@@ -27,6 +27,7 @@ const job: Job = {
   invoice_draft_gmail_message_id: null,
   invoice_sent_at: null,
   is_individual: false,
+  source: "portal_booking",
   id: "job-1",
   project_number: "26-2760",
   customer_id: "cust-1",

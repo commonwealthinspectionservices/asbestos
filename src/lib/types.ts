@@ -264,6 +264,8 @@ export interface Job {
   invoice_sent_at: string | null;
   /** Checked on the Invoice tab for jobs billed directly to an individual (most are company-billed) — holds the report back until the job is marked Paid instead of drafting it immediately alongside the invoice. */
   is_individual: boolean;
+  /** How this job was created — "portal_booking" for a real customer request (AcceptScheduleControl only shows for those), "admin" for one the owner entered directly via Add Project. Existing rows predating this column default to "portal_booking". */
+  source: "portal_booking" | "admin";
   created_at: string;
 }
 

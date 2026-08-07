@@ -688,3 +688,12 @@ end $$;
 -- Lead's own positive/negative, parallel to asbestos_result — set by hand
 -- on the Final Report tab (no auto-detection; lead labs aren't EMSL-format).
 alter table jobs add column if not exists lead_result text check (lead_result in ('positive', 'negative'));
+
+-- Distinguishes a real customer request (api/portal/book) from a project
+-- the admin entered directly (api/admin/jobs, Add Project) — both can start
+-- at status "needs_scheduling", but only the former has an actual request
+-- for AcceptScheduleControl to show. Defaults existing rows to
+-- "portal_booking" (accurate for every job created before this column
+-- existed, since Add Project's admin-direct-entry path is what this column
+-- was introduced to distinguish going forward).
+alter table jobs add column if not exists source text not null default 'portal_booking';

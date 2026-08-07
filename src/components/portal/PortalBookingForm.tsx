@@ -20,6 +20,16 @@ function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+// 30-minute slots from 5:00 AM to 7:30 PM — excludes the 8pm-5am overnight
+// window entirely rather than just discouraging it, since a plain
+// <input type="time"> lets someone type any time at all.
+const TIME_OPTIONS: string[] = [];
+for (let totalMinutes = 5 * 60; totalMinutes <= 19 * 60 + 30; totalMinutes += 30) {
+  const h = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
+  TIME_OPTIONS.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
+}
+
 // Mirrors ProjectsList.tsx's formatDate — MM/DD/YYYY instead of the raw
 // YYYY-MM-DD the <input type="date"> stores.
 function formatDate(isoDate: string): string {
@@ -360,7 +370,7 @@ export default function PortalBookingForm({ isIndividual }: { isIndividual: bool
               className="text-xs text-brand-600 underline"
               onClick={() => setShowAllServiceTypes(true)}
             >
-              See all service types
+              Descriptions of service types
             </button>
           </div>
           {showAllServiceTypes && (
@@ -514,12 +524,16 @@ export default function PortalBookingForm({ isIndividual }: { isIndividual: bool
               )}
               <div>
                 <label className="block text-sm font-medium text-slate-700">Preferred time</label>
-                <input
-                  type="time"
+                <select
                   className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
                   value={preferredTime}
                   onChange={(e) => setPreferredTime(e.target.value)}
-                />
+                >
+                  <option value="">No preference</option>
+                  {TIME_OPTIONS.map((t) => (
+                    <option key={t} value={t}>{formatPreferredTime(t)}</option>
+                  ))}
+                </select>
                 <p className="mt-1 text-xs text-slate-500">Leave blank if you don&apos;t have a preference.</p>
               </div>
               {isIndividual && (
@@ -649,7 +663,7 @@ export default function PortalBookingForm({ isIndividual }: { isIndividual: bool
         <section className="mt-6 space-y-3">
           <div className="rounded-lg bg-emerald-50 px-4 py-4 text-sm text-emerald-800">
             <p className="font-medium">
-              {confirmedDate ? `Request sent for ${confirmedDate}.` : "Request sent — we'll coordinate scheduling directly with your job site contact."}
+              {confirmedDate ? `Your request has been sent for ${formatDate(confirmedDate)}.` : "Request sent — we'll coordinate scheduling directly with your job site contact."}
             </p>
             <p className="mt-1">We'll follow up to confirm your date and time.</p>
           </div>

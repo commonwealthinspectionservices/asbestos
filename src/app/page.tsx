@@ -63,19 +63,19 @@ export default function HomePage() {
           <img src="/marketing/massachusetts-outline.png" alt="" className="h-16 w-auto shrink-0 justify-self-end sm:h-40" />
         </div>
         <div className="relative mx-auto max-w-3xl px-4">
-        <p className="relative mt-6 text-lg font-bold uppercase text-brand-700 sm:mt-10 sm:text-2xl">
-          Serving Boston<br className="sm:hidden" /> + all of Massachusetts
+        <p className="relative mt-6 whitespace-nowrap text-[9px] font-bold uppercase text-brand-700 sm:mt-10 sm:text-2xl">
+          Serving Boston + all of Massachusetts
         </p>
         <div className="relative mt-6 flex justify-center gap-4 sm:mt-10">
           <Link
             href="/portal"
-            className="inline-flex h-10 items-center border-4 border-brand-700 bg-brand-50 px-6 text-sm font-extrabold uppercase leading-none text-brand-700 hover:bg-yellow-100 sm:h-14 sm:px-10 sm:text-lg"
+            className="inline-flex h-10 items-center border-4 border-brand-700 bg-brand-50 px-6 text-[9px] font-extrabold uppercase leading-none text-brand-700 hover:bg-yellow-100 sm:h-14 sm:px-10 sm:text-lg"
           >
             Book an Inspection
           </Link>
           <Link
             href="/contact"
-            className="inline-flex h-10 items-center border-4 border-brand-700 bg-brand-50 px-6 text-sm font-extrabold uppercase leading-none text-brand-700 hover:bg-yellow-100 sm:h-14 sm:px-10 sm:text-lg"
+            className="inline-flex h-10 items-center border-4 border-brand-700 bg-brand-50 px-6 text-[9px] font-extrabold uppercase leading-none text-brand-700 hover:bg-yellow-100 sm:h-14 sm:px-10 sm:text-lg"
           >
             Contact
           </Link>

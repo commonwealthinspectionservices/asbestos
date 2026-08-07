@@ -54,7 +54,7 @@ export default function HomePage() {
           alt=""
           className="absolute inset-0 h-full w-full object-cover opacity-15"
         />
-        <div className="relative mx-auto flex w-full max-w-4xl items-center justify-center gap-8 px-4 sm:gap-10">
+        <div className="relative mx-auto flex w-full max-w-4xl items-center justify-center gap-6 px-4 sm:gap-10">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/marketing/massachusetts-outline.png" alt="" className="h-16 w-auto shrink-0 sm:h-40" />
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -63,7 +63,7 @@ export default function HomePage() {
           <img src="/marketing/massachusetts-outline.png" alt="" className="h-16 w-auto shrink-0 sm:h-40" />
         </div>
         <div className="relative mx-auto max-w-3xl px-4">
-        <p className="relative mt-6 whitespace-nowrap text-[9px] font-bold uppercase text-brand-700 sm:mt-10 sm:text-2xl">
+        <p className="relative mt-6 whitespace-nowrap text-[13px] font-bold uppercase text-brand-700 sm:mt-10 sm:text-2xl">
           Serving Boston + all of Massachusetts
         </p>
         <div className="relative mt-6 flex justify-center gap-4 sm:mt-10">

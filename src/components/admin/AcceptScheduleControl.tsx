@@ -3,11 +3,27 @@
 import { useState } from "react";
 import type { JobWithCustomer } from "@/lib/types";
 
-function formatDate(date: string | null | undefined): string {
+function ordinalSuffix(day: number): string {
+  if (day >= 11 && day <= 13) return "th";
+  switch (day % 10) {
+    case 1: return "st";
+    case 2: return "nd";
+    case 3: return "rd";
+    default: return "th";
+  }
+}
+
+// "Thursday August 7th, 2026" — the full spelled-out form, used only for
+// the "Requested for" bubble, which is meant to read like a sentence
+// rather than a compact MM/DD/YYYY field value.
+function formatFullDate(date: string | null | undefined): string {
   if (!date) return "";
-  const [y, m, d] = date.split("-");
+  const [y, m, d] = date.split("-").map(Number);
   if (!y || !m || !d) return date;
-  return `${m}/${d}/${y}`;
+  const parsed = new Date(y, m - 1, d);
+  const weekday = parsed.toLocaleDateString("en-US", { weekday: "long" });
+  const month = parsed.toLocaleDateString("en-US", { month: "long" });
+  return `${weekday} ${month} ${d}${ordinalSuffix(d)}, ${y}`;
 }
 
 function formatTime(time: string | null | undefined): string {
@@ -20,9 +36,14 @@ function formatTime(time: string | null | undefined): string {
 
 // The one deliberate step that turns a customer's request (requested_date/
 // requested_time) into a real confirmed job — sets confirmed_date/
-// confirmed_time, flips status to "scheduled", and turns on
-// schedule_visible_to_customer, all in one action. Renders nothing once a
-// job is past "needs_scheduling".
+// confirmed_time, flips status to "scheduled", and asks once whether to
+// turn on schedule_visible_to_customer before finalizing (rather than
+// always defaulting it on) — the answer becomes the toggle's starting
+// state, still changeable afterward from JobRow. The "button" variant's
+// red X declines just the requested date/time (clears both, job stays
+// "needs_scheduling") rather than the job itself — the admin re-enters a
+// workable date/time by hand afterward. Renders nothing once a job is past
+// "needs_scheduling".
 export function AcceptScheduleControl({
   job, onAccept, variant, stopPropagation,
 }: {
@@ -34,39 +55,83 @@ export function AcceptScheduleControl({
   const [date, setDate] = useState(job.requested_date ?? "");
   const [time, setTime] = useState(job.requested_time ?? "");
   const [submitting, setSubmitting] = useState(false);
+  const [confirmingVisibility, setConfirmingVisibility] = useState(false);
 
   if (job.status !== "needs_scheduling") return null;
 
-  async function acceptWith(confirmedDate: string | null, confirmedTime: string | null) {
+  async function finalize(confirmedDate: string | null, confirmedTime: string | null, visibleToCustomer: boolean) {
     setSubmitting(true);
     try {
       await onAccept({
         status: "scheduled",
         confirmed_date: confirmedDate,
         confirmed_time: confirmedTime,
-        schedule_visible_to_customer: true,
+        schedule_visible_to_customer: visibleToCustomer,
       });
     } finally {
       setSubmitting(false);
+      setConfirmingVisibility(false);
     }
   }
 
-  if (variant === "button") {
-    const label = job.requested_date
-      ? `Accept · ${formatDate(job.requested_date)}${job.requested_time ? ` ${formatTime(job.requested_time)}` : ""}`
-      : "Accept";
+  if (confirmingVisibility) {
+    const confirmedDate = variant === "button" ? job.requested_date : date || null;
+    const confirmedTime = variant === "button" ? job.requested_time ?? null : time || null;
     return (
-      <button
-        type="button"
-        disabled={submitting || !job.requested_date}
-        onClick={(e) => {
-          if (stopPropagation) e.stopPropagation();
-          acceptWith(job.requested_date, job.requested_time ?? null);
-        }}
-        className="shrink-0 whitespace-nowrap rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-bold uppercase text-white disabled:opacity-50"
+      <div
+        onClick={(e) => stopPropagation && e.stopPropagation()}
+        className="flex shrink-0 flex-wrap items-center gap-1.5 rounded-lg border border-slate-200 bg-white p-2 text-xs"
       >
-        {submitting ? "Accepting…" : label}
-      </button>
+        <span className="whitespace-nowrap font-medium text-slate-700">Show the date and time to the customer?</span>
+        <button
+          type="button"
+          disabled={submitting}
+          onClick={() => finalize(confirmedDate, confirmedTime, true)}
+          className="shrink-0 rounded bg-emerald-600 px-2 py-1 font-bold text-white disabled:opacity-50"
+        >
+          {submitting ? "…" : "Yes"}
+        </button>
+        <button
+          type="button"
+          disabled={submitting}
+          onClick={() => finalize(confirmedDate, confirmedTime, false)}
+          className="shrink-0 rounded border border-slate-300 px-2 py-1 font-bold text-slate-600 disabled:opacity-50"
+        >
+          {submitting ? "…" : "No"}
+        </button>
+      </div>
+    );
+  }
+
+  if (variant === "button") {
+    return (
+      <div onClick={(e) => stopPropagation && e.stopPropagation()} className="flex shrink-0 flex-wrap items-center gap-1.5">
+        <span className="whitespace-nowrap rounded bg-sky-50 px-2 py-1 text-xs font-medium text-sky-800">
+          {job.requested_date
+            ? `Requested for ${formatFullDate(job.requested_date)}${job.requested_time ? ` at ${formatTime(job.requested_time)}` : ""}`
+            : "No requested time"}
+        </span>
+        <button
+          type="button"
+          title="Accept this request"
+          aria-label="Accept this request"
+          disabled={!job.requested_date}
+          onClick={() => setConfirmingVisibility(true)}
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-sm font-bold leading-none text-white disabled:opacity-50"
+        >
+          ✓
+        </button>
+        <button
+          type="button"
+          title="Decline this requested time — clears it so you can set your own"
+          aria-label="Decline this requested time"
+          disabled={!job.requested_date}
+          onClick={() => onAccept({ requested_date: null, requested_time: null })}
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-red-600 text-sm font-bold leading-none text-white disabled:opacity-50"
+        >
+          ✕
+        </button>
+      </div>
     );
   }
 
@@ -76,7 +141,7 @@ export function AcceptScheduleControl({
       className="rounded-lg border border-slate-200 bg-slate-50 p-3"
     >
       <p className="text-xs font-bold uppercase text-slate-500">Accept & Schedule</p>
-      <p className="mt-1 text-xs text-slate-500">Confirms this date/time and makes it visible to the customer.</p>
+      <p className="mt-1 text-xs text-slate-500">Confirms this date/time, then asks whether to show it to the customer.</p>
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <input
           type="date"
@@ -92,11 +157,11 @@ export function AcceptScheduleControl({
         />
         <button
           type="button"
-          disabled={submitting || !date}
-          onClick={() => acceptWith(date || null, time || null)}
+          disabled={!date}
+          onClick={() => setConfirmingVisibility(true)}
           className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-bold text-white disabled:opacity-50"
         >
-          {submitting ? "Accepting…" : "Accept & Schedule"}
+          Accept & Schedule
         </button>
       </div>
     </div>

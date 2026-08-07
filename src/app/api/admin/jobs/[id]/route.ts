@@ -132,11 +132,15 @@ export const PATCH = withApiErrors(async (
     // Only ever reaches the client when schedule_visible_to_customer is on
     // (see the toggle on JobRow) — defaults off, so a date is never shown
     // until the admin explicitly flips it. An explicit confirmed_date/
-    // confirmed_time in this same patch (AcceptScheduleControl's
-    // counter-proposal path) always wins; otherwise it stays live-mirrored
-    // to requested_date/requested_time as the admin keeps editing, so a
-    // plain reschedule doesn't need a separate confirm click. Flipping
-    // visibility off hides the date again.
+    // confirmed_time in this same patch (AcceptScheduleControl's own path,
+    // whether or not it's also turning visibility on) always wins;
+    // otherwise it stays live-mirrored to requested_date/requested_time as
+    // the admin keeps editing, so a plain reschedule doesn't need a
+    // separate confirm click. Flipping visibility off with no explicit
+    // confirmed_date/time in the same patch (the plain JobRow toggle) hides
+    // the date again — but an explicit confirmed_date/time takes
+    // precedence even then, so "accept but keep hidden" doesn't silently
+    // discard the date it just set.
     const willBeVisible = "schedule_visible_to_customer" in patch ? patch.schedule_visible_to_customer : current?.schedule_visible_to_customer;
     if (willBeVisible) {
       if (!("confirmed_date" in patch)) {
@@ -145,7 +149,7 @@ export const PATCH = withApiErrors(async (
       if (!("confirmed_time" in patch)) {
         patch.confirmed_time = "requested_time" in patch ? patch.requested_time : current?.requested_time ?? null;
       }
-    } else if ("schedule_visible_to_customer" in patch) {
+    } else if ("schedule_visible_to_customer" in patch && !("confirmed_date" in patch) && !("confirmed_time" in patch)) {
       patch.confirmed_date = null;
       patch.confirmed_time = null;
     }

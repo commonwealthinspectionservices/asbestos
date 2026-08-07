@@ -958,7 +958,9 @@ function JobRow({
                 className="w-32 rounded-lg border border-slate-300 px-1.5 py-1 text-xs text-slate-600"
               />
               <div className="flex shrink-0 items-center gap-2">
-                {job.status === "scheduled" && job.confirmed_date && (
+                {isUnscheduled ? (
+                  <AcceptScheduleControl job={job} variant="button" onAccept={onFieldChange} stopPropagation />
+                ) : job.status === "scheduled" && job.confirmed_date && (
                   <label
                     className="flex shrink-0 items-center gap-1.5 whitespace-nowrap text-xs uppercase text-slate-600"
                     title="Off by default — the client's portal never shows a date/time until this is on. While on, it stays live-synced to the date/time above as you edit them."
@@ -984,9 +986,6 @@ function JobRow({
                   className="w-32 rounded-lg border border-slate-300 px-1.5 py-1 text-xs text-slate-600"
                 />
               </div>
-              {isUnscheduled && (
-                <AcceptScheduleControl job={job} variant="button" onAccept={onFieldChange} stopPropagation />
-              )}
             </div>
           )}
         </div>

@@ -89,13 +89,9 @@ export default function MarketingNav() {
           </Link>
         </div>
 
-        {/* Below sm: Client Portal still always stays visible in the header
-            row itself, never inside the collapsible menu — the hamburger
-            toggle sits next to it instead of replacing it. */}
+        {/* Below sm: just the hamburger — Client Portal moves into the
+            collapsible menu itself instead of sitting in the header row. */}
         <div className="flex shrink-0 items-center gap-2 sm:hidden">
-          <Link href="/portal" className={clientPortalClass}>
-            Client Portal
-          </Link>
           <button
             type="button"
             aria-label={menuOpen ? "Close menu" : "Open menu"}
@@ -122,6 +118,9 @@ export default function MarketingNav() {
           {NAV_LINKS.slice(1).map((link) => (
             <Link key={link.href} href={link.href} className={mobileLinkClass(link.href)}>{link.label}</Link>
           ))}
+          <Link href="/portal" className={`${mobileLinkClass("/portal")} mt-1 border-t border-brand-700/20 pt-3`}>
+            Client Portal
+          </Link>
         </div>
       )}
     </nav>

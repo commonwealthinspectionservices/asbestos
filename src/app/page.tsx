@@ -58,13 +58,13 @@ export default function HomePage() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/marketing/massachusetts-outline.png" alt="" className="h-16 w-auto shrink-0 justify-self-start sm:h-40" />
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="Commonwealth Inspection Services" className="mx-auto h-48 w-48 shrink-0 rounded-full sm:h-72 sm:w-72" />
+          <img src="/logo.png" alt="Commonwealth Inspection Services" className="mx-auto h-48 w-48 max-w-none shrink-0 rounded-full sm:h-72 sm:w-72" />
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/marketing/massachusetts-outline.png" alt="" className="h-16 w-auto shrink-0 justify-self-end sm:h-40" />
         </div>
         <div className="relative mx-auto max-w-3xl px-4">
         <p className="relative mt-6 text-lg font-bold uppercase text-brand-700 sm:mt-10 sm:text-2xl">
-          Serving Boston + all of Massachusetts
+          Serving Boston<br className="sm:hidden" /> + all of Massachusetts
         </p>
         <div className="relative mt-6 flex justify-center gap-4 sm:mt-10">
           <Link

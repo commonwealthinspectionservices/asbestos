@@ -67,6 +67,8 @@ function formatPreferredTime(hhmm: string): string {
 // relabeling a service type in Settings doesn't silently drop this note.
 function serviceTypeSubtext(key: string): string | null {
   if (key === "asbestos_bulk") return "Sampling of specific area(s) as determined by the client";
+  if (key === "asbestos_pre_reno") return "For renovating a limited area when you're not sure what needs testing";
+  if (key === "asbestos_pre_demo") return "For demolishing an entire structure";
   if (key === "mold_air") return "Sampling of indoor air quality";
   if (key === "mold_bulk") return "Sampling physical building materials";
   if (key === "mold_swab") return "Sampling of surfaces";
@@ -399,20 +401,7 @@ export default function PortalBookingForm({ isIndividual }: { isIndividual: bool
             ← Back
           </button>
           <p className="text-sm text-slate-600">{address}</p>
-          <div className="flex items-center gap-2">
-            <label className="block text-base font-medium text-slate-700">Service types</label>
-            {/* Opens in its own tab (src/app/service-descriptions/page.tsx)
-                rather than an in-page modal, so it can never disturb this
-                form's in-progress state. */}
-            <a
-              href="/service-descriptions"
-              target="_blank"
-              rel="noreferrer"
-              className="text-xs italic text-brand-600 underline"
-            >
-              link to descriptions
-            </a>
-          </div>
+          <label className="block text-base font-medium text-slate-700">Service types</label>
           <div className="space-y-4">
             {Array.from(new Set(serviceTypes.map((s) => categoryKeyOf(s.key)))).map((c) => {
               const subtypes = serviceTypes.filter((s) => categoryKeyOf(s.key) === c);
@@ -423,7 +412,7 @@ export default function PortalBookingForm({ isIndividual }: { isIndividual: bool
                     {subtypes.map((s) => (
                       <label
                         key={s.key}
-                        className={`flex w-full cursor-pointer items-center gap-2 rounded-lg border px-4 py-3 text-left font-medium ${
+                        className={`flex w-full cursor-pointer items-start gap-2 rounded-lg border px-4 py-3 text-left font-medium ${
                           selectedKeys.has(s.key) ? "border-brand-600 bg-brand-50" : "border-slate-300 hover:border-brand-600"
                         }`}
                       >
@@ -431,9 +420,14 @@ export default function PortalBookingForm({ isIndividual }: { isIndividual: bool
                           type="checkbox"
                           checked={selectedKeys.has(s.key)}
                           onChange={() => toggleServiceType(s.key)}
-                          className="shrink-0 accent-brand-700"
+                          className="mt-1 shrink-0 accent-brand-700"
                         />
-                        {s.label}
+                        <span>
+                          <span className="block">{s.label}</span>
+                          {serviceTypeSubtext(s.key) && (
+                            <span className="block text-xs font-normal text-slate-500">{serviceTypeSubtext(s.key)}</span>
+                          )}
+                        </span>
                       </label>
                     ))}
                   </div>

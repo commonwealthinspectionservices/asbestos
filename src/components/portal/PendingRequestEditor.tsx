@@ -49,6 +49,8 @@ function formatPreferredTime(hhmm: string): string {
 
 function serviceTypeSubtext(key: string): string | null {
   if (key === "asbestos_bulk") return "Sampling of specific area(s) as determined by the client";
+  if (key === "asbestos_pre_reno") return "For renovating a limited area when you're not sure what needs testing";
+  if (key === "asbestos_pre_demo") return "For demolishing an entire structure";
   if (key === "mold_air") return "Sampling of indoor air quality";
   if (key === "mold_bulk") return "Sampling physical building materials";
   if (key === "mold_swab") return "Sampling of surfaces";
@@ -342,7 +344,7 @@ export default function PendingRequestEditor({
                   {subtypes.map((s) => (
                     <label
                       key={s.key}
-                      className={`flex w-full cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm ${
+                      className={`flex w-full cursor-pointer items-start gap-2 rounded-lg border px-3 py-2 text-sm ${
                         selectedKeys.has(s.key) ? "border-brand-600 bg-brand-50" : "border-slate-300"
                       }`}
                     >
@@ -350,12 +352,14 @@ export default function PendingRequestEditor({
                         type="checkbox"
                         checked={selectedKeys.has(s.key)}
                         onChange={() => toggleServiceType(s.key)}
-                        className="shrink-0 accent-brand-700"
+                        className="mt-0.5 shrink-0 accent-brand-700"
                       />
-                      {s.label}
-                      {serviceTypeSubtext(s.key) && (
-                        <span className="text-xs text-slate-500">— {serviceTypeSubtext(s.key)}</span>
-                      )}
+                      <span>
+                        <span className="block">{s.label}</span>
+                        {serviceTypeSubtext(s.key) && (
+                          <span className="block text-xs text-slate-500">{serviceTypeSubtext(s.key)}</span>
+                        )}
+                      </span>
                     </label>
                   ))}
                 </div>

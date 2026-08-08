@@ -63,7 +63,7 @@ export function ContactForm({
   // typed elsewhere (e.g. Add Project's Name/Company field before it found
   // no match in the Directory) — distinct from `initial`, which prefills a
   // full existing record for editing.
-  prefill?: { isCompany?: boolean; name?: string; company?: string };
+  prefill?: { isCompany?: boolean; name?: string; company?: string; phone?: string };
 }) {
   const [isCompany, setIsCompany] = useState(initial ? !initial.is_individual : (prefill?.isCompany ?? false));
   const [company, setCompany] = useState(initial?.company ?? prefill?.company ?? "");
@@ -71,7 +71,7 @@ export function ContactForm({
   const [firstName, setFirstName] = useState(initialName.first);
   const [lastName, setLastName] = useState(initialName.last);
   const [email, setEmail] = useState(initial?.email ?? "");
-  const [phone, setPhone] = useState(initial?.phone ?? "");
+  const [phone, setPhone] = useState(initial?.phone ?? prefill?.phone ?? "");
   const addressInit = parseAddressToFields(initial?.billing_address);
   const [street, setStreet] = useState(addressInit.street);
   const [unit, setUnit] = useState(addressInit.unit);

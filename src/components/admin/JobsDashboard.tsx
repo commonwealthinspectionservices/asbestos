@@ -2516,18 +2516,7 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
   const [submitting, setSubmitting] = useState(false);
   const [fetchingNumber, setFetchingNumber] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [companyContacts, setCompanyContacts] = useState<Customer[]>([]);
   const [confirmingExit, setConfirmingExit] = useState(false);
-
-  useEffect(() => {
-    if (!companyId) {
-      setCompanyContacts([]);
-      return;
-    }
-    fetch(`/api/admin/customers?companyId=${companyId}`)
-      .then((r) => r.json())
-      .then((data) => setCompanyContacts(data.customers ?? []));
-  }, [companyId]);
 
   useEffect(() => {
     if (!siteContactSameAsContact) return;
@@ -2539,6 +2528,19 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
     const res = await fetch(`/api/admin/companies?q=${encodeURIComponent(q)}`);
     const data = await res.json();
     return data.companies ?? [];
+  }
+
+  // Once a company's picked, scope suggestions to that company's own
+  // contacts (still live, not just the cached companyContacts list, so a
+  // contact added elsewhere mid-session still shows up) — otherwise a
+  // plain name/email search across every contact in the Directory.
+  async function searchContacts(q: string): Promise<Customer[]> {
+    const url = companyId
+      ? `/api/admin/customers?companyId=${companyId}`
+      : `/api/admin/customers?q=${encodeURIComponent(q)}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    return data.customers ?? [];
   }
 
   function selectCompany(company: Company) {
@@ -2645,7 +2647,7 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
     <ComboboxInput
       value={contactName}
       onChange={(v) => { setContactName(v); setEmail(""); setPhone(""); setContactId(""); setContactNameBlurred(false); }}
-      options={companyContacts}
+      fetchOptions={searchContacts}
       getLabel={(c) => c.name}
       getSublabel={(c) => c.email}
       onSelect={selectContact}
@@ -2923,7 +2925,7 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
             <ComboboxInput
               value={siteContactName}
               onChange={setSiteContactName}
-              options={companyContacts}
+              fetchOptions={searchContacts}
               getLabel={(c) => c.name}
               getSublabel={(c) => c.email}
               onSelect={(c) => {
@@ -3027,6 +3029,7 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
           isCompany: customerKind === "company",
           name: customerKind === "individual" ? contactName.trim() : undefined,
           company: customerKind === "company" ? companyName.trim() : undefined,
+          phone: phone.trim() || undefined,
         }}
         onDone={(customer) => {
           setCreatingContact(false);
@@ -3195,6 +3198,19 @@ export function EditProjectDialog({
     const res = await fetch(`/api/admin/companies?q=${encodeURIComponent(q)}`);
     const data = await res.json();
     return data.companies ?? [];
+  }
+
+  // Once a company's picked, scope suggestions to that company's own
+  // contacts (still live, not just the cached companyContacts list, so a
+  // contact added elsewhere mid-session still shows up) — otherwise a
+  // plain name/email search across every contact in the Directory.
+  async function searchContacts(q: string): Promise<Customer[]> {
+    const url = companyId
+      ? `/api/admin/customers?companyId=${companyId}`
+      : `/api/admin/customers?q=${encodeURIComponent(q)}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    return data.customers ?? [];
   }
 
   function selectCompany(company: Company) {
@@ -3503,7 +3519,7 @@ export function EditProjectDialog({
             <ComboboxInput
               value={siteContactName}
               onChange={setSiteContactName}
-              options={companyContacts}
+              fetchOptions={searchContacts}
               getLabel={(c) => c.name}
               getSublabel={(c) => c.email}
               onSelect={(c) => {
@@ -3546,7 +3562,7 @@ export function EditProjectDialog({
             <ComboboxInput
               value={contactName}
               onChange={(v) => { setContactName(v); setEmail(""); setPhone(""); setCustomerId(""); }}
-              options={companyContacts}
+              fetchOptions={searchContacts}
               getLabel={(c) => c.name}
               getSublabel={(c) => c.email}
               onSelect={selectContact}

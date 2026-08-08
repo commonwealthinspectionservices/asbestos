@@ -9,7 +9,6 @@ import { splitAddress, parseAddressToFields, buildBillingAddress, googleMapsUrl 
 import { joinName, splitFullName } from "@/lib/name";
 import type { AddressFields } from "@/lib/address";
 import AddressAutocompleteInput from "@/components/shared/AddressAutocompleteInput";
-import PdfPreview from "@/components/shared/PdfPreview";
 import JobChat from "@/components/shared/JobChat";
 import JobPhotos from "@/components/shared/JobPhotos";
 import { AcceptScheduleControl } from "@/components/admin/AcceptScheduleControl";
@@ -1123,8 +1122,6 @@ export function ProjectDetailDialog({
   });
   const [invoiceLineItems, setInvoiceLineItems] = useState<LineItemRowState[]>(() => defaultLineItems(job, serviceTypeSettings, pricingZones));
   const [savingInvoice, setSavingInvoice] = useState(false);
-  const [showInvoicePreview, setShowInvoicePreview] = useState(false);
-  const [showReportPreview, setShowReportPreview] = useState(false);
   const [payLinkLoading, setPayLinkLoading] = useState(false);
   const [payLinkError, setPayLinkError] = useState<string | null>(null);
   async function getPaymentLink() {
@@ -1630,14 +1627,7 @@ export function ProjectDetailDialog({
                   );
                 })()}
 
-                {reportComplete ? (
-                  showReportPreview && (
-                    <PdfPreview
-                      url={`/api/admin/jobs/${job.id}/report?v=${encodeURIComponent(reportRevision)}`}
-                      revision={reportRevision}
-                    />
-                  )
-                ) : (
+                {!reportComplete && (
                   <p className="text-sm text-slate-500">
                     Fill in every field above (an empty one is still missing) to generate the report preview.
                   </p>
@@ -1789,16 +1779,6 @@ export function ProjectDetailDialog({
                   onPaymentDueDateChange={(v) => saveJobField({ payment_due_date: v || null })}
                 />
                 {savingInvoice && <p className="mt-1 text-xs text-slate-400">Saving…</p>}
-
-                {showInvoicePreview && job.invoice_total_cents != null && (
-                  <div className="mt-3">
-                    <PdfPreview
-                      url={`/api/admin/jobs/${job.id}/invoice?v=${encodeURIComponent(invoiceRevision)}`}
-                      revision={invoiceRevision}
-                    />
-                  </div>
-                )}
-
               </div>
             </div>
 
@@ -1845,9 +1825,9 @@ export function ProjectDetailDialog({
                         <p className="border-t border-slate-200 bg-white px-2 py-1 text-center text-xs font-bold uppercase text-slate-700">Final Report</p>
                       </a>
                       <div className="border-t border-slate-200 px-2 py-1 text-center text-xs">
-                        <button onClick={() => setShowReportPreview((v) => !v)} className="text-brand-600 hover:underline">
-                          {showReportPreview ? "Hide" : "View"}
-                        </button>
+                        <a href={`/api/admin/jobs/${job.id}/report?v=${encodeURIComponent(reportRevision)}`} target="_blank" rel="noreferrer" className="text-brand-600 hover:underline">
+                          View
+                        </a>
                         {" · "}
                         <a href={`/api/admin/jobs/${job.id}/report?download=1`} download={`report-${job.project_number ?? job.id}.pdf`} className="text-brand-600 hover:underline">
                           Download
@@ -1867,9 +1847,9 @@ export function ProjectDetailDialog({
                         <p className="border-t border-slate-200 bg-white px-2 py-1 text-center text-xs font-bold uppercase text-slate-700">Invoice</p>
                       </a>
                       <div className="border-t border-slate-200 px-2 py-1 text-center text-xs">
-                        <button onClick={() => setShowInvoicePreview((v) => !v)} className="text-brand-600 hover:underline">
-                          {showInvoicePreview ? "Hide" : "View"}
-                        </button>
+                        <a href={`/api/admin/jobs/${job.id}/invoice?v=${encodeURIComponent(invoiceRevision)}`} target="_blank" rel="noreferrer" className="text-brand-600 hover:underline">
+                          View
+                        </a>
                         {" · "}
                         <a href={`/api/admin/jobs/${job.id}/invoice?download=1`} download={`invoice-${job.project_number ?? job.id}.pdf`} className="text-brand-600 hover:underline">
                           Download

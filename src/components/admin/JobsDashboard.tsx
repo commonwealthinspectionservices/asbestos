@@ -1218,24 +1218,6 @@ export function ProjectDetailDialog({
     [job.service_type]
   );
 
-  async function setAsbestosResult(value: "positive" | "negative") {
-    await fetch(`/api/admin/jobs/${job.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ asbestos_result: value }),
-    });
-    onChanged();
-  }
-
-  async function setLeadResult(value: "positive" | "negative") {
-    await fetch(`/api/admin/jobs/${job.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ lead_result: value }),
-    });
-    onChanged();
-  }
-
   async function saveReportSummary(value: string) {
     await fetch(`/api/admin/jobs/${job.id}`, {
       method: "PATCH",
@@ -1590,17 +1572,7 @@ export function ProjectDetailDialog({
                 {serviceTypeLabels.length > 0 ? (
                   <div className="space-y-5">
                     {serviceTypeLabels.map((label) => {
-                      const hasLabReport = (job.documents ?? []).some((d) => d.kind === "lab_report" && d.service_type === label);
-                      const labReportMismatch = (job.documents ?? []).find((d) => d.kind === "lab_report" && d.service_type === label)?.project_number_mismatch;
                       const sampleCount = job.sample_counts?.[label];
-                      // Positive/Negative is a real binary for asbestos and lead
-                      // (each has its own result field) but not for mold — a
-                      // mold "result" is the pasted Discussion of Results
-                      // narrative, not a single positive/negative call, so no
-                      // toggle is shown for it at all rather than writing into a
-                      // field that means something else.
-                      const isAsbestosLabel = /asbestos/i.test(label);
-                      const isLeadLabel = /lead/i.test(label);
                       return (
                       <div key={label}>
                         <p className="mb-2 flex items-center gap-2 text-sm font-bold text-slate-700">
@@ -1630,35 +1602,16 @@ export function ProjectDetailDialog({
                             serviceType={label}
                           />
                           <div>
-                            {labReportMismatch && (
-                              <div className="mb-1.5 rounded-lg border border-red-300 bg-red-50 p-2 text-xs font-bold text-red-700">
-                                ⚠ Incorrect report — this PDF is for project {labReportMismatch}, not {job.project_number}.
-                              </div>
-                            )}
                             {job.sample_results && job.sample_results.length > 0 && (
                               <div>
-                                <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Sample Results</h4>
+                                <div className="flex flex-nowrap items-center gap-2">
+                                  <h4 className="whitespace-nowrap text-xs font-semibold uppercase tracking-wide text-slate-400">Sample Results</h4>
+                                </div>
                                 <div className="mt-1.5 w-full rounded-lg border border-slate-200 bg-slate-50 p-2 font-mono text-xs">
                                   {job.sample_results.map((s, i) => (
                                     <div key={i} className={/%/.test(s.result) ? "text-red-600" : "text-slate-900"}>{s.fieldCode}: {s.result}</div>
                                   ))}
                                 </div>
-                              </div>
-                            )}
-                            {hasLabReport && (isAsbestosLabel || isLeadLabel) && (
-                              <div className="mt-2 flex gap-2">
-                                <button
-                                  onClick={() => (isLeadLabel ? setLeadResult("positive") : setAsbestosResult("positive"))}
-                                  className={`rounded px-2 py-0.5 text-xs font-bold uppercase hover:underline ${(isLeadLabel ? job.lead_result : job.asbestos_result) === "positive" ? "bg-red-600 text-white" : "bg-slate-100 text-slate-600"}`}
-                                >
-                                  Positive
-                                </button>
-                                <button
-                                  onClick={() => (isLeadLabel ? setLeadResult("negative") : setAsbestosResult("negative"))}
-                                  className={`rounded px-2 py-0.5 text-xs font-bold uppercase hover:underline ${(isLeadLabel ? job.lead_result : job.asbestos_result) === "negative" ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-600"}`}
-                                >
-                                  Negative
-                                </button>
                               </div>
                             )}
                           </div>

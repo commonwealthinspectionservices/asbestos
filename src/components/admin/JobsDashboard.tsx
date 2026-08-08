@@ -2664,8 +2664,7 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
 
         {error && <div className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
 
-        <label className="mt-4 block text-sm font-medium text-slate-700">Individual or company?</label>
-        <div className="mt-1 flex gap-2">
+        <div className="mt-4 flex gap-2">
           <button
             type="button"
             onClick={() => {

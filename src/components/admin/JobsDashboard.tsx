@@ -1572,7 +1572,7 @@ export function ProjectDetailDialog({
         {tab === "report" && (
           <div className="mt-4 space-y-6">
             <div>
-              <h3 className="text-sm font-bold uppercase tracking-wide text-black underline">Laboratory Paperwork</h3>
+              <h3 className="text-lg font-bold uppercase tracking-wide text-black underline">Laboratory Paperwork</h3>
               <div className="mt-3">
                 {serviceTypeLabels.length > 0 && (
                   <div className="mb-4 flex items-center gap-2">
@@ -1699,7 +1699,7 @@ export function ProjectDetailDialog({
             </div>
 
             <div className="border-t border-slate-100 pt-6">
-              <h3 className="text-sm font-bold uppercase tracking-wide text-black underline">Final Report</h3>
+              <h3 className="text-lg font-bold uppercase tracking-wide text-black underline">Final Report</h3>
               <div className="mt-3 space-y-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <a href={`/api/admin/jobs/${job.id}/report`} target="_blank" rel="noreferrer" className="rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-bold text-white">
@@ -1883,7 +1883,7 @@ export function ProjectDetailDialog({
             </div>
 
             <div className="border-t border-slate-100 pt-6">
-              <h3 className="text-sm font-bold uppercase tracking-wide text-black underline">Invoice</h3>
+              <h3 className="text-lg font-bold uppercase tracking-wide text-black underline">Invoice</h3>
               <div className="mt-3">
                 <div className="mb-4 space-y-1">
                   {job.po_number && <DetailField label="PO #" value={job.po_number} />}
@@ -1964,7 +1964,7 @@ export function ProjectDetailDialog({
             </div>
 
             <div className="border-t border-slate-100 pt-6">
-              <h3 className="text-sm font-bold uppercase tracking-wide text-black underline">Send</h3>
+              <h3 className="text-lg font-bold uppercase tracking-wide text-black underline">Send</h3>
               <div className="mt-3 space-y-3">
                 {job.is_individual && job.status !== "paid" && (
                   <div className="rounded-lg border border-red-300 bg-red-50 p-3">

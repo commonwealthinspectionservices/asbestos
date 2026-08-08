@@ -23,11 +23,19 @@ export const GET = withApiErrors(async (
   const gmailIdCol = kind === "invoice" ? "invoice_draft_gmail_id" : "report_draft_gmail_id";
   const gmailMessageIdCol = kind === "invoice" ? "invoice_draft_gmail_message_id" : "report_draft_gmail_message_id";
   const sentAtCol = kind === "invoice" ? "invoice_sent_at" : "report_sent_at";
+  // The "combined" draft (createCombinedDraftForJob, the only path the UI
+  // actually uses now) writes the same Gmail draft/message id into both
+  // pairs of columns — one Gmail send event covers both. Selecting the
+  // other kind's columns too lets a single check here mark both sent at
+  // once, instead of leaving the other column stuck unset forever because
+  // nothing else ever polls it with its own kind.
+  const otherGmailIdCol = kind === "invoice" ? "report_draft_gmail_id" : "invoice_draft_gmail_id";
+  const otherSentAtCol = kind === "invoice" ? "report_sent_at" : "invoice_sent_at";
 
   const supabase = getSupabaseAdmin();
   const { data: job } = await supabase
     .from("jobs")
-    .select(`${gmailIdCol}, ${gmailMessageIdCol}, ${sentAtCol}`)
+    .select(`${gmailIdCol}, ${gmailMessageIdCol}, ${sentAtCol}, ${otherGmailIdCol}, ${otherSentAtCol}`)
     .eq("id", params.id)
     .maybeSingle<Record<string, string | null>>();
 
@@ -56,7 +64,10 @@ export const GET = withApiErrors(async (
     const { sent, sentAt: resolvedSentAt } = await getSentMessageInfo(accessToken, gmailMessageId);
     if (sent) {
       const finalSentAt = resolvedSentAt ?? new Date().toISOString();
-      await supabase.from("jobs").update({ [sentAtCol]: finalSentAt }).eq("id", params.id);
+      const update: Record<string, string> = { [sentAtCol]: finalSentAt };
+      const isCombinedDraft = gmailId && job?.[otherGmailIdCol] === gmailId && !job?.[otherSentAtCol];
+      if (isCombinedDraft) update[otherSentAtCol] = finalSentAt;
+      await supabase.from("jobs").update(update).eq("id", params.id);
       return NextResponse.json({ status: "sent", sentAt: finalSentAt });
     }
   }

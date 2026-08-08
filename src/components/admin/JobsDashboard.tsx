@@ -83,7 +83,7 @@ const STATUS_COLOR: Record<string, string> = {
   pending_lab_results: "bg-purple-100 text-purple-700",
   completed: "bg-teal-100 text-teal-700",
   invoiced: "bg-amber-100 text-amber-700",
-  ready_to_send: "bg-amber-100 text-amber-700",
+  ready_to_send: "bg-amber-100 text-black",
   paid: "bg-emerald-100 text-emerald-700",
   cancelled: "bg-red-100 text-red-700",
 };
@@ -662,7 +662,7 @@ export default function JobsDashboard() {
       {readyToSendJobs.length > 0 && (
         <button
           onClick={() => selectStatusFilter("ready_to_send")}
-          className="mt-3 flex w-full items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-left text-sm font-medium text-blue-700"
+          className="mt-3 flex w-full items-center gap-2 rounded-lg border border-amber-100 bg-amber-100 px-3 py-2 text-left text-sm font-medium uppercase text-black"
         >
           📄 {readyToSendJobs.length} report{readyToSendJobs.length === 1 ? "" : "s"} ready to send
         </button>
@@ -1563,6 +1563,48 @@ export function ProjectDetailDialog({
             <div>
               <h3 className="text-lg font-bold uppercase tracking-wide text-black underline">Final Report Information</h3>
               <div className="mt-3 space-y-3">
+                {/* Who the report actually gets addressed to — the company
+                    name/billing contact when this customer belongs to one,
+                    otherwise just the individual's own contact info. */}
+                <div className="grid grid-cols-2 gap-4 rounded-lg border border-slate-200 p-3">
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-bold uppercase tracking-wide text-black underline">Customer contact</h4>
+                    <DetailField
+                      label="Name"
+                      value={job.customer_id && job.customers?.name ? (
+                        <a href={`/admin/customers?tab=contacts&contactId=${job.customer_id}`} className="hover:underline">
+                          {job.customers.name}
+                        </a>
+                      ) : job.customers?.name}
+                      nowrap
+                    />
+                    <DetailField label="Phone" value={job.customers?.phone} />
+                    <DetailField label="Email" value={job.customers?.email} nowrap />
+                  </div>
+                  {!job.customers?.is_individual && job.customers?.companies && (
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-bold uppercase tracking-wide text-black underline">Company info</h4>
+                      <DetailField label="Company name" value={job.customers.companies.name} nowrap />
+                      {job.customers.companies.billing_contact && (
+                        <DetailField
+                          label="Billing contact"
+                          value={
+                            <a
+                              href={`/admin/customers?tab=contacts&contactId=${job.customers.companies.billing_contact.id}`}
+                              className="hover:underline"
+                            >
+                              {job.customers.companies.billing_contact.name}
+                            </a>
+                          }
+                          nowrap
+                        />
+                      )}
+                      <DetailField label="Phone" value={job.customers.companies.phone} />
+                      <DetailField label="Billing address" value={job.customers.companies.billing_address} nowrap />
+                    </div>
+                  )}
+                </div>
+
                 {isMoldJob(job) && (
                   <div className="rounded-lg border border-slate-200 p-3">
                     <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">

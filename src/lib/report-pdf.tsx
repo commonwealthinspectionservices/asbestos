@@ -4,7 +4,7 @@ import type { Style } from "@react-pdf/types";
 import { splitAddress } from "@/lib/address";
 import { primaryInspector } from "@/lib/settings";
 import type { Job, Customer, Settings } from "@/lib/types";
-import { ASBESTOS_POSITIVE_REMARK, ASBESTOS_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK } from "@/lib/report-findings";
+import { ASBESTOS_POSITIVE_REMARK, ASBESTOS_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK, moldScopeOfWorkItems } from "@/lib/report-findings";
 
 const LETTERHEAD_PATH = path.join(process.cwd(), "public", "letterhead.png");
 const SIGNATURE_PATH = path.join(process.cwd(), "public", "signature.png");
@@ -362,11 +362,7 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
   const hasAir = sampleLabels.length === 0 || sampleLabels.some((l) => l.toLowerCase().includes("air"));
   const hasBulk = sampleLabels.length === 0 || sampleLabels.some((l) => l.toLowerCase().includes("bulk") || l.toLowerCase().includes("swab"));
 
-  const scopeItems = [
-    ...(hasAir ? ["Collection of air samples within the subject area for mold;"] : []),
-    ...(hasBulk ? ["Collection of bulk samples within the subject area for mold;"] : []),
-    "Preparation of a summary report detailing the sampling methodology along with analytical results, a discussion of the results, and a conclusion.",
-  ];
+  const scopeItems = moldScopeOfWorkItems(job.sample_counts);
 
   const labName = (job.lab_name || "an accredited laboratory").replace(/\.+$/, "");
   const methodologySections = [
@@ -394,8 +390,12 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
       : []),
   ];
 
-  const discussionParagraphs = paragraphsFromText(job.report_summary);
+  // The admin now enters only one cell for mold jobs (Conclusions &
+  // Recommendations, report_notes) — reused here for Discussion of Results
+  // too, rather than leaving that section's "NO RESULTS YET." placeholder
+  // in every mold report now that there's no separate input for it.
   const conclusionParagraphs = paragraphsFromText(job.report_notes);
+  const discussionParagraphs = conclusionParagraphs;
 
   return (
     <Document title={`Limited Mold Assessment & Sampling — ${job.service_address}`}>

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import type { Company, Customer, InvoiceLineItem, JobDocument, JobWithCustomer, LabProfile, PricingZone, SampleItem, ServiceType } from "@/lib/types";
 import { defaultInvoiceLineItems, sampleDescriptionForServiceType } from "@/lib/invoice-defaults";
-import { ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK } from "@/lib/report-findings";
+import { ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK, moldScopeOfWorkItems } from "@/lib/report-findings";
 import { splitAddress, parseAddressToFields, buildBillingAddress, googleMapsUrl } from "@/lib/address";
 import { joinName, splitFullName } from "@/lib/name";
 import type { AddressFields } from "@/lib/address";
@@ -380,7 +380,7 @@ function reportChecklist(job: JobWithCustomer): { label: string; done: boolean }
     { label: "Date", done: Boolean(job.requested_date) },
     { label: "Sample count", done: totalSamples > 0 },
     { label: "Lab info", done: Boolean(job.lab_name && job.lab_nist_cert && (mold || lead || job.lab_massdls_cert)) },
-    { label: "Results", done: mold ? Boolean(job.report_summary) : lead ? Boolean(job.lead_result) : Boolean(job.asbestos_result) },
+    { label: "Results", done: mold ? Boolean(job.report_notes) : lead ? Boolean(job.lead_result) : Boolean(job.asbestos_result) },
   ];
 }
 
@@ -1548,22 +1548,6 @@ export function ProjectDetailDialog({
                   <DetailField label="Email" value={job.customers?.email} nowrap />
                 </div>
 
-                {isMoldJob(job) && (
-                  <div className="rounded-lg border border-slate-200 p-3">
-                    <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
-                      Conclusions &amp; Recommendations
-                    </label>
-                    <textarea
-                      className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
-                      rows={6}
-                      value={reportNotesInput}
-                      onChange={(e) => setReportNotesInput(e.target.value)}
-                      onBlur={(e) => saveReportNotes(e.target.value)}
-                      placeholder="Paste or write the Conclusions & Recommendations section — one paragraph or bullet per line."
-                    />
-                  </div>
-                )}
-
                 {/* Editable, auto-populated version of every item on the checklist
                     below — lets the admin fix a typo'd address or project # right
                     here instead of hunting through the other sections first. */}
@@ -1663,77 +1647,66 @@ export function ProjectDetailDialog({
                             label="Laboratory Results"
                             serviceType={label}
                           />
-                          <div>
-                            <div className="flex flex-nowrap items-center gap-2">
-                              <h4 className="whitespace-nowrap text-xs font-semibold uppercase tracking-wide text-slate-400">Sample Results</h4>
-                            </div>
-                            {job.sample_results && job.sample_results.length > 0 ? (
-                              <div className="mt-1.5 w-full rounded-lg border border-slate-200 bg-slate-50 p-2 font-mono text-xs">
-                                {job.sample_results.map((s, i) => (
-                                  <div key={i} className={/%/.test(s.result) ? "text-red-600" : "text-slate-900"}>{s.fieldCode}: {s.result}</div>
-                                ))}
-                                <div className="mt-1.5 border-t border-slate-200 pt-1.5 font-sans font-semibold text-slate-500">
-                                  Total: {job.sample_results.length} sample{job.sample_results.length === 1 ? "" : "s"}
+                          {!isMoldJob(job) && (
+                            <div>
+                              <div className="flex flex-nowrap items-center gap-2">
+                                <h4 className="whitespace-nowrap text-xs font-semibold uppercase tracking-wide text-slate-400">Sample Results</h4>
+                              </div>
+                              {job.sample_results && job.sample_results.length > 0 ? (
+                                <div className="mt-1.5 w-full rounded-lg border border-slate-200 bg-slate-50 p-2 font-mono text-xs">
+                                  {job.sample_results.map((s, i) => (
+                                    <div key={i} className={/%/.test(s.result) ? "text-red-600" : "text-slate-900"}>{s.fieldCode}: {s.result}</div>
+                                  ))}
+                                  <div className="mt-1.5 border-t border-slate-200 pt-1.5 font-sans font-semibold text-slate-500">
+                                    Total: {job.sample_results.length} sample{job.sample_results.length === 1 ? "" : "s"}
+                                  </div>
                                 </div>
-                              </div>
-                            ) : (
-                              <div className="mt-1.5 flex w-full flex-col items-center justify-center rounded-lg border-2 border-dashed border-slate-300 px-3 py-5 text-center text-xs text-slate-500">
-                                Populates once Laboratory Results is uploaded
-                              </div>
-                            )}
-                          </div>
+                              ) : (
+                                <div className="mt-1.5 flex w-full flex-col items-center justify-center rounded-lg border-2 border-dashed border-slate-300 px-3 py-5 text-center text-xs text-slate-500">
+                                  Populates once Laboratory Results is uploaded
+                                </div>
+                              )}
+                            </div>
+                          )}
                           <DocumentStation job={job} onChanged={onChanged} kind="coc" label="Chain of Custody" serviceType={label} />
                           <DocumentStation job={job} onChanged={onChanged} kind="lab_invoice" label="Laboratory Invoice" serviceType={label} />
                         </div>
-                        {labelIndex === 0 && (
+                        {labelIndex === 0 && !isMoldJob(job) && (
                           <div className="mt-3">
-                            <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
-                              {isMoldJob(job) ? "Discussion of Results" : "Result"}
-                            </label>
-                            {isMoldJob(job) ? (
-                              <textarea
-                                className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
-                                rows={6}
-                                value={reportSummaryInput}
-                                onChange={(e) => setReportSummaryInput(e.target.value)}
-                                onBlur={(e) => saveReportSummary(e.target.value)}
-                                placeholder="Paste or write the Discussion of Results section — one paragraph or bullet per line."
-                              />
-                            ) : (
-                              <ComboboxInput
-                                value={reportSummaryInput}
-                                onChange={setReportSummaryInput}
-                                options={isLeadJob(job) ? [LEAD_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK] : [ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK]}
-                                filterOptions={false}
-                                getLabel={(o) => o}
-                                showChevron
-                                onSelect={(o) => {
-                                  setReportSummaryInput(o);
-                                  // Picking one of the two canned findings sentences IS
-                                  // the positive/negative determination — no separate
-                                  // Results button needed to duplicate that choice.
-                                  // One combined PATCH (not two separate save calls,
-                                  // each with its own onChanged()/loadJobs() refetch) —
-                                  // two independent fetches racing could let an older
-                                  // GET overwrite the newer one's field, leaving the
-                                  // report looking incomplete until an unrelated edit
-                                  // happened to trigger another refetch.
-                                  const negativeRemark = isLeadJob(job) ? LEAD_NEGATIVE_REMARK : ASBESTOS_NEGATIVE_REMARK;
-                                  const positiveRemark = isLeadJob(job) ? LEAD_POSITIVE_REMARK : ASBESTOS_POSITIVE_REMARK;
-                                  const resultField = isLeadJob(job) ? "lead_result" : "asbestos_result";
-                                  const patch: Record<string, unknown> = { report_summary: o.trim() || null };
-                                  if (o === negativeRemark) {
-                                    patch[resultField] = "negative";
-                                  } else if (o === positiveRemark) {
-                                    patch[resultField] = "positive";
-                                  }
-                                  saveJobField(patch);
-                                }}
-                                onEnter={(v) => saveReportSummary(v)}
-                                onBlur={(v) => saveReportSummary(v)}
-                                placeholder="e.g. None of the suspect materials sampled were determined to have asbestos fibers present."
-                              />
-                            )}
+                            <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">Result</label>
+                            <ComboboxInput
+                              value={reportSummaryInput}
+                              onChange={setReportSummaryInput}
+                              options={isLeadJob(job) ? [LEAD_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK] : [ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK]}
+                              filterOptions={false}
+                              getLabel={(o) => o}
+                              showChevron
+                              onSelect={(o) => {
+                                setReportSummaryInput(o);
+                                // Picking one of the two canned findings sentences IS
+                                // the positive/negative determination — no separate
+                                // Results button needed to duplicate that choice.
+                                // One combined PATCH (not two separate save calls,
+                                // each with its own onChanged()/loadJobs() refetch) —
+                                // two independent fetches racing could let an older
+                                // GET overwrite the newer one's field, leaving the
+                                // report looking incomplete until an unrelated edit
+                                // happened to trigger another refetch.
+                                const negativeRemark = isLeadJob(job) ? LEAD_NEGATIVE_REMARK : ASBESTOS_NEGATIVE_REMARK;
+                                const positiveRemark = isLeadJob(job) ? LEAD_POSITIVE_REMARK : ASBESTOS_POSITIVE_REMARK;
+                                const resultField = isLeadJob(job) ? "lead_result" : "asbestos_result";
+                                const patch: Record<string, unknown> = { report_summary: o.trim() || null };
+                                if (o === negativeRemark) {
+                                  patch[resultField] = "negative";
+                                } else if (o === positiveRemark) {
+                                  patch[resultField] = "positive";
+                                }
+                                saveJobField(patch);
+                              }}
+                              onEnter={(v) => saveReportSummary(v)}
+                              onBlur={(v) => saveReportSummary(v)}
+                              placeholder="e.g. None of the suspect materials sampled were determined to have asbestos fibers present."
+                            />
                           </div>
                         )}
                       </div>
@@ -1762,6 +1735,38 @@ export function ProjectDetailDialog({
                       ))}
                     </tbody>
                   </table>
+                )}
+
+                {isMoldJob(job) && (
+                  <div className="mt-5 rounded-lg border border-slate-200 p-3">
+                    <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">Scope of Work</label>
+                    {/* Read-only — auto-derived from which sample types are on
+                        this job (see moldScopeOfWorkItems), same list the
+                        generated report itself uses, so there's nothing to
+                        type here and nothing that can drift out of sync. */}
+                    <textarea
+                      className="mt-1 w-full rounded-lg border border-slate-300 bg-slate-50 px-2 py-1.5 text-sm text-slate-600"
+                      rows={6}
+                      readOnly
+                      value={moldScopeOfWorkItems(job.sample_counts).map((item, i) => `${i + 1}. ${item}`).join("\n")}
+                    />
+                  </div>
+                )}
+
+                {isMoldJob(job) && (
+                  <div className="mt-5 rounded-lg border border-slate-200 p-3">
+                    <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
+                      Conclusions &amp; Recommendations
+                    </label>
+                    <textarea
+                      className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+                      rows={6}
+                      value={reportNotesInput}
+                      onChange={(e) => setReportNotesInput(e.target.value)}
+                      onBlur={(e) => saveReportNotes(e.target.value)}
+                      placeholder="Paste or write the Conclusions & Recommendations section — one paragraph or bullet per line."
+                    />
+                  </div>
                 )}
               </div>
             </div>

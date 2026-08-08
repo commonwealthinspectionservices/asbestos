@@ -1943,14 +1943,15 @@ export function ProjectDetailDialog({
             )}
 
             <div className="border-t-4 border-slate-300 pt-6">
-              <h3 className="text-lg font-bold uppercase tracking-wide text-black underline">Send</h3>
-              <div className="mt-3 space-y-3">
-                {/* Each preview only appears once its document is actually
-                    ready to go out — seeing both here is the signal that
-                    everything's ready to send, no separate status text
-                    needed. */}
+              <div className="space-y-3">
+                {/* Both slots always show — each one only swaps in its real
+                    preview once actually ready, otherwise it stays an empty
+                    placeholder. The invoice is never considered ready until
+                    the report is too, regardless of whether it's been
+                    priced — an invoice for an incomplete report isn't
+                    actually final. */}
                 <div className="flex flex-wrap gap-3">
-                  {reportComplete && (
+                  {reportComplete ? (
                     <a
                       href={`/api/admin/jobs/${job.id}/report?v=${encodeURIComponent(reportRevision)}`}
                       target="_blank"
@@ -1960,8 +1961,13 @@ export function ProjectDetailDialog({
                       <PdfThumbnail url={`/api/admin/jobs/${job.id}/report?v=${encodeURIComponent(reportRevision)}`} alt="Final Report preview" />
                       <p className="border-t border-slate-200 bg-white px-2 py-1 text-center text-xs font-bold uppercase text-slate-700">Final Report</p>
                     </a>
+                  ) : (
+                    <div className="block w-36 overflow-hidden rounded-lg border border-dashed border-slate-300">
+                      <div className="flex h-40 w-full items-center justify-center bg-slate-50 px-2 text-center text-xs text-slate-400">Not ready yet</div>
+                      <p className="border-t border-dashed border-slate-300 px-2 py-1 text-center text-xs font-bold uppercase text-slate-400">Final Report</p>
+                    </div>
                   )}
-                  {job.invoice_total_cents != null && (
+                  {reportComplete && job.invoice_total_cents != null ? (
                     <a
                       href={`/api/admin/jobs/${job.id}/invoice?v=${encodeURIComponent(invoiceRevision)}`}
                       target="_blank"
@@ -1971,6 +1977,11 @@ export function ProjectDetailDialog({
                       <PdfThumbnail url={`/api/admin/jobs/${job.id}/invoice?v=${encodeURIComponent(invoiceRevision)}`} alt="Invoice preview" />
                       <p className="border-t border-slate-200 bg-white px-2 py-1 text-center text-xs font-bold uppercase text-slate-700">Invoice</p>
                     </a>
+                  ) : (
+                    <div className="block w-36 overflow-hidden rounded-lg border border-dashed border-slate-300">
+                      <div className="flex h-40 w-full items-center justify-center bg-slate-50 px-2 text-center text-xs text-slate-400">Not ready yet</div>
+                      <p className="border-t border-dashed border-slate-300 px-2 py-1 text-center text-xs font-bold uppercase text-slate-400">Invoice</p>
+                    </div>
                   )}
                 </div>
 
@@ -1980,9 +1991,9 @@ export function ProjectDetailDialog({
                       href={gmailMessageUrl(job.invoice_draft_gmail_message_id, Boolean(job.invoice_sent_at))}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-sm font-bold text-brand-600 underline"
+                      className="inline-block rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-bold uppercase text-slate-700"
                     >
-                      View in Gmail ↗
+                      View draft in Gmail ↗
                     </a>
                     <p className="mt-1.5 text-xs text-slate-500">
                       {draftStatusText(job.invoice_drafted_at, job.invoice_sent_at, combinedDraft.status, "Drafted", "Drafted")}

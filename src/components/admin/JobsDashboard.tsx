@@ -1548,9 +1548,9 @@ export function ProjectDetailDialog({
                 {/* Who the report actually gets addressed to. Billing
                     address (company or individual) lives in the cells
                     grid below, not duplicated here. */}
-                <div className="space-y-1 rounded-lg border border-slate-200 p-3">
-                  <h4 className="text-sm font-bold uppercase tracking-wide text-black underline">Customer contact</h4>
+                <div className="rounded-lg border border-slate-200 p-3">
                   <p className="text-sm text-black">
+                    <span className="font-bold uppercase tracking-wide underline">Customer contact:</span>{" "}
                     {job.customer_id && job.customers?.name ? (
                       <a href={`/admin/customers?tab=contacts&contactId=${job.customer_id}`} className="hover:underline">
                         {job.customers.name}

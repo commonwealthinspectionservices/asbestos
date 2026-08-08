@@ -1368,6 +1368,21 @@ export function ProjectDetailDialog({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reportComplete, job.invoice_total_cents, job.invoice_draft_gmail_message_id]);
+  // Same idea, one step earlier in the pipeline: once both are actually
+  // ready, the status itself should already say so — only moves it forward
+  // from one of the three earlier steps, never backward and never past
+  // "paid"/"cancelled", so this can't undo a status the admin (or a later
+  // step like markJobPaid) already advanced past this point.
+  useEffect(() => {
+    if (
+      reportComplete &&
+      job.invoice_total_cents != null &&
+      (job.status === "needs_scheduling" || job.status === "scheduled" || job.status === "pending_lab_results")
+    ) {
+      onStatusChange("ready_to_send");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reportComplete, job.invoice_total_cents, job.status]);
   const invoiceRevision = JSON.stringify({
     invoice_line_items: job.invoice_line_items,
     invoice_total_cents: job.invoice_total_cents,

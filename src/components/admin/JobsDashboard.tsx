@@ -2481,6 +2481,7 @@ export function ComboboxInput<T>({
 
 function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
   const [serviceTypes, setServiceTypes] = useState<{ key: string; label: string }[]>([]);
+  const [customerKind, setCustomerKind] = useState<"individual" | "company">("individual");
   const [projectNumber, setProjectNumber] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [companyId, setCompanyId] = useState("");
@@ -2630,6 +2631,28 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
 
         {error && <div className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
 
+        <label className="mt-4 block text-sm font-medium text-slate-700">Individual or company?</label>
+        <div className="mt-1 flex gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setCustomerKind("individual");
+              setCompanyName("");
+              setCompanyId("");
+            }}
+            className={`flex-1 rounded-lg px-3 py-1.5 text-sm font-medium ${customerKind === "individual" ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}
+          >
+            Individual
+          </button>
+          <button
+            type="button"
+            onClick={() => setCustomerKind("company")}
+            className={`flex-1 rounded-lg px-3 py-1.5 text-sm font-medium ${customerKind === "company" ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}
+          >
+            Company
+          </button>
+        </div>
+
         <div className="mt-4 flex gap-4">
           <div className="shrink-0">
             <label className="block text-sm font-medium text-slate-700">Project Number</label>
@@ -2644,18 +2667,20 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
               <input className="w-20 rounded-lg border border-slate-300 px-2 py-2 text-sm" value={projectNumber} onChange={(e) => setProjectNumber(e.target.value)} />
             </div>
           </div>
-          <div className="min-w-0 flex-1">
-            <label className="block text-sm font-medium text-slate-700">Company (leave blank for an individual)</label>
-            <div className="mt-1">
-              <ComboboxInput
-                value={companyName}
-                onChange={(v) => { setCompanyName(v); setCompanyId(""); }}
-                fetchOptions={searchCompanies}
-                getLabel={(c) => c.name}
-                onSelect={selectCompany}
-              />
+          {customerKind === "company" && (
+            <div className="min-w-0 flex-1">
+              <label className="block text-sm font-medium text-slate-700">Company</label>
+              <div className="mt-1">
+                <ComboboxInput
+                  value={companyName}
+                  onChange={(v) => { setCompanyName(v); setCompanyId(""); }}
+                  fetchOptions={searchCompanies}
+                  getLabel={(c) => c.name}
+                  onSelect={selectCompany}
+                />
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         <label className="mt-3 block text-sm font-medium text-slate-700">Job site address</label>
@@ -2829,8 +2854,25 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
             />
           </div>
         </div>
+        <label className="mt-2 flex items-center gap-2 text-sm text-slate-600">
+          <input
+            type="checkbox"
+            checked={siteContactSameAsContact}
+            onChange={(e) => {
+              const checked = e.target.checked;
+              setSiteContactSameAsContact(checked);
+              if (!checked) {
+                setSiteContactName("");
+                setSiteContactPhone("");
+              }
+            }}
+          />
+          Customer contact is also job site contact
+        </label>
 
-        <label className="mt-3 block text-sm font-medium text-slate-700">Customer contact</label>
+        <label className="mt-3 block text-sm font-medium text-slate-700">
+          {customerKind === "company" ? "Company contact" : "Name"}
+        </label>
         <div className="mt-1 flex gap-2">
           <div className="w-0 flex-1">
             <ComboboxInput
@@ -2852,21 +2894,6 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
             />
           </div>
         </div>
-        <label className="mt-2 flex items-center gap-2 text-sm text-slate-600">
-          <input
-            type="checkbox"
-            checked={siteContactSameAsContact}
-            onChange={(e) => {
-              const checked = e.target.checked;
-              setSiteContactSameAsContact(checked);
-              if (!checked) {
-                setSiteContactName("");
-                setSiteContactPhone("");
-              }
-            }}
-          />
-          Customer contact is also job site contact
-        </label>
 
         <label className="mt-3 block text-sm font-medium text-slate-700">Notes</label>
         <textarea className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
@@ -3410,6 +3437,21 @@ export function EditProjectDialog({
             />
           </div>
         </div>
+        <label className="mt-2 flex items-center gap-2 text-sm text-slate-600">
+          <input
+            type="checkbox"
+            checked={siteContactSameAsContact}
+            onChange={(e) => {
+              const checked = e.target.checked;
+              setSiteContactSameAsContact(checked);
+              if (!checked) {
+                setSiteContactName("");
+                setSiteContactPhone("");
+              }
+            }}
+          />
+          Customer contact is also job site contact
+        </label>
 
         <label className="mt-3 block text-sm font-medium text-slate-700">Customer contact</label>
         <div className="mt-1 flex gap-2">
@@ -3433,21 +3475,6 @@ export function EditProjectDialog({
             />
           </div>
         </div>
-        <label className="mt-2 flex items-center gap-2 text-sm text-slate-600">
-          <input
-            type="checkbox"
-            checked={siteContactSameAsContact}
-            onChange={(e) => {
-              const checked = e.target.checked;
-              setSiteContactSameAsContact(checked);
-              if (!checked) {
-                setSiteContactName("");
-                setSiteContactPhone("");
-              }
-            }}
-          />
-          Customer contact is also job site contact
-        </label>
 
         <label className="mt-3 block text-sm font-medium text-slate-700">Email results to:</label>
         <div className="mt-1 space-y-1.5">

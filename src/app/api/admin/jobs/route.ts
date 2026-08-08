@@ -113,6 +113,10 @@ export const POST = withApiErrors(async (req: NextRequest) => {
         email,
         phone: body.phone?.trim() || "",
         billing_address: company?.billing_address ?? body.billingAddress ?? null,
+        // Mirrors Add Project's Individual/Company toggle and Edit
+        // Project's Company field: no company resolved means this is an
+        // individual contact.
+        is_individual: !company,
       },
       { onConflict: "email" }
     )

@@ -1891,28 +1891,6 @@ export function ProjectDetailDialog({
                     </a>
                   </div>
                 )}
-                {job.invoice_total_cents != null && (
-                  <div className="mt-4">
-                    <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Stripe payment link</h4>
-                    <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                      <button
-                        onClick={getPaymentLink}
-                        disabled={payLinkLoading}
-                        className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-bold uppercase text-slate-700 disabled:opacity-50"
-                      >
-                        {payLinkLoading ? "Loading…" : "View payment link"}
-                      </button>
-                      <button
-                        onClick={copyPaymentLink}
-                        disabled={copyLinkLoading}
-                        className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-bold uppercase text-slate-700 disabled:opacity-50"
-                      >
-                        {copyLinkLoading ? "Loading…" : copyLinkDone ? "Copied!" : "Copy payment link"}
-                      </button>
-                    </div>
-                  </div>
-                )}
-                {payLinkError && <p className="mt-2 text-sm text-red-600">{payLinkError}</p>}
                 {showInvoicePreview && job.invoice_total_cents != null && (
                   <div className="mt-3">
                     <PdfPreview
@@ -1939,14 +1917,63 @@ export function ProjectDetailDialog({
               </div>
             </div>
 
+            {job.invoice_total_cents != null && (
+              <div className="border-t-4 border-slate-300 pt-6">
+                <h3 className="text-lg font-bold uppercase tracking-wide text-black underline">Stripe Payment Link</h3>
+                <div className="mt-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      onClick={getPaymentLink}
+                      disabled={payLinkLoading}
+                      className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-bold uppercase text-slate-700 disabled:opacity-50"
+                    >
+                      {payLinkLoading ? "Loading…" : "View payment link"}
+                    </button>
+                    <button
+                      onClick={copyPaymentLink}
+                      disabled={copyLinkLoading}
+                      className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-bold uppercase text-slate-700 disabled:opacity-50"
+                    >
+                      {copyLinkLoading ? "Loading…" : copyLinkDone ? "Copied!" : "Copy payment link"}
+                    </button>
+                  </div>
+                  {payLinkError && <p className="mt-2 text-sm text-red-600">{payLinkError}</p>}
+                </div>
+              </div>
+            )}
+
             <div className="border-t-4 border-slate-300 pt-6">
               <h3 className="text-lg font-bold uppercase tracking-wide text-black underline">Send</h3>
               <div className="mt-3 space-y-3">
-                {job.is_individual && job.status !== "paid" && (
-                  <div className="rounded-lg border border-red-300 bg-red-50 p-3">
-                    <p className="text-sm font-bold uppercase text-red-700">Not paid</p>
-                  </div>
-                )}
+                {/* Each preview only appears once its document is actually
+                    ready to go out — seeing both here is the signal that
+                    everything's ready to send, no separate status text
+                    needed. */}
+                <div className="flex flex-wrap gap-3">
+                  {reportComplete && (
+                    <a
+                      href={`/api/admin/jobs/${job.id}/report?v=${encodeURIComponent(reportRevision)}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="block w-36 overflow-hidden rounded-lg border border-slate-200"
+                    >
+                      <PdfThumbnail url={`/api/admin/jobs/${job.id}/report?v=${encodeURIComponent(reportRevision)}`} alt="Final Report preview" />
+                      <p className="border-t border-slate-200 bg-white px-2 py-1 text-center text-xs font-bold uppercase text-slate-700">Final Report</p>
+                    </a>
+                  )}
+                  {job.invoice_total_cents != null && (
+                    <a
+                      href={`/api/admin/jobs/${job.id}/invoice?v=${encodeURIComponent(invoiceRevision)}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="block w-36 overflow-hidden rounded-lg border border-slate-200"
+                    >
+                      <PdfThumbnail url={`/api/admin/jobs/${job.id}/invoice?v=${encodeURIComponent(invoiceRevision)}`} alt="Invoice preview" />
+                      <p className="border-t border-slate-200 bg-white px-2 py-1 text-center text-xs font-bold uppercase text-slate-700">Invoice</p>
+                    </a>
+                  )}
+                </div>
+
                 {job.invoice_draft_gmail_message_id ? (
                   <div className="rounded-lg border border-slate-200 p-3">
                     <a
@@ -1961,11 +1988,7 @@ export function ProjectDetailDialog({
                       {draftStatusText(job.invoice_drafted_at, job.invoice_sent_at, combinedDraft.status, "Drafted", "Drafted")}
                     </p>
                   </div>
-                ) : !reportComplete ? (
-                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
-                    <p className="text-sm font-bold uppercase text-amber-800">Email not fully complete</p>
-                  </div>
-                ) : (
+                ) : reportComplete ? (
                   <div className="rounded-lg border border-slate-200 p-3">
                     <div className="flex flex-wrap items-center gap-2">
                       <button
@@ -1978,7 +2001,7 @@ export function ProjectDetailDialog({
                       {combinedDraft.message && <span className="text-xs text-slate-500">{combinedDraft.message}</span>}
                     </div>
                   </div>
-                )}
+                ) : null}
               </div>
             </div>
           </div>

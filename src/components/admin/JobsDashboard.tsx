@@ -1548,19 +1548,17 @@ export function ProjectDetailDialog({
                 {/* Who the report actually gets addressed to. Billing
                     address (company or individual) lives in the cells
                     grid below, not duplicated here. */}
-                <div className="space-y-2 rounded-lg border border-slate-200 p-3">
+                <div className="space-y-1 rounded-lg border border-slate-200 p-3">
                   <h4 className="text-sm font-bold uppercase tracking-wide text-black underline">Customer contact</h4>
-                  <DetailField
-                    label="Name"
-                    value={job.customer_id && job.customers?.name ? (
+                  <p className="text-sm text-black">
+                    {job.customer_id && job.customers?.name ? (
                       <a href={`/admin/customers?tab=contacts&contactId=${job.customer_id}`} className="hover:underline">
                         {job.customers.name}
                       </a>
                     ) : job.customers?.name}
-                    nowrap
-                  />
-                  <DetailField label="Phone" value={job.customers?.phone} />
-                  <DetailField label="Email" value={job.customers?.email} nowrap />
+                    {job.customers?.phone && <>  ·  {job.customers.phone}</>}
+                    {job.customers?.email && <>  ·  {job.customers.email}</>}
+                  </p>
                 </div>
 
                 {/* Editable, auto-populated version of every item on the checklist
@@ -1626,11 +1624,6 @@ export function ProjectDetailDialog({
                   );
                 })()}
 
-                {!reportComplete && (
-                  <p className="text-sm text-slate-500">
-                    Fill in every field above (an empty one is still missing) to generate the report preview.
-                  </p>
-                )}
               </div>
             </div>
 

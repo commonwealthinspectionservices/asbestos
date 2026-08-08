@@ -2000,9 +2000,9 @@ export function ProjectDetailDialog({
                         href={gmailMessageUrl(job.invoice_draft_gmail_message_id, Boolean(job.invoice_sent_at))}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-block rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-bold uppercase text-slate-700 hover:underline"
+                        className="inline-block rounded-lg border border-red-600 bg-white px-3 py-1.5 text-sm font-bold uppercase text-red-600 hover:underline"
                       >
-                        View draft in Gmail ↗
+                        View in Gmail ↗
                       </a>
                       <p className="mt-1.5 text-xs text-slate-500">
                         {draftStatusText(job.invoice_drafted_at, job.invoice_sent_at, combinedDraft.status, "Drafted", "Drafted")}

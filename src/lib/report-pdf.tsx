@@ -6,7 +6,7 @@ import { primaryInspector } from "@/lib/settings";
 import type { Job, Customer, Settings } from "@/lib/types";
 import {
   ASBESTOS_POSITIVE_REMARK, ASBESTOS_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK,
-  moldScopeOfWorkItems, moldServiceTypeFlags, MOLD_ACGIH_PARAGRAPH, MOLD_INDOOR_AIR_QUALITY_PARAGRAPH, MOLD_AIR_INVESTIGATION_GOAL_PARAGRAPH,
+  moldScopeOfWorkItems, moldServiceTypeFlags, MOLD_SCOPE_CLOSING_LINE, MOLD_ACGIH_PARAGRAPH, MOLD_INDOOR_AIR_QUALITY_PARAGRAPH, MOLD_AIR_INVESTIGATION_GOAL_PARAGRAPH,
 } from "@/lib/report-findings";
 
 const LETTERHEAD_PATH = path.join(process.cwd(), "public", "letterhead.png");
@@ -362,7 +362,10 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
   // rather than sample_counts which stays empty until lab results come in.
   const { hasAir, hasBulk, hasSwab } = moldServiceTypeFlags(job.service_type);
 
-  const scopeItems = job.mold_scope_items.length > 0 ? job.mold_scope_items : moldScopeOfWorkItems(job.service_type);
+  const scopeItems = [
+    ...(job.mold_scope_items.length > 0 ? job.mold_scope_items : moldScopeOfWorkItems(job.service_type)),
+    MOLD_SCOPE_CLOSING_LINE,
+  ];
 
   const labName = (job.lab_name || "an accredited laboratory").replace(/\.+$/, "");
   // Air and swab share one "Sampling for Mold:" section when both are

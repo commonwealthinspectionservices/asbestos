@@ -31,15 +31,24 @@ export function moldServiceTypeFlags(serviceType: string | null | undefined): { 
   return { hasAir, hasBulk, hasSwab };
 }
 
+// The default, editable per-sample-type lines only — NOT the closing
+// summary line, which is fixed on every job and never belongs in the
+// editable list (see MOLD_SCOPE_CLOSING_LINE below).
 export function moldScopeOfWorkItems(serviceType: string | null | undefined): string[] {
   const { hasAir, hasBulk, hasSwab } = moldServiceTypeFlags(serviceType);
   return [
     ...(hasAir ? ["Collection of air samples within the subject area for mold;"] : []),
     ...(hasBulk ? ["Collection of bulk samples within the subject area for mold;"] : []),
     ...(hasSwab ? ["Collection of swab samples within the subject area for mold;"] : []),
-    "Preparation of a summary report detailing the sampling methodology along with analytical results and a conclusion.",
   ];
 }
+
+// Always the last numbered line in Scope of Work, on every mold job
+// regardless of sample types — not stored in mold_scope_items, not
+// editable, rendered unconditionally by the PDF and shown read-only in the
+// admin UI (same treatment as the fixed Discussion/Conclusions paragraphs).
+export const MOLD_SCOPE_CLOSING_LINE =
+  "Preparation of a summary report detailing the sampling methodology along with analytical results and a conclusion.";
 
 // Fixed paragraphs confirmed (against 3 real air-inclusive FLI reports,
 // verbatim) to be reused on every air-sampling mold report regardless of

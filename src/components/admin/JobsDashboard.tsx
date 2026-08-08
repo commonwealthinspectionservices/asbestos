@@ -1756,10 +1756,14 @@ export function ProjectDetailDialog({
                   <div className="mt-5 rounded-lg border border-slate-200 p-3">
                     <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">Scope of Work</label>
                     {/* One cell per numbered line — starts from the
-                        auto-derived list (moldScopeOfWorkItems, same one the
-                        PDF falls back to) but every line is editable and new
-                        ones can be added, since wording occasionally needs a
-                        tweak or a job needs a line beyond the standard set. */}
+                        auto-derived per-sample-type list (moldScopeOfWorkItems,
+                        same one the PDF falls back to) but every line is
+                        editable and new ones can be added, since wording
+                        occasionally needs a tweak or a job needs a line
+                        beyond the standard set. The fixed closing line
+                        (MOLD_SCOPE_CLOSING_LINE) always renders after these
+                        in the PDF but isn't shown here at all — it's never
+                        editable, so there's nothing to show. */}
                     <div className="mt-1.5 space-y-1.5">
                       {scopeItems.map((item, i) => (
                         <div key={i} className="flex items-center gap-2">

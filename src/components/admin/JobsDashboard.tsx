@@ -1905,20 +1905,27 @@ export function ProjectDetailDialog({
                     >
                       Download invoice
                     </a>
-                    <button
-                      onClick={getPaymentLink}
-                      disabled={payLinkLoading}
-                      className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-bold uppercase text-slate-700 disabled:opacity-50"
-                    >
-                      {payLinkLoading ? "Loading…" : "Payment link"}
-                    </button>
-                    <button
-                      onClick={copyPaymentLink}
-                      disabled={copyLinkLoading}
-                      className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-bold uppercase text-slate-700 disabled:opacity-50"
-                    >
-                      {copyLinkLoading ? "Loading…" : copyLinkDone ? "Copied!" : "Copy payment link"}
-                    </button>
+                  </div>
+                )}
+                {job.invoice_total_cents != null && (
+                  <div className="mt-4">
+                    <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Stripe payment link</h4>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                      <button
+                        onClick={getPaymentLink}
+                        disabled={payLinkLoading}
+                        className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-bold uppercase text-slate-700 disabled:opacity-50"
+                      >
+                        {payLinkLoading ? "Loading…" : "Payment link"}
+                      </button>
+                      <button
+                        onClick={copyPaymentLink}
+                        disabled={copyLinkLoading}
+                        className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-bold uppercase text-slate-700 disabled:opacity-50"
+                      >
+                        {copyLinkLoading ? "Loading…" : copyLinkDone ? "Copied!" : "Copy payment link"}
+                      </button>
+                    </div>
                   </div>
                 )}
                 {payLinkError && <p className="mt-2 text-sm text-red-600">{payLinkError}</p>}

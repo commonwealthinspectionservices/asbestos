@@ -205,6 +205,8 @@ export interface Job {
   lab_date_needed: string | null;
   report_summary: string | null;
   report_notes: string | null;
+  /** Mold jobs' Scope of Work as an editable, ordered list of numbered lines — empty means "not customized," so callers fall back to moldScopeOfWorkItems' auto-derived list. See report-findings.ts. */
+  mold_scope_items: string[];
   /** Manual line-item invoicing (Quantity/Billing Unit/Description/Unit Cost), entered at "Enter lab results" time. */
   invoice_line_items: InvoiceLineItem[];
   /** True until the admin manually edits a line item — while true, invoice_line_items keeps recomputing fresh from current sample_counts/base fee on every save rather than freezing at whatever was last auto-generated. */

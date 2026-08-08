@@ -45,7 +45,10 @@ export function moldScopeOfWorkItems(serviceType: string | null | undefined): st
 // verbatim) to be reused on every air-sampling mold report regardless of
 // findings — the ACGIH comparison methodology in Discussion of Results, and
 // the two generic-IAQ paragraphs that always open Conclusions & Recommendations
-// on an air job. Bulk/swab-only reports use neither: real examples show no
+// on an air job. Rendered unconditionally by report-pdf.tsx (not stored in
+// the admin's editable report_summary/report_notes cells, and not
+// deletable by editing them) — same treatment as the fixed Limitations
+// section. Bulk/swab-only reports get neither: real examples show no
 // equivalent fixed paragraph for those, just fully custom prose per job.
 export const MOLD_ACGIH_PARAGRAPH =
   "Although there are currently no standards or regulations to indicate acceptable levels of airborne fungal spores derived from indoor environments, a comparison of the indoor/outdoor (I/O) ratio of total spore enumeration is recommended below 1.0 (indoor levels should not overly exceed outdoor levels). The indoor and outdoor spore types and distribution should also be similar. According to ACGIH, \"…differences that can be detected with manageable sample sizes are likely to be in 10-fold multiplicative steps (e.g., 100 versus 1000...)\". Following this logic, if total fungal spores are ten (10) times greater in the sample from a suspect area than in the negative control sample collected from a non-suspect area, then that sample area may be a fungal amplification site.";
@@ -55,13 +58,3 @@ export const MOLD_INDOOR_AIR_QUALITY_PARAGRAPH =
 
 export const MOLD_AIR_INVESTIGATION_GOAL_PARAGRAPH =
   "When an indoor air investigation is conducted, the goal is to determine whether the detected contaminant concentrations originate from the occupied spaces being surveyed or if they merely represent typical background concentrations.";
-
-export function moldDiscussionDefault(serviceType: string | null | undefined): string {
-  return moldServiceTypeFlags(serviceType).hasAir ? MOLD_ACGIH_PARAGRAPH : "";
-}
-
-export function moldConclusionsDefault(serviceType: string | null | undefined): string {
-  return moldServiceTypeFlags(serviceType).hasAir
-    ? `${MOLD_INDOOR_AIR_QUALITY_PARAGRAPH}\n\n${MOLD_AIR_INVESTIGATION_GOAL_PARAGRAPH}`
-    : "";
-}

@@ -76,6 +76,7 @@ const job: Job = {
   lab_date_needed: null,
   report_summary: "None of the suspect materials sampled were determined to have asbestos fibers present.",
   report_notes: "Field visit went smoothly.",
+  mold_scope_items: [],
   invoice_line_items: [
     { description: "Licensed Asbestos Inspector", quantity: 1, billing_unit: "Flat Fee", unit_cost_cents: 45000 },
     { description: "Bulk Samples for Asbestos Analysis by PLM", quantity: 4, billing_unit: "Sample", unit_cost_cents: 2500 },

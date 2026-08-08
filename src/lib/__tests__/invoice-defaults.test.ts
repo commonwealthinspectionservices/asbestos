@@ -44,6 +44,7 @@ function baseJob(overrides: Partial<JobWithCustomer> = {}): JobWithCustomer {
     lab_date_needed: null,
     report_summary: null,
     report_notes: null,
+    mold_scope_items: [],
     invoice_line_items: [],
     invoice_auto: true,
     invoice_total_cents: null,

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import type { Company, Customer, InvoiceLineItem, JobDocument, JobWithCustomer, LabProfile, PricingZone, SampleItem, ServiceType } from "@/lib/types";
 import { defaultInvoiceLineItems, sampleDescriptionForServiceType } from "@/lib/invoice-defaults";
-import { ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK, moldScopeOfWorkItems, moldDiscussionDefault, moldConclusionsDefault } from "@/lib/report-findings";
+import { ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK, moldScopeOfWorkItems, moldServiceTypeFlags } from "@/lib/report-findings";
 import { splitAddress, parseAddressToFields, buildBillingAddress, googleMapsUrl } from "@/lib/address";
 import { joinName, splitFullName } from "@/lib/name";
 import type { AddressFields } from "@/lib/address";
@@ -380,7 +380,10 @@ function reportChecklist(job: JobWithCustomer): { label: string; done: boolean }
     { label: "Date", done: Boolean(job.requested_date) },
     { label: "Sample count", done: totalSamples > 0 },
     { label: "Lab info", done: Boolean(job.lab_name && job.lab_nist_cert && (mold || lead || job.lab_massdls_cert)) },
-    { label: "Results", done: mold ? Boolean(job.report_summary) : lead ? Boolean(job.lead_result) : Boolean(job.asbestos_result) },
+    // Mold's Discussion of Results is only genuinely empty when the job has
+    // no air component and the admin hasn't added anything — an air job's
+    // fixed ACGIH paragraph renders regardless of what's in report_summary.
+    { label: "Results", done: mold ? (moldServiceTypeFlags(job.service_type).hasAir || Boolean(job.report_summary)) : lead ? Boolean(job.lead_result) : Boolean(job.asbestos_result) },
   ];
 }
 
@@ -1068,11 +1071,10 @@ export function ProjectDetailDialog({
   const [serviceTypeSettings, setServiceTypeSettings] = useState<ServiceType[]>([]);
   const [pricingZones, setPricingZones] = useState<PricingZone[]>([]);
   const [labs, setLabs] = useState<LabProfile[]>([]);
-  const [reportSummaryInput, setReportSummaryInput] = useState(
-    job.report_summary ?? (isMoldJob(job) ? moldDiscussionDefault(job.service_type) : "")
-  );
-  const [reportNotesInput, setReportNotesInput] = useState(
-    job.report_notes ?? (isMoldJob(job) ? moldConclusionsDefault(job.service_type) : "")
+  const [reportSummaryInput, setReportSummaryInput] = useState(job.report_summary ?? "");
+  const [reportNotesInput, setReportNotesInput] = useState(job.report_notes ?? "");
+  const [scopeItems, setScopeItems] = useState<string[]>(
+    job.mold_scope_items.length > 0 ? job.mold_scope_items : moldScopeOfWorkItems(job.service_type)
   );
   // Editable, auto-populated versions of every item on the Final Report
   // tab's own checklist (reportChecklist) — lets the admin review and fix
@@ -1196,6 +1198,15 @@ export function ProjectDetailDialog({
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ report_notes: value.trim() || null }),
+    });
+    onChanged();
+  }
+
+  async function saveScopeItems(items: string[]) {
+    await fetch(`/api/admin/jobs/${job.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mold_scope_items: items }),
     });
     onChanged();
   }
@@ -1744,17 +1755,47 @@ export function ProjectDetailDialog({
                 {isMoldJob(job) && (
                   <div className="mt-5 rounded-lg border border-slate-200 p-3">
                     <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">Scope of Work</label>
-                    {/* Read-only — auto-derived from which service types are
-                        selected on this job (see moldScopeOfWorkItems), same
-                        list the generated report itself uses, so there's
-                        nothing to type here and nothing that can drift out
-                        of sync. */}
-                    <textarea
-                      className="mt-1 w-full rounded-lg border border-slate-300 bg-slate-50 px-2 py-1.5 text-sm text-slate-600"
-                      rows={6}
-                      readOnly
-                      value={moldScopeOfWorkItems(job.service_type).map((item, i) => `${i + 1}. ${item}`).join("\n")}
-                    />
+                    {/* One cell per numbered line — starts from the
+                        auto-derived list (moldScopeOfWorkItems, same one the
+                        PDF falls back to) but every line is editable and new
+                        ones can be added, since wording occasionally needs a
+                        tweak or a job needs a line beyond the standard set. */}
+                    <div className="mt-1.5 space-y-1.5">
+                      {scopeItems.map((item, i) => (
+                        <div key={i} className="flex items-center gap-2">
+                          <span className="w-5 shrink-0 text-right text-sm text-slate-400">{i + 1}.</span>
+                          <input
+                            className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+                            value={item}
+                            onChange={(e) => {
+                              const next = [...scopeItems];
+                              next[i] = e.target.value;
+                              setScopeItems(next);
+                            }}
+                            onBlur={() => saveScopeItems(scopeItems)}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const next = scopeItems.filter((_, j) => j !== i);
+                              setScopeItems(next);
+                              saveScopeItems(next);
+                            }}
+                            aria-label={`Remove line ${i + 1}`}
+                            className="shrink-0 px-1 text-lg leading-none text-slate-400 hover:text-red-600"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setScopeItems([...scopeItems, ""])}
+                      className="mt-2 text-xs font-semibold text-brand-600 hover:text-brand-700"
+                    >
+                      + Add line
+                    </button>
                   </div>
                 )}
 
@@ -1763,11 +1804,11 @@ export function ProjectDetailDialog({
                     <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
                       Discussion of Results
                     </label>
-                    {/* Starts prefilled with the fixed ACGIH paragraph for
-                        air-inclusive jobs (confirmed reused verbatim on
-                        every air mold report) — blank otherwise, since bulk/
-                        swab findings are fully custom prose per job with no
-                        reliable boilerplate. Freely editable either way. */}
+                    {/* The fixed ACGIH paragraph (air-inclusive jobs only)
+                        renders unconditionally in the PDF — see
+                        MoldReportDocument — so it's not in this box at all.
+                        This cell is purely for whatever varies per job:
+                        sample counts, dates, notable findings. */}
                     <textarea
                       className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
                       rows={6}
@@ -1784,13 +1825,17 @@ export function ProjectDetailDialog({
                     <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
                       Conclusions &amp; Recommendations
                     </label>
+                    {/* The two fixed generic-IAQ paragraphs (air-inclusive
+                        jobs only) render unconditionally in the PDF — see
+                        MoldReportDocument — so this cell is purely for the
+                        admin's own case-specific recommendations. */}
                     <textarea
                       className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
                       rows={6}
                       value={reportNotesInput}
                       onChange={(e) => setReportNotesInput(e.target.value)}
                       onBlur={(e) => saveReportNotes(e.target.value)}
-                      placeholder="Paste or write the Conclusions & Recommendations section — one paragraph or bullet per line."
+                      placeholder="Case-specific recommendations for this job."
                     />
                   </div>
                 )}

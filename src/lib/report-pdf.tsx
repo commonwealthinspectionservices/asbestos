@@ -4,7 +4,10 @@ import type { Style } from "@react-pdf/types";
 import { splitAddress } from "@/lib/address";
 import { primaryInspector } from "@/lib/settings";
 import type { Job, Customer, Settings } from "@/lib/types";
-import { ASBESTOS_POSITIVE_REMARK, ASBESTOS_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK, moldScopeOfWorkItems, moldServiceTypeFlags } from "@/lib/report-findings";
+import {
+  ASBESTOS_POSITIVE_REMARK, ASBESTOS_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK,
+  moldScopeOfWorkItems, moldServiceTypeFlags, MOLD_ACGIH_PARAGRAPH, MOLD_INDOOR_AIR_QUALITY_PARAGRAPH, MOLD_AIR_INVESTIGATION_GOAL_PARAGRAPH,
+} from "@/lib/report-findings";
 
 const LETTERHEAD_PATH = path.join(process.cwd(), "public", "letterhead.png");
 const SIGNATURE_PATH = path.join(process.cwd(), "public", "signature.png");
@@ -359,7 +362,7 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
   // rather than sample_counts which stays empty until lab results come in.
   const { hasAir, hasBulk, hasSwab } = moldServiceTypeFlags(job.service_type);
 
-  const scopeItems = moldScopeOfWorkItems(job.service_type);
+  const scopeItems = job.mold_scope_items.length > 0 ? job.mold_scope_items : moldScopeOfWorkItems(job.service_type);
 
   const labName = (job.lab_name || "an accredited laboratory").replace(/\.+$/, "");
   // Air and swab share one "Sampling for Mold:" section when both are
@@ -471,18 +474,21 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
         ))}
 
         <Text style={styles.romanTitle} minPresenceAhead={30}>III.  DISCUSSION OF RESULTS</Text>
-        {discussionParagraphs.length > 0 ? (
-          discussionParagraphs.map((p, i) => <Text style={styles.paragraph} key={i}>{p}</Text>)
-        ) : (
-          <Text style={styles.paragraph}>NO RESULTS YET.</Text>
-        )}
+        {hasAir && <Text style={styles.paragraph}>{MOLD_ACGIH_PARAGRAPH}</Text>}
+        {discussionParagraphs.length > 0
+          ? discussionParagraphs.map((p, i) => <Text style={styles.paragraph} key={i}>{p}</Text>)
+          : !hasAir && <Text style={styles.paragraph}>NO RESULTS YET.</Text>}
 
         <Text style={styles.romanTitle} minPresenceAhead={30}>IV.  CONCLUSIONS & RECOMMENDATIONS</Text>
-        {conclusionParagraphs.length > 0 ? (
-          conclusionParagraphs.map((p, i) => <Text style={styles.paragraph} key={i}>{p}</Text>)
-        ) : (
-          <Text style={styles.paragraph}>NO RECOMMENDATIONS YET.</Text>
+        {hasAir && (
+          <>
+            <Text style={styles.paragraph}>{MOLD_INDOOR_AIR_QUALITY_PARAGRAPH}</Text>
+            <Text style={styles.paragraph}>{MOLD_AIR_INVESTIGATION_GOAL_PARAGRAPH}</Text>
+          </>
         )}
+        {conclusionParagraphs.length > 0
+          ? conclusionParagraphs.map((p, i) => <Text style={styles.paragraph} key={i}>{p}</Text>)
+          : !hasAir && <Text style={styles.paragraph}>NO RECOMMENDATIONS YET.</Text>}
 
         <Text style={styles.romanTitle} minPresenceAhead={30}>V.  LIMITATIONS AND CONDITIONS OF THIS REPORT</Text>
         <Text style={styles.paragraph}>

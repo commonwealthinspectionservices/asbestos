@@ -709,3 +709,12 @@ alter table jobs add column if not exists source text not null default 'portal_b
 -- button is intentionally NOT gated by this — it's an explicit action, not
 -- automatic.
 alter table jobs add column if not exists payment_type text not null default 'online' check (payment_type in ('online', 'check'));
+
+-- Mold jobs' Scope of Work as an editable, ordered list of numbered lines —
+-- empty array means "nothing customized yet," in which case the admin UI
+-- and PDF both fall back to moldScopeOfWorkItems' auto-derived list (one
+-- line per selected sample type, plus the fixed closing summary line). The
+-- moment the admin edits or adds a line, the full edited array is saved
+-- here and becomes the source of truth going forward, same override
+-- pattern as invoice_line_items/invoice_auto above.
+alter table jobs add column if not exists mold_scope_items jsonb not null default '[]'::jsonb;

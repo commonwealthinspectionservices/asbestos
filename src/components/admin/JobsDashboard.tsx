@@ -1511,14 +1511,13 @@ export function ProjectDetailDialog({
               <p className="text-sm text-black">{job.notes}</p>
             </div>
           )}
-          {(job.job_classification || job.payment_method || job.po_number || job.invoice_number || job.paid_date) && (
+          {(job.job_classification || job.payment_method || job.po_number || job.invoice_number) && (
             <div className="space-y-2">
               <h4 className="text-sm font-bold uppercase tracking-wide text-black underline">Job details</h4>
               <DetailField label="Classification" value={job.job_classification} />
               <DetailField label="Payment method" value={job.payment_method} />
               <DetailField label="PO #" value={job.po_number} />
               <DetailField label="Invoice #" value={job.invoice_number} />
-              <DetailField label="Paid date" value={formatDate(job.paid_date)} />
             </div>
           )}
         </div>
@@ -2926,96 +2925,35 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
           onChange={(e) => setScopeOfWork(e.target.value)}
         />
 
-        {customerKind === "individual" ? (
-          <>
-            <label className="mt-3 flex items-center gap-2 text-sm font-medium text-slate-700">
-              <input
-                type="checkbox"
-                checked={!siteContactSameAsContact}
-                onChange={(e) => {
-                  const differs = e.target.checked;
-                  setSiteContactSameAsContact(!differs);
-                  if (differs) {
-                    setSiteContactName("");
-                    setSiteContactPhone("");
-                  }
-                }}
-              />
-              Job site contact is not the customer
-            </label>
-            {!siteContactSameAsContact && (
-              <div className="mt-2 flex gap-2">
-                <div className="w-0 flex-1">
-                  <ComboboxInput
-                    value={siteContactName}
-                    onChange={setSiteContactName}
-                    fetchOptions={searchContacts}
-                    getLabel={(c) => c.name}
-                    getSublabel={(c) => c.email}
-                    onSelect={(c) => {
-                      setSiteContactName(c.name);
-                      setSiteContactPhone(c.phone);
-                    }}
-                    placeholder="Name"
-                  />
-                </div>
-                <div className="w-0 flex-1">
-                  <input
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                    placeholder="Phone"
-                    value={siteContactPhone}
-                    onChange={(e) => setSiteContactPhone(formatPhoneInput(e.target.value))}
-                  />
-                </div>
-              </div>
-            )}
-          </>
-        ) : (
-          <>
-            <label className="mt-3 block text-sm font-medium text-slate-700">Job site contact</label>
-            <div className="mt-1 flex gap-2">
-              <div className="w-0 flex-1">
-                <ComboboxInput
-                  value={siteContactName}
-                  onChange={setSiteContactName}
-                  fetchOptions={searchContacts}
-                  getLabel={(c) => c.name}
-                  getSublabel={(c) => c.email}
-                  onSelect={(c) => {
-                    setSiteContactName(c.name);
-                    setSiteContactPhone(c.phone);
-                  }}
-                  placeholder="Name"
-                  disabled={siteContactSameAsContact}
-                />
-              </div>
-              <div className="w-0 flex-1">
-                <input
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-500"
-                  placeholder="Phone"
-                  value={siteContactPhone}
-                  disabled={siteContactSameAsContact}
-                  onChange={(e) => setSiteContactPhone(formatPhoneInput(e.target.value))}
-                />
-              </div>
-            </div>
-            <label className="mt-2 flex items-center gap-2 text-sm text-slate-600">
-              <input
-                type="checkbox"
-                checked={siteContactSameAsContact}
-                onChange={(e) => {
-                  const checked = e.target.checked;
-                  setSiteContactSameAsContact(checked);
-                  if (!checked) {
-                    setSiteContactName("");
-                    setSiteContactPhone("");
-                  }
-                }}
-              />
-              Company contact is also job site contact
-            </label>
-          </>
-        )}
+        <label className="mt-3 block text-sm font-medium text-slate-700">Job site contact</label>
+        <div className="mt-1 flex gap-2">
+          <div className="w-0 flex-1">
+            <ComboboxInput
+              value={siteContactName}
+              onChange={(v) => { setSiteContactName(v); setSiteContactSameAsContact(false); }}
+              fetchOptions={searchContacts}
+              getLabel={(c) => c.name}
+              getSublabel={(c) => c.email}
+              onSelect={(c) => {
+                setSiteContactName(c.name);
+                setSiteContactPhone(c.phone);
+                setSiteContactSameAsContact(false);
+              }}
+              placeholder="Name"
+            />
+          </div>
+          <div className="w-0 flex-1">
+            <input
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              placeholder="Phone"
+              value={siteContactPhone}
+              onChange={(e) => {
+                setSiteContactPhone(formatPhoneInput(e.target.value));
+                setSiteContactSameAsContact(false);
+              }}
+            />
+          </div>
+        </div>
 
         <label className="mt-3 block text-sm font-medium text-slate-700">Notes</label>
         <textarea className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />

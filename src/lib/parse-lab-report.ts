@@ -148,7 +148,20 @@ function bestReportSamplesCrystalAnalytical(pdfText: string): SampleResult[] {
 
     const start = matches[i].index! + matches[i][0].length;
     const end = i + 1 < matches.length ? matches[i + 1].index! : pdfText.length;
-    const resultMatch = pdfText.slice(start, end).match(CRYSTAL_RESULT_PATTERN);
+    let resultMatch = pdfText.slice(start, end).match(CRYSTAL_RESULT_PATTERN);
+
+    // Confirmed against a real 2-sample report: the first sample's result
+    // was drawn into the text stream *before* its own field code instead of
+    // after (the second sample's result followed its field code normally,
+    // as usual) — column draw order for a given row isn't guaranteed to put
+    // the result cell after the ID cell. Only the very first field code gets
+    // this backward fallback (searching from document start up to its own
+    // position) since that region can't overlap any other sample's already-
+    // matched forward window, so it can't steal a result that legitimately
+    // belongs to someone else.
+    if (!resultMatch && i === 0) {
+      resultMatch = pdfText.slice(0, matches[i].index!).match(CRYSTAL_RESULT_PATTERN);
+    }
     if (!resultMatch) continue;
 
     samples.push({ fieldCode, result: normalizeResultText(resultMatch[0]) });

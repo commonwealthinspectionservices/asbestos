@@ -493,6 +493,53 @@ describe("detectLabInfo", () => {
   });
 });
 
+// Real 2-sample Crystal Analytical report where the column draw order
+// wasn't consistent row-to-row: 01A's own "None Detected" landed *before*
+// the "01A" field code text, while 01B's landed after it as usual — this
+// used to make extractSampleCount return 1 instead of 2, since 01A's
+// forward-only window (up to the next field code) never saw its result.
+const CRYSTAL_ANALYTICAL_RESULT_BEFORE_FIELD_CODE = `
+Laboratory ID:
+Project Address:
+Project Name:
+FLI Project #:
+MA DLS - License # AA000259
+Crystal Analytical LLC
+55 Accord Park Drive, Suite 2D
+Rockland, MA 02370
+2601003391
+26 Hallowell St., Mattapan, MA
+26-2925
+Client IDItem ID
+Physical
+Attributes
+0001Gray
+Non-Fibrous
+Homogeneous
+0002Gray
+Non-Fibrous
+Homogeneous
+08/07/26
+08/07/26
+None Detected
+08/07/26
+08/07/26
+LABORATORY ID: 2601003391
+Test Report for the Analysis of Asbestos in Bulk Materials - Calibrated Visual Estimation via
+Polarized Light Microscopy
+01A
+Description & Location
+Gray tile associated adhesive, Kitchen
+floor
+Gray tile associated adhesive, Kitchen
+floor
+01B
+Non-Asbestos
+Fibrous Components
+None Detected
+Asbestos %
+`;
+
 describe("Crystal Analytical report format", () => {
   it("counts all 10 samples in a real negative report", () => {
     expect(extractSampleCount(CRYSTAL_ANALYTICAL_NEGATIVE)).toBe(10);
@@ -527,5 +574,14 @@ describe("Crystal Analytical report format", () => {
     // must still be recognized as its own row and not merged into 01A's.
     const results = extractSampleResults(CRYSTAL_ANALYTICAL_POSITIVE);
     expect(results.filter((r) => r.fieldCode === "01A" || r.fieldCode === "01B")).toHaveLength(2);
+  });
+
+  it("still finds the first sample's result when it was drawn before its own field code", () => {
+    expect(extractSampleCount(CRYSTAL_ANALYTICAL_RESULT_BEFORE_FIELD_CODE)).toBe(2);
+    const results = extractSampleResults(CRYSTAL_ANALYTICAL_RESULT_BEFORE_FIELD_CODE);
+    expect(results).toEqual([
+      { fieldCode: "01A", result: "None Detected" },
+      { fieldCode: "01B", result: "None Detected" },
+    ]);
   });
 });

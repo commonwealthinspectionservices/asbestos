@@ -362,7 +362,7 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
   const hasAir = sampleLabels.length === 0 || sampleLabels.some((l) => l.toLowerCase().includes("air"));
   const hasBulk = sampleLabels.length === 0 || sampleLabels.some((l) => l.toLowerCase().includes("bulk") || l.toLowerCase().includes("swab"));
 
-  const scopeItems = moldScopeOfWorkItems(job.sample_counts);
+  const scopeItems = moldScopeOfWorkItems(job.service_type);
 
   const labName = (job.lab_name || "an accredited laboratory").replace(/\.+$/, "");
   const methodologySections = [

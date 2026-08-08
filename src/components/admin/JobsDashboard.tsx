@@ -1740,15 +1740,16 @@ export function ProjectDetailDialog({
                 {isMoldJob(job) && (
                   <div className="mt-5 rounded-lg border border-slate-200 p-3">
                     <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">Scope of Work</label>
-                    {/* Read-only — auto-derived from which sample types are on
-                        this job (see moldScopeOfWorkItems), same list the
-                        generated report itself uses, so there's nothing to
-                        type here and nothing that can drift out of sync. */}
+                    {/* Read-only — auto-derived from which service types are
+                        selected on this job (see moldScopeOfWorkItems), same
+                        list the generated report itself uses, so there's
+                        nothing to type here and nothing that can drift out
+                        of sync. */}
                     <textarea
                       className="mt-1 w-full rounded-lg border border-slate-300 bg-slate-50 px-2 py-1.5 text-sm text-slate-600"
                       rows={6}
                       readOnly
-                      value={moldScopeOfWorkItems(job.sample_counts).map((item, i) => `${i + 1}. ${item}`).join("\n")}
+                      value={moldScopeOfWorkItems(job.service_type).map((item, i) => `${i + 1}. ${item}`).join("\n")}
                     />
                   </div>
                 )}

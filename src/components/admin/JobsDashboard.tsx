@@ -1575,21 +1575,6 @@ export function ProjectDetailDialog({
             <div>
               <h3 className="text-lg font-bold uppercase tracking-wide text-black underline">Laboratory Paperwork</h3>
               <div className="mt-3">
-                {serviceTypeLabels.length > 0 && (
-                  <div className="mb-4 flex items-center gap-2">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Lab</span>
-                    <select
-                      value={job.lab_name ?? ""}
-                      onChange={(e) => selectLab(e.target.value)}
-                      className="rounded-lg border border-slate-300 px-2 py-1 text-sm"
-                    >
-                      <option value="">— Not set —</option>
-                      {labs.map((l) => (
-                        <option key={l.name} value={l.name}>{l.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
                 {serviceTypeLabels.length > 0 ? (
                   <div className="space-y-5">
                     {serviceTypeLabels.map((label) => {
@@ -1606,24 +1591,7 @@ export function ProjectDetailDialog({
                       const isLeadLabel = /lead/i.test(label);
                       return (
                       <div key={label}>
-                        <p className="mb-2 flex items-center gap-2 text-sm font-bold text-slate-700">
-                          {label}
-                          <span className="flex items-center gap-1 font-normal text-slate-400">
-                            ·
-                            <input
-                              type="number"
-                              min={0}
-                              defaultValue={sampleCount ?? ""}
-                              key={sampleCount}
-                              onBlur={(e) => {
-                                const next = Number(e.target.value);
-                                if (!Number.isNaN(next) && next !== (sampleCount ?? 0)) setSampleCountForType(label, next);
-                              }}
-                              className="w-14 rounded border border-slate-200 px-1 py-0.5 text-xs"
-                            />
-                            sample{sampleCount === 1 ? "" : "s"}
-                          </span>
-                        </p>
+                        <p className="mb-2 text-sm font-bold text-slate-700">{label}</p>
                         <div className="grid grid-cols-2 gap-3">
                           <DocumentStation
                             job={job}
@@ -1667,6 +1635,20 @@ export function ProjectDetailDialog({
                           </div>
                           <DocumentStation job={job} onChanged={onChanged} kind="coc" label="Chain of Custody" serviceType={label} />
                           <DocumentStation job={job} onChanged={onChanged} kind="lab_invoice" label="Laboratory Invoice" serviceType={label} />
+                        </div>
+                        <div className="mt-2 flex items-center gap-1 text-sm text-slate-500">
+                          <input
+                            type="number"
+                            min={0}
+                            defaultValue={sampleCount ?? ""}
+                            key={sampleCount}
+                            onBlur={(e) => {
+                              const next = Number(e.target.value);
+                              if (!Number.isNaN(next) && next !== (sampleCount ?? 0)) setSampleCountForType(label, next);
+                            }}
+                            className="w-14 rounded border border-slate-200 px-1 py-0.5 text-xs"
+                          />
+                          sample{sampleCount === 1 ? "" : "s"}
                         </div>
                       </div>
                       );
@@ -1891,36 +1873,17 @@ export function ProjectDetailDialog({
                   {job.invoice_number && <DetailField label="Invoice #" value={job.invoice_number} />}
                 </div>
 
-                <LineItemsEditor items={invoiceLineItems} setItems={setInvoiceLineItemsFromUser} serviceTypeSettings={serviceTypeSettings} />
+                <LineItemsEditor
+                  items={invoiceLineItems}
+                  setItems={setInvoiceLineItemsFromUser}
+                  serviceTypeSettings={serviceTypeSettings}
+                  paymentDueDate={job.payment_due_date || paymentDueDate(job.requested_date ?? "") || ""}
+                  onPaymentDueDateChange={(v) => saveJobField({ payment_due_date: v || null })}
+                />
                 {savingInvoice && <p className="mt-1 text-xs text-slate-400">Saving…</p>}
 
-                <div className="mt-3">
-                  <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">Payment due date</label>
-                  <input
-                    type="date"
-                    className="mt-1 rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
-                    value={job.payment_due_date || paymentDueDate(job.requested_date ?? "") || ""}
-                    onChange={(e) => saveJobField({ payment_due_date: e.target.value || null })}
-                  />
-                </div>
-
-                {(job.lab_name || job.lab_cost_cents != null) && (
-                  <div className="mt-4 border-t border-slate-100 pt-4">
-                    <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Lab cost &amp; margin</h4>
-                    <div className="mt-1 space-y-1">
-                      <DetailField label="Lab" value={job.lab_name} />
-                      {job.lab_cost_cents != null && (
-                        <div className="pl-4">
-                          <DetailField label="Lab cost" value={<span className="text-red-600">- {formatCents(job.lab_cost_cents)}</span>} />
-                        </div>
-                      )}
-                      <DetailField label="Margin" value={margin != null ? formatCents(margin) : null} />
-                    </div>
-                  </div>
-                )}
-
                 {job.invoice_total_cents != null && (
-                  <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-4">
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
                     <button
                       onClick={() => setShowInvoicePreview((v) => !v)}
                       className={`rounded-lg px-3 py-1.5 text-sm font-bold uppercase ${
@@ -1965,6 +1928,21 @@ export function ProjectDetailDialog({
                       url={`/api/admin/jobs/${job.id}/invoice?v=${encodeURIComponent(invoiceRevision)}`}
                       revision={invoiceRevision}
                     />
+                  </div>
+                )}
+
+                {(job.lab_name || job.lab_cost_cents != null) && (
+                  <div className="mt-4 border-t border-slate-100 pt-4">
+                    <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Lab cost &amp; margin</h4>
+                    <div className="mt-1 space-y-1">
+                      <DetailField label="Lab" value={job.lab_name} />
+                      {job.lab_cost_cents != null && (
+                        <div className="pl-4">
+                          <DetailField label="Lab cost" value={<span className="text-red-600">- {formatCents(job.lab_cost_cents)}</span>} />
+                        </div>
+                      )}
+                      <DetailField label="Margin" value={margin != null ? formatCents(margin) : null} />
+                    </div>
                   </div>
                 )}
               </div>
@@ -3764,11 +3742,14 @@ function defaultLineItems(
 }
 
 function LineItemsEditor({
-  items, setItems, serviceTypeSettings,
+  items, setItems, serviceTypeSettings, paymentDueDate, onPaymentDueDateChange,
 }: {
   items: LineItemRowState[];
   setItems: Dispatch<SetStateAction<LineItemRowState[]>>;
   serviceTypeSettings: ServiceType[];
+  /** Rendered inline on the same row as the total and the +Custom Line Item/+Samples links, rather than its own separate row — the admin wanted it directly in line with those, not stacked below. */
+  paymentDueDate: string;
+  onPaymentDueDateChange: (value: string) => void;
 }) {
   function update(i: number, patch: Partial<LineItemRowState>) {
     setItems((rows) =>
@@ -4009,8 +3990,17 @@ function LineItemsEditor({
         </div>
       ))}
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-base font-bold uppercase text-emerald-600">Invoice total: {currency(total)}</p>
+        <div className="flex items-center gap-2">
+          <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">Payment due date</label>
+          <input
+            type="date"
+            className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+            value={paymentDueDate}
+            onChange={(e) => onPaymentDueDateChange(e.target.value)}
+          />
+        </div>
         <div className="flex gap-3">
           <button onClick={() => add()} className="text-sm text-brand-600 underline">
             + Custom Line Item

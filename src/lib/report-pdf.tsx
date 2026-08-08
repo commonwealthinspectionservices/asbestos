@@ -4,7 +4,7 @@ import type { Style } from "@react-pdf/types";
 import { splitAddress } from "@/lib/address";
 import { primaryInspector } from "@/lib/settings";
 import type { Job, Customer, Settings } from "@/lib/types";
-import { ASBESTOS_POSITIVE_REMARK, ASBESTOS_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK, moldScopeOfWorkItems } from "@/lib/report-findings";
+import { ASBESTOS_POSITIVE_REMARK, ASBESTOS_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK, moldScopeOfWorkItems, moldServiceTypeFlags } from "@/lib/report-findings";
 
 const LETTERHEAD_PATH = path.join(process.cwd(), "public", "letterhead.png");
 const SIGNATURE_PATH = path.join(process.cwd(), "public", "signature.png");
@@ -354,25 +354,39 @@ function LeadReportDocument({ job, customer, settings }: ProjectReportData) {
 function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
   const { knownCustomerName, dateText, addressLines, billingStreet, billing, serviceStreet, service } = commonLetterFields(job, customer, settings);
 
-  // Which methodology sections apply — inferred from which mold sample
-  // types actually have counts on this job. Falls back to showing both when
-  // there's no sample data yet (e.g. previewing before lab results come in)
-  // rather than guessing wrong and omitting one that turns out to apply.
-  const sampleLabels = Object.keys(job.sample_counts ?? {});
-  const hasAir = sampleLabels.length === 0 || sampleLabels.some((l) => l.toLowerCase().includes("air"));
-  const hasBulk = sampleLabels.length === 0 || sampleLabels.some((l) => l.toLowerCase().includes("bulk") || l.toLowerCase().includes("swab"));
+  // Which methodology sections apply — driven by job.service_type (known
+  // from booking, see moldServiceTypeFlags), same source as Scope of Work,
+  // rather than sample_counts which stays empty until lab results come in.
+  const { hasAir, hasBulk, hasSwab } = moldServiceTypeFlags(job.service_type);
 
   const scopeItems = moldScopeOfWorkItems(job.service_type);
 
   const labName = (job.lab_name || "an accredited laboratory").replace(/\.+$/, "");
+  // Air and swab share one "Sampling for Mold:" section when both are
+  // present — confirmed verbatim against real air+swab combo reports, which
+  // merge both collection tools into a single paragraph rather than giving
+  // swab its own sub-section. Bulk uses a physically different collection
+  // method (cutting a material sample vs. an air pump or surface swab) so
+  // it keeps its own section. The swab-only paragraph below has no real
+  // example to match against yet — it mirrors bulk's structure as the
+  // closest analog until a real swab-only report can confirm the wording.
   const methodologySections = [
     ...(hasAir
       ? [
           {
-            title: "Airborne Sampling for Mold:",
+            title: "Sampling for Mold:",
             paragraphs: [
-              `The concentration and identification of the genera of airborne mold was performed through the use of Air-O-Cell cassettes and swabs. This method utilizes an air pump to draw air at a predetermined flow rate through a spore trap cassette containing a slide coated with an optically-transparent adhesive. Airborne particulate, including spores is impacted onto the slide, and then submitted to the laboratory where it is stained and analyzed by optical microscopy at magnifications between 200X and 1000X. Samples collected at the above referenced location were enumerated and speciated by ${labName}.`,
+              `The concentration and identification of the genera of airborne mold was performed through the use of Air-O-Cell cassettes${hasSwab ? " and swabs" : ""}. This method utilizes an air pump to draw air at a predetermined flow rate through a spore trap cassette containing a slide coated with an optically-transparent adhesive. Airborne particulate, including spores is impacted onto the slide, and then submitted to the laboratory where it is stained and analyzed by optical microscopy at magnifications between 200X and 1000X. Samples collected at the above referenced location were enumerated and speciated by ${labName}.`,
               "This method does not differentiate between viable and non-viable fungal spores. In addition, this technique does not allow for the differentiation between Aspergillus and Penicillium spores. Other non-distinctive spores are reported in categories such as Ascospores or Basidiospores.",
+            ],
+          },
+        ]
+      : hasSwab
+      ? [
+          {
+            title: "Swab Sampling for Mold:",
+            paragraphs: [
+              `Swab samples of surfaces suspected of mold growth were collected to identify the genera of mold, if present. Samples were collected using a sterile swab and submitted to the laboratory, where they are examined by optical microscopy for the presence of fungal spores, hyphae, and other particulates. Samples collected at the above referenced location were enumerated and speciated by ${labName}.`,
             ],
           },
         ]
@@ -390,12 +404,8 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
       : []),
   ];
 
-  // The admin now enters only one cell for mold jobs (Conclusions &
-  // Recommendations, report_notes) — reused here for Discussion of Results
-  // too, rather than leaving that section's "NO RESULTS YET." placeholder
-  // in every mold report now that there's no separate input for it.
   const conclusionParagraphs = paragraphsFromText(job.report_notes);
-  const discussionParagraphs = conclusionParagraphs;
+  const discussionParagraphs = paragraphsFromText(job.report_summary);
 
   return (
     <Document title={`Limited Mold Assessment & Sampling — ${job.service_address}`}>

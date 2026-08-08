@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import type { Company, Customer, InvoiceLineItem, JobDocument, JobWithCustomer, LabProfile, PricingZone, SampleItem, ServiceType } from "@/lib/types";
 import { defaultInvoiceLineItems, sampleDescriptionForServiceType } from "@/lib/invoice-defaults";
-import { ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK, moldScopeOfWorkItems } from "@/lib/report-findings";
+import { ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK, moldScopeOfWorkItems, moldDiscussionDefault, moldConclusionsDefault } from "@/lib/report-findings";
 import { splitAddress, parseAddressToFields, buildBillingAddress, googleMapsUrl } from "@/lib/address";
 import { joinName, splitFullName } from "@/lib/name";
 import type { AddressFields } from "@/lib/address";
@@ -380,7 +380,7 @@ function reportChecklist(job: JobWithCustomer): { label: string; done: boolean }
     { label: "Date", done: Boolean(job.requested_date) },
     { label: "Sample count", done: totalSamples > 0 },
     { label: "Lab info", done: Boolean(job.lab_name && job.lab_nist_cert && (mold || lead || job.lab_massdls_cert)) },
-    { label: "Results", done: mold ? Boolean(job.report_notes) : lead ? Boolean(job.lead_result) : Boolean(job.asbestos_result) },
+    { label: "Results", done: mold ? Boolean(job.report_summary) : lead ? Boolean(job.lead_result) : Boolean(job.asbestos_result) },
   ];
 }
 
@@ -1068,8 +1068,12 @@ export function ProjectDetailDialog({
   const [serviceTypeSettings, setServiceTypeSettings] = useState<ServiceType[]>([]);
   const [pricingZones, setPricingZones] = useState<PricingZone[]>([]);
   const [labs, setLabs] = useState<LabProfile[]>([]);
-  const [reportSummaryInput, setReportSummaryInput] = useState(job.report_summary ?? "");
-  const [reportNotesInput, setReportNotesInput] = useState(job.report_notes ?? "");
+  const [reportSummaryInput, setReportSummaryInput] = useState(
+    job.report_summary ?? (isMoldJob(job) ? moldDiscussionDefault(job.service_type) : "")
+  );
+  const [reportNotesInput, setReportNotesInput] = useState(
+    job.report_notes ?? (isMoldJob(job) ? moldConclusionsDefault(job.service_type) : "")
+  );
   // Editable, auto-populated versions of every item on the Final Report
   // tab's own checklist (reportChecklist) — lets the admin review and fix
   // any of it (an address typo, a wrong project #) right before generating
@@ -1750,6 +1754,27 @@ export function ProjectDetailDialog({
                       rows={6}
                       readOnly
                       value={moldScopeOfWorkItems(job.service_type).map((item, i) => `${i + 1}. ${item}`).join("\n")}
+                    />
+                  </div>
+                )}
+
+                {isMoldJob(job) && (
+                  <div className="mt-5 rounded-lg border border-slate-200 p-3">
+                    <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
+                      Discussion of Results
+                    </label>
+                    {/* Starts prefilled with the fixed ACGIH paragraph for
+                        air-inclusive jobs (confirmed reused verbatim on
+                        every air mold report) — blank otherwise, since bulk/
+                        swab findings are fully custom prose per job with no
+                        reliable boilerplate. Freely editable either way. */}
+                    <textarea
+                      className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+                      rows={6}
+                      value={reportSummaryInput}
+                      onChange={(e) => setReportSummaryInput(e.target.value)}
+                      onBlur={(e) => saveReportSummary(e.target.value)}
+                      placeholder="Sample counts, dates, and any notable findings for this job."
                     />
                   </div>
                 )}

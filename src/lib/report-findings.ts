@@ -31,15 +31,23 @@ export function moldServiceTypeFlags(serviceType: string | null | undefined): { 
   return { hasAir, hasBulk, hasSwab };
 }
 
+// The three per-sample-type Scope of Work lines — exported individually so
+// the admin's "+ Air/Bulk/Swab Samples" buttons (JobsDashboard.tsx) can
+// insert the right wording directly rather than the admin typing it from
+// scratch, on top of powering the auto-derived default list below.
+export const MOLD_SCOPE_AIR_LINE = "Collection of air samples within the subject area for mold;";
+export const MOLD_SCOPE_BULK_LINE = "Collection of bulk samples within the subject area for mold;";
+export const MOLD_SCOPE_SWAB_LINE = "Collection of swab samples within the subject area for mold;";
+
 // The default, editable per-sample-type lines only — NOT the closing
 // summary line, which is fixed on every job and never belongs in the
 // editable list (see MOLD_SCOPE_CLOSING_LINE below).
 export function moldScopeOfWorkItems(serviceType: string | null | undefined): string[] {
   const { hasAir, hasBulk, hasSwab } = moldServiceTypeFlags(serviceType);
   return [
-    ...(hasAir ? ["Collection of air samples within the subject area for mold;"] : []),
-    ...(hasBulk ? ["Collection of bulk samples within the subject area for mold;"] : []),
-    ...(hasSwab ? ["Collection of swab samples within the subject area for mold;"] : []),
+    ...(hasAir ? [MOLD_SCOPE_AIR_LINE] : []),
+    ...(hasBulk ? [MOLD_SCOPE_BULK_LINE] : []),
+    ...(hasSwab ? [MOLD_SCOPE_SWAB_LINE] : []),
   ];
 }
 

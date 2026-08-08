@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import type { Company, Customer, InvoiceLineItem, JobDocument, JobWithCustomer, LabProfile, PricingZone, SampleItem, ServiceType } from "@/lib/types";
 import { defaultInvoiceLineItems, sampleDescriptionForServiceType } from "@/lib/invoice-defaults";
-import { ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK, moldScopeOfWorkItems, moldServiceTypeFlags } from "@/lib/report-findings";
+import { ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK, moldScopeOfWorkItems, moldServiceTypeFlags, MOLD_SCOPE_AIR_LINE, MOLD_SCOPE_BULK_LINE, MOLD_SCOPE_SWAB_LINE } from "@/lib/report-findings";
 import { splitAddress, parseAddressToFields, buildBillingAddress, googleMapsUrl } from "@/lib/address";
 import { joinName, splitFullName } from "@/lib/name";
 import type { AddressFields } from "@/lib/address";
@@ -1793,13 +1793,26 @@ export function ProjectDetailDialog({
                         </div>
                       ))}
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setScopeItems([...scopeItems, ""])}
-                      className="mt-2 text-xs font-semibold text-brand-600 hover:text-brand-700"
-                    >
-                      + Add line
-                    </button>
+                    <div className="mt-2 flex flex-wrap gap-3">
+                      {[
+                        { label: "+ Air Samples", line: MOLD_SCOPE_AIR_LINE },
+                        { label: "+ Bulk Samples", line: MOLD_SCOPE_BULK_LINE },
+                        { label: "+ Swab Samples", line: MOLD_SCOPE_SWAB_LINE },
+                      ].filter(({ line }) => !scopeItems.includes(line)).map(({ label, line }) => (
+                        <button
+                          key={label}
+                          type="button"
+                          onClick={() => {
+                            const next = [...scopeItems, line];
+                            setScopeItems(next);
+                            saveScopeItems(next);
+                          }}
+                          className="text-xs font-semibold text-brand-600 hover:text-brand-700"
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 )}
 

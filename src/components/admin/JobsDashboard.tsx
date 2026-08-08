@@ -1591,7 +1591,24 @@ export function ProjectDetailDialog({
                       const isLeadLabel = /lead/i.test(label);
                       return (
                       <div key={label}>
-                        <p className="mb-2 text-sm font-bold text-slate-700">{label}</p>
+                        <p className="mb-2 flex items-center gap-2 text-sm font-bold text-slate-700">
+                          {label}
+                          <span className="flex items-center gap-1 font-normal text-slate-400">
+                            ·
+                            <input
+                              type="number"
+                              min={0}
+                              defaultValue={sampleCount ?? ""}
+                              key={sampleCount}
+                              onBlur={(e) => {
+                                const next = Number(e.target.value);
+                                if (!Number.isNaN(next) && next !== (sampleCount ?? 0)) setSampleCountForType(label, next);
+                              }}
+                              className="w-14 rounded border border-slate-200 px-1 py-0.5 text-xs"
+                            />
+                            sample{sampleCount === 1 ? "" : "s"}
+                          </span>
+                        </p>
                         <div className="grid grid-cols-2 gap-3">
                           <DocumentStation
                             job={job}
@@ -1635,20 +1652,6 @@ export function ProjectDetailDialog({
                           </div>
                           <DocumentStation job={job} onChanged={onChanged} kind="coc" label="Chain of Custody" serviceType={label} />
                           <DocumentStation job={job} onChanged={onChanged} kind="lab_invoice" label="Laboratory Invoice" serviceType={label} />
-                        </div>
-                        <div className="mt-2 flex items-center gap-1 text-sm text-slate-500">
-                          <input
-                            type="number"
-                            min={0}
-                            defaultValue={sampleCount ?? ""}
-                            key={sampleCount}
-                            onBlur={(e) => {
-                              const next = Number(e.target.value);
-                              if (!Number.isNaN(next) && next !== (sampleCount ?? 0)) setSampleCountForType(label, next);
-                            }}
-                            className="w-14 rounded border border-slate-200 px-1 py-0.5 text-xs"
-                          />
-                          sample{sampleCount === 1 ? "" : "s"}
                         </div>
                       </div>
                       );
@@ -1772,25 +1775,6 @@ export function ProjectDetailDialog({
                       ))}
                     </select>
                   </div>
-                  {serviceTypeLabels.map((label) => {
-                    const sampleCount = job.sample_counts?.[label];
-                    return (
-                      <div key={label}>
-                        <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">{label} — Sample count</label>
-                        <input
-                          type="number"
-                          min={0}
-                          defaultValue={sampleCount ?? ""}
-                          key={`count-${label}-${sampleCount}`}
-                          onBlur={(e) => {
-                            const next = Number(e.target.value);
-                            if (!Number.isNaN(next) && next !== (sampleCount ?? 0)) setSampleCountForType(label, next);
-                          }}
-                          className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
-                        />
-                      </div>
-                    );
-                  })}
                   <div className="col-span-2">
                     <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
                       {isMoldJob(job) ? "Discussion of Results" : "Result"}
@@ -1916,7 +1900,7 @@ export function ProjectDetailDialog({
                         disabled={payLinkLoading}
                         className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-bold uppercase text-slate-700 disabled:opacity-50"
                       >
-                        {payLinkLoading ? "Loading…" : "Payment link"}
+                        {payLinkLoading ? "Loading…" : "View payment link"}
                       </button>
                       <button
                         onClick={copyPaymentLink}

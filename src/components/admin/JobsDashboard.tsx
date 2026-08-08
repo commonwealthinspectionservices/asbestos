@@ -1664,14 +1664,7 @@ export function ProjectDetailDialog({
                   <div className="space-y-5">
                     {serviceTypeLabels.map((label, labelIndex) => (
                       <div key={label}>
-                        <p className="mb-2 flex items-center gap-2 text-sm font-bold text-slate-700">
-                          {label}
-                          {job.sample_results && job.sample_results.length > 0 && (
-                            <span className="font-normal text-slate-400">
-                              · {job.sample_results.length} sample{job.sample_results.length === 1 ? "" : "s"}
-                            </span>
-                          )}
-                        </p>
+                        <p className="mb-2 text-sm font-bold text-slate-700">{label}</p>
                         <div className="grid grid-cols-2 gap-3">
                           <DocumentStation
                             job={job}
@@ -1690,6 +1683,9 @@ export function ProjectDetailDialog({
                                   {job.sample_results.map((s, i) => (
                                     <div key={i} className={/%/.test(s.result) ? "text-red-600" : "text-slate-900"}>{s.fieldCode}: {s.result}</div>
                                   ))}
+                                  <div className="mt-1.5 border-t border-slate-200 pt-1.5 font-sans font-semibold text-slate-500">
+                                    Total: {job.sample_results.length} sample{job.sample_results.length === 1 ? "" : "s"}
+                                  </div>
                                 </div>
                               </div>
                             )}
@@ -1843,7 +1839,7 @@ export function ProjectDetailDialog({
                     actually final. */}
                 <div className="flex flex-wrap gap-3">
                   {reportComplete ? (
-                    <div className="w-36 overflow-hidden rounded-lg border border-slate-200">
+                    <div className="w-48 overflow-hidden rounded-lg border border-slate-200">
                       <a href={`/api/admin/jobs/${job.id}/report?v=${encodeURIComponent(reportRevision)}`} target="_blank" rel="noreferrer" className="block">
                         <PdfThumbnail url={`/api/admin/jobs/${job.id}/report?v=${encodeURIComponent(reportRevision)}`} alt="Final Report preview" />
                         <p className="border-t border-slate-200 bg-white px-2 py-1 text-center text-xs font-bold uppercase text-slate-700">Final Report</p>
@@ -1859,13 +1855,13 @@ export function ProjectDetailDialog({
                       </div>
                     </div>
                   ) : (
-                    <div className="block w-36 overflow-hidden rounded-lg border border-dashed border-slate-300">
+                    <div className="block w-48 overflow-hidden rounded-lg border border-dashed border-slate-300">
                       <div className="flex h-40 w-full items-center justify-center bg-slate-50 px-2 text-center text-xs text-slate-400">Not ready yet</div>
                       <p className="border-t border-dashed border-slate-300 px-2 py-1 text-center text-xs font-bold uppercase text-slate-400">Final Report</p>
                     </div>
                   )}
                   {reportComplete && job.invoice_total_cents != null ? (
-                    <div className="w-36 overflow-hidden rounded-lg border border-slate-200">
+                    <div className="w-48 overflow-hidden rounded-lg border border-slate-200">
                       <a href={`/api/admin/jobs/${job.id}/invoice?v=${encodeURIComponent(invoiceRevision)}`} target="_blank" rel="noreferrer" className="block">
                         <PdfThumbnail url={`/api/admin/jobs/${job.id}/invoice?v=${encodeURIComponent(invoiceRevision)}`} alt="Invoice preview" />
                         <p className="border-t border-slate-200 bg-white px-2 py-1 text-center text-xs font-bold uppercase text-slate-700">Invoice</p>
@@ -1881,7 +1877,7 @@ export function ProjectDetailDialog({
                       </div>
                     </div>
                   ) : (
-                    <div className="block w-36 overflow-hidden rounded-lg border border-dashed border-slate-300">
+                    <div className="block w-48 overflow-hidden rounded-lg border border-dashed border-slate-300">
                       <div className="flex h-40 w-full items-center justify-center bg-slate-50 px-2 text-center text-xs text-slate-400">Not ready yet</div>
                       <p className="border-t border-dashed border-slate-300 px-2 py-1 text-center text-xs font-bold uppercase text-slate-400">Invoice</p>
                     </div>

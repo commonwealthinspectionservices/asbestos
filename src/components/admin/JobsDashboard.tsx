@@ -1997,7 +1997,7 @@ export function ProjectDetailDialog({
                   {draftStatusText(job.invoice_drafted_at, job.invoice_sent_at, combinedDraft.status, "Drafted", "Drafted")}
                 </p>
               </div>
-            ) : job.invoice_total_cents == null || !reportComplete ? (
+            ) : !reportComplete ? (
               <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
                 <p className="text-sm font-bold uppercase text-amber-800">Email not fully complete</p>
               </div>

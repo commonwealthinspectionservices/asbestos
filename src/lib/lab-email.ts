@@ -659,7 +659,7 @@ async function draftCombinedEmailForJob(params: {
   const draft = await createDraft(accessToken, {
     to: toCustomer.email,
     cc: [...new Set(ccRecipients)].join(", ") || undefined,
-    subject: `Final Report & Invoice - ${pricedJob.service_address}`,
+    subject: pricedJob.service_type ? `${pricedJob.service_type} - ${pricedJob.service_address}` : pricedJob.service_address,
     bodyText: combinedDraftBodyText(pricedJob, settings, totalCents, payNowUrl),
     attachments: [
       { filename: `Final-Report-${pricedJob.project_number ?? job.id}.pdf`, mimeType: "application/pdf", content: reportPdf },

@@ -2904,7 +2904,7 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
               }
             }}
           />
-          Customer contact is also job site contact
+          {customerKind === "company" ? "Company contact" : "Customer contact"} is also job site contact
         </label>
 
         <label className="mt-3 block text-sm font-medium text-slate-700">Notes</label>

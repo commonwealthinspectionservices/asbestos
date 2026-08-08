@@ -7,6 +7,7 @@ const asbestosBulk: ServiceType = {
   label: "Limited Asbestos Inspection",
   base_fee_cents: 45000,
   per_sample_cents: 2500,
+  rush_fee_cents: 5000,
 };
 
 const moldAir: ServiceType = {
@@ -14,6 +15,7 @@ const moldAir: ServiceType = {
   label: "Mold Air Sampling",
   base_fee_cents: 45000,
   per_sample_cents: 8500,
+  rush_fee_cents: 0,
 };
 
 function baseJob(overrides: Partial<JobWithCustomer> = {}): JobWithCustomer {

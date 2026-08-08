@@ -19,6 +19,8 @@ export interface ServiceType {
   label: string;
   base_fee_cents: number;
   per_sample_cents: number;
+  /** Added on top of base_fee_cents for a rush job. 0 means no rush fee is charged for this service type. */
+  rush_fee_cents: number;
 }
 
 /**

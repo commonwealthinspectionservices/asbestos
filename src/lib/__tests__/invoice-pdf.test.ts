@@ -23,7 +23,7 @@ const settings: Settings = {
   business_name: "Commonwealth Inspection Services, LLC.",
   business_phone: "617-390-4778",
   service_types: [
-    { key: "asbestos", label: "Asbestos Inspection", base_fee_cents: 45000, per_sample_cents: 2500 },
+    { key: "asbestos", label: "Asbestos Inspection", base_fee_cents: 45000, per_sample_cents: 2500, rush_fee_cents: 5000 },
   ],
   pricing_zones: [],
   labs: [],

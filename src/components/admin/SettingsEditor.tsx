@@ -21,7 +21,15 @@ export default function SettingsEditor() {
       .then(async (r) => {
         const data = await r.json();
         if (!r.ok) throw new Error(data.error ?? "Failed to load settings");
-        setForm(data.settings);
+        setForm({
+          ...data.settings,
+          // Older rows may predate rush_fee_cents — default it in rather
+          // than letting the field render blank/NaN until first edited.
+          service_types: (data.settings.service_types ?? []).map((s: ServiceType) => ({
+            ...s,
+            rush_fee_cents: s.rush_fee_cents ?? 0,
+          })),
+        });
       })
       .catch((e) => setError(e instanceof Error ? e.message : "Failed to load settings"));
   }, []);
@@ -57,7 +65,7 @@ export default function SettingsEditor() {
     if (!form) return;
     update("service_types", [
       ...form.service_types,
-      { key: `service_${form.service_types.length + 1}`, label: "New service", base_fee_cents: 0, per_sample_cents: 0 },
+      { key: `service_${form.service_types.length + 1}`, label: "New service", base_fee_cents: 0, per_sample_cents: 0, rush_fee_cents: 0 },
     ]);
   }
 
@@ -239,12 +247,15 @@ export default function SettingsEditor() {
                 <TextInput value={s.label} onChange={(v) => updateServiceType(i, { label: v })} placeholder="Label" />
                 <button onClick={() => removeServiceType(i)} className="ml-2 text-sm text-red-600">Remove</button>
               </div>
-              <div className="mt-2 grid grid-cols-2 gap-2">
+              <div className="mt-2 grid grid-cols-3 gap-2">
                 <Field label="Base fee ($)">
                   <NumberInput value={Number(centsToDollarsStr(s.base_fee_cents))} onChange={(v) => updateServiceType(i, { base_fee_cents: Math.round(v * 100) })} step="1" />
                 </Field>
                 <Field label="Per-sample fee ($)">
                   <NumberInput value={Number(centsToDollarsStr(s.per_sample_cents))} onChange={(v) => updateServiceType(i, { per_sample_cents: Math.round(v * 100) })} step="1" />
+                </Field>
+                <Field label="Rush fee ($)">
+                  <NumberInput value={Number(centsToDollarsStr(s.rush_fee_cents))} onChange={(v) => updateServiceType(i, { rush_fee_cents: Math.round(v * 100) })} step="1" />
                 </Field>
               </div>
             </div>

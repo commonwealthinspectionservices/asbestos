@@ -329,11 +329,6 @@ const CLOSED_STATUSES = new Set(["paid", "cancelled"]);
 // Schedule/notes stay editable for any job that isn't closed out yet.
 const EDITABLE_STATUSES = OPEN_STATUSES;
 
-function formatCents(cents: number | null): string {
-  if (cents == null) return "—";
-  return `$${(cents / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
 function lineItemsTotalCents(items: InvoiceLineItem[]): number {
   return items.reduce((total, item) => total + Math.round(item.quantity * item.unit_cost_cents), 0);
 }
@@ -1277,15 +1272,6 @@ export function ProjectDetailDialog({
     onChanged();
   }
 
-  async function setSampleCountForType(label: string, count: number) {
-    await fetch(`/api/admin/jobs/${job.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sample_counts: { ...(job.sample_counts ?? {}), [label]: count } }),
-    });
-    onChanged();
-  }
-
   async function setRush(value: boolean) {
     await fetch(`/api/admin/jobs/${job.id}`, {
       method: "PATCH",
@@ -1353,10 +1339,6 @@ export function ProjectDetailDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [invoiceLineItems]);
 
-  const margin =
-    job.invoice_total_cents != null && job.lab_cost_cents != null
-      ? job.invoice_total_cents - job.lab_cost_cents
-      : null;
 
   // Fingerprints of exactly the fields each PDF actually renders, passed to
   // PdfPreview so it only re-fetches (and re-renders every page to canvas —
@@ -1567,103 +1549,7 @@ export function ProjectDetailDialog({
         {tab === "report" && (
           <div className="mt-4 space-y-6">
             <div>
-              <h3 className="text-lg font-bold uppercase tracking-wide text-black underline">Laboratory Paperwork</h3>
-              <div className="mt-3">
-                {serviceTypeLabels.length > 0 ? (
-                  <div className="space-y-5">
-                    {serviceTypeLabels.map((label) => {
-                      const sampleCount = job.sample_counts?.[label];
-                      return (
-                      <div key={label}>
-                        <p className="mb-2 flex items-center gap-2 text-sm font-bold text-slate-700">
-                          {label}
-                          <span className="flex items-center gap-1 font-normal text-slate-400">
-                            ·
-                            <input
-                              type="number"
-                              min={0}
-                              defaultValue={sampleCount ?? ""}
-                              key={sampleCount}
-                              onBlur={(e) => {
-                                const next = Number(e.target.value);
-                                if (!Number.isNaN(next) && next !== (sampleCount ?? 0)) setSampleCountForType(label, next);
-                              }}
-                              className="w-14 rounded border border-slate-200 px-1 py-0.5 text-xs"
-                            />
-                            sample{sampleCount === 1 ? "" : "s"}
-                          </span>
-                        </p>
-                        <div className="grid grid-cols-2 gap-3">
-                          <DocumentStation
-                            job={job}
-                            onChanged={onChanged}
-                            kind="lab_report"
-                            label="Laboratory Results"
-                            serviceType={label}
-                          />
-                          <div>
-                            {job.sample_results && job.sample_results.length > 0 && (
-                              <div>
-                                <div className="flex flex-nowrap items-center gap-2">
-                                  <h4 className="whitespace-nowrap text-xs font-semibold uppercase tracking-wide text-slate-400">Sample Results</h4>
-                                </div>
-                                <div className="mt-1.5 w-full rounded-lg border border-slate-200 bg-slate-50 p-2 font-mono text-xs">
-                                  {job.sample_results.map((s, i) => (
-                                    <div key={i} className={/%/.test(s.result) ? "text-red-600" : "text-slate-900"}>{s.fieldCode}: {s.result}</div>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                          <DocumentStation job={job} onChanged={onChanged} kind="coc" label="Chain of Custody" serviceType={label} />
-                          <DocumentStation job={job} onChanged={onChanged} kind="lab_invoice" label="Laboratory Invoice" serviceType={label} />
-                        </div>
-                      </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <p className="text-sm text-slate-500">Pick a service type on the Project Information tab to set up its upload stations and sample count.</p>
-                )}
-
-                {job.sample_items.length > 0 && (
-                  <table className="mt-4 w-full text-sm">
-                    <thead>
-                      <tr className="text-left text-xs text-slate-400">
-                        <th className="pb-1 font-medium">Sample #</th>
-                        <th className="pb-1 font-medium">Material</th>
-                        <th className="pb-1 font-medium">Location</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {job.sample_items.map((s, i) => (
-                        <tr key={i} className="border-t border-slate-100">
-                          <td className="py-1 text-slate-800">{s.sample_number}</td>
-                          <td className="py-1 text-slate-600">{s.material}</td>
-                          <td className="py-1 text-slate-600">{s.location}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </div>
-            </div>
-
-            <div className="border-t-4 border-slate-300 pt-6">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h3 className="text-lg font-bold uppercase tracking-wide text-black underline">Final Report</h3>
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    onClick={() => setShowReportPreview((v) => !v)}
-                    className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-bold text-slate-700 hover:underline"
-                  >
-                    {showReportPreview ? "Hide" : "View"}
-                  </button>
-                  <a href={`/api/admin/jobs/${job.id}/report`} target="_blank" rel="noreferrer" className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-bold text-slate-700 hover:underline">
-                    Download
-                  </a>
-                </div>
-              </div>
+              <h3 className="text-lg font-bold uppercase tracking-wide text-black underline">Final Report Information</h3>
               <div className="mt-3 space-y-3">
                 {isMoldJob(job) && (
                   <div className="rounded-lg border border-slate-200 p-3">
@@ -1721,7 +1607,7 @@ export function ProjectDetailDialog({
                       onBlur={(e) => saveCustomerField({ billing_address: e.target.value.trim() || null })}
                     />
                   </div>
-                  <div>
+                  <div className="col-span-2">
                     <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">Date of Sampling</label>
                     <input
                       type="date"
@@ -1730,67 +1616,6 @@ export function ProjectDetailDialog({
                       onChange={(e) => setRequestedDateInput(e.target.value)}
                       onBlur={(e) => saveJobField({ requested_date: e.target.value || null })}
                     />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">Lab info</label>
-                    <select
-                      className="mt-1 h-9 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
-                      value={job.lab_name ?? ""}
-                      onChange={(e) => selectLab(e.target.value)}
-                    >
-                      <option value="">— Not set —</option>
-                      {labs.map((l) => (
-                        <option key={l.name} value={l.name}>{l.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="col-span-2">
-                    <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
-                      {isMoldJob(job) ? "Discussion of Results" : "Result"}
-                    </label>
-                    {isMoldJob(job) ? (
-                      <textarea
-                        className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
-                        rows={6}
-                        value={reportSummaryInput}
-                        onChange={(e) => setReportSummaryInput(e.target.value)}
-                        onBlur={(e) => saveReportSummary(e.target.value)}
-                        placeholder="Paste or write the Discussion of Results section — one paragraph or bullet per line."
-                      />
-                    ) : (
-                      <ComboboxInput
-                        value={reportSummaryInput}
-                        onChange={setReportSummaryInput}
-                        options={isLeadJob(job) ? [LEAD_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK] : [ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK]}
-                        filterOptions={false}
-                        getLabel={(o) => o}
-                        showChevron
-                        onSelect={(o) => {
-                          setReportSummaryInput(o);
-                          // Picking one of the two canned findings sentences IS
-                          // the positive/negative determination — no separate
-                          // Results button needed to duplicate that choice.
-                          // One combined PATCH (not two separate save calls,
-                          // each with its own onChanged()/loadJobs() refetch) —
-                          // two independent fetches racing could let an older
-                          // GET overwrite the newer one's field, leaving the
-                          // report looking incomplete until an unrelated edit
-                          // happened to trigger another refetch.
-                          const negativeRemark = isLeadJob(job) ? LEAD_NEGATIVE_REMARK : ASBESTOS_NEGATIVE_REMARK;
-                          const positiveRemark = isLeadJob(job) ? LEAD_POSITIVE_REMARK : ASBESTOS_POSITIVE_REMARK;
-                          const patch: Record<string, unknown> = { report_summary: o.trim() || null };
-                          if (o === negativeRemark) {
-                            patch[isLeadJob(job) ? "lead_result" : "asbestos_result"] = "negative";
-                          } else if (o === positiveRemark) {
-                            patch[isLeadJob(job) ? "lead_result" : "asbestos_result"] = "positive";
-                          }
-                          saveJobField(patch);
-                        }}
-                        onEnter={(v) => saveReportSummary(v)}
-                        onBlur={(v) => saveReportSummary(v)}
-                        placeholder="e.g. None of the suspect materials sampled were determined to have asbestos fibers present."
-                      />
-                    )}
                   </div>
                 </div>
 
@@ -1822,33 +1647,138 @@ export function ProjectDetailDialog({
 
             <div className="border-t-4 border-slate-300 pt-6">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <h3 className="text-lg font-bold uppercase tracking-wide text-black underline">Invoice</h3>
-                {job.invoice_total_cents != null && (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      onClick={() => setShowInvoicePreview((v) => !v)}
-                      className={`rounded-lg px-3 py-1.5 text-sm font-bold hover:underline ${
-                        reportComplete
-                          ? "bg-emerald-600 text-white"
-                          : "border border-slate-300 bg-white text-slate-700"
-                      }`}
-                    >
-                      {showInvoicePreview ? "Hide" : "View"}
-                    </button>
-                    <a
-                      href={`/api/admin/jobs/${job.id}/invoice?download=1`}
-                      download={`invoice-${job.project_number ?? job.id}.pdf`}
-                      className={`rounded-lg px-3 py-1.5 text-sm font-bold hover:underline ${
-                        reportComplete
-                          ? "bg-emerald-600 text-white"
-                          : "border border-slate-300 bg-white text-slate-700"
-                      }`}
-                    >
-                      Download
-                    </a>
+                <h3 className="text-lg font-bold uppercase tracking-wide text-black underline">Laboratory Paperwork</h3>
+                <select
+                  className="h-9 rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+                  value={job.lab_name ?? ""}
+                  onChange={(e) => selectLab(e.target.value)}
+                >
+                  <option value="">— Not set —</option>
+                  {labs.map((l) => (
+                    <option key={l.name} value={l.name}>{l.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="mt-3">
+                {serviceTypeLabels.length > 0 ? (
+                  <div className="space-y-5">
+                    {serviceTypeLabels.map((label, labelIndex) => (
+                      <div key={label}>
+                        <p className="mb-2 flex items-center gap-2 text-sm font-bold text-slate-700">
+                          {label}
+                          {job.sample_results && job.sample_results.length > 0 && (
+                            <span className="font-normal text-slate-400">
+                              · {job.sample_results.length} sample{job.sample_results.length === 1 ? "" : "s"}
+                            </span>
+                          )}
+                        </p>
+                        <div className="grid grid-cols-2 gap-3">
+                          <DocumentStation
+                            job={job}
+                            onChanged={onChanged}
+                            kind="lab_report"
+                            label="Laboratory Results"
+                            serviceType={label}
+                          />
+                          <div>
+                            {job.sample_results && job.sample_results.length > 0 && (
+                              <div>
+                                <div className="flex flex-nowrap items-center gap-2">
+                                  <h4 className="whitespace-nowrap text-xs font-semibold uppercase tracking-wide text-slate-400">Sample Results</h4>
+                                </div>
+                                <div className="mt-1.5 w-full rounded-lg border border-slate-200 bg-slate-50 p-2 font-mono text-xs">
+                                  {job.sample_results.map((s, i) => (
+                                    <div key={i} className={/%/.test(s.result) ? "text-red-600" : "text-slate-900"}>{s.fieldCode}: {s.result}</div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                          <DocumentStation job={job} onChanged={onChanged} kind="coc" label="Chain of Custody" serviceType={label} />
+                          <DocumentStation job={job} onChanged={onChanged} kind="lab_invoice" label="Laboratory Invoice" serviceType={label} />
+                        </div>
+                        {labelIndex === 0 && (
+                          <div className="mt-3">
+                            <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
+                              {isMoldJob(job) ? "Discussion of Results" : "Result"}
+                            </label>
+                            {isMoldJob(job) ? (
+                              <textarea
+                                className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+                                rows={6}
+                                value={reportSummaryInput}
+                                onChange={(e) => setReportSummaryInput(e.target.value)}
+                                onBlur={(e) => saveReportSummary(e.target.value)}
+                                placeholder="Paste or write the Discussion of Results section — one paragraph or bullet per line."
+                              />
+                            ) : (
+                              <ComboboxInput
+                                value={reportSummaryInput}
+                                onChange={setReportSummaryInput}
+                                options={isLeadJob(job) ? [LEAD_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK] : [ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK]}
+                                filterOptions={false}
+                                getLabel={(o) => o}
+                                showChevron
+                                onSelect={(o) => {
+                                  setReportSummaryInput(o);
+                                  // Picking one of the two canned findings sentences IS
+                                  // the positive/negative determination — no separate
+                                  // Results button needed to duplicate that choice.
+                                  // One combined PATCH (not two separate save calls,
+                                  // each with its own onChanged()/loadJobs() refetch) —
+                                  // two independent fetches racing could let an older
+                                  // GET overwrite the newer one's field, leaving the
+                                  // report looking incomplete until an unrelated edit
+                                  // happened to trigger another refetch.
+                                  const negativeRemark = isLeadJob(job) ? LEAD_NEGATIVE_REMARK : ASBESTOS_NEGATIVE_REMARK;
+                                  const positiveRemark = isLeadJob(job) ? LEAD_POSITIVE_REMARK : ASBESTOS_POSITIVE_REMARK;
+                                  const patch: Record<string, unknown> = { report_summary: o.trim() || null };
+                                  if (o === negativeRemark) {
+                                    patch[isLeadJob(job) ? "lead_result" : "asbestos_result"] = "negative";
+                                  } else if (o === positiveRemark) {
+                                    patch[isLeadJob(job) ? "lead_result" : "asbestos_result"] = "positive";
+                                  }
+                                  saveJobField(patch);
+                                }}
+                                onEnter={(v) => saveReportSummary(v)}
+                                onBlur={(v) => saveReportSummary(v)}
+                                placeholder="e.g. None of the suspect materials sampled were determined to have asbestos fibers present."
+                              />
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
                   </div>
+                ) : (
+                  <p className="text-sm text-slate-500">Pick a service type on the Project Information tab to set up its upload stations.</p>
+                )}
+
+                {job.sample_items.length > 0 && (
+                  <table className="mt-4 w-full text-sm">
+                    <thead>
+                      <tr className="text-left text-xs text-slate-400">
+                        <th className="pb-1 font-medium">Sample #</th>
+                        <th className="pb-1 font-medium">Material</th>
+                        <th className="pb-1 font-medium">Location</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {job.sample_items.map((s, i) => (
+                        <tr key={i} className="border-t border-slate-100">
+                          <td className="py-1 text-slate-800">{s.sample_number}</td>
+                          <td className="py-1 text-slate-600">{s.material}</td>
+                          <td className="py-1 text-slate-600">{s.location}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 )}
               </div>
+            </div>
+
+            <div className="border-t-4 border-slate-300 pt-6">
+              <h3 className="text-lg font-bold uppercase tracking-wide text-black underline">Invoice</h3>
               <div className="mt-3">
                 <div className="mb-4 space-y-1">
                   {job.po_number && <DetailField label="PO #" value={job.po_number} />}
@@ -1873,20 +1803,6 @@ export function ProjectDetailDialog({
                   </div>
                 )}
 
-                {(job.lab_name || job.lab_cost_cents != null) && (
-                  <div className="mt-4 border-t border-slate-100 pt-4">
-                    <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Lab cost &amp; margin</h4>
-                    <div className="mt-1 space-y-1">
-                      <DetailField label="Lab" value={job.lab_name} />
-                      {job.lab_cost_cents != null && (
-                        <div className="pl-4">
-                          <DetailField label="Lab cost" value={<span className="text-red-600">- {formatCents(job.lab_cost_cents)}</span>} />
-                        </div>
-                      )}
-                      <DetailField label="Margin" value={margin != null ? formatCents(margin) : null} />
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
 
@@ -1898,16 +1814,16 @@ export function ProjectDetailDialog({
                     <button
                       onClick={getPaymentLink}
                       disabled={payLinkLoading}
-                      className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-bold text-slate-700 hover:underline disabled:opacity-50"
+                      className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-bold uppercase text-slate-700 hover:underline disabled:opacity-50"
                     >
                       {payLinkLoading ? "Loading…" : "View"}
                     </button>
                     <button
                       onClick={copyPaymentLink}
                       disabled={copyLinkLoading}
-                      className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-bold text-slate-700 hover:underline disabled:opacity-50"
+                      className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-bold uppercase text-slate-700 hover:underline disabled:opacity-50"
                     >
-                      {copyLinkLoading ? "Loading…" : copyLinkDone ? "Copied!" : "Copy link"}
+                      {copyLinkLoading ? "Loading…" : copyLinkDone ? "Copied!" : "Copy"}
                     </button>
                   </div>
                 </div>
@@ -1927,15 +1843,21 @@ export function ProjectDetailDialog({
                     actually final. */}
                 <div className="flex flex-wrap gap-3">
                   {reportComplete ? (
-                    <a
-                      href={`/api/admin/jobs/${job.id}/report?v=${encodeURIComponent(reportRevision)}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="block w-36 overflow-hidden rounded-lg border border-slate-200"
-                    >
-                      <PdfThumbnail url={`/api/admin/jobs/${job.id}/report?v=${encodeURIComponent(reportRevision)}`} alt="Final Report preview" />
-                      <p className="border-t border-slate-200 bg-white px-2 py-1 text-center text-xs font-bold uppercase text-slate-700">Final Report</p>
-                    </a>
+                    <div className="w-36 overflow-hidden rounded-lg border border-slate-200">
+                      <a href={`/api/admin/jobs/${job.id}/report?v=${encodeURIComponent(reportRevision)}`} target="_blank" rel="noreferrer" className="block">
+                        <PdfThumbnail url={`/api/admin/jobs/${job.id}/report?v=${encodeURIComponent(reportRevision)}`} alt="Final Report preview" />
+                        <p className="border-t border-slate-200 bg-white px-2 py-1 text-center text-xs font-bold uppercase text-slate-700">Final Report</p>
+                      </a>
+                      <div className="border-t border-slate-200 px-2 py-1 text-center text-xs">
+                        <button onClick={() => setShowReportPreview((v) => !v)} className="text-brand-600 hover:underline">
+                          {showReportPreview ? "Hide" : "View"}
+                        </button>
+                        {" · "}
+                        <a href={`/api/admin/jobs/${job.id}/report?download=1`} download={`report-${job.project_number ?? job.id}.pdf`} className="text-brand-600 hover:underline">
+                          Download
+                        </a>
+                      </div>
+                    </div>
                   ) : (
                     <div className="block w-36 overflow-hidden rounded-lg border border-dashed border-slate-300">
                       <div className="flex h-40 w-full items-center justify-center bg-slate-50 px-2 text-center text-xs text-slate-400">Not ready yet</div>
@@ -1943,15 +1865,21 @@ export function ProjectDetailDialog({
                     </div>
                   )}
                   {reportComplete && job.invoice_total_cents != null ? (
-                    <a
-                      href={`/api/admin/jobs/${job.id}/invoice?v=${encodeURIComponent(invoiceRevision)}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="block w-36 overflow-hidden rounded-lg border border-slate-200"
-                    >
-                      <PdfThumbnail url={`/api/admin/jobs/${job.id}/invoice?v=${encodeURIComponent(invoiceRevision)}`} alt="Invoice preview" />
-                      <p className="border-t border-slate-200 bg-white px-2 py-1 text-center text-xs font-bold uppercase text-slate-700">Invoice</p>
-                    </a>
+                    <div className="w-36 overflow-hidden rounded-lg border border-slate-200">
+                      <a href={`/api/admin/jobs/${job.id}/invoice?v=${encodeURIComponent(invoiceRevision)}`} target="_blank" rel="noreferrer" className="block">
+                        <PdfThumbnail url={`/api/admin/jobs/${job.id}/invoice?v=${encodeURIComponent(invoiceRevision)}`} alt="Invoice preview" />
+                        <p className="border-t border-slate-200 bg-white px-2 py-1 text-center text-xs font-bold uppercase text-slate-700">Invoice</p>
+                      </a>
+                      <div className="border-t border-slate-200 px-2 py-1 text-center text-xs">
+                        <button onClick={() => setShowInvoicePreview((v) => !v)} className="text-brand-600 hover:underline">
+                          {showInvoicePreview ? "Hide" : "View"}
+                        </button>
+                        {" · "}
+                        <a href={`/api/admin/jobs/${job.id}/invoice?download=1`} download={`invoice-${job.project_number ?? job.id}.pdf`} className="text-brand-600 hover:underline">
+                          Download
+                        </a>
+                      </div>
+                    </div>
                   ) : (
                     <div className="block w-36 overflow-hidden rounded-lg border border-dashed border-slate-300">
                       <div className="flex h-40 w-full items-center justify-center bg-slate-50 px-2 text-center text-xs text-slate-400">Not ready yet</div>
@@ -1968,7 +1896,7 @@ export function ProjectDetailDialog({
                             rel="noreferrer"
                             className="inline-block rounded-lg border border-red-600 bg-white px-3 py-1.5 text-sm font-bold uppercase text-red-600 hover:underline"
                           >
-                            View in Gmail ↗
+                            View draft in Gmail ↗
                           </a>
                           {(job.invoice_sent_at || combinedDraft.status?.status === "sent") && (
                             <p className="mt-1.5 text-xs text-slate-500">

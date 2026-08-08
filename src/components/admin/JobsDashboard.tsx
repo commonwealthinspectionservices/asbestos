@@ -1550,7 +1550,7 @@ export function ProjectDetailDialog({
                     grid below, not duplicated here. */}
                 <div className="rounded-lg border border-slate-200 p-3">
                   <p className="text-sm text-black">
-                    <span className="font-bold uppercase tracking-wide underline">Customer contact:</span>{" "}
+                    <span className="font-bold">Customer contact:</span>{" "}
                     {job.customer_id && job.customers?.name ? (
                       <a href={`/admin/customers?tab=contacts&contactId=${job.customer_id}`} className="hover:underline">
                         {job.customers.name}

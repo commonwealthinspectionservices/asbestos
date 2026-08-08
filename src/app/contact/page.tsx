@@ -1,6 +1,12 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import MarketingNav from "@/components/marketing/MarketingNav";
 import MarketingFooter from "@/components/marketing/MarketingFooter";
+
+export const metadata: Metadata = {
+  title: "Contact Us | Commonwealth Inspection Services, LLC.",
+  description: "Get in touch with Commonwealth Inspection Services for asbestos and mold inspections across Massachusetts, or book your inspection online.",
+};
 
 export default function ContactPage() {
   return (

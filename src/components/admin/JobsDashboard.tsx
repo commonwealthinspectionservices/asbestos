@@ -2486,8 +2486,10 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
   const [projectNumber, setProjectNumber] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [companyId, setCompanyId] = useState("");
+  const [companyNameBlurred, setCompanyNameBlurred] = useState(false);
   const [contactName, setContactName] = useState("");
   const [contactId, setContactId] = useState("");
+  const [contactNameBlurred, setContactNameBlurred] = useState(false);
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [creatingContact, setCreatingContact] = useState(false);
@@ -2642,11 +2644,12 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
   const nameField = (
     <ComboboxInput
       value={contactName}
-      onChange={(v) => { setContactName(v); setEmail(""); setPhone(""); setContactId(""); }}
+      onChange={(v) => { setContactName(v); setEmail(""); setPhone(""); setContactId(""); setContactNameBlurred(false); }}
       options={companyContacts}
       getLabel={(c) => c.name}
       getSublabel={(c) => c.email}
       onSelect={selectContact}
+      onBlur={() => setContactNameBlurred(true)}
       placeholder="Name"
     />
   );
@@ -2661,8 +2664,11 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
   // Every job needs a real contact attached — Individual mode gates on this
   // field directly (it's the customer), so this warning only ever shows
   // there. Company mode gates on the Company field instead (see below);
-  // its "Company contact" person stays freeform, same as before.
-  const noContactWarning = customerKind === "individual" && contactName.trim() && !contactId && (
+  // its "Company contact" person stays freeform, same as before. Only
+  // shown once the field's been left (contactNameBlurred) — not while
+  // still mid-type, which would flag every real contact as "not found"
+  // right up until the last keystroke.
+  const noContactWarning = customerKind === "individual" && contactNameBlurred && contactName.trim() && !contactId && (
     <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
       <span>No contact named &quot;{contactName.trim()}&quot; found in the Directory.</span>
       <button type="button" onClick={() => setCreatingContact(true)} className="font-bold underline">
@@ -2743,10 +2749,11 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
               <div className="mt-1">
                 <ComboboxInput
                   value={companyName}
-                  onChange={(v) => { setCompanyName(v); setCompanyId(""); }}
+                  onChange={(v) => { setCompanyName(v); setCompanyId(""); setCompanyNameBlurred(false); }}
                   fetchOptions={searchCompanies}
                   getLabel={(c) => c.name}
                   onSelect={selectCompany}
+                  onBlur={() => setCompanyNameBlurred(true)}
                 />
               </div>
             </div>
@@ -2755,7 +2762,7 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
 
         {noContactWarning}
 
-        {customerKind === "company" && companyName.trim() && !companyId && (
+        {customerKind === "company" && companyNameBlurred && companyName.trim() && !companyId && (
           <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
             <span>No company named &quot;{companyName.trim()}&quot; found in the Directory.</span>
             <button type="button" onClick={() => setCreatingContact(true)} className="font-bold underline">

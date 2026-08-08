@@ -2620,10 +2620,10 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
     }
   }
 
-  // Individual mode wants Name/Phone up top, right under the toggle;
-  // Company mode keeps them down by Job site contact as the "Company
-  // contact" person, since the Company field itself takes the top spot
-  // instead. Same fields/state either way, just placed once per render.
+  // Individual mode wants Name/Phone directly under the toggle; Company
+  // mode wants the same fields (as "Company contact") directly under the
+  // Company field instead. Same fields/state either way, just placed once
+  // per render depending on customerKind.
   const contactFields = (
     <>
       <label className="mt-3 block text-sm font-medium text-slate-700">
@@ -2717,6 +2717,8 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
             </div>
           )}
         </div>
+
+        {customerKind === "company" && contactFields}
 
         <label className="mt-3 block text-sm font-medium text-slate-700">Job site address</label>
         <div className="mt-1 flex gap-1.5">
@@ -2904,8 +2906,6 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
           />
           Customer contact is also job site contact
         </label>
-
-        {customerKind === "company" && contactFields}
 
         <label className="mt-3 block text-sm font-medium text-slate-700">Notes</label>
         <textarea className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />

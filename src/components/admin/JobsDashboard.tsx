@@ -1718,11 +1718,12 @@ export function ProjectDetailDialog({
                                   // happened to trigger another refetch.
                                   const negativeRemark = isLeadJob(job) ? LEAD_NEGATIVE_REMARK : ASBESTOS_NEGATIVE_REMARK;
                                   const positiveRemark = isLeadJob(job) ? LEAD_POSITIVE_REMARK : ASBESTOS_POSITIVE_REMARK;
+                                  const resultField = isLeadJob(job) ? "lead_result" : "asbestos_result";
                                   const patch: Record<string, unknown> = { report_summary: o.trim() || null };
                                   if (o === negativeRemark) {
-                                    patch[isLeadJob(job) ? "lead_result" : "asbestos_result"] = "negative";
+                                    patch[resultField] = "negative";
                                   } else if (o === positiveRemark) {
-                                    patch[isLeadJob(job) ? "lead_result" : "asbestos_result"] = "positive";
+                                    patch[resultField] = "positive";
                                   }
                                   saveJobField(patch);
                                 }}

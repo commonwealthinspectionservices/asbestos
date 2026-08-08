@@ -24,8 +24,7 @@ import { AcceptScheduleControl } from "@/components/admin/AcceptScheduleControl"
 // single "ready_to_send" step below (lab results in, report/invoice
 // generatable, just waiting on payment before the report itself can go
 // out). All of them are omitted from PIPELINE_STATUSES (the dropdown
-// options) but kept in STATUS_LABEL/STATUS_COLOR so any old row still
-// renders correctly.
+// options) but kept in STATUS_LABEL so any old row still renders correctly.
 const PIPELINE_STATUSES = [
   "needs_scheduling",
   "scheduled",
@@ -74,22 +73,7 @@ export const STATUS_LABEL: Record<string, string> = {
   cancelled: "Cancelled",
 };
 
-const STATUS_COLOR: Record<string, string> = {
-  needs_scheduling: "bg-slate-200 text-slate-700",
-  scheduled: "bg-blue-100 text-blue-700",
-  fieldwork_in_progress: "bg-indigo-100 text-indigo-700",
-  awaiting_lab_results: "bg-purple-100 text-purple-700",
-  needs_report: "bg-orange-100 text-orange-700",
-  pending_lab_results: "bg-purple-100 text-purple-700",
-  completed: "bg-teal-100 text-teal-700",
-  invoiced: "bg-amber-100 text-amber-700",
-  ready_to_send: "bg-amber-100 text-black",
-  paid: "bg-emerald-100 text-emerald-700",
-  cancelled: "bg-red-100 text-red-700",
-};
-
-// Solid dot color matching each STATUS_COLOR's hue, for the status filter
-// checklist — reinforces the same color coding used on the pills.
+// Solid dot color for the status filter checklist's legend.
 const STATUS_DOT_COLOR: Record<string, string> = {
   needs_scheduling: "bg-slate-400",
   scheduled: "bg-blue-500",
@@ -540,14 +524,6 @@ export default function JobsDashboard() {
   }, []);
 
   const overdueJobs = useMemo(() => jobs.filter((j) => daysOverdue(j) !== null), [jobs]);
-  // Not just status === "ready_to_send" — that can be set by hand without the
-  // report/invoice actually being drafted yet. This banner is specifically
-  // "there's a finished draft sitting here to review and send," so it also
-  // requires both drafts to actually exist.
-  const readyToSendJobs = useMemo(
-    () => jobs.filter((j) => j.status === "ready_to_send" && j.report_drafted_at != null && j.invoice_drafted_at != null),
-    [jobs]
-  );
 
   const filteredJobs = useMemo(() => {
     let result = jobs;
@@ -656,15 +632,6 @@ export default function JobsDashboard() {
           className="mt-3 flex w-full items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-left text-sm font-medium text-red-700"
         >
           ⚠ {overdueJobs.length} invoice{overdueJobs.length === 1 ? "" : "s"} overdue on payment
-        </button>
-      )}
-
-      {readyToSendJobs.length > 0 && (
-        <button
-          onClick={() => selectStatusFilter("ready_to_send")}
-          className="mt-3 flex w-full items-center gap-2 rounded-lg border border-amber-100 bg-amber-100 px-3 py-2 text-left text-sm font-medium uppercase text-black"
-        >
-          📄 {readyToSendJobs.length} report{readyToSendJobs.length === 1 ? "" : "s"} ready to send
         </button>
       )}
 
@@ -902,7 +869,7 @@ function JobRow({
             </span>
           )}
           {CLOSED_STATUSES.has(job.status) ? (
-            <span className={`shrink-0 whitespace-nowrap rounded px-2 py-0.5 text-sm font-bold uppercase ${STATUS_COLOR[job.status]}`}>
+            <span className="shrink-0 whitespace-nowrap rounded bg-slate-200 px-2 py-0.5 text-sm font-bold text-slate-700">
               {STATUS_LABEL[job.status]}
             </span>
           ) : (
@@ -910,7 +877,7 @@ function JobRow({
               value={job.status}
               onChange={(e) => onFieldChange({ status: e.target.value })}
               onClick={(e) => e.stopPropagation()}
-              className={`shrink-0 whitespace-nowrap rounded border-0 px-2 py-0.5 text-sm font-bold uppercase ${STATUS_COLOR[job.status]}`}
+              className="shrink-0 whitespace-nowrap rounded border-0 bg-slate-200 px-2 py-0.5 text-sm font-bold text-slate-700"
             >
               {PIPELINE_STATUSES.map((s) => (
                 <option key={s} value={s}>{STATUS_LABEL[s]}</option>
@@ -1434,7 +1401,7 @@ export function ProjectDetailDialog({
                 Edit
               </button>
             </div>
-            <DetailField label="Customer" value={job.customers?.company} nowrap />
+            <DetailField label="Company" value={job.customers?.company} nowrap />
             <DetailField
               label="Job site address"
               value={job.service_address ? (
@@ -1563,46 +1530,22 @@ export function ProjectDetailDialog({
             <div>
               <h3 className="text-lg font-bold uppercase tracking-wide text-black underline">Final Report Information</h3>
               <div className="mt-3 space-y-3">
-                {/* Who the report actually gets addressed to — the company
-                    name/billing contact when this customer belongs to one,
-                    otherwise just the individual's own contact info. */}
-                <div className="grid grid-cols-2 gap-4 rounded-lg border border-slate-200 p-3">
-                  <div className="space-y-2">
-                    <h4 className="text-sm font-bold uppercase tracking-wide text-black underline">Customer contact</h4>
-                    <DetailField
-                      label="Name"
-                      value={job.customer_id && job.customers?.name ? (
-                        <a href={`/admin/customers?tab=contacts&contactId=${job.customer_id}`} className="hover:underline">
-                          {job.customers.name}
-                        </a>
-                      ) : job.customers?.name}
-                      nowrap
-                    />
-                    <DetailField label="Phone" value={job.customers?.phone} />
-                    <DetailField label="Email" value={job.customers?.email} nowrap />
-                  </div>
-                  {!job.customers?.is_individual && job.customers?.companies && (
-                    <div className="space-y-2">
-                      <h4 className="text-sm font-bold uppercase tracking-wide text-black underline">Company info</h4>
-                      <DetailField label="Company name" value={job.customers.companies.name} nowrap />
-                      {job.customers.companies.billing_contact && (
-                        <DetailField
-                          label="Billing contact"
-                          value={
-                            <a
-                              href={`/admin/customers?tab=contacts&contactId=${job.customers.companies.billing_contact.id}`}
-                              className="hover:underline"
-                            >
-                              {job.customers.companies.billing_contact.name}
-                            </a>
-                          }
-                          nowrap
-                        />
-                      )}
-                      <DetailField label="Phone" value={job.customers.companies.phone} />
-                      <DetailField label="Billing address" value={job.customers.companies.billing_address} nowrap />
-                    </div>
-                  )}
+                {/* Who the report actually gets addressed to. Billing
+                    address (company or individual) lives in the cells
+                    grid below, not duplicated here. */}
+                <div className="space-y-2 rounded-lg border border-slate-200 p-3">
+                  <h4 className="text-sm font-bold uppercase tracking-wide text-black underline">Customer contact</h4>
+                  <DetailField
+                    label="Name"
+                    value={job.customer_id && job.customers?.name ? (
+                      <a href={`/admin/customers?tab=contacts&contactId=${job.customer_id}`} className="hover:underline">
+                        {job.customers.name}
+                      </a>
+                    ) : job.customers?.name}
+                    nowrap
+                  />
+                  <DetailField label="Phone" value={job.customers?.phone} />
+                  <DetailField label="Email" value={job.customers?.email} nowrap />
                 </div>
 
                 {isMoldJob(job) && (
@@ -1721,19 +1664,21 @@ export function ProjectDetailDialog({
                             serviceType={label}
                           />
                           <div>
-                            {job.sample_results && job.sample_results.length > 0 && (
-                              <div>
-                                <div className="flex flex-nowrap items-center gap-2">
-                                  <h4 className="whitespace-nowrap text-xs font-semibold uppercase tracking-wide text-slate-400">Sample Results</h4>
+                            <div className="flex flex-nowrap items-center gap-2">
+                              <h4 className="whitespace-nowrap text-xs font-semibold uppercase tracking-wide text-slate-400">Sample Results</h4>
+                            </div>
+                            {job.sample_results && job.sample_results.length > 0 ? (
+                              <div className="mt-1.5 w-full rounded-lg border border-slate-200 bg-slate-50 p-2 font-mono text-xs">
+                                {job.sample_results.map((s, i) => (
+                                  <div key={i} className={/%/.test(s.result) ? "text-red-600" : "text-slate-900"}>{s.fieldCode}: {s.result}</div>
+                                ))}
+                                <div className="mt-1.5 border-t border-slate-200 pt-1.5 font-sans font-semibold text-slate-500">
+                                  Total: {job.sample_results.length} sample{job.sample_results.length === 1 ? "" : "s"}
                                 </div>
-                                <div className="mt-1.5 w-full rounded-lg border border-slate-200 bg-slate-50 p-2 font-mono text-xs">
-                                  {job.sample_results.map((s, i) => (
-                                    <div key={i} className={/%/.test(s.result) ? "text-red-600" : "text-slate-900"}>{s.fieldCode}: {s.result}</div>
-                                  ))}
-                                  <div className="mt-1.5 border-t border-slate-200 pt-1.5 font-sans font-semibold text-slate-500">
-                                    Total: {job.sample_results.length} sample{job.sample_results.length === 1 ? "" : "s"}
-                                  </div>
-                                </div>
+                              </div>
+                            ) : (
+                              <div className="mt-1.5 flex w-full flex-col items-center justify-center rounded-lg border-2 border-dashed border-slate-300 px-3 py-5 text-center text-xs text-slate-500">
+                                Populates once Laboratory Results is uploaded
                               </div>
                             )}
                           </div>
@@ -2700,7 +2645,7 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
             </div>
           </div>
           <div className="min-w-0 flex-1">
-            <label className="block text-sm font-medium text-slate-700">Customer</label>
+            <label className="block text-sm font-medium text-slate-700">Company (leave blank for an individual)</label>
             <div className="mt-1">
               <ComboboxInput
                 value={companyName}
@@ -3294,7 +3239,7 @@ export function EditProjectDialog({
             <input className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-2 text-sm" value={projectNumber} onChange={(e) => setProjectNumber(e.target.value)} />
           </div>
           <div className="min-w-0 flex-1">
-            <label className="block text-sm font-medium text-slate-700">Customer</label>
+            <label className="block text-sm font-medium text-slate-700">Company (leave blank for an individual)</label>
             <div className="mt-1">
               <ComboboxInput
                 value={companyName}

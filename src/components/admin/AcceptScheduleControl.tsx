@@ -109,7 +109,7 @@ export function AcceptScheduleControl({
   if (variant === "button") {
     return (
       <div onClick={(e) => stopPropagation && e.stopPropagation()} className="flex shrink-0 flex-wrap items-center gap-1.5">
-        <span className="whitespace-nowrap rounded bg-sky-50 px-2 py-1 text-xs font-medium text-sky-800">
+        <span className="whitespace-nowrap rounded bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">
           {job.requested_date
             ? `Requested for ${formatFullDate(job.requested_date)}${job.requested_time ? ` at ${formatTime(job.requested_time)}` : ""}`
             : "No requested time"}

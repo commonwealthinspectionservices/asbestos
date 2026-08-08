@@ -2500,7 +2500,10 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
   const [serviceZip, setServiceZip] = useState("");
   const [siteContactName, setSiteContactName] = useState("");
   const [siteContactPhone, setSiteContactPhone] = useState("");
-  const [siteContactSameAsContact, setSiteContactSameAsContact] = useState(false);
+  // Individual mode defaults to true (site contact assumed to be the
+  // customer, fields stay hidden) since that's the common case; Company
+  // mode resets this to false on toggle (fields always shown there).
+  const [siteContactSameAsContact, setSiteContactSameAsContact] = useState(true);
   const [selectedServiceTypeKeys, setSelectedServiceTypeKeys] = useState<string[]>([]);
   const [customServiceType, setCustomServiceType] = useState("");
   // Independent of the text itself, so checking the box first (before
@@ -2706,6 +2709,7 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
               setCustomerKind("individual");
               setCompanyName("");
               setCompanyId("");
+              setSiteContactSameAsContact(true);
             }}
             className={`flex-1 rounded-lg px-3 py-1.5 text-sm font-medium ${customerKind === "individual" ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}
           >
@@ -2713,7 +2717,10 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
           </button>
           <button
             type="button"
-            onClick={() => setCustomerKind("company")}
+            onClick={() => {
+              setCustomerKind("company");
+              setSiteContactSameAsContact(false);
+            }}
             className={`flex-1 rounded-lg px-3 py-1.5 text-sm font-medium ${customerKind === "company" ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}
           >
             Company
@@ -2919,48 +2926,96 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
           onChange={(e) => setScopeOfWork(e.target.value)}
         />
 
-        <label className="mt-3 block text-sm font-medium text-slate-700">Job site contact</label>
-        <div className="mt-1 flex gap-2">
-          <div className="w-0 flex-1">
-            <ComboboxInput
-              value={siteContactName}
-              onChange={setSiteContactName}
-              fetchOptions={searchContacts}
-              getLabel={(c) => c.name}
-              getSublabel={(c) => c.email}
-              onSelect={(c) => {
-                setSiteContactName(c.name);
-                setSiteContactPhone(c.phone);
-              }}
-              placeholder="Name"
-              disabled={siteContactSameAsContact}
-            />
-          </div>
-          <div className="w-0 flex-1">
-            <input
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-500"
-              placeholder="Phone"
-              value={siteContactPhone}
-              disabled={siteContactSameAsContact}
-              onChange={(e) => setSiteContactPhone(formatPhoneInput(e.target.value))}
-            />
-          </div>
-        </div>
-        <label className="mt-2 flex items-center gap-2 text-sm text-slate-600">
-          <input
-            type="checkbox"
-            checked={siteContactSameAsContact}
-            onChange={(e) => {
-              const checked = e.target.checked;
-              setSiteContactSameAsContact(checked);
-              if (!checked) {
-                setSiteContactName("");
-                setSiteContactPhone("");
-              }
-            }}
-          />
-          {customerKind === "company" ? "Company contact" : "Customer contact"} is also job site contact
-        </label>
+        {customerKind === "individual" ? (
+          <>
+            <label className="mt-3 flex items-center gap-2 text-sm font-medium text-slate-700">
+              <input
+                type="checkbox"
+                checked={!siteContactSameAsContact}
+                onChange={(e) => {
+                  const differs = e.target.checked;
+                  setSiteContactSameAsContact(!differs);
+                  if (differs) {
+                    setSiteContactName("");
+                    setSiteContactPhone("");
+                  }
+                }}
+              />
+              Job site contact is not the customer
+            </label>
+            {!siteContactSameAsContact && (
+              <div className="mt-2 flex gap-2">
+                <div className="w-0 flex-1">
+                  <ComboboxInput
+                    value={siteContactName}
+                    onChange={setSiteContactName}
+                    fetchOptions={searchContacts}
+                    getLabel={(c) => c.name}
+                    getSublabel={(c) => c.email}
+                    onSelect={(c) => {
+                      setSiteContactName(c.name);
+                      setSiteContactPhone(c.phone);
+                    }}
+                    placeholder="Name"
+                  />
+                </div>
+                <div className="w-0 flex-1">
+                  <input
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                    placeholder="Phone"
+                    value={siteContactPhone}
+                    onChange={(e) => setSiteContactPhone(formatPhoneInput(e.target.value))}
+                  />
+                </div>
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            <label className="mt-3 block text-sm font-medium text-slate-700">Job site contact</label>
+            <div className="mt-1 flex gap-2">
+              <div className="w-0 flex-1">
+                <ComboboxInput
+                  value={siteContactName}
+                  onChange={setSiteContactName}
+                  fetchOptions={searchContacts}
+                  getLabel={(c) => c.name}
+                  getSublabel={(c) => c.email}
+                  onSelect={(c) => {
+                    setSiteContactName(c.name);
+                    setSiteContactPhone(c.phone);
+                  }}
+                  placeholder="Name"
+                  disabled={siteContactSameAsContact}
+                />
+              </div>
+              <div className="w-0 flex-1">
+                <input
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-500"
+                  placeholder="Phone"
+                  value={siteContactPhone}
+                  disabled={siteContactSameAsContact}
+                  onChange={(e) => setSiteContactPhone(formatPhoneInput(e.target.value))}
+                />
+              </div>
+            </div>
+            <label className="mt-2 flex items-center gap-2 text-sm text-slate-600">
+              <input
+                type="checkbox"
+                checked={siteContactSameAsContact}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setSiteContactSameAsContact(checked);
+                  if (!checked) {
+                    setSiteContactName("");
+                    setSiteContactPhone("");
+                  }
+                }}
+              />
+              Company contact is also job site contact
+            </label>
+          </>
+        )}
 
         <label className="mt-3 block text-sm font-medium text-slate-700">Notes</label>
         <textarea className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />

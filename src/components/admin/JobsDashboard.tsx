@@ -1129,6 +1129,7 @@ export function ProjectDetailDialog({
   const [invoiceLineItems, setInvoiceLineItems] = useState<LineItemRowState[]>(() => defaultLineItems(job, serviceTypeSettings, pricingZones));
   const [savingInvoice, setSavingInvoice] = useState(false);
   const [showInvoicePreview, setShowInvoicePreview] = useState(false);
+  const [showReportPreview, setShowReportPreview] = useState(false);
   const [payLinkLoading, setPayLinkLoading] = useState(false);
   const [payLinkError, setPayLinkError] = useState<string | null>(null);
   async function getPaymentLink() {
@@ -1637,13 +1638,13 @@ export function ProjectDetailDialog({
                               <div className="mt-2 flex gap-2">
                                 <button
                                   onClick={() => (isLeadLabel ? setLeadResult("positive") : setAsbestosResult("positive"))}
-                                  className={`rounded px-2 py-0.5 text-xs font-bold uppercase ${(isLeadLabel ? job.lead_result : job.asbestos_result) === "positive" ? "bg-red-600 text-white" : "bg-slate-100 text-slate-600"}`}
+                                  className={`rounded px-2 py-0.5 text-xs font-bold uppercase hover:underline ${(isLeadLabel ? job.lead_result : job.asbestos_result) === "positive" ? "bg-red-600 text-white" : "bg-slate-100 text-slate-600"}`}
                                 >
                                   Positive
                                 </button>
                                 <button
                                   onClick={() => (isLeadLabel ? setLeadResult("negative") : setAsbestosResult("negative"))}
-                                  className={`rounded px-2 py-0.5 text-xs font-bold uppercase ${(isLeadLabel ? job.lead_result : job.asbestos_result) === "negative" ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-600"}`}
+                                  className={`rounded px-2 py-0.5 text-xs font-bold uppercase hover:underline ${(isLeadLabel ? job.lead_result : job.asbestos_result) === "negative" ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-600"}`}
                                 >
                                   Negative
                                 </button>
@@ -1685,17 +1686,21 @@ export function ProjectDetailDialog({
             </div>
 
             <div className="border-t-4 border-slate-300 pt-6">
-              <h3 className="text-lg font-bold uppercase tracking-wide text-black underline">Final Report</h3>
-              <div className="mt-3 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-lg font-bold uppercase tracking-wide text-black underline">Final Report</h3>
                 <div className="flex flex-wrap items-center gap-2">
-                  <a href={`/api/admin/jobs/${job.id}/report`} target="_blank" rel="noreferrer" className="rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-bold text-white">
-                    Download Final Report
-                  </a>
-                  <a href={`/api/admin/jobs/${job.id}/report-xlsm`} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-bold text-slate-700">
-                    .xlsm
+                  <button
+                    onClick={() => setShowReportPreview((v) => !v)}
+                    className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-bold text-slate-700 hover:underline"
+                  >
+                    {showReportPreview ? "Hide" : "View"}
+                  </button>
+                  <a href={`/api/admin/jobs/${job.id}/report`} target="_blank" rel="noreferrer" className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-bold text-slate-700 hover:underline">
+                    Download
                   </a>
                 </div>
-
+              </div>
+              <div className="mt-3 space-y-3">
                 {isMoldJob(job) && (
                   <div className="rounded-lg border border-slate-200 p-3">
                     <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
@@ -1756,7 +1761,7 @@ export function ProjectDetailDialog({
                     <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">Date</label>
                     <input
                       type="date"
-                      className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+                      className="mt-1 h-9 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
                       value={requestedDateInput}
                       onChange={(e) => setRequestedDateInput(e.target.value)}
                       onBlur={(e) => saveJobField({ requested_date: e.target.value || null })}
@@ -1765,7 +1770,7 @@ export function ProjectDetailDialog({
                   <div>
                     <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">Lab info</label>
                     <select
-                      className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+                      className="mt-1 h-9 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
                       value={job.lab_name ?? ""}
                       onChange={(e) => selectLab(e.target.value)}
                     >
@@ -1837,10 +1842,12 @@ export function ProjectDetailDialog({
                 })()}
 
                 {reportComplete ? (
-                  <PdfPreview
-                    url={`/api/admin/jobs/${job.id}/report?v=${encodeURIComponent(reportRevision)}`}
-                    revision={reportRevision}
-                  />
+                  showReportPreview && (
+                    <PdfPreview
+                      url={`/api/admin/jobs/${job.id}/report?v=${encodeURIComponent(reportRevision)}`}
+                      revision={reportRevision}
+                    />
+                  )
                 ) : (
                   <p className="text-sm text-slate-500">
                     Fill in every field above (an empty one is still missing) to generate the report preview.
@@ -1850,7 +1857,34 @@ export function ProjectDetailDialog({
             </div>
 
             <div className="border-t-4 border-slate-300 pt-6">
-              <h3 className="text-lg font-bold uppercase tracking-wide text-black underline">Invoice</h3>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-lg font-bold uppercase tracking-wide text-black underline">Invoice</h3>
+                {job.invoice_total_cents != null && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      onClick={() => setShowInvoicePreview((v) => !v)}
+                      className={`rounded-lg px-3 py-1.5 text-sm font-bold uppercase hover:underline ${
+                        reportComplete
+                          ? "bg-emerald-600 text-white"
+                          : "border border-slate-300 bg-white text-slate-700"
+                      }`}
+                    >
+                      {showInvoicePreview ? "Hide" : "View"}
+                    </button>
+                    <a
+                      href={`/api/admin/jobs/${job.id}/invoice?download=1`}
+                      download={`invoice-${job.project_number ?? job.id}.pdf`}
+                      className={`rounded-lg px-3 py-1.5 text-sm font-bold uppercase hover:underline ${
+                        reportComplete
+                          ? "bg-emerald-600 text-white"
+                          : "border border-slate-300 bg-white text-slate-700"
+                      }`}
+                    >
+                      Download
+                    </a>
+                  </div>
+                )}
+              </div>
               <div className="mt-3">
                 <div className="mb-4 space-y-1">
                   {job.po_number && <DetailField label="PO #" value={job.po_number} />}
@@ -1866,31 +1900,6 @@ export function ProjectDetailDialog({
                 />
                 {savingInvoice && <p className="mt-1 text-xs text-slate-400">Saving…</p>}
 
-                {job.invoice_total_cents != null && (
-                  <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <button
-                      onClick={() => setShowInvoicePreview((v) => !v)}
-                      className={`rounded-lg px-3 py-1.5 text-sm font-bold uppercase ${
-                        reportComplete
-                          ? "bg-emerald-600 text-white"
-                          : "border border-slate-300 bg-white text-slate-700"
-                      }`}
-                    >
-                      {showInvoicePreview ? "Hide invoice" : "View invoice"}
-                    </button>
-                    <a
-                      href={`/api/admin/jobs/${job.id}/invoice?download=1`}
-                      download={`invoice-${job.project_number ?? job.id}.pdf`}
-                      className={`rounded-lg px-3 py-1.5 text-sm font-bold uppercase ${
-                        reportComplete
-                          ? "bg-emerald-600 text-white"
-                          : "border border-slate-300 bg-white text-slate-700"
-                      }`}
-                    >
-                      Download invoice
-                    </a>
-                  </div>
-                )}
                 {showInvoicePreview && job.invoice_total_cents != null && (
                   <div className="mt-3">
                     <PdfPreview
@@ -1925,14 +1934,14 @@ export function ProjectDetailDialog({
                     <button
                       onClick={getPaymentLink}
                       disabled={payLinkLoading}
-                      className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-bold uppercase text-slate-700 disabled:opacity-50"
+                      className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-bold uppercase text-slate-700 hover:underline disabled:opacity-50"
                     >
                       {payLinkLoading ? "Loading…" : "View payment link"}
                     </button>
                     <button
                       onClick={copyPaymentLink}
                       disabled={copyLinkLoading}
-                      className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-bold uppercase text-slate-700 disabled:opacity-50"
+                      className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-bold uppercase text-slate-700 hover:underline disabled:opacity-50"
                     >
                       {copyLinkLoading ? "Loading…" : copyLinkDone ? "Copied!" : "Copy payment link"}
                     </button>
@@ -1950,7 +1959,7 @@ export function ProjectDetailDialog({
                     the report is too, regardless of whether it's been
                     priced — an invoice for an incomplete report isn't
                     actually final. */}
-                <div className="flex flex-wrap gap-3">
+                <div className="flex flex-wrap items-start gap-3">
                   {reportComplete ? (
                     <a
                       href={`/api/admin/jobs/${job.id}/report?v=${encodeURIComponent(reportRevision)}`}
@@ -1983,36 +1992,37 @@ export function ProjectDetailDialog({
                       <p className="border-t border-dashed border-slate-300 px-2 py-1 text-center text-xs font-bold uppercase text-slate-400">Invoice</p>
                     </div>
                   )}
+                  {job.invoice_draft_gmail_message_id && (
+                    <div className="rounded-lg border border-slate-200 p-3">
+                      <a
+                        href={gmailMessageUrl(job.invoice_draft_gmail_message_id, Boolean(job.invoice_sent_at))}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-block rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-bold uppercase text-slate-700 hover:underline"
+                      >
+                        View draft in Gmail ↗
+                      </a>
+                      <p className="mt-1.5 text-xs text-slate-500">
+                        {draftStatusText(job.invoice_drafted_at, job.invoice_sent_at, combinedDraft.status, "Drafted", "Drafted")}
+                      </p>
+                    </div>
+                  )}
                 </div>
 
-                {job.invoice_draft_gmail_message_id ? (
-                  <div className="rounded-lg border border-slate-200 p-3">
-                    <a
-                      href={gmailMessageUrl(job.invoice_draft_gmail_message_id, Boolean(job.invoice_sent_at))}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-block rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-bold uppercase text-slate-700"
-                    >
-                      View draft in Gmail ↗
-                    </a>
-                    <p className="mt-1.5 text-xs text-slate-500">
-                      {draftStatusText(job.invoice_drafted_at, job.invoice_sent_at, combinedDraft.status, "Drafted", "Drafted")}
-                    </p>
-                  </div>
-                ) : reportComplete ? (
+                {!job.invoice_draft_gmail_message_id && reportComplete && (
                   <div className="rounded-lg border border-slate-200 p-3">
                     <div className="flex flex-wrap items-center gap-2">
                       <button
                         onClick={() => combinedDraft.create()}
                         disabled={combinedDraft.creating}
-                        className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-bold uppercase text-slate-700 disabled:opacity-50"
+                        className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-bold uppercase text-slate-700 hover:underline disabled:opacity-50"
                       >
                         {combinedDraft.creating ? "Creating…" : "Create Draft"}
                       </button>
                       {combinedDraft.message && <span className="text-xs text-slate-500">{combinedDraft.message}</span>}
                     </div>
                   </div>
-                ) : null}
+                )}
               </div>
             </div>
           </div>
@@ -4027,10 +4037,10 @@ function LineItemsEditor({
           />
         </div>
         <div className="flex gap-3">
-          <button onClick={() => add()} className="text-sm text-brand-600 underline">
+          <button onClick={() => add()} className="text-sm text-brand-600 hover:underline">
             + Custom Line Item
           </button>
-          <button onClick={() => addSample()} className="text-sm text-brand-600 underline">
+          <button onClick={() => addSample()} className="text-sm text-brand-600 hover:underline">
             + Samples
           </button>
         </div>

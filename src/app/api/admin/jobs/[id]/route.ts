@@ -23,6 +23,7 @@ const EDITABLE_FIELDS = [
   "project_name",
   "job_classification",
   "payment_method",
+  "payment_type",
   "po_number",
   "invoice_number",
   "service_address",

@@ -361,7 +361,7 @@ export default function ProjectDetailModal({
                     >
                       Download invoice
                     </a>
-                    {!paid && (
+                    {!paid && job.payment_type !== "check" && (
                       <button
                         onClick={payNow}
                         disabled={payLoading}

@@ -34,6 +34,9 @@ export const POST = withApiErrors(async (
   if (jobRow.invoice_total_cents == null || !jobRow.invoice_line_items.length) {
     return NextResponse.json({ error: "Project has not been invoiced yet" }, { status: 400 });
   }
+  if (jobRow.payment_type === "check") {
+    return NextResponse.json({ error: "This project is billed by check, not online payment" }, { status: 400 });
+  }
 
   // Bill the job's own customer, not necessarily the logged-in viewer — a
   // colleague at the same company can pay this invoice too.

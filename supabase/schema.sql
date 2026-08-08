@@ -697,3 +697,15 @@ alter table jobs add column if not exists lead_result text check (lead_result in
 -- existed, since Add Project's admin-direct-entry path is what this column
 -- was introduced to distinguish going forward).
 alter table jobs add column if not exists source text not null default 'portal_booking';
+
+-- How this job actually gets paid — most are "online" (Stripe hosted
+-- invoice, pay-now link on the auto-drafted invoice email and the portal's
+-- Pay now button), but some clients pay by check/cash instead, where
+-- creating a Stripe invoice at all is just noise (and an unnecessary
+-- processing fee if they ever did click it). Checked in
+-- draftInvoiceEmailForJob/draftCombinedEmailForJob (lib/lab-email.ts) and
+-- the portal's pay route/button — "check" skips Stripe invoice creation
+-- entirely on those paths. The admin's own on-demand "Get payment link"
+-- button is intentionally NOT gated by this — it's an explicit action, not
+-- automatic.
+alter table jobs add column if not exists payment_type text not null default 'online' check (payment_type in ('online', 'check'));

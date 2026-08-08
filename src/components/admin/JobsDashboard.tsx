@@ -2625,6 +2625,7 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
   const [requestedDate, setRequestedDate] = useState("");
   const [requestedTime, setRequestedTime] = useState("");
   const [notes, setNotes] = useState("");
+  const [paymentType, setPaymentType] = useState<"online" | "check">("online");
   const [submitting, setSubmitting] = useState(false);
   const [fetchingNumber, setFetchingNumber] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -2724,6 +2725,7 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
           requestedTime: requestedTime || undefined,
           status: startingStatus,
           notes: notes.trim() || undefined,
+          paymentType,
         }),
       });
       const data = await res.json();
@@ -2988,6 +2990,27 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
         <label className="mt-3 block text-sm font-medium text-slate-700">Notes</label>
         <textarea className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
 
+        <label className="mt-3 block text-sm font-medium text-slate-700">Payment type</label>
+        <div className="mt-1 flex gap-2">
+          <button
+            type="button"
+            onClick={() => setPaymentType("online")}
+            className={`flex-1 rounded-lg px-3 py-1.5 text-sm font-medium ${paymentType === "online" ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}
+          >
+            Online
+          </button>
+          <button
+            type="button"
+            onClick={() => setPaymentType("check")}
+            className={`flex-1 rounded-lg px-3 py-1.5 text-sm font-medium ${paymentType === "check" ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}
+          >
+            Check
+          </button>
+        </div>
+        {paymentType === "check" && (
+          <p className="mt-1 text-xs text-slate-500">No Stripe invoice or pay-now link will be created automatically for this project.</p>
+        )}
+
         <div className="mt-4 flex gap-2">
           <button
             onClick={submit}
@@ -3103,6 +3126,7 @@ export function EditProjectDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [confirmedDate]);
   const [notes, setNotes] = useState(job.notes ?? "");
+  const [paymentType, setPaymentType] = useState<"online" | "check">(job.payment_type ?? "online");
   const [submitting, setSubmitting] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -3258,6 +3282,7 @@ export function EditProjectDialog({
             scope_of_work: scopeOfWork.trim() || null,
             customer_id: targetCustomerId,
             report_emails: reportEmails || null,
+            payment_type: paymentType,
           }),
         }),
         customerOk && targetCustomerId !== customerId
@@ -3306,7 +3331,7 @@ export function EditProjectDialog({
     additionalReportEmails,
     serviceStreet, serviceUnit, serviceCity, serviceState, serviceZip,
     siteContactName, siteContactPhone, selectedServiceTypeKeys, customServiceType, scopeOfWork,
-    confirmedDate, confirmedTime, paidDate, dueDate, notes,
+    confirmedDate, confirmedTime, paidDate, dueDate, notes, paymentType,
   ]);
 
   useEffect(() => {
@@ -3609,6 +3634,27 @@ export function EditProjectDialog({
 
         <label className="mt-3 block text-sm font-medium text-slate-700">Notes</label>
         <textarea className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
+
+        <label className="mt-3 block text-sm font-medium text-slate-700">Payment type</label>
+        <div className="mt-1 flex gap-2">
+          <button
+            type="button"
+            onClick={() => setPaymentType("online")}
+            className={`flex-1 rounded-lg px-3 py-1.5 text-sm font-medium ${paymentType === "online" ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}
+          >
+            Online
+          </button>
+          <button
+            type="button"
+            onClick={() => setPaymentType("check")}
+            className={`flex-1 rounded-lg px-3 py-1.5 text-sm font-medium ${paymentType === "check" ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}
+          >
+            Check
+          </button>
+        </div>
+        {paymentType === "check" && (
+          <p className="mt-1 text-xs text-slate-500">No Stripe invoice or pay-now link will be created automatically for this project.</p>
+        )}
 
         <div className="mt-4 flex items-center justify-between gap-2">
           <div className="flex items-center gap-3">

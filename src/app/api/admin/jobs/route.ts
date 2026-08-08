@@ -160,6 +160,7 @@ export const POST = withApiErrors(async (req: NextRequest) => {
     // shows for those) from a project the admin entered directly, which
     // may also start at "needs_scheduling" but has no request to accept.
     source: "admin",
+    payment_type: body.paymentType === "check" ? "check" : "online",
     notes: body.notes || null,
     project_name: body.projectName || null,
     job_classification: body.jobClassification || null,

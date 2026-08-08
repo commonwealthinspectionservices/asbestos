@@ -268,6 +268,8 @@ export interface Job {
   is_individual: boolean;
   /** How this job was created — "portal_booking" for a real customer request (AcceptScheduleControl only shows for those), "admin" for one the owner entered directly via Add Project. Existing rows predating this column default to "portal_booking". */
   source: "portal_booking" | "admin";
+  /** Distinct from the free-text `payment_method` field above (informational, import-only). This one drives real behavior: "online" auto-creates a Stripe hosted invoice and includes its pay-now link on drafted invoice emails, and shows the portal's Pay now button. "check" skips Stripe entirely on those automatic paths — the admin's own on-demand "Get payment link" button still works regardless. */
+  payment_type: "online" | "check";
   created_at: string;
 }
 

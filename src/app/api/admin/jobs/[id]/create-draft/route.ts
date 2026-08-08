@@ -20,8 +20,7 @@ export const POST = withApiErrors(async (
 
   const kind = req.nextUrl.searchParams.get("kind");
   if (kind === "invoice") {
-    const includePayNowLink = req.nextUrl.searchParams.get("includePayNowLink") !== "false";
-    await createInvoiceDraftForJob(params.id, includePayNowLink);
+    await createInvoiceDraftForJob(params.id);
   } else if (kind === "report") {
     await createReportDraftForJob(params.id);
   } else {

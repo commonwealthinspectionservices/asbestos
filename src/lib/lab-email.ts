@@ -426,10 +426,8 @@ async function draftInvoiceEmailForJob(params: {
   job: Job & { customers: Customer & { companies: Company | null } };
   settings: Settings;
   accessToken: string;
-  /** Whether to create a Stripe invoice and include its "Pay online" link in the draft — on by default, but skippable per-draft for jobs the owner is billing by check/Zelle/ACH instead, to avoid Stripe's processing fee entirely. */
-  includePayNowLink?: boolean;
 }): Promise<void> {
-  const { job, settings, accessToken, includePayNowLink = true } = params;
+  const { job, settings, accessToken } = params;
   const supabase = getSupabaseAdmin();
 
   const { data: settingsRow } = await supabase.from("settings").select("service_types, pricing_zones").eq("id", 1).single();
@@ -472,11 +470,10 @@ async function draftInvoiceEmailForJob(params: {
 
   // Best-effort: a Stripe hiccup (bad key, network blip) must never block
   // the Gmail draft itself — the draft is the part that matters, the Pay
-  // Now link is a bonus when Stripe cooperates. Skipped entirely when the
-  // admin unchecks "Include payment now link" — e.g. billing this one by
-  // check/Zelle/ACH instead, to avoid Stripe's processing fee.
+  // Now link is a bonus when Stripe cooperates. Skipped entirely for a
+  // check-paid job (job.payment_type) — no Stripe invoice needed at all.
   let payNowUrl: string | null = null;
-  if (includePayNowLink) {
+  if (pricedJob.payment_type !== "check") {
     try {
       const { hostedInvoiceUrl } = await createStripeInvoiceForJob(pricedJob, toCustomer);
       payNowUrl = hostedInvoiceUrl;
@@ -633,13 +630,16 @@ async function draftCombinedEmailForJob(params: {
     .filter((e) => e && e !== toCustomer.email);
 
   // Best-effort, same as the standalone invoice draft — a Stripe hiccup
-  // must never block the Gmail draft itself.
+  // must never block the Gmail draft itself. Skipped entirely for a
+  // check-paid job (job.payment_type) — no Stripe invoice needed at all.
   let payNowUrl: string | null = null;
-  try {
-    const { hostedInvoiceUrl } = await createStripeInvoiceForJob(pricedJob, toCustomer);
-    payNowUrl = hostedInvoiceUrl;
-  } catch (e) {
-    console.error(`Failed to create Stripe invoice for job ${job.id}:`, e);
+  if (pricedJob.payment_type !== "check") {
+    try {
+      const { hostedInvoiceUrl } = await createStripeInvoiceForJob(pricedJob, toCustomer);
+      payNowUrl = hostedInvoiceUrl;
+    } catch (e) {
+      console.error(`Failed to create Stripe invoice for job ${job.id}:`, e);
+    }
   }
 
   // Recreating (the admin already had a draft, is clicking again) replaces
@@ -713,8 +713,8 @@ async function loadJobForDraft(jobId: string): Promise<{
 }
 
 /** Manual "Create Invoice Draft" button on the Email tab — same draft-creation path the automatic email check uses, callable on demand for any project. */
-export async function createInvoiceDraftForJob(jobId: string, includePayNowLink = true): Promise<void> {
-  await draftInvoiceEmailForJob({ ...(await loadJobForDraft(jobId)), includePayNowLink });
+export async function createInvoiceDraftForJob(jobId: string): Promise<void> {
+  await draftInvoiceEmailForJob(await loadJobForDraft(jobId));
 }
 
 /** Manual "Create Report Draft" button on the Email tab — same draft-creation path the automatic email check uses, callable on demand for any project. */

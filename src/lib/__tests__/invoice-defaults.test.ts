@@ -84,6 +84,7 @@ function baseJob(overrides: Partial<JobWithCustomer> = {}): JobWithCustomer {
     invoice_sent_at: null,
     is_individual: false,
     source: "portal_booking",
+    payment_type: "online",
     created_at: new Date().toISOString(),
     ...overrides,
   };

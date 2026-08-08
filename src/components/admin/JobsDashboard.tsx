@@ -1396,6 +1396,17 @@ export function ProjectDetailDialog({
   // Simpler to just not render a report preview at all until every field
   // it needs is actually filled in, rather than showing a part-blank letter.
   const reportComplete = reportIsComplete(job);
+  // No manual "Create Draft" step — the moment both the report and invoice
+  // are actually ready (and nothing's been drafted yet), fire it off on its
+  // own. combinedDraft.creating guards against double-firing while the
+  // request is in flight; once it lands, job.invoice_draft_gmail_message_id
+  // flips true via onChanged() and this condition goes false for good.
+  useEffect(() => {
+    if (reportComplete && job.invoice_total_cents != null && !job.invoice_draft_gmail_message_id && !combinedDraft.creating) {
+      combinedDraft.create();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reportComplete, job.invoice_total_cents, job.invoice_draft_gmail_message_id]);
   const invoiceRevision = JSON.stringify({
     invoice_line_items: job.invoice_line_items,
     invoice_total_cents: job.invoice_total_cents,
@@ -1961,7 +1972,7 @@ export function ProjectDetailDialog({
                     the report is too, regardless of whether it's been
                     priced — an invoice for an incomplete report isn't
                     actually final. */}
-                <div className="flex flex-wrap items-start gap-3">
+                <div className="flex flex-wrap gap-3">
                   {reportComplete ? (
                     <a
                       href={`/api/admin/jobs/${job.id}/report?v=${encodeURIComponent(reportRevision)}`}
@@ -1994,37 +2005,30 @@ export function ProjectDetailDialog({
                       <p className="border-t border-dashed border-slate-300 px-2 py-1 text-center text-xs font-bold uppercase text-slate-400">Invoice</p>
                     </div>
                   )}
-                  {job.invoice_draft_gmail_message_id && (
-                    <div className="rounded-lg border border-slate-200 p-3">
-                      <a
-                        href={gmailMessageUrl(job.invoice_draft_gmail_message_id, Boolean(job.invoice_sent_at))}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-block rounded-lg border border-red-600 bg-white px-3 py-1.5 text-sm font-bold uppercase text-red-600 hover:underline"
-                      >
-                        View in Gmail ↗
-                      </a>
-                      <p className="mt-1.5 text-xs text-slate-500">
-                        {draftStatusText(job.invoice_drafted_at, job.invoice_sent_at, combinedDraft.status, "Drafted", "Drafted")}
-                      </p>
+                  {reportComplete && job.invoice_total_cents != null && (
+                    <div className="flex min-h-40 flex-1 items-center justify-center">
+                      {job.invoice_draft_gmail_message_id ? (
+                        <div className="text-center">
+                          <a
+                            href={gmailMessageUrl(job.invoice_draft_gmail_message_id, Boolean(job.invoice_sent_at))}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-block rounded-lg border border-red-600 bg-white px-3 py-1.5 text-sm font-bold uppercase text-red-600 hover:underline"
+                          >
+                            View in Gmail ↗
+                          </a>
+                          {(job.invoice_sent_at || combinedDraft.status?.status === "sent") && (
+                            <p className="mt-1.5 text-xs text-slate-500">
+                              {draftStatusText(job.invoice_drafted_at, job.invoice_sent_at, combinedDraft.status, "Drafted", "Drafted")}
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-slate-400">Creating draft…</p>
+                      )}
                     </div>
                   )}
                 </div>
-
-                {!job.invoice_draft_gmail_message_id && reportComplete && (
-                  <div className="rounded-lg border border-slate-200 p-3">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <button
-                        onClick={() => combinedDraft.create()}
-                        disabled={combinedDraft.creating}
-                        className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-bold uppercase text-slate-700 hover:underline disabled:opacity-50"
-                      >
-                        {combinedDraft.creating ? "Creating…" : "Create Draft"}
-                      </button>
-                      {combinedDraft.message && <span className="text-xs text-slate-500">{combinedDraft.message}</span>}
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
           </div>

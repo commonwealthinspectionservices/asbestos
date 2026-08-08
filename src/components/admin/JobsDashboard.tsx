@@ -338,8 +338,9 @@ function lineItemsTotalCents(items: InvoiceLineItem[]): number {
   return items.reduce((total, item) => total + Math.round(item.quantity * item.unit_cost_cents), 0);
 }
 
-// Every repeat customer/contractor invoice is due 30 days after the project
-// date, no exceptions — a fixed rule rather than a stored, overridable field.
+// Default due date shown/used until the admin explicitly overrides it via
+// the Invoice section's own date field (job.payment_due_date) — 30 days
+// after the project date.
 function paymentDueDate(projectDate: string): string | null {
   if (!projectDate) return null;
   const d = new Date(`${projectDate}T00:00:00`);
@@ -1698,7 +1699,7 @@ export function ProjectDetailDialog({
               </div>
             </div>
 
-            <div className="border-t border-slate-100 pt-6">
+            <div className="border-t-4 border-slate-300 pt-6">
               <h3 className="text-lg font-bold uppercase tracking-wide text-black underline">Final Report</h3>
               <div className="mt-3 space-y-3">
                 <div className="flex flex-wrap items-center gap-2">
@@ -1882,20 +1883,26 @@ export function ProjectDetailDialog({
               </div>
             </div>
 
-            <div className="border-t border-slate-100 pt-6">
+            <div className="border-t-4 border-slate-300 pt-6">
               <h3 className="text-lg font-bold uppercase tracking-wide text-black underline">Invoice</h3>
               <div className="mt-3">
                 <div className="mb-4 space-y-1">
                   {job.po_number && <DetailField label="PO #" value={job.po_number} />}
                   {job.invoice_number && <DetailField label="Invoice #" value={job.invoice_number} />}
-                  <DetailField
-                    label="Payment Due Date"
-                    value={formatDate(job.payment_due_date || paymentDueDate(job.requested_date ?? "")) || "—"}
-                  />
                 </div>
 
                 <LineItemsEditor items={invoiceLineItems} setItems={setInvoiceLineItemsFromUser} serviceTypeSettings={serviceTypeSettings} />
                 {savingInvoice && <p className="mt-1 text-xs text-slate-400">Saving…</p>}
+
+                <div className="mt-3">
+                  <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">Payment due date</label>
+                  <input
+                    type="date"
+                    className="mt-1 rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+                    value={job.payment_due_date || paymentDueDate(job.requested_date ?? "") || ""}
+                    onChange={(e) => saveJobField({ payment_due_date: e.target.value || null })}
+                  />
+                </div>
 
                 {(job.lab_name || job.lab_cost_cents != null) && (
                   <div className="mt-4 border-t border-slate-100 pt-4">
@@ -1963,7 +1970,7 @@ export function ProjectDetailDialog({
               </div>
             </div>
 
-            <div className="border-t border-slate-100 pt-6">
+            <div className="border-t-4 border-slate-300 pt-6">
               <h3 className="text-lg font-bold uppercase tracking-wide text-black underline">Send</h3>
               <div className="mt-3 space-y-3">
                 {job.is_individual && job.status !== "paid" && (
@@ -4003,7 +4010,7 @@ function LineItemsEditor({
       ))}
 
       <div className="flex items-center justify-between">
-        <p className="text-base font-bold text-emerald-600">Invoice total: {currency(total)}</p>
+        <p className="text-base font-bold uppercase text-emerald-600">Invoice total: {currency(total)}</p>
         <div className="flex gap-3">
           <button onClick={() => add()} className="text-sm text-brand-600 underline">
             + Custom Line Item

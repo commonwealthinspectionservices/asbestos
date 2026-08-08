@@ -2620,6 +2620,39 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
     }
   }
 
+  // Individual mode wants Name/Phone up top, right under the toggle;
+  // Company mode keeps them down by Job site contact as the "Company
+  // contact" person, since the Company field itself takes the top spot
+  // instead. Same fields/state either way, just placed once per render.
+  const contactFields = (
+    <>
+      <label className="mt-3 block text-sm font-medium text-slate-700">
+        {customerKind === "company" ? "Company contact" : "Name"}
+      </label>
+      <div className="mt-1 flex gap-2">
+        <div className="w-0 flex-1">
+          <ComboboxInput
+            value={contactName}
+            onChange={(v) => { setContactName(v); setEmail(""); setPhone(""); }}
+            options={companyContacts}
+            getLabel={(c) => c.name}
+            getSublabel={(c) => c.email}
+            onSelect={selectContact}
+            placeholder="Name"
+          />
+        </div>
+        <div className="w-0 flex-1">
+          <input
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            placeholder="Phone"
+            value={phone}
+            onChange={(e) => setPhone(formatPhoneInput(e.target.value))}
+          />
+        </div>
+      </div>
+    </>
+  );
+
   return (
     <>
     <div className="fixed inset-0 flex items-center justify-center bg-black/40 px-4">
@@ -2652,6 +2685,8 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
             Company
           </button>
         </div>
+
+        {customerKind === "individual" && contactFields}
 
         <div className="mt-4 flex gap-4">
           <div className="shrink-0">
@@ -2870,30 +2905,7 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
           Customer contact is also job site contact
         </label>
 
-        <label className="mt-3 block text-sm font-medium text-slate-700">
-          {customerKind === "company" ? "Company contact" : "Name"}
-        </label>
-        <div className="mt-1 flex gap-2">
-          <div className="w-0 flex-1">
-            <ComboboxInput
-              value={contactName}
-              onChange={(v) => { setContactName(v); setEmail(""); setPhone(""); }}
-              options={companyContacts}
-              getLabel={(c) => c.name}
-              getSublabel={(c) => c.email}
-              onSelect={selectContact}
-              placeholder="Name"
-            />
-          </div>
-          <div className="w-0 flex-1">
-            <input
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-              placeholder="Phone"
-              value={phone}
-              onChange={(e) => setPhone(formatPhoneInput(e.target.value))}
-            />
-          </div>
-        </div>
+        {customerKind === "company" && contactFields}
 
         <label className="mt-3 block text-sm font-medium text-slate-700">Notes</label>
         <textarea className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />

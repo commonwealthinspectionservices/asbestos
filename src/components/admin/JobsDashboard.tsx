@@ -12,6 +12,7 @@ import AddressAutocompleteInput from "@/components/shared/AddressAutocompleteInp
 import JobChat from "@/components/shared/JobChat";
 import JobPhotos from "@/components/shared/JobPhotos";
 import { AcceptScheduleControl } from "@/components/admin/AcceptScheduleControl";
+import { ContactForm } from "@/components/admin/ContactDetailDialog";
 
 // The full job-flow pipeline, in order — every open project is tracked
 // somewhere along this list from intake to close-out. Admin-controlled via a
@@ -2486,8 +2487,10 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
   const [companyName, setCompanyName] = useState("");
   const [companyId, setCompanyId] = useState("");
   const [contactName, setContactName] = useState("");
+  const [contactId, setContactId] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [creatingContact, setCreatingContact] = useState(false);
   const [serviceStreet, setServiceStreet] = useState("");
   const [serviceUnit, setServiceUnit] = useState("");
   const [serviceCity, setServiceCity] = useState("");
@@ -2545,6 +2548,7 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
     setContactName(contact.name);
     setEmail(contact.email);
     setPhone(contact.phone);
+    setContactId(contact.id);
   }
 
   function toggleServiceType(key: string) {
@@ -2581,6 +2585,17 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
   }
 
   async function submit() {
+    // Every job needs a real Directory contact behind it — the inline
+    // "Create contact"/"Create company" prompt right above these fields is
+    // the way out of this, not a workaround around it.
+    if (customerKind === "individual" && !contactId) {
+      setError("Select an existing contact, or create one, before adding this project.");
+      return;
+    }
+    if (customerKind === "company" && !companyId) {
+      setError("Select an existing company, or create one, before adding this project.");
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
@@ -2620,35 +2635,47 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
     }
   }
 
-  // Individual mode wants Name/Phone directly under the toggle; Company
-  // mode wants the same fields (as "Company contact") directly under the
-  // Company field instead. Same fields/state either way, just placed once
-  // per render depending on customerKind.
+  // Shared Name/Phone controls bound to contactName/phone — Individual mode
+  // lays these out inline with Project Number (nameField/phoneField below);
+  // Company mode instead renders them as a labeled "Company contact" block
+  // (contactFields) underneath the Company field.
+  const nameField = (
+    <ComboboxInput
+      value={contactName}
+      onChange={(v) => { setContactName(v); setEmail(""); setPhone(""); setContactId(""); }}
+      options={companyContacts}
+      getLabel={(c) => c.name}
+      getSublabel={(c) => c.email}
+      onSelect={selectContact}
+      placeholder="Name"
+    />
+  );
+  const phoneField = (
+    <input
+      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+      placeholder="Phone"
+      value={phone}
+      onChange={(e) => setPhone(formatPhoneInput(e.target.value))}
+    />
+  );
+  // Every job needs a real contact attached — Individual mode gates on this
+  // field directly (it's the customer), so this warning only ever shows
+  // there. Company mode gates on the Company field instead (see below);
+  // its "Company contact" person stays freeform, same as before.
+  const noContactWarning = customerKind === "individual" && contactName.trim() && !contactId && (
+    <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+      <span>No contact named &quot;{contactName.trim()}&quot; found in the Directory.</span>
+      <button type="button" onClick={() => setCreatingContact(true)} className="font-bold underline">
+        Create contact
+      </button>
+    </div>
+  );
   const contactFields = (
     <>
-      <label className="mt-3 block text-sm font-medium text-slate-700">
-        {customerKind === "company" ? "Company contact" : "Name"}
-      </label>
+      <label className="mt-3 block text-sm font-medium text-slate-700">Company contact</label>
       <div className="mt-1 flex gap-2">
-        <div className="w-0 flex-1">
-          <ComboboxInput
-            value={contactName}
-            onChange={(v) => { setContactName(v); setEmail(""); setPhone(""); }}
-            options={companyContacts}
-            getLabel={(c) => c.name}
-            getSublabel={(c) => c.email}
-            onSelect={selectContact}
-            placeholder="Name"
-          />
-        </div>
-        <div className="w-0 flex-1">
-          <input
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-            placeholder="Phone"
-            value={phone}
-            onChange={(e) => setPhone(formatPhoneInput(e.target.value))}
-          />
-        </div>
+        <div className="w-0 flex-1">{nameField}</div>
+        <div className="w-0 flex-1">{phoneField}</div>
       </div>
     </>
   );
@@ -2685,8 +2712,6 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
           </button>
         </div>
 
-        {customerKind === "individual" && contactFields}
-
         <div className="mt-4 flex gap-4">
           <div className="shrink-0">
             <label className="block text-sm font-medium text-slate-700">Project Number</label>
@@ -2701,7 +2726,18 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
               <input className="w-20 rounded-lg border border-slate-300 px-2 py-2 text-sm" value={projectNumber} onChange={(e) => setProjectNumber(e.target.value)} />
             </div>
           </div>
-          {customerKind === "company" && (
+          {customerKind === "individual" ? (
+            <>
+              <div className="min-w-0 flex-1">
+                <label className="block text-sm font-medium text-slate-700">Customer name</label>
+                <div className="mt-1">{nameField}</div>
+              </div>
+              <div className="min-w-0 flex-1">
+                <label className="block text-sm font-medium text-slate-700">Phone</label>
+                <div className="mt-1">{phoneField}</div>
+              </div>
+            </>
+          ) : (
             <div className="min-w-0 flex-1">
               <label className="block text-sm font-medium text-slate-700">Company</label>
               <div className="mt-1">
@@ -2716,6 +2752,17 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
             </div>
           )}
         </div>
+
+        {noContactWarning}
+
+        {customerKind === "company" && companyName.trim() && !companyId && (
+          <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            <span>No company named &quot;{companyName.trim()}&quot; found in the Directory.</span>
+            <button type="button" onClick={() => setCreatingContact(true)} className="font-bold underline">
+              Create company
+            </button>
+          </div>
+        )}
 
         {customerKind === "company" && contactFields}
 
@@ -2965,6 +3012,28 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
           </div>
         </div>
       </div>
+    )}
+    {creatingContact && (
+      <ContactForm
+        onClose={() => setCreatingContact(false)}
+        prefill={{
+          isCompany: customerKind === "company",
+          name: customerKind === "individual" ? contactName.trim() : undefined,
+          company: customerKind === "company" ? companyName.trim() : undefined,
+        }}
+        onDone={(customer) => {
+          setCreatingContact(false);
+          if (!customer) return;
+          setContactName(customer.name);
+          setEmail(customer.email);
+          setPhone(customer.phone);
+          setContactId(customer.id);
+          if (customer.company_id) {
+            setCompanyId(customer.company_id);
+            setCompanyName(customer.company ?? companyName);
+          }
+        }}
+      />
     )}
     </>
   );

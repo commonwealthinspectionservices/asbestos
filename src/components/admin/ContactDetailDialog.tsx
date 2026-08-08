@@ -54,15 +54,20 @@ export function JobList({ jobs }: { jobs: JobSummary[] }) {
 // Company field/picker here is what tells the two apart, not a separate
 // record type.
 export function ContactForm({
-  onClose, onDone, initial,
+  onClose, onDone, initial, prefill,
 }: {
   onClose: () => void;
-  onDone: () => void;
+  onDone: (customer?: Customer) => void;
   initial?: Customer;
+  // Pre-fills a brand-new contact from whatever the caller already had
+  // typed elsewhere (e.g. Add Project's Name/Company field before it found
+  // no match in the Directory) — distinct from `initial`, which prefills a
+  // full existing record for editing.
+  prefill?: { isCompany?: boolean; name?: string; company?: string };
 }) {
-  const [isCompany, setIsCompany] = useState(initial ? !initial.is_individual : false);
-  const [company, setCompany] = useState(initial?.company ?? "");
-  const initialName = splitFullName(initial?.name);
+  const [isCompany, setIsCompany] = useState(initial ? !initial.is_individual : (prefill?.isCompany ?? false));
+  const [company, setCompany] = useState(initial?.company ?? prefill?.company ?? "");
+  const initialName = splitFullName(initial?.name ?? prefill?.name);
   const [firstName, setFirstName] = useState(initialName.first);
   const [lastName, setLastName] = useState(initialName.last);
   const [email, setEmail] = useState(initial?.email ?? "");
@@ -106,7 +111,7 @@ export function ContactForm({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to save contact");
-      onDone();
+      onDone(data.customer);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to save contact");
     } finally {

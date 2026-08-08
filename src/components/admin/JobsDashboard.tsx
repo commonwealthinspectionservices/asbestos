@@ -1758,7 +1758,7 @@ export function ProjectDetailDialog({
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">Date</label>
+                    <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">Date of Sampling</label>
                     <input
                       type="date"
                       className="mt-1 h-9 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
@@ -1863,7 +1863,7 @@ export function ProjectDetailDialog({
                   <div className="flex flex-wrap items-center gap-2">
                     <button
                       onClick={() => setShowInvoicePreview((v) => !v)}
-                      className={`rounded-lg px-3 py-1.5 text-sm font-bold uppercase hover:underline ${
+                      className={`rounded-lg px-3 py-1.5 text-sm font-bold hover:underline ${
                         reportComplete
                           ? "bg-emerald-600 text-white"
                           : "border border-slate-300 bg-white text-slate-700"
@@ -1874,7 +1874,7 @@ export function ProjectDetailDialog({
                     <a
                       href={`/api/admin/jobs/${job.id}/invoice?download=1`}
                       download={`invoice-${job.project_number ?? job.id}.pdf`}
-                      className={`rounded-lg px-3 py-1.5 text-sm font-bold uppercase hover:underline ${
+                      className={`rounded-lg px-3 py-1.5 text-sm font-bold hover:underline ${
                         reportComplete
                           ? "bg-emerald-600 text-white"
                           : "border border-slate-300 bg-white text-slate-700"
@@ -1928,24 +1928,26 @@ export function ProjectDetailDialog({
 
             {job.invoice_total_cents != null && (
               <div className="border-t-4 border-slate-300 pt-6">
-                <h3 className="text-lg font-bold uppercase tracking-wide text-black underline">Stripe Payment Link</h3>
-                <div className="mt-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h3 className="text-lg font-bold uppercase tracking-wide text-black underline">Stripe Payment Link</h3>
                   <div className="flex flex-wrap items-center gap-2">
                     <button
                       onClick={getPaymentLink}
                       disabled={payLinkLoading}
-                      className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-bold uppercase text-slate-700 hover:underline disabled:opacity-50"
+                      className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-bold text-slate-700 hover:underline disabled:opacity-50"
                     >
-                      {payLinkLoading ? "Loading…" : "View payment link"}
+                      {payLinkLoading ? "Loading…" : "View"}
                     </button>
                     <button
                       onClick={copyPaymentLink}
                       disabled={copyLinkLoading}
-                      className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-bold uppercase text-slate-700 hover:underline disabled:opacity-50"
+                      className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-bold text-slate-700 hover:underline disabled:opacity-50"
                     >
-                      {copyLinkLoading ? "Loading…" : copyLinkDone ? "Copied!" : "Copy payment link"}
+                      {copyLinkLoading ? "Loading…" : copyLinkDone ? "Copied!" : "Copy link"}
                     </button>
                   </div>
+                </div>
+                <div className="mt-3">
                   {payLinkError && <p className="mt-2 text-sm text-red-600">{payLinkError}</p>}
                 </div>
               </div>

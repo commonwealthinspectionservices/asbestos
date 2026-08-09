@@ -76,6 +76,7 @@ export default function AddressAutocompleteInput({
         onChange={(e) => handleInput(e.target.value)}
         onFocus={() => suggestions.length > 0 && setOpen(true)}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
+        autoComplete="off"
       />
       {open && (suggestions.length > 0 || loading) && (
         <ul className="absolute z-10 mt-1 w-full rounded-lg border border-slate-200 bg-white text-sm shadow-lg">

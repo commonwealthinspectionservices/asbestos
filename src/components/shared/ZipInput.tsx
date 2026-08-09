@@ -83,6 +83,7 @@ export default function ZipInput({
           placeholder="ZIP"
           value={zip}
           onChange={(e) => setZip(e.target.value)}
+          autoComplete="postal-code"
         />
         {options.length > 1 && (
           <button

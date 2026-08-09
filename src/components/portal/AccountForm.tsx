@@ -106,13 +106,13 @@ export default function AccountForm({
         {error && <div className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
 
         <div className="mt-2 flex gap-2">
-          <input className="w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="First name" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
-          <input className="w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="Last name" value={lastName} onChange={(e) => setLastName(e.target.value)} />
+          <input className="w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="First name" value={firstName} onChange={(e) => setFirstName(e.target.value)} autoComplete="given-name" />
+          <input className="w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="Last name" value={lastName} onChange={(e) => setLastName(e.target.value)} autoComplete="family-name" />
         </div>
         {!isIndividual && (
-          <input className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="Company" value={company} onChange={(e) => setCompany(e.target.value)} />
+          <input className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="Company" value={company} onChange={(e) => setCompany(e.target.value)} autoComplete="organization" />
         )}
-        <input className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="Phone" type="tel" value={phone} onChange={(e) => setPhone(formatPhoneNumber(e.target.value))} />
+        <input className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="Phone" type="tel" value={phone} onChange={(e) => setPhone(formatPhoneNumber(e.target.value))} autoComplete="tel" />
 
         <p className="mt-3 text-xs font-semibold uppercase text-slate-500">Billing address</p>
         <div className="mt-1 flex gap-2">
@@ -138,6 +138,7 @@ export default function AccountForm({
             placeholder="Unit #"
             value={unit}
             onChange={(e) => setUnit(e.target.value)}
+            autoComplete="address-line2"
           />
         </div>
         <div className="mt-2 grid grid-cols-[2fr_0.8fr_1fr] gap-2">
@@ -200,6 +201,7 @@ export default function AccountForm({
           placeholder="New password"
           value={newPassword}
           onChange={(e) => setNewPassword(e.target.value)}
+          autoComplete="new-password"
         />
         <input
           type="password"
@@ -207,6 +209,7 @@ export default function AccountForm({
           placeholder="Confirm new password"
           value={confirmPassword}
           onChange={(e) => setConfirmPassword(e.target.value)}
+          autoComplete="new-password"
         />
         <div className="mt-3 flex items-center gap-2">
           <button

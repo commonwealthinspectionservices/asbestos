@@ -1486,21 +1486,6 @@ export function ProjectDetailDialog({
               <span className="w-32 shrink-0 uppercase font-bold text-black">Scope of Work</span>
               <span className="text-black">{job.scope_of_work || "—"}</span>
             </div>
-            <div className="flex items-center gap-2 text-sm">
-              <span className="w-32 shrink-0 uppercase font-bold text-black">Turnaround</span>
-              <button
-                onClick={() => setRush(false)}
-                className={`rounded px-2 py-0.5 text-xs font-bold uppercase ${job.lab_turnaround !== "Rush" ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
-              >
-                Standard
-              </button>
-              <button
-                onClick={() => setRush(true)}
-                className={`rounded px-2 py-0.5 text-xs font-bold uppercase ${job.lab_turnaround === "Rush" ? "bg-amber-500 text-white" : "bg-slate-100 text-slate-600"}`}
-              >
-                Rush
-              </button>
-            </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -1583,17 +1568,33 @@ export function ProjectDetailDialog({
         {tab === "report" && (
           <div className="mt-4 space-y-6">
             <div>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h3 className="text-lg font-bold uppercase tracking-wide text-black underline">Laboratory Paperwork</h3>
-                <div className="flex flex-wrap items-center gap-3">
-                  {/* One lab dropdown per domain (not per literal label —
-                      "Mold Air Sampling" and "Mold Bulk Sampling" share one
-                      mold lab pick) so a job mixing e.g. asbestos and mold
-                      can use two different labs without one overwriting
-                      the other. */}
-                  {jobReportDomains(job.service_type).map((domain) => {
-                    const domains = jobReportDomains(job.service_type);
-                    return (
+              {(() => {
+                const domains = jobReportDomains(job.service_type);
+                const turnaroundControl = (
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="text-xs font-semibold uppercase text-slate-400">Turnaround</span>
+                    <button
+                      onClick={() => setRush(false)}
+                      className={`rounded px-2 py-0.5 text-xs font-bold uppercase ${job.lab_turnaround !== "Rush" ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
+                    >
+                      Standard
+                    </button>
+                    <button
+                      onClick={() => setRush(true)}
+                      className={`rounded px-2 py-0.5 text-xs font-bold uppercase ${job.lab_turnaround === "Rush" ? "bg-amber-500 text-white" : "bg-slate-100 text-slate-600"}`}
+                    >
+                      Rush
+                    </button>
+                  </div>
+                );
+                const labDropdowns = (
+                  <div className="flex flex-wrap items-center gap-3">
+                    {/* One lab dropdown per domain (not per literal label —
+                        "Mold Air Sampling" and "Mold Bulk Sampling" share one
+                        mold lab pick) so a job mixing e.g. asbestos and mold
+                        can use two different labs without one overwriting
+                        the other. */}
+                    {domains.map((domain) => (
                       <div key={domain} className="flex items-center gap-1.5">
                         {domains.length > 1 && (
                           <span className="text-xs font-semibold uppercase text-slate-400">{REPORT_DOMAIN_LABEL[domain]}</span>
@@ -1609,10 +1610,33 @@ export function ProjectDetailDialog({
                           ))}
                         </select>
                       </div>
-                    );
-                  })}
-                </div>
-              </div>
+                    ))}
+                  </div>
+                );
+                return (
+                  <>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <h3 className="text-lg font-bold uppercase tracking-wide text-black underline">Laboratory Paperwork</h3>
+                      {/* Single service type: plenty of room for Turnaround
+                          right next to the one lab dropdown. Multiple service
+                          types already need the full row width for one dropdown
+                          per domain, so Turnaround gets its own centered line
+                          below instead of crowding that row. */}
+                      {domains.length === 1 ? (
+                        <div className="flex flex-wrap items-center gap-4">
+                          {turnaroundControl}
+                          {labDropdowns}
+                        </div>
+                      ) : (
+                        labDropdowns
+                      )}
+                    </div>
+                    {domains.length > 1 && (
+                      <div className="mt-2">{turnaroundControl}</div>
+                    )}
+                  </>
+                );
+              })()}
               <div className="mt-3">
                 {serviceTypeLabels.length > 0 ? (
                   <div className="space-y-5">

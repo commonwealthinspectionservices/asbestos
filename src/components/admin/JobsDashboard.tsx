@@ -647,7 +647,7 @@ export default function JobsDashboard() {
         </div>
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-2">
+      <div className="mt-4 flex flex-wrap items-center gap-2 border-b border-slate-200 pb-4">
         <button
           onClick={() => selectStatusView("all")}
           className={`rounded-lg px-2.5 py-1 text-sm font-medium uppercase ${statusFilter.size === 0 && statusView === "all" ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
@@ -1117,6 +1117,7 @@ export function ProjectDetailDialog({
   // final reports and can't share one field between them.
   const [moldReportSummaryInput, setMoldReportSummaryInput] = useState(job.mold_report_summary ?? "");
   const [moldReportNotesInput, setMoldReportNotesInput] = useState(job.mold_report_notes ?? "");
+  const moldReportNotesRef = useRef<HTMLTextAreaElement>(null);
   const combinedDraft = useDraftTracking({
     kind: "invoice",
     createKind: "combined",
@@ -1295,6 +1296,36 @@ export function ProjectDetailDialog({
       body: JSON.stringify({ mold_report_notes: value.trim() || null }),
     });
     onChanged();
+  }
+
+  // Turns the selected line(s) — or just the current line, with no
+  // selection — into a "• " bullet or "N. " numbered item, stripping
+  // whichever marker (if any) was already there first so re-clicking the
+  // other button swaps the style instead of stacking markers. The PDF
+  // renderer (report-pdf.tsx's blocksFromText) recognizes these same
+  // markers and renders them as an actual bulleted/numbered list, not a
+  // literal "•"/digit in the paragraph text.
+  function applyMoldNotesListFormat(ordered: boolean) {
+    const textarea = moldReportNotesRef.current;
+    if (!textarea) return;
+    const { selectionStart, selectionEnd, value } = textarea;
+    const lineStart = value.lastIndexOf("\n", selectionStart - 1) + 1;
+    const nextBreak = value.indexOf("\n", selectionEnd);
+    const lineEnd = nextBreak === -1 ? value.length : nextBreak;
+    const lines = value.slice(lineStart, lineEnd).split("\n");
+    const formatted = lines
+      .map((line, i) => {
+        const bare = line.replace(/^([-*•]\s+|\d+[.)]\s+)/, "");
+        return ordered ? `${i + 1}. ${bare}` : `• ${bare}`;
+      })
+      .join("\n");
+    const newValue = value.slice(0, lineStart) + formatted + value.slice(lineEnd);
+    setMoldReportNotesInput(newValue);
+    saveMoldReportNotes(newValue);
+    requestAnimationFrame(() => {
+      textarea.focus();
+      textarea.setSelectionRange(lineStart + formatted.length, lineStart + formatted.length);
+    });
   }
 
   async function saveJobField(patch: Record<string, unknown>) {
@@ -1770,14 +1801,52 @@ export function ProjectDetailDialog({
 
                 {isMoldJob(job) && (
                   <div className="mt-5 rounded-lg border border-slate-200 p-3">
-                    <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
-                      Conclusions &amp; Recommendations
-                    </label>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
+                        Conclusions &amp; Recommendations
+                      </label>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => applyMoldNotesListFormat(false)}
+                          title="Bullet list"
+                          className="rounded border border-slate-300 p-1.5 text-slate-600 hover:bg-slate-50"
+                        >
+                          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="2" cy="3.5" r="1.25" fill="currentColor" />
+                            <circle cx="2" cy="8" r="1.25" fill="currentColor" />
+                            <circle cx="2" cy="12.5" r="1.25" fill="currentColor" />
+                            <rect x="5.5" y="2.75" width="9" height="1.5" rx="0.5" fill="currentColor" />
+                            <rect x="5.5" y="7.25" width="9" height="1.5" rx="0.5" fill="currentColor" />
+                            <rect x="5.5" y="11.75" width="9" height="1.5" rx="0.5" fill="currentColor" />
+                          </svg>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => applyMoldNotesListFormat(true)}
+                          title="Numbered list"
+                          className="rounded border border-slate-300 p-1.5 text-slate-600 hover:bg-slate-50"
+                        >
+                          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <text x="0.5" y="4.6" fontSize="4" fontWeight="700" fill="currentColor">1</text>
+                            <text x="0.5" y="9.1" fontSize="4" fontWeight="700" fill="currentColor">2</text>
+                            <text x="0.5" y="13.6" fontSize="4" fontWeight="700" fill="currentColor">3</text>
+                            <rect x="5.5" y="2.75" width="9" height="1.5" rx="0.5" fill="currentColor" />
+                            <rect x="5.5" y="7.25" width="9" height="1.5" rx="0.5" fill="currentColor" />
+                            <rect x="5.5" y="11.75" width="9" height="1.5" rx="0.5" fill="currentColor" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
                     {/* The two fixed generic-IAQ paragraphs (air-inclusive
                         jobs only) render unconditionally in the PDF — see
                         MoldReportDocument — so this cell is purely for the
-                        admin's own case-specific recommendations. */}
+                        admin's own case-specific recommendations. Lines
+                        starting with "• " or "1. " render as an actual
+                        bulleted/numbered list in the PDF (see report-pdf.tsx's
+                        blocksFromText), not literal dashes/digits. */}
                     <textarea
+                      ref={moldReportNotesRef}
                       className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
                       rows={6}
                       value={moldReportNotesInput}

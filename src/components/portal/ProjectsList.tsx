@@ -230,7 +230,7 @@ export default function ProjectsList() {
         </Link>
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-2">
+      <div className="mt-4 flex flex-wrap items-center gap-2 border-b border-slate-200 pb-4">
         <button
           onClick={() => selectStatusView("all")}
           className={`rounded-lg px-2.5 py-1 text-sm font-medium uppercase ${!statusFilter && statusView === "all" ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}

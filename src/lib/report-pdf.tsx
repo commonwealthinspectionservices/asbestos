@@ -104,6 +104,58 @@ function paragraphsFromText(text: string | null | undefined): string[] {
   return text.split(/\n+/).map((p) => p.trim()).filter(Boolean);
 }
 
+type TextBlock = { type: "paragraph"; text: string } | { type: "list"; ordered: boolean; items: string[] };
+
+// Same line-splitting as paragraphsFromText, but a line starting with
+// "- "/"* "/"• " or "1. "/"1) " (as the admin's own list-format toolbar
+// buttons insert — see JobsDashboard.tsx's applyMoldNotesListFormat)
+// becomes part of an actual rendered bulleted/numbered list instead of a
+// plain paragraph containing a literal dash or digit. Consecutive lines of
+// the same list type group into one list; anything else stays exactly the
+// one-paragraph-per-line behavior paragraphsFromText already had.
+function blocksFromText(text: string | null | undefined): TextBlock[] {
+  const blocks: TextBlock[] = [];
+  for (const line of paragraphsFromText(text)) {
+    const bullet = line.match(/^[-*•]\s+(.*)$/);
+    const numbered = line.match(/^\d+[.)]\s+(.*)$/);
+    const last = blocks[blocks.length - 1];
+    if (bullet) {
+      if (last?.type === "list" && !last.ordered) last.items.push(bullet[1]);
+      else blocks.push({ type: "list", ordered: false, items: [bullet[1]] });
+    } else if (numbered) {
+      if (last?.type === "list" && last.ordered) last.items.push(numbered[1]);
+      else blocks.push({ type: "list", ordered: true, items: [numbered[1]] });
+    } else {
+      blocks.push({ type: "paragraph", text: line });
+    }
+  }
+  return blocks;
+}
+
+function RenderTextBlocks({ blocks, emptyText }: { blocks: TextBlock[]; emptyText?: string }) {
+  if (blocks.length === 0) {
+    return emptyText ? <Text style={styles.paragraph}>{emptyText}</Text> : null;
+  }
+  return (
+    <>
+      {blocks.map((block, i) =>
+        block.type === "paragraph" ? (
+          <Text style={styles.paragraph} key={i}>{block.text}</Text>
+        ) : (
+          <View style={styles.listBlock} key={i}>
+            {block.items.map((item, j) => (
+              <View style={styles.listItem} key={j}>
+                <Text style={styles.listIndex}>{block.ordered ? `${j + 1}.` : "•"}</Text>
+                <Text style={styles.listText}>{item}</Text>
+              </View>
+            ))}
+          </View>
+        )
+      )}
+    </>
+  );
+}
+
 // One report per domain actually on the job — a job combining service
 // types from more than one domain (e.g. "Limited Asbestos Inspection,
 // Mold Air Sampling") used to pick a single winner here (mold > lead >
@@ -425,7 +477,7 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
       : []),
   ];
 
-  const conclusionParagraphs = paragraphsFromText(job.mold_report_notes);
+  const conclusionBlocks = blocksFromText(job.mold_report_notes);
   const discussionParagraphs = paragraphsFromText(job.mold_report_summary);
 
   // "[N] samples were collected on [date] inside the building. An ambient
@@ -528,8 +580,8 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
             <Text style={styles.paragraph}>{MOLD_AIR_INVESTIGATION_GOAL_PARAGRAPH}</Text>
           </>
         )}
-        {conclusionParagraphs.length > 0
-          ? conclusionParagraphs.map((p, i) => <Text style={styles.paragraph} key={i}>{p}</Text>)
+        {conclusionBlocks.length > 0
+          ? <RenderTextBlocks blocks={conclusionBlocks} />
           : !hasAir && <Text style={styles.paragraph}>NO RECOMMENDATIONS YET.</Text>}
 
         <Text style={styles.romanTitle} minPresenceAhead={30}>V.  LIMITATIONS AND CONDITIONS OF THIS REPORT</Text>

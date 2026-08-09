@@ -227,4 +227,37 @@ describe("renderProjectReportPdf", () => {
     expect(text).not.toContain("must be removed by a licensed asbestos abatement contractor");
     expect(text).not.toContain("None of the suspect materials sampled were determined to have asbestos fibers present");
   });
+
+  it("renders bullet- and number-marked lines in mold_report_notes as an actual list, not literal markers", async () => {
+    const pdf = await renderProjectReportPdfForDomain({
+      job: {
+        ...job,
+        service_type: "Mold Air Sampling",
+        mold_report_notes: "• First recommendation\n• Second recommendation\n1. Step one\n2. Step two",
+      },
+      customer,
+      settings,
+    }, "mold");
+    const { text } = await pdfParse(pdf);
+    expect(text).toContain("First recommendation");
+    expect(text).toContain("Second recommendation");
+    expect(text).toMatch(/1\.\s*Step one/);
+    expect(text).toMatch(/2\.\s*Step two/);
+    // The raw markers shouldn't survive as literal paragraph text either.
+    expect(text).not.toContain("• First recommendation\n• Second recommendation");
+  });
+
+  it("leaves plain (non-list) mold_report_notes lines as ordinary paragraphs", async () => {
+    const pdf = await renderProjectReportPdfForDomain({
+      job: {
+        ...job,
+        service_type: "Mold Air Sampling",
+        mold_report_notes: "No further mold-specific remediation is recommended at this time.",
+      },
+      customer,
+      settings,
+    }, "mold");
+    const { text } = await pdfParse(pdf);
+    expect(text).toContain("No further mold-specific remediation is recommended at this time.");
+  });
 });

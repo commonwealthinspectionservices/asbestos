@@ -1701,16 +1701,18 @@ export function ProjectDetailDialog({
                   </div>
                 )}
 
-                {isMoldJob(job) && (
+                {/* Air jobs' entire Discussion of Results is fixed, auto-
+                    filled content (heading, ACGIH paragraph, sample-count
+                    sentence — see MoldReportDocument) with nothing left to
+                    type, so there's no cell for it at all, same treatment
+                    as the Scope of Work closing line. Bulk/swab-only jobs
+                    have no equivalent fixed template — that's still fully
+                    custom findings, so they keep the editable cell. */}
+                {isMoldJob(job) && !moldServiceTypeFlags(job.service_type).hasAir && (
                   <div className="mt-5 rounded-lg border border-slate-200 p-3">
                     <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
                       Discussion of Results
                     </label>
-                    {/* The fixed ACGIH paragraph (air-inclusive jobs only)
-                        renders unconditionally in the PDF — see
-                        MoldReportDocument — so it's not in this box at all.
-                        This cell is purely for whatever varies per job:
-                        sample counts, dates, notable findings. */}
                     <textarea
                       className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
                       rows={6}

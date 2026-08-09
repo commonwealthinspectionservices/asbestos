@@ -1215,6 +1215,43 @@ export function ProjectDetailDialog({
     () => (job.service_type ?? "").split(",").map((s) => s.trim()).filter(Boolean),
     [job.service_type]
   );
+  // Every report domain actually on this job — one lab dropdown per domain,
+  // shown either next to the Laboratory Paperwork heading (single domain)
+  // or inline with that domain's own service type section below (multiple
+  // domains), see the "report" tab render.
+  const reportDomains = useMemo(() => jobReportDomains(job.service_type), [job.service_type]);
+  const turnaroundControl = (
+    <div className="flex items-center gap-2 text-sm">
+      <span className="text-xs font-semibold uppercase text-slate-400">Turnaround</span>
+      <button
+        onClick={() => setRush(false)}
+        className={`rounded px-2 py-0.5 text-xs font-bold uppercase ${job.lab_turnaround !== "Rush" ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
+      >
+        Standard
+      </button>
+      <button
+        onClick={() => setRush(true)}
+        className={`rounded px-2 py-0.5 text-xs font-bold uppercase ${job.lab_turnaround === "Rush" ? "bg-amber-500 text-white" : "bg-slate-100 text-slate-600"}`}
+      >
+        Rush
+      </button>
+    </div>
+  );
+  const labDropdown = (domain: ReportDomain) => (
+    <div className="flex items-center gap-2 text-sm">
+      <span className="text-xs font-semibold uppercase text-slate-400">Lab</span>
+      <select
+        className="h-9 w-40 truncate rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+        value={(domain === "mold" ? job.mold_lab_name : job.lab_name) ?? ""}
+        onChange={(e) => selectLab(e.target.value, domain)}
+      >
+        <option value="">— Not set —</option>
+        {labs.map((l) => (
+          <option key={l.name} value={l.name}>{l.name}</option>
+        ))}
+      </select>
+    </div>
+  );
   // report_summary is one shared field for the whole job's asbestos/lead
   // report (mold has its own separate mold_report_summary now, so no more
   // cross-domain field sharing) — the Result dropdown only ever needs to
@@ -1568,81 +1605,40 @@ export function ProjectDetailDialog({
         {tab === "report" && (
           <div className="mt-4 space-y-6">
             <div>
-              {(() => {
-                const domains = jobReportDomains(job.service_type);
-                const turnaroundControl = (
-                  <div className="flex items-center gap-2 text-sm">
-                    <span className="text-xs font-semibold uppercase text-slate-400">Turnaround</span>
-                    <button
-                      onClick={() => setRush(false)}
-                      className={`rounded px-2 py-0.5 text-xs font-bold uppercase ${job.lab_turnaround !== "Rush" ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
-                    >
-                      Standard
-                    </button>
-                    <button
-                      onClick={() => setRush(true)}
-                      className={`rounded px-2 py-0.5 text-xs font-bold uppercase ${job.lab_turnaround === "Rush" ? "bg-amber-500 text-white" : "bg-slate-100 text-slate-600"}`}
-                    >
-                      Rush
-                    </button>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-lg font-bold uppercase tracking-wide text-black underline">Laboratory Paperwork</h3>
+                {/* Single service type: the one lab dropdown fits right next
+                    to the heading, alongside Turnaround. With more than one
+                    service type, each domain's dropdown moves down to sit
+                    inline with that service type's own section instead (see
+                    the label loop below) — Turnaround is the only thing left
+                    up here. */}
+                {reportDomains.length === 1 ? (
+                  <div className="flex flex-wrap items-center gap-4">
+                    {turnaroundControl}
+                    {labDropdown(reportDomains[0])}
                   </div>
-                );
-                const labDropdowns = (
-                  <div className="flex flex-wrap items-center gap-3">
-                    {/* One lab dropdown per domain (not per literal label —
-                        "Mold Air Sampling" and "Mold Bulk Sampling" share one
-                        mold lab pick) so a job mixing e.g. asbestos and mold
-                        can use two different labs without one overwriting
-                        the other. */}
-                    {domains.map((domain) => (
-                      <div key={domain} className="flex items-center gap-1.5">
-                        {domains.length > 1 && (
-                          <span className="text-xs font-semibold uppercase text-slate-400">{REPORT_DOMAIN_LABEL[domain]}</span>
-                        )}
-                        <select
-                          className="h-9 w-40 truncate rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
-                          value={(domain === "mold" ? job.mold_lab_name : job.lab_name) ?? ""}
-                          onChange={(e) => selectLab(e.target.value, domain)}
-                        >
-                          <option value="">— Not set —</option>
-                          {labs.map((l) => (
-                            <option key={l.name} value={l.name}>{l.name}</option>
-                          ))}
-                        </select>
-                      </div>
-                    ))}
-                  </div>
-                );
-                return (
-                  <>
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <h3 className="text-lg font-bold uppercase tracking-wide text-black underline">Laboratory Paperwork</h3>
-                      {/* Single service type: plenty of room for Turnaround
-                          right next to the one lab dropdown. Multiple service
-                          types already need the full row width for one dropdown
-                          per domain, so Turnaround gets its own centered line
-                          below instead of crowding that row. */}
-                      {domains.length === 1 ? (
-                        <div className="flex flex-wrap items-center gap-4">
-                          {turnaroundControl}
-                          {labDropdowns}
-                        </div>
-                      ) : (
-                        labDropdowns
-                      )}
-                    </div>
-                    {domains.length > 1 && (
-                      <div className="mt-2">{turnaroundControl}</div>
-                    )}
-                  </>
-                );
-              })()}
+                ) : null}
+              </div>
+              {reportDomains.length > 1 && <div className="mt-2">{turnaroundControl}</div>}
               <div className="mt-3">
                 {serviceTypeLabels.length > 0 ? (
                   <div className="space-y-5">
-                    {serviceTypeLabels.map((label, labelIndex) => (
+                    {serviceTypeLabels.map((label, labelIndex) => {
+                      const labelDomain = domainForServiceTypeLabel(label);
+                      // Only the first section for a given domain shows that
+                      // domain's dropdown — "Mold Air Sampling" and "Mold Bulk
+                      // Sampling" share one mold lab pick, so repeating the
+                      // same control on both sections would just be noise.
+                      const showLabDropdown =
+                        reportDomains.length > 1 &&
+                        serviceTypeLabels.findIndex((l) => domainForServiceTypeLabel(l) === labelDomain) === labelIndex;
+                      return (
                       <div key={label} className={labelIndex > 0 ? "border-t-2 border-slate-200 pt-5" : ""}>
-                        <p className="mb-2 text-sm font-bold text-slate-700">{label}</p>
+                        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                          <p className="text-base font-bold uppercase text-slate-700">{label}</p>
+                          {showLabDropdown && labDropdown(labelDomain)}
+                        </div>
                         <div className="grid grid-cols-2 gap-3">
                           <DocumentStation
                             job={job}
@@ -1662,7 +1658,7 @@ export function ProjectDetailDialog({
                               // belong to it.
                               const results = domainForServiceTypeLabel(label) === "mold" ? job.mold_sample_results : job.sample_results;
                               return results && results.length > 0 ? (
-                                <div className="mt-1.5 w-full rounded-lg border border-slate-200 bg-slate-50 p-2 font-mono text-xs">
+                                <div className="mt-1.5 h-[116px] w-full overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 p-2 font-mono text-xs">
                                   {results.map((s, i) => (
                                     <div key={i} className={/%/.test(s.result) ? "text-red-600" : "text-slate-900"}>{s.fieldCode}: {s.result}</div>
                                   ))}
@@ -1671,7 +1667,7 @@ export function ProjectDetailDialog({
                                   </div>
                                 </div>
                               ) : (
-                                <div className="mt-1.5 flex w-full flex-col items-center justify-center rounded-lg border-2 border-dashed border-slate-300 px-3 py-5 text-center text-xs text-slate-500">
+                                <div className="mt-1.5 flex h-[116px] w-full flex-col items-center justify-center rounded-lg border-2 border-dashed border-slate-300 px-3 text-center text-xs text-slate-500">
                                   Populates once Laboratory Results are uploaded
                                 </div>
                               );
@@ -1719,7 +1715,8 @@ export function ProjectDetailDialog({
                           </div>
                         )}
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <p className="text-sm text-slate-500">Pick a service type on the Project Information tab to set up its upload stations.</p>

@@ -175,6 +175,16 @@ describe("renderProjectReportPdf", () => {
     expect(text).toMatch(/Total # of Samples:\s*6/);
   });
 
+  it("applies the same domain filtering to the lead report's total", async () => {
+    const pdf = await renderProjectReportPdfForDomain({
+      job: { ...job, service_type: "Lead Bulk Sampling, Mold Air Sampling", sample_count: 0, sample_counts: { "Lead Bulk Sampling": 4, "Mold Air Sampling": 6 } },
+      customer,
+      settings,
+    }, "lead");
+    const { text } = await pdfParse(pdf);
+    expect(text).toMatch(/Total # of Samples:\s*4/);
+  });
+
   it("falls back to the legacy sample_count when sample_counts is empty", async () => {
     const pdf = await renderProjectReportPdfForDomain({
       job: { ...job, sample_count: 4, sample_counts: {} },

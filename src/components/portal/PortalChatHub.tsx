@@ -49,20 +49,21 @@ export default function PortalChatHub() {
         <div className="mt-4 flex flex-col gap-4 sm:flex-row">
           <div className="flex shrink-0 flex-row gap-2 overflow-x-auto sm:w-56 sm:flex-col sm:overflow-visible">
             {projects.map((p) => {
-              const { street } = splitAddress(p.service_address);
+              const { street, cityStateZip } = splitAddress(p.service_address);
               const isSelected = p.id === selectedId;
               return (
                 <button
                   key={p.id}
                   onClick={() => setSelectedId(p.id)}
-                  className={`shrink-0 rounded-lg border px-3 py-2 text-left text-sm sm:shrink ${
+                  className={`shrink-0 rounded-lg border px-3 py-2 text-left text-sm sm:w-full sm:shrink ${
                     isSelected ? "border-brand-700 bg-brand-50 font-semibold text-brand-700" : "border-slate-200 text-slate-600 hover:border-brand-400"
                   }`}
                 >
                   {p.project_number && (
                     <div className="whitespace-nowrap font-mono text-xs">{p.project_number}</div>
                   )}
-                  <div className="whitespace-nowrap">{street}</div>
+                  <div>{street}</div>
+                  {cityStateZip && <div>{cityStateZip}</div>}
                 </button>
               );
             })}

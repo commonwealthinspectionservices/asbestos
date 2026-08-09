@@ -1076,15 +1076,6 @@ export function ProjectDetailDialog({
   const [scopeItems, setScopeItems] = useState<string[]>(
     job.mold_scope_items.length > 0 ? job.mold_scope_items : moldScopeOfWorkItems(job.service_type)
   );
-  // Editable, auto-populated versions of every item on the Final Report
-  // tab's own checklist (reportChecklist) — lets the admin review and fix
-  // any of it (an address typo, a wrong project #) right before generating
-  // the report, without leaving this tab to find the field elsewhere.
-  const [customerNameInput, setCustomerNameInput] = useState(job.customers?.name ?? "");
-  const [billingAddressInput, setBillingAddressInput] = useState(job.customers?.billing_address ?? "");
-  const [serviceAddressInput, setServiceAddressInput] = useState(job.service_address ?? "");
-  const [projectNumberInput, setProjectNumberInput] = useState(job.project_number ?? "");
-  const [requestedDateInput, setRequestedDateInput] = useState(job.requested_date ?? "");
   const combinedDraft = useDraftTracking({
     kind: "invoice",
     createKind: "combined",
@@ -1213,20 +1204,6 @@ export function ProjectDetailDialog({
 
   async function saveJobField(patch: Record<string, unknown>) {
     await fetch(`/api/admin/jobs/${job.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(patch),
-    });
-    onChanged();
-  }
-
-  // Customer name/billing address live on the customers row, not the job —
-  // editing them here updates the same contact record shown on the
-  // Contacts tab and every other one of their projects, same as editing
-  // them via Edit Project would.
-  async function saveCustomerField(patch: Record<string, unknown>) {
-    if (!job.customer_id) return;
-    await fetch(`/api/admin/customers/${job.customer_id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(patch),
@@ -1428,7 +1405,7 @@ export function ProjectDetailDialog({
               nowrap
             />
             <DetailField
-              label="Date"
+              label="Date of Sampling"
               value={
                 job.confirmed_date
                   ? formatDate(job.confirmed_date)
@@ -1543,91 +1520,6 @@ export function ProjectDetailDialog({
         {tab === "report" && (
           <div className="mt-4 space-y-6">
             <div>
-              <h3 className="text-lg font-bold uppercase tracking-wide text-black underline">Final Report Information</h3>
-              <div className="mt-3 space-y-3">
-                {/* Who the report actually gets addressed to. Billing
-                    address (company or individual) lives in the cells
-                    grid below, not duplicated here. */}
-                <div className="rounded-lg border border-slate-200 p-3">
-                  <p className="text-sm text-black">
-                    <span className="font-bold">Customer contact:</span>{" "}
-                    {job.customer_id && job.customers?.name ? (
-                      <a href={`/admin/customers?tab=contacts&contactId=${job.customer_id}`} className="hover:underline">
-                        {job.customers.name}
-                      </a>
-                    ) : job.customers?.name}
-                    {job.customers?.phone && <>  ·  {job.customers.phone}</>}
-                    {job.customers?.email && <>  ·  {job.customers.email}</>}
-                  </p>
-                </div>
-
-                {/* Editable, auto-populated version of every item on the checklist
-                    below — lets the admin fix a typo'd address or project # right
-                    here instead of hunting through the other sections first. */}
-                <div className="grid grid-cols-2 gap-3 rounded-lg border border-slate-200 p-3">
-                  <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">Customer</label>
-                    <input
-                      className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
-                      value={customerNameInput}
-                      onChange={(e) => setCustomerNameInput(e.target.value)}
-                      onBlur={(e) => saveCustomerField({ name: e.target.value.trim() })}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">Project #</label>
-                    <input
-                      className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
-                      value={projectNumberInput}
-                      onChange={(e) => setProjectNumberInput(e.target.value)}
-                      onBlur={(e) => saveJobField({ project_number: e.target.value.trim() || null })}
-                    />
-                  </div>
-                  <div className="col-span-2">
-                    <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">Job site address</label>
-                    <input
-                      className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
-                      value={serviceAddressInput}
-                      onChange={(e) => setServiceAddressInput(e.target.value)}
-                      onBlur={(e) => saveJobField({ service_address: e.target.value.trim() })}
-                    />
-                  </div>
-                  <div className="col-span-2">
-                    <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">Billing address</label>
-                    <input
-                      className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
-                      value={billingAddressInput}
-                      onChange={(e) => setBillingAddressInput(e.target.value)}
-                      onBlur={(e) => saveCustomerField({ billing_address: e.target.value.trim() || null })}
-                    />
-                  </div>
-                  <div className="col-span-2">
-                    <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">Date of Sampling</label>
-                    <input
-                      type="date"
-                      className="mt-1 h-9 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
-                      value={requestedDateInput}
-                      onChange={(e) => setRequestedDateInput(e.target.value)}
-                      onBlur={(e) => saveJobField({ requested_date: e.target.value || null })}
-                    />
-                  </div>
-                </div>
-
-                {job.report_sent_at && (() => {
-                  const recipients = [job.customers?.email, ...(job.report_emails?.split(",") ?? [])]
-                    .map((e) => e?.trim())
-                    .filter(Boolean);
-                  return (
-                    <p className="text-xs text-slate-500">
-                      Sent {formatDateTime(job.report_sent_at)} to {recipients.join(", ")}
-                    </p>
-                  );
-                })()}
-
-              </div>
-            </div>
-
-            <div className="border-t-4 border-slate-300 pt-6">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h3 className="text-lg font-bold uppercase tracking-wide text-black underline">Laboratory Paperwork</h3>
                 <select

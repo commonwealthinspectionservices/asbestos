@@ -12,6 +12,12 @@ import {
 const LETTERHEAD_PATH = path.join(process.cwd(), "public", "letterhead.png");
 const SIGNATURE_PATH = path.join(process.cwd(), "public", "signature.png");
 
+// Spelled-out sample counts for the mold Discussion of Results sentence
+// ("Six (6) samples were collected...", matching real report wording) —
+// limited assessments don't run past a handful of samples, so this range
+// covers it; anything beyond just falls back to the digit alone.
+const NUMBER_WORDS = ["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen", "Twenty"];
+
 // Matches the real FLI letter (measured off an actual exported PDF: 10pt
 // Times New Roman body text, ~12.8pt line-to-line spacing, 69pt left/right
 // margins, two tiers of paragraph spacing — a wide ~12pt gap between most
@@ -413,6 +419,24 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
   const conclusionParagraphs = paragraphsFromText(job.report_notes);
   const discussionParagraphs = paragraphsFromText(job.report_summary);
 
+  // "[N] samples were collected on [date] inside the building. An ambient
+  // sample was collected outside..." — the air total in sample_counts
+  // includes the always-present, always-invoiced ambient sample, so
+  // subtracting 1 gives the indoor-only count (confirmed). Falls back to
+  // the outline's own bracketed placeholders when there's no lab data yet
+  // rather than showing a nonsensical "Zero (0) samples."
+  const airSampleTotal = Object.entries(job.sample_counts ?? {})
+    .filter(([label]) => label.toLowerCase().includes("air"))
+    .reduce((sum, [, n]) => sum + (n || 0), 0);
+  const indoorAirSampleCount = airSampleTotal > 0 ? airSampleTotal - 1 : 0;
+  const samplingDateText = job.requested_date
+    ? new Date(`${job.requested_date}T00:00:00`).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
+    : null;
+  const airSampleCountSentence =
+    indoorAirSampleCount > 0 && samplingDateText
+      ? `${NUMBER_WORDS[indoorAirSampleCount] ?? indoorAirSampleCount} (${indoorAirSampleCount}) samples were collected on ${samplingDateText} inside the building. An ambient sample was collected outside for comparison with the indoor sample.`
+      : "[Number of samples] samples were collected on [Date of Sampling] inside the building. An ambient sample was collected outside for comparison with the indoor sample.";
+
   return (
     <Document title={`Limited Mold Assessment & Sampling — ${job.service_address}`}>
       <Page size="LETTER" style={styles.page}>
@@ -477,7 +501,13 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
         ))}
 
         <Text style={styles.romanTitle} minPresenceAhead={30}>III.  DISCUSSION OF RESULTS</Text>
-        {hasAir && <Text style={styles.paragraph}>{MOLD_ACGIH_PARAGRAPH}</Text>}
+        {hasAir && (
+          <>
+            <Text style={styles.subHeading}>1. Airborne Sampling for Mold:</Text>
+            <Text style={styles.paragraph}>{MOLD_ACGIH_PARAGRAPH}</Text>
+            <Text style={styles.paragraph}>{airSampleCountSentence}</Text>
+          </>
+        )}
         {discussionParagraphs.length > 0
           ? discussionParagraphs.map((p, i) => <Text style={styles.paragraph} key={i}>{p}</Text>)
           : !hasAir && <Text style={styles.paragraph}>NO RESULTS YET.</Text>}

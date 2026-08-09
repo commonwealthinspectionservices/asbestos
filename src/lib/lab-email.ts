@@ -79,7 +79,7 @@ function reportDraftBodyText(job: Job, settings: Settings): string {
   return [
     "Hi,",
     "",
-    "Please find attached the asbestos bulk sample analytical report for:",
+    "Please find attached the final report for:",
     "",
     `Site: ${job.service_address}`,
     "",
@@ -529,8 +529,11 @@ async function draftReportEmailForJob(params: {
   const supabase = getSupabaseAdmin();
 
   const customer = withCompanyBillingAddress(job.customers, job.customers.companies);
-  const { buildFinalReportPacket } = await import("@/lib/report-packet");
-  const reportPdf = await buildFinalReportPacket(job, customer, settings);
+  const { buildAllFinalReportPackets } = await import("@/lib/report-packet");
+  // One attachment per domain actually on the job (asbestos/lead/mold) —
+  // a job combining types gets one PDF per type, all on this same draft,
+  // rather than one email per type.
+  const reportPackets = await buildAllFinalReportPackets(job, customer, settings);
 
   const recipients = [customer.email, ...(job.report_emails?.split(",") ?? [])]
     .map((e) => e.trim())
@@ -550,11 +553,15 @@ async function draftReportEmailForJob(params: {
 
   const draft = await createDraft(accessToken, {
     to: [...new Set(recipients)].join(", "),
-    subject: `Asbestos Inspection Report - ${job.service_address}`,
+    subject: `Inspection Report - ${job.service_address}`,
     bodyText: reportDraftBodyText(job, settings),
-    attachments: [
-      { filename: `Final-Report-${job.project_number ?? job.id}.pdf`, mimeType: "application/pdf", content: reportPdf },
-    ],
+    attachments: reportPackets.map(({ domain, buffer }) => ({
+      filename: reportPackets.length > 1
+        ? `Final-Report-${domain[0].toUpperCase()}${domain.slice(1)}-${job.project_number ?? job.id}.pdf`
+        : `Final-Report-${job.project_number ?? job.id}.pdf`,
+      mimeType: "application/pdf",
+      content: buffer,
+    })),
   });
 
   // Marks this project as "a draft exists" for the project list's
@@ -609,8 +616,10 @@ async function draftCombinedEmailForJob(params: {
   const { renderInvoicePdf } = await import("@/lib/invoice-pdf");
   const invoicePdf = await renderInvoicePdf({ job: pricedJob, customer, company: pricedJob.customers.companies, settings });
 
-  const { buildFinalReportPacket } = await import("@/lib/report-packet");
-  const reportPdf = await buildFinalReportPacket(pricedJob, customer, settings);
+  const { buildAllFinalReportPackets } = await import("@/lib/report-packet");
+  // One PDF per domain on the job — combined with the invoice below into
+  // this same single draft.
+  const reportPackets = await buildAllFinalReportPackets(pricedJob, customer, settings);
 
   // Same billing-contact-aware "to" as the standalone invoice draft (see
   // its own comment) — whoever the invoice reaches should also be who
@@ -662,7 +671,13 @@ async function draftCombinedEmailForJob(params: {
     subject: pricedJob.service_type ? `${pricedJob.service_type} - ${pricedJob.service_address}` : pricedJob.service_address,
     bodyText: combinedDraftBodyText(pricedJob, settings, totalCents, payNowUrl),
     attachments: [
-      { filename: `Final-Report-${pricedJob.project_number ?? job.id}.pdf`, mimeType: "application/pdf", content: reportPdf },
+      ...reportPackets.map(({ domain, buffer }) => ({
+        filename: reportPackets.length > 1
+          ? `Final-Report-${domain[0].toUpperCase()}${domain.slice(1)}-${pricedJob.project_number ?? job.id}.pdf`
+          : `Final-Report-${pricedJob.project_number ?? job.id}.pdf`,
+        mimeType: "application/pdf",
+        content: buffer,
+      })),
       { filename: `Invoice-${pricedJob.project_number ?? job.id}.pdf`, mimeType: "application/pdf", content: invoicePdf },
     ],
   });

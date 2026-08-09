@@ -51,6 +51,9 @@ const job: Job = {
   lab_date_needed: null,
   report_summary: null,
   report_notes: null,
+  mold_report_summary: null,
+  mold_report_notes: null,
+  mold_lab_name: null,
   invoice_line_items: [],
   invoice_auto: true,
   invoice_total_cents: null,
@@ -72,6 +75,7 @@ const job: Job = {
   asbestos_result: "positive",
   lead_result: null,
   sample_results: [],
+  mold_sample_results: [],
   requested_time: null,
   window: "AM",
   status: "completed",
@@ -81,6 +85,7 @@ const job: Job = {
   stripe_invoice_id: null,
   documents: [],
   photos: [],
+  payment_type: "online",
   created_at: new Date().toISOString(),
 };
 

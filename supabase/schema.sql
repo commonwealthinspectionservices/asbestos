@@ -718,3 +718,18 @@ alter table jobs add column if not exists payment_type text not null default 'on
 -- here and becomes the source of truth going forward, same override
 -- pattern as invoice_line_items/invoice_auto above.
 alter table jobs add column if not exists mold_scope_items jsonb not null default '[]'::jsonb;
+
+-- One final report per service type: a job combining mold with asbestos or
+-- lead (e.g. "Limited Asbestos Inspection, Mold Air Sampling") produces two
+-- separate report PDFs, not one that silently drops whichever type lost the
+-- old mold>lead>asbestos priority pick. Mold gets its own parallel set of
+-- report-content fields rather than sharing report_summary/report_notes/
+-- lab_name/sample_results with asbestos/lead, since sharing them let a
+-- mold lab upload silently overwrite the asbestos lab's own name/certs and
+-- sample results on a mixed job. Report delivery (drafting/sending) stays
+-- combined — one email, each domain's PDF as its own attachment — so no
+-- parallel report_drafted_at/report_sent_at tracking columns are needed.
+alter table jobs add column if not exists mold_report_summary text;
+alter table jobs add column if not exists mold_report_notes text;
+alter table jobs add column if not exists mold_lab_name text;
+alter table jobs add column if not exists mold_sample_results jsonb not null default '[]'::jsonb;

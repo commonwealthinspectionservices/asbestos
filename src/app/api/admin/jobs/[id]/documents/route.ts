@@ -73,20 +73,31 @@ export const POST = withApiErrors(async (
 
       // The lab's own identity/certs are constant per lab — no need to make
       // the admin type them in by hand once the report format is recognized.
+      // Written to mold's own separate field for a mold upload, never the
+      // shared asbestos/lead one — a job combining domains can use two
+      // different labs, and until this split a mold upload would silently
+      // overwrite the asbestos lab's own name/certs (or vice versa).
       const labInfo = detectLabInfo(text);
       if (labInfo) {
-        update.lab_name = labInfo.labName;
-        update.lab_nist_cert = labInfo.nistCert;
-        update.lab_massdls_cert = labInfo.massdlsCert;
+        if (isMold) {
+          update.mold_lab_name = labInfo.labName;
+        } else {
+          update.lab_name = labInfo.labName;
+          update.lab_nist_cert = labInfo.nistCert;
+          update.lab_massdls_cert = labInfo.massdlsCert;
+        }
       }
 
       if (isMold) {
         // No asbestos-style pass/fail for mold — genus-level findings live
         // only in the uploaded report itself. Just confirms which samples
         // were actually received and analyzed (see extractMoldSampleResults).
+        // Mold's own field, separate from asbestos/lead's sample_results
+        // below, so the two domains' per-sample lists never clobber
+        // each other on a mixed job.
         const sampleResults = extractMoldSampleResults(text);
         if (sampleResults.length > 0) {
-          update.sample_results = sampleResults;
+          update.mold_sample_results = sampleResults;
         }
       }
 

@@ -2,11 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireContractorApi, getCompanyCustomerIds } from "@/lib/contractor-api";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { getSettings } from "@/lib/settings";
-import { renderProjectReportPdf } from "@/lib/report-pdf";
+import { renderProjectReportPdfForDomain } from "@/lib/report-pdf";
 import { withApiErrors } from "@/lib/api-handler";
+import { jobReportDomains, reportDownloadFilename, type ReportDomain } from "@/lib/report-findings";
 import type { Customer, Job } from "@/lib/types";
 
 const REPORT_READY_STATUSES = new Set(["completed", "invoiced", "ready_to_send", "paid"]);
+const REPORT_DOMAINS: ReportDomain[] = ["asbestos", "lead", "mold"];
 
 export const GET = withApiErrors(async (
   req: NextRequest,
@@ -40,14 +42,29 @@ export const GET = withApiErrors(async (
   }
 
   const settings = await getSettings();
+
+  const typeParam = req.nextUrl.searchParams.get("type");
+  const domains = jobReportDomains(jobRow.service_type);
+  let domain: ReportDomain;
+  if (typeParam) {
+    if (!REPORT_DOMAINS.includes(typeParam as ReportDomain)) {
+      return NextResponse.json({ error: `Invalid type "${typeParam}"` }, { status: 400 });
+    }
+    domain = typeParam as ReportDomain;
+  } else if (domains.length === 1) {
+    domain = domains[0];
+  } else {
+    return NextResponse.json({ error: "This job has multiple report types — specify ?type=" }, { status: 400 });
+  }
+
   // The job's own customer, not necessarily the logged-in viewer — a
   // colleague at the same company can view this report too.
-  const pdf = await renderProjectReportPdf({ job: jobRow, customer: jobRow.customers, settings });
+  const pdf = await renderProjectReportPdfForDomain({ job: jobRow, customer: jobRow.customers, settings }, domain);
 
   return new NextResponse(new Uint8Array(pdf), {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `inline; filename="project-report-${params.id}.pdf"`,
+      "Content-Disposition": `inline; filename="${reportDownloadFilename(jobRow, domain, params.id)}.pdf"`,
     },
   });
 });

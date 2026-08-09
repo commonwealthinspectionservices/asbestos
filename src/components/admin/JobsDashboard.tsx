@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import type { Company, Customer, InvoiceLineItem, JobDocument, JobWithCustomer, LabProfile, PricingZone, SampleItem, ServiceType } from "@/lib/types";
 import { defaultInvoiceLineItems, sampleDescriptionForServiceType } from "@/lib/invoice-defaults";
-import { ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK, moldServiceTypeFlags } from "@/lib/report-findings";
+import { ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK, moldServiceTypeFlags, jobReportDomains, domainForServiceTypeLabel, type ReportDomain } from "@/lib/report-findings";
 import { splitAddress, parseAddressToFields, buildBillingAddress, googleMapsUrl } from "@/lib/address";
 import { joinName, splitFullName } from "@/lib/name";
 import type { AddressFields } from "@/lib/address";
@@ -352,6 +352,11 @@ function daysOverdue(job: JobWithCustomer): number | null {
 // underline for (see ValueOrBlank in report-pdf.tsx) — itemized so the
 // Final Report tab can show admins exactly what's still missing, not just
 // a plain "not ready yet".
+// Final Report tile labels — only shown once a job has more than one
+// domain's report to distinguish (see jobReportDomains); a single-type job
+// still just sees the plain "Final Report" tile it always has.
+const REPORT_DOMAIN_LABEL: Record<ReportDomain, string> = { asbestos: "Asbestos", lead: "Lead", mold: "Mold" };
+
 // Mold labs (e.g. EMSL's AIHA LAP/EMLAP accreditation) don't carry a MassDLS
 // cert at all — that's asbestos/MA-DLS-specific — and mold results are a
 // pasted Discussion of Results (report_summary), not the asbestos_result
@@ -368,27 +373,60 @@ function isLeadJob(job: JobWithCustomer): boolean {
   return (job.service_type ?? "").toLowerCase().includes("lead");
 }
 
-function reportChecklist(job: JobWithCustomer): { label: string; done: boolean }[] {
-  const totalSamples = Object.values(job.sample_counts ?? {}).reduce((sum, n) => sum + (n || 0), 0) || job.sample_count || 0;
-  const mold = isMoldJob(job);
-  const lead = isLeadJob(job);
+// Fields shared by every domain's own report — same job, so these don't
+// vary by which report is being checked.
+function commonReportChecklist(job: JobWithCustomer): { label: string; done: boolean }[] {
   return [
     { label: "Customer", done: Boolean(job.customers?.name && job.customers.name !== "Unknown contact") },
     { label: "Billing address", done: Boolean(job.customers?.billing_address) },
     { label: "Job site address", done: Boolean(job.service_address) },
     { label: "Project #", done: Boolean(job.project_number) },
     { label: "Date", done: Boolean(job.requested_date) },
-    { label: "Sample count", done: totalSamples > 0 },
-    { label: "Lab info", done: Boolean(job.lab_name && job.lab_nist_cert && (mold || lead || job.lab_massdls_cert)) },
-    // Mold's Discussion of Results is only genuinely empty when the job has
-    // no air component and the admin hasn't added anything — an air job's
-    // fixed ACGIH paragraph renders regardless of what's in report_summary.
-    { label: "Results", done: mold ? (moldServiceTypeFlags(job.service_type).hasAir || Boolean(job.report_summary)) : lead ? Boolean(job.lead_result) : Boolean(job.asbestos_result) },
   ];
 }
 
+// One checklist per domain — a job combining service types from more than
+// one domain (e.g. asbestos + mold) produces a separate final report per
+// domain, each with its own lab info/sample count/results, so "is the
+// report ready" has to be asked per domain rather than once for the job.
+function reportChecklist(job: JobWithCustomer, domain: ReportDomain): { label: string; done: boolean }[] {
+  const totalSamples = Object.entries(job.sample_counts ?? {})
+    .filter(([label]) => domainForServiceTypeLabel(label) === domain)
+    .reduce((sum, [, n]) => sum + (n || 0), 0) || job.sample_count || 0;
+
+  if (domain === "mold") {
+    return [
+      ...commonReportChecklist(job),
+      { label: "Sample count", done: totalSamples > 0 },
+      { label: "Lab info", done: Boolean(job.mold_lab_name) },
+      // Only genuinely empty when the job has no air component and the
+      // admin hasn't added anything — an air job's fixed ACGIH paragraph
+      // renders regardless of what's in mold_report_summary.
+      { label: "Results", done: moldServiceTypeFlags(job.service_type).hasAir || Boolean(job.mold_report_summary) },
+    ];
+  }
+  if (domain === "lead") {
+    return [
+      ...commonReportChecklist(job),
+      { label: "Sample count", done: totalSamples > 0 },
+      { label: "Lab info", done: Boolean(job.lab_name && job.lab_nist_cert) },
+      { label: "Results", done: Boolean(job.lead_result) },
+    ];
+  }
+  return [
+    ...commonReportChecklist(job),
+    { label: "Sample count", done: totalSamples > 0 },
+    { label: "Lab info", done: Boolean(job.lab_name && job.lab_nist_cert && job.lab_massdls_cert) },
+    { label: "Results", done: Boolean(job.asbestos_result) },
+  ];
+}
+
+function reportIsCompleteForDomain(job: JobWithCustomer, domain: ReportDomain): boolean {
+  return reportChecklist(job, domain).every((item) => item.done);
+}
+
 export function reportIsComplete(job: JobWithCustomer): boolean {
-  return reportChecklist(job).every((item) => item.done);
+  return jobReportDomains(job.service_type).every((domain) => reportIsCompleteForDomain(job, domain));
 }
 
 
@@ -1073,6 +1111,12 @@ export function ProjectDetailDialog({
   const [labs, setLabs] = useState<LabProfile[]>([]);
   const [reportSummaryInput, setReportSummaryInput] = useState(job.report_summary ?? "");
   const [reportNotesInput, setReportNotesInput] = useState(job.report_notes ?? "");
+  // Mold's own Discussion of Results/Conclusions & Recommendations —
+  // separate from report_summary/report_notes (asbestos/lead's) above,
+  // since a job combining mold with asbestos or lead produces two separate
+  // final reports and can't share one field between them.
+  const [moldReportSummaryInput, setMoldReportSummaryInput] = useState(job.mold_report_summary ?? "");
+  const [moldReportNotesInput, setMoldReportNotesInput] = useState(job.mold_report_notes ?? "");
   const combinedDraft = useDraftTracking({
     kind: "invoice",
     createKind: "combined",
@@ -1171,6 +1215,14 @@ export function ProjectDetailDialog({
     () => (job.service_type ?? "").split(",").map((s) => s.trim()).filter(Boolean),
     [job.service_type]
   );
+  // report_summary is one shared field for the whole job's asbestos/lead
+  // report (mold has its own separate mold_report_summary now, so no more
+  // cross-domain field sharing) — the Result dropdown only ever needs to
+  // render once, but has to anchor to whichever label is actually asbestos
+  // or lead. A mixed job (e.g. asbestos + mold air sampling) can order its
+  // labels either way, so anchoring to the first non-mold label rather
+  // than a bare labelIndex === 0 gets it right regardless of order.
+  const resultDropdownLabelIndex = serviceTypeLabels.findIndex((l) => !l.toLowerCase().includes("mold"));
 
   async function saveReportSummary(value: string) {
     await fetch(`/api/admin/jobs/${job.id}`, {
@@ -1190,6 +1242,24 @@ export function ProjectDetailDialog({
     onChanged();
   }
 
+  async function saveMoldReportSummary(value: string) {
+    await fetch(`/api/admin/jobs/${job.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mold_report_summary: value.trim() || null }),
+    });
+    onChanged();
+  }
+
+  async function saveMoldReportNotes(value: string) {
+    await fetch(`/api/admin/jobs/${job.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mold_report_notes: value.trim() || null }),
+    });
+    onChanged();
+  }
+
   async function saveJobField(patch: Record<string, unknown>) {
     await fetch(`/api/admin/jobs/${job.id}`, {
       method: "PATCH",
@@ -1203,16 +1273,18 @@ export function ProjectDetailDialog({
   // auto-recognized (a new lab format, an unusual page layout) — the admin
   // can just pick the lab and type the count directly rather than being
   // stuck waiting on the parser to catch up.
-  async function selectLab(labName: string) {
+  async function selectLab(labName: string, domain: ReportDomain) {
     const lab = labs.find((l) => l.name === labName);
+    // Mold has its own lab field (no NIST/MassDLS certs — its report
+    // doesn't show them) so a mixed job can use two different labs
+    // without one domain's pick overwriting the other's.
+    const patch = domain === "mold"
+      ? { mold_lab_name: labName || null }
+      : { lab_name: labName || null, lab_nist_cert: lab?.nist_cert || null, lab_massdls_cert: lab?.massdls_cert || null };
     await fetch(`/api/admin/jobs/${job.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        lab_name: labName || null,
-        lab_nist_cert: lab?.nist_cert || null,
-        lab_massdls_cert: lab?.massdls_cert || null,
-      }),
+      body: JSON.stringify(patch),
     });
     onChanged();
   }
@@ -1300,6 +1372,9 @@ export function ProjectDetailDialog({
     project_number: job.project_number,
     report_summary: job.report_summary,
     report_notes: job.report_notes,
+    mold_report_summary: job.mold_report_summary,
+    mold_report_notes: job.mold_report_notes,
+    mold_lab_name: job.mold_lab_name,
     customer_id: job.customer_id,
   });
   // Simpler to just not render a report preview at all until every field
@@ -1510,22 +1585,39 @@ export function ProjectDetailDialog({
             <div>
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h3 className="text-lg font-bold uppercase tracking-wide text-black underline">Laboratory Paperwork</h3>
-                <select
-                  className="h-9 rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
-                  value={job.lab_name ?? ""}
-                  onChange={(e) => selectLab(e.target.value)}
-                >
-                  <option value="">— Not set —</option>
-                  {labs.map((l) => (
-                    <option key={l.name} value={l.name}>{l.name}</option>
-                  ))}
-                </select>
+                <div className="flex flex-wrap items-center gap-3">
+                  {/* One lab dropdown per domain (not per literal label —
+                      "Mold Air Sampling" and "Mold Bulk Sampling" share one
+                      mold lab pick) so a job mixing e.g. asbestos and mold
+                      can use two different labs without one overwriting
+                      the other. */}
+                  {jobReportDomains(job.service_type).map((domain) => {
+                    const domains = jobReportDomains(job.service_type);
+                    return (
+                      <div key={domain} className="flex items-center gap-1.5">
+                        {domains.length > 1 && (
+                          <span className="text-xs font-semibold uppercase text-slate-400">{REPORT_DOMAIN_LABEL[domain]}</span>
+                        )}
+                        <select
+                          className="h-9 w-40 truncate rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+                          value={(domain === "mold" ? job.mold_lab_name : job.lab_name) ?? ""}
+                          onChange={(e) => selectLab(e.target.value, domain)}
+                        >
+                          <option value="">— Not set —</option>
+                          {labs.map((l) => (
+                            <option key={l.name} value={l.name}>{l.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
               <div className="mt-3">
                 {serviceTypeLabels.length > 0 ? (
                   <div className="space-y-5">
                     {serviceTypeLabels.map((label, labelIndex) => (
-                      <div key={label}>
+                      <div key={label} className={labelIndex > 0 ? "border-t-2 border-slate-200 pt-5" : ""}>
                         <p className="mb-2 text-sm font-bold text-slate-700">{label}</p>
                         <div className="grid grid-cols-2 gap-3">
                           <DocumentStation
@@ -1539,25 +1631,32 @@ export function ProjectDetailDialog({
                             <div className="flex flex-nowrap items-center gap-2">
                               <h4 className="whitespace-nowrap text-xs font-semibold uppercase tracking-wide text-slate-400">Sample Results</h4>
                             </div>
-                            {job.sample_results && job.sample_results.length > 0 ? (
-                              <div className="mt-1.5 w-full rounded-lg border border-slate-200 bg-slate-50 p-2 font-mono text-xs">
-                                {job.sample_results.map((s, i) => (
-                                  <div key={i} className={/%/.test(s.result) ? "text-red-600" : "text-slate-900"}>{s.fieldCode}: {s.result}</div>
-                                ))}
-                                <div className="mt-1.5 border-t border-slate-200 pt-1.5 font-sans font-semibold text-slate-500">
-                                  Total: {job.sample_results.length} sample{job.sample_results.length === 1 ? "" : "s"}
+                            {(() => {
+                              // Mold's sample results live in their own
+                              // field, separate from asbestos/lead's —
+                              // each label shows the results that actually
+                              // belong to it.
+                              const results = domainForServiceTypeLabel(label) === "mold" ? job.mold_sample_results : job.sample_results;
+                              return results && results.length > 0 ? (
+                                <div className="mt-1.5 w-full rounded-lg border border-slate-200 bg-slate-50 p-2 font-mono text-xs">
+                                  {results.map((s, i) => (
+                                    <div key={i} className={/%/.test(s.result) ? "text-red-600" : "text-slate-900"}>{s.fieldCode}: {s.result}</div>
+                                  ))}
+                                  <div className="mt-1.5 border-t border-slate-200 pt-1.5 font-sans font-semibold text-slate-500">
+                                    Total: {results.length} sample{results.length === 1 ? "" : "s"}
+                                  </div>
                                 </div>
-                              </div>
-                            ) : (
-                              <div className="mt-1.5 flex w-full flex-col items-center justify-center rounded-lg border-2 border-dashed border-slate-300 px-3 py-5 text-center text-xs text-slate-500">
-                                Populates once Laboratory Results are uploaded
-                              </div>
-                            )}
+                              ) : (
+                                <div className="mt-1.5 flex w-full flex-col items-center justify-center rounded-lg border-2 border-dashed border-slate-300 px-3 py-5 text-center text-xs text-slate-500">
+                                  Populates once Laboratory Results are uploaded
+                                </div>
+                              );
+                            })()}
                           </div>
                           <DocumentStation job={job} onChanged={onChanged} kind="coc" label="Chain of Custody" serviceType={label} />
                           <DocumentStation job={job} onChanged={onChanged} kind="lab_invoice" label="Laboratory Invoice" serviceType={label} />
                         </div>
-                        {labelIndex === 0 && !isMoldJob(job) && (
+                        {labelIndex === resultDropdownLabelIndex && (
                           <div className="mt-3">
                             <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">Result</label>
                             <ComboboxInput
@@ -1639,9 +1738,9 @@ export function ProjectDetailDialog({
                     <textarea
                       className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
                       rows={6}
-                      value={reportSummaryInput}
-                      onChange={(e) => setReportSummaryInput(e.target.value)}
-                      onBlur={(e) => saveReportSummary(e.target.value)}
+                      value={moldReportSummaryInput}
+                      onChange={(e) => setMoldReportSummaryInput(e.target.value)}
+                      onBlur={(e) => saveMoldReportSummary(e.target.value)}
                       placeholder="Sample counts, dates, and any notable findings for this job."
                     />
                   </div>
@@ -1659,9 +1758,9 @@ export function ProjectDetailDialog({
                     <textarea
                       className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
                       rows={6}
-                      value={reportNotesInput}
-                      onChange={(e) => setReportNotesInput(e.target.value)}
-                      onBlur={(e) => saveReportNotes(e.target.value)}
+                      value={moldReportNotesInput}
+                      onChange={(e) => setMoldReportNotesInput(e.target.value)}
+                      onBlur={(e) => saveMoldReportNotes(e.target.value)}
                       placeholder="Case-specific recommendations for this job."
                     />
                   </div>
@@ -1720,32 +1819,47 @@ export function ProjectDetailDialog({
                 {/* Both slots always show — each one only swaps in its real
                     preview once actually ready, otherwise it stays an empty
                     placeholder. The invoice is never considered ready until
-                    the report is too, regardless of whether it's been
-                    priced — an invoice for an incomplete report isn't
+                    every domain's report is too, regardless of whether it's
+                    been priced — an invoice for an incomplete report isn't
                     actually final. */}
                 <div className="flex flex-wrap gap-3">
-                  {reportComplete ? (
-                    <div className="w-48 overflow-hidden rounded-lg border border-slate-200">
-                      <a href={`/api/admin/jobs/${job.id}/report?v=${encodeURIComponent(reportRevision)}`} target="_blank" rel="noreferrer" className="block">
-                        <PdfThumbnail url={`/api/admin/jobs/${job.id}/report?v=${encodeURIComponent(reportRevision)}`} alt="Final Report preview" />
-                        <p className="border-t border-slate-200 bg-white px-2 py-1 text-center text-xs font-bold uppercase text-slate-700">Final Report</p>
-                      </a>
-                      <div className="border-t border-slate-200 px-2 py-1 text-center text-xs">
-                        <a href={`/api/admin/jobs/${job.id}/report?v=${encodeURIComponent(reportRevision)}`} target="_blank" rel="noreferrer" className="text-brand-600 hover:underline">
-                          View
-                        </a>
-                        {" · "}
-                        <a href={`/api/admin/jobs/${job.id}/report?download=1`} download={`report-${job.project_number ?? job.id}.pdf`} className="text-brand-600 hover:underline">
-                          Download
-                        </a>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="block w-48 overflow-hidden rounded-lg border border-dashed border-slate-300">
-                      <div className="flex h-40 w-full items-center justify-center bg-slate-50 px-2 text-center text-xs text-slate-400">Not ready yet</div>
-                      <p className="border-t border-dashed border-slate-300 px-2 py-1 text-center text-xs font-bold uppercase text-slate-400">Final Report</p>
-                    </div>
-                  )}
+                  {/* One tile per domain actually on the job (asbestos/lead/
+                      mold) — a job combining service types from more than
+                      one domain gets a separate final report per domain,
+                      each independently Ready/Not-ready. Labeled only once
+                      there's more than one, so the common single-type job
+                      still just says "Final Report". */}
+                  {(() => {
+                    const domains = jobReportDomains(job.service_type);
+                    return domains.map((domain) => {
+                      const domainReady = reportIsCompleteForDomain(job, domain);
+                      const tileLabel = domains.length > 1 ? `${REPORT_DOMAIN_LABEL[domain]} Final Report` : "Final Report";
+                      const reportUrl = `/api/admin/jobs/${job.id}/report?type=${domain}&v=${encodeURIComponent(reportRevision)}`;
+                      const downloadUrl = `/api/admin/jobs/${job.id}/report?type=${domain}&download=1`;
+                      return domainReady ? (
+                        <div key={domain} className="w-48 overflow-hidden rounded-lg border border-slate-200">
+                          <a href={reportUrl} target="_blank" rel="noreferrer" className="block">
+                            <PdfThumbnail url={reportUrl} alt={`${tileLabel} preview`} />
+                            <p className="border-t border-slate-200 bg-white px-2 py-1 text-center text-xs font-bold uppercase text-slate-700">{tileLabel}</p>
+                          </a>
+                          <div className="border-t border-slate-200 px-2 py-1 text-center text-xs">
+                            <a href={reportUrl} target="_blank" rel="noreferrer" className="text-brand-600 hover:underline">
+                              View
+                            </a>
+                            {" · "}
+                            <a href={downloadUrl} download={`report-${domain}-${job.project_number ?? job.id}.pdf`} className="text-brand-600 hover:underline">
+                              Download
+                            </a>
+                          </div>
+                        </div>
+                      ) : (
+                        <div key={domain} className="block w-48 overflow-hidden rounded-lg border border-dashed border-slate-300">
+                          <div className="flex h-40 w-full items-center justify-center bg-slate-50 px-2 text-center text-xs text-slate-400">Not ready yet</div>
+                          <p className="border-t border-dashed border-slate-300 px-2 py-1 text-center text-xs font-bold uppercase text-slate-400">{tileLabel}</p>
+                        </div>
+                      );
+                    });
+                  })()}
                   {reportComplete && job.invoice_total_cents != null ? (
                     <div className="w-48 overflow-hidden rounded-lg border border-slate-200">
                       <a href={`/api/admin/jobs/${job.id}/invoice?v=${encodeURIComponent(invoiceRevision)}`} target="_blank" rel="noreferrer" className="block">

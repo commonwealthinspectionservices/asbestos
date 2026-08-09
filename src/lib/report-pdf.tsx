@@ -7,6 +7,7 @@ import type { Job, Customer, Settings } from "@/lib/types";
 import {
   ASBESTOS_POSITIVE_REMARK, ASBESTOS_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK,
   moldScopeOfWorkItems, moldServiceTypeFlags, MOLD_SCOPE_CLOSING_LINE, MOLD_ACGIH_PARAGRAPH, MOLD_INDOOR_AIR_QUALITY_PARAGRAPH, MOLD_AIR_INVESTIGATION_GOAL_PARAGRAPH,
+  jobReportDomains, type ReportDomain,
 } from "@/lib/report-findings";
 
 const LETTERHEAD_PATH = path.join(process.cwd(), "public", "letterhead.png");
@@ -103,19 +104,16 @@ function paragraphsFromText(text: string | null | undefined): string[] {
   return text.split(/\n+/).map((p) => p.trim()).filter(Boolean);
 }
 
-function isMoldJob(job: Job): boolean {
-  return (job.service_type ?? "").toLowerCase().includes("mold");
-}
-
-function isLeadJob(job: Job): boolean {
-  return (job.service_type ?? "").toLowerCase().includes("lead");
-}
-
-function ProjectReportDocument({ job, customer, settings }: ProjectReportData) {
-  if (isMoldJob(job)) {
+// One report per domain actually on the job — a job combining service
+// types from more than one domain (e.g. "Limited Asbestos Inspection,
+// Mold Air Sampling") used to pick a single winner here (mold > lead >
+// asbestos) and silently drop whichever type lost. Each domain gets its
+// own separate document now; jobReportDomains decides which domains apply.
+function ReportDocumentForDomain({ job, customer, settings, domain }: ProjectReportData & { domain: ReportDomain }) {
+  if (domain === "mold") {
     return <MoldReportDocument job={job} customer={customer} settings={settings} />;
   }
-  if (isLeadJob(job)) {
+  if (domain === "lead") {
     return <LeadReportDocument job={job} customer={customer} settings={settings} />;
   }
   return <AsbestosReportDocument job={job} customer={customer} settings={settings} />;
@@ -357,8 +355,10 @@ function LeadReportDocument({ job, customer, settings }: ProjectReportData) {
 // and "FINAL MOLD REPORT 14 Rawson Road" letters. Scope of Work, Sampling
 // Methodology, and Limitations are fixed boilerplate matched to those
 // letters; Discussion of Results and Conclusions & Recommendations are
-// exactly what the admin enters in report_summary/report_notes (Enter Lab
-// Results dialog) — this letter doesn't try to auto-structure that text,
+// exactly what the admin enters in mold_report_summary/mold_report_notes
+// (separate from asbestos/lead's report_summary/report_notes, since a job
+// combining mold with either produces two separate final reports) — this
+// letter doesn't try to auto-structure that text,
 // since the real letters are themselves free-form prose written per job.
 function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
   const { knownCustomerName, dateText, addressLines, billingStreet, billing, serviceStreet, service } = commonLetterFields(job, customer, settings);
@@ -370,7 +370,7 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
 
   const scopeItems = [...moldScopeOfWorkItems(job.service_type), MOLD_SCOPE_CLOSING_LINE];
 
-  const labName = (job.lab_name || "an accredited laboratory").replace(/\.+$/, "");
+  const labName = (job.mold_lab_name || "an accredited laboratory").replace(/\.+$/, "");
   // Air and swab share one "Sampling for Mold:" section when both are
   // present — confirmed verbatim against real air+swab combo reports, which
   // merge both collection tools into a single paragraph rather than giving
@@ -417,8 +417,8 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
       : []),
   ];
 
-  const conclusionParagraphs = paragraphsFromText(job.report_notes);
-  const discussionParagraphs = paragraphsFromText(job.report_summary);
+  const conclusionParagraphs = paragraphsFromText(job.mold_report_notes);
+  const discussionParagraphs = paragraphsFromText(job.mold_report_summary);
 
   // "[N] samples were collected on [date] inside the building. An ambient
   // sample was collected outside..." — the air total in sample_counts
@@ -614,6 +614,19 @@ function commonLetterFields(job: Job, customer: Customer, settings: Settings) {
   return { knownCustomerName, dateText, addressLines, billingStreet, billing, serviceStreet, service };
 }
 
-export async function renderProjectReportPdf(data: ProjectReportData): Promise<Buffer> {
-  return renderToBuffer(<ProjectReportDocument {...data} />);
+// Renders exactly one domain's letter — used directly wherever the caller
+// already knows which domain it wants (the ?type= download routes, the
+// per-domain email attachments).
+export async function renderProjectReportPdfForDomain(data: ProjectReportData, domain: ReportDomain): Promise<Buffer> {
+  return renderToBuffer(<ReportDocumentForDomain {...data} domain={domain} />);
+}
+
+// One buffer per domain actually present on the job (see jobReportDomains)
+// — a job combining domains produces one entry per domain here, not one
+// combined document.
+export async function renderProjectReportPdfsByDomain(
+  data: ProjectReportData
+): Promise<{ domain: ReportDomain; buffer: Buffer }[]> {
+  const domains = jobReportDomains(data.job.service_type);
+  return Promise.all(domains.map(async (domain) => ({ domain, buffer: await renderProjectReportPdfForDomain(data, domain) })));
 }

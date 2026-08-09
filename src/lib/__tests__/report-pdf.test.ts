@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import pdfParse from "pdf-parse/lib/pdf-parse.js";
-import { renderProjectReportPdf } from "@/lib/report-pdf";
+import { renderProjectReportPdfForDomain } from "@/lib/report-pdf";
 import type { Job, Customer, Settings } from "@/lib/types";
 
 const settings: Settings = {
@@ -76,6 +76,9 @@ const job: Job = {
   lab_date_needed: null,
   report_summary: "None of the suspect materials sampled were determined to have asbestos fibers present.",
   report_notes: "Field visit went smoothly.",
+  mold_report_summary: null,
+  mold_report_notes: null,
+  mold_lab_name: null,
   invoice_line_items: [
     { description: "Licensed Asbestos Inspector", quantity: 1, billing_unit: "Flat Fee", unit_cost_cents: 45000 },
     { description: "Bulk Samples for Asbestos Analysis by PLM", quantity: 4, billing_unit: "Sample", unit_cost_cents: 2500 },
@@ -100,6 +103,7 @@ const job: Job = {
   asbestos_result: null,
   lead_result: null,
   sample_results: [],
+  mold_sample_results: [],
   requested_time: null,
   window: "AM",
   status: "completed",
@@ -125,80 +129,80 @@ const job: Job = {
 
 describe("renderProjectReportPdf", () => {
   it("renders a valid, non-empty PDF buffer", async () => {
-    const pdf = await renderProjectReportPdf({ job, customer, settings });
+    const pdf = await renderProjectReportPdfForDomain({ job, customer, settings }, "asbestos");
     expect(pdf.length).toBeGreaterThan(0);
     expect(pdf.subarray(0, 4).toString("utf-8")).toBe("%PDF");
   });
 
   it("renders without any sample areas recorded yet", async () => {
-    const pdf = await renderProjectReportPdf({
+    const pdf = await renderProjectReportPdfForDomain({
       job: { ...job, sample_items: [] },
       customer,
       settings,
-    });
+    }, "asbestos");
     expect(pdf.length).toBeGreaterThan(0);
     expect(pdf.subarray(0, 4).toString("utf-8")).toBe("%PDF");
   });
 
   it("totals samples from sample_counts (per service type) rather than the legacy single sample_count", async () => {
-    const pdf = await renderProjectReportPdf({
+    const pdf = await renderProjectReportPdfForDomain({
       job: { ...job, sample_count: 0, sample_counts: { "Limited Asbestos Inspection": 10 } },
       customer,
       settings,
-    });
+    }, "asbestos");
     const { text } = await pdfParse(pdf);
     expect(text).toContain("Total # of Samples");
     expect(text).toMatch(/Total # of Samples:\s*10/);
   });
 
   it("sums sample_counts across every service type on the job", async () => {
-    const pdf = await renderProjectReportPdf({
+    const pdf = await renderProjectReportPdfForDomain({
       job: { ...job, sample_count: 0, sample_counts: { "Limited Asbestos Inspection": 6, "Mold Bulk Sampling": 3 } },
       customer,
       settings,
-    });
+    }, "asbestos");
     const { text } = await pdfParse(pdf);
     expect(text).toMatch(/Total # of Samples:\s*9/);
   });
 
   it("falls back to the legacy sample_count when sample_counts is empty", async () => {
-    const pdf = await renderProjectReportPdf({
+    const pdf = await renderProjectReportPdfForDomain({
       job: { ...job, sample_count: 4, sample_counts: {} },
       customer,
       settings,
-    });
+    }, "asbestos");
     const { text } = await pdfParse(pdf);
     expect(text).toMatch(/Total # of Samples:\s*4/);
   });
 
   it("includes the abatement remark when the job is positive", async () => {
-    const pdf = await renderProjectReportPdf({
+    const pdf = await renderProjectReportPdfForDomain({
       job: { ...job, asbestos_result: "positive", report_summary: null, report_notes: null },
       customer,
       settings,
-    });
+    }, "asbestos");
     const { text } = await pdfParse(pdf);
     expect(text).toContain("must be removed by a licensed asbestos abatement contractor");
     expect(text).not.toContain("None of the suspect materials sampled were determined to have asbestos fibers present");
   });
 
   it("includes the none-detected remark when the job is negative", async () => {
-    const pdf = await renderProjectReportPdf({
+    const pdf = await renderProjectReportPdfForDomain({
       job: { ...job, asbestos_result: "negative", report_summary: null, report_notes: null },
       customer,
       settings,
-    });
+    }, "asbestos");
     const { text } = await pdfParse(pdf);
     expect(text).toContain("None of the suspect materials sampled were determined to have asbestos fibers present");
     expect(text).not.toContain("must be removed by a licensed asbestos abatement contractor");
   });
 
   it("omits the auto remark entirely when the result hasn't been determined yet", async () => {
-    const pdf = await renderProjectReportPdf({
+    const pdf = await renderProjectReportPdfForDomain({
       job: { ...job, asbestos_result: null, report_summary: null, report_notes: null },
       customer,
       settings,
-    });
+    }, "asbestos");
     const { text } = await pdfParse(pdf);
     expect(text).not.toContain("must be removed by a licensed asbestos abatement contractor");
     expect(text).not.toContain("None of the suspect materials sampled were determined to have asbestos fibers present");

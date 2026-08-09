@@ -7,6 +7,9 @@ import PdfPreview from "@/components/shared/PdfPreview";
 import JobRecipients from "@/components/portal/JobRecipients";
 import JobChat from "@/components/shared/JobChat";
 import PendingRequestEditor from "@/components/portal/PendingRequestEditor";
+import { jobReportDomains } from "@/lib/report-findings";
+
+const REPORT_DOMAIN_LABEL: Record<string, string> = { asbestos: "Asbestos", lead: "Lead", mold: "Mold" };
 
 type Tab = "info" | "report" | "invoice" | "chat";
 
@@ -320,14 +323,26 @@ export default function ProjectDetailModal({
           {tab === "report" && (
             <div className="text-sm">
               {reportReady ? (
-                <a
-                  href={`/api/portal/projects/${job.id}/report`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-block rounded-lg bg-brand-600 px-4 py-2 font-medium text-white"
-                >
-                  View report
-                </a>
+                // One link per service-type domain (asbestos/lead/mold) —
+                // a job combining types produces a separate report for
+                // each, not one that only covers whichever type this used
+                // to silently pick.
+                <div className="flex flex-wrap gap-2">
+                  {(() => {
+                    const domains = jobReportDomains(job.service_type);
+                    return domains.map((domain) => (
+                      <a
+                        key={domain}
+                        href={`/api/portal/projects/${job.id}/report?type=${domain}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-block rounded-lg bg-brand-600 px-4 py-2 font-medium text-white"
+                      >
+                        {domains.length > 1 ? `View ${REPORT_DOMAIN_LABEL[domain]} report` : "View report"}
+                      </a>
+                    ));
+                  })()}
+                </div>
               ) : job.is_individual && REPORT_READY_STATUSES.has(job.status) && !paid ? (
                 <p className="text-slate-500">Your final report will be available here once payment is received.</p>
               ) : (

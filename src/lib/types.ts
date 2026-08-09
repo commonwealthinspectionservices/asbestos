@@ -205,6 +205,11 @@ export interface Job {
   lab_date_needed: string | null;
   report_summary: string | null;
   report_notes: string | null;
+  /** Mold's own Discussion of Results/Conclusions & Recommendations content, separate from report_summary/report_notes (asbestos/lead's) — a job combining mold with asbestos or lead produces two separate final reports, so they can't share one field. */
+  mold_report_summary: string | null;
+  mold_report_notes: string | null;
+  /** Mold's own lab name, separate from lab_name (asbestos/lead's) — a mixed job can use a different lab per service type. */
+  mold_lab_name: string | null;
   /** Manual line-item invoicing (Quantity/Billing Unit/Description/Unit Cost), entered at "Enter lab results" time. */
   invoice_line_items: InvoiceLineItem[];
   /** True until the admin manually edits a line item — while true, invoice_line_items keeps recomputing fresh from current sample_counts/base fee on every save rather than freezing at whatever was last auto-generated. */
@@ -239,6 +244,8 @@ export interface Job {
   lead_result: "positive" | "negative" | null;
   /** Per-sample field code + result text, pulled from the same uploaded lab report — plain-text reference for the admin, not billing data. */
   sample_results: { fieldCode: string; result: string }[];
+  /** Mold's own version of sample_results, separate so an asbestos+mold job's two lab uploads don't clobber each other's per-sample list. */
+  mold_sample_results: { fieldCode: string; result: string }[];
   requested_time: string | null;
   window: JobWindow;
   status: JobStatus;

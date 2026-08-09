@@ -5,7 +5,10 @@ import { getSettings } from "@/lib/settings";
 import { buildFinalReportPacket } from "@/lib/report-packet";
 import { withApiErrors } from "@/lib/api-handler";
 import { withCompanyBillingAddress } from "@/lib/customer-billing";
+import { jobReportDomains, reportDownloadFilename, type ReportDomain } from "@/lib/report-findings";
 import type { Company, Customer, Job } from "@/lib/types";
+
+const REPORT_DOMAINS: ReportDomain[] = ["asbestos", "lead", "mold"];
 
 export const GET = withApiErrors(async (
   req: NextRequest,
@@ -28,7 +31,27 @@ export const GET = withApiErrors(async (
   const jobRow = job as unknown as Job & { customers: Customer & { companies: Company | null } };
   const customer = withCompanyBillingAddress(jobRow.customers, jobRow.customers.companies);
   const settings = await getSettings();
-  const pdf = await buildFinalReportPacket(jobRow, customer, settings);
+
+  // One report per domain (asbestos/lead/mold) actually on the job — the
+  // caller says which one it wants via ?type=. Omitting it only works when
+  // the job has exactly one domain (the common single-service-type case),
+  // so existing single-type links keep working unchanged; a multi-domain
+  // job must specify which report it's downloading.
+  const typeParam = req.nextUrl.searchParams.get("type");
+  const domains = jobReportDomains(jobRow.service_type);
+  let domain: ReportDomain;
+  if (typeParam) {
+    if (!REPORT_DOMAINS.includes(typeParam as ReportDomain)) {
+      return NextResponse.json({ error: `Invalid type "${typeParam}"` }, { status: 400 });
+    }
+    domain = typeParam as ReportDomain;
+  } else if (domains.length === 1) {
+    domain = domains[0];
+  } else {
+    return NextResponse.json({ error: "This job has multiple report types — specify ?type=" }, { status: 400 });
+  }
+
+  const pdf = await buildFinalReportPacket(jobRow, customer, settings, domain);
 
   // Same reasoning as the invoice route: "attachment" is what actually
   // forces a save-to-disk for the Download link — some browsers ignore the
@@ -38,7 +61,7 @@ export const GET = withApiErrors(async (
   return new NextResponse(new Uint8Array(pdf), {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `${disposition}; filename="project-report-${params.id}.pdf"`,
+      "Content-Disposition": `${disposition}; filename="${reportDownloadFilename(jobRow, domain, params.id)}.pdf"`,
     },
   });
 });

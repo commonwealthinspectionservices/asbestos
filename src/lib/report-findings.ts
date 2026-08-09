@@ -13,6 +13,59 @@ export const LEAD_NEGATIVE_REMARK =
 export const LEAD_POSITIVE_REMARK =
   "One or more of the sampled paints was determined to contain lead at a concentration meeting or exceeding the Massachusetts Department of Public Health (MassDPH) and Federal HUD lead-based paint threshold of 0.5% by weight (5,000 ppm). Materials determined to be lead-based paint should be managed in accordance with applicable state and federal regulations prior to being disturbed by building maintenance, renovation, or demolition activities.";
 
+// Which final-report domain a single service-type label belongs to.
+// Defaults to "asbestos" for anything that doesn't clearly say "mold" or
+// "lead" (a custom/free-text type, or the common case where the label is
+// just "Limited Asbestos Inspection") — matches the fallback every existing
+// isMoldJob/isLeadJob check already used before this domain split existed.
+export type ReportDomain = "asbestos" | "lead" | "mold";
+
+export function domainForServiceTypeLabel(label: string): ReportDomain {
+  const l = label.toLowerCase();
+  if (l.includes("mold")) return "mold";
+  if (l.includes("lead")) return "lead";
+  return "asbestos";
+}
+
+// Every report domain actually present on a job, in the order their labels
+// were originally selected — a job combining service types from more than
+// one domain (e.g. "Limited Asbestos Inspection, Mold Air Sampling")
+// produces one final report per domain returned here, not just one. Used
+// wherever the old code picked a single winner via isMoldJob/isLeadJob
+// priority (report-pdf.tsx, report-packet.ts, lab-email.ts,
+// JobsDashboard.tsx) — those all silently dropped whichever domain lost.
+export function jobReportDomains(serviceType: string | null | undefined): ReportDomain[] {
+  const labels = (serviceType ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+  if (labels.length === 0) return ["asbestos"];
+  const domains: ReportDomain[] = [];
+  for (const label of labels) {
+    const domain = domainForServiceTypeLabel(label);
+    if (!domains.includes(domain)) domains.push(domain);
+  }
+  return domains;
+}
+
+const REPORT_DOMAIN_FILENAME_LABEL: Record<ReportDomain, string> = {
+  asbestos: "Asbestos",
+  lead: "Lead",
+  mold: "Mold",
+};
+
+// Downloaded report filename: "[job #] [service type] [address].pdf" —
+// same for every caller (admin and portal report routes) so a report saved
+// from either place is identifiable without opening it. Strips characters
+// that are unsafe in a filename on any OS rather than just the ones that
+// happen to show up in a Massachusetts street address today.
+export function reportDownloadFilename(
+  job: { project_number: string | null; service_address: string },
+  domain: ReportDomain,
+  fallbackId: string
+): string {
+  const projectNumber = job.project_number ?? fallbackId;
+  const raw = `${projectNumber} ${REPORT_DOMAIN_FILENAME_LABEL[domain]} ${job.service_address}`;
+  return raw.replace(/[\\/:*?"<>|]/g, "").replace(/\s+/g, " ").trim();
+}
+
 // Which mold sample types are actually on a job — derived from
 // job.service_type (the comma-joined labels chosen at booking time, e.g.
 // "Mold Air Sampling, Mold Bulk Sampling"), known from the moment the job's

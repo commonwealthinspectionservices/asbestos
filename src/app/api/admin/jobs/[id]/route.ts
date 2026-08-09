@@ -43,6 +43,9 @@ const EDITABLE_FIELDS = [
   "lab_cost_cents",
   "report_summary",
   "report_notes",
+  "mold_report_summary",
+  "mold_report_notes",
+  "mold_lab_name",
   "is_individual",
 ] as const;
 

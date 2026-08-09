@@ -233,19 +233,19 @@ export default function ProjectsList() {
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <button
           onClick={() => selectStatusView("all")}
-          className={`rounded-lg px-3 py-1.5 text-sm font-medium uppercase ${!statusFilter && statusView === "all" ? "text-brand-700 underline" : "text-slate-600 hover:underline"}`}
+          className={`rounded-lg px-2.5 py-1 text-sm font-medium uppercase ${!statusFilter && statusView === "all" ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
         >
           All Projects
         </button>
         <button
           onClick={() => selectStatusView("open")}
-          className={`rounded-lg px-3 py-1.5 text-sm font-medium uppercase ${!statusFilter && statusView === "open" ? "text-brand-700 underline" : "text-slate-600 hover:underline"}`}
+          className={`rounded-lg px-2.5 py-1 text-sm font-medium uppercase ${!statusFilter && statusView === "open" ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
         >
           Open Projects
         </button>
         <button
           onClick={() => selectStatusView("closed")}
-          className={`rounded-lg px-3 py-1.5 text-sm font-medium uppercase ${!statusFilter && statusView === "closed" ? "text-brand-700 underline" : "text-slate-600 hover:underline"}`}
+          className={`rounded-lg px-2.5 py-1 text-sm font-medium uppercase ${!statusFilter && statusView === "closed" ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
         >
           Closed Projects
         </button>

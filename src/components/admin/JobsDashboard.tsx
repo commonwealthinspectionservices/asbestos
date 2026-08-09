@@ -1527,7 +1527,7 @@ export function ProjectDetailDialog({
                     {serviceTypeLabels.map((label, labelIndex) => (
                       <div key={label}>
                         <p className="mb-2 text-sm font-bold text-slate-700">{label}</p>
-                        <div className={`grid gap-3 ${isMoldJob(job) ? "grid-cols-3" : "grid-cols-2"}`}>
+                        <div className="grid grid-cols-2 gap-3">
                           <DocumentStation
                             job={job}
                             onChanged={onChanged}
@@ -1535,27 +1535,25 @@ export function ProjectDetailDialog({
                             label="Laboratory Results"
                             serviceType={label}
                           />
-                          {!isMoldJob(job) && (
-                            <div>
-                              <div className="flex flex-nowrap items-center gap-2">
-                                <h4 className="whitespace-nowrap text-xs font-semibold uppercase tracking-wide text-slate-400">Sample Results</h4>
-                              </div>
-                              {job.sample_results && job.sample_results.length > 0 ? (
-                                <div className="mt-1.5 w-full rounded-lg border border-slate-200 bg-slate-50 p-2 font-mono text-xs">
-                                  {job.sample_results.map((s, i) => (
-                                    <div key={i} className={/%/.test(s.result) ? "text-red-600" : "text-slate-900"}>{s.fieldCode}: {s.result}</div>
-                                  ))}
-                                  <div className="mt-1.5 border-t border-slate-200 pt-1.5 font-sans font-semibold text-slate-500">
-                                    Total: {job.sample_results.length} sample{job.sample_results.length === 1 ? "" : "s"}
-                                  </div>
-                                </div>
-                              ) : (
-                                <div className="mt-1.5 flex w-full flex-col items-center justify-center rounded-lg border-2 border-dashed border-slate-300 px-3 py-5 text-center text-xs text-slate-500">
-                                  Populates once Laboratory Results is uploaded
-                                </div>
-                              )}
+                          <div>
+                            <div className="flex flex-nowrap items-center gap-2">
+                              <h4 className="whitespace-nowrap text-xs font-semibold uppercase tracking-wide text-slate-400">Sample Results</h4>
                             </div>
-                          )}
+                            {job.sample_results && job.sample_results.length > 0 ? (
+                              <div className="mt-1.5 w-full rounded-lg border border-slate-200 bg-slate-50 p-2 font-mono text-xs">
+                                {job.sample_results.map((s, i) => (
+                                  <div key={i} className={/%/.test(s.result) ? "text-red-600" : "text-slate-900"}>{s.fieldCode}: {s.result}</div>
+                                ))}
+                                <div className="mt-1.5 border-t border-slate-200 pt-1.5 font-sans font-semibold text-slate-500">
+                                  Total: {job.sample_results.length} sample{job.sample_results.length === 1 ? "" : "s"}
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="mt-1.5 flex w-full flex-col items-center justify-center rounded-lg border-2 border-dashed border-slate-300 px-3 py-5 text-center text-xs text-slate-500">
+                                Populates once Laboratory Results is uploaded
+                              </div>
+                            )}
+                          </div>
                           <DocumentStation job={job} onChanged={onChanged} kind="coc" label="Chain of Custody" serviceType={label} />
                           <DocumentStation job={job} onChanged={onChanged} kind="lab_invoice" label="Laboratory Invoice" serviceType={label} />
                         </div>

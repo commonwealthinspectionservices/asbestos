@@ -8,7 +8,7 @@ import pdfParse from "pdf-parse/lib/pdf-parse.js";
 import { requireAdminApi } from "@/lib/admin-api";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { withApiErrors } from "@/lib/api-handler";
-import { extractSampleCount, detectAsbestosResult, extractSampleResults, extractReportProjectNumber, detectLabInfo } from "@/lib/parse-lab-report";
+import { extractSampleCount, detectAsbestosResult, extractSampleResults, extractReportProjectNumber, detectLabInfo, extractMoldSampleCount, extractMoldSampleResults } from "@/lib/parse-lab-report";
 import { splitTrailingCocPages } from "@/lib/split-lab-report-coc";
 import type { Job, JobDocument } from "@/lib/types";
 
@@ -56,15 +56,17 @@ export const POST = withApiErrors(async (
   const update: Record<string, unknown> = {};
   let projectNumberMismatch: string | null = null;
 
-  // Lab results PDFs (currently EMSL's bulk-material PLM report format)
-  // list one row per physical sample — pull the count straight from the
-  // report instead of making the admin count and re-type it by hand. Best
-  // effort: any parsing failure just leaves the count for manual entry.
+  // Lab results PDFs list one row (asbestos) or one column (mold's
+  // Air-O-Cell/Swab genus tables) per physical sample — pull the count
+  // straight from the report instead of making the admin count and re-type
+  // it by hand. Best effort: any parsing failure just leaves the count for
+  // manual entry.
   if (kind === "lab_report" && typeof serviceType === "string" && serviceType && file.type === "application/pdf") {
     try {
       const { text } = await pdfParse(fileBuffer);
+      const isMold = /mold/i.test(serviceType);
 
-      const count = extractSampleCount(text);
+      const count = isMold ? extractMoldSampleCount(text) : extractSampleCount(text);
       if (count != null) {
         update.sample_counts = { ...(jobRow.sample_counts ?? {}), [serviceType]: count };
       }
@@ -78,10 +80,20 @@ export const POST = withApiErrors(async (
         update.lab_massdls_cert = labInfo.massdlsCert;
       }
 
+      if (isMold) {
+        // No asbestos-style pass/fail for mold — genus-level findings live
+        // only in the uploaded report itself. Just confirms which samples
+        // were actually received and analyzed (see extractMoldSampleResults).
+        const sampleResults = extractMoldSampleResults(text);
+        if (sampleResults.length > 0) {
+          update.sample_results = sampleResults;
+        }
+      }
+
       // Positive/negative for the final report — asbestos jobs only, for
-      // now (mold and lead aren't in scope yet). Only EMSL's format is
-      // recognized; other labs just leave this for the admin to set by
-      // hand on the Final Report tab.
+      // now (lead isn't in scope yet). Only EMSL's format is recognized;
+      // other labs just leave this for the admin to set by hand on the
+      // Final Report tab.
       if (/asbestos/i.test(serviceType)) {
         const result = detectAsbestosResult(text);
         if (result != null) {

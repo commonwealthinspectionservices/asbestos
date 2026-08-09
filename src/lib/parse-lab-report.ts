@@ -185,6 +185,59 @@ export function extractSampleCount(pdfText: string): number | null {
   return count > 0 ? count : null;
 }
 
+// EMSL's mold reports (Air-O-Cell and Swab) use a completely different
+// table layout than the asbestos PLM format above — a genus/category
+// matrix per sample rather than a single result cell, with each sample's
+// counts spread across columns rather than one result per row — so
+// reliably parsing out an actual finding (dominant genus, count level)
+// isn't attempted here; only which samples were really collected. What
+// both formats do share with the asbestos ones is the same lab-ID shape
+// ("digits-dash-4digits", e.g. "132605556-0001") sitting right before each
+// sample's own data, and the "Client Sample ID" (e.g. "SW01", "1") as the
+// very next line. Confirmed against two real reports: unused reserved ID
+// slots get a "99XX" suffix and the literal text "Dummy" (or, for a swab
+// QC sample, "Field Blank") in that same position — never a real client
+// sample ID — so excluding those is enough to find only the samples
+// actually collected. Only the first line right after the ID is checked,
+// not the whole window up to the next ID: a multi-page Air-O-Cell report's
+// page footer ("No discernable field blank was submitted...") sits inside
+// that later window for the last sample on each page, and checking the
+// whole window would wrongly exclude it.
+function moldSampleFieldCodes(pdfText: string): string[] {
+  const idPattern = /\d{6,}-\d{4}/g;
+  const matches = [...pdfText.matchAll(idPattern)];
+
+  const seen = new Set<string>();
+  const fieldCodes: string[] = [];
+  for (const idMatch of matches) {
+    const labId = idMatch[0];
+    if (seen.has(labId)) continue;
+    seen.add(labId);
+
+    const afterId = pdfText.slice(idMatch.index! + labId.length);
+    const firstLine = afterId.trim().split("\n")[0]?.trim() ?? "";
+    if (!firstLine || /dummy|blank/i.test(firstLine)) continue;
+
+    fieldCodes.push(firstLine);
+  }
+  return fieldCodes;
+}
+
+export function extractMoldSampleCount(pdfText: string): number | null {
+  const count = moldSampleFieldCodes(pdfText).length;
+  return count > 0 ? count : null;
+}
+
+// One entry per sample actually collected (field code only) — mirrors
+// extractSampleResults' shape for the admin's "Sample Results" box, but
+// without an asbestos-style finding to report (see moldSampleFieldCodes
+// above for why): "Analyzed" just confirms the lab received and processed
+// that sample, not what it found. The full genus-level breakdown is only
+// in the uploaded report itself, viewable from its own thumbnail.
+export function extractMoldSampleResults(pdfText: string): SampleResult[] {
+  return moldSampleFieldCodes(pdfText).map((fieldCode) => ({ fieldCode, result: "Analyzed" }));
+}
+
 // The lab itself makes the positive/negative call, not FLI — any sample
 // result carrying a percentage + one of the six regulated minerals means
 // the report as a whole is positive, full stop, regardless of how many

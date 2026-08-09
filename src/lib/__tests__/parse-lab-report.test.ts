@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { extractSampleCount, detectAsbestosResult, extractSampleResults, extractReportProjectNumber, detectLabInfo } from "../parse-lab-report";
+import { extractSampleCount, detectAsbestosResult, extractSampleResults, extractReportProjectNumber, detectLabInfo, extractMoldSampleCount, extractMoldSampleResults } from "../parse-lab-report";
 
 // Excerpts of real EMSL bulk asbestos PLM report text, exactly as pdf-parse
 // extracts it (value-before-label ordering and all — PDF text extraction
@@ -582,6 +582,142 @@ describe("Crystal Analytical report format", () => {
     expect(results).toEqual([
       { fieldCode: "01A", result: "None Detected" },
       { fieldCode: "01B", result: "None Detected" },
+    ]);
+  });
+});
+
+// Real EMSL swab report text (exactly as pdf-parse extracts it) — 2 real
+// samples (SW01, SW02) plus 3 unused reserved "Dummy" ID slots.
+const MOLD_SWAB_REPORT = `
+http://www.EMSL.com / bostonlab@emsl.com
+Tel/Fax: (781) 933-8411 / (781) 933-8412
+5 Constitution Way, Unit A Woburn, MA  01801
+EMSL Analytical, Inc.
+EMSL Order:
+132605555
+Customer ID:
+FLIE62
+Attention:
+Richard Bourassa
+FLI Environmental
+Project:
+Harbor Point Apt. 409 / 26-1136.2
+Test Report: Microscopic Examination of Fungal Spores, Fungal Structures, Hyphae, and Other
+Particulates from Swab Samples (EMSL Method MICRO-SOP-200)
+Lab Sample Number:
+Client Sample ID:
+Sample Location:
+132605555-0001
+SW01
+132605555-0002
+SW02
+132605555-9901
+Dummy
+132605555-9902
+Dummy
+132605555-9903
+Dummy
+Hall Bath CeilingKitchen CeilingDummyDummyDummy
+Spore Types
+CategoryCategory---
+Alternaria (Ulocladium)-Rare---
+Cladosporium*High*Rare---
+No discernable field blank was submitted with this group of samples.
+`;
+
+// Real EMSL Air-O-Cell report text, 2 pages — 6 real samples (0001-0006,
+// including the "Exterior" ambient sample), no unused slots. Deliberately
+// includes the page-1 footer disclaimer ("No discernable field blank...")
+// between sample 0003 and sample 0004, the exact real-world case that
+// would wrongly exclude 0003 if the whole inter-ID window were checked for
+// "blank" instead of just the line right after each ID.
+const MOLD_AIR_O_CELL_REPORT = `
+EMSL Analytical, Inc.
+EMSL Order:
+132605556
+Project:
+Harbor Point Apt. 409 / 26-1136.2
+Test Report:Air-O-Cell(™) Analysis of Fungal Spores & Particulates by Optical Microscopy (Methods MICRO-SOP-201, ASTM D7391)
+Lab Sample Number:
+Client Sample ID:
+Volume (L):
+Sample Location:
+132605556-0001
+1
+75
+132605556-0002
+2
+75
+132605556-0003
+3
+75
+Hall BathMaster BathKitchen
+Spore TypesRaw Count†Count/m³% of TotalRaw Count†Count/m³% of TotalRaw Count†Count/m³% of Total
+Cladosporium95390098.2110*3.4310052.6
+Total Fungi
+98397010072901006190100
+Steve Grise, Laboratory Manager
+No discernable field blank was submitted with this group of samples.
+EMSL Analytical, Inc. maintains liability limited to cost of analysis.
+MIC_M001_0002_0003  Printed: 07/31/2026 09:47 PM
+Page 1 of 2
+
+EMSL Analytical, Inc.
+EMSL Order:
+132605556
+Project:
+Harbor Point Apt. 409 / 26-1136.2
+Test Report:Air-O-Cell(™) Analysis of Fungal Spores & Particulates by Optical Microscopy (Methods MICRO-SOP-201, ASTM D7391)
+Lab Sample Number:
+Client Sample ID:
+Volume (L):
+Sample Location:
+132605556-0004
+4
+75
+132605556-0005
+5
+75
+132605556-0006
+6
+75
+Living RoomCommon HallExterior
+Spore TypesRaw Count†Count/m³% of TotalRaw Count†Count/m³% of TotalRaw Count†Count/m³% of Total
+Total Fungi
+62401001771010017700100
+No discernable field blank was submitted with this group of samples.
+Page 2 of 2
+`;
+
+describe("extractMoldSampleCount", () => {
+  it("counts only the 2 real swab samples, excluding the 3 Dummy slots", () => {
+    expect(extractMoldSampleCount(MOLD_SWAB_REPORT)).toBe(2);
+  });
+
+  it("counts all 6 real Air-O-Cell samples across both pages", () => {
+    // Would come out as 4 (missing 0003 and 0006, the last sample on each
+    // page) if the "blank" check looked at the whole window up to the next
+    // ID instead of just the line right after — that window includes the
+    // page footer's "No discernable field blank..." disclaimer.
+    expect(extractMoldSampleCount(MOLD_AIR_O_CELL_REPORT)).toBe(6);
+  });
+
+  it("returns null when there's nothing recognizable", () => {
+    expect(extractMoldSampleCount("not a lab report")).toBeNull();
+  });
+});
+
+describe("extractMoldSampleResults", () => {
+  it("lists the real swab samples' own client sample IDs, not the Dummy slots", () => {
+    expect(extractMoldSampleResults(MOLD_SWAB_REPORT)).toEqual([
+      { fieldCode: "SW01", result: "Analyzed" },
+      { fieldCode: "SW02", result: "Analyzed" },
+    ]);
+  });
+
+  it("lists all 6 Air-O-Cell client sample IDs across both pages", () => {
+    expect(extractMoldSampleResults(MOLD_AIR_O_CELL_REPORT).map((r) => r.fieldCode)).toEqual([
+      "1", "2", "3", "4", "5", "6",
     ]);
   });
 });

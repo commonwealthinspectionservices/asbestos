@@ -1527,7 +1527,7 @@ export function ProjectDetailDialog({
                     {serviceTypeLabels.map((label, labelIndex) => (
                       <div key={label}>
                         <p className="mb-2 text-sm font-bold text-slate-700">{label}</p>
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className={`grid gap-3 ${isMoldJob(job) ? "grid-cols-3" : "grid-cols-2"}`}>
                           <DocumentStation
                             job={job}
                             onChanged={onChanged}

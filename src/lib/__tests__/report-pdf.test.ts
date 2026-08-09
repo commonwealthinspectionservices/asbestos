@@ -155,14 +155,24 @@ describe("renderProjectReportPdf", () => {
     expect(text).toMatch(/Total # of Samples:\s*10/);
   });
 
-  it("sums sample_counts across every service type on the job", async () => {
+  it("sums sample_counts across every label in this report's own domain", async () => {
+    const pdf = await renderProjectReportPdfForDomain({
+      job: { ...job, sample_count: 0, sample_counts: { "Limited Asbestos Inspection": 6, "Asbestos Bulk Sampling": 3 } },
+      customer,
+      settings,
+    }, "asbestos");
+    const { text } = await pdfParse(pdf);
+    expect(text).toMatch(/Total # of Samples:\s*9/);
+  });
+
+  it("excludes another domain's sample_counts entries from this report's total", async () => {
     const pdf = await renderProjectReportPdfForDomain({
       job: { ...job, sample_count: 0, sample_counts: { "Limited Asbestos Inspection": 6, "Mold Bulk Sampling": 3 } },
       customer,
       settings,
     }, "asbestos");
     const { text } = await pdfParse(pdf);
-    expect(text).toMatch(/Total # of Samples:\s*9/);
+    expect(text).toMatch(/Total # of Samples:\s*6/);
   });
 
   it("falls back to the legacy sample_count when sample_counts is empty", async () => {

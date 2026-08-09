@@ -7,7 +7,7 @@ import type { Job, Customer, Settings } from "@/lib/types";
 import {
   ASBESTOS_POSITIVE_REMARK, ASBESTOS_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK,
   moldScopeOfWorkItems, moldServiceTypeFlags, MOLD_SCOPE_CLOSING_LINE, MOLD_ACGIH_PARAGRAPH, MOLD_INDOOR_AIR_QUALITY_PARAGRAPH, MOLD_AIR_INVESTIGATION_GOAL_PARAGRAPH,
-  jobReportDomains, type ReportDomain,
+  jobReportDomains, domainForServiceTypeLabel, type ReportDomain,
 } from "@/lib/report-findings";
 
 const LETTERHEAD_PATH = path.join(process.cwd(), "public", "letterhead.png");
@@ -121,10 +121,14 @@ function ReportDocumentForDomain({ job, customer, settings, domain }: ProjectRep
 
 function AsbestosReportDocument({ job, customer, settings }: ProjectReportData) {
   // Lab report uploads populate sample_counts (one entry per service type on
-  // the job), not the older single sample_count field — sum every entry for
-  // the letter's one combined total, falling back to sample_count only for
-  // jobs from before that per-type tracking existed.
-  const sampleCountsTotal = Object.values(job.sample_counts ?? {}).reduce((sum, n) => sum + (n || 0), 0);
+  // the job), not the older single sample_count field — sum only this
+  // report's own domain's entries for the letter's total, since a job
+  // combining e.g. asbestos with mold has sample_counts entries for both and
+  // each domain gets its own separate report. Falls back to sample_count
+  // only for jobs from before per-type tracking existed.
+  const sampleCountsTotal = Object.entries(job.sample_counts ?? {})
+    .filter(([label]) => domainForServiceTypeLabel(label) === "asbestos")
+    .reduce((sum, [, n]) => sum + (n || 0), 0);
   const totalSamples = sampleCountsTotal > 0 ? sampleCountsTotal : job.sample_count ?? 0;
   // Reports go to the customer (whoever booked/pays), not the on-site
   // contact — site_contact is for scheduling coordination only.
@@ -244,7 +248,11 @@ function AsbestosReportDocument({ job, customer, settings }: ProjectReportData) 
 // does. No "Field Technician" row — both real letters leave it blank and
 // nothing in this app tracks who was on site, so there's no value to show.
 function LeadReportDocument({ job, customer, settings }: ProjectReportData) {
-  const sampleCountsTotal = Object.values(job.sample_counts ?? {}).reduce((sum, n) => sum + (n || 0), 0);
+  // See AsbestosReportDocument's identical comment — only this report's own
+  // domain's sample_counts entries count toward its total.
+  const sampleCountsTotal = Object.entries(job.sample_counts ?? {})
+    .filter(([label]) => domainForServiceTypeLabel(label) === "lead")
+    .reduce((sum, [, n]) => sum + (n || 0), 0);
   const totalSamples = sampleCountsTotal > 0 ? sampleCountsTotal : job.sample_count ?? 0;
 
   const remarks = [

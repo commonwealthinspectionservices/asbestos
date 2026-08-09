@@ -137,9 +137,9 @@ describe("renderProjectXlsm", () => {
     expect(dateValue.toISOString().slice(0, 10)).toBe("2026-07-20");
   });
 
-  it("fills one 'x' placeholder row per sample, summed across service types", async () => {
+  it("fills one 'x' placeholder row per sample, summed across asbestos service types", async () => {
     const buffer = await renderProjectXlsm({
-      job: { ...job, sample_counts: { "Limited Asbestos Inspection": 6, "Mold Bulk Sampling": 3 } },
+      job: { ...job, sample_counts: { "Limited Asbestos Inspection": 6, "Asbestos Bulk Sampling": 3 } },
       customer,
     });
     const wb = await readBack(buffer);
@@ -148,6 +148,19 @@ describe("renderProjectXlsm", () => {
       expect(coc.getCell(`B${10 + i}`).value).toBe("x");
     }
     expect(coc.getCell("B19").value).toBeNull();
+  });
+
+  it("excludes another domain's sample_counts entries — this template is asbestos-only", async () => {
+    const buffer = await renderProjectXlsm({
+      job: { ...job, sample_counts: { "Limited Asbestos Inspection": 6, "Mold Bulk Sampling": 3 } },
+      customer,
+    });
+    const wb = await readBack(buffer);
+    const coc = wb.getWorksheet("COC")!;
+    for (let i = 0; i < 6; i++) {
+      expect(coc.getCell(`B${10 + i}`).value).toBe("x");
+    }
+    expect(coc.getCell("B16").value).toBeNull();
   });
 
   it("fills the lab info cells", async () => {

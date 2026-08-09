@@ -2,7 +2,7 @@ import path from "path";
 import ExcelJS from "exceljs";
 import type { Job, Customer } from "@/lib/types";
 import { splitAddress } from "@/lib/address";
-import { ASBESTOS_POSITIVE_REMARK, ASBESTOS_NEGATIVE_REMARK } from "@/lib/report-findings";
+import { ASBESTOS_POSITIVE_REMARK, ASBESTOS_NEGATIVE_REMARK, domainForServiceTypeLabel } from "@/lib/report-findings";
 
 const TEMPLATE_PATH = path.join(process.cwd(), "src", "lib", "templates", "asbestos-limited-template.xlsm");
 
@@ -73,8 +73,12 @@ export async function renderProjectXlsm({ job, customer }: ProjectXlsmData): Pro
 
   // One "x" placeholder per sample, same as the admin's own real completed
   // COC sheets — the Report sheet's Total # of Samples is a COUNTA over
-  // B10:B29 regardless of what's actually typed in each row.
-  const sampleCountsTotal = Object.values(job.sample_counts ?? {}).reduce((sum, n) => sum + (n || 0), 0);
+  // B10:B29 regardless of what's actually typed in each row. This template
+  // is asbestos-only, so a job that also has e.g. a mold component must not
+  // count that domain's samples here.
+  const sampleCountsTotal = Object.entries(job.sample_counts ?? {})
+    .filter(([label]) => domainForServiceTypeLabel(label) === "asbestos")
+    .reduce((sum, [, n]) => sum + (n || 0), 0);
   const totalSamples = sampleCountsTotal > 0 ? sampleCountsTotal : job.sample_count ?? 0;
   const rowCount = Math.min(totalSamples, 20);
   for (let i = 0; i < rowCount; i++) {

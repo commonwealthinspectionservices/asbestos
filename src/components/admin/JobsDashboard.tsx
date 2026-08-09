@@ -640,7 +640,7 @@ export default function JobsDashboard() {
         <div className="flex gap-2">
           <button
             onClick={() => setAddingProject(true)}
-            className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-bold text-white"
+            className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-bold text-white hover:underline"
           >
             ADD PROJECT
           </button>
@@ -1490,7 +1490,7 @@ export function ProjectDetailDialog({
           <div className="space-y-2">
             <div className="flex items-start justify-between gap-2">
               <DetailField label="Project #" value={job.project_number} />
-              <button onClick={onEdit} className="shrink-0 rounded-lg border border-slate-300 px-3.5 py-1.5 text-sm font-bold">
+              <button onClick={onEdit} className="shrink-0 rounded-lg border border-slate-300 px-3.5 py-1.5 text-sm font-bold uppercase hover:underline">
                 Edit
               </button>
             </div>
@@ -1611,16 +1611,17 @@ export function ProjectDetailDialog({
                     to the heading, alongside Turnaround. With more than one
                     service type, each domain's dropdown moves down to sit
                     inline with that service type's own section instead (see
-                    the label loop below) — Turnaround is the only thing left
-                    up here. */}
+                    the label loop below) — Turnaround stays up here either
+                    way, directly across from the heading. */}
                 {reportDomains.length === 1 ? (
                   <div className="flex flex-wrap items-center gap-4">
                     {turnaroundControl}
                     {labDropdown(reportDomains[0])}
                   </div>
-                ) : null}
+                ) : (
+                  turnaroundControl
+                )}
               </div>
-              {reportDomains.length > 1 && <div className="mt-2">{turnaroundControl}</div>}
               <div className="mt-3">
                 {serviceTypeLabels.length > 0 ? (
                   <div className="space-y-5">

@@ -2093,12 +2093,19 @@ function DocumentStation({
             setDragOver(false);
             if (e.dataTransfer.files.length > 0) uploadFiles(e.dataTransfer.files);
           }}
-          onClick={() => inputRef.current?.click()}
-          className={`mt-1.5 flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed px-3 py-5 text-center text-xs ${
-            dragOver ? "border-brand-500 bg-brand-50 text-brand-700" : "border-slate-300 text-slate-500"
+          className={`mt-1.5 flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-6 text-center ${
+            dragOver ? "border-brand-600 bg-brand-50" : "border-slate-300"
           }`}
         >
-          {uploading ? "Uploading…" : "Drag a file here, or click to browse"}
+          <p className="text-sm text-slate-500">Drag and drop a file here, or</p>
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            disabled={uploading}
+            className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+          >
+            {uploading ? "Uploading…" : "Choose file"}
+          </button>
           <input
             ref={inputRef}
             type="file"

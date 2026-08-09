@@ -1550,7 +1550,7 @@ export function ProjectDetailDialog({
                               </div>
                             ) : (
                               <div className="mt-1.5 flex w-full flex-col items-center justify-center rounded-lg border-2 border-dashed border-slate-300 px-3 py-5 text-center text-xs text-slate-500">
-                                Populates once Laboratory Results is uploaded
+                                Populates once Laboratory Results are uploaded
                               </div>
                             )}
                           </div>

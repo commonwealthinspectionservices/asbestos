@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
@@ -14,9 +15,18 @@ const SERVICE_LINKS = [
   { href: "/services/lead", label: "Lead Paint Sampling" },
 ];
 
+// Same visual language as MarketingNav/AdminNav — boxed brand button on the
+// left, uppercase underline-on-active links, a boxed Sign out button on the
+// right, collapsing into a hamburger below sm instead of wrapping or
+// overflowing.
 export default function PortalNav({ isIndividual = false }: { isIndividual?: boolean }) {
   const pathname = usePathname();
   const router = useRouter();
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [pathname]);
 
   async function logout() {
     const supabase = createSupabaseBrowserClient();
@@ -26,23 +36,31 @@ export default function PortalNav({ isIndividual = false }: { isIndividual?: boo
   }
 
   const linkClass = (href: string) =>
-    `shrink-0 whitespace-nowrap px-1.5 py-1 text-sm font-semibold uppercase text-brand-700 hover:underline ${
+    `shrink-0 whitespace-nowrap px-1.5 py-1 text-xs font-bold uppercase text-brand-700 hover:underline md:text-sm ${
       pathname === href ? "underline" : ""
     }`;
 
+  const mobileLinkClass = (href: string) =>
+    `block px-1 py-2 text-sm font-bold uppercase text-brand-700 ${pathname === href ? "underline" : ""}`;
+
+  const signOutClass =
+    "inline-flex h-[22px] shrink-0 items-center whitespace-nowrap border-[3px] border-brand-700 bg-brand-50 px-1.5 pt-0.5 text-[9px] font-extrabold uppercase leading-none text-brand-700 hover:bg-yellow-100 sm:px-2 sm:text-xs md:h-[29px] md:text-sm";
+
+  const homeButtonClass =
+    "inline-flex h-[22px] shrink-0 items-center whitespace-nowrap border-[3px] border-brand-700 bg-brand-50 px-1.5 pt-0.5 text-[9px] font-extrabold uppercase leading-none text-brand-700 sm:px-2 sm:text-xs md:h-[29px] md:text-sm";
+
+  const projectsLabel = isIndividual ? "My Projects" : "Projects";
+  const accountLabel = isIndividual ? "My Account" : "Account";
+
   return (
-    // The inner row is capped at max-w-4xl, same as MarketingNav — keeps
-    // the header content lined up with the marketing site's width instead
-    // of stretching out to the edges on wide desktop screens.
-    <nav className="border-b border-slate-200 bg-white px-3 py-1.5">
-      <div className="mx-auto flex max-w-4xl flex-nowrap items-center justify-between gap-2">
-        <Link href="/portal/dashboard" className="flex shrink-0 items-center gap-1.5 whitespace-nowrap">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="" width={24} height={24} className="shrink-0 rounded-full" />
-          <span className="text-sm font-semibold uppercase text-brand-700">Commonwealth Inspection Services</span>
+    <nav className="relative border-b-4 border-brand-700 bg-brand-50 px-4 py-3">
+      <div className="mx-auto flex max-w-4xl items-center justify-between gap-2">
+        <Link href="/portal/dashboard" className={`shrink-0 ${homeButtonClass}`}>
+          Commonwealth Inspection Services, LLC
         </Link>
-        <div className="flex shrink-0 items-center gap-1 whitespace-nowrap">
-          <Link href="/portal/dashboard" className={linkClass("/portal/dashboard")}>{isIndividual ? "My Projects" : "Projects"}</Link>
+
+        <div className="hidden shrink-0 items-center gap-0.5 whitespace-nowrap sm:flex md:gap-1">
+          <Link href="/portal/dashboard" className={linkClass("/portal/dashboard")}>{projectsLabel}</Link>
           <Link href="/portal/chat" className={linkClass("/portal/chat")}>Chat</Link>
           <div className="group relative shrink-0">
             <button type="button" className={linkClass("/services")}>
@@ -54,7 +72,7 @@ export default function PortalNav({ isIndividual = false }: { isIndividual?: boo
                   <Link
                     key={service.href}
                     href={service.href}
-                    className="block whitespace-nowrap px-3 py-2 text-sm font-semibold uppercase text-brand-700 hover:underline"
+                    className="block whitespace-nowrap px-3 py-2 text-sm font-bold uppercase text-brand-700 hover:underline"
                   >
                     {service.label}
                   </Link>
@@ -65,15 +83,50 @@ export default function PortalNav({ isIndividual = false }: { isIndividual?: boo
           {!isIndividual && (
             <Link href="/portal/addresses" className={linkClass("/portal/addresses")}>Addresses</Link>
           )}
-          <Link href="/portal/account" className={linkClass("/portal/account")}>{isIndividual ? "My Account" : "Account"}</Link>
+          <Link href="/portal/account" className={linkClass("/portal/account")}>{accountLabel}</Link>
+          <button type="button" onClick={logout} className={`ml-1 ${signOutClass}`}>
+            Sign out
+          </button>
+        </div>
+
+        <div className="flex shrink-0 items-center gap-2 sm:hidden">
           <button
+            type="button"
+            aria-label={menuOpen ? "Close menu" : "Open menu"}
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((v) => !v)}
+            className="flex h-[22px] w-[22px] shrink-0 flex-col items-center justify-center gap-0.5 border-[3px] border-brand-700"
+          >
+            <span className={`h-0.5 w-3 bg-brand-700 transition ${menuOpen ? "translate-y-1 rotate-45" : ""}`} />
+            <span className={`h-0.5 w-3 bg-brand-700 transition ${menuOpen ? "opacity-0" : ""}`} />
+            <span className={`h-0.5 w-3 bg-brand-700 transition ${menuOpen ? "-translate-y-1 -rotate-45" : ""}`} />
+          </button>
+        </div>
+      </div>
+
+      {menuOpen && (
+        <div className="absolute left-0 top-full z-20 w-full border-b-4 border-brand-700 bg-brand-50 px-4 py-2 shadow-md sm:hidden">
+          <Link href="/portal/dashboard" className={mobileLinkClass("/portal/dashboard")}>{projectsLabel}</Link>
+          <Link href="/portal/chat" className={mobileLinkClass("/portal/chat")}>Chat</Link>
+          <div className="px-1 py-2 text-sm font-bold uppercase text-slate-400">Services</div>
+          {SERVICE_LINKS.map((service) => (
+            <Link key={service.href} href={service.href} className={`${mobileLinkClass(service.href)} pl-4`}>
+              {service.label}
+            </Link>
+          ))}
+          {!isIndividual && (
+            <Link href="/portal/addresses" className={mobileLinkClass("/portal/addresses")}>Addresses</Link>
+          )}
+          <Link href="/portal/account" className={mobileLinkClass("/portal/account")}>{accountLabel}</Link>
+          <button
+            type="button"
             onClick={logout}
-            className="ml-1 inline-flex h-[22px] shrink-0 items-center whitespace-nowrap border-[3px] border-brand-700 bg-brand-50 px-1.5 pt-0.5 text-sm font-semibold uppercase leading-none text-brand-700 hover:bg-yellow-100 sm:h-[29px]"
+            className={`${mobileLinkClass("")} mt-1 w-full border-t border-brand-700/20 pt-3 text-left`}
           >
             Sign out
           </button>
         </div>
-      </div>
+      )}
     </nav>
   );
 }

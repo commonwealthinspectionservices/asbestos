@@ -378,10 +378,14 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
   // present — confirmed verbatim against real air+swab combo reports, which
   // merge both collection tools into a single paragraph rather than giving
   // swab its own sub-section. Bulk uses a physically different collection
-  // method (cutting a material sample vs. an air pump or surface swab) so
-  // it keeps its own section. The swab-only paragraph below has no real
-  // example to match against yet — it mirrors bulk's structure as the
-  // closest analog until a real swab-only report can confirm the wording.
+  // method (excising a material sample vs. an air pump or surface swab) so
+  // it keeps its own section. All three use the same generic "Sampling for
+  // Mold:" heading — confirmed against real air, bulk-only, and swab-only
+  // reports, none of which use a type-specific heading here (that only
+  // happens in Discussion of Results). The "does not differentiate between
+  // viable/non-viable spores..." caveat is specific to the air-o-cell
+  // spore-trap method and doesn't appear in the real bulk-only or
+  // swab-only reports, so it's air-only below.
   const methodologySections = [
     ...(hasAir
       ? [
@@ -396,9 +400,9 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
       : hasSwab
       ? [
           {
-            title: "Swab Sampling for Mold:",
+            title: "Sampling for Mold:",
             paragraphs: [
-              `Swab samples of surfaces suspected of mold growth were collected to identify the genera of mold, if present. Samples were collected using a sterile swab and submitted to the laboratory, where they are examined by optical microscopy for the presence of fungal spores, hyphae, and other particulates. Samples collected at the above referenced location were enumerated and speciated by ${labName}.`,
+              `Swab samples of suspected mold growth were collected from the affected surfaces to identify the genera of mold, if present. Upon receipt at the laboratory, a sub-sample is prepared and applied directly to a microscopic slide, where it is stained and analyzed by optical microscopy at magnifications between 200X and 1000X. The swabs collected at the above referenced address were enumerated and speciated by ${labName}.`,
             ],
           },
         ]
@@ -406,10 +410,10 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
     ...(hasBulk
       ? [
           {
-            title: "Bulk Sampling of Building Materials for Mold:",
+            title: "Sampling for Mold:",
             paragraphs: [
-              `Bulk samples of building materials suspected mold growth were collected to identify the genera of mold, if present. Upon receipt at the laboratory, a sub-sample is prepared and applied directly to a microscopic slide, where it is stained and analyzed by optical microscopy at magnifications between 200X and 1000X. Samples collected at the above referenced location were enumerated and speciated by ${labName}.`,
-              "This method does not differentiate between viable and non-viable fungal spores. In addition, this technique does not allow for the differentiation between Aspergillus and Penicillium spores. Other non-distinctive spores are reported in categories such as Ascospores or Basidiospores.",
+              "The identification of mold genera from physical surfaces and building materials was performed through the collection of bulk samples. Physical sections of affected substrates (e.g., portions of drywall, insulation, or carpeting) were carefully excised and sealed in sterile containment bags.",
+              `The physical samples were submitted to the laboratory, where they were prepared, stained, and analyzed via direct microscopic examination. Optical microscopy was utilized at magnifications ranging from 200X to 1000X to evaluate the presence of fungal structures (including hyphae, conidiophores, and fruiting bodies) and to determine the relative concentration and specific genera of the molds present. Bulk samples collected at the above referenced location were enumerated, identified, and categorized by ${labName}.`,
             ],
           },
         ]

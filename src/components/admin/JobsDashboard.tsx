@@ -1456,7 +1456,7 @@ export function ProjectDetailDialog({
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black/40 px-4">
       <div className="max-h-[90vh] w-full max-w-5xl overflow-y-auto rounded-xl bg-white p-5">
-        <div className="flex items-center gap-1 border-b border-slate-200">
+        <div className="sticky top-0 z-10 flex items-center gap-1 border-b border-slate-200 bg-white pb-1">
           <button
             onClick={() => setTab("info")}
             className={`whitespace-nowrap px-3 py-1.5 text-sm font-bold uppercase ${tab === "info" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}

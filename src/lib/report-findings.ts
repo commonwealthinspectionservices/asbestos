@@ -31,17 +31,14 @@ export function moldServiceTypeFlags(serviceType: string | null | undefined): { 
   return { hasAir, hasBulk, hasSwab };
 }
 
-// The three per-sample-type Scope of Work lines — exported individually so
-// the admin's "+ Air/Bulk/Swab Samples" buttons (JobsDashboard.tsx) can
-// insert the right wording directly rather than the admin typing it from
-// scratch, on top of powering the auto-derived default list below.
-export const MOLD_SCOPE_AIR_LINE = "Collection of air samples within the subject area for mold;";
-export const MOLD_SCOPE_BULK_LINE = "Collection of bulk samples within the subject area for mold;";
-export const MOLD_SCOPE_SWAB_LINE = "Collection of swab samples within the subject area for mold;";
+const MOLD_SCOPE_AIR_LINE = "Collection of air samples within the subject area for mold;";
+const MOLD_SCOPE_BULK_LINE = "Collection of bulk samples within the subject area for mold;";
+const MOLD_SCOPE_SWAB_LINE = "Collection of swab samples within the subject area for mold;";
 
-// The default, editable per-sample-type lines only — NOT the closing
-// summary line, which is fixed on every job and never belongs in the
-// editable list (see MOLD_SCOPE_CLOSING_LINE below).
+// The per-sample-type Scope of Work lines, driven entirely by job.service_type
+// — no admin input at all, since which sample types are on a job is already
+// known from booking. Not shown as a cell anywhere in the admin UI, same
+// treatment as the fixed Discussion/Conclusions paragraphs.
 export function moldScopeOfWorkItems(serviceType: string | null | undefined): string[] {
   const { hasAir, hasBulk, hasSwab } = moldServiceTypeFlags(serviceType);
   return [
@@ -52,9 +49,7 @@ export function moldScopeOfWorkItems(serviceType: string | null | undefined): st
 }
 
 // Always the last numbered line in Scope of Work, on every mold job
-// regardless of sample types — not stored in mold_scope_items, not
-// editable, rendered unconditionally by the PDF and shown read-only in the
-// admin UI (same treatment as the fixed Discussion/Conclusions paragraphs).
+// regardless of sample types.
 export const MOLD_SCOPE_CLOSING_LINE =
   "Preparation of a summary report detailing the sampling methodology along with analytical results and a conclusion.";
 

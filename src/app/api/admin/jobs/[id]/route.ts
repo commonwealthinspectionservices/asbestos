@@ -101,16 +101,6 @@ export const PATCH = withApiErrors(async (
     patch.sample_counts = parsed.counts;
   }
 
-  // Mold jobs' editable Scope of Work list (see JobsDashboard.tsx) — an
-  // empty array means "not customized yet," so the admin UI and PDF both
-  // fall back to moldScopeOfWorkItems' auto-derived list.
-  if ("mold_scope_items" in body) {
-    if (!Array.isArray(body.mold_scope_items) || body.mold_scope_items.some((s: unknown) => typeof s !== "string")) {
-      return NextResponse.json({ error: "mold_scope_items must be an array of strings" }, { status: 400 });
-    }
-    patch.mold_scope_items = body.mold_scope_items.map((s: string) => s.trim()).filter(Boolean);
-  }
-
   if (Object.keys(patch).length === 0) {
     return NextResponse.json({ error: "No editable fields provided" }, { status: 400 });
   }

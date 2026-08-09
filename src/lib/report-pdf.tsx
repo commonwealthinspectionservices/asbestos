@@ -368,10 +368,7 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
   // rather than sample_counts which stays empty until lab results come in.
   const { hasAir, hasBulk, hasSwab } = moldServiceTypeFlags(job.service_type);
 
-  const scopeItems = [
-    ...(job.mold_scope_items.length > 0 ? job.mold_scope_items : moldScopeOfWorkItems(job.service_type)),
-    MOLD_SCOPE_CLOSING_LINE,
-  ];
+  const scopeItems = [...moldScopeOfWorkItems(job.service_type), MOLD_SCOPE_CLOSING_LINE];
 
   const labName = (job.lab_name || "an accredited laboratory").replace(/\.+$/, "");
   // Air and swab share one "Sampling for Mold:" section when both are

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import type { Company, Customer, InvoiceLineItem, JobDocument, JobWithCustomer, LabProfile, PricingZone, SampleItem, ServiceType } from "@/lib/types";
 import { defaultInvoiceLineItems, sampleDescriptionForServiceType } from "@/lib/invoice-defaults";
-import { ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK, moldScopeOfWorkItems, moldServiceTypeFlags, MOLD_SCOPE_AIR_LINE, MOLD_SCOPE_BULK_LINE, MOLD_SCOPE_SWAB_LINE } from "@/lib/report-findings";
+import { ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK, moldServiceTypeFlags } from "@/lib/report-findings";
 import { splitAddress, parseAddressToFields, buildBillingAddress, googleMapsUrl } from "@/lib/address";
 import { joinName, splitFullName } from "@/lib/name";
 import type { AddressFields } from "@/lib/address";
@@ -1073,9 +1073,6 @@ export function ProjectDetailDialog({
   const [labs, setLabs] = useState<LabProfile[]>([]);
   const [reportSummaryInput, setReportSummaryInput] = useState(job.report_summary ?? "");
   const [reportNotesInput, setReportNotesInput] = useState(job.report_notes ?? "");
-  const [scopeItems, setScopeItems] = useState<string[]>(
-    job.mold_scope_items.length > 0 ? job.mold_scope_items : moldScopeOfWorkItems(job.service_type)
-  );
   const combinedDraft = useDraftTracking({
     kind: "invoice",
     createKind: "combined",
@@ -1189,15 +1186,6 @@ export function ProjectDetailDialog({
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ report_notes: value.trim() || null }),
-    });
-    onChanged();
-  }
-
-  async function saveScopeItems(items: string[]) {
-    await fetch(`/api/admin/jobs/${job.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mold_scope_items: items }),
     });
     onChanged();
   }
@@ -1637,69 +1625,6 @@ export function ProjectDetailDialog({
                   </table>
                 )}
 
-                {isMoldJob(job) && (
-                  <div className="mt-5 rounded-lg border border-slate-200 p-3">
-                    <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">Scope of Work</label>
-                    {/* One cell per numbered line — starts from the
-                        auto-derived per-sample-type list (moldScopeOfWorkItems,
-                        same one the PDF falls back to) but every line is
-                        editable and new ones can be added, since wording
-                        occasionally needs a tweak or a job needs a line
-                        beyond the standard set. The fixed closing line
-                        (MOLD_SCOPE_CLOSING_LINE) always renders after these
-                        in the PDF but isn't shown here at all — it's never
-                        editable, so there's nothing to show. */}
-                    <div className="mt-1.5 space-y-1.5">
-                      {scopeItems.map((item, i) => (
-                        <div key={i} className="flex items-center gap-2">
-                          <span className="w-5 shrink-0 text-right text-sm text-slate-400">{i + 1}.</span>
-                          <input
-                            className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
-                            value={item}
-                            onChange={(e) => {
-                              const next = [...scopeItems];
-                              next[i] = e.target.value;
-                              setScopeItems(next);
-                            }}
-                            onBlur={() => saveScopeItems(scopeItems)}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const next = scopeItems.filter((_, j) => j !== i);
-                              setScopeItems(next);
-                              saveScopeItems(next);
-                            }}
-                            aria-label={`Remove line ${i + 1}`}
-                            className="shrink-0 px-1 text-lg leading-none text-slate-400 hover:text-red-600"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="mt-2 flex flex-wrap gap-3">
-                      {[
-                        { label: "+ Air Samples", line: MOLD_SCOPE_AIR_LINE },
-                        { label: "+ Bulk Samples", line: MOLD_SCOPE_BULK_LINE },
-                        { label: "+ Swab Samples", line: MOLD_SCOPE_SWAB_LINE },
-                      ].filter(({ line }) => !scopeItems.includes(line)).map(({ label, line }) => (
-                        <button
-                          key={label}
-                          type="button"
-                          onClick={() => {
-                            const next = [...scopeItems, line];
-                            setScopeItems(next);
-                            saveScopeItems(next);
-                          }}
-                          className="text-xs font-semibold text-brand-600 hover:text-brand-700"
-                        >
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
 
                 {/* Air jobs' entire Discussion of Results is fixed, auto-
                     filled content (heading, ACGIH paragraph, sample-count

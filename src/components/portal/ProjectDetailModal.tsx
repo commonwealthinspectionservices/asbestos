@@ -185,7 +185,7 @@ export default function ProjectDetailModal({
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 px-4 py-8">
       <div className="w-full max-w-xl rounded-xl bg-white shadow-xl">
-        <div className="flex items-center gap-1 border-b border-slate-200 px-5 py-1">
+        <div className="flex items-center gap-1 border-b border-slate-200 px-5 py-3">
           {([
             ["info", "Project Information"],
             ["report", "Final Report"],

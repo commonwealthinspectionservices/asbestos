@@ -185,20 +185,7 @@ export default function ProjectDetailModal({
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 px-4 py-8">
       <div className="w-full max-w-xl rounded-xl bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-2">
-          {tab === "chat" || tab === "report" || tab === "invoice" ? (
-            <div className="truncate whitespace-nowrap text-sm text-slate-600">
-              {job.project_number ? `${job.project_number} · ` : ""}{job.service_address}
-            </div>
-          ) : (
-            <div />
-          )}
-          <button onClick={onClose} className="shrink-0 text-slate-400 hover:text-slate-600" aria-label="Close">
-            ✕
-          </button>
-        </div>
-
-        <div className="flex border-b border-slate-200 px-5">
+        <div className="flex items-center gap-1 border-b border-slate-200 px-5 py-1">
           {([
             ["info", "Project Information"],
             ["report", "Final Report"],
@@ -208,13 +195,16 @@ export default function ProjectDetailModal({
             <button
               key={key}
               onClick={() => setTab(key)}
-              className={`flex-1 whitespace-nowrap border-b-2 px-1 py-2.5 text-xs font-medium uppercase hover:underline ${
-                tab === key ? "border-brand-600 text-brand-700" : "border-transparent text-slate-500"
+              className={`whitespace-nowrap px-3 py-1.5 text-sm font-bold uppercase ${
+                tab === key ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"
               }`}
             >
               {label}
             </button>
           ))}
+          <button onClick={onClose} className="ml-auto shrink-0 pl-2 text-slate-400 hover:text-slate-600" aria-label="Close">
+            ✕
+          </button>
         </div>
 
         <div className="max-h-[60vh] overflow-y-auto px-5 py-4">

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Customer } from "@/lib/types";
+import type { Company, Customer } from "@/lib/types";
 import { ComboboxInput, formatDate } from "@/components/admin/JobsDashboard";
 import { joinName, splitFullName } from "@/lib/name";
 import AddressAutocompleteInput from "@/components/shared/AddressAutocompleteInput";
@@ -67,6 +67,7 @@ export function ContactForm({
 }) {
   const [isCompany, setIsCompany] = useState(initial ? !initial.is_individual : (prefill?.isCompany ?? false));
   const [company, setCompany] = useState(initial?.company ?? prefill?.company ?? "");
+  const [companyId, setCompanyId] = useState(initial?.company_id ?? "");
   const initialName = splitFullName(initial?.name ?? prefill?.name);
   const [firstName, setFirstName] = useState(initialName.first);
   const [lastName, setLastName] = useState(initialName.last);
@@ -85,6 +86,17 @@ export function ContactForm({
 
   const canSubmit = firstName.trim() && lastName.trim() && email.trim() && (!isCompany || company.trim());
 
+  async function searchCompanies(q: string): Promise<Company[]> {
+    const res = await fetch(`/api/admin/companies?q=${encodeURIComponent(q)}`);
+    const data = await res.json();
+    return data.companies ?? [];
+  }
+
+  function selectCompany(c: Company) {
+    setCompany(c.name);
+    setCompanyId(c.id);
+  }
+
   async function submit() {
     setSubmitting(true);
     setError(null);
@@ -100,8 +112,11 @@ export function ContactForm({
           // Explicit null (not just omitted) when switching to Individual —
           // otherwise a contact whose company/company_id was already set
           // (stray data, or a prior Company-contact save) keeps pointing at
-          // that company even though it now reads as an individual.
-          ...(isCompany ? {} : { companyId: null }),
+          // that company even though it now reads as an individual. When a
+          // suggestion was picked (companyId set), send it so the backend
+          // links directly to that row instead of falling back to
+          // upsertCompany's fuzzy name match.
+          ...(isCompany ? (companyId ? { companyId } : {}) : { companyId: null }),
           is_individual: !isCompany,
           email: email.trim(),
           phone: phone.trim(),
@@ -144,7 +159,16 @@ export function ContactForm({
         {isCompany && (
           <>
             <label className="mt-3 block text-sm font-medium text-slate-700">Company *</label>
-            <input className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value={company} onChange={(e) => setCompany(e.target.value)} placeholder="e.g. Boston Harbor Water Restoration" />
+            <div className="mt-1">
+              <ComboboxInput
+                value={company}
+                onChange={(v) => { setCompany(v); setCompanyId(""); }}
+                fetchOptions={searchCompanies}
+                getLabel={(c) => c.name}
+                onSelect={selectCompany}
+                placeholder="e.g. Boston Harbor Water Restoration"
+              />
+            </div>
           </>
         )}
 

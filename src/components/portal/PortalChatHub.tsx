@@ -59,8 +59,8 @@ export default function PortalChatHub() {
                     isSelected ? "border-brand-700 bg-brand-50 font-semibold text-brand-700" : "border-slate-200 text-slate-600 hover:border-brand-400"
                   }`}
                 >
-                  {p.project_number && (
-                    <div className="whitespace-nowrap font-mono text-xs">{p.project_number}</div>
+                  {p.service_type && (
+                    <div className="text-xs font-semibold">{p.service_type}</div>
                   )}
                   <div>{street}</div>
                   {cityStateZip && <div>{cityStateZip}</div>}

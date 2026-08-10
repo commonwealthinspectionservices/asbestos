@@ -8,11 +8,14 @@ import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
 // Same breakdown pages the public marketing site links to (see
 // SERVICE_LINKS in marketing/MarketingNav.tsx) — logged-in clients get the
 // same dropdown so they don't have to leave the portal to look up what a
-// service type actually involves.
+// service type actually involves — pointed at the portal's own copies
+// (/portal/services/*, wrapped in this same PortalNav) rather than the
+// public marketing pages, so clicking one doesn't drop the client out of
+// the portal shell into the marketing site's nav/footer.
 const SERVICE_LINKS = [
-  { href: "/services/asbestos", label: "Asbestos Inspections" },
-  { href: "/services/mold", label: "Mold Inspections" },
-  { href: "/services/lead", label: "Lead Paint Sampling" },
+  { href: "/portal/services/asbestos", label: "Asbestos Inspections" },
+  { href: "/portal/services/mold", label: "Mold Inspections" },
+  { href: "/portal/services/lead", label: "Lead Paint Sampling" },
 ];
 
 // Same visual language as MarketingNav/AdminNav — boxed brand button on the
@@ -35,8 +38,11 @@ export default function PortalNav({ isIndividual = false }: { isIndividual?: boo
     router.refresh();
   }
 
+  // text-sm flat (no responsive downsize to text-xs on narrow viewports)
+  // — matches the page body's own labels (ALL PROJECTS, SORT BY, SEARCH
+  // BY, etc.), all of which are text-sm regardless of viewport.
   const linkClass = (href: string) =>
-    `shrink-0 whitespace-nowrap px-1.5 py-1 text-xs font-bold uppercase text-brand-700 hover:underline md:text-sm ${
+    `shrink-0 whitespace-nowrap px-1.5 py-1 text-sm font-bold uppercase text-brand-700 hover:underline ${
       pathname === href ? "underline" : ""
     }`;
 
@@ -44,10 +50,10 @@ export default function PortalNav({ isIndividual = false }: { isIndividual?: boo
     `block px-1 py-2 text-sm font-bold uppercase text-brand-700 ${pathname === href ? "underline" : ""}`;
 
   const signOutClass =
-    "inline-flex h-[22px] shrink-0 items-center whitespace-nowrap border-[3px] border-brand-700 bg-brand-50 px-1.5 pt-0.5 text-[9px] font-extrabold uppercase leading-none text-brand-700 hover:bg-yellow-100 sm:px-2 sm:text-xs md:h-[29px] md:text-sm";
+    "inline-flex h-[29px] shrink-0 items-center whitespace-nowrap border-[3px] border-brand-700 bg-brand-50 px-2 pt-0.5 text-sm font-extrabold uppercase leading-none text-brand-700 hover:bg-yellow-100";
 
   const homeButtonClass =
-    "inline-flex h-[22px] shrink-0 items-center whitespace-nowrap border-[3px] border-brand-700 bg-brand-50 px-1.5 pt-0.5 text-[9px] font-extrabold uppercase leading-none text-brand-700 sm:px-2 sm:text-xs md:h-[29px] md:text-sm";
+    "inline-flex h-[29px] shrink-0 items-center whitespace-nowrap border-[3px] border-brand-700 bg-brand-50 px-2 pt-0.5 text-sm font-extrabold uppercase leading-none text-brand-700";
 
   const projectsLabel = isIndividual ? "My Projects" : "Projects";
   const accountLabel = isIndividual ? "My Account" : "Account";

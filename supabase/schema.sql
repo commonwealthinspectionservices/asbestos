@@ -733,3 +733,40 @@ alter table jobs add column if not exists mold_report_summary text;
 alter table jobs add column if not exists mold_report_notes text;
 alter table jobs add column if not exists mold_lab_name text;
 alter table jobs add column if not exists mold_sample_results jsonb not null default '[]'::jsonb;
+
+-- Auto-create (or link) a bare `customers` row the instant someone signs
+-- up for a portal account, instead of waiting until they finish onboarding
+-- (POST /api/portal/profile). Without this, a client who confirms their
+-- email but never completes onboarding (closes the tab, gets a
+-- link-expired error and gives up, etc.) has a real, confirmed auth.users
+-- account but shows up nowhere in the admin's Directory/contact search —
+-- discovered when a real client (confirmed account, zero customers row)
+-- got stuck exactly this way. Placeholder name is their email so it's
+-- still substring-searchable by first name (e.g. "joe" matches
+-- "joe@bostonharborwater.com") — gets overwritten with their real name
+-- once onboarding actually completes, same insert-or-update-by-email
+-- logic /api/portal/profile already had. Safe for the admin-invite flow
+-- too: if a customers row already exists for that email (created ahead of
+-- time via Invite), this links auth_user_id onto it instead of creating a
+-- duplicate — customers.email has a unique index (see above), so ON
+-- CONFLICT DO UPDATE is required here, not a plain insert.
+create or replace function public.handle_new_auth_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.customers (name, email, phone, auth_user_id)
+  values (new.email, lower(new.email), '', new.id)
+  on conflict (email) do update
+    set auth_user_id = excluded.auth_user_id
+    where customers.auth_user_id is null;
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute function public.handle_new_auth_user();

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { Customer, Company } from "@/lib/types";
 import { ContactDetailDialog, JobList, formatPhoneInput, type JobSummary } from "@/components/admin/ContactDetailDialog";
+import { ComboboxInput } from "@/components/admin/JobsDashboard";
 import AddressAutocompleteInput from "@/components/shared/AddressAutocompleteInput";
 import ZipInput, { useAutoZip } from "@/components/shared/ZipInput";
 import { buildBillingAddress, parseAddressToFields, US_STATES } from "@/lib/address";
@@ -361,20 +362,39 @@ function AddContactForm({
   onDone: () => void;
 }) {
   const [name, setName] = useState("");
+  const [selected, setSelected] = useState<Customer | null>(null);
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  async function searchContacts(q: string): Promise<Customer[]> {
+    const res = await fetch(`/api/admin/customers?q=${encodeURIComponent(q)}`);
+    const data = await res.json();
+    // Contacts already on this company already show in the list above —
+    // no point suggesting them again here.
+    return ((data.customers ?? []) as Customer[]).filter((c) => c.company_id !== companyId);
+  }
+
   async function submit() {
     setSubmitting(true);
     setError(null);
     try {
-      const res = await fetch("/api/admin/customers", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), email: email.trim(), phone: phone.trim(), companyId }),
-      });
+      // A picked existing contact (e.g. an individual portal account like
+      // Joe Klein) gets linked directly by id instead of going through
+      // the create-new path — matches how the Company field's own
+      // combobox (ContactForm) resolves a picked suggestion.
+      const res = selected
+        ? await fetch(`/api/admin/customers/${selected.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ companyId, is_individual: false }),
+          })
+        : await fetch("/api/admin/customers", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: name.trim(), email: email.trim(), phone: phone.trim(), companyId }),
+          });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to add contact");
       onDone();
@@ -393,26 +413,40 @@ function AddContactForm({
         {error && <div className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
 
         <label className="mt-3 block text-sm font-medium text-slate-700">Name *</label>
-        <input className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Ryan Hammond" />
+        <ComboboxInput
+          value={selected ? selected.name : name}
+          onChange={(v) => { setName(v); setSelected(null); }}
+          fetchOptions={searchContacts}
+          getLabel={(c: Customer) => c.name}
+          getSublabel={(c: Customer) => c.email}
+          onSelect={(c: Customer) => setSelected(c)}
+          placeholder="Search existing contacts, or type a new name…"
+        />
 
-        <div className="mt-3 flex gap-2">
-          <div className="flex-1">
-            <label className="block text-sm font-medium text-slate-700">Email *</label>
-            <input type="email" className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value={email} onChange={(e) => setEmail(e.target.value)} />
+        {selected ? (
+          <p className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">
+            Linking existing contact <span className="font-medium text-slate-800">{selected.name}</span> ({selected.email}) to this company.
+          </p>
+        ) : (
+          <div className="mt-3 flex gap-2">
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-slate-700">Email *</label>
+              <input type="email" className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value={email} onChange={(e) => setEmail(e.target.value)} />
+            </div>
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-slate-700">Phone</label>
+              <input className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value={phone} onChange={(e) => setPhone(formatPhoneInput(e.target.value))} />
+            </div>
           </div>
-          <div className="flex-1">
-            <label className="block text-sm font-medium text-slate-700">Phone</label>
-            <input className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value={phone} onChange={(e) => setPhone(formatPhoneInput(e.target.value))} />
-          </div>
-        </div>
+        )}
 
         <div className="mt-4 flex gap-2">
           <button
             onClick={submit}
-            disabled={submitting || !name.trim() || !email.trim()}
+            disabled={submitting || (!selected && (!name.trim() || !email.trim()))}
             className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
           >
-            {submitting ? "Saving…" : "Save"}
+            {submitting ? "Saving…" : selected ? "Link contact" : "Save"}
           </button>
           <button onClick={onClose} className="rounded-lg border border-slate-300 px-4 py-2 text-sm">
             Cancel

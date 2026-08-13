@@ -82,6 +82,15 @@ export async function getGmailProfileEmail(accessToken: string): Promise<string>
   return data.emailAddress;
 }
 
+// Used to be "connected" purely because a refresh_token exists in the DB —
+// never actually asked Google. A refresh token can go dead without this app
+// doing anything (most commonly: the OAuth consent screen is still in
+// Google's "Testing" publishing status, which auto-expires refresh tokens
+// after 7 days) — Settings kept showing "Connected" while
+// check-lab-emails' cron silently 500'd every 15 minutes underneath,
+// invisible until someone noticed a job never got processed. Now actually
+// exercises the token via getValidAccessToken() (which refreshes/throws
+// for real) so "Connected" means what it says.
 export async function getGmailConnectionStatus(): Promise<{ connected: boolean; email: string | null }> {
   const supabase = getSupabaseAdmin();
   const { data } = await supabase
@@ -89,7 +98,15 @@ export async function getGmailConnectionStatus(): Promise<{ connected: boolean; 
     .select("email, refresh_token")
     .eq("id", 1)
     .maybeSingle();
-  return { connected: !!data?.refresh_token, email: data?.email ?? null };
+  if (!data?.refresh_token) return { connected: false, email: null };
+
+  try {
+    await getValidAccessToken();
+    return { connected: true, email: data.email ?? null };
+  } catch (err) {
+    console.error("getGmailConnectionStatus: stored refresh token is no longer valid:", err);
+    return { connected: false, email: data.email ?? null };
+  }
 }
 
 export async function saveGmailTokens(params: {

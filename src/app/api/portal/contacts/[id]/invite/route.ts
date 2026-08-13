@@ -69,7 +69,12 @@ export const POST = withApiErrors(async (
   const inviterName = auth.customer.name || "A teammate";
   const companyName = auth.customer.company || "your company";
 
-  await sendEmail({
+  // This is the one genuinely client-facing "real send" in the app (see
+  // the comment at the top of this file) — unlike an internal alert, if
+  // this fails the invited person never gets a link and has no way to
+  // know an account exists for them, while the UI would otherwise show
+  // "Invited" regardless. Check the actual result instead of assuming it.
+  const delivered = await sendEmail({
     to: contact.email,
     subject: `${inviterName} invited you to ${settings.business_name}'s client portal`,
     html: emailShell(`
@@ -80,12 +85,20 @@ export const POST = withApiErrors(async (
       </p>
     `),
   });
+  if (!delivered) {
+    return NextResponse.json(
+      { error: "Couldn't send the invite email — try again in a few minutes, or contact the office if it keeps failing." },
+      { status: 502 }
+    );
+  }
 
   // Internal owner alert — a client-to-client invite creates a new portal
   // account without the owner ever clicking anything themselves, unlike
-  // the admin's own Invite button. Best-effort, matches the same alert
-  // fired from self-signup (see signup-notify/route.ts) — this and that
-  // are the two paths that create a login the owner didn't initiate.
+  // the admin's own Invite button. Best-effort (unlike the send above,
+  // this one genuinely doesn't need to block a client-facing response —
+  // the invite itself already succeeded by this point), matches the same
+  // alert fired from self-signup (see signup-notify/route.ts) — this and
+  // that are the two paths that create a login the owner didn't initiate.
   await sendEmail({
     to: process.env.OWNER_EMAIL!,
     subject: `New portal signup: ${contact.email}`,

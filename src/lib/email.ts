@@ -13,16 +13,20 @@ function getResend(): Resend {
 
 const FROM = "Commonwealth Inspection Services <booking@commonwealthinspectionservices.com>";
 
+/**
+ * Returns whether the send actually succeeded — still never throws (a
+ * booking/cron run that already succeeded on the side that matters, the DB
+ * write, shouldn't blow up over an email), but callers that need to know
+ * (a client-facing "was this actually delivered?" path, not just a
+ * best-effort internal alert) can now check the result instead of
+ * assuming success. Most callers still just fire-and-forget this, which is
+ * fine — that's an intentional per-caller choice now, not the only option.
+ */
 export async function sendEmail(opts: {
   to: string | string[];
   subject: string;
   html: string;
-}) {
-  // Email delivery failures — including a missing/misconfigured API key —
-  // shouldn't take down a booking or cron run that already succeeded on
-  // the side that matters (the DB write). Log and continue rather than
-  // throwing, for every failure mode, not just the ones Resend reports
-  // via its `error` return value.
+}): Promise<boolean> {
   try {
     const resend = getResend();
     const { error } = await resend.emails.send({
@@ -33,9 +37,12 @@ export async function sendEmail(opts: {
     });
     if (error) {
       console.error("Resend send failed:", error);
+      return false;
     }
+    return true;
   } catch (err) {
     console.error("sendEmail failed:", err);
+    return false;
   }
 }
 

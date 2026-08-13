@@ -280,6 +280,9 @@ export function ContactDetailDialog({
   const [inviting, setInviting] = useState(false);
   const [inviteDrafted, setInviteDrafted] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
+  const [hasUnlinkedAuthAccount, setHasUnlinkedAuthAccount] = useState(false);
+  const [linking, setLinking] = useState(false);
+  const [linkError, setLinkError] = useState<string | null>(null);
   const [merging, setMerging] = useState(false);
   const [mergeQuery, setMergeQuery] = useState("");
   const [mergeTarget, setMergeTarget] = useState<Customer | null>(null);
@@ -294,8 +297,26 @@ export function ContactDetailDialog({
     if (res.ok) {
       setCustomer(data.customer);
       setJobs(data.jobs);
+      setHasUnlinkedAuthAccount(!!data.hasUnlinkedAuthAccount);
     }
     setLoading(false);
+  }
+
+  async function linkAuth() {
+    setLinking(true);
+    setLinkError(null);
+    try {
+      const res = await fetch(`/api/admin/customers/${customerId}/link-auth`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to link account");
+      setCustomer(data.customer);
+      setHasUnlinkedAuthAccount(false);
+      onChanged();
+    } catch (e) {
+      setLinkError(e instanceof Error ? e.message : "Failed to link account");
+    } finally {
+      setLinking(false);
+    }
   }
 
   useEffect(() => {
@@ -404,6 +425,22 @@ export function ContactDetailDialog({
               <div className="mt-4 border-t border-slate-100 pt-4 text-sm uppercase text-emerald-700">
                 <span>Portal login </span>
                 <span>Connected</span>
+              </div>
+            ) : hasUnlinkedAuthAccount ? (
+              <div className="mt-4 border-t border-slate-100 pt-4">
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Portal login</h4>
+                <p className="mt-1 text-sm text-slate-500">
+                  A portal login already exists for {customer.email} — they signed up but never
+                  finished onboarding, so it was never connected to this contact.
+                </p>
+                {linkError && <p className="mt-2 text-sm text-red-600">{linkError}</p>}
+                <button
+                  onClick={linkAuth}
+                  disabled={linking}
+                  className="mt-2 rounded-lg border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-50"
+                >
+                  {linking ? "Linking…" : "Link existing portal account"}
+                </button>
               </div>
             ) : (
               <div className="mt-4 border-t border-slate-100 pt-4">

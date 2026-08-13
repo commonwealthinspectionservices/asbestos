@@ -29,7 +29,21 @@ export const GET = withApiErrors(async (
     .eq("customer_id", params.id)
     .order("requested_date", { ascending: false });
 
-  return NextResponse.json({ customer, jobs: jobs ?? [] });
+  // Someone can sign up for a portal login and never finish onboarding —
+  // that leaves a confirmed auth.users account with no customers row
+  // pointing at it, so it never shows as "Connected" even once an admin
+  // creates/has the matching contact by hand. Surface that match here so
+  // ContactDetailDialog can offer "Link existing portal account" instead
+  // of a dead-end "No portal login yet."
+  let hasUnlinkedAuthAccount = false;
+  if (!customer.auth_user_id) {
+    const { data: usersData } = await supabase.auth.admin.listUsers();
+    hasUnlinkedAuthAccount = (usersData?.users ?? []).some(
+      (u) => (u.email ?? "").toLowerCase() === customer.email.toLowerCase()
+    );
+  }
+
+  return NextResponse.json({ customer, jobs: jobs ?? [], hasUnlinkedAuthAccount });
 });
 
 export const PATCH = withApiErrors(async (

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
+import { createSupabaseEmailLinkClient } from "@/lib/supabase-browser";
 
 export default function PortalSignupPage() {
   const [email, setEmail] = useState("");
@@ -15,7 +15,13 @@ export default function PortalSignupPage() {
     setLoading(true);
     setError(null);
     try {
-      const supabase = createSupabaseBrowserClient();
+      // createSupabaseEmailLinkClient(), not createSupabaseBrowserClient() —
+      // the latter hardcodes PKCE, which needs a code_verifier secret
+      // matched between this request and whenever the emailed link is
+      // later clicked. That doesn't survive the gap of opening an email
+      // reliably (confirmed live via AuthPKCECodeVerifierMissingError on
+      // the equivalent password-reset flow). See that function's comment.
+      const supabase = createSupabaseEmailLinkClient();
       // No password here — just proving the email is real. Password gets
       // set on /portal/onboarding once they've clicked through, alongside
       // the rest of their profile (same place an Invite recipient sets

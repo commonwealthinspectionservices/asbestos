@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
+import { createSupabaseEmailLinkClient } from "@/lib/supabase-browser";
 
 export default function PortalForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -14,7 +14,13 @@ export default function PortalForgotPasswordPage() {
     setLoading(true);
     setError(null);
     try {
-      const supabase = createSupabaseBrowserClient();
+      // createSupabaseEmailLinkClient(), not createSupabaseBrowserClient() —
+      // the latter hardcodes PKCE, which needs a code_verifier secret
+      // matched between this request and whenever the emailed link is
+      // later clicked. That doesn't survive the gap of opening an email
+      // reliably (confirmed live via AuthPKCECodeVerifierMissingError on
+      // a perfectly normal, fresh click). See that function's comment.
+      const supabase = createSupabaseEmailLinkClient();
       // Straight to /portal/reset-password, not through /auth/callback — a
       // recovery link's session arrives in the URL hash (#access_token=...),
       // which browsers never send to a server at all, so routing it through

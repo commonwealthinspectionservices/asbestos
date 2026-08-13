@@ -397,28 +397,50 @@ async function processMatchedLabEmail(params: {
   }
   const updatedJob = updatedRow as unknown as Job & { customers: Customer & { companies: Company | null } };
 
-  // updatedJob (not job) so this doesn't race the lab_report document just
-  // added above — uploadCocDocument reads the job's current documents array
-  // fresh and appends to it.
-  if (cocBuffer) {
-    await uploadCocDocument(updatedJob, cocBuffer);
-  }
-
-  // Invoice always goes out the moment lab results land. Invoice pricing
-  // happens inside draftInvoiceEmailForJob — shared with the manual "Create
-  // Invoice Draft" button so both paths price and persist the invoice
-  // exactly the same way.
-  await draftInvoiceEmailForJob({ job: updatedJob, settings, accessToken });
-  // The report follows immediately too, unless this job is flagged
-  // individual-billed (job.is_individual) — those are held back until
-  // autoDraftReportIfJustPaid releases them once the job is marked Paid.
-  if (!updatedJob.is_individual) {
-    await draftReportEmailForJob({ job: updatedJob, settings, accessToken });
-  }
-
-  // Keeps this message out of the next check's candidate query — the draft
-  // is what matters going forward, not the source email itself.
+  // Marked read here — right after the lab PDF is safely filed on the job
+  // — rather than after drafting succeeds below. Used to happen at the very
+  // end, so any failure in the drafting steps (a stale Gmail token, a
+  // template bug, one malformed PDF) left this message unread, and the
+  // next 15-minute cron cycle would reprocess it from scratch: re-uploading
+  // and re-appending the identical lab PDF as a brand-new duplicate
+  // "Laboratory Paperwork" document, forever, every cycle, with nothing
+  // but a console.error to notice by. Marking read now means a drafting
+  // failure fails once (loudly, see below) instead of looping and piling
+  // up duplicate documents — the admin's existing manual "Create Invoice
+  // Draft"/report buttons are the correct recovery path from here, not an
+  // automatic retry that also re-runs the parts that already succeeded.
   await markMessageRead(accessToken, messageId);
+
+  try {
+    // updatedJob (not job) so this doesn't race the lab_report document
+    // just added above — uploadCocDocument reads the job's current
+    // documents array fresh and appends to it.
+    if (cocBuffer) {
+      await uploadCocDocument(updatedJob, cocBuffer);
+    }
+
+    // Invoice always goes out the moment lab results land. Invoice pricing
+    // happens inside draftInvoiceEmailForJob — shared with the manual
+    // "Create Invoice Draft" button so both paths price and persist the
+    // invoice exactly the same way.
+    await draftInvoiceEmailForJob({ job: updatedJob, settings, accessToken });
+    // The report follows immediately too, unless this job is flagged
+    // individual-billed (job.is_individual) — those are held back until
+    // autoDraftReportIfJustPaid releases them once the job is marked Paid.
+    if (!updatedJob.is_individual) {
+      await draftReportEmailForJob({ job: updatedJob, settings, accessToken });
+    }
+  } catch (err) {
+    console.error(`processMatchedLabEmail: lab PDF filed on job ${updatedJob.id}, but invoice/report drafting failed:`, err);
+    await sendEmail({
+      to: process.env.OWNER_EMAIL!,
+      subject: `Lab results landed but drafting failed — ${updatedJob.project_number ?? updatedJob.id}`,
+      html: emailShell(`
+        <p style="font-size:15px;">The lab report PDF was filed on this job successfully, but drafting the invoice and/or report afterward failed.</p>
+        <p>This won't retry automatically — use the "Create Invoice Draft" / report buttons on the job to finish it by hand.</p>
+      `),
+    }).catch(() => {});
+  }
 }
 
 // Invoice half of the split — called the moment lab results land (see

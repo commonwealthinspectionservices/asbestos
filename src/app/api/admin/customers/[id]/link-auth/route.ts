@@ -46,6 +46,12 @@ export const POST = withApiErrors(async (
   // linked themselves (via onboarding) between the GET check and this
   // click — auth_user_id is also unique at the DB level, so a match
   // already claimed by a different customers row fails cleanly here too.
+  // Both failure modes below surface a raw Postgrest/Postgres error by
+  // default (PGRST116 "no rows" when the guard blocks the update,
+  // 23505 if the auth account got claimed by a different customer row in
+  // the meantime) — translate both into the same friendly message rather
+  // than a cryptic one, since either way the fix is the same: reload and
+  // check the contact's actual current state.
   const { data: updated, error: updateError } = await supabase
     .from("customers")
     .update({ auth_user_id: match.id })
@@ -54,6 +60,12 @@ export const POST = withApiErrors(async (
     .select("*")
     .single();
   if (updateError || !updated) {
+    if (updateError?.code === "PGRST116" || updateError?.code === "23505") {
+      return NextResponse.json(
+        { error: "This account was already linked (by this contact or someone else) — reload to see the current state." },
+        { status: 409 }
+      );
+    }
     return NextResponse.json({ error: updateError?.message ?? "Failed to link account" }, { status: 500 });
   }
 

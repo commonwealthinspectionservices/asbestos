@@ -631,6 +631,18 @@ declare
   loser_auth_id uuid;
   survivor_auth_id uuid;
 begin
+  -- A stale/bad id (a UI race, a copy-pasted old id) used to silently
+  -- no-op here: every UPDATE/DELETE below just matches zero rows with no
+  -- exception raised, so the caller (POST /api/admin/customers/merge)
+  -- reported {ok:true} even though nothing happened — the admin believes
+  -- a duplicate was resolved when it wasn't. Fail loudly instead.
+  if not exists (select 1 from customers where id = loser_id) then
+    raise exception 'merge_customers: loser_id % does not exist', loser_id;
+  end if;
+  if not exists (select 1 from customers where id = survivor_id) then
+    raise exception 'merge_customers: survivor_id % does not exist', survivor_id;
+  end if;
+
   select auth_user_id into loser_auth_id from customers where id = loser_id;
   select auth_user_id into survivor_auth_id from customers where id = survivor_id;
 

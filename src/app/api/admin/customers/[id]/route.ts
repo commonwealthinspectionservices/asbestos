@@ -143,6 +143,20 @@ export const DELETE = withApiErrors(async (
     );
   }
 
+  // Same idea as companies.billing_contact_id above, but per-job — the
+  // portal's "Billing contact for this project" selector can point a
+  // specific job at any teammate, independent of the company-wide default.
+  const { count: jobBillingCount } = await supabase
+    .from("jobs")
+    .select("id", { count: "exact", head: true })
+    .eq("billing_contact_id", params.id);
+  if (jobBillingCount && jobBillingCount > 0) {
+    return NextResponse.json(
+      { error: `Cannot delete — this contact is set as the invoice recipient on ${jobBillingCount} project${jobBillingCount === 1 ? "" : "s"}. Change that on the project first.` },
+      { status: 400 }
+    );
+  }
+
   const { error } = await supabase.from("customers").delete().eq("id", params.id);
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

@@ -53,6 +53,7 @@ export default function PortalResetPasswordPage() {
 
     const code = params.get("code");
     if (code) {
+      console.log("[reset-password] effect run, code=", code.slice(0, 8), "already processed:", processedAuthValues.has(code));
       if (processedAuthValues.has(code)) {
         // Already exchanged by an earlier invocation of this effect (this
         // may be a fresh component instance) — the code itself is now
@@ -61,11 +62,15 @@ export default function PortalResetPasswordPage() {
         // the earlier exchange's real outcome regardless of which
         // instance performed it (session storage is shared, not
         // per-instance).
-        supabase.auth.getSession().then(({ data }) => setReady(Boolean(data.session)));
+        supabase.auth.getSession().then(({ data }) => {
+          console.log("[reset-password] getSession fallback result:", data.session ? "has session" : "NO session", data);
+          setReady(Boolean(data.session));
+        });
         return;
       }
       processedAuthValues.add(code);
       supabase.auth.exchangeCodeForSession(code).then(({ data, error }) => {
+        console.log("[reset-password] exchangeCodeForSession result:", { hasSession: Boolean(data.session), error, data });
         setReady(Boolean(data.session) && !error);
       });
       return;

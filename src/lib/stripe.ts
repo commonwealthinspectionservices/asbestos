@@ -48,14 +48,22 @@ export async function createStripeInvoiceForJob(
   customer: Customer
 ): Promise<{ stripeInvoiceId: string; hostedInvoiceUrl: string | null }> {
   const stripe = getStripe();
+  const supabase = getSupabaseAdmin();
 
   // Reuse an existing invoice rather than creating a duplicate on every
   // redraft — line items are frozen at whatever they were when the invoice
   // was first created, matching how the Gmail invoice draft itself behaves
-  // (see invoice_auto on Job).
+  // (see invoice_auto on Job). But a voided/uncollectible invoice (e.g. the
+  // admin voided a mistaken one directly in Stripe) can never be paid again
+  // and Stripe won't un-void it — reusing its dead hosted_invoice_url would
+  // permanently break this job's payment link, so fall through and create
+  // a fresh one instead.
   if (job.stripe_invoice_id) {
     const existing = await stripe.invoices.retrieve(job.stripe_invoice_id);
-    return { stripeInvoiceId: existing.id, hostedInvoiceUrl: existing.hosted_invoice_url ?? null };
+    if (existing.status !== "void" && existing.status !== "uncollectible") {
+      return { stripeInvoiceId: existing.id, hostedInvoiceUrl: existing.hosted_invoice_url ?? null };
+    }
+    await supabase.from("jobs").update({ stripe_invoice_id: null }).eq("id", job.id);
   }
 
   if (!job.invoice_line_items.length) {
@@ -83,8 +91,31 @@ export async function createStripeInvoiceForJob(
 
   const finalized = await stripe.invoices.finalizeInvoice(invoice.id);
 
-  const supabase = getSupabaseAdmin();
-  await supabase.from("jobs").update({ stripe_invoice_id: finalized.id }).eq("id", job.id);
+  // Optimistic-concurrency guard against two concurrent callers (e.g. the
+  // lab-results auto-invoice pipeline and an admin/portal "pay now" click
+  // landing at the same moment) each finalizing their own live, payable
+  // Stripe invoice for the same job. Only the caller whose write actually
+  // lands (stripe_invoice_id was still null) keeps its invoice; the loser
+  // voids the one it just created rather than leaving a second payable
+  // invoice for the same job floating around unreferenced by the DB.
+  const { data: updated } = await supabase
+    .from("jobs")
+    .update({ stripe_invoice_id: finalized.id })
+    .eq("id", job.id)
+    .is("stripe_invoice_id", null)
+    .select("id")
+    .maybeSingle();
+
+  if (!updated) {
+    await stripe.invoices.voidInvoice(finalized.id).catch((err) => {
+      console.error(`createStripeInvoiceForJob: failed to void losing duplicate invoice ${finalized.id}:`, err);
+    });
+    const { data: winner } = await supabase.from("jobs").select("stripe_invoice_id").eq("id", job.id).single();
+    if (winner?.stripe_invoice_id) {
+      const winningInvoice = await stripe.invoices.retrieve(winner.stripe_invoice_id);
+      return { stripeInvoiceId: winningInvoice.id, hostedInvoiceUrl: winningInvoice.hosted_invoice_url ?? null };
+    }
+  }
 
   return { stripeInvoiceId: finalized.id, hostedInvoiceUrl: finalized.hosted_invoice_url ?? null };
 }

@@ -2,6 +2,21 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { getSupabaseAdmin } from "@/lib/supabase";
 
+// Resolves a job by Stripe invoice id, preferring metadata.job_id (set at
+// creation time in lib/stripe.ts) and falling back to matching the stored
+// jobs.stripe_invoice_id — same fallback createStripeInvoiceForJob's
+// callers already rely on.
+async function resolveJobIdFromInvoiceId(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  invoiceId: string | null,
+  metadataJobId: string | null | undefined
+): Promise<string | null> {
+  if (metadataJobId) return metadataJobId;
+  if (!invoiceId) return null;
+  const { data } = await supabase.from("jobs").select("id").eq("stripe_invoice_id", invoiceId).maybeSingle();
+  return data?.id ?? null;
+}
+
 export async function POST(req: NextRequest) {
   const signature = req.headers.get("stripe-signature");
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -21,26 +36,67 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
+  const supabase = getSupabaseAdmin();
+
+  // Dynamic imports (not static) — see the comment at the top of
+  // lab-email.ts: it statically imports pdf-parse, which corrupts state
+  // @react-pdf/renderer depends on if the two ever load in the same module
+  // graph before pdf-parse is used.
   if (event.type === "invoice.paid") {
     const invoice = event.data.object as Stripe.Invoice;
-    const supabase = getSupabaseAdmin();
-
-    let jobId = invoice.metadata?.job_id ?? null;
-    if (!jobId) {
-      // Fall back to matching by stored invoice id if metadata is missing.
-      const { data } = await supabase.from("jobs").select("id").eq("stripe_invoice_id", invoice.id).maybeSingle();
-      jobId = data?.id ?? null;
-    }
-
+    const jobId = await resolveJobIdFromInvoiceId(supabase, invoice.id, invoice.metadata?.job_id);
     if (jobId) {
-      // Dynamic import (not static) — see the comment at the top of
-      // lab-email.ts: it statically imports pdf-parse, which corrupts
-      // state @react-pdf/renderer depends on if the two ever load in the
-      // same module graph before pdf-parse is used.
       const { markJobPaid } = await import("@/lib/lab-email");
       await markJobPaid(jobId);
+    } else {
+      await alertUnmatchedEvent(event.type, invoice.id);
+    }
+  } else if (event.type === "invoice.voided" || event.type === "invoice.marked_uncollectible") {
+    const invoice = event.data.object as Stripe.Invoice;
+    const jobId = await resolveJobIdFromInvoiceId(supabase, invoice.id, invoice.metadata?.job_id);
+    if (jobId) {
+      const { data: job } = await supabase.from("jobs").select("status").eq("id", jobId).maybeSingle();
+      // Only a job we'd already marked paid needs the reversal flag —
+      // voiding/uncollectible on an invoice nobody paid yet is completely
+      // normal (see createStripeInvoiceForJob's own void-and-recreate path)
+      // and shouldn't page the owner.
+      if (job?.status === "paid") {
+        const { markJobPaymentReversed } = await import("@/lib/lab-email");
+        await markJobPaymentReversed(jobId, event.type === "invoice.voided" ? "invoice voided after payment" : "invoice marked uncollectible");
+      }
+    } else {
+      await alertUnmatchedEvent(event.type, invoice.id);
+    }
+  } else if (event.type === "charge.refunded" || event.type === "charge.dispute.created") {
+    const charge = event.data.object as Stripe.Charge;
+    const invoiceId = typeof charge.invoice === "string" ? charge.invoice : charge.invoice?.id ?? null;
+    const jobId = await resolveJobIdFromInvoiceId(supabase, invoiceId, null);
+    if (jobId) {
+      const { markJobPaymentReversed } = await import("@/lib/lab-email");
+      await markJobPaymentReversed(jobId, event.type === "charge.refunded" ? "payment refunded" : "payment disputed/charged back");
+    } else {
+      await alertUnmatchedEvent(event.type, invoiceId ?? charge.id);
     }
   }
 
   return NextResponse.json({ received: true });
+}
+
+// An event this route is meant to handle but can't match to any job — e.g.
+// an invoice created directly in the Stripe Dashboard, or metadata that got
+// stripped — used to just silently no-op with a 200, telling Stripe
+// delivery succeeded (so it never retries) while the app had zero trace a
+// real payment/reversal event ever happened. Alert instead of going quiet.
+async function alertUnmatchedEvent(eventType: string, stripeObjectId: string | null): Promise<void> {
+  console.error(`Stripe webhook: could not match ${eventType} (${stripeObjectId ?? "unknown"}) to any job.`);
+  const { sendEmail, emailShell } = await import("@/lib/email");
+  const { escapeHtml } = await import("@/lib/html");
+  await sendEmail({
+    to: process.env.OWNER_EMAIL!,
+    subject: `Stripe event couldn't be matched to a job: ${eventType}`,
+    html: emailShell(`
+      <p style="font-size:15px;">A Stripe <strong>${escapeHtml(eventType)}</strong> event came in for ${escapeHtml(stripeObjectId ?? "an unknown object")}, but it didn't match any job's stripe_invoice_id and had no job_id in its metadata.</p>
+      <p>This usually means an invoice was created directly in the Stripe Dashboard rather than through the app — worth checking Stripe directly to see what it was.</p>
+    `),
+  });
 }

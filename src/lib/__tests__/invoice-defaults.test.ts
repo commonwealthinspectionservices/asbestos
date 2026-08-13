@@ -82,6 +82,8 @@ function baseJob(overrides: Partial<JobWithCustomer> = {}): JobWithCustomer {
     report_draft_gmail_id: null,
     report_draft_gmail_message_id: null,
     report_sent_at: null,
+    payment_reversed_at: null,
+    cancellation_requested_at: null,
     invoice_drafted_at: null,
     invoice_draft_gmail_id: null,
     invoice_draft_gmail_message_id: null,

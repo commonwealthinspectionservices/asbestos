@@ -28,6 +28,9 @@ import { defaultInvoiceLineItems, invoiceLineItemsTotalCents } from "@/lib/invoi
 import { formatCents } from "@/lib/pricing";
 import { createStripeInvoiceForJob } from "@/lib/stripe";
 import { splitTrailingCocPages } from "@/lib/split-lab-report-coc";
+import { sendEmail, emailShell } from "@/lib/email";
+import { getAppUrl } from "@/lib/app-url";
+import { escapeHtml } from "@/lib/html";
 import type { Company, Customer, Job, JobDocument, JobWithCustomer, Settings } from "@/lib/types";
 
 // @react-pdf/renderer (report-pdf.tsx / invoice-pdf.ts) is imported
@@ -773,10 +776,30 @@ export async function autoDraftReportIfJustPaid(jobId: string): Promise<void> {
  * just the Stripe webhook's `invoice.paid` handler. The admin PATCH route
  * sets status/paid_date itself (as part of its own flexible multi-field
  * update) and calls autoDraftReportIfJustPaid directly instead of this.
+ *
+ * Guarded against payment_reversed_at already being set: Stripe's webhook
+ * delivery is at-least-once, so a delayed or retried invoice.paid event can
+ * arrive after the admin has already discovered and flagged a chargeback/
+ * refund on this same payment. Blindly re-running would silently revert
+ * whatever manual correction the admin made — treat that as a signal this
+ * needs human eyes, not an automatic re-confirmation.
  */
 export async function markJobPaid(jobId: string): Promise<void> {
   const supabase = getSupabaseAdmin();
-  const { data: current } = await supabase.from("jobs").select("paid_date").eq("id", jobId).maybeSingle();
+  const { data: current } = await supabase.from("jobs").select("paid_date, payment_reversed_at, project_number").eq("id", jobId).maybeSingle();
+
+  if (current?.payment_reversed_at) {
+    console.error(`markJobPaid: ignoring invoice.paid for job ${jobId} — payment was already flagged reversed at ${current.payment_reversed_at}. Needs manual review.`);
+    await sendEmail({
+      to: process.env.OWNER_EMAIL!,
+      subject: `Stripe sent a paid confirmation for a job already flagged as reversed — ${current.project_number ?? jobId}`,
+      html: emailShell(`
+        <p style="font-size:15px;">Stripe just confirmed a payment for this job again, but it was already flagged as refunded/disputed on ${escapeHtml(new Date(current.payment_reversed_at).toLocaleString())}.</p>
+        <p>This is likely a delayed or retried webhook delivery for the original payment, not a new one — nothing was changed automatically. Worth a quick look to confirm.</p>
+      `),
+    });
+    return;
+  }
 
   const update: Record<string, unknown> = { status: "paid" };
   if (!current?.paid_date) {
@@ -785,4 +808,48 @@ export async function markJobPaid(jobId: string): Promise<void> {
   await supabase.from("jobs").update(update).eq("id", jobId);
 
   await autoDraftReportIfJustPaid(jobId);
+}
+
+/**
+ * Called from the Stripe webhook when a payment already marked "paid" is
+ * later refunded, disputed, or the invoice is voided/marked uncollectible
+ * after the fact. Deliberately does NOT revert status away from "paid" —
+ * that's a business decision (was the report already sent? does the client
+ * need a call?) the admin should make, not something to guess at
+ * automatically. This just raises a flag they can't miss.
+ */
+export async function markJobPaymentReversed(jobId: string, reason: string): Promise<void> {
+  const supabase = getSupabaseAdmin();
+  const { data: job } = await supabase
+    .from("jobs")
+    .select("project_number, status, report_drafted_at, project_number, service_address, customers(name, email)")
+    .eq("id", jobId)
+    .maybeSingle();
+  if (!job) return;
+
+  await supabase
+    .from("jobs")
+    .update({ payment_reversed_at: new Date().toISOString() })
+    .eq("id", jobId)
+    .is("payment_reversed_at", null);
+
+  const appUrl = getAppUrl();
+  const jobUrl = appUrl ? `${appUrl}/admin/dashboard?jobId=${jobId}` : null;
+  const customer = Array.isArray(job.customers) ? job.customers[0] : job.customers;
+
+  await sendEmail({
+    to: process.env.OWNER_EMAIL!,
+    subject: `Payment reversed on ${job.project_number ?? "a job"} — needs review`,
+    html: emailShell(`
+      <p style="font-size:15px;">Stripe reported a payment reversal (${escapeHtml(reason)}) on a job currently marked <strong>${escapeHtml(job.status)}</strong>.</p>
+      <table style="width:100%; font-size:14px; color:#16213a;">
+        <tr><td style="padding:4px 8px 4px 0; color:#64748b; white-space:nowrap;">Project</td><td>${escapeHtml(job.project_number ?? jobId)}</td></tr>
+        <tr><td style="padding:4px 8px 4px 0; color:#64748b; white-space:nowrap;">Customer</td><td>${escapeHtml(customer?.name ?? "—")}</td></tr>
+        <tr><td style="padding:4px 8px 4px 0; color:#64748b; white-space:nowrap;">Address</td><td>${escapeHtml(job.service_address ?? "—")}</td></tr>
+        <tr><td style="padding:4px 8px 4px 0; color:#64748b; white-space:nowrap;">Report already drafted</td><td>${job.report_drafted_at ? "Yes" : "No"}</td></tr>
+      </table>
+      <p style="margin-top:12px;">Status was left as-is — this is just a flag. Worth deciding whether to follow up with the client and/or adjust the job's status yourself.</p>
+      ${jobUrl ? `<p style="margin-top:12px;"><a href="${jobUrl}" style="display:inline-block; background:#193466; color:#fff; padding:10px 16px; border-radius:8px; text-decoration:none; font-size:14px;">Review this job</a></p>` : ""}
+    `),
+  });
 }

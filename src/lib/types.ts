@@ -230,6 +230,10 @@ export interface Job {
   schedule_visible_to_customer: boolean;
   end_date: string | null;
   paid_date: string | null;
+  /** Set when a payment already marked "paid" is later refunded/disputed/voided — see markJobPaymentReversed in lib/lab-email.ts. Status is deliberately left as "paid", not auto-reverted; this is just the admin-visible flag. */
+  payment_reversed_at: string | null;
+  /** Set when a client clicks "Request cancellation" in the portal — the real record of the request, independent of whether the owner-alert email actually sends. Doesn't touch status itself; the admin decides. */
+  cancellation_requested_at: string | null;
   /** Editable, defaults to 30 days after requested_date but can be overridden per job. */
   payment_due_date: string | null;
   /** Who the finished report gets emailed to — comma-joined, first address is always the customer contact's own email. */

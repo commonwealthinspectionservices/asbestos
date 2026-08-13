@@ -770,3 +770,22 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_auth_user();
+
+-- Set when a payment the Stripe webhook already marked "paid" is later
+-- reversed (refund, chargeback/dispute, or the invoice itself gets voided
+-- after being paid — rare but possible via manual Stripe Dashboard action).
+-- Distinct from status ('paid' is left alone here, not reverted
+-- automatically — see markJobPaymentReversed in lib/lab-email.ts) so this
+-- is purely a flag for the admin to notice and act on: the report may
+-- already have been released. Also doubles as a guard against a late/
+-- retried invoice.paid webhook delivery silently re-confirming a payment
+-- that's already known to have been reversed.
+alter table jobs add column if not exists payment_reversed_at timestamptz;
+
+-- The client's "Request cancellation" button used to have NO database
+-- record at all — its only effect was a best-effort owner-alert email that
+-- fails completely silently on any Resend hiccup (see lib/email.ts's
+-- sendEmail), leaving zero trace anywhere that a client believes they
+-- cancelled while crew/lab work proceeds normally. This is now the real
+-- record; the email is just a heads-up on top of it, not the record itself.
+alter table jobs add column if not exists cancellation_requested_at timestamptz;

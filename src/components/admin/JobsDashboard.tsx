@@ -1525,6 +1525,20 @@ export function ProjectDetailDialog({
                 Edit
               </button>
             </div>
+            {(job.cancellation_requested_at || job.payment_reversed_at) && (
+              <div className="flex flex-wrap gap-1.5">
+                {job.cancellation_requested_at && (
+                  <span className="shrink-0 whitespace-nowrap rounded-full bg-red-600 px-2 py-1 text-xs font-bold text-white">
+                    Cancellation requested {formatDateTime(job.cancellation_requested_at)}
+                  </span>
+                )}
+                {job.payment_reversed_at && (
+                  <span className="shrink-0 whitespace-nowrap rounded-full bg-amber-500 px-2 py-1 text-xs font-bold text-white">
+                    Payment reversed {formatDateTime(job.payment_reversed_at)} — review needed
+                  </span>
+                )}
+              </div>
+            )}
             <DetailField label="Company" value={job.customers?.company} nowrap />
             <DetailField
               label="Job site address"

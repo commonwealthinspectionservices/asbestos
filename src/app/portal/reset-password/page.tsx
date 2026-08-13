@@ -5,15 +5,6 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
 
-// Module-level (not component-level) so it survives any re-invocation of
-// the effect below across a component remount within the same page load —
-// a plain useRef wouldn't, since a true remount creates a fresh instance
-// with its own fresh ref. Recovery codes/tokens are one-time-use, so a
-// second exchange attempt for the same value always fails even though the
-// first one already succeeded; this stops a second attempt from ever
-// firing and clobbering the correct result.
-const processedAuthValues = new Set<string>();
-
 export default function PortalResetPasswordPage() {
   const router = useRouter();
   const [password, setPassword] = useState("");
@@ -25,23 +16,16 @@ export default function PortalResetPasswordPage() {
   const [ready, setReady] = useState<boolean | null>(null);
 
   useEffect(() => {
-    // createSupabaseBrowserClient() defaults to PKCE flow, so the recovery
-    // link comes back as ?code=... in the query string (exchanged via
-    // exchangeCodeForSession) — not as a #access_token=... hash fragment.
-    // A used/expired link redirects with ?error=... in the query string
-    // instead. Fall back to the hash-fragment form too, in case flowType
-    // is ever changed to implicit.
-    //
-    // Confirmed via a real network capture that exchangeCodeForSession can
-    // return a fully valid session (verified: HTTP 200, complete
-    // access_token/refresh_token/user in the response body) and this page
-    // still ends up rendering "expired" — this effect fires more than
-    // once for the same code, and the second attempt, hitting the
-    // by-then-consumed one-time code, resolves after the first and
-    // clobbers the correct `ready=true` with `false`. processedAuthValues
-    // guards against exactly that: a code/token combo is only ever
-    // exchanged once per page load, no matter how many times this effect
-    // re-runs.
+    // createSupabaseBrowserClient() now forces implicit flow (see that
+    // file for why), so the recovery link delivers its session as a URL
+    // hash fragment (#access_token=...&refresh_token=...&type=recovery)
+    // — or #error=... if the one-time link was already used. Fragments
+    // never reach a server, so this can only be handled client-side.
+    // Needs an explicit setSession call, not just waiting on getSession()
+    // to "notice" the hash — the ssr package's browser client doesn't
+    // pick up an implicit-flow hash fragment on its own. Also checks
+    // ?code=/?error= in the query string as a defensive fallback in case
+    // flowType is ever reverted to PKCE.
     const params = new URLSearchParams(window.location.search);
     const hash = new URLSearchParams(window.location.hash.slice(1));
     const supabase = createSupabaseBrowserClient();
@@ -53,24 +37,7 @@ export default function PortalResetPasswordPage() {
 
     const code = params.get("code");
     if (code) {
-      console.log("[reset-password] effect run, code=", code.slice(0, 8), "already processed:", processedAuthValues.has(code));
-      if (processedAuthValues.has(code)) {
-        // Already exchanged by an earlier invocation of this effect (this
-        // may be a fresh component instance) — the code itself is now
-        // burned, so re-exchanging would fail even on the legitimate
-        // success path. Read the actual session instead, which reflects
-        // the earlier exchange's real outcome regardless of which
-        // instance performed it (session storage is shared, not
-        // per-instance).
-        supabase.auth.getSession().then(({ data }) => {
-          console.log("[reset-password] getSession fallback result:", data.session ? "has session" : "NO session", data);
-          setReady(Boolean(data.session));
-        });
-        return;
-      }
-      processedAuthValues.add(code);
       supabase.auth.exchangeCodeForSession(code).then(({ data, error }) => {
-        console.log("[reset-password] exchangeCodeForSession result:", { hasSession: Boolean(data.session), error, data });
         setReady(Boolean(data.session) && !error);
       });
       return;
@@ -82,11 +49,6 @@ export default function PortalResetPasswordPage() {
       setReady(false);
       return;
     }
-    if (processedAuthValues.has(accessToken)) {
-      supabase.auth.getSession().then(({ data }) => setReady(Boolean(data.session)));
-      return;
-    }
-    processedAuthValues.add(accessToken);
     supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken }).then(({ data }) => {
       setReady(Boolean(data.session));
     });

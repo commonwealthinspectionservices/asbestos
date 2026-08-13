@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ContactDetailDialog } from "@/components/admin/ContactDetailDialog";
 
 interface PortalAccount {
   id: string;
@@ -10,25 +11,19 @@ interface PortalAccount {
   emailConfirmed: boolean;
   accountType: string | null;
   onboardingComplete: boolean;
+  customerId: string | null;
   name: string | null;
   company: string | null;
 }
 
-// Matches the signup choice (company/individual) to how it should read
-// everywhere in the admin.
-function accountTypeLabel(accountType: string | null): string | null {
-  if (accountType === "company") return "Company";
-  if (accountType === "individual") return "Individual";
-  return null;
-}
-
 // Every Supabase Auth account, not just the ones that finished onboarding
 // into a customers row — surfaces accounts stuck mid-signup, which are
-// otherwise invisible anywhere in the admin.
+// otherwise invisible anywhere else in the admin.
 export default function PortalAccountsDirectory() {
   const [users, setUsers] = useState<PortalAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
 
   function load() {
     setLoading(true);
@@ -55,32 +50,29 @@ export default function PortalAccountsDirectory() {
       ) : (
         <div className="mt-4 space-y-2">
           {users.map((u) => (
-            <div key={u.id} className="rounded-lg border border-slate-200 bg-white p-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="font-medium text-slate-800">{u.name ?? u.email}</div>
-                <div className="flex gap-1.5">
-                  {!u.emailConfirmed && (
-                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
-                      Unconfirmed
-                    </span>
-                  )}
-                  {accountTypeLabel(u.accountType) && (
-                    <span className="shrink-0 whitespace-nowrap rounded bg-slate-200 px-2 py-0.5 text-xs font-mono font-bold uppercase text-slate-800">
-                      {accountTypeLabel(u.accountType)}
-                    </span>
-                  )}
-                </div>
-              </div>
-              <div className="text-sm text-slate-500">{u.email}</div>
-              {u.company && <div className="text-sm text-slate-500">{u.company}</div>}
-              {u.lastSignInAt && (
-                <div className="mt-1 text-xs text-slate-400">
-                  Last sign-in {new Date(u.lastSignInAt).toLocaleString()}
-                </div>
-              )}
+            // Only a completed onboarding has a customers row (the same
+            // page opened from the Companies/Individuals tabs' own contact
+            // cards) — an account still mid-signup has nowhere to link to.
+            <div
+              key={u.id}
+              onClick={u.customerId ? () => setSelectedCustomerId(u.customerId) : undefined}
+              className={`w-full rounded-lg border border-slate-200 bg-white p-3 text-left ${
+                u.customerId ? "cursor-pointer hover:border-brand-400" : ""
+              }`}
+            >
+              <div className="font-medium text-slate-800">{u.name ?? u.email}</div>
+              {u.name && <div className="text-sm text-slate-500">{u.email}</div>}
             </div>
           ))}
         </div>
+      )}
+
+      {selectedCustomerId && (
+        <ContactDetailDialog
+          customerId={selectedCustomerId}
+          onClose={() => setSelectedCustomerId(null)}
+          onChanged={load}
+        />
       )}
     </div>
   );

@@ -20,7 +20,7 @@ export const GET = withApiErrors(async (req: NextRequest) => {
 
   const { data: customers, error: customersError } = await supabase
     .from("customers")
-    .select("auth_user_id, name, company");
+    .select("id, auth_user_id, name, company");
   if (customersError) {
     return NextResponse.json({ error: customersError.message }, { status: 500 });
   }
@@ -40,6 +40,7 @@ export const GET = withApiErrors(async (req: NextRequest) => {
         emailConfirmed: !!u.email_confirmed_at,
         accountType: (u.user_metadata?.account_type as string | undefined) ?? null,
         onboardingComplete: !!customer,
+        customerId: customer?.id ?? null,
         name: customer?.name ?? null,
         company: customer?.company ?? null,
       };

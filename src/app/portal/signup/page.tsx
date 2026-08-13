@@ -36,6 +36,14 @@ export default function PortalSignupPage() {
         },
       });
       if (signUpError) throw signUpError;
+      // Internal owner alert — best-effort, never blocks the signup the
+      // client is waiting on. See its own comment for why this is safe
+      // to leave unauthenticated.
+      fetch("/api/portal/signup-notify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      }).catch(() => {});
       setCheckEmail(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Sign up failed");

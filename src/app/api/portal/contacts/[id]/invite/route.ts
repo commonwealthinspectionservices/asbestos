@@ -81,5 +81,23 @@ export const POST = withApiErrors(async (
     `),
   });
 
+  // Internal owner alert — a client-to-client invite creates a new portal
+  // account without the owner ever clicking anything themselves, unlike
+  // the admin's own Invite button. Best-effort, matches the same alert
+  // fired from self-signup (see signup-notify/route.ts) — this and that
+  // are the two paths that create a login the owner didn't initiate.
+  await sendEmail({
+    to: process.env.OWNER_EMAIL!,
+    subject: `New portal signup: ${contact.email}`,
+    html: emailShell(`
+      <p style="font-size:15px;">${escapeHtml(inviterName)} (${escapeHtml(companyName)}) invited a teammate to the portal.</p>
+      <table style="width:100%; font-size:14px; color:#16213a;">
+        <tr><td style="padding:4px 8px 4px 0; color:#64748b; white-space:nowrap;">Name</td><td>${escapeHtml(contact.name)}</td></tr>
+        <tr><td style="padding:4px 8px 4px 0; color:#64748b; white-space:nowrap;">Email</td><td>${escapeHtml(contact.email)}</td></tr>
+        <tr><td style="padding:4px 8px 4px 0; color:#64748b; white-space:nowrap;">Company</td><td>${escapeHtml(companyName)}</td></tr>
+      </table>
+    `),
+  });
+
   return NextResponse.json({ ok: true });
 });

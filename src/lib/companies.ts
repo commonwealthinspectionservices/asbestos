@@ -47,6 +47,19 @@ export async function upsertCompany(
     })
     .select("*")
     .single();
-  if (error || !created) throw new Error(`Failed to create company: ${error?.message}`);
+  if (error) {
+    // Two concurrent callers (e.g. two teammates at a brand-new company
+    // both finishing onboarding within moments of each other) can both
+    // see no `existing` row above and both attempt this insert — the
+    // loser hits companies_name_lower_idx's unique constraint. Re-fetch
+    // and return the winner's row instead of surfacing a raw 500 for
+    // what's really just an ordinary race, not a real failure.
+    if (error.code === "23505") {
+      const { data: winner } = await supabase.from("companies").select("*").ilike("name", trimmedName).maybeSingle();
+      if (winner) return winner;
+    }
+    throw new Error(`Failed to create company: ${error.message}`);
+  }
+  if (!created) throw new Error("Failed to create company: no row returned");
   return created;
 }

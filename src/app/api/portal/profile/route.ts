@@ -87,9 +87,20 @@ export const POST = withApiErrors(async (req: NextRequest) => {
     is_individual: isIndividual,
   };
 
-  const { data: customer, error } = existing
+  let { data: customer, error } = existing
     ? await admin.from("customers").update(patch).eq("id", existing.id).select("*").single()
     : await admin.from("customers").insert({ ...patch, email }).select("*").single();
+
+  // Two concurrent onboarding submits for the same email (double-click,
+  // a slow-network auto-retry) can both see `existing === null` above and
+  // both attempt this insert — the loser hits customers_email_idx's
+  // unique constraint. Same recovery as the sibling route
+  // (POST /api/portal/contacts already handles this exact case): fall
+  // back to updating the winner's row instead of surfacing a raw 500 for
+  // what's really just an ordinary race.
+  if (error?.code === "23505" && !existing) {
+    ({ data: customer, error } = await admin.from("customers").update(patch).eq("email", email).select("*").single());
+  }
 
   if (error || !customer) {
     throw new Error(`Failed to save profile: ${error?.message}`);

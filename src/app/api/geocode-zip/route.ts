@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { geocodeAddress, GeocodeError } from "@/lib/geocode";
+import { geocodeAddress, GeocodeError, logGeocodeFailure } from "@/lib/geocode";
 import { withApiErrors } from "@/lib/api-handler";
 
 // Public counterpart of /api/admin and /api/portal's geocode-zip — no auth,
@@ -15,6 +15,7 @@ export const GET = withApiErrors(async (req: NextRequest) => {
     return NextResponse.json({ zip: geo.zip });
   } catch (e) {
     if (e instanceof GeocodeError) {
+      logGeocodeFailure(e, "GET /api/geocode-zip");
       return NextResponse.json({ zip: null });
     }
     throw e;

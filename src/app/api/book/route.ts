@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSettings } from "@/lib/settings";
-import { geocodeAddress, isWithinServiceArea, isWithinServiceStates, GeocodeError } from "@/lib/geocode";
+import { geocodeAddress, isWithinServiceArea, isWithinServiceStates, GeocodeError, isGoogleApiFailure, logGeocodeFailure } from "@/lib/geocode";
 import { isDateFull, findNextAvailableDate } from "@/lib/capacity";
 import { serviceRateLabel } from "@/lib/pricing";
 import { resolveZoneBaseFeeCents } from "@/lib/pricing-zones";
@@ -26,9 +26,22 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Unknown step" }, { status: 400 });
     }
   } catch (err) {
+    // A GeocodeError's raw message (e.g. "Could not geocode address:
+    // OVER_QUERY_LIMIT") used to be shown to the customer verbatim —
+    // fine-sounding for a genuine bad address, but a confusing internal
+    // API status leak when it's actually a quota/billing failure on our
+    // end. Distinguish the two: friendly "check your address" message for
+    // a real no-match, generic "try again" (with loud server-side logging,
+    // not a leaked status code) for an actual API failure.
+    if (err instanceof GeocodeError) {
+      logGeocodeFailure(err, `/api/book [${body.step}]`);
+      const message = isGoogleApiFailure(err.status)
+        ? "Something went wrong looking up that address. Please try again in a few minutes."
+        : "We couldn't find that address — please double-check it and try again.";
+      return NextResponse.json({ error: message }, { status: isGoogleApiFailure(err.status) ? 503 : 400 });
+    }
     console.error(`/api/book [${body.step}] failed:`, err);
-    const message = err instanceof GeocodeError ? err.message : "Something went wrong. Please try again.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: "Something went wrong. Please try again." }, { status: 500 });
   }
 }
 

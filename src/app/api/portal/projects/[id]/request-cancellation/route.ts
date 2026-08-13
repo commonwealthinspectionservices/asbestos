@@ -28,6 +28,15 @@ export const POST = withApiErrors(async (
     .maybeSingle();
   if (!job) return NextResponse.json({ error: "Project not found" }, { status: 404 });
 
+  // The real record of the request — set regardless of whether the email
+  // below actually sends, so a Resend hiccup can never make this request
+  // vanish without a trace. See the schema.sql comment on this column.
+  await supabase
+    .from("jobs")
+    .update({ cancellation_requested_at: new Date().toISOString() })
+    .eq("id", params.id)
+    .is("cancellation_requested_at", null);
+
   if (process.env.OWNER_EMAIL) {
     const appUrl = getAppUrl();
     const adminLink = appUrl ? `${appUrl}/admin` : "";

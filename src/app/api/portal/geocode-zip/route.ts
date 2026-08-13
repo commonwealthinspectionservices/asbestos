@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireContractorApi } from "@/lib/contractor-api";
-import { geocodeAddress, GeocodeError } from "@/lib/geocode";
+import { geocodeAddress, GeocodeError, logGeocodeFailure } from "@/lib/geocode";
 import { withApiErrors } from "@/lib/api-handler";
 
 // Portal counterpart of /api/admin/geocode-zip — resolves a zip code for a
@@ -20,6 +20,7 @@ export const GET = withApiErrors(async (req: NextRequest) => {
     return NextResponse.json({ zip: geo.zip });
   } catch (e) {
     if (e instanceof GeocodeError) {
+      logGeocodeFailure(e, "GET /api/portal/geocode-zip");
       return NextResponse.json({ zip: null });
     }
     throw e;

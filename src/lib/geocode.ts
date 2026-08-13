@@ -9,7 +9,42 @@ export interface GeocodeResult {
   zip: string | null;
 }
 
-export class GeocodeError extends Error {}
+// `status`, when present, is the raw Google API status string (e.g.
+// "ZERO_RESULTS", "OVER_QUERY_LIMIT", "REQUEST_DENIED") — lets callers tell
+// a genuine "no match" apart from a quota/billing failure, which every
+// caller used to collapse into the same empty response with no way to
+// distinguish "bad address" from "the API key stopped working."
+export class GeocodeError extends Error {
+  status?: string;
+  constructor(message: string, status?: string) {
+    super(message);
+    this.status = status;
+  }
+}
+
+// Google statuses that mean the API call itself failed, not that the
+// address/place genuinely doesn't exist — worth logging loudly since a
+// silent collapse to "not found" looks identical to real user error.
+const GOOGLE_FAILURE_STATUSES = new Set(["OVER_QUERY_LIMIT", "REQUEST_DENIED", "INVALID_REQUEST", "UNKNOWN_ERROR"]);
+
+export function isGoogleApiFailure(status: string | undefined): boolean {
+  return !!status && GOOGLE_FAILURE_STATUSES.has(status);
+}
+
+// Every geocode-zip route (root/admin/portal) collapses a GeocodeError to
+// the exact same {zip: null} a genuinely unmatched address gets — that's
+// still the right thing to show the user (no good alternative mid-request),
+// but it used to mean a real API failure (quota exceeded, billing disabled,
+// bad key) was completely indistinguishable from "bad address" in the
+// server logs too, discoverable only when a client complained. This at
+// least makes the two cases loudly distinct in logs.
+export function logGeocodeFailure(e: GeocodeError, context: string): void {
+  if (isGoogleApiFailure(e.status)) {
+    console.error(`[GOOGLE API FAILURE] ${context}: ${e.message} — this is NOT a bad address, the Google Maps API call itself failed (quota/billing/key issue). Check the Google Cloud Console.`);
+  } else {
+    console.error(`${context}: ${e.message}`);
+  }
+}
 
 /**
  * Every ZIP code that maps to a given town — not just one geocoded guess.
@@ -48,7 +83,7 @@ export async function geocodeAddress(address: string): Promise<GeocodeResult> {
 
   const data = await res.json();
   if (data.status !== "OK" || !data.results?.length) {
-    throw new GeocodeError(`Could not geocode address: ${data.status}`);
+    throw new GeocodeError(`Could not geocode address: ${data.status}`, data.status);
   }
 
   const result = data.results[0];
@@ -99,7 +134,7 @@ export async function autocompleteAddress(input: string, townHint?: string): Pro
   if (!res.ok) throw new GeocodeError(`Autocomplete request failed: ${res.status}`);
   const data = await res.json();
   if (data.status !== "OK" && data.status !== "ZERO_RESULTS") {
-    throw new GeocodeError(`Autocomplete failed: ${data.status}`);
+    throw new GeocodeError(`Autocomplete failed: ${data.status}`, data.status);
   }
   const townNeedle = townHint?.trim().toLowerCase();
   return (data.predictions ?? [])
@@ -134,7 +169,7 @@ export async function autocompleteCity(input: string): Promise<AddressSuggestion
   if (!res.ok) throw new GeocodeError(`Autocomplete request failed: ${res.status}`);
   const data = await res.json();
   if (data.status !== "OK" && data.status !== "ZERO_RESULTS") {
-    throw new GeocodeError(`Autocomplete failed: ${data.status}`);
+    throw new GeocodeError(`Autocomplete failed: ${data.status}`, data.status);
   }
   return (data.predictions ?? [])
     .filter((p: { description: string }) => /,\s*MA,\s*USA$/.test(p.description))
@@ -165,7 +200,7 @@ export async function getPlaceDetails(placeId: string): Promise<PlaceDetails> {
   const res = await fetch(url.toString());
   if (!res.ok) throw new GeocodeError(`Place details request failed: ${res.status}`);
   const data = await res.json();
-  if (data.status !== "OK") throw new GeocodeError(`Place details failed: ${data.status}`);
+  if (data.status !== "OK") throw new GeocodeError(`Place details failed: ${data.status}`, data.status);
 
   const result = data.result;
   const components: { types: string[]; short_name: string }[] = result.address_components ?? [];

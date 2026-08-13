@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApi } from "@/lib/admin-api";
-import { geocodeAddress, GeocodeError } from "@/lib/geocode";
+import { geocodeAddress, GeocodeError, logGeocodeFailure } from "@/lib/geocode";
 import { withApiErrors } from "@/lib/api-handler";
 
 // Resolves a zip code for a street/city/state combination typed into the
@@ -21,6 +21,7 @@ export const GET = withApiErrors(async (req: NextRequest) => {
     return NextResponse.json({ zip: geo.zip });
   } catch (e) {
     if (e instanceof GeocodeError) {
+      logGeocodeFailure(e, "GET /api/admin/geocode-zip");
       return NextResponse.json({ zip: null });
     }
     throw e;

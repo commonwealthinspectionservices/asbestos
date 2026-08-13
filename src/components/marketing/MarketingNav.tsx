@@ -44,9 +44,12 @@ export default function MarketingNav() {
   // Same border/height format as the Client Portal button, but no yellow
   // hover fill (this one's just branding/home, not an action) and a
   // smaller mobile font so the full company name fits next to Client
-  // Portal + the hamburger without overflowing the header.
+  // Portal + the hamburger without overflowing the header. Below sm, it's
+  // the only thing sharing the row with the hamburger, so it grows
+  // (flex-1, centered) to fill the width instead of sitting tight around
+  // its own text with a big empty gap to the hamburger.
   const homeButtonClass =
-    "inline-flex h-[22px] shrink-0 items-center whitespace-nowrap border-[3px] border-brand-700 bg-brand-50 px-1.5 pt-0.5 text-[9px] font-extrabold uppercase leading-none text-brand-700 sm:px-2 sm:text-xs md:h-[29px] md:text-sm";
+    "inline-flex h-[22px] items-center justify-center whitespace-nowrap border-[3px] border-brand-700 bg-brand-50 px-1.5 pt-0.5 text-[9px] font-extrabold uppercase leading-none text-brand-700 sm:px-2 sm:text-xs md:h-[29px] md:text-sm";
 
   return (
     // The inner row is capped at max-w-4xl, same as the pricing estimator
@@ -55,7 +58,7 @@ export default function MarketingNav() {
     // out to the edges of the browser window.
     <nav className="relative border-b-4 border-brand-700 bg-brand-50 px-4 py-3">
       <div className="mx-auto flex max-w-4xl items-center justify-between gap-2">
-        <Link href="/" className={`shrink-0 ${homeButtonClass}`}>
+        <Link href="/" className={`flex-1 sm:flex-none sm:shrink-0 ${homeButtonClass}`}>
           Commonwealth Inspection Services, LLC
         </Link>
 

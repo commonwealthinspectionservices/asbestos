@@ -1,4 +1,3 @@
-import Link from "next/link";
 import type { Metadata } from "next";
 import MarketingNav from "@/components/marketing/MarketingNav";
 import MarketingFooter from "@/components/marketing/MarketingFooter";
@@ -17,7 +16,7 @@ export default async function ContactPage() {
     <div className="min-h-screen bg-white">
       <MarketingNav />
       <div className="mx-auto max-w-2xl px-4 py-10">
-        <h1 className="text-2xl font-bold text-brand-700">Contact Us</h1>
+        <h1 className="text-2xl font-bold uppercase text-brand-700">Contact</h1>
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
           <div className="rounded-lg border border-slate-200 p-4">
@@ -54,15 +53,6 @@ export default async function ContactPage() {
 
         <div className="mt-6">
           <ContactForm />
-        </div>
-
-        <div className="mt-8 flex justify-center">
-          <Link
-            href="/portal"
-            className="inline-flex h-[22px] sm:h-[29px] items-center border-[3px] border-brand-700 bg-brand-50 px-4 text-sm font-extrabold uppercase pt-0.5 leading-none text-brand-700 hover:bg-yellow-100"
-          >
-            Client Portal
-          </Link>
         </div>
       </div>
       <MarketingFooter />

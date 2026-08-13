@@ -18,7 +18,7 @@ export default async function ContactPage() {
       <div className="mx-auto max-w-2xl px-4 py-10">
         <h1 className="text-2xl font-bold uppercase text-brand-700">Contact</h1>
 
-        <div className="mt-6 grid gap-4 sm:grid-cols-2">
+        <div className="mt-6 flex flex-col gap-4">
           <div className="rounded-lg border border-slate-200 p-4">
             <h3 className="font-bold text-brand-700">Phone</h3>
             <p className="mt-1 text-slate-700">

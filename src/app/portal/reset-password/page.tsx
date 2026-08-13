@@ -81,6 +81,10 @@ export default function PortalResetPasswordPage() {
           Password reset links only work once and expire quickly — this one isn&apos;t valid anymore.
           Request a new one below.
         </p>
+        <p className="mt-2 text-sm text-slate-600">
+          If you requested more than one reset email, only the most recent one works — older links stop
+          working as soon as a new one is sent.
+        </p>
         <Link
           href="/portal/forgot-password"
           className="mt-6 block w-full rounded-lg bg-brand-600 px-4 py-3 text-center font-medium text-white"

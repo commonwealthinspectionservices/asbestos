@@ -1,4 +1,5 @@
 import Link from "next/link";
+import AuthHashRedirect from "@/components/AuthHashRedirect";
 import MarketingNav from "@/components/marketing/MarketingNav";
 import MarketingFooter from "@/components/marketing/MarketingFooter";
 import PricingCalculator from "@/components/marketing/PricingCalculator";
@@ -45,6 +46,7 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-white">
+      <AuthHashRedirect />
       <MarketingNav />
 
       <section className="relative mt-4 flex min-h-[60vh] flex-col items-center justify-center overflow-hidden py-6 text-center sm:mt-10 sm:min-h-[85vh] sm:py-12">

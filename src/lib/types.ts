@@ -275,6 +275,14 @@ export interface Job {
   invoice_draft_gmail_message_id: string | null;
   /** Same idea as report_sent_at, but for the invoice draft. */
   invoice_sent_at: string | null;
+  /** Same idea as report_drafted_at, but for the "your report is ready, pay to receive it" notice sent to an individual-billed customer instead of the real report — kept separate so this notice is never mistaken for the actual report having been drafted. */
+  payment_reminder_drafted_at: string | null;
+  /** Same idea as report_draft_gmail_id, but for the payment-reminder draft. */
+  payment_reminder_draft_gmail_id: string | null;
+  /** Same idea as report_draft_gmail_message_id, but for the payment-reminder draft. */
+  payment_reminder_draft_gmail_message_id: string | null;
+  /** Same idea as report_sent_at, but for the payment-reminder draft. */
+  payment_reminder_sent_at: string | null;
   /** Checked on the Invoice tab for jobs billed directly to an individual (most are company-billed) — holds the report back until the job is marked Paid instead of drafting it immediately alongside the invoice. */
   is_individual: boolean;
   /** How this job was created — "portal_booking" for a real customer request (AcceptScheduleControl only shows for those), "admin" for one the owner entered directly via Add Project. Existing rows predating this column default to "portal_booking". */

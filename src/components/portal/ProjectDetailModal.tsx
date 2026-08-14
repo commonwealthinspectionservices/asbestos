@@ -334,7 +334,19 @@ export default function ProjectDetailModal({
                   })()}
                 </div>
               ) : job.is_individual && REPORT_READY_STATUSES.has(job.status) && !paid ? (
-                <p className="text-slate-500">Your final report will be available here once payment is received.</p>
+                <div>
+                  <p className="text-slate-500">Your final report will be available here once payment is received.</p>
+                  {payError && <div className="mt-2 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">{payError}</div>}
+                  {job.payment_type !== "check" && (
+                    <button
+                      onClick={payNow}
+                      disabled={payLoading}
+                      className="mt-3 rounded-lg bg-brand-600 px-4 py-2 font-medium text-white disabled:opacity-50"
+                    >
+                      {payLoading ? "Loading…" : "Pay now"}
+                    </button>
+                  )}
+                </div>
               ) : (
                 <p className="text-slate-500">The final report isn&apos;t available yet — we&apos;ll email you once it&apos;s in.</p>
               )}

@@ -427,8 +427,13 @@ async function processMatchedLabEmail(params: {
     // The report follows immediately too, unless this job is flagged
     // individual-billed (job.is_individual) — those are held back until
     // autoDraftReportIfJustPaid releases them once the job is marked Paid.
+    // The customer isn't just left to wonder, though — they get their own
+    // short notice instead, saying the report is ready and waiting on
+    // payment.
     if (!updatedJob.is_individual) {
       await draftReportEmailForJob({ job: updatedJob, settings, accessToken });
+    } else {
+      await draftPaymentReminderForIndividual({ job: updatedJob, settings, accessToken });
     }
   } catch (err) {
     console.error(`processMatchedLabEmail: lab PDF filed on job ${updatedJob.id}, but invoice/report drafting failed:`, err);
@@ -539,9 +544,78 @@ async function draftInvoiceEmailForJob(params: {
     .eq("id", job.id);
 }
 
+// What an individual-billed job gets instead of draftReportEmailForJob
+// below — see the is_individual branch in processMatchedLabEmail. No
+// attachment (there's nothing to send yet), just a short note so the
+// customer isn't left to discover on their own, by checking the portal,
+// that a report is sitting there waiting on payment. Draft only, like
+// every other customer email in this app — the owner still reviews and
+// sends it by hand. Reuses createStripeInvoiceForJob's own idempotency
+// (it returns the same invoice draftInvoiceEmailForJob just created,
+// rather than making a second one) to get the same Pay Now link.
+async function draftPaymentReminderForIndividual(params: {
+  job: Job & { customers: Customer & { companies: Company | null } };
+  settings: Settings;
+  accessToken: string;
+}): Promise<void> {
+  const { job, settings, accessToken } = params;
+  const supabase = getSupabaseAdmin();
+  const customer = withCompanyBillingAddress(job.customers, job.customers.companies);
+
+  let payNowUrl: string | null = null;
+  if (job.payment_type !== "check") {
+    try {
+      const { hostedInvoiceUrl } = await createStripeInvoiceForJob(job, customer);
+      payNowUrl = hostedInvoiceUrl;
+    } catch (e) {
+      console.error(`Failed to get Stripe payment link for job ${job.id}:`, e);
+    }
+  }
+
+  // Recreating (a second lab email landing on the same combined job, e.g.
+  // mold results after asbestos) replaces the earlier draft rather than
+  // leaving a stale duplicate sitting in Gmail alongside the new one —
+  // best-effort, since a draft already sent or deleted by hand 404s.
+  if (job.payment_reminder_draft_gmail_id) {
+    try {
+      await deleteDraft(accessToken, job.payment_reminder_draft_gmail_id);
+    } catch (e) {
+      console.error(`Failed to delete previous payment-reminder draft for job ${job.id}:`, e);
+    }
+  }
+
+  const draft = await createDraft(accessToken, {
+    to: customer.email,
+    subject: `Your report is ready - ${job.service_address}`,
+    bodyText: [
+      "Hi,",
+      "",
+      "Your final report is ready. As soon as payment is received, we'll send it right over.",
+      "",
+      `Site: ${job.service_address}`,
+      ...(payNowUrl ? ["", `Pay online: ${payNowUrl}`] : []),
+      "",
+      `Should you have any questions, please contact our office at ${settings.business_phone}.`,
+      "",
+      "Thank you for the opportunity to provide you with our services.",
+    ].join("\n"),
+    attachments: [],
+  });
+
+  await supabase
+    .from("jobs")
+    .update({
+      payment_reminder_drafted_at: new Date().toISOString(),
+      payment_reminder_draft_gmail_id: draft.id,
+      payment_reminder_draft_gmail_message_id: draft.messageId,
+    })
+    .eq("id", job.id);
+}
+
 // Report half of the split — called the moment lab results land (see
-// processMatchedLabEmail above, which skips this for individual-billed jobs)
-// and from the manual "Create Report Draft" button. Attaches the full
+// processMatchedLabEmail above, which drafts a payment-reminder note
+// instead for individual-billed jobs) and from the manual "Create Report
+// Draft" button. Attaches the full
 // merged packet — cover letter, lab results, chain of custody, license —
 // via the same builder the "Download Final Report" button uses, not just
 // the bare letter.
@@ -760,6 +834,11 @@ export async function createInvoiceDraftForJob(jobId: string): Promise<void> {
 /** Manual "Create Report Draft" button on the Email tab — same draft-creation path the automatic email check uses, callable on demand for any project. */
 export async function createReportDraftForJob(jobId: string): Promise<void> {
   await draftReportEmailForJob(await loadJobForDraft(jobId));
+}
+
+/** Manual re-send path for the individual-billed "your report is ready, pay to receive it" notice — same draft-creation code the automatic lab-results-landing path uses. */
+export async function createPaymentReminderDraftForJob(jobId: string): Promise<void> {
+  await draftPaymentReminderForIndividual(await loadJobForDraft(jobId));
 }
 
 /** The Email tab's one "Create Draft" button — final report + invoice as two attachments on a single Gmail draft, with a payment link. */

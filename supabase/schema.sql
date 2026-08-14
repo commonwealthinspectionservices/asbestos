@@ -523,6 +523,19 @@ alter table jobs add column if not exists invoice_sent_at timestamptz;
 alter table jobs add column if not exists invoice_draft_gmail_id text;
 alter table jobs add column if not exists invoice_draft_gmail_message_id text;
 
+-- Same four-column pattern again, but for the "your report is ready, pay
+-- to receive it" notice sent to an individual-billed customer at the same
+-- moment the report would have drafted for anyone else — see the
+-- is_individual branch in processMatchedLabEmail (lib/lab-email.ts). Kept
+-- separate from report_drafted_at/report_draft_gmail_id so this notice
+-- draft is never mistaken for the real report having been drafted (which
+-- would wrongly suppress the "Create Report Draft" button or mark the
+-- Final Report tab as sent once the owner sends this instead).
+alter table jobs add column if not exists payment_reminder_drafted_at timestamptz;
+alter table jobs add column if not exists payment_reminder_sent_at timestamptz;
+alter table jobs add column if not exists payment_reminder_draft_gmail_id text;
+alter table jobs add column if not exists payment_reminder_draft_gmail_message_id text;
+
 -- Collapses 'completed' ("Report Ready") and 'invoiced' into a single
 -- 'ready_to_send' step — lab results are in, the report/invoice are
 -- generatable and (for most jobs) already drafted. Both old values are kept

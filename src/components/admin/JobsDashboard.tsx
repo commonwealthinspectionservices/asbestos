@@ -3121,7 +3121,7 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
           value={paymentType}
           onChange={(e) => setPaymentType(e.target.value as "online" | "check")}
         >
-          <option value="online">Online</option>
+          <option value="online">Stripe</option>
           <option value="check">Check</option>
         </select>
         {paymentType === "check" && (
@@ -3794,7 +3794,7 @@ export function EditProjectDialog({
           value={paymentType}
           onChange={(e) => setPaymentType(e.target.value as "online" | "check")}
         >
-          <option value="online">Online</option>
+          <option value="online">Stripe</option>
           <option value="check">Check</option>
         </select>
         {paymentType === "check" && (

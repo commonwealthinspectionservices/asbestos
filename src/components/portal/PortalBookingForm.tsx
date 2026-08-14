@@ -387,7 +387,7 @@ export default function PortalBookingForm({ isIndividual }: { isIndividual: bool
               const subtypes = serviceTypes.filter((s) => categoryKeyOf(s.key) === c);
               return (
                 <div key={c}>
-                  <div className="text-sm font-medium text-slate-700">{categoryLabelOf(c)}</div>
+                  <div className="text-sm font-medium uppercase text-slate-700">{categoryLabelOf(c)}</div>
                   <div className="mt-2 space-y-2">
                     {subtypes.map((s) => (
                       <label
@@ -434,7 +434,7 @@ export default function PortalBookingForm({ isIndividual }: { isIndividual: bool
             ← Back
           </button>
           <div>
-            <label className="block text-base font-medium text-slate-700">Scope of work</label>
+            <label className="block text-base font-medium uppercase text-slate-700">Scope of work</label>
             <p className="mt-1 text-xs text-slate-500">
               What needs to be inspected or sampled? e.g. &ldquo;air quality concerns in my bedroom&rdquo; or &ldquo;renovating a bathroom and removing tiles + walls&rdquo;
             </p>

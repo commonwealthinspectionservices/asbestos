@@ -3275,6 +3275,10 @@ export function EditProjectDialog({
   }, [confirmedDate]);
   const [notes, setNotes] = useState(job.notes ?? "");
   const [paymentType, setPaymentType] = useState<"online" | "check">(job.payment_type ?? "online");
+  const [jobClassification, setJobClassification] = useState(job.job_classification ?? "");
+  const [paymentMethod, setPaymentMethod] = useState(job.payment_method ?? "");
+  const [poNumber, setPoNumber] = useState(job.po_number ?? "");
+  const [invoiceNumber, setInvoiceNumber] = useState(job.invoice_number ?? "");
   const [submitting, setSubmitting] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -3444,6 +3448,10 @@ export function EditProjectDialog({
             customer_id: targetCustomerId,
             report_emails: reportEmails || null,
             payment_type: paymentType,
+            job_classification: jobClassification.trim() || null,
+            payment_method: paymentMethod.trim() || null,
+            po_number: poNumber.trim() || null,
+            invoice_number: invoiceNumber.trim() || null,
           }),
         }),
         customerOk && targetCustomerId !== customerId
@@ -3493,6 +3501,7 @@ export function EditProjectDialog({
     serviceStreet, serviceUnit, serviceCity, serviceState, serviceZip,
     siteContactName, siteContactPhone, selectedServiceTypeKeys, customServiceType, scopeOfWork,
     confirmedDate, confirmedTime, paidDate, dueDate, notes, paymentType,
+    jobClassification, paymentMethod, poNumber, invoiceNumber,
   ]);
 
   useEffect(() => {
@@ -3816,6 +3825,34 @@ export function EditProjectDialog({
         {paymentType === "check" && (
           <p className="mt-1 text-xs text-slate-500">No Stripe invoice or pay-now link will be created automatically for this project.</p>
         )}
+
+        <label className="mt-3 block text-sm font-medium text-slate-700">Job details</label>
+        <div className="mt-1 grid grid-cols-2 gap-2">
+          <input
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            placeholder="Classification"
+            value={jobClassification}
+            onChange={(e) => setJobClassification(e.target.value)}
+          />
+          <input
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            placeholder="Payment method"
+            value={paymentMethod}
+            onChange={(e) => setPaymentMethod(e.target.value)}
+          />
+          <input
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            placeholder="PO #"
+            value={poNumber}
+            onChange={(e) => setPoNumber(e.target.value)}
+          />
+          <input
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            placeholder="Invoice #"
+            value={invoiceNumber}
+            onChange={(e) => setInvoiceNumber(e.target.value)}
+          />
+        </div>
 
         <div className="mt-4 flex items-center justify-between gap-2">
           <div className="flex items-center gap-3">

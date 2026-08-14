@@ -16,8 +16,16 @@ interface ServiceTypeOption {
 
 type Step = "address" | "category" | "scope" | "date" | "contact" | "review" | "done";
 
+// toISOString() reports the UTC date, not the browser's local one — in US
+// time zones, anything after ~8pm ET already reads as "tomorrow" in UTC.
+// availableTimeOptions() below compares this against getHours()/getMinutes()
+// (local), so that mismatch made every slot look past the 1-hour notice
+// cutoff on the CORRECT next calendar day too, leaving only "No preference"
+// selectable for a customer trying to book a perfectly normal tomorrow
+// morning appointment in the evening.
 function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 // 30-minute slots from 5:00 AM to 7:30 PM — excludes the 8pm-5am overnight

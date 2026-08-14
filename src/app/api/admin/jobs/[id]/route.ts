@@ -236,6 +236,28 @@ export const DELETE = withApiErrors(async (
   if (unauthorized) return unauthorized;
 
   const supabase = getSupabaseAdmin();
+
+  // Deleting the row alone leaves every uploaded lab report, chain of
+  // custody, invoice, and photo behind in Storage forever — nothing else
+  // ever references a job's storage_paths once its row is gone, so this
+  // is the only chance to clean them up. Best effort: a failed remove
+  // shouldn't block the actual delete the admin asked for.
+  const { data: job } = await supabase
+    .from("jobs")
+    .select("documents, photos")
+    .eq("id", params.id)
+    .maybeSingle();
+  if (job) {
+    const documentPaths = (job.documents ?? []).map((d: { storage_path: string }) => d.storage_path);
+    const photoPaths = (job.photos ?? []).map((p: { storage_path: string }) => p.storage_path);
+    if (documentPaths.length > 0) {
+      await supabase.storage.from("job-documents").remove(documentPaths).catch(() => {});
+    }
+    if (photoPaths.length > 0) {
+      await supabase.storage.from("job-photos").remove(photoPaths).catch(() => {});
+    }
+  }
+
   const { error } = await supabase.from("jobs").delete().eq("id", params.id);
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

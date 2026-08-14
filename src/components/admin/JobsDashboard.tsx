@@ -3116,22 +3116,14 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
         <textarea className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
 
         <label className="mt-3 block text-sm font-medium text-slate-700">Payment type</label>
-        <div className="mt-1 flex gap-2">
-          <button
-            type="button"
-            onClick={() => setPaymentType("online")}
-            className={`flex-1 rounded-lg px-3 py-1.5 text-sm font-medium ${paymentType === "online" ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}
-          >
-            Online
-          </button>
-          <button
-            type="button"
-            onClick={() => setPaymentType("check")}
-            className={`flex-1 rounded-lg px-3 py-1.5 text-sm font-medium ${paymentType === "check" ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}
-          >
-            Check
-          </button>
-        </div>
+        <select
+          className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          value={paymentType}
+          onChange={(e) => setPaymentType(e.target.value as "online" | "check")}
+        >
+          <option value="online">Online</option>
+          <option value="check">Check</option>
+        </select>
         {paymentType === "check" && (
           <p className="mt-1 text-xs text-slate-500">No Stripe invoice or pay-now link will be created automatically for this project.</p>
         )}
@@ -3797,22 +3789,14 @@ export function EditProjectDialog({
         <textarea className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
 
         <label className="mt-3 block text-sm font-medium text-slate-700">Payment type</label>
-        <div className="mt-1 flex gap-2">
-          <button
-            type="button"
-            onClick={() => setPaymentType("online")}
-            className={`flex-1 rounded-lg px-3 py-1.5 text-sm font-medium ${paymentType === "online" ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}
-          >
-            Online
-          </button>
-          <button
-            type="button"
-            onClick={() => setPaymentType("check")}
-            className={`flex-1 rounded-lg px-3 py-1.5 text-sm font-medium ${paymentType === "check" ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}
-          >
-            Check
-          </button>
-        </div>
+        <select
+          className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          value={paymentType}
+          onChange={(e) => setPaymentType(e.target.value as "online" | "check")}
+        >
+          <option value="online">Online</option>
+          <option value="check">Check</option>
+        </select>
         {paymentType === "check" && (
           <p className="mt-1 text-xs text-slate-500">No Stripe invoice or pay-now link will be created automatically for this project.</p>
         )}

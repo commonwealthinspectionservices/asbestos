@@ -2036,7 +2036,7 @@ export function ProjectDetailDialog({
                         className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition ${job.report_release_override ? "left-4" : "left-0.5"}`}
                       />
                     </button>
-                    <span>Release report to portal without payment</span>
+                    <span className="uppercase">Release report to portal without payment</span>
                   </label>
                 )}
               </div>

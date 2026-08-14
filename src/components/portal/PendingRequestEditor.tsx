@@ -13,17 +13,17 @@ interface ServiceTypeOption {
   rateLabel: string;
 }
 
-// toISOString() reports the UTC date, not the browser's local one — see
-// PortalBookingForm.tsx's own copy of this function for why that broke
-// same-day time filtering into the correct next calendar day too.
+// toISOString() reports the UTC date, not the browser's local one — in US
+// time zones, anything after ~8pm ET already reads as "tomorrow" in UTC,
+// which put the wrong minimum on the date picker below.
 function todayIso(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 // Mirrors PortalBookingForm.tsx's own copy of these — 30-min slots,
-// 1-hour same-day notice, asbestos-subtype exclusivity. Kept as a separate
-// copy rather than shared, matching this codebase's existing precedent
+// asbestos-subtype exclusivity. Kept as a separate copy rather than
+// shared, matching this codebase's existing precedent
 // (PricingCalculator.tsx/AcceptScheduleControl.tsx each keep their own
 // small formatter copies too).
 const TIME_OPTIONS: string[] = [];
@@ -31,16 +31,6 @@ for (let totalMinutes = 5 * 60; totalMinutes <= 19 * 60 + 30; totalMinutes += 30
   const h = Math.floor(totalMinutes / 60);
   const m = totalMinutes % 60;
   TIME_OPTIONS.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
-}
-
-function availableTimeOptions(selectedDate: string): string[] {
-  if (selectedDate !== todayIso()) return TIME_OPTIONS;
-  const now = new Date();
-  const earliestMinutes = now.getHours() * 60 + now.getMinutes() + 60;
-  return TIME_OPTIONS.filter((t) => {
-    const [h, m] = t.split(":").map(Number);
-    return h * 60 + m >= earliestMinutes;
-  });
 }
 
 function formatPreferredTime(hhmm: string): string {
@@ -172,13 +162,6 @@ export default function PendingRequestEditor({
       .finally(() => setLoadingTypes(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [job.id]);
-
-  useEffect(() => {
-    if (preferredTime && !availableTimeOptions(date).includes(preferredTime)) {
-      setPreferredTime("");
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [date, preferredTime]);
 
   useAutoZip(street, city, addrState, setZip, "/api/portal");
 
@@ -422,7 +405,7 @@ export default function PendingRequestEditor({
               onChange={(e) => setPreferredTime(e.target.value)}
             >
               <option value="">No preference</option>
-              {availableTimeOptions(date).map((t) => <option key={t} value={t}>{formatPreferredTime(t)}</option>)}
+              {TIME_OPTIONS.map((t) => <option key={t} value={t}>{formatPreferredTime(t)}</option>)}
             </select>
           </div>
         </>

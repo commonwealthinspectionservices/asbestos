@@ -17,12 +17,8 @@ interface ServiceTypeOption {
 type Step = "address" | "category" | "scope" | "date" | "contact" | "review" | "done";
 
 // toISOString() reports the UTC date, not the browser's local one — in US
-// time zones, anything after ~8pm ET already reads as "tomorrow" in UTC.
-// availableTimeOptions() below compares this against getHours()/getMinutes()
-// (local), so that mismatch made every slot look past the 1-hour notice
-// cutoff on the CORRECT next calendar day too, leaving only "No preference"
-// selectable for a customer trying to book a perfectly normal tomorrow
-// morning appointment in the evening.
+// time zones, anything after ~8pm ET already reads as "tomorrow" in UTC,
+// which put the wrong minimum on the date picker below.
 function todayIso(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -36,19 +32,6 @@ for (let totalMinutes = 5 * 60; totalMinutes <= 19 * 60 + 30; totalMinutes += 30
   const h = Math.floor(totalMinutes / 60);
   const m = totalMinutes % 60;
   TIME_OPTIONS.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
-}
-
-// Booking today still needs at least an hour's notice — every slot before
-// that is dropped entirely rather than just discouraged. A future date has
-// nothing to filter against, so the full slot list applies.
-function availableTimeOptions(selectedDate: string): string[] {
-  if (selectedDate !== todayIso()) return TIME_OPTIONS;
-  const now = new Date();
-  const earliestMinutes = now.getHours() * 60 + now.getMinutes() + 60;
-  return TIME_OPTIONS.filter((t) => {
-    const [h, m] = t.split(":").map(Number);
-    return h * 60 + m >= earliestMinutes;
-  });
 }
 
 // Mirrors ProjectsList.tsx's formatDate — MM/DD/YYYY instead of the raw
@@ -160,17 +143,6 @@ export default function PortalBookingForm({ isIndividual }: { isIndividual: bool
       .then((r) => r.json())
       .then((data) => setSavedAddresses(data.addresses ?? []));
   }, []);
-
-  // A previously-picked time can fall inside the 1-hour notice window once
-  // the date changes to today (or time just passes while the form sits
-  // open) — clear it rather than silently submitting a slot that's no
-  // longer offered.
-  useEffect(() => {
-    if (preferredTime && !availableTimeOptions(date).includes(preferredTime)) {
-      setPreferredTime("");
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [date, preferredTime]);
 
   useAutoZip(street, city, addrState, setZip, "/api/portal");
 
@@ -534,15 +506,11 @@ export default function PortalBookingForm({ isIndividual }: { isIndividual: bool
                   onChange={(e) => setPreferredTime(e.target.value)}
                 >
                   <option value="">No preference</option>
-                  {availableTimeOptions(date).map((t) => (
+                  {TIME_OPTIONS.map((t) => (
                     <option key={t} value={t}>{formatPreferredTime(t)}</option>
                   ))}
                 </select>
-                <p className="mt-1 text-xs text-slate-500">
-                  {date === todayIso()
-                    ? "Leave blank if you don't have a preference. Same-day booking needs at least an hour's notice."
-                    : "Leave blank if you don't have a preference."}
-                </p>
+                <p className="mt-1 text-xs text-slate-500">Leave blank if you don't have a preference.</p>
               </div>
               {isIndividual && (
                 <div>

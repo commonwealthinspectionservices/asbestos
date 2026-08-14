@@ -93,6 +93,7 @@ function baseJob(overrides: Partial<JobWithCustomer> = {}): JobWithCustomer {
     payment_reminder_draft_gmail_message_id: null,
     payment_reminder_sent_at: null,
     is_individual: false,
+    report_release_override: false,
     source: "portal_booking",
     payment_type: "online",
     created_at: new Date().toISOString(),

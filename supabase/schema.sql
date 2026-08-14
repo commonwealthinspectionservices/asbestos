@@ -536,6 +536,16 @@ alter table jobs add column if not exists payment_reminder_sent_at timestamptz;
 alter table jobs add column if not exists payment_reminder_draft_gmail_id text;
 alter table jobs add column if not exists payment_reminder_draft_gmail_message_id text;
 
+-- Manual admin escape hatch for the individual-billed payment gate — an
+-- occasional exception (a trusted customer, a special case), not the
+-- normal path. Off by default; once the admin flips it on for a job, the
+-- portal treats that job's report as released exactly like a paid one
+-- (see reportReady in ProjectDetailModal.tsx and
+-- api/portal/projects/[id]/report/route.ts) — persists on the job, not a
+-- one-time action, so the customer keeps seeing it on every visit rather
+-- than the admin needing to remember to re-release it.
+alter table jobs add column if not exists report_release_override boolean not null default false;
+
 -- Collapses 'completed' ("Report Ready") and 'invoiced' into a single
 -- 'ready_to_send' step — lab results are in, the report/invoice are
 -- generatable and (for most jobs) already drafted. Both old values are kept

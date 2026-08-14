@@ -1289,6 +1289,15 @@ export function ProjectDetailDialog({
     onChanged();
   }
 
+  async function saveReportReleaseOverride(value: boolean) {
+    await fetch(`/api/admin/jobs/${job.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ report_release_override: value }),
+    });
+    onChanged();
+  }
+
   async function saveMoldReportNotes(value: string) {
     await fetch(`/api/admin/jobs/${job.id}`, {
       method: "PATCH",
@@ -2011,6 +2020,25 @@ export function ProjectDetailDialog({
                     </div>
                   )}
                 </div>
+                {job.is_individual && job.status !== "paid" && (
+                  <label
+                    className="flex items-center gap-2 text-xs text-slate-600"
+                    title="Off by default. Turning this on shows the customer their report in the portal even though the job isn't marked Paid — an occasional exception, not the normal path. Stays on until you turn it back off."
+                  >
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={!!job.report_release_override}
+                      onClick={() => saveReportReleaseOverride(!job.report_release_override)}
+                      className={`relative h-5 w-9 shrink-0 rounded-full transition ${job.report_release_override ? "bg-emerald-600" : "bg-slate-300"}`}
+                    >
+                      <span
+                        className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition ${job.report_release_override ? "left-4" : "left-0.5"}`}
+                      />
+                    </button>
+                    <span>Release report to portal without payment</span>
+                  </label>
+                )}
               </div>
             </div>
           </div>

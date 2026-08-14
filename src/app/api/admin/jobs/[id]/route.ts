@@ -47,6 +47,7 @@ const EDITABLE_FIELDS = [
   "mold_report_notes",
   "mold_lab_name",
   "is_individual",
+  "report_release_override",
 ] as const;
 
 export const PATCH = withApiErrors(async (
@@ -182,7 +183,7 @@ export const PATCH = withApiErrors(async (
   // Columns added after this route was first written — tolerated in case
   // the migration adding them hasn't been run against this database yet,
   // so a save never hard-fails over one of them being missing.
-  const TOLERATED_MISSING_COLUMNS = ["paid_date", "sample_counts", "report_emails", "invoice_emails", "scope_of_work", "payment_due_date", "asbestos_result", "lead_result", "invoice_auto", "confirmed_date", "confirmed_time", "schedule_visible_to_customer"];
+  const TOLERATED_MISSING_COLUMNS = ["paid_date", "sample_counts", "report_emails", "invoice_emails", "scope_of_work", "payment_due_date", "asbestos_result", "lead_result", "invoice_auto", "confirmed_date", "confirmed_time", "schedule_visible_to_customer", "report_release_override"];
 
   let currentPatch = patch;
   let data: Record<string, unknown> | null = null;

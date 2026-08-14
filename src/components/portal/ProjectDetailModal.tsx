@@ -167,8 +167,10 @@ export default function ProjectDetailModal({
   // Individuals (paying out of pocket, not a company on terms) don't get
   // the report until they've actually paid — a company job has no such
   // gate, since net-30 billing means the report is often needed well
-  // before payment for permits/project use.
-  const reportReady = REPORT_READY_STATUSES.has(job.status) && (!job.is_individual || paid);
+  // before payment for permits/project use. report_release_override is
+  // the admin's manual escape hatch for an occasional exception — treated
+  // exactly like "paid" here.
+  const reportReady = REPORT_READY_STATUSES.has(job.status) && (!job.is_individual || paid || job.report_release_override);
   const invoiced = job.invoice_total_cents != null && INVOICE_FINALIZED_STATUSES.has(job.status);
   const trackerSegments = trackerSegmentsFor(job.is_individual);
   // Cache-busting key for PdfPreview — re-fetches/re-renders whenever
@@ -326,7 +328,7 @@ export default function ProjectDetailModal({
                         href={`/api/portal/projects/${job.id}/report?type=${domain}`}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-block rounded-lg bg-brand-600 px-4 py-2 font-medium text-white"
+                        className="inline-block rounded-lg bg-brand-600 px-4 py-2 font-medium uppercase text-white"
                       >
                         {domains.length > 1 ? `View ${REPORT_DOMAIN_LABEL[domain]} report` : "View report"}
                       </a>

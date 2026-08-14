@@ -33,6 +33,7 @@ const job: Job = {
   payment_reminder_draft_gmail_message_id: null,
   payment_reminder_sent_at: null,
   is_individual: false,
+  report_release_override: false,
   source: "portal_booking",
   id: "job-1",
   project_number: "26-2760",

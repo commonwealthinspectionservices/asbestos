@@ -285,6 +285,8 @@ export interface Job {
   payment_reminder_sent_at: string | null;
   /** Checked on the Invoice tab for jobs billed directly to an individual (most are company-billed) — holds the report back until the job is marked Paid instead of drafting it immediately alongside the invoice. */
   is_individual: boolean;
+  /** Manual admin escape hatch for the payment gate above — off by default; once on, the portal treats this job's report as released exactly like a paid one, regardless of actual payment status. Persists on the job (not a one-time action) until the admin turns it back off. */
+  report_release_override: boolean;
   /** How this job was created — "portal_booking" for a real customer request (AcceptScheduleControl only shows for those), "admin" for one the owner entered directly via Add Project. Existing rows predating this column default to "portal_booking". */
   source: "portal_booking" | "admin";
   /** Distinct from the free-text `payment_method` field above (informational, import-only). This one drives real behavior: "online" auto-creates a Stripe hosted invoice and includes its pay-now link on drafted invoice emails, and shows the portal's Pay now button. "check" skips Stripe entirely on those automatic paths — the admin's own on-demand "Get payment link" button still works regardless. */

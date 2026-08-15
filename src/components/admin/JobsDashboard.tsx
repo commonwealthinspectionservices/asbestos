@@ -988,6 +988,11 @@ function JobRow({
                         Confirmation sent {formatDateTime(job.confirmation_sent_at)}
                       </span>
                     )}
+                    {job.reminder_sent_at && (
+                      <span className="whitespace-nowrap text-[10px] text-slate-400">
+                        Reminder sent {formatDateTime(job.reminder_sent_at)}
+                      </span>
+                    )}
                   </div>
                 )}
                 <input
@@ -1582,6 +1587,12 @@ export function ProjectDetailDialog({
               <div className="flex gap-2 text-xs text-slate-400">
                 <span className="w-32 shrink-0 uppercase font-bold">Confirmation Sent</span>
                 <span>{formatDateTime(job.confirmation_sent_at)}</span>
+              </div>
+            )}
+            {job.reminder_sent_at && (
+              <div className="flex gap-2 text-xs text-slate-400">
+                <span className="w-32 shrink-0 uppercase font-bold">Reminder Sent</span>
+                <span>{formatDateTime(job.reminder_sent_at)}</span>
               </div>
             )}
             {job.status === "needs_scheduling" && (

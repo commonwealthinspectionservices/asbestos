@@ -242,6 +242,8 @@ export interface Job {
   email_gmail_thread_id: string | null;
   /** Set once, the first time confirmed_date goes from empty to set — see sendJobConfirmedEmailIfDue in lib/booking-notify.ts. Shown as small tracking text in the admin dashboard. */
   confirmation_sent_at: string | null;
+  /** Set once the day-before reminder email sends — see lib/job-reminders.ts. Shown as small tracking text in the admin dashboard. */
+  reminder_sent_at: string | null;
   /** Editable, defaults to 30 days after requested_date but can be overridden per job. */
   payment_due_date: string | null;
   /** Who the finished report gets emailed to — comma-joined, first address is always the customer contact's own email. */

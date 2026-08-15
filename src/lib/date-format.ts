@@ -10,3 +10,38 @@ export function formatDateDMY(dateStr: string | null | undefined): string | null
   if (!y || !m || !d || y.length !== 4) return null;
   return `${d}/${m}/${y}`;
 }
+
+function formatClockTime(totalMinutes: number): string {
+  const normalized = ((totalMinutes % 1440) + 1440) % 1440;
+  const h = Math.floor(normalized / 60);
+  const m = normalized % 60;
+  const period = h >= 12 ? "PM" : "AM";
+  const hour12 = h % 12 || 12;
+  return `${hour12}:${String(m).padStart(2, "0")} ${period}`;
+}
+
+/** The portal booking form's raw "HH:MM" (24hr, from <input type="time">) as a plain 12hr clock time. */
+export function formatRequestedTime(hhmm: string | null | undefined): string | null {
+  if (!hhmm) return null;
+  const [h, m] = hhmm.split(":").map(Number);
+  if (Number.isNaN(h) || Number.isNaN(m)) return null;
+  return formatClockTime(h * 60 + m);
+}
+
+// A requested time (from the portal booking form's <input type="time">) is
+// never a promise — nothing is confirmed until the owner sets a real
+// confirmed_date/confirmed_time. The request-received email shows the exact
+// time the customer typed (formatRequestedTime above) plus this +/-1hr
+// window as explanatory subtext underneath it, per explicit owner request
+// (2026-08-15) — "list the actual time... beneath the time, explain that
+// window rule... it's an approximate time", not literally replace the exact
+// time. Wraps past midnight without a "next day" note — a real edge case
+// (an 11:30pm request) but not worth the complexity, the owner is following
+// up personally regardless.
+export function formatRequestedTimeWindow(hhmm: string | null | undefined): string | null {
+  if (!hhmm) return null;
+  const [h, m] = hhmm.split(":").map(Number);
+  if (Number.isNaN(h) || Number.isNaN(m)) return null;
+  const totalMinutes = h * 60 + m;
+  return `${formatClockTime(totalMinutes - 60)} – ${formatClockTime(totalMinutes + 60)}`;
+}

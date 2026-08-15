@@ -1,7 +1,7 @@
 import { sendEmail, emailShell } from "@/lib/email";
 import { getAppUrl } from "@/lib/app-url";
 import { escapeHtml } from "@/lib/html";
-import { formatDateDMY } from "@/lib/date-format";
+import { formatDateDMY, formatRequestedTime, formatRequestedTimeWindow } from "@/lib/date-format";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { threadSubject, sendThreadedEmail } from "@/lib/email-thread";
 
@@ -93,14 +93,16 @@ export async function sendCustomerBookingReceivedEmail(params: {
   scheduleViaContact?: boolean;
 }): Promise<void> {
   const firstName = params.customerName?.split(" ")[0] || "there";
+  const exactTime = params.requestedTime ? formatRequestedTime(params.requestedTime) : null;
+  const timeWindow = params.requestedTime ? formatRequestedTimeWindow(params.requestedTime) : null;
   const whenLine = params.scheduleViaContact
     ? "We'll reach out to your job site contact to schedule"
-    : [formatDateDMY(params.requestedDate), params.requestedTime].filter(Boolean).join(" at ") || "No specific date preference given";
+    : [formatDateDMY(params.requestedDate), exactTime].filter(Boolean).join(" at ") || "No specific date preference given";
 
   const rows = [
     ["Service", params.serviceLabel],
     ["Address", params.address],
-    ["Requested", whenLine],
+    ["Requested (not yet confirmed)", whenLine],
   ];
   if (params.projectNumber) rows.unshift(["Project #", params.projectNumber]);
 
@@ -118,9 +120,10 @@ export async function sendCustomerBookingReceivedEmail(params: {
     gmailThreadId: null,
     html: emailShell(`
       <p style="font-size:15px;">Hi ${escapeHtml(firstName)},</p>
-      <p style="font-size:15px;">Thanks for requesting an inspection with ${escapeHtml(params.businessName)}. We've received your request:</p>
+      <p style="font-size:15px;">Thanks for requesting an inspection with ${escapeHtml(params.businessName)}. Here's what you requested:</p>
       <table style="width:100%; font-size:14px; color:#16213a;">${tableRows}</table>
-      <p style="font-size:15px; margin-top:16px;">We'll follow up shortly to confirm a date and time.</p>
+      ${timeWindow ? `<p style="font-size:12px; color:#94a3b8; margin-top:6px;">The time above is approximate, and we'll confirm the exact date and time when we're in touch.</p>` : ""}
+      <p style="font-size:15px; margin-top:16px;">We'll be in touch shortly to confirm an exact date and time.</p>
       <p style="font-size:15px;">Questions in the meantime? Call us at ${escapeHtml(params.businessPhone)}.</p>
     `),
   });

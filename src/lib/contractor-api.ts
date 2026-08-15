@@ -10,6 +10,16 @@ export interface ContractorSession {
   accountType: "company" | "individual" | null;
   /** null if the auth account exists but hasn't finished onboarding (src/app/portal/onboarding) yet. */
   customer: Customer | null;
+  /**
+   * Whether this auth account has ever set a real password (see
+   * customer_has_password in schema.sql) — false for a brand-new signup or
+   * an Invite that hasn't been completed yet, even though `customer` above
+   * may already be non-null (the on_auth_user_created trigger, or an
+   * admin-prefilled Invite row). Only /portal/onboarding's redirect gate
+   * needs this; everything else's "is this a real account" check is still
+   * just `customer !== null`.
+   */
+  hasPassword: boolean;
 }
 
 /**
@@ -31,11 +41,10 @@ export async function getContractorSession(): Promise<ContractorSession | null> 
   if (error || !user) return null;
 
   const admin = getSupabaseAdmin();
-  const { data: customer } = await admin
-    .from("customers")
-    .select("*")
-    .eq("auth_user_id", user.id)
-    .single();
+  const [{ data: customer }, { data: hasPassword }] = await Promise.all([
+    admin.from("customers").select("*").eq("auth_user_id", user.id).single(),
+    admin.rpc("customer_has_password", { target_auth_user_id: user.id }),
+  ]);
 
   const accountType = user.user_metadata?.account_type;
 
@@ -44,6 +53,7 @@ export async function getContractorSession(): Promise<ContractorSession | null> 
     email: user.email,
     accountType: accountType === "company" || accountType === "individual" ? accountType : null,
     customer: (customer as unknown as Customer) ?? null,
+    hasPassword: hasPassword === true,
   };
 }
 

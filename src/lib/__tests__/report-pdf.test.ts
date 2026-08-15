@@ -130,6 +130,7 @@ const job: Job = {
   cancellation_requested_at: null,
   email_thread_message_ids: [],
   confirmation_sent_at: null,
+  reminder_sent_at: null,
   email_gmail_thread_id: null,
   invoice_drafted_at: null,
   invoice_draft_gmail_id: null,

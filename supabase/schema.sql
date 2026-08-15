@@ -837,4 +837,36 @@ alter table jobs add column if not exists cancellation_requested_at timestamptz;
 -- small tracking text in the admin dashboard.
 alter table jobs add column if not exists email_thread_message_ids jsonb not null default '[]'::jsonb;
 alter table jobs add column if not exists email_gmail_thread_id text;
+
+-- Ground truth for "has this account actually set a password yet" —
+-- catches a real bug: on_auth_user_created (above) creates a bare
+-- customers row the instant someone signs up or gets Invited, before
+-- they've ever set a password. /portal/onboarding used to gate purely on
+-- `customers` row existence, so both self-signup and Invite (which often
+-- pre-fills a real name/phone on the contact row ahead of time) could redirect
+-- straight to the dashboard, skipping the only place a password is ever set
+-- (OnboardingForm's updateUser({password}), always called before that
+-- page's own profile POST) — leaving a confirmed auth.users account with no
+-- way to sign back in. A customers-row field (even a new one) can't
+-- distinguish this reliably, since Invite rows can carry real profile data
+-- from the admin despite the actual person never having logged in — so this
+-- checks Supabase's own auth.users.encrypted_password directly instead,
+-- which is empty until updateUser({password}) is called and is never
+-- exposed via the normal admin JS client.
+create or replace function public.customer_has_password(target_auth_user_id uuid)
+returns boolean
+language sql
+security definer
+set search_path = public
+as $$
+  select coalesce(encrypted_password, '') != ''
+  from auth.users
+  where id = target_auth_user_id;
+$$;
+
+-- One-time marker for the automated "your inspection is tomorrow" reminder
+-- (see lib/job-reminders.ts / api/cron/job-reminders) — same idempotency
+-- pattern as confirmation_sent_at above, guarding against a double-send if
+-- the cron is ever triggered twice for the same job.
+alter table jobs add column if not exists reminder_sent_at timestamptz;
 alter table jobs add column if not exists confirmation_sent_at timestamptz;

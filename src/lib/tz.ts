@@ -30,6 +30,13 @@ export function zonedTimeToUtc(dateIso: string, hhmm: string, timeZone: string):
   return new Date(guess.getTime() - offset * 60000);
 }
 
+/** Adds `days` (can be negative) to a "YYYY-MM-DD" string, calendar-correct across month/year boundaries. */
+export function addDaysIso(dateIso: string, days: number): string {
+  const [year, month, day] = dateIso.split("-").map(Number);
+  const d = new Date(Date.UTC(year, month - 1, day + days));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+}
+
 /** Current wall-clock "HH:MM" and "YYYY-MM-DD" in `timeZone`, for the given instant (default now). */
 export function nowInTimeZone(timeZone: string, at: Date = new Date()): { hhmm: string; dateIso: string } {
   const dtf = new Intl.DateTimeFormat("en-US", {

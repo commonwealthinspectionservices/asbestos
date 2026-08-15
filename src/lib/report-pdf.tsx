@@ -435,8 +435,9 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
   const labCity = settings.labs.find((l) => l.name === job.mold_lab_name)?.city?.trim();
   const labNameWithCity = labCity ? `${labName} located in ${labCity}` : labName;
   // Confirmed word-for-word identical across two independent real reports —
-  // one air+bulk combo, one bulk-only — so it's a fixed caveat attached to
-  // every collection method's own paragraph below, not specific to air.
+  // one air+bulk combo, one bulk-only — so it's attached to both Air's and
+  // Bulk's own paragraphs below. A real swab-only report confirmed this
+  // caveat does NOT appear there, so swab's paragraph stays without it.
   const SPORE_ID_CAVEAT =
     "This method does not differentiate between viable and non-viable fungal spores. In addition, this technique does not allow for the differentiation between Aspergillus and Penicillium spores. Other non-distinctive spores are reported in categories such as Ascospores or Basidiospores.";
   // Air and swab share one "Sampling for Mold:" section when both are
@@ -464,8 +465,9 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
           {
             title: "Sampling for Mold:",
             paragraphs: [
+              // Confirmed against a real swab-only report: unlike air and
+              // bulk, swab's own paragraph does NOT get the spore-ID caveat.
               `Swab samples of suspected mold growth were collected from the affected surfaces to identify the genera of mold, if present. Upon receipt at the laboratory, a sub-sample is prepared and applied directly to a microscopic slide, where it is stained and analyzed by optical microscopy at magnifications between 200X and 1000X. The swabs collected at the above referenced address were enumerated and speciated by ${labNameWithCity}.`,
-              SPORE_ID_CAVEAT,
             ],
           },
         ]

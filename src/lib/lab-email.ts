@@ -100,45 +100,45 @@ function reportDraftBodyText(job: Job, settings: Settings): string {
 // before the report is released, so it needs its own standalone note
 // rather than reusing report-focused phrasing ("analytical report",
 // "laboratory results") that wouldn't make sense on its own.
-function invoiceDraftBodyText(job: Job, settings: Settings, totalCents: number, payNowUrl: string | null): string {
+function invoiceDraftBodyHtml(job: Job, settings: Settings, totalCents: number, payNowUrl: string | null): string {
   return [
     "Hi,",
     "",
     "Please find attached the invoice for the asbestos inspection completed at:",
     "",
-    `Site: ${job.service_address}`,
+    `Site: ${escapeHtml(job.service_address)}`,
     "",
-    `Total due: ${formatCents(totalCents)}`,
-    ...(payNowUrl ? ["", `Pay online: ${payNowUrl}`] : []),
+    `Total due: ${escapeHtml(formatCents(totalCents))}`,
+    ...(payNowUrl ? ["", `<a href="${escapeHtml(payNowUrl)}">Link to pay</a>`] : []),
     "",
-    `Should you have any questions or need additional information, please contact our office at ${settings.business_phone}.`,
+    `Should you have any questions or need additional information, please contact our office at ${escapeHtml(settings.business_phone)}.`,
     "",
     "Thank you for the opportunity to provide you with our services.",
-  ].join("\n");
+  ].join("<br>");
 }
 
 // The Email tab's single manual send — attached report + invoice covering
 // both in one note rather than stitching the two standalone bodies above
 // together.
-function combinedDraftBodyText(job: Job, settings: Settings, totalCents: number, payNowUrl: string | null): string {
+function combinedDraftBodyHtml(job: Job, settings: Settings, totalCents: number, payNowUrl: string | null): string {
   return [
     "Hi,",
     "",
     "Please find attached the asbestos bulk sample analytical report and invoice for:",
     "",
-    `Site: ${job.service_address}`,
+    `Site: ${escapeHtml(job.service_address)}`,
     "",
-    `Date of Sampling: ${formatDateMMDDYYYY(job.requested_date)}`,
+    `Date of Sampling: ${escapeHtml(formatDateMMDDYYYY(job.requested_date))}`,
     "",
     "All laboratory results and analytical data sheets are included in the attached report.",
     "",
-    `Total due: ${formatCents(totalCents)}`,
-    ...(payNowUrl ? ["", `Pay online: ${payNowUrl}`] : []),
+    `Total due: ${escapeHtml(formatCents(totalCents))}`,
+    ...(payNowUrl ? ["", `<a href="${escapeHtml(payNowUrl)}">Link to pay</a>`] : []),
     "",
-    `Should you have any questions or need additional information, please contact our office at ${settings.business_phone}.`,
+    `Should you have any questions or need additional information, please contact our office at ${escapeHtml(settings.business_phone)}.`,
     "",
     "Thank you for the opportunity to provide you with our services and we look forward to working together in the future.",
-  ].join("\n");
+  ].join("<br>");
 }
 
 /** Checks the connected inbox for lab result emails, matches them to a project by the project number printed in the PDF, and drafts the final report + invoice. Also catches chain-of-custody receipt emails (matched by subject line), lab-bundled COC attachments, and EMSL's separate billing invoice emails (recorded as lab cost, not drafted). Draft only — never sent automatically. */
@@ -527,7 +527,7 @@ async function draftInvoiceEmailForJob(params: {
     to: toCustomer.email,
     cc: [...new Set(ccRecipients)].join(", ") || undefined,
     subject: `Invoice - ${pricedJob.service_address}`,
-    bodyText: invoiceDraftBodyText(pricedJob, settings, totalCents, payNowUrl),
+    bodyHtml: invoiceDraftBodyHtml(pricedJob, settings, totalCents, payNowUrl),
     attachments: [
       { filename: `Invoice-${pricedJob.project_number ?? job.id}.pdf`, mimeType: "application/pdf", content: invoicePdf },
     ],
@@ -586,18 +586,18 @@ async function draftPaymentReminderForIndividual(params: {
   const draft = await createDraft(accessToken, {
     to: customer.email,
     subject: `Your report is ready - ${job.service_address}`,
-    bodyText: [
+    bodyHtml: [
       "Hi,",
       "",
       "Your final report is ready. As soon as payment is received, we'll send it right over.",
       "",
-      `Site: ${job.service_address}`,
-      ...(payNowUrl ? ["", `Pay online: ${payNowUrl}`] : []),
+      `Site: ${escapeHtml(job.service_address)}`,
+      ...(payNowUrl ? ["", `<a href="${escapeHtml(payNowUrl)}">Link to pay</a>`] : []),
       "",
-      `Should you have any questions, please contact our office at ${settings.business_phone}.`,
+      `Should you have any questions, please contact our office at ${escapeHtml(settings.business_phone)}.`,
       "",
       "Thank you for the opportunity to provide you with our services.",
-    ].join("\n"),
+    ].join("<br>"),
     attachments: [],
   });
 
@@ -777,7 +777,7 @@ async function draftCombinedEmailForJob(params: {
     subject: threadSubject(pricedJob.service_address, pricedJob.project_number),
     headers: threadHeaders(existingThreadIds),
     threadId: pricedJob.email_gmail_thread_id ?? undefined,
-    bodyText: combinedDraftBodyText(pricedJob, settings, totalCents, payNowUrl),
+    bodyHtml: combinedDraftBodyHtml(pricedJob, settings, totalCents, payNowUrl),
     attachments: [
       ...reportPackets.map(({ domain, buffer }) => ({
         filename: reportPackets.length > 1

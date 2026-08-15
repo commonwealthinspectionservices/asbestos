@@ -102,7 +102,7 @@ export async function sendCustomerBookingReceivedEmail(params: {
   const rows = [
     ["Service", params.serviceLabel],
     ["Address", params.address],
-    ["Requested (not yet confirmed)", whenLine],
+    ["Requested", whenLine],
   ];
   if (params.projectNumber) rows.unshift(["Project #", params.projectNumber]);
 

@@ -291,7 +291,12 @@ function buildRawEmail(params: {
 export async function createDraft(
   accessToken: string,
   params: {
-    to: string; cc?: string; subject: string; bodyText: string;
+    to: string; cc?: string; subject: string;
+    // HTML lets a draft body carry a real hyperlink (e.g. "Link to pay"
+    // instead of a pasted-in-full Stripe URL) — bodyText stays the default
+    // for drafts that don't need one. buildRawEmail prefers bodyHtml when
+    // both are present.
+    bodyText?: string; bodyHtml?: string;
     attachments: { filename: string; mimeType: string; content: Buffer }[];
     headers?: Record<string, string>;
     // Joins an existing Gmail thread (see lib/email-thread.ts) — used so a

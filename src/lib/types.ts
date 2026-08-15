@@ -39,6 +39,8 @@ export interface LabProfile {
   name: string;
   nist_cert: string;
   massdls_cert: string;
+  /** e.g. "Woburn, Massachusetts" — printed after the lab's name in mold report prose ("...speciated by EMSL located in Woburn, Massachusetts."). */
+  city: string;
 }
 
 /** A licensed inspector who may perform jobs. The first entry prints on every report, invoice, and Chain of Custody form's signature block — see primaryInspector() in settings.ts. */

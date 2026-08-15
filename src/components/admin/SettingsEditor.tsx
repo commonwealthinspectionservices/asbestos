@@ -109,7 +109,7 @@ export default function SettingsEditor() {
 
   function addLab() {
     if (!form) return;
-    update("labs", [...form.labs, { name: "New lab", nist_cert: "", massdls_cert: "" }]);
+    update("labs", [...form.labs, { name: "New lab", city: "", nist_cert: "", massdls_cert: "" }]);
   }
 
   function removeLab(index: number) {
@@ -218,6 +218,11 @@ export default function SettingsEditor() {
               <div className="flex items-center justify-between gap-2">
                 <TextInput value={lab.name} onChange={(v) => updateLab(i, { name: v })} placeholder="Lab name" />
                 <button onClick={() => removeLab(i)} className="shrink-0 text-sm text-red-600">Remove</button>
+              </div>
+              <div className="mt-2">
+                <Field label="City (e.g. Woburn, Massachusetts) — printed in mold reports after the lab's name">
+                  <TextInput value={lab.city ?? ""} onChange={(v) => updateLab(i, { city: v })} />
+                </Field>
               </div>
               <div className="mt-2 grid grid-cols-2 gap-2">
                 <Field label="NIST/NVLAP cert #">

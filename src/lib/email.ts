@@ -11,7 +11,11 @@ function getResend(): Resend {
   return resendClient;
 }
 
-const FROM = "Commonwealth Inspection Services <tim@commonwealthinspectionservices.com>";
+// Shared with lib/gmail.ts's sendMessage — the two auto-sent thread-anchor
+// emails set this same From identity explicitly rather than letting Gmail
+// fall back to the connected account's own profile display name (which
+// read as "Tim Hall", not the business name, in every email sent that way).
+export const FROM = "Commonwealth Inspection Services <tim@commonwealthinspectionservices.com>";
 
 /**
  * Returns whether the send actually succeeded — still never throws (a

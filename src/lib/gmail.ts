@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from "@/lib/supabase";
+import { FROM } from "@/lib/email";
 
 // The owner's own Gmail inbox, watched for incoming lab result emails —
 // OAuth tokens live in their own table (gmail_connection), never on
@@ -227,7 +228,19 @@ export async function markMessageRead(accessToken: string, messageId: string): P
   });
 }
 
+// RFC 2047 "encoded word" — a header value with any non-ASCII character
+// (e.g. an em dash in a Subject built from a formatted address) has to be
+// wrapped like this, or Gmail renders it as raw UTF-8 bytes misread as
+// Latin-1 (garbled as "Ã¢Â€Â"" instead of "—"). Plain ASCII values pass
+// through untouched — the common case for most of what this app sends.
+function encodeHeaderValue(value: string): string {
+  // eslint-disable-next-line no-control-regex
+  if (/^[\x00-\x7F]*$/.test(value)) return value;
+  return `=?UTF-8?B?${Buffer.from(value, "utf-8").toString("base64")}?=`;
+}
+
 function buildRawEmail(params: {
+  from?: string;
   to: string;
   cc?: string;
   subject: string;
@@ -242,9 +255,10 @@ function buildRawEmail(params: {
 }): string {
   const boundary = `cis_${Date.now()}_${Math.random().toString(36).slice(2)}`;
   const lines = [
+    ...(params.from ? [`From: ${params.from}`] : []),
     `To: ${params.to}`,
     ...(params.cc ? [`Cc: ${params.cc}`] : []),
-    `Subject: ${params.subject}`,
+    `Subject: ${encodeHeaderValue(params.subject)}`,
     ...Object.entries(params.headers ?? {}).map(([name, value]) => `${name}: ${value}`),
     "MIME-Version: 1.0",
     `Content-Type: multipart/mixed; boundary="${boundary}"`,
@@ -287,7 +301,7 @@ export async function createDraft(
     threadId?: string;
   }
 ): Promise<{ id: string; messageId: string }> {
-  const raw = buildRawEmail(params);
+  const raw = buildRawEmail({ ...params, from: FROM });
   const res = await gmailFetch(accessToken, "/drafts", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -308,7 +322,7 @@ export async function sendMessage(
   accessToken: string,
   params: { to: string; subject: string; bodyHtml: string; headers?: Record<string, string>; threadId?: string }
 ): Promise<{ id: string; threadId: string }> {
-  const raw = buildRawEmail({ to: params.to, subject: params.subject, bodyHtml: params.bodyHtml, attachments: [], headers: params.headers });
+  const raw = buildRawEmail({ from: FROM, to: params.to, subject: params.subject, bodyHtml: params.bodyHtml, attachments: [], headers: params.headers });
   const res = await gmailFetch(accessToken, "/messages/send", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

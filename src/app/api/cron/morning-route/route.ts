@@ -22,6 +22,15 @@ export const GET = withApiErrors(async (req: NextRequest) => {
   const settings = await getSettings();
   const { dateIso } = nowInTimeZone(settings.timezone);
 
+  // 0 = Sunday, 6 = Saturday — the business doesn't route on weekends, so
+  // skip the send entirely rather than mailing an empty "no projects today".
+  // Read as UTC noon (not the settings timezone) so the weekday can't shift
+  // across a date boundary the way a raw new Date(dateIso) would.
+  const dayOfWeek = new Date(`${dateIso}T12:00:00Z`).getUTCDay();
+  if (dayOfWeek === 0 || dayOfWeek === 6) {
+    return NextResponse.json({ skipped: true, reason: "weekend" });
+  }
+
   const supabase = getSupabaseAdmin();
   const { data: existing } = await supabase
     .from("daily_routes")

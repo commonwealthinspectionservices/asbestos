@@ -10,6 +10,7 @@ import { maybeSendImmediateAreaAlert } from "@/lib/area-health";
 import { escapeHtml } from "@/lib/html";
 import { getAppUrl } from "@/lib/app-url";
 import { estimateDurationMinutes } from "@/lib/pricing";
+import { formatDateDMY } from "@/lib/date-format";
 import type { JobWithCustomer } from "@/lib/types";
 
 export interface RunMorningRouteResult {
@@ -34,11 +35,12 @@ export async function runMorningRoute(dateIso: string): Promise<RunMorningRouteR
   const weekdayLabel = new Date(`${dateIso}T12:00:00Z`).toLocaleDateString("en-US", {
     weekday: "long", month: "short", day: "numeric", timeZone: settings.timezone,
   });
+  const subjectDateLabel = formatDateDMY(dateIso);
 
   if (!jobs || jobs.length === 0) {
     await sendEmail({
       to: process.env.OWNER_EMAIL!,
-      subject: `Route for ${weekdayLabel} — no projects today`,
+      subject: `Today's Projects — ${subjectDateLabel}`,
       html: emailShell(`<p>No projects are scheduled for ${weekdayLabel}. Nothing to route.</p>`),
     });
     return { stopCount: 0, totalDriveSeconds: 0 };
@@ -143,7 +145,7 @@ export async function runMorningRoute(dateIso: string): Promise<RunMorningRouteR
 
   await sendEmail({
     to: process.env.OWNER_EMAIL!,
-    subject: `Route for ${weekdayLabel} — ${orderedJobs.length} stops, ~${totalHours}h drive`,
+    subject: `Today's Projects — ${subjectDateLabel}`,
     html: emailShell(`
       <p style="margin:0 0 4px; font-size:15px; color:#16213a;"><strong>${weekdayLabel}</strong></p>
       <p style="margin:0 0 16px; color:#475569;">${orderedJobs.length} stops · ~${totalHours}h total drive · finish ~${finishTime}</p>

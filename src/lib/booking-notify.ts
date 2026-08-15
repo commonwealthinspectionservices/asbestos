@@ -2,6 +2,8 @@ import { sendEmail, emailShell } from "@/lib/email";
 import { getAppUrl } from "@/lib/app-url";
 import { escapeHtml } from "@/lib/html";
 import { formatDateDMY } from "@/lib/date-format";
+import { getSupabaseAdmin } from "@/lib/supabase";
+import { threadSubject, sendThreadedEmail } from "@/lib/email-thread";
 
 /**
  * Every new booking — anonymous (/api/book) or portal (/api/portal/book) —
@@ -68,8 +70,17 @@ export async function sendNewBookingRequestEmail(params: {
  * small set of emails this app is allowed to auto-send (previously just
  * chat replies, portal invites, signup confirmation, password reset).
  * Confirms receipt only — nothing is actually scheduled yet.
+ *
+ * Also the root of this job's email thread (see lib/email-thread.ts) — it
+ * sends through Gmail (gmail.send, a deliberately narrow exception — see
+ * lib/gmail.ts's SCOPES comment) rather than Resend specifically so the
+ * later "confirmed" email, and eventually the final report/invoice Gmail
+ * draft, can join it as real replies in the same conversation instead of
+ * three separate emails. Falls back to Resend if Gmail isn't connected —
+ * the customer still gets the email either way, just not threaded that time.
  */
 export async function sendCustomerBookingReceivedEmail(params: {
+  jobId: string;
   customerEmail: string;
   customerName: string;
   businessName: string;
@@ -100,9 +111,11 @@ export async function sendCustomerBookingReceivedEmail(params: {
     )
     .join("");
 
-  await sendEmail({
+  const result = await sendThreadedEmail({
     to: params.customerEmail,
-    subject: `We received your request${params.projectNumber ? ` — ${params.projectNumber}` : ""}`,
+    subject: threadSubject(params.address, params.projectNumber),
+    existingMessageIds: [],
+    gmailThreadId: null,
     html: emailShell(`
       <p style="font-size:15px;">Hi ${escapeHtml(firstName)},</p>
       <p style="font-size:15px;">Thanks for requesting an inspection with ${escapeHtml(params.businessName)}. We've received your request:</p>
@@ -111,4 +124,84 @@ export async function sendCustomerBookingReceivedEmail(params: {
       <p style="font-size:15px;">Questions in the meantime? Call us at ${escapeHtml(params.businessPhone)}.</p>
     `),
   });
+  if (result.ok) {
+    await getSupabaseAdmin()
+      .from("jobs")
+      .update({
+        email_thread_message_ids: result.messageId ? [result.messageId] : [],
+        email_gmail_thread_id: result.gmailThreadId,
+      })
+      .eq("id", params.jobId);
+  }
+}
+
+/**
+ * The second link in a job's email thread (see sendCustomerBookingReceivedEmail
+ * above) — fires once, the moment a job's confirmed_date first goes from
+ * empty to set (see the PATCH route's own trigger logic), which is
+ * mechanically the same moment schedule_visible_to_customer turns on (a
+ * job's confirmed_date/time only ever reach a real value once that's true
+ * — see api/admin/jobs/[id]/route.ts). Re-fetches everything itself rather
+ * than trusting caller-supplied data, matching autoDraftReportIfJustPaid's
+ * own pattern — this runs as a best-effort side effect of a PATCH the
+ * caller already committed, so a stale read here should never be able to
+ * corrupt that already-successful save.
+ */
+export async function sendJobConfirmedEmailIfDue(jobId: string): Promise<void> {
+  const supabase = getSupabaseAdmin();
+  const { data: job } = await supabase
+    .from("jobs")
+    .select("id, project_number, service_address, service_type, confirmed_date, confirmed_time, confirmation_sent_at, email_thread_message_ids, email_gmail_thread_id, customer_id")
+    .eq("id", jobId)
+    .maybeSingle();
+  if (!job || !job.confirmed_date || job.confirmation_sent_at) return;
+
+  const { data: customer } = await supabase.from("customers").select("name, email").eq("id", job.customer_id).maybeSingle();
+  if (!customer?.email) return;
+
+  const { getSettings } = await import("@/lib/settings");
+  const settings = await getSettings();
+
+  const firstName = customer.name?.split(" ")[0] || "there";
+  const whenLine = job.confirmed_time
+    ? `${formatDateDMY(job.confirmed_date)} at ${job.confirmed_time}`
+    : formatDateDMY(job.confirmed_date) ?? "";
+
+  const rows = [
+    ["Service", job.service_type ?? ""],
+    ["Address", job.service_address],
+    ["Confirmed", whenLine],
+  ];
+  if (job.project_number) rows.unshift(["Project #", job.project_number]);
+
+  const tableRows = rows
+    .map(
+      ([label, value]) =>
+        `<tr><td style="padding:4px 8px 4px 0; color:#64748b; white-space:nowrap; vertical-align:top;">${escapeHtml(label)}</td><td>${escapeHtml(value ?? "")}</td></tr>`
+    )
+    .join("");
+
+  const existingIds: string[] = Array.isArray(job.email_thread_message_ids) ? job.email_thread_message_ids : [];
+  const result = await sendThreadedEmail({
+    to: customer.email,
+    subject: threadSubject(job.service_address, job.project_number),
+    existingMessageIds: existingIds,
+    gmailThreadId: job.email_gmail_thread_id,
+    html: emailShell(`
+      <p style="font-size:15px;">Hi ${escapeHtml(firstName)},</p>
+      <p style="font-size:15px;">Your inspection with ${escapeHtml(settings.business_name)} is confirmed:</p>
+      <table style="width:100%; font-size:14px; color:#16213a;">${tableRows}</table>
+      <p style="font-size:15px; margin-top:16px;">Questions in the meantime? Call us at ${escapeHtml(settings.business_phone)}.</p>
+    `),
+  });
+  if (result.ok) {
+    await supabase
+      .from("jobs")
+      .update({
+        email_thread_message_ids: result.messageId ? [...existingIds, result.messageId] : existingIds,
+        email_gmail_thread_id: result.gmailThreadId ?? job.email_gmail_thread_id,
+        confirmation_sent_at: new Date().toISOString(),
+      })
+      .eq("id", job.id);
+  }
 }

@@ -236,6 +236,12 @@ export interface Job {
   payment_reversed_at: string | null;
   /** Set when a client clicks "Request cancellation" in the portal — the real record of the request, independent of whether the owner-alert email actually sends. Doesn't touch status itself; the admin decides. */
   cancellation_requested_at: string | null;
+  /** Real Message-IDs (oldest first), read back from Gmail after each send — see lib/email-thread.ts. Lets the next email in this job's thread carry correct In-Reply-To/References. Empty for any email that fell back to Resend (no way to know what Message-ID that used). */
+  email_thread_message_ids: string[];
+  /** Gmail's own thread id for this job's email chain, set the first time an email sends through Gmail — passed to createDraft so the final report/invoice draft joins the same thread. */
+  email_gmail_thread_id: string | null;
+  /** Set once, the first time confirmed_date goes from empty to set — see sendJobConfirmedEmailIfDue in lib/booking-notify.ts. Shown as small tracking text in the admin dashboard. */
+  confirmation_sent_at: string | null;
   /** Editable, defaults to 30 days after requested_date but can be overridden per job. */
   payment_due_date: string | null;
   /** Who the finished report gets emailed to — comma-joined, first address is always the customer contact's own email. */

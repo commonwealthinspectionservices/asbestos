@@ -965,23 +965,30 @@ function JobRow({
                 {isUnscheduled ? (
                   <AcceptScheduleControl job={job} variant="button" onAccept={onFieldChange} onOpenChat={onOpenChat} stopPropagation />
                 ) : job.status === "scheduled" && job.confirmed_date && (
-                  <label
-                    className="flex shrink-0 items-center gap-1.5 whitespace-nowrap text-xs uppercase text-slate-600"
-                    title="Off by default — the client's portal never shows a date/time until this is on. While on, it stays live-synced to the date/time above as you edit them."
-                  >
-                    <span>Show customer</span>
-                    <button
-                      type="button"
-                      role="switch"
-                      aria-checked={!!job.schedule_visible_to_customer}
-                      onClick={() => onFieldChange({ schedule_visible_to_customer: !job.schedule_visible_to_customer })}
-                      className={`relative h-5 w-9 shrink-0 rounded-full transition ${job.schedule_visible_to_customer ? "bg-emerald-600" : "bg-slate-300"}`}
+                  <div className="flex flex-col items-end gap-0.5">
+                    <label
+                      className="flex shrink-0 items-center gap-1.5 whitespace-nowrap text-xs uppercase text-slate-600"
+                      title="Off by default — the client's portal never shows a date/time until this is on. While on, it stays live-synced to the date/time above as you edit them."
                     >
-                      <span
-                        className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition ${job.schedule_visible_to_customer ? "left-4" : "left-0.5"}`}
-                      />
-                    </button>
-                  </label>
+                      <span>Show customer</span>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={!!job.schedule_visible_to_customer}
+                        onClick={() => onFieldChange({ schedule_visible_to_customer: !job.schedule_visible_to_customer })}
+                        className={`relative h-5 w-9 shrink-0 rounded-full transition ${job.schedule_visible_to_customer ? "bg-emerald-600" : "bg-slate-300"}`}
+                      >
+                        <span
+                          className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition ${job.schedule_visible_to_customer ? "left-4" : "left-0.5"}`}
+                        />
+                      </button>
+                    </label>
+                    {job.confirmation_sent_at && (
+                      <span className="whitespace-nowrap text-[10px] text-slate-400">
+                        Confirmation sent {formatDateTime(job.confirmation_sent_at)}
+                      </span>
+                    )}
+                  </div>
                 )}
                 <input
                   type="time"
@@ -1571,6 +1578,12 @@ export function ProjectDetailDialog({
               }
             />
             <DetailField label="Time" value={formatTime(job.confirmed_time ?? job.requested_time) || "--:--"} />
+            {job.confirmation_sent_at && (
+              <div className="flex gap-2 text-xs text-slate-400">
+                <span className="w-32 shrink-0 uppercase font-bold">Confirmation Sent</span>
+                <span>{formatDateTime(job.confirmation_sent_at)}</span>
+              </div>
+            )}
             {job.status === "needs_scheduling" && (
               <AcceptScheduleControl job={job} variant="panel" onAccept={acceptSchedule} />
             )}

@@ -824,3 +824,17 @@ alter table jobs add column if not exists payment_reversed_at timestamptz;
 -- cancelled while crew/lab work proceeds normally. This is now the real
 -- record; the email is just a heads-up on top of it, not the record itself.
 alter table jobs add column if not exists cancellation_requested_at timestamptz;
+
+-- Lets a job's whole customer-facing email history (request received ->
+-- confirmed -> final report/invoice draft) read as one thread instead of
+-- separate emails, even though it's sent through two independent systems
+-- (Resend for the automated ones, Gmail for the report/invoice draft the
+-- owner reviews and sends). The app assigns its own Message-ID to every
+-- email in the chain rather than trusting either system's own generated
+-- one, storing each here (oldest first) so the next email's In-Reply-To/
+-- References headers can be built from it. confirmation_sent_at is the
+-- one-time marker for the "job confirmed" email specifically — shown as
+-- small tracking text in the admin dashboard.
+alter table jobs add column if not exists email_thread_message_ids jsonb not null default '[]'::jsonb;
+alter table jobs add column if not exists email_gmail_thread_id text;
+alter table jobs add column if not exists confirmation_sent_at timestamptz;

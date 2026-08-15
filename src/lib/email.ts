@@ -26,6 +26,11 @@ export async function sendEmail(opts: {
   to: string | string[];
   subject: string;
   html: string;
+  bcc?: string | string[];
+  // Set by callers building a threaded conversation (see lib/email-thread.ts)
+  // — e.g. a self-assigned Message-ID, or In-Reply-To/References linking
+  // this email to an earlier one in the same job's thread.
+  headers?: Record<string, string>;
 }): Promise<boolean> {
   try {
     const resend = getResend();
@@ -34,6 +39,8 @@ export async function sendEmail(opts: {
       to: opts.to,
       subject: opts.subject,
       html: opts.html,
+      ...(opts.bcc ? { bcc: opts.bcc } : {}),
+      ...(opts.headers ? { headers: opts.headers } : {}),
     });
     if (error) {
       console.error("Resend send failed:", error);

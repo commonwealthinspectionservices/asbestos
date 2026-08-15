@@ -134,6 +134,7 @@ export const POST = withApiErrors(async (req: NextRequest) => {
   if (auth.customer.email) {
     try {
       await sendCustomerBookingReceivedEmail({
+        jobId: job.id,
         customerEmail: auth.customer.email,
         customerName: auth.customer.name,
         businessName: settings.business_name,

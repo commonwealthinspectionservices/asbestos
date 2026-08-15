@@ -6,6 +6,7 @@ import { getSupabaseAdmin } from "@/lib/supabase";
 import { getSettings } from "@/lib/settings";
 import { withCompanyBillingAddress } from "@/lib/customer-billing";
 import { formatDateDMY } from "@/lib/date-format";
+import { threadSubject, threadHeaders } from "@/lib/email-thread";
 import {
   createDraft,
   deleteDraft,
@@ -762,10 +763,20 @@ async function draftCombinedEmailForJob(params: {
     }
   }
 
+  // Same subject + In-Reply-To/References chain as the earlier automated
+  // "request received"/"confirmed" emails (see lib/email-thread.ts) — this
+  // draft is meant to land as the next reply in that same conversation,
+  // not a new email, so the client's whole project history reads as one
+  // thread. A job with no prior automated emails (e.g. admin-entered,
+  // never went through the portal) just has an empty chain, so this
+  // becomes its own thread's root instead — same call either way.
+  const existingThreadIds: string[] = Array.isArray(pricedJob.email_thread_message_ids) ? pricedJob.email_thread_message_ids : [];
   const draft = await createDraft(accessToken, {
     to: toCustomer.email,
     cc: [...new Set(ccRecipients)].join(", ") || undefined,
-    subject: pricedJob.service_type ? `${pricedJob.service_type} - ${pricedJob.service_address}` : pricedJob.service_address,
+    subject: threadSubject(pricedJob.service_address, pricedJob.project_number),
+    headers: threadHeaders(existingThreadIds),
+    threadId: pricedJob.email_gmail_thread_id ?? undefined,
     bodyText: combinedDraftBodyText(pricedJob, settings, totalCents, payNowUrl),
     attachments: [
       ...reportPackets.map(({ domain, buffer }) => ({

@@ -118,11 +118,16 @@ export const PATCH = withApiErrors(async (
   // from requested_date/requested_time, see below). A bare requested_date/
   // requested_time edit no longer silently promotes status — that used to
   // happen here, but it stood in for the accept step before one existed.
+  // Set below once we know confirmed_date is genuinely going from empty to
+  // set in this same request — sendJobConfirmedEmailIfDue re-checks
+  // confirmation_sent_at itself before actually sending, so this is just a
+  // cheap way to skip the extra fetch/import on every unrelated PATCH.
+  let justConfirmedJobId: string | null = null;
   if ("requested_date" in patch || "requested_time" in patch || "schedule_visible_to_customer" in patch || "confirmed_date" in patch || "confirmed_time" in patch) {
-    let current: { status?: string; requested_date?: string | null; requested_time?: string | null; schedule_visible_to_customer?: boolean } | null = null;
+    let current: { status?: string; requested_date?: string | null; requested_time?: string | null; schedule_visible_to_customer?: boolean; confirmed_date?: string | null } | null = null;
     const { data, error: selectError } = await supabase
       .from("jobs")
-      .select("status, requested_date, requested_time, schedule_visible_to_customer")
+      .select("status, requested_date, requested_time, schedule_visible_to_customer, confirmed_date")
       .eq("id", params.id)
       .single();
     if (!selectError) {
@@ -157,6 +162,15 @@ export const PATCH = withApiErrors(async (
     } else if ("schedule_visible_to_customer" in patch && !("confirmed_date" in patch) && !("confirmed_time" in patch)) {
       patch.confirmed_date = null;
       patch.confirmed_time = null;
+    }
+
+    // confirmed_date can only ever go from empty to set at the moment
+    // schedule_visible_to_customer becomes true (see above) — there's no
+    // other path to a real value, so this doubles as "is this job's
+    // schedule newly visible to the customer" without needing a second,
+    // separate check for that.
+    if (!current?.confirmed_date && patch.confirmed_date) {
+      justConfirmedJobId = params.id;
     }
   }
 
@@ -212,6 +226,13 @@ export const PATCH = withApiErrors(async (
 
   if (error || !data) {
     return NextResponse.json({ error: error?.message ?? "Project not found" }, { status: 404 });
+  }
+
+  if (justConfirmedJobId) {
+    const { sendJobConfirmedEmailIfDue } = await import("@/lib/booking-notify");
+    await sendJobConfirmedEmailIfDue(justConfirmedJobId).catch((e) =>
+      console.error(`Failed to send confirmation email for job ${justConfirmedJobId}:`, e)
+    );
   }
 
   if (justBecamePaid) {

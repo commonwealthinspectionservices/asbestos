@@ -9,13 +9,23 @@ const CLIENT_SECRET = process.env.GOOGLE_OAUTH_CLIENT_SECRET ?? "";
 const REDIRECT_URI = process.env.GOOGLE_OAUTH_REDIRECT_URI ?? "";
 
 // modify (read + label changes, e.g. marking a processed email read so it
-// isn't redrafted on the next check) and compose (create — never send —
-// drafts). Deliberately no gmail.send and no full mail.google.com: nothing
-// this app does can ever mail a client directly without the owner
-// reviewing the draft and hitting send themselves.
+// isn't redrafted on the next check) and compose (create drafts). No full
+// mail.google.com. gmail.send was added 2026-08-15, deliberately narrow:
+// the ONLY two call sites that ever use it are sendCustomerBookingReceivedEmail
+// and sendJobConfirmedEmailIfDue in lib/booking-notify.ts — fixed-template
+// confirmations, not free-form content, sent so a job's whole email history
+// (received -> confirmed -> final report) reads as one real Gmail thread
+// instead of scattered emails (see lib/email-thread.ts's header-matching
+// approach, which turned out not to work through Resend/SES — it silently
+// overwrites Message-ID). Everything with real stakes — the report, the
+// invoice, payment reminders — is still draft-only; the owner still reviews
+// and sends those themselves. Adding this scope requires reconnecting
+// Gmail (Settings -> disconnect, then reconnect) since a scope change
+// doesn't retroactively apply to an already-issued refresh token.
 const SCOPES = [
   "https://www.googleapis.com/auth/gmail.modify",
   "https://www.googleapis.com/auth/gmail.compose",
+  "https://www.googleapis.com/auth/gmail.send",
 ].join(" ");
 
 interface GoogleTokenResponse {
@@ -221,21 +231,28 @@ function buildRawEmail(params: {
   to: string;
   cc?: string;
   subject: string;
-  bodyText: string;
+  bodyText?: string;
+  bodyHtml?: string;
   attachments: { filename: string; mimeType: string; content: Buffer }[];
+  // Extra raw headers — e.g. In-Reply-To/References to join an existing
+  // email thread (see lib/email-thread.ts) started by an earlier
+  // auto-sent email. Values are trusted, not escaped — callers only ever
+  // pass Message-IDs this app generated itself.
+  headers?: Record<string, string>;
 }): string {
   const boundary = `cis_${Date.now()}_${Math.random().toString(36).slice(2)}`;
   const lines = [
     `To: ${params.to}`,
     ...(params.cc ? [`Cc: ${params.cc}`] : []),
     `Subject: ${params.subject}`,
+    ...Object.entries(params.headers ?? {}).map(([name, value]) => `${name}: ${value}`),
     "MIME-Version: 1.0",
     `Content-Type: multipart/mixed; boundary="${boundary}"`,
     "",
     `--${boundary}`,
-    'Content-Type: text/plain; charset="UTF-8"',
+    params.bodyHtml ? 'Content-Type: text/html; charset="UTF-8"' : 'Content-Type: text/plain; charset="UTF-8"',
     "",
-    params.bodyText,
+    params.bodyHtml ?? params.bodyText ?? "",
   ];
   for (const att of params.attachments) {
     lines.push(
@@ -259,16 +276,58 @@ function buildRawEmail(params: {
 // versus deleted it outright).
 export async function createDraft(
   accessToken: string,
-  params: { to: string; cc?: string; subject: string; bodyText: string; attachments: { filename: string; mimeType: string; content: Buffer }[] }
+  params: {
+    to: string; cc?: string; subject: string; bodyText: string;
+    attachments: { filename: string; mimeType: string; content: Buffer }[];
+    headers?: Record<string, string>;
+    // Joins an existing Gmail thread (see lib/email-thread.ts) — used so a
+    // job's final report/invoice draft lands as the next reply in the same
+    // conversation as its earlier "received"/"confirmed" emails, not a
+    // brand new thread.
+    threadId?: string;
+  }
 ): Promise<{ id: string; messageId: string }> {
   const raw = buildRawEmail(params);
   const res = await gmailFetch(accessToken, "/drafts", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message: { raw } }),
+    body: JSON.stringify({ message: { raw, ...(params.threadId ? { threadId: params.threadId } : {}) } }),
   });
   const data = await res.json();
   return { id: data.id, messageId: data.message.id };
+}
+
+// Sends immediately — real gmail.send, not a draft. Deliberately narrow:
+// the only two call sites are sendCustomerBookingReceivedEmail and
+// sendJobConfirmedEmailIfDue in lib/booking-notify.ts (see the SCOPES
+// comment above for the full reasoning). Returns the real threadId Gmail
+// assigned, and the message's own id — pass that id to getMessageIdHeader
+// below to read back the real RFC Message-ID for the next email's
+// In-Reply-To/References.
+export async function sendMessage(
+  accessToken: string,
+  params: { to: string; subject: string; bodyHtml: string; headers?: Record<string, string>; threadId?: string }
+): Promise<{ id: string; threadId: string }> {
+  const raw = buildRawEmail({ to: params.to, subject: params.subject, bodyHtml: params.bodyHtml, attachments: [], headers: params.headers });
+  const res = await gmailFetch(accessToken, "/messages/send", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ raw, ...(params.threadId ? { threadId: params.threadId } : {}) }),
+  });
+  const data = await res.json();
+  return { id: data.id, threadId: data.threadId };
+}
+
+// Unlike Resend (which silently overwrites any custom Message-ID with its
+// own — confirmed by testing, see the commit that added this), Gmail is a
+// mailbox this app actually owns, so instead of guessing what Message-ID
+// it assigned, this just asks. Whatever comes back is guaranteed real,
+// regardless of whether Gmail happened to keep the one we set ourselves.
+export async function getMessageIdHeader(accessToken: string, messageId: string): Promise<string | null> {
+  const res = await gmailFetch(accessToken, `/messages/${messageId}?format=metadata&metadataHeaders=Message-ID`);
+  const data = await res.json();
+  const header = (data.payload?.headers ?? []).find((h: { name: string; value: string }) => h.name.toLowerCase() === "message-id");
+  return header?.value ?? null;
 }
 
 // Best-effort cleanup when a draft is being recreated — if the previous one

@@ -8,6 +8,7 @@ import JobRecipients from "@/components/portal/JobRecipients";
 import JobChat from "@/components/shared/JobChat";
 import PendingRequestEditor from "@/components/portal/PendingRequestEditor";
 import { jobReportDomains } from "@/lib/report-findings";
+import { formatDateDMY } from "@/lib/date-format";
 
 const REPORT_DOMAIN_LABEL: Record<string, string> = { asbestos: "Asbestos", lead: "Lead", mold: "Mold" };
 
@@ -74,10 +75,7 @@ function formatCents(cents: number): string {
 // as separate copies (not imported) so the portal's client bundle doesn't
 // pull in the whole admin dashboard module for two small helpers.
 function formatDate(date: string | null | undefined): string {
-  if (!date) return "";
-  const [y, m, d] = date.split("-");
-  if (!y || !m || !d) return date;
-  return `${m}/${d}/${y}`;
+  return formatDateDMY(date) ?? "";
 }
 
 function formatClockTime(totalMinutes: number): string {

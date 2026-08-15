@@ -22,10 +22,9 @@ export default function MarketingNav() {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
 
-  // Only true mobile (below sm, 640px) collapses into a hamburger — from sm
-  // up through tablet widths the full row just gets tighter (smaller text,
-  // smaller gaps) rather than hiding anything, since that width range has
-  // room to fit everything without it, once squeezed.
+  // Below md (768px) collapses into a hamburger — moved up from the
+  // original sm (640px) once Login + Create Account made the full row too
+  // wide to fit in the 640-768px range even squeezed down.
   useEffect(() => {
     setMenuOpen(false);
   }, [pathname]);
@@ -43,11 +42,11 @@ export default function MarketingNav() {
 
   // Same border/height format as the Client Portal button, but no yellow
   // hover fill (this one's just branding/home, not an action) and a
-  // smaller mobile font so the full company name fits next to Client
-  // Portal + the hamburger without overflowing the header. Below sm, it's
-  // the only thing sharing the row with the hamburger, so it grows wider
-  // (centered text) to mostly fill the width instead of sitting tight
-  // around its own text with a big empty gap to the hamburger.
+  // smaller mobile font so the full company name fits next to the
+  // hamburger without overflowing the header. Below md, it's the only
+  // thing sharing the row with the hamburger, so it grows wider (centered
+  // text) to mostly fill the width instead of sitting tight around its own
+  // text with a big empty gap to the hamburger.
   const homeButtonClass =
     "inline-flex h-[22px] items-center justify-center whitespace-nowrap border-[3px] border-brand-700 bg-brand-50 px-1.5 pt-0.5 text-[8px] font-extrabold uppercase leading-none text-brand-700 sm:px-2 sm:text-xs md:h-[29px] md:text-sm";
 
@@ -58,11 +57,11 @@ export default function MarketingNav() {
     // out to the edges of the browser window.
     <nav className="relative border-b-4 border-brand-700 bg-brand-50 px-4 py-3">
       <div className="mx-auto flex max-w-4xl items-center justify-between gap-2">
-        <Link href="/" className={`w-[85%] sm:w-auto sm:shrink-0 ${homeButtonClass}`}>
+        <Link href="/" className={`w-[85%] md:w-auto md:shrink-0 ${homeButtonClass}`}>
           Commonwealth Inspection Services, LLC
         </Link>
 
-        <div className="hidden shrink-0 items-center gap-0.5 whitespace-nowrap sm:flex md:gap-1">
+        <div className="hidden shrink-0 items-center gap-0.5 whitespace-nowrap md:flex">
           {NAV_LINKS.slice(0, 1).map((link) => (
             <Link key={link.href} href={link.href} className={linkClass(link.href)}>{link.label}</Link>
           ))}
@@ -88,13 +87,16 @@ export default function MarketingNav() {
             <Link key={link.href} href={link.href} className={linkClass(link.href)}>{link.label}</Link>
           ))}
           <Link href="/portal" className={`ml-1 ${clientPortalClass}`}>
-            Client Portal
+            Login
+          </Link>
+          <Link href="/portal/signup" className={`ml-1.5 ${clientPortalClass}`}>
+            Create Account
           </Link>
         </div>
 
-        {/* Below sm: just the hamburger — Client Portal moves into the
-            collapsible menu itself instead of sitting in the header row. */}
-        <div className="flex shrink-0 items-center gap-2 sm:hidden">
+        {/* Below md: just the hamburger — Login/Create Account move into
+            the collapsible menu itself instead of sitting in the header row. */}
+        <div className="flex shrink-0 items-center gap-2 md:hidden">
           <button
             type="button"
             aria-label={menuOpen ? "Close menu" : "Open menu"}
@@ -110,7 +112,7 @@ export default function MarketingNav() {
       </div>
 
       {menuOpen && (
-        <div className="absolute left-0 top-full z-20 w-full border-b-4 border-brand-700 bg-brand-50 px-4 py-2 shadow-md sm:hidden">
+        <div className="absolute left-0 top-full z-20 w-full border-b-4 border-brand-700 bg-brand-50 px-4 py-2 shadow-md md:hidden">
           <Link href="/" className={mobileLinkClass("/")}>Home</Link>
           <div className="px-1 py-2 text-sm font-bold uppercase text-slate-400">Services</div>
           {SERVICE_LINKS.map((service) => (
@@ -122,7 +124,10 @@ export default function MarketingNav() {
             <Link key={link.href} href={link.href} className={mobileLinkClass(link.href)}>{link.label}</Link>
           ))}
           <Link href="/portal" className={`${mobileLinkClass("/portal")} mt-1 border-t border-brand-700/20 pt-3`}>
-            Client Portal
+            Login
+          </Link>
+          <Link href="/portal/signup" className={mobileLinkClass("/portal/signup")}>
+            Create Account
           </Link>
         </div>
       )}

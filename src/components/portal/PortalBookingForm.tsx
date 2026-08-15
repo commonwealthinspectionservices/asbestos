@@ -7,6 +7,7 @@ import AddressAutocompleteInput from "@/components/shared/AddressAutocompleteInp
 import ZipInput, { useAutoZip } from "@/components/shared/ZipInput";
 import { buildBillingAddress, parseAddressToFields, US_STATES } from "@/lib/address";
 import { formatPhoneNumber } from "@/lib/phone";
+import { formatDateDMY } from "@/lib/date-format";
 
 interface ServiceTypeOption {
   key: string;
@@ -34,12 +35,10 @@ for (let totalMinutes = 5 * 60; totalMinutes <= 19 * 60 + 30; totalMinutes += 30
   TIME_OPTIONS.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
 }
 
-// Mirrors ProjectsList.tsx's formatDate — MM/DD/YYYY instead of the raw
+// Mirrors ProjectsList.tsx's formatDate — DD/MM/YYYY instead of the raw
 // YYYY-MM-DD the <input type="date"> stores.
 function formatDate(isoDate: string): string {
-  const [y, m, d] = isoDate.split("-");
-  if (!y || !m || !d) return isoDate;
-  return `${m}/${d}/${y}`;
+  return formatDateDMY(isoDate) ?? isoDate;
 }
 
 // Mirrors ProjectsList.tsx's formatClockTime — "2:00 PM" instead of the

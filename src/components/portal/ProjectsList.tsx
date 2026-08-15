@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { Customer, Job } from "@/lib/types";
 import { splitAddress, googleMapsUrl } from "@/lib/address";
+import { formatDateDMY } from "@/lib/date-format";
 import ProjectDetailModal from "@/components/portal/ProjectDetailModal";
 
 const OPEN_STATUSES = new Set(["needs_scheduling", "scheduled", "fieldwork_in_progress", "awaiting_lab_results", "needs_report", "pending_lab_results", "completed", "invoiced", "ready_to_send"]);
@@ -37,10 +38,7 @@ const PIPELINE_STATUSES: { key: string; matches: string[] }[] = [
 ];
 
 function formatDate(date: string | null | undefined): string {
-  if (!date) return "";
-  const [y, m, d] = date.split("-");
-  if (!y || !m || !d) return date;
-  return `${m}/${d}/${y}`;
+  return formatDateDMY(date) ?? "";
 }
 
 function formatClockTime(totalMinutes: number): string {

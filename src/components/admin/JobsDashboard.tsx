@@ -13,6 +13,7 @@ import JobChat from "@/components/shared/JobChat";
 import JobPhotos from "@/components/shared/JobPhotos";
 import { AcceptScheduleControl } from "@/components/admin/AcceptScheduleControl";
 import { ContactForm } from "@/components/admin/ContactDetailDialog";
+import { formatDateDMY } from "@/lib/date-format";
 
 // The full job-flow pipeline, in order — every open project is tracked
 // somewhere along this list from intake to close-out. Admin-controlled via a
@@ -282,13 +283,9 @@ function formatTime(time: string | null | undefined): string {
 
 // Postgres `date` columns round-trip as "YYYY-MM-DD" — displayed as-is that
 // reads ambiguously, so every plain-text date in this file goes through
-// this to show it the way the rest of the US-facing app (native date
-// inputs, PDFs) already does.
+// this to show it the standard DD/MM/YYYY way the rest of the app does.
 export function formatDate(date: string | null | undefined): string {
-  if (!date) return "";
-  const [y, m, d] = date.split("-");
-  if (!y || !m || !d) return date;
-  return `${m}/${d}/${y}`;
+  return formatDateDMY(date) ?? "";
 }
 
 const DOCUMENT_KIND_LABEL: Record<JobDocument["kind"], string> = {

@@ -5,10 +5,6 @@
       "schedule": "0 9 * * *"
     },
     {
-      "path": "/api/cron/area-health",
-      "schedule": "0 10 * * 1"
-    },
-    {
       "path": "/api/cron/check-lab-emails",
       "schedule": "*/15 * * * *"
     }

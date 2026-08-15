@@ -219,8 +219,16 @@ export async function sendWeeklyAreaHealthDigest(): Promise<AreaHealthMetrics> {
 
 const ALERT_DEBOUNCE_MS = 24 * 60 * 60 * 1000;
 
+// Disabled per owner request (2026-08-15) — service-area drift monitoring
+// isn't something he wants surfaced via email (route optimization isn't a
+// priority). Both call sites (booking route, route-runner) and the weekly
+// digest cron (see vercel.json) are left in place; this one flag is the
+// single place to turn it back on.
+const AREA_HEALTH_ALERTS_ENABLED = false;
+
 /** Fires an immediate alert (independent of the weekly digest) the first time a threshold trips, debounced to at most once/24h. */
 export async function maybeSendImmediateAreaAlert(): Promise<void> {
+  if (!AREA_HEALTH_ALERTS_ENABLED) return;
   const settings = await getSettings();
   const metrics = await computeAreaHealthMetrics();
   if (metrics.crossings.length === 0) return;

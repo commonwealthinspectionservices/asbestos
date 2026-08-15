@@ -5,7 +5,7 @@ import { getSettings } from "@/lib/settings";
 import { isWithinServiceStates } from "@/lib/geocode";
 import { withApiErrors } from "@/lib/api-handler";
 import { maybeSendImmediateAreaAlert } from "@/lib/area-health";
-import { sendNewBookingRequestEmail } from "@/lib/booking-notify";
+import { sendNewBookingRequestEmail, sendCustomerBookingReceivedEmail } from "@/lib/booking-notify";
 import { generateProjectNumber } from "@/lib/project-number";
 import { resolveServiceSelection } from "@/lib/portal-booking";
 
@@ -129,6 +129,25 @@ export const POST = withApiErrors(async (req: NextRequest) => {
     });
   } catch (err) {
     console.error("New-booking-request owner alert failed:", err);
+  }
+
+  if (auth.customer.email) {
+    try {
+      await sendCustomerBookingReceivedEmail({
+        customerEmail: auth.customer.email,
+        customerName: auth.customer.name,
+        businessName: settings.business_name,
+        businessPhone: settings.business_phone,
+        projectNumber,
+        serviceLabel: serviceTypeLabel,
+        address,
+        requestedDate: scheduleViaContact ? null : date,
+        requestedTime: time,
+        scheduleViaContact,
+      });
+    } catch (err) {
+      console.error("Customer booking-received confirmation failed:", err);
+    }
   }
 
   try {

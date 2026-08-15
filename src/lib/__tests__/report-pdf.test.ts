@@ -1,7 +1,16 @@
 import { describe, it, expect } from "vitest";
-import pdfParse from "pdf-parse/lib/pdf-parse.js";
+import rawPdfParse from "pdf-parse/lib/pdf-parse.js";
 import { renderProjectReportPdfForDomain } from "@/lib/report-pdf";
 import type { Job, Customer, Settings } from "@/lib/types";
+
+// Collapses whitespace (including the line breaks pdf-parse inserts at
+// wherever a sentence happens to wrap) so multi-word toContain() checks
+// below don't break just because a font-size change shifted a wrap point
+// mid-phrase — this is text-extraction noise, not a real content change.
+async function pdfParse(pdf: Buffer): Promise<{ text: string }> {
+  const { text } = await rawPdfParse(pdf);
+  return { text: text.replace(/\s+/g, " ") };
+}
 
 const settings: Settings = {
   id: 1,

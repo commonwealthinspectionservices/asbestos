@@ -68,16 +68,16 @@ export default function HomePage() {
         <p className="relative mt-6 whitespace-nowrap text-[13px] font-bold uppercase text-brand-700 sm:mt-10 sm:text-2xl">
           Serving Boston + all of Massachusetts
         </p>
-        <div className="relative mt-6 flex justify-center gap-4 sm:mt-10">
+        <div className="relative mt-6 flex justify-center gap-3 sm:mt-10 sm:gap-4">
           <Link
             href="/portal"
-            className="inline-flex h-[22px] items-center border-[3px] border-brand-700 bg-brand-50 px-1.5 pt-0.5 text-[9px] font-extrabold uppercase leading-none text-brand-700 hover:bg-yellow-100 sm:px-2 sm:text-xs md:h-[29px] md:text-sm"
+            className="inline-flex items-center rounded-lg bg-brand-700 px-4 py-2.5 text-xs font-extrabold uppercase leading-none text-white hover:bg-brand-800 sm:px-7 sm:py-3.5 sm:text-sm"
           >
             Book an Inspection
           </Link>
           <Link
             href="/contact"
-            className="inline-flex h-[22px] items-center border-[3px] border-brand-700 bg-brand-50 px-1.5 pt-0.5 text-[9px] font-extrabold uppercase leading-none text-brand-700 hover:bg-yellow-100 sm:px-2 sm:text-xs md:h-[29px] md:text-sm"
+            className="inline-flex items-center rounded-lg border-2 border-brand-700 px-4 py-2.5 text-xs font-extrabold uppercase leading-none text-brand-700 hover:bg-brand-50 sm:px-7 sm:py-3.5 sm:text-sm"
           >
             Contact
           </Link>

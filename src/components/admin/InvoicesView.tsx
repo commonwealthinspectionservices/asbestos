@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { JobWithCustomer } from "@/lib/types";
 import { formatCents } from "@/lib/pricing";
 import { ProjectDetailDialog, EditProjectDialog, reportIsComplete } from "@/components/admin/JobsDashboard";
+import { formatDateDMY } from "@/lib/date-format";
 
 type InvoiceStatus = "ready_to_send" | "sent" | "overdue" | "paid";
 
@@ -22,10 +23,7 @@ const STATUS_COLOR: Record<InvoiceStatus, string> = {
 };
 
 function formatDate(date: string | null | undefined): string {
-  if (!date) return "—";
-  const [y, m, d] = date.split("-");
-  if (!y || !m || !d) return date;
-  return `${m}/${d}/${y}`;
+  return formatDateDMY(date) ?? "—";
 }
 
 // Every repeat customer/contractor invoice is due 30 days after the project

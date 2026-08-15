@@ -3,8 +3,13 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Customer } from "@/lib/types";
 import { ContactDetailDialog, ContactForm } from "@/components/admin/ContactDetailDialog";
+import { parseAddressToFields } from "@/lib/address";
 
 function ContactRow({ c, onClick }: { c: Customer; onClick: () => void }) {
+  // Companies still show their subtext as-is; a standalone individual's
+  // subtext is the town off their billing address instead — the company
+  // name obviously isn't relevant to their own card.
+  const town = c.company ? "" : parseAddressToFields(c.billing_address).city;
   return (
     <button
       onClick={onClick}
@@ -12,6 +17,7 @@ function ContactRow({ c, onClick }: { c: Customer; onClick: () => void }) {
     >
       <div className="font-medium text-slate-800">{c.name}</div>
       {c.company && <div className="text-sm text-slate-500">{c.company}</div>}
+      {!c.company && town && <div className="text-sm text-slate-500">{town}</div>}
     </button>
   );
 }

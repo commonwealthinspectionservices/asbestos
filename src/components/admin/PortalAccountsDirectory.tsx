@@ -61,7 +61,7 @@ export default function PortalAccountsDirectory() {
               }`}
             >
               <div className="font-medium text-slate-800">{u.name ?? u.email}</div>
-              {u.name && <div className="text-sm text-slate-500">{u.email}</div>}
+              {u.name && u.name !== u.email && <div className="text-sm text-slate-500">{u.email}</div>}
             </div>
           ))}
         </div>

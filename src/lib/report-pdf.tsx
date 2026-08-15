@@ -3,6 +3,7 @@ import { Document, Page, Text, View, Image, StyleSheet, renderToBuffer } from "@
 import type { Style } from "@react-pdf/types";
 import { splitAddress } from "@/lib/address";
 import { primaryInspector } from "@/lib/settings";
+import { formatDateDMY } from "@/lib/date-format";
 import type { Job, Customer, Settings } from "@/lib/types";
 import {
   ASBESTOS_POSITIVE_REMARK, ASBESTOS_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK,
@@ -10,7 +11,10 @@ import {
   jobReportDomains, domainForServiceTypeLabel, type ReportDomain,
 } from "@/lib/report-findings";
 
-const LETTERHEAD_PATH = path.join(process.cwd(), "public", "letterhead.png");
+// The site header's own text wordmark (see AdminNav.tsx's "boxed brand
+// button"), not the circular badge logo — matches the site's actual
+// branding language rather than introducing a different mark.
+const LOGO_PATH = path.join(process.cwd(), "public", "letterhead.png");
 const SIGNATURE_PATH = path.join(process.cwd(), "public", "signature.png");
 
 // Spelled-out sample counts for the mold Discussion of Results sentence
@@ -19,22 +23,29 @@ const SIGNATURE_PATH = path.join(process.cwd(), "public", "signature.png");
 // covers it; anything beyond just falls back to the digit alone.
 const NUMBER_WORDS = ["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen", "Twenty"];
 
-// Matches the real FLI letter (measured off an actual exported PDF: 10pt
-// Times New Roman body text, ~12.8pt line-to-line spacing, 69pt left/right
-// margins, two tiers of paragraph spacing — a wide ~12pt gap between most
-// blocks and a tight ~4pt gap between a section title and its own content).
-// The header keeps Helvetica branding, styled separately rather than
-// inheriting the body font.
-const STANDARD_GAP = 12;
-const TIGHT_GAP = 4;
+// Standard size is Times New Roman 12 — used everywhere except asbestos's
+// own cover letter, which is the one document that must always fit one
+// page (mold, lead, and everything else is free to run longer). Asbestos
+// instead gets the largest size that still holds one page under realistic
+// worst-case content (see ASBESTOS_FONT_SIZE below and its own Page
+// override in AsbestosReportDocument).
+const STANDARD_GAP = 10;
+const TIGHT_GAP = 3;
+const BODY_FONT_SIZE = 12;
+// Tuned by testing, not guessed: the largest size (in 0.1pt steps) that
+// still keeps a worst-case-realistic asbestos letter — 20 samples, plus
+// both report_summary and report_notes filled in — on one page.
+const ASBESTOS_FONT_SIZE = 10.8;
 
 const styles = StyleSheet.create({
-  page: { paddingTop: 30, paddingBottom: 32, paddingHorizontal: 69, fontSize: 10, fontFamily: "Times-Roman", color: "#16213a", lineHeight: 1.28 },
-  header: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 18, paddingBottom: 12, borderBottomWidth: 2, borderBottomColor: "#193466" },
+  page: { paddingTop: 26, paddingBottom: 26, paddingHorizontal: 69, fontSize: BODY_FONT_SIZE, fontFamily: "Times-Roman", color: "#000000", lineHeight: 1.22 },
+  pageAsbestos: { fontSize: ASBESTOS_FONT_SIZE },
+  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 14, paddingBottom: 8, borderBottomWidth: 2, borderBottomColor: "#193466" },
   headerLeft: { flexDirection: "row", alignItems: "center" },
-  letterhead: { width: 210, height: 39 },
-  headerRight: { alignItems: "flex-end" },
-  headerRightLine: { fontFamily: "Helvetica", fontSize: 8.5, color: "#193466", marginBottom: 2 },
+  // Matches letterhead.png's own 968x178 aspect ratio (~5.44:1).
+  logo: { width: 190, height: 34.9 },
+  headerRight: { alignItems: "flex-end", justifyContent: "center" },
+  headerRightLine: { color: "#000000", marginBottom: 2 },
   recipientRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 0 },
   recipient: { marginBottom: 0 },
   recipientBlock: { marginBottom: STANDARD_GAP },
@@ -50,7 +61,7 @@ const styles = StyleSheet.create({
   sectionTitleTight: { fontWeight: 700, marginBottom: TIGHT_GAP, textDecoration: "underline" },
   summaryBlock: { marginBottom: STANDARD_GAP },
   summaryRow: { flexDirection: "row", marginLeft: 101 },
-  summaryLabel: { width: 123, textAlign: "right", marginRight: 21, color: "#334155" },
+  summaryLabel: { width: 155, textAlign: "right", marginRight: 21, color: "#000000" },
   summaryValue: { flex: 1 },
   blankLine: { flex: 0, minWidth: 130, borderBottomWidth: 1, borderBottomColor: "#94a3b8" },
   blankLineInline: { flex: 0, minWidth: 70, borderBottomWidth: 1, borderBottomColor: "#94a3b8" },
@@ -63,7 +74,10 @@ const styles = StyleSheet.create({
   // worth of height for this one remark specifically keeps the letter's
   // overall shape identical before and after lab results come in — the
   // page shouldn't visibly reflow just because this one line got longer.
-  resultRemarkText: { flex: 1, textAlign: "justify", minHeight: 10 * 1.28 * 2 },
+  // Lead's own variant, at the standard 12pt size (lead isn't held to
+  // asbestos's one-page rule, but the reserved-height trick still applies).
+  resultRemarkText: { flex: 1, textAlign: "justify", minHeight: BODY_FONT_SIZE * 1.28 * 2 },
+  resultRemarkTextAsbestos: { flex: 1, textAlign: "justify", minHeight: ASBESTOS_FONT_SIZE * 1.28 * 2 },
   signatureBlock: { marginTop: 0 },
   // Matches the extracted signature's own 475x164 aspect ratio (~2.9:1).
   signatureImage: { width: 85, height: 29.3, marginTop: 3, marginBottom: 1 },
@@ -87,6 +101,7 @@ export interface ProjectReportData {
 // complete, printable preview shape, with blanks that visibly still need
 // filling rather than a "—" that reads as "confirmed nothing" or a line
 // that's silently missing altogether.
+
 function ValueOrBlank({ value, style, inline }: { value: string | number | null | undefined; style: Style; inline?: boolean }) {
   if (value === null || value === undefined || value === "" || value === 0) {
     return <Text style={[style, inline ? styles.blankLineInline : styles.blankLine]}> </Text>;
@@ -207,12 +222,12 @@ function AsbestosReportDocument({ job, customer, settings }: ProjectReportData) 
   }
   if (job.report_notes) remarks.push(job.report_notes);
 
-  const { knownCustomerName, dateText, addressLines, billingStreet, billing, serviceStreet, service } = commonLetterFields(job, customer, settings);
+  const { knownCustomerName, dateText, billingStreet, billing, serviceStreet, service } = commonLetterFields(job, customer, settings);
 
   return (
     <Document title={`Bulk Sample Analytical Results — ${job.service_address}`}>
-      <Page size="LETTER" style={styles.page}>
-        <LetterHeader settings={settings} addressLines={addressLines} />
+      <Page size="LETTER" style={[styles.page, styles.pageAsbestos]}>
+        <LetterHeader settings={settings} />
 
         <View style={styles.recipientBlock}>
           <View style={styles.recipientRow}>
@@ -253,7 +268,7 @@ function AsbestosReportDocument({ job, customer, settings }: ProjectReportData) 
 
         <Text style={styles.sectionTitleTight}>Sampling Summary:</Text>
         <View style={styles.summaryBlock}>
-          <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Date of Sampling:</Text><ValueOrBlank style={styles.summaryValue} value={job.requested_date} /></View>
+          <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Date of Sampling:</Text><ValueOrBlank style={styles.summaryValue} value={formatDateDMY(job.requested_date)} /></View>
           <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Total # of Samples:</Text><ValueOrBlank style={styles.summaryValue} value={totalSamples} /></View>
           <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Samples Analyzed At:</Text><ValueOrBlank style={styles.summaryValue} value={job.lab_name} /></View>
           <View style={styles.summaryRow}><Text style={styles.summaryLabel}>NIST/NVLAP Certification#:</Text><ValueOrBlank style={styles.summaryValue} value={job.lab_nist_cert} /></View>
@@ -261,7 +276,7 @@ function AsbestosReportDocument({ job, customer, settings }: ProjectReportData) 
         </View>
 
         <Text style={styles.paragraph}>
-          Bulk samples were collected and submitted via chain of custody to the analytical laboratory by {settings.business_name}{settings.business_name.endsWith(".") ? "" : "."}
+          Bulk samples were collected and submitted via chain of custody to the analytical laboratory by {settings.business_name}{settings.business_name.endsWith(".") ? "" : "."}{" "}
           The samples were analyzed by Polarized Light Microscopy per EPA Method 600/R-93-116, July 1993. Any homogeneous material having
           at least one (1) sample analyzed to contain greater than one percent (1%) asbestos is categorized as an
           asbestos containing material. Any homogeneous material having at least one (1) sample analyzed to contain any amount
@@ -275,7 +290,7 @@ function AsbestosReportDocument({ job, customer, settings }: ProjectReportData) 
           {remarks.map((text, i) => (
             <View style={styles.listItem} key={i}>
               <Text style={styles.listIndex}>{i + 1}.</Text>
-              <Text style={i === resultRemarkIndex ? styles.resultRemarkText : styles.listText}>{text}</Text>
+              <Text style={i === resultRemarkIndex ? styles.resultRemarkTextAsbestos : styles.listText}>{text}</Text>
             </View>
           ))}
         </View>
@@ -328,12 +343,12 @@ function LeadReportDocument({ job, customer, settings }: ProjectReportData) {
   }
   if (job.report_notes) remarks.push(job.report_notes);
 
-  const { knownCustomerName, dateText, addressLines, billingStreet, billing, serviceStreet, service } = commonLetterFields(job, customer, settings);
+  const { knownCustomerName, dateText, billingStreet, billing, serviceStreet, service } = commonLetterFields(job, customer, settings);
 
   return (
     <Document title={`Bulk Paint Chip Sample Analytical Results — ${job.service_address}`}>
       <Page size="LETTER" style={styles.page}>
-        <LetterHeader settings={settings} addressLines={addressLines} />
+        <LetterHeader settings={settings} />
 
         <View style={styles.recipientBlock}>
           <View style={styles.recipientRow}>
@@ -374,7 +389,7 @@ function LeadReportDocument({ job, customer, settings }: ProjectReportData) {
 
         <Text style={styles.sectionTitleTight}>Sampling Summary:</Text>
         <View style={styles.summaryBlock}>
-          <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Date of Sampling:</Text><ValueOrBlank style={styles.summaryValue} value={job.requested_date} /></View>
+          <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Date of Sampling:</Text><ValueOrBlank style={styles.summaryValue} value={formatDateDMY(job.requested_date)} /></View>
           <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Total # of Samples:</Text><ValueOrBlank style={styles.summaryValue} value={totalSamples} /></View>
           <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Samples Analyzed At:</Text><ValueOrBlank style={styles.summaryValue} value={job.lab_name} /></View>
           <View style={styles.summaryRow}><Text style={styles.summaryLabel}>AIHA Certification#:</Text><ValueOrBlank style={styles.summaryValue} value={job.lab_nist_cert} /></View>
@@ -422,7 +437,7 @@ function LeadReportDocument({ job, customer, settings }: ProjectReportData) {
 // letter doesn't try to auto-structure that text,
 // since the real letters are themselves free-form prose written per job.
 function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
-  const { knownCustomerName, dateText, addressLines, billingStreet, billing, serviceStreet, service } = commonLetterFields(job, customer, settings);
+  const { knownCustomerName, dateText, billingStreet, billing, serviceStreet, service } = commonLetterFields(job, customer, settings);
 
   // Which methodology sections apply — driven by job.service_type (known
   // from booking, see moldServiceTypeFlags), same source as Scope of Work,
@@ -431,29 +446,34 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
 
   const scopeItems = [...moldScopeOfWorkItems(job.service_type), MOLD_SCOPE_CLOSING_LINE];
 
-  const labName = (job.mold_lab_name || "an accredited laboratory").replace(/\.+$/, "");
+  const rawLabName = job.mold_lab_name || "an accredited laboratory";
   const labCity = settings.labs.find((l) => l.name === job.mold_lab_name)?.city?.trim();
-  const labNameWithCity = labCity ? `${labName} located in ${labCity}` : labName;
+  // Only strip the lab name's own trailing period when it's about to sit at
+  // the end of the sentence — followed by "located in [city]" it needs its
+  // natural punctuation kept (e.g. "EMSL Analytical, Inc. located in...",
+  // not "...Inc located in...").
+  const labNameWithCity = labCity ? `${rawLabName} located in ${labCity}` : rawLabName.replace(/\.+$/, "");
   // Confirmed word-for-word identical across two independent real reports —
   // one air+bulk combo, one bulk-only — so it's attached to both Air's and
   // Bulk's own paragraphs below. A real swab-only report confirmed this
   // caveat does NOT appear there, so swab's paragraph stays without it.
   const SPORE_ID_CAVEAT =
     "This method does not differentiate between viable and non-viable fungal spores. In addition, this technique does not allow for the differentiation between Aspergillus and Penicillium spores. Other non-distinctive spores are reported in categories such as Ascospores or Basidiospores.";
-  // Air and swab share one "Sampling for Mold:" section when both are
-  // present — confirmed verbatim against real air+swab combo reports, which
-  // merge both collection tools into a single paragraph rather than giving
-  // swab its own sub-section. Bulk uses a physically different collection
-  // method (excising a material sample vs. an air pump or surface swab) so
-  // it keeps its own section. All three use the same generic "Sampling for
-  // Mold:" heading — confirmed against real air, bulk-only, and swab-only
-  // reports, none of which use a type-specific heading here (that only
-  // happens in Discussion of Results).
+  // Air and swab share one section when both are present — confirmed
+  // verbatim against real air+swab combo reports, which merge both
+  // collection tools into a single paragraph rather than giving swab its
+  // own sub-section. Bulk uses a physically different collection method
+  // (excising a material sample vs. an air pump or surface swab) so it
+  // keeps its own section. Each section's own heading names its type
+  // ("Airborne"/"Bulk"/"Swab") — confirmed against real air+bulk combo and
+  // bulk-only reports, which both use type-specific headings here (not the
+  // generic "Sampling for Mold:" an earlier pass wrongly assumed from a
+  // single swab-only counterexample).
   const methodologySections = [
     ...(hasAir
       ? [
           {
-            title: "Sampling for Mold:",
+            title: "Airborne Sampling for Mold:",
             paragraphs: [
               `The concentration and identification of the genera of airborne mold was performed through the use of Air-O-Cell cassettes${hasSwab ? " and swabs" : ""}. This method utilizes an air pump to draw air at a predetermined flow rate through a spore trap cassette containing a slide coated with an optically-transparent adhesive. Airborne particulate, including spores is impacted onto the slide, and then submitted to the laboratory where it is stained and analyzed by optical microscopy at magnifications between 200X and 1000X. Samples collected at the above referenced location were enumerated and speciated by ${labNameWithCity}.`,
               SPORE_ID_CAVEAT,
@@ -463,7 +483,7 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
       : hasSwab
       ? [
           {
-            title: "Sampling for Mold:",
+            title: "Swab Sampling for Mold:",
             paragraphs: [
               // Confirmed against a real swab-only report: unlike air and
               // bulk, swab's own paragraph does NOT get the spore-ID caveat.
@@ -475,7 +495,7 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
     ...(hasBulk
       ? [
           {
-            title: "Sampling for Mold:",
+            title: "Bulk Sampling for Mold:",
             paragraphs: [
               // Confirmed verbatim (aside from lab name/city) against two
               // independent real reports — never assume the old, invented
@@ -512,7 +532,7 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
   return (
     <Document title={`Limited Mold Assessment & Sampling — ${job.service_address}`}>
       <Page size="LETTER" style={styles.page}>
-        <LetterHeader settings={settings} addressLines={addressLines} />
+        <LetterHeader settings={settings} />
 
         <View style={styles.recipientBlock}>
           <View style={styles.recipientRow}>
@@ -626,17 +646,14 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
   );
 }
 
-function LetterHeader({ settings, addressLines }: { settings: Settings; addressLines: string[] }) {
+function LetterHeader({ settings }: { settings: Settings }) {
   return (
     <View style={styles.header}>
       <View style={styles.headerLeft}>
-        <Image src={LETTERHEAD_PATH} style={styles.letterhead} />
+        <Image src={LOGO_PATH} style={styles.logo} />
       </View>
       <View style={styles.headerRight}>
-        {addressLines.map((line, i) => (
-          <Text key={i} style={styles.headerRightLine}>{line}</Text>
-        ))}
-        {settings.business_phone && <Text style={styles.headerRightLine}>Phone: {settings.business_phone}</Text>}
+        {settings.business_phone && <Text style={styles.headerRightLine}>{settings.business_phone}</Text>}
       </View>
     </View>
   );
@@ -667,12 +684,6 @@ function commonLetterFields(job: Job, customer: Customer, settings: Settings) {
   const knownCustomerName = customer.name === "Unknown contact" ? null : customer.name;
 
   const dateText = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
-  // Street and "City, State Zip" on their own line — a naive comma-split
-  // put city and state/zip on two separate short lines with no comma
-  // between them ("Westwood" / "MA 02090"), which read as choppy and
-  // cramped in the header's small right-aligned column.
-  const baseAddress = splitAddress(settings.base_address);
-  const addressLines = [baseAddress.street, baseAddress.cityStateZip].filter(Boolean);
 
   // Town/state/zip always gets its own line under the street, matching the
   // real FLI letter's recipient block and RE: block — both the customer's
@@ -682,7 +693,7 @@ function commonLetterFields(job: Job, customer: Customer, settings: Settings) {
   const service = splitAddress(job.service_address);
   const serviceStreet = service.locationName ? `${service.locationName} ${service.street}` : service.street;
 
-  return { knownCustomerName, dateText, addressLines, billingStreet, billing, serviceStreet, service };
+  return { knownCustomerName, dateText, billingStreet, billing, serviceStreet, service };
 }
 
 // Renders exactly one domain's letter — used directly wherever the caller

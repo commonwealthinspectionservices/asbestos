@@ -5,6 +5,7 @@ import pdfParse from "pdf-parse/lib/pdf-parse.js";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { getSettings } from "@/lib/settings";
 import { withCompanyBillingAddress } from "@/lib/customer-billing";
+import { formatDateDMY } from "@/lib/date-format";
 import {
   createDraft,
   deleteDraft,
@@ -68,10 +69,7 @@ export function extractProjectNumberFromCocSubject(subject: string): string | nu
 }
 
 function formatDateMMDDYYYY(date: string | null): string {
-  if (!date) return "__/__/____";
-  const [y, m, d] = date.split("-");
-  if (!y || !m || !d) return "__/__/____";
-  return `${m}/${d}/${y}`;
+  return formatDateDMY(date) ?? "__/__/____";
 }
 
 // The owner's own real template (the one FLI Environmental has sent for

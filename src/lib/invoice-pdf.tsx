@@ -4,6 +4,7 @@ import { formatCents } from "@/lib/pricing";
 import { lineItemsTotalCents } from "@/lib/invoice-line-items";
 import { primaryInspector } from "@/lib/settings";
 import type { Job, Customer, Company, Settings, InvoiceLineItem } from "@/lib/types";
+import { formatDateDMY } from "@/lib/date-format";
 
 const LETTERHEAD_PATH = path.join(process.cwd(), "public", "letterhead.png");
 
@@ -96,7 +97,7 @@ function InvoiceDocument({ job, customer, company, settings }: InvoiceData) {
           )}
           <View style={styles.row}><Text style={styles.label}>Service address</Text><Text style={styles.value}>{job.service_address}</Text></View>
           <View style={styles.row}><Text style={styles.label}>Service</Text><Text style={styles.value}>{serviceLabel}</Text></View>
-          <View style={styles.row}><Text style={styles.label}>Date of service</Text><Text style={styles.value}>{job.requested_date ?? "—"}</Text></View>
+          <View style={styles.row}><Text style={styles.label}>Date of service</Text><Text style={styles.value}>{formatDateDMY(job.requested_date) ?? "—"}</Text></View>
         </View>
 
         <View style={styles.section}>

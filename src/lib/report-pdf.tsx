@@ -38,8 +38,15 @@ const BODY_FONT_SIZE = 12;
 const ASBESTOS_FONT_SIZE = 10.8;
 
 const styles = StyleSheet.create({
-  page: { paddingTop: 26, paddingBottom: 26, paddingHorizontal: 69, fontSize: BODY_FONT_SIZE, fontFamily: "Times-Roman", color: "#000000", lineHeight: 1.22 },
-  pageAsbestos: { fontSize: ASBESTOS_FONT_SIZE },
+  // paddingBottom is deliberately generous (not just a margin) — mold/lead
+  // letters aren't held to asbestos's one-page rule, so without this every
+  // page ends up filled edge-to-edge with body text. This leaves real
+  // breathing room at the bottom of every page instead. Asbestos overrides
+  // it back down via pageAsbestos below — its bottom margin is tightly
+  // tuned to hold worst-case content to exactly one page and can't afford
+  // to give any of that back.
+  page: { paddingTop: 26, paddingBottom: 160, paddingHorizontal: 69, fontSize: BODY_FONT_SIZE, fontFamily: "Times-Roman", color: "#000000", lineHeight: 1.22 },
+  pageAsbestos: { fontSize: ASBESTOS_FONT_SIZE, paddingBottom: 26 },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 14, paddingBottom: 8, borderBottomWidth: 2, borderBottomColor: "#193466" },
   headerLeft: { flexDirection: "row", alignItems: "center" },
   // Matches letterhead.png's own 968x178 aspect ratio (~5.44:1).
@@ -61,7 +68,7 @@ const styles = StyleSheet.create({
   continuationHeader: { flexDirection: "row", justifyContent: "space-between", marginBottom: 14, paddingBottom: 8, fontSize: 9, color: "#000000" },
   continuationHeaderLeft: { flex: 1 },
   continuationHeaderRight: { alignItems: "flex-end" },
-  continuationHeaderLine: { marginBottom: 1, lineHeight: 1 },
+  continuationHeaderLine: { lineHeight: 1 },
   recipientRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 0 },
   recipient: { marginBottom: 0 },
   recipientBlock: { marginBottom: STANDARD_GAP },

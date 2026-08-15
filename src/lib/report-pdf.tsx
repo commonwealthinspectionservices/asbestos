@@ -220,7 +220,13 @@ function AsbestosReportDocument({ job, customer, settings }: ProjectReportData) 
   if (job.report_summary && job.report_summary !== ASBESTOS_POSITIVE_REMARK && job.report_summary !== ASBESTOS_NEGATIVE_REMARK) {
     remarks.push(job.report_summary);
   }
-  if (job.report_notes) remarks.push(job.report_notes);
+  // report_notes deliberately NOT included here — asbestos Remarks and
+  // Limitations is always exactly the boilerplate + the result-based
+  // canned remark (2 items), or that plus a genuinely custom finding
+  // typed into the Result field instead of picking a canned option (3).
+  // report_notes has no UI to reach in the admin dashboard at all, so
+  // any 3rd/4th remark it would add could only ever come from something
+  // set directly in the database — never a real admin edit.
 
   const { knownCustomerName, dateText, billingStreet, billing, serviceStreet, service } = commonLetterFields(job, customer, settings);
 

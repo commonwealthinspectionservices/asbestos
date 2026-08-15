@@ -11,7 +11,7 @@ function getResend(): Resend {
   return resendClient;
 }
 
-const FROM = "Commonwealth Inspection Services <booking@commonwealthinspectionservices.com>";
+const FROM = "Commonwealth Inspection Services <tim@commonwealthinspectionservices.com>";
 
 /**
  * Returns whether the send actually succeeded — still never throws (a

@@ -45,7 +45,7 @@ const styles = StyleSheet.create({
   // it back down via pageAsbestos below — its bottom margin is tightly
   // tuned to hold worst-case content to exactly one page and can't afford
   // to give any of that back.
-  page: { paddingTop: 26, paddingBottom: 160, paddingHorizontal: 69, fontSize: BODY_FONT_SIZE, fontFamily: "Times-Roman", color: "#000000", lineHeight: 1.22 },
+  page: { paddingTop: 26, paddingBottom: 120, paddingHorizontal: 69, fontSize: BODY_FONT_SIZE, fontFamily: "Times-Roman", color: "#000000", lineHeight: 1.22 },
   pageAsbestos: { fontSize: ASBESTOS_FONT_SIZE, paddingBottom: 26 },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 14, paddingBottom: 8, borderBottomWidth: 2, borderBottomColor: "#193466" },
   headerLeft: { flexDirection: "row", alignItems: "center" },

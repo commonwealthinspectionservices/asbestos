@@ -15,6 +15,7 @@ const customer: Customer = {
   auth_user_id: null,
   is_individual: false,
   created_at: new Date().toISOString(),
+  onboarding_completed_at: null,
 };
 
 const job: Job = {

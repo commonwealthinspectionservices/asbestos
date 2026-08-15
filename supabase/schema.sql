@@ -838,31 +838,40 @@ alter table jobs add column if not exists cancellation_requested_at timestamptz;
 alter table jobs add column if not exists email_thread_message_ids jsonb not null default '[]'::jsonb;
 alter table jobs add column if not exists email_gmail_thread_id text;
 
--- Ground truth for "has this account actually set a password yet" —
--- catches a real bug: on_auth_user_created (above) creates a bare
--- customers row the instant someone signs up or gets Invited, before
--- they've ever set a password. /portal/onboarding used to gate purely on
--- `customers` row existence, so both self-signup and Invite (which often
--- pre-fills a real name/phone on the contact row ahead of time) could redirect
--- straight to the dashboard, skipping the only place a password is ever set
--- (OnboardingForm's updateUser({password}), always called before that
--- page's own profile POST) — leaving a confirmed auth.users account with no
--- way to sign back in. A customers-row field (even a new one) can't
--- distinguish this reliably, since Invite rows can carry real profile data
--- from the admin despite the actual person never having logged in — so this
--- checks Supabase's own auth.users.encrypted_password directly instead,
--- which is empty until updateUser({password}) is called and is never
--- exposed via the normal admin JS client.
-create or replace function public.customer_has_password(target_auth_user_id uuid)
-returns boolean
-language sql
-security definer
-set search_path = public
-as $$
-  select coalesce(encrypted_password, '') != ''
-  from auth.users
-  where id = target_auth_user_id;
-$$;
+-- Ground truth for "has this account actually finished onboarding
+-- (including setting a password)" — catches a real bug: on_auth_user_created
+-- (above) creates a bare customers row the instant someone signs up or gets
+-- Invited, before they've ever set a password. /portal/onboarding used to
+-- gate purely on `customers` row existence, so both self-signup and Invite
+-- (which often pre-fills a real name/phone on the contact row ahead of
+-- time) could redirect straight to the dashboard, skipping the only place a
+-- password is ever set (OnboardingForm's updateUser({password}), always
+-- called before that page's own profile POST) — leaving a confirmed
+-- auth.users account with no way to sign back in.
+--
+-- First attempt checked auth.users.encrypted_password directly via a
+-- security-definer function, on the assumption it stays empty until
+-- updateUser({password}) is called — wrong in practice: Supabase doesn't
+-- leave it empty for OTP-only accounts, so that check returned true for
+-- accounts that had never set a password at all, letting the exact same bug
+-- through again. onboarding_completed_at instead, set explicitly by
+-- POST /api/portal/profile (which only ever runs right after that
+-- updateUser({password}) call succeeds), is real proof rather than an
+-- inference about Supabase's internal representation.
+alter table customers add column if not exists onboarding_completed_at timestamptz;
+
+-- Backfill for accounts that completed onboarding before this column
+-- existed, so this fix doesn't retroactively bounce currently-working
+-- accounts back to the onboarding form. Old onboarding always required a
+-- non-empty phone; the auto-create trigger's stub always leaves it '' — a
+-- non-empty phone on a linked account is a reliable signal for existing
+-- rows (a few already-broken Invite edge cases stay exactly as broken as
+-- before, not worse; nothing currently-working regresses).
+update customers
+set onboarding_completed_at = created_at
+where auth_user_id is not null and phone <> '' and onboarding_completed_at is null;
+
+drop function if exists public.customer_has_password(uuid);
 
 -- One-time marker for the automated "your inspection is tomorrow" reminder
 -- (see lib/job-reminders.ts / api/cron/job-reminders) — same idempotency

@@ -85,6 +85,10 @@ export const POST = withApiErrors(async (req: NextRequest) => {
     phone,
     billing_address: billingAddress,
     is_individual: isIndividual,
+    // The real "onboarding finished" signal /portal/onboarding's redirect
+    // gate checks — set here because this route only ever runs right after
+    // OnboardingForm's client-side updateUser({password}) succeeds.
+    onboarding_completed_at: new Date().toISOString(),
   };
 
   let { data: customer, error } = existing

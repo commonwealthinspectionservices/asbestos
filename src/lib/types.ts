@@ -94,6 +94,8 @@ export interface Customer {
   auth_user_id: string | null;
   is_individual: boolean;
   created_at: string;
+  /** Set only by a successful POST /api/portal/profile — the real "this account finished onboarding, including setting a password" signal. See /portal/onboarding's redirect gate. */
+  onboarding_completed_at: string | null;
   /** The linked company's own record (phone, billing address, etc.), distinct from this contact's own — only populated by endpoints that join it in (e.g. GET /api/admin/jobs). */
   companies?: Company | null;
 }

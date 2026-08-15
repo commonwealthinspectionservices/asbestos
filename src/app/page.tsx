@@ -71,13 +71,13 @@ export default function HomePage() {
         <div className="relative mt-6 flex justify-center gap-3 sm:mt-10 sm:gap-4">
           <Link
             href="/portal"
-            className="inline-flex items-center rounded-lg bg-brand-700 px-4 py-2.5 text-xs font-extrabold uppercase leading-none text-white hover:bg-brand-800 sm:px-7 sm:py-3.5 sm:text-sm"
+            className="inline-flex items-center border-[3px] border-emerald-600 bg-emerald-50 px-4 py-2.5 text-xs font-extrabold uppercase leading-none text-emerald-700 hover:bg-emerald-100 sm:px-7 sm:py-3.5 sm:text-sm"
           >
             Book an Inspection
           </Link>
           <Link
             href="/contact"
-            className="inline-flex items-center rounded-lg border-2 border-brand-700 px-4 py-2.5 text-xs font-extrabold uppercase leading-none text-brand-700 hover:bg-brand-50 sm:px-7 sm:py-3.5 sm:text-sm"
+            className="inline-flex items-center border-[3px] border-brand-700 bg-brand-50 px-4 py-2.5 text-xs font-extrabold uppercase leading-none text-brand-700 hover:bg-yellow-100 sm:px-7 sm:py-3.5 sm:text-sm"
           >
             Contact
           </Link>

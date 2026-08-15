@@ -74,8 +74,16 @@ function formatTimeWindow(confirmedTime: string | null | undefined, window: stri
 // drafted but still awaiting the admin's own approval to send, which isn't
 // a distinction a client needs to see. It should just still look pending
 // until it's actually sent.
+// "needs_scheduling" defaults to "To Be Scheduled" (matching the admin's own
+// label for that status) rather than "Pending Approval" — an admin-entered
+// job left unscheduled on purpose has no request sitting in the owner's
+// queue, so there's nothing pending "approval" about it. The genuine
+// awaiting-review case (source === "portal_booking") is special-cased below
+// via statusLabelFor/statusColorFor, mirroring the exact same condition
+// AcceptScheduleControl.tsx uses on the admin side to show its own
+// accept/decline notification.
 export const STATUS_LABEL: Record<string, string> = {
-  needs_scheduling: "Pending Approval",
+  needs_scheduling: "To Be Scheduled",
   scheduled: "Scheduled",
   fieldwork_in_progress: "Fieldwork In Progress",
   awaiting_lab_results: "Awaiting Lab Results",
@@ -101,6 +109,17 @@ export const STATUS_COLOR: Record<string, string> = {
   paid: "bg-emerald-100 text-emerald-700",
   cancelled: "bg-red-100 text-red-700",
 };
+
+// The one status whose label/color genuinely depends on more than just
+// job.status — see the STATUS_LABEL comment above.
+function statusLabelFor(job: Pick<Job, "status" | "source">): string {
+  if (job.status === "needs_scheduling" && job.source === "portal_booking") return "Pending Approval";
+  return STATUS_LABEL[job.status];
+}
+function statusColorFor(job: Pick<Job, "status" | "source">): string {
+  if (job.status === "needs_scheduling" && job.source === "portal_booking") return "bg-amber-100 text-amber-700";
+  return STATUS_COLOR[job.status];
+}
 
 export default function ProjectsList() {
   const [projects, setProjects] = useState<Job[]>([]);
@@ -385,8 +404,8 @@ export default function ProjectsList() {
                       </span>
                     )}
                   </div>
-                  <span className={`shrink-0 whitespace-nowrap rounded px-2 py-0.5 text-sm font-bold uppercase ${STATUS_COLOR[p.status]}`}>
-                    {STATUS_LABEL[p.status]}
+                  <span className={`shrink-0 whitespace-nowrap rounded px-2 py-0.5 text-sm font-bold uppercase ${statusColorFor(p)}`}>
+                    {statusLabelFor(p)}
                   </span>
                 </div>
 

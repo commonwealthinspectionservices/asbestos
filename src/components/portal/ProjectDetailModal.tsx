@@ -37,8 +37,21 @@ type TrackerSegment = {
   label: React.ReactNode;
   done: (job: Job, currentIndex: number) => boolean;
 };
-const BASE_TRACKER_SEGMENTS: TrackerSegment[] = [
-  { key: "needs_scheduling", label: <>Pending<br />Approval</>, done: (_job, i) => i >= 0 },
+// The first step reads "Pending Approval" only for a real customer-submitted
+// request still awaiting the owner's review (source === "portal_booking" —
+// the same condition AcceptScheduleControl.tsx uses on the admin side to
+// show its own accept/decline notification). An admin-entered job left at
+// "needs_scheduling" on purpose has nothing pending the owner's approval, so
+// it reads "To Be Scheduled" instead, matching the admin dashboard's own
+// label for that same status.
+function firstTrackerSegment(source: Job["source"]): TrackerSegment {
+  return {
+    key: "needs_scheduling",
+    label: source === "portal_booking" ? <>Pending<br />Approval</> : <>To Be<br />Scheduled</>,
+    done: (_job, i) => i >= 0,
+  };
+}
+const REST_TRACKER_SEGMENTS: TrackerSegment[] = [
   { key: "scheduled", label: "Scheduled", done: (_job, i) => i >= 1 },
   { key: "pending_lab_results", label: <>Pending<br />Lab Results</>, done: (_job, i) => i >= 2 },
 ];
@@ -50,15 +63,16 @@ const PAID_SEGMENT: TrackerSegment = { key: "paid", label: "Paid", done: (_job, 
 // payment follows later. The tracker's step order (and the "sent" segment's
 // done check) flips to match: no "already sent, just waiting on payment"
 // fallback for an individual, since here paid can genuinely happen first.
-function trackerSegmentsFor(isIndividual: boolean): TrackerSegment[] {
+function trackerSegmentsFor(isIndividual: boolean, source: Job["source"]): TrackerSegment[] {
+  const base = [firstTrackerSegment(source), ...REST_TRACKER_SEGMENTS];
   const sentSegment: TrackerSegment = {
     key: "sent",
     label: <>Report and<br />Invoice Sent</>,
     done: (job, i) => (Boolean(job.invoice_sent_at) && Boolean(job.report_sent_at)) || (!isIndividual && i >= 3),
   };
   return isIndividual
-    ? [...BASE_TRACKER_SEGMENTS, PAID_SEGMENT, sentSegment]
-    : [...BASE_TRACKER_SEGMENTS, sentSegment, PAID_SEGMENT];
+    ? [...base, PAID_SEGMENT, sentSegment]
+    : [...base, sentSegment, PAID_SEGMENT];
 }
 
 // Invoice pricing gets auto-computed the moment lab results land, but that's
@@ -170,7 +184,7 @@ export default function ProjectDetailModal({
   // exactly like "paid" here.
   const reportReady = REPORT_READY_STATUSES.has(job.status) && (!job.is_individual || paid || job.report_release_override);
   const invoiced = job.invoice_total_cents != null && INVOICE_FINALIZED_STATUSES.has(job.status);
-  const trackerSegments = trackerSegmentsFor(job.is_individual);
+  const trackerSegments = trackerSegmentsFor(job.is_individual, job.source);
   // Cache-busting key for PdfPreview — re-fetches/re-renders whenever
   // anything that would change the invoice's actual content changes.
   const invoiceRevision = JSON.stringify({
@@ -210,7 +224,7 @@ export default function ProjectDetailModal({
         <div className="max-h-[60vh] overflow-y-auto px-5 py-4">
           {tab === "info" && (
             <div className="grid grid-cols-1 gap-y-4">
-              {job.status === "needs_scheduling" ? (
+              {job.status === "needs_scheduling" && job.source === "portal_booking" ? (
                 <PendingRequestEditor job={job} isIndividual={job.is_individual} onSaved={onChanged} />
               ) : (
                 <>

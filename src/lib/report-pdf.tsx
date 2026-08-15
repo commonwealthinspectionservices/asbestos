@@ -65,16 +65,17 @@ const styles = StyleSheet.create({
   // letters (subject/customer/address on the left, project #/date/page
   // number on the right), so a page is still identifiable if separated
   // from the rest of the packet.
-  continuationHeader: { flexDirection: "row", justifyContent: "space-between", marginBottom: 14, paddingBottom: 8, color: "#000000" },
+  continuationHeader: { flexDirection: "row", justifyContent: "space-between", marginBottom: 14, paddingBottom: 8 },
   continuationHeaderLeft: { flex: 1 },
   continuationHeaderRight: { alignItems: "flex-end" },
-  // fontSize lives here, on the Text style itself, not on continuationHeader
-  // above — react-pdf's line-height calculation under fixed+render ignored
-  // fontSize set on an ancestor View, using the Page's own 12pt as the line
-  // box height regardless (confirmed empirically: produced a consistent
-  // ~6pt gap between every line, i.e. what actually looked like "double
-  // spacing"). Setting it directly on the Text fixes it.
-  continuationHeaderLine: { fontSize: 9, lineHeight: 1 },
+  // fontSize and color both live here, on the Text style itself, not on
+  // continuationHeader above — react-pdf's line-height calculation under
+  // fixed+render ignored fontSize set on an ancestor View, using the
+  // Page's own 12pt as the line box height regardless (confirmed
+  // empirically: produced a consistent ~6pt gap between every line, i.e.
+  // what actually looked like "double spacing") — color gets the same
+  // direct treatment on principle, not chancing the same class of bug.
+  continuationHeaderLine: { fontSize: 9, lineHeight: 1, color: "#999999" },
   recipientRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 0 },
   recipient: { marginBottom: 0 },
   recipientBlock: { marginBottom: STANDARD_GAP },

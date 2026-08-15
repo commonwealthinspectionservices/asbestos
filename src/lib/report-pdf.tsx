@@ -45,7 +45,23 @@ const styles = StyleSheet.create({
   // Matches letterhead.png's own 968x178 aspect ratio (~5.44:1).
   logo: { width: 190, height: 34.9 },
   headerRight: { alignItems: "flex-end", justifyContent: "center" },
-  headerRightLine: { color: "#000000", marginBottom: 2 },
+  // lineHeight:1 is deliberate, not a stylistic choice — react-pdf's fixed +
+  // render (used for the continuation header below) silently fails to
+  // render any Text inside it that inherits styles.page's lineHeight:1.22.
+  // An explicit override on the Text itself is the fix; moving lineHeight
+  // off the Page and onto a wrapper View instead was tried first and
+  // visibly loosened the whole body's spacing (confirmed side-by-side) —
+  // this is the only fix that leaves body text untouched.
+  headerRightLine: { color: "#000000", marginBottom: 2, lineHeight: 1 },
+  // Continuation pages (2+) swap the logo/phone letterhead for this compact
+  // plain-text identification block instead — matches real multi-page
+  // letters (subject/customer/address on the left, project #/date/page
+  // number on the right), so a page is still identifiable if separated
+  // from the rest of the packet.
+  continuationHeader: { flexDirection: "row", justifyContent: "space-between", marginBottom: 14, paddingBottom: 8, fontSize: 9, color: "#000000" },
+  continuationHeaderLeft: { flex: 1 },
+  continuationHeaderRight: { alignItems: "flex-end" },
+  continuationHeaderLine: { marginBottom: 1, lineHeight: 1 },
   recipientRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 0 },
   recipient: { marginBottom: 0 },
   recipientBlock: { marginBottom: STANDARD_GAP },
@@ -233,7 +249,14 @@ function AsbestosReportDocument({ job, customer, settings }: ProjectReportData) 
   return (
     <Document title={`Bulk Sample Analytical Results — ${job.service_address}`}>
       <Page size="LETTER" style={[styles.page, styles.pageAsbestos]}>
-        <LetterHeader settings={settings} />
+        <LetterHeader
+          settings={settings}
+          reTitle="Bulk Sample Analytical Results"
+          knownCustomerName={knownCustomerName}
+          serviceAddress={job.service_address}
+          projectNumber={job.project_number}
+          dateText={dateText}
+        />
 
         <View style={styles.recipientBlock}>
           <View style={styles.recipientRow}>
@@ -354,7 +377,14 @@ function LeadReportDocument({ job, customer, settings }: ProjectReportData) {
   return (
     <Document title={`Bulk Paint Chip Sample Analytical Results — ${job.service_address}`}>
       <Page size="LETTER" style={styles.page}>
-        <LetterHeader settings={settings} />
+        <LetterHeader
+          settings={settings}
+          reTitle="Bulk Paint Chip Sample Analytical Results"
+          knownCustomerName={knownCustomerName}
+          serviceAddress={job.service_address}
+          projectNumber={job.project_number}
+          dateText={dateText}
+        />
 
         <View style={styles.recipientBlock}>
           <View style={styles.recipientRow}>
@@ -538,7 +568,14 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
   return (
     <Document title={`Limited Mold Assessment & Sampling — ${job.service_address}`}>
       <Page size="LETTER" style={styles.page}>
-        <LetterHeader settings={settings} />
+        <LetterHeader
+          settings={settings}
+          reTitle="Limited Mold Assessment & Sampling"
+          knownCustomerName={knownCustomerName}
+          serviceAddress={job.service_address}
+          projectNumber={job.project_number}
+          dateText={dateText}
+        />
 
         <View style={styles.recipientBlock}>
           <View style={styles.recipientRow}>
@@ -652,16 +689,53 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
   );
 }
 
-function LetterHeader({ settings }: { settings: Settings }) {
+// Page 1 gets the full logo/phone letterhead; page 2+ swaps to a compact
+// plain-text identification block instead (subject, customer, address on
+// the left; project #, date, page number on the right) — matches real
+// multi-page letters, and lets a page stand on its own if separated from
+// the rest of the packet. Two separate fixed elements, each gating its own
+// visibility via render() returning null on the "wrong" pages. Style must
+// live on the View returned FROM render(), never on the outer fixed View
+// itself — putting it there silently broke rendering entirely on every
+// page but the first (confirmed empirically against several isolated
+// repros before finding this).
+function LetterHeader({
+  settings, reTitle, knownCustomerName, serviceAddress, projectNumber, dateText,
+}: {
+  settings: Settings;
+  reTitle: string;
+  knownCustomerName: string | null;
+  serviceAddress: string;
+  projectNumber: string | null;
+  dateText: string;
+}) {
   return (
-    <View style={styles.header} fixed>
-      <View style={styles.headerLeft}>
-        <Image src={LOGO_PATH} style={styles.logo} />
-      </View>
-      <View style={styles.headerRight}>
-        {settings.business_phone && <Text style={styles.headerRightLine}>{settings.business_phone}</Text>}
-      </View>
-    </View>
+    <>
+      <View fixed render={({ pageNumber }) => pageNumber !== 1 ? null : (
+        <View style={styles.header}>
+          <View style={styles.headerLeft}>
+            <Image src={LOGO_PATH} style={styles.logo} />
+          </View>
+          <View style={styles.headerRight}>
+            {settings.business_phone && <Text style={styles.headerRightLine}>{settings.business_phone}</Text>}
+          </View>
+        </View>
+      )} />
+      <View fixed render={({ pageNumber }) => pageNumber === 1 ? null : (
+        <View style={styles.continuationHeader}>
+          <View style={styles.continuationHeaderLeft}>
+            <Text style={styles.continuationHeaderLine}>{reTitle}</Text>
+            <Text style={styles.continuationHeaderLine}>{knownCustomerName}</Text>
+            <Text style={styles.continuationHeaderLine}>{serviceAddress}</Text>
+          </View>
+          <View style={styles.continuationHeaderRight}>
+            {projectNumber && <Text style={styles.continuationHeaderLine}>Project #: {projectNumber}</Text>}
+            <Text style={styles.continuationHeaderLine}>{dateText}</Text>
+            <Text style={styles.continuationHeaderLine}>Page {pageNumber}</Text>
+          </View>
+        </View>
+      )} />
+    </>
   );
 }
 

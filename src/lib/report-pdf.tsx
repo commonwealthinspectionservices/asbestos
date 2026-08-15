@@ -654,7 +654,7 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
 
 function LetterHeader({ settings }: { settings: Settings }) {
   return (
-    <View style={styles.header}>
+    <View style={styles.header} fixed>
       <View style={styles.headerLeft}>
         <Image src={LOGO_PATH} style={styles.logo} />
       </View>

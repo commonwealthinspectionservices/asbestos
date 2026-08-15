@@ -38,14 +38,14 @@ const BODY_FONT_SIZE = 12;
 const ASBESTOS_FONT_SIZE = 10.8;
 
 const styles = StyleSheet.create({
-  // paddingBottom is deliberately generous (not just a margin) — mold/lead
-  // letters aren't held to asbestos's one-page rule, so without this every
-  // page ends up filled edge-to-edge with body text. This leaves real
-  // breathing room at the bottom of every page instead. Asbestos overrides
-  // it back down via pageAsbestos below — its bottom margin is tightly
-  // tuned to hold worst-case content to exactly one page and can't afford
-  // to give any of that back.
-  page: { paddingTop: 26, paddingBottom: 120, paddingHorizontal: 69, fontSize: BODY_FONT_SIZE, fontFamily: "Times-Roman", color: "#000000", lineHeight: 1.22 },
+  // paddingBottom matches the real letters this template is modeled on —
+  // measured directly off several actual sent reports (58pt average
+  // across their genuinely-full pages, i.e. every page except a letter's
+  // last, which naturally ends early regardless of margin). Asbestos
+  // overrides it back down further via pageAsbestos below — its bottom
+  // margin is tightly tuned to hold worst-case content to exactly one
+  // page and can't afford to give any of that back.
+  page: { paddingTop: 26, paddingBottom: 58, paddingHorizontal: 69, fontSize: BODY_FONT_SIZE, fontFamily: "Times-Roman", color: "#000000", lineHeight: 1.22 },
   pageAsbestos: { fontSize: ASBESTOS_FONT_SIZE, paddingBottom: 26 },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 14, paddingBottom: 8, borderBottomWidth: 2, borderBottomColor: "#193466" },
   headerLeft: { flexDirection: "row", alignItems: "center" },
@@ -65,10 +65,16 @@ const styles = StyleSheet.create({
   // letters (subject/customer/address on the left, project #/date/page
   // number on the right), so a page is still identifiable if separated
   // from the rest of the packet.
-  continuationHeader: { flexDirection: "row", justifyContent: "space-between", marginBottom: 14, paddingBottom: 8, fontSize: 9, color: "#000000" },
+  continuationHeader: { flexDirection: "row", justifyContent: "space-between", marginBottom: 14, paddingBottom: 8, color: "#000000" },
   continuationHeaderLeft: { flex: 1 },
   continuationHeaderRight: { alignItems: "flex-end" },
-  continuationHeaderLine: { lineHeight: 1 },
+  // fontSize lives here, on the Text style itself, not on continuationHeader
+  // above — react-pdf's line-height calculation under fixed+render ignored
+  // fontSize set on an ancestor View, using the Page's own 12pt as the line
+  // box height regardless (confirmed empirically: produced a consistent
+  // ~6pt gap between every line, i.e. what actually looked like "double
+  // spacing"). Setting it directly on the Text fixes it.
+  continuationHeaderLine: { fontSize: 9, lineHeight: 1 },
   recipientRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 0 },
   recipient: { marginBottom: 0 },
   recipientBlock: { marginBottom: STANDARD_GAP },

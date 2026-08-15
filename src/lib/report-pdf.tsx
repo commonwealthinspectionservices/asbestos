@@ -261,12 +261,13 @@ function AsbestosReportDocument({ job, customer, settings }: ProjectReportData) 
         </View>
 
         <Text style={styles.paragraph}>
-          Bulk samples were collected and submitted via chain of custody to the analytical laboratory by {settings.business_name}.
-          The samples were analyzed by Polarized Light Microscopy per EPA Method 600/R-93-116. Any homogeneous material having
-          at least one sample analyzed to contain greater than one percent (1%) asbestos is categorized as an
-          asbestos-containing material. Homogeneous materials where each sample analyzed was determined not to contain
-          asbestos are categorized as non-asbestos. Laboratory Analytical Data Sheets are attached and provide details about
-          each sample collected.
+          Bulk samples were collected and submitted via chain of custody to the analytical laboratory by {settings.business_name}{settings.business_name.endsWith(".") ? "" : "."}
+          The samples were analyzed by Polarized Light Microscopy per EPA Method 600/R-93-116, July 1993. Any homogeneous material having
+          at least one (1) sample analyzed to contain greater than one percent (1%) asbestos is categorized as an
+          asbestos containing material. Any homogeneous material having at least one (1) sample analyzed to contain any amount
+          of asbestos is categorized as an asbestos containing waste material. Homogeneous materials where each sample analyzed
+          was determined not to contain asbestos are categorized as non-asbestos. Laboratory Analytical Data Sheets are attached
+          and provide details about each sample collected.
         </Text>
 
         <Text style={styles.sectionTitle}>Remarks and Limitations:</Text>
@@ -280,7 +281,7 @@ function AsbestosReportDocument({ job, customer, settings }: ProjectReportData) 
         </View>
 
         <Text style={styles.paragraph}>
-          Should you have any questions or need additional information, please contact our office. Thank you for the
+          Should you have any questions or need additional information, please contact our office at {settings.business_phone}. Thank you for the
           opportunity to provide you with our services and we look forward to working together in the future.
         </Text>
 

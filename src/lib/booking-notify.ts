@@ -30,7 +30,7 @@ export async function sendNewBookingRequestEmail(params: {
 
   const whenLine = params.scheduleViaContact
     ? "To be scheduled with the job site contact"
-    : [params.requestedDate, params.requestedTime].filter(Boolean).join(" — ") || "No date preference given";
+    : [formatDateDMY(params.requestedDate), params.requestedTime].filter(Boolean).join(" — ") || "No date preference given";
 
   const rows = [
     ["Customer", params.company ? `${params.customerName} (${params.company})` : params.customerName],

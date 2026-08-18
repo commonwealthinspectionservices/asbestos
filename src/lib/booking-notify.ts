@@ -1,7 +1,7 @@
 import { sendEmail, emailShell } from "@/lib/email";
 import { getAppUrl } from "@/lib/app-url";
 import { escapeHtml } from "@/lib/html";
-import { formatDateDMY, formatRequestedTime, formatRequestedTimeWindow } from "@/lib/date-format";
+import { formatDateMDY, formatRequestedTime, formatRequestedTimeWindow } from "@/lib/date-format";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { threadSubject, sendThreadedEmail } from "@/lib/email-thread";
 
@@ -32,7 +32,7 @@ export async function sendNewBookingRequestEmail(params: {
 
   const whenLine = params.scheduleViaContact
     ? "To be scheduled with the job site contact"
-    : [formatDateDMY(params.requestedDate), params.requestedTime].filter(Boolean).join(" — ") || "No date preference given";
+    : [formatDateMDY(params.requestedDate), params.requestedTime].filter(Boolean).join(" — ") || "No date preference given";
 
   const rows = [
     ["Customer", params.company ? `${params.customerName} (${params.company})` : params.customerName],
@@ -97,7 +97,7 @@ export async function sendCustomerBookingReceivedEmail(params: {
   const timeWindow = params.requestedTime ? formatRequestedTimeWindow(params.requestedTime) : null;
   const whenLine = params.scheduleViaContact
     ? "We'll reach out to your job site contact to schedule"
-    : [formatDateDMY(params.requestedDate), exactTime].filter(Boolean).join(" at ") || "No specific date preference given";
+    : [formatDateMDY(params.requestedDate), exactTime].filter(Boolean).join(" at ") || "No specific date preference given";
 
   const rows = [
     ["Service", params.serviceLabel],
@@ -167,8 +167,8 @@ export async function sendJobConfirmedEmailIfDue(jobId: string): Promise<void> {
 
   const firstName = customer.name?.split(" ")[0] || "there";
   const whenLine = job.confirmed_time
-    ? `${formatDateDMY(job.confirmed_date)} at ${job.confirmed_time}`
-    : formatDateDMY(job.confirmed_date) ?? "";
+    ? `${formatDateMDY(job.confirmed_date)} at ${formatRequestedTime(job.confirmed_time)}`
+    : formatDateMDY(job.confirmed_date) ?? "";
 
   const rows = [
     ["Service", job.service_type ?? ""],

@@ -3,7 +3,7 @@ import { runMorningRoute } from "@/lib/route-runner";
 import { nowInTimeZone } from "@/lib/tz";
 import { getSettings } from "@/lib/settings";
 import { getSupabaseAdmin } from "@/lib/supabase";
-import { requireCronAuth } from "@/lib/cron-auth";
+import { requireCronAuth, withCronAlert } from "@/lib/cron-auth";
 import { withApiErrors } from "@/lib/api-handler";
 
 // Vercel Cron schedules run in UTC, and Hobby-tier cron jobs are limited to
@@ -15,7 +15,7 @@ import { withApiErrors } from "@/lib/api-handler";
 // The idempotency check below still guards against double-sends if the
 // route is ever triggered twice for the same day (e.g. a manual admin
 // recompute right before the cron fires).
-export const GET = withApiErrors(async (req: NextRequest) => {
+export const GET = withApiErrors(withCronAlert("morning-route", async (req: NextRequest) => {
   const unauthorized = requireCronAuth(req);
   if (unauthorized) return unauthorized;
 
@@ -46,4 +46,4 @@ export const GET = withApiErrors(async (req: NextRequest) => {
 
   const result = await runMorningRoute(dateIso);
   return NextResponse.json({ ok: true, date: dateIso, ...result });
-});
+}));

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireCronAuth } from "@/lib/cron-auth";
+import { requireCronAuth, withCronAlert } from "@/lib/cron-auth";
 import { withApiErrors } from "@/lib/api-handler";
 import { checkForLabResultEmails } from "@/lib/lab-email";
 
@@ -9,10 +9,10 @@ import { checkForLabResultEmails } from "@/lib/lab-email";
 // (see check-now/route.ts's comment); this is that automation, on a timer
 // rather than real-time Gmail push (which needs a Pub/Sub subscription —
 // bigger lift, revisit if polling every 15 min ever isn't fast enough).
-export const GET = withApiErrors(async (req: NextRequest) => {
+export const GET = withApiErrors(withCronAlert("check-lab-emails", async (req: NextRequest) => {
   const unauthorized = requireCronAuth(req);
   if (unauthorized) return unauthorized;
 
   const result = await checkForLabResultEmails();
   return NextResponse.json(result);
-});
+}));

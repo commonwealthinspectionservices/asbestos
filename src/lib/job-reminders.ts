@@ -1,6 +1,6 @@
 import { sendEmail, emailShell } from "@/lib/email";
 import { escapeHtml } from "@/lib/html";
-import { formatDateDMY } from "@/lib/date-format";
+import { formatDateMDY } from "@/lib/date-format";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { getSettings } from "@/lib/settings";
 import { nowInTimeZone, addDaysIso } from "@/lib/tz";
@@ -37,10 +37,14 @@ export function buildReminderEmailHtml(params: {
   window: string | null;
 }): string {
   const firstName = params.customerName?.split(" ")[0] || "there";
-  const whenLine = [formatDateDMY(params.confirmedDate), formatConfirmedWhen(params.confirmedTime, params.window)].filter(Boolean).join(" ");
+  const datePart = formatDateMDY(params.confirmedDate);
+  const timePart = formatConfirmedWhen(params.confirmedTime, params.window);
+  const whenLine = datePart && timePart
+    ? (params.confirmedTime ? `${datePart} at ${timePart}` : `${datePart}, ${timePart}`)
+    : datePart || timePart || "tomorrow";
   return emailShell(`
     <p style="font-size:15px;">Hi ${escapeHtml(firstName)},</p>
-    <p style="font-size:15px;">Just a reminder — your inspection with ${escapeHtml(params.businessName)} is coming up ${escapeHtml(whenLine || "tomorrow")} at ${escapeHtml(params.serviceAddress)}.</p>
+    <p style="font-size:15px;">Just a reminder — your inspection with ${escapeHtml(params.businessName)} is coming up ${escapeHtml(whenLine)} at ${escapeHtml(params.serviceAddress)}.</p>
     <p style="font-size:15px;">Questions or need to reschedule? Call us at ${escapeHtml(params.businessPhone)}.</p>
   `);
 }

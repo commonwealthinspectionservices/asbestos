@@ -879,3 +879,8 @@ drop function if exists public.customer_has_password(uuid);
 -- the cron is ever triggered twice for the same job.
 alter table jobs add column if not exists reminder_sent_at timestamptz;
 alter table jobs add column if not exists confirmation_sent_at timestamptz;
+
+-- Dedupe timestamps for withCronAlert (lib/cron-auth.ts) — keyed by cron
+-- name, so a sustained outage on the 15-minute check-lab-emails cron sends
+-- one owner alert per hour instead of one every 15 minutes.
+alter table settings add column if not exists cron_alert_sent_at jsonb not null default '{}'::jsonb;

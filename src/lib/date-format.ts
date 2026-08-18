@@ -11,6 +11,20 @@ export function formatDateDMY(dateStr: string | null | undefined): string | null
   return `${d}/${m}/${y}`;
 }
 
+// Every customer-facing job-lifecycle email (request received, confirmed,
+// day-before reminder, final report/invoice draft) uses MM/DD/YYYY
+// specifically — a deliberate exception to the DD/MM/YYYY convention used
+// everywhere else in the app (admin/portal UI), per explicit owner request
+// (2026-08-17): dates read ambiguous to a US-habituated reader inside an
+// email specifically, even though the numeric-order convention itself was
+// already correct.
+export function formatDateMDY(dateStr: string | null | undefined): string | null {
+  if (!dateStr) return null;
+  const [y, m, d] = dateStr.slice(0, 10).split("-");
+  if (!y || !m || !d || y.length !== 4) return null;
+  return `${m}/${d}/${y}`;
+}
+
 function formatClockTime(totalMinutes: number): string {
   const normalized = ((totalMinutes % 1440) + 1440) % 1440;
   const h = Math.floor(normalized / 60);

@@ -24,6 +24,8 @@ import {
   extractReportProjectNumber,
   extractSampleCount,
   extractSampleResults,
+  extractMoldSampleCount,
+  extractMoldSampleResults,
 } from "@/lib/parse-lab-report";
 import { isLabInvoiceText, extractLabInvoiceTotalCents } from "@/lib/parse-lab-invoice";
 import { defaultInvoiceLineItems, invoiceLineItemsTotalCents } from "@/lib/invoice-defaults";
@@ -341,18 +343,36 @@ async function processMatchedLabEmail(params: {
   const serviceTypeLabels = (job.service_type ?? "").split(",").map((s) => s.trim()).filter(Boolean);
   const primaryServiceType = serviceTypeLabels[0] ?? "";
 
+  // Mirrors the manual "Laboratory Results" upload route's own isMold
+  // branching (api/admin/jobs/[id]/documents/route.ts) — this automated
+  // path used to always call the asbestos-only extractors regardless of
+  // service type, so a mold job's report landing via the Gmail scanner
+  // (rather than a manual upload) never got its sample count/results
+  // auto-filled at all, silently, for any lab. Same mold/asbestos field
+  // split as the manual route: mold's own mold_lab_name/mold_sample_results,
+  // never the shared asbestos/lead ones, so a mixed job's two domains can't
+  // clobber each other.
+  const isMold = /mold/i.test(primaryServiceType);
+
   const update: Record<string, unknown> = {};
-  const count = extractSampleCount(pdfText);
+  const count = isMold ? extractMoldSampleCount(pdfText) : extractSampleCount(pdfText);
   if (count != null && primaryServiceType) {
     update.sample_counts = { ...(job.sample_counts ?? {}), [primaryServiceType]: count };
   }
   const labInfo = detectLabInfo(pdfText);
   if (labInfo) {
-    update.lab_name = labInfo.labName;
-    update.lab_nist_cert = labInfo.nistCert;
-    update.lab_massdls_cert = labInfo.massdlsCert;
+    if (isMold) {
+      update.mold_lab_name = labInfo.labName;
+    } else {
+      update.lab_name = labInfo.labName;
+      update.lab_nist_cert = labInfo.nistCert;
+      update.lab_massdls_cert = labInfo.massdlsCert;
+    }
   }
-  if (primaryServiceType.toLowerCase().includes("asbestos")) {
+  if (isMold) {
+    const sampleResults = extractMoldSampleResults(pdfText);
+    if (sampleResults.length > 0) update.mold_sample_results = sampleResults;
+  } else if (primaryServiceType.toLowerCase().includes("asbestos")) {
     const asbestosResult = detectAsbestosResult(pdfText);
     if (asbestosResult != null) update.asbestos_result = asbestosResult;
     const sampleResults = extractSampleResults(pdfText);

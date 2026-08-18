@@ -223,8 +223,60 @@ function moldSampleFieldCodes(pdfText: string): string[] {
   return fieldCodes;
 }
 
+// Crystal Analytical's Air-O-Cell-equivalent spore-trap reports (their own
+// "BIO-SOP-001, Inertial Impactor (Spore Trap)" method) have no per-sample
+// lab ID at all — instead, right before the results table's column headers
+// ("Count / Struct/m³ / % of Total", repeated once per sample), the report
+// lists each sample's own zero-padded 4-digit index once (e.g.
+// "0003\n0001\n0002" for a 3-sample report, or glued together with no
+// separator as "0004000100020003" for a 4-sample one — PDF text extraction
+// varies which). Confirmed against 5 real reports spanning 2, 3, and 4
+// samples: counting how many complete 4-digit groups appear in that run
+// gives the right sample count every time. The negative lookbehind for a
+// preceding digit stops this from matching into the last 4 digits of an
+// unrelated 5-digit ZIP code sitting on the line just above (confirmed
+// false positive: "Dedham, MA 02026" followed immediately by the real digit
+// run swallowed the "2026" into it, undercounting a 3-sample report as 4).
+//
+// The per-sample field code itself isn't reliably extractable this way —
+// unlike EMSL's format, a sample's real-world location name (e.g. "Kitchen",
+// "Basement Bathroom") doesn't sit in a fixed, unambiguous position relative
+// to its index in the extracted text (columns interleave unpredictably
+// between samples) — so this only reports the sample's own zero-padded
+// index, leading zeros stripped and sorted, as a stand-in label. Good
+// enough to confirm a count and mark each as collected; the real location
+// is only in the uploaded report itself, same as EMSL's mold format above.
+//
+// Crystal's other mold format ("BIO-SOP-002, Direct Analysis" — swab/tape)
+// isn't handled here yet: only one real example seen so far (a single-
+// sample report), not enough to confirm a pattern against the way this one
+// was confirmed against five. Revisit once more real examples come in.
+const CRYSTAL_SPORE_TRAP_COUNT_PATTERN = /(?<!\d)((?:\d{4}\s*){2,})Count\s*\n?\s*Struct\s*\/\s*m/;
+
+function crystalSporeTrapFieldCodes(pdfText: string): string[] {
+  const match = pdfText.match(CRYSTAL_SPORE_TRAP_COUNT_PATTERN);
+  if (!match) return [];
+  const digits = match[1].replace(/\s/g, "");
+  if (digits.length % 4 !== 0) return [];
+  const codes: string[] = [];
+  for (let i = 0; i < digits.length; i += 4) {
+    codes.push(String(Number(digits.slice(i, i + 4))));
+  }
+  return [...new Set(codes)].sort((a, b) => Number(a) - Number(b));
+}
+
+// Tries EMSL's mold layout first, then Crystal's spore-trap layout — same
+// safe-waterfall shape as bestReportSamplesAnyLab for the asbestos formats
+// above, since each lab's own function returns empty rather than throwing
+// when its format doesn't match.
+function moldSampleFieldCodesAnyLab(pdfText: string): string[] {
+  const emsl = moldSampleFieldCodes(pdfText);
+  if (emsl.length > 0) return emsl;
+  return crystalSporeTrapFieldCodes(pdfText);
+}
+
 export function extractMoldSampleCount(pdfText: string): number | null {
-  const count = moldSampleFieldCodes(pdfText).length;
+  const count = moldSampleFieldCodesAnyLab(pdfText).length;
   return count > 0 ? count : null;
 }
 
@@ -235,7 +287,7 @@ export function extractMoldSampleCount(pdfText: string): number | null {
 // that sample, not what it found. The full genus-level breakdown is only
 // in the uploaded report itself, viewable from its own thumbnail.
 export function extractMoldSampleResults(pdfText: string): SampleResult[] {
-  return moldSampleFieldCodes(pdfText).map((fieldCode) => ({ fieldCode, result: "Analyzed" }));
+  return moldSampleFieldCodesAnyLab(pdfText).map((fieldCode) => ({ fieldCode, result: "Analyzed" }));
 }
 
 // The lab itself makes the positive/negative call, not FLI — any sample

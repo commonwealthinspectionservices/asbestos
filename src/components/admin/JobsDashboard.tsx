@@ -1020,7 +1020,7 @@ function JobRow({
               <div className="flex shrink-0 items-center gap-2">
                 {isUnscheduled ? (
                   <AcceptScheduleControl job={job} variant="button" onAccept={onFieldChange} onOpenChat={onOpenChat} onEditManually={onEdit} stopPropagation />
-                ) : job.status === "scheduled" && job.confirmed_date && (
+                ) : job.status === "scheduled" && job.confirmed_date && job.source !== "subcontractor" && (
                   <div className="flex flex-col items-end gap-0.5">
                     <label
                       className="flex shrink-0 items-center gap-1.5 whitespace-nowrap text-xs uppercase text-slate-600"

@@ -301,6 +301,10 @@ export interface Job {
   report_release_override: boolean;
   /** How this job was created — "portal_booking" for a real customer request, "email_intake" for one parsed from a known repeat company's job-request email (see lib/job-intake.ts), "admin" for one the owner entered directly via Add Project. AcceptScheduleControl/ProjectsList's "awaiting review" treatment applies to both "portal_booking" and "email_intake" — both are real unreviewed requests, just from a different intake channel. Existing rows predating this column default to "portal_booking". */
   source: "portal_booking" | "email_intake" | "admin" | "subcontractor";
+  /** Only ever set for source === "subcontractor" jobs — parsed from the subcontracting company's "New Assignment" email (see parse-subcontractor-assignment.ts). Null means the email didn't include a shipping section, not that nothing ships. */
+  subcontractor_shipping: { provider: string | null; speed: string | null; trackingNumber: string | null; labelUrl: string | null } | null;
+  /** Same idea as subcontractor_shipping — Fast Mold Testing's own estimate, not tracked/billed by this app. */
+  subcontractor_compensation: { base: string | null; labFees: string | null; net: string | null } | null;
   /** Distinct from the free-text `payment_method` field above (informational, import-only). This one drives real behavior: "online" auto-creates a Stripe hosted invoice and includes its pay-now link on drafted invoice emails, and shows the portal's Pay now button. "check" skips Stripe entirely on those automatic paths — the admin's own on-demand "Get payment link" button still works regardless. */
   payment_type: "online" | "check";
   created_at: string;

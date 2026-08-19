@@ -949,7 +949,9 @@ function JobRow({
             <span className="shrink-0 whitespace-nowrap rounded bg-slate-200 px-2 py-0.5 text-sm font-mono font-bold text-slate-800 hover:underline">{job.project_number}</span>
           )}
           {job.source === "subcontractor" && (
-            <span className="shrink-0 whitespace-nowrap rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-bold uppercase text-indigo-700">Subcontracted</span>
+            <span className="shrink-0 whitespace-nowrap rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-bold uppercase text-indigo-700">
+              {subcontractorSenderForJob(job.customers?.email)?.companyName ?? "Subcontracted"}
+            </span>
           )}
           <div className="whitespace-nowrap font-medium text-slate-800">{job.customers?.company || job.customers?.name}</div>
         </div>
@@ -1167,7 +1169,7 @@ export function ProjectDetailDialog({
   onStatusChange: (status: string) => void;
   initialTab?: "info" | "report" | "chat" | "photos";
 }) {
-  const [tab, setTab] = useState<"info" | "report" | "chat" | "photos">(initialTab ?? "info");
+  const [tab, setTab] = useState<"info" | "report" | "chat" | "photos" | "shipping" | "compensation">(initialTab ?? "info");
   const [confirmingReleaseOverride, setConfirmingReleaseOverride] = useState(false);
   const [submittingReleaseOverride, setSubmittingReleaseOverride] = useState(false);
   const [releaseOverrideError, setReleaseOverrideError] = useState<string | null>(null);
@@ -1592,6 +1594,22 @@ export function ProjectDetailDialog({
               </button>
             </>
           )}
+          {job.source === "subcontractor" && (
+            <>
+              <button
+                onClick={() => setTab("shipping")}
+                className={`whitespace-nowrap px-3 py-1.5 text-sm font-bold uppercase ${tab === "shipping" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
+              >
+                Shipping
+              </button>
+              <button
+                onClick={() => setTab("compensation")}
+                className={`whitespace-nowrap px-3 py-1.5 text-sm font-bold uppercase ${tab === "compensation" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
+              >
+                Compensation
+              </button>
+            </>
+          )}
           <button onClick={onClose} className="ml-auto shrink-0 pl-2 text-slate-400 hover:text-slate-600">✕</button>
         </div>
 
@@ -1602,24 +1620,26 @@ export function ProjectDetailDialog({
             <div className="flex items-start justify-between gap-2">
               <DetailField label="Project #" value={job.project_number} />
               <div className="flex shrink-0 items-center gap-2">
-                {job.source === "subcontractor" && (
-                  <span className="shrink-0 whitespace-nowrap rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-bold uppercase text-indigo-700">
-                    Subcontracted
-                  </span>
-                )}
                 {job.source === "subcontractor" && (() => {
                   const sender = subcontractorSenderForJob(job.customers?.email);
-                  return sender ? (
-                    <a
-                      href={sender.portalUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="shrink-0 whitespace-nowrap rounded-full border border-indigo-300 px-2 py-0.5 text-xs font-bold uppercase text-indigo-700 hover:bg-indigo-50"
-                      title={`Open ${sender.companyName}'s own portal — useful for anything not included in their assignment email, like a shipment added afterward`}
-                    >
-                      {sender.companyName} Portal ↗
-                    </a>
-                  ) : null;
+                  return (
+                    <>
+                      <span className="shrink-0 whitespace-nowrap rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-bold uppercase text-indigo-700">
+                        {sender?.companyName ?? "Subcontracted"}
+                      </span>
+                      {sender && (
+                        <a
+                          href={sender.portalUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="shrink-0 whitespace-nowrap rounded-full border border-indigo-300 px-2 py-0.5 text-xs font-bold uppercase text-indigo-700 hover:bg-indigo-50"
+                          title={`Open ${sender.companyName}'s own portal — useful for anything not included in their assignment email, like a shipment added afterward`}
+                        >
+                          {sender.companyName} Portal ↗
+                        </a>
+                      )}
+                    </>
+                  );
                 })()}
                 <button onClick={onEdit} className="shrink-0 rounded-lg border border-slate-300 px-3.5 py-1.5 text-sm font-bold uppercase hover:underline">
                   Edit
@@ -2228,6 +2248,70 @@ export function ProjectDetailDialog({
               onChanged={onChanged}
               uploadButtonClassName="rounded-lg bg-brand-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
             />
+          </div>
+        )}
+
+        {tab === "shipping" && job.source === "subcontractor" && (() => {
+          const sender = subcontractorSenderForJob(job.customers?.email);
+          const shipping = job.subcontractor_shipping;
+          // Only ever seen FedEx so far — a carrier we don't recognize just
+          // shows its raw tracking number rather than guessing a URL.
+          const trackingUrl = shipping?.trackingNumber && shipping.provider?.toLowerCase().includes("fedex")
+            ? `https://www.fedex.com/fedextrack/?trknbr=${encodeURIComponent(shipping.trackingNumber)}`
+            : null;
+          return (
+            <div className="mt-4 space-y-3">
+              {shipping ? (
+                <>
+                  <DetailField label="Provider" value={shipping.provider ?? "—"} />
+                  <DetailField label="Speed" value={shipping.speed ?? "—"} />
+                  <DetailField
+                    label="Tracking #"
+                    value={shipping.trackingNumber ? (trackingUrl ? <a href={trackingUrl} target="_blank" rel="noopener noreferrer" className="text-brand-700 underline">{shipping.trackingNumber}</a> : shipping.trackingNumber) : "—"}
+                  />
+                  {shipping.labelUrl && (
+                    <a
+                      href={shipping.labelUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-block rounded-lg bg-brand-600 px-4 py-2 text-sm font-bold text-white"
+                    >
+                      Open Shipping Label ↗
+                    </a>
+                  )}
+                </>
+              ) : (
+                <p className="text-sm text-slate-500">No shipping information was included in the assignment email.</p>
+              )}
+              <p className="text-xs text-slate-500">
+                {sender?.companyName ?? "Their"} portal may show additional shipments (e.g. a lab kit) added after the assignment email went out — this only reflects what was in the email.
+                {sender && (
+                  <>
+                    {" "}
+                    <a href={sender.portalUrl} target="_blank" rel="noopener noreferrer" className="text-brand-700 underline">
+                      Check their portal ↗
+                    </a>
+                  </>
+                )}
+              </p>
+            </div>
+          );
+        })()}
+
+        {tab === "compensation" && job.source === "subcontractor" && (
+          <div className="mt-4 space-y-3">
+            {job.subcontractor_compensation ? (
+              <>
+                <DetailField label="Base" value={job.subcontractor_compensation.base ?? "—"} />
+                <DetailField label="Est. lab fees" value={job.subcontractor_compensation.labFees ?? "—"} />
+                <DetailField label="Est. net" value={job.subcontractor_compensation.net ?? "—"} />
+                <p className="text-xs text-slate-500">
+                  {subcontractorSenderForJob(job.customers?.email)?.companyName ?? "The subcontracting company"}&apos;s own estimate — not tracked or billed through this app.
+                </p>
+              </>
+            ) : (
+              <p className="text-sm text-slate-500">No compensation estimate was included in the assignment email.</p>
+            )}
           </div>
         )}
 

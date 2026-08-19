@@ -169,6 +169,10 @@ async function getOrCreateSenderContact(sender: SubcontractorSender): Promise<{ 
   return created;
 }
 
+// Shipping and compensation get their own structured columns (and their
+// own tabs in JobsDashboard.tsx) rather than living in this free-text
+// blob — see subcontractor_shipping/subcontractor_compensation in
+// schema.sql.
 function buildJobNotes(params: { sender: SubcontractorSender; parsed: ParsedAssignment }): string {
   const { sender, parsed } = params;
   const lines = [
@@ -176,16 +180,6 @@ function buildJobNotes(params: { sender: SubcontractorSender; parsed: ParsedAssi
     `Preferred window: ${parsed.preferredWindowText} — call/text the client to confirm the exact time.`,
     `Client: ${parsed.clientName}${parsed.clientPhone ? ` (${parsed.clientPhone})` : ""}${parsed.clientEmail ? ` — ${parsed.clientEmail}` : ""}`,
   ];
-  if (parsed.baseCompensation) {
-    lines.push(`Compensation: ${parsed.baseCompensation} base${parsed.labFees ? `, ${parsed.labFees} est. lab fees` : ""}${parsed.netPayment ? `, ${parsed.netPayment} est. net` : ""} (estimated by ${sender.companyName}, not tracked here).`);
-  }
-  if (parsed.shippingTrackingNumber || parsed.shippingLabelUrl) {
-    const parts = [parsed.shippingProvider, parsed.shippingSpeed].filter(Boolean).join(" ");
-    lines.push(
-      `\nShipping: ${parts || "carrier not given"}${parsed.shippingTrackingNumber ? ` — tracking ${parsed.shippingTrackingNumber}` : ""}${parsed.shippingLabelUrl ? `\nLabel: ${parsed.shippingLabelUrl}` : ""}` +
-      `\n(${sender.companyName}'s portal may show additional shipments — e.g. a lab kit — added after this email went out; check ${KNOWN_SUBCONTRACTOR_SENDERS.find((s) => s.domain === sender.domain)?.portalUrl ?? "their portal"} if in doubt.)`
-    );
-  }
   if (parsed.clientNotes) lines.push(`\nClient notes: ${parsed.clientNotes}`);
   if (parsed.jobNotes) lines.push(`\nJob notes:\n${parsed.jobNotes}`);
   return lines.join("\n");
@@ -235,6 +229,12 @@ export async function createSubcontractorJob(params: {
       source: "subcontractor",
       scope_of_work: parsed.jobNotes || null,
       notes: buildJobNotes({ sender, parsed }),
+      subcontractor_shipping: parsed.shippingTrackingNumber || parsed.shippingLabelUrl
+        ? { provider: parsed.shippingProvider, speed: parsed.shippingSpeed, trackingNumber: parsed.shippingTrackingNumber, labelUrl: parsed.shippingLabelUrl }
+        : null,
+      subcontractor_compensation: parsed.baseCompensation
+        ? { base: parsed.baseCompensation, labFees: parsed.labFees, net: parsed.netPayment }
+        : null,
       disclaimer_ack: true,
       is_individual: false,
     })

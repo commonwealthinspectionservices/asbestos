@@ -69,6 +69,8 @@ function baseJob(overrides: Partial<JobWithCustomer> = {}): JobWithCustomer {
     lead_result: null,
     sample_results: [],
     mold_sample_results: [],
+    subcontractor_shipping: null,
+    subcontractor_compensation: null,
     requested_time: null,
     window: "ANY",
     status: "needs_scheduling",

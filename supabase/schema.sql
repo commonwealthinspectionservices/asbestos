@@ -884,3 +884,13 @@ alter table jobs add column if not exists confirmation_sent_at timestamptz;
 -- name, so a sustained outage on the 15-minute check-lab-emails cron sends
 -- one owner alert per hour instead of one every 15 minutes.
 alter table settings add column if not exists cron_alert_sent_at jsonb not null default '{}'::jsonb;
+
+-- Structured shipping/compensation data for subcontracted jobs (source =
+-- 'subcontractor'), parsed out of the subcontracting company's "New
+-- Assignment" email (see parse-subcontractor-assignment.ts) — split out of
+-- jobs.notes (a single free-text blob) into their own columns so
+-- JobsDashboard.tsx can give each its own dedicated tab instead of the
+-- admin having to read them out of a wall of text. Null means "not
+-- provided in the email," not "known to be zero."
+alter table jobs add column if not exists subcontractor_shipping jsonb;
+alter table jobs add column if not exists subcontractor_compensation jsonb;

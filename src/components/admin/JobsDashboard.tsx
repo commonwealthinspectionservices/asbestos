@@ -1549,24 +1549,28 @@ export function ProjectDetailDialog({
           >
             Project Info
           </button>
-          <button
-            onClick={() => setTab("report")}
-            className={`whitespace-nowrap px-3 py-1.5 text-sm font-bold uppercase ${tab === "report" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
-          >
-            Report &amp; Invoice
-          </button>
-          <button
-            onClick={() => setTab("chat")}
-            className={`whitespace-nowrap px-3 py-1.5 text-sm font-bold uppercase ${tab === "chat" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
-          >
-            Chat
-          </button>
-          <button
-            onClick={() => setTab("photos")}
-            className={`whitespace-nowrap px-3 py-1.5 text-sm font-bold uppercase ${tab === "photos" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
-          >
-            Photos
-          </button>
+          {job.source !== "subcontractor" && (
+            <>
+              <button
+                onClick={() => setTab("report")}
+                className={`whitespace-nowrap px-3 py-1.5 text-sm font-bold uppercase ${tab === "report" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
+              >
+                Report &amp; Invoice
+              </button>
+              <button
+                onClick={() => setTab("chat")}
+                className={`whitespace-nowrap px-3 py-1.5 text-sm font-bold uppercase ${tab === "chat" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
+              >
+                Chat
+              </button>
+              <button
+                onClick={() => setTab("photos")}
+                className={`whitespace-nowrap px-3 py-1.5 text-sm font-bold uppercase ${tab === "photos" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
+              >
+                Photos
+              </button>
+            </>
+          )}
           <button onClick={onClose} className="ml-auto shrink-0 pl-2 text-slate-400 hover:text-slate-600">✕</button>
         </div>
 
@@ -2166,7 +2170,7 @@ export function ProjectDetailDialog({
           )
         )}
 
-        {tab === "chat" && (
+        {tab === "chat" && job.source !== "subcontractor" && (
           <div className="mt-4">
             <JobChat
               endpoint={`/api/admin/jobs/${job.id}/messages`}
@@ -2179,7 +2183,7 @@ export function ProjectDetailDialog({
           </div>
         )}
 
-        {tab === "photos" && (
+        {tab === "photos" && job.source !== "subcontractor" && (
           <div className="mt-4">
             <JobPhotos
               photos={job.photos ?? []}

@@ -71,11 +71,11 @@ export async function sendJobReminders(): Promise<{ sent: number; failed: number
     .eq("status", "scheduled")
     .eq("confirmed_date", tomorrow)
     .is("reminder_sent_at", null)
-    // email_intake jobs (see lib/job-intake.ts) get no automated sends at
-    // all — see sendJobConfirmedEmailIfDue's own comment for why. The
-    // owner's own manual thread with the client is the only place these
-    // reminders would need to go anyway, which this cron has no way to do.
-    .neq("source", "email_intake");
+    // email_intake and subcontractor jobs get no automated sends at all —
+    // see sendJobConfirmedEmailIfDue's own comment for why (a subcontracted
+    // job's "customer" is the subcontracting company's own contact, who
+    // already knows the schedule through their own system).
+    .not("source", "in", "(email_intake,subcontractor)");
 
   let sent = 0;
   let failed = 0;

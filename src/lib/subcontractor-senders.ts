@@ -10,10 +10,12 @@ export interface SubcontractorSender {
   companyPhone: string;
   /** Their own scheduling/portal site — not deep-linkable to a specific job (no stable per-job URL is available to us), but useful as a one-click jump-off point for anything only visible there, e.g. a second shipment added after the assignment email went out. */
   portalUrl: string;
+  /** Every job from this company is the same kind of work (Fast Mold Testing only ever sends mold inspections) — set as the job's real service_type at intake. */
+  serviceType: string;
 }
 
 export const KNOWN_SUBCONTRACTOR_SENDERS: SubcontractorSender[] = [
-  { domain: "fastmoldtesting.com", companyName: "Fast Mold Testing", companyPhone: "424-274-7425", portalUrl: "https://portal.fastmoldtesting.com/dashboard" },
+  { domain: "fastmoldtesting.com", companyName: "Fast Mold Testing", companyPhone: "424-274-7425", portalUrl: "https://portal.fastmoldtesting.com/dashboard", serviceType: "Subcontracted Mold Inspection" },
 ];
 
 // Matched by the job's own contact email domain (set once per company by

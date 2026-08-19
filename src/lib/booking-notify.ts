@@ -166,6 +166,17 @@ export async function sendJobConfirmedEmailIfDue(jobId: string): Promise<void> {
   // for this intake channel. No automated sends at all for these; every
   // reply is manual, same as the existing process.
   if (job.source === "email_intake") return;
+  // Same reasoning as email_intake above — the "customer" on file for a
+  // subcontracted job is the subcontracting company's own contact (e.g.
+  // Fast Mold Testing), who already knows the schedule through their own
+  // system. A generated "your inspection is confirmed" email to them reads
+  // as a stray, out-of-context system message, not a real client update —
+  // confirmed the hard way when AcceptScheduleControl's subcontractor path
+  // (source !== "portal_booking"/"email_intake" was the only guard here)
+  // sent exactly that to a real contact. schedule_visible_to_customer being
+  // false doesn't prevent this either — this trigger only checks whether
+  // confirmed_date just went from empty to set, independent of visibility.
+  if (job.source === "subcontractor") return;
 
   const { data: customer } = await supabase.from("customers").select("name, email").eq("id", job.customer_id).maybeSingle();
   if (!customer?.email) return;

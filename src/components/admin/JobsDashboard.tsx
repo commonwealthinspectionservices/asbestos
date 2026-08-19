@@ -873,6 +873,7 @@ export default function JobsDashboard() {
                 job={job}
                 onOpen={() => { setSelectedJobInitialTab("info"); setSelectedJobId(job.id); }}
                 onOpenChat={() => { setSelectedJobInitialTab("chat"); setSelectedJobId(job.id); }}
+                onEdit={() => setEditingJobId(job.id)}
                 onFieldChange={(patch) => patchJob(job, patch)}
               />
             ))}
@@ -921,11 +922,12 @@ export default function JobsDashboard() {
 }
 
 function JobRow({
-  job, onOpen, onOpenChat, onFieldChange,
+  job, onOpen, onOpenChat, onEdit, onFieldChange,
 }: {
   job: JobWithCustomer;
   onOpen: () => void;
   onOpenChat: () => void;
+  onEdit: () => void;
   onFieldChange: (patch: Record<string, unknown>) => void;
 }) {
   const { locationName, street, cityStateZip } = splitAddress(job.service_address);
@@ -947,11 +949,6 @@ function JobRow({
         <div className="flex min-w-0 items-center gap-2">
           {job.project_number && (
             <span className="shrink-0 whitespace-nowrap rounded bg-slate-200 px-2 py-0.5 text-sm font-mono font-bold text-slate-800 hover:underline">{job.project_number}</span>
-          )}
-          {job.source === "subcontractor" && (
-            <span className="shrink-0 whitespace-nowrap rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-bold uppercase text-indigo-700">
-              {subcontractorSenderForJob(job.customers?.email)?.companyName ?? "Subcontracted"}
-            </span>
           )}
           <div className="whitespace-nowrap font-medium text-slate-800">
             {job.source === "subcontractor"
@@ -996,15 +993,6 @@ function JobRow({
 
         <div className="min-w-0 flex-[1.2]">
           {(() => {
-            if (job.source === "subcontractor") {
-              const sender = subcontractorSenderForJob(job.customers?.email);
-              return (
-                <>
-                  <div className="whitespace-nowrap text-sm text-slate-500">Subcontracted Inspection</div>
-                  <div className="whitespace-nowrap text-sm text-slate-500">{sender?.companyName ?? job.service_type}</div>
-                </>
-              );
-            }
             const labels = (job.service_type ?? "").split(",").map((s) => s.trim()).filter(Boolean);
             return labels.map((label, i) => (
               <div key={i} className="whitespace-nowrap text-sm text-slate-500">
@@ -1031,7 +1019,7 @@ function JobRow({
               />
               <div className="flex shrink-0 items-center gap-2">
                 {isUnscheduled ? (
-                  <AcceptScheduleControl job={job} variant="button" onAccept={onFieldChange} onOpenChat={onOpenChat} stopPropagation />
+                  <AcceptScheduleControl job={job} variant="button" onAccept={onFieldChange} onOpenChat={onOpenChat} onEditManually={onEdit} stopPropagation />
                 ) : job.status === "scheduled" && job.confirmed_date && (
                   <div className="flex flex-col items-end gap-0.5">
                     <label
@@ -1635,24 +1623,17 @@ export function ProjectDetailDialog({
               <div className="flex shrink-0 items-center gap-2">
                 {job.source === "subcontractor" && (() => {
                   const sender = subcontractorSenderForJob(job.customers?.email);
-                  return (
-                    <>
-                      <span className="shrink-0 whitespace-nowrap rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-bold uppercase text-indigo-700">
-                        {sender?.companyName ?? "Subcontracted"}
-                      </span>
-                      {sender && (
-                        <a
-                          href={sender.portalUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="shrink-0 whitespace-nowrap rounded-full border border-indigo-300 px-2 py-0.5 text-xs font-bold uppercase text-indigo-700 hover:bg-indigo-50"
-                          title={`Open ${sender.companyName}'s own portal — useful for anything not included in their assignment email, like a shipment added afterward`}
-                        >
-                          {sender.companyName} Portal ↗
-                        </a>
-                      )}
-                    </>
-                  );
+                  return sender ? (
+                    <a
+                      href={sender.portalUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="shrink-0 whitespace-nowrap rounded-full border border-indigo-300 px-2 py-0.5 text-xs font-bold uppercase text-indigo-700 hover:bg-indigo-50"
+                      title={`Open ${sender.companyName}'s own portal — useful for anything not included in their assignment email, like a shipment added afterward`}
+                    >
+                      {sender.companyName} Portal ↗
+                    </a>
+                  ) : null;
                 })()}
                 <button onClick={onEdit} className="shrink-0 rounded-lg border border-slate-300 px-3.5 py-1.5 text-sm font-bold uppercase hover:underline">
                   Edit
@@ -1708,7 +1689,7 @@ export function ProjectDetailDialog({
               </div>
             )}
             {job.status === "needs_scheduling" && (
-              <AcceptScheduleControl job={job} variant="panel" onAccept={acceptSchedule} />
+              <AcceptScheduleControl job={job} variant="panel" onAccept={acceptSchedule} onEditManually={onEdit} />
             )}
             <DetailField label="Service type" value={serviceTypeLabel(job.service_type)} nowrap />
             <div className="flex gap-2 text-sm">

@@ -34,6 +34,16 @@ function formatTime(time: string | null | undefined): string {
   return `${hour12}:${String(m).padStart(2, "0")} ${period}`;
 }
 
+// subcontractor_preferred_window carries the date too (e.g. "Wednesday,
+// August 19, 2026 at 1:00 PM - 4:00 PM") — the "Requested for" bubble
+// already states the date on its own, so this pulls out just the "1:00 PM
+// - 4:00 PM" portion rather than repeating it.
+function extractTimeRange(windowText: string | null | undefined): string | null {
+  if (!windowText) return null;
+  const match = windowText.match(/\d{1,2}:\d{2}\s*[AP]M\s*-\s*\d{1,2}:\d{2}\s*[AP]M/i);
+  return match ? match[0] : null;
+}
+
 // The one deliberate step that turns a customer's request (requested_date/
 // requested_time) into a real confirmed job — sets confirmed_date/
 // confirmed_time, flips status to "scheduled", and asks once whether to
@@ -44,15 +54,25 @@ function formatTime(time: string | null | undefined): string {
 // request itself — for working out a real time with the customer rather
 // than guessing at one. Renders nothing once a job is past
 // "needs_scheduling", or if it's needs_scheduling for a reason other than
-// a real unreviewed request (portal_booking or email_intake — e.g. the
-// admin entered it directly via Add Project and left it unscheduled on
-// purpose).
+// a real unreviewed request (portal_booking/email_intake, or subcontractor
+// — e.g. the admin entered it directly via Add Project and left it
+// unscheduled on purpose).
+//
+// Subcontractor jobs get the same accept-checkmark, but two things differ:
+// there's no client-facing portal for a subcontracting company's contact
+// to see a date/time in, so the "show this to the customer?" prompt is
+// skipped entirely (accepts immediately, schedule_visible_to_customer
+// stays off); and there's no Chat tab for these jobs (see
+// JobsDashboard.tsx), so the red X opens the Edit dialog instead of chat —
+// for picking a real date/time by hand when the requested window doesn't
+// work as-is, via onEditManually rather than onOpenChat.
 export function AcceptScheduleControl({
-  job, onAccept, onOpenChat, variant, stopPropagation,
+  job, onAccept, onOpenChat, onEditManually, variant, stopPropagation,
 }: {
   job: JobWithCustomer;
   onAccept: (patch: Record<string, unknown>) => void | Promise<void>;
   onOpenChat?: () => void;
+  onEditManually?: () => void;
   variant: "button" | "panel";
   stopPropagation?: boolean;
 }) {
@@ -61,7 +81,8 @@ export function AcceptScheduleControl({
   const [submitting, setSubmitting] = useState(false);
   const [confirmingVisibility, setConfirmingVisibility] = useState(false);
 
-  if (job.status !== "needs_scheduling" || (job.source !== "portal_booking" && job.source !== "email_intake")) return null;
+  const isSubcontractor = job.source === "subcontractor";
+  if (job.status !== "needs_scheduling" || !(job.source === "portal_booking" || job.source === "email_intake" || isSubcontractor)) return null;
 
   async function finalize(confirmedDate: string | null, confirmedTime: string | null, visibleToCustomer: boolean) {
     setSubmitting(true);
@@ -75,6 +96,22 @@ export function AcceptScheduleControl({
     } finally {
       setSubmitting(false);
       setConfirmingVisibility(false);
+    }
+  }
+
+  function startAccepting() {
+    if (isSubcontractor) {
+      // No client-facing portal to ask about — accept straight away.
+      // requested_time is never set for a subcontracted job (only a
+      // window range, in subcontractor_preferred_window) — the button
+      // variant has no time to offer, so confirmed_time stays null there;
+      // the panel variant's own time input (if the admin filled it in)
+      // still gets respected.
+      const confirmedDate = variant === "button" ? job.requested_date : date || null;
+      const confirmedTime = variant === "button" ? null : time || null;
+      finalize(confirmedDate, confirmedTime, false);
+    } else {
+      setConfirmingVisibility(true);
     }
   }
 
@@ -108,11 +145,15 @@ export function AcceptScheduleControl({
   }
 
   if (variant === "button") {
+    const timeRange = isSubcontractor ? extractTimeRange(job.subcontractor_preferred_window) : null;
+    const windowSuffix = timeRange
+      ? ` (${timeRange})`
+      : job.requested_time ? ` at ${formatTime(job.requested_time)}` : "";
     return (
       <div onClick={(e) => stopPropagation && e.stopPropagation()} className="flex shrink-0 flex-wrap items-center gap-1.5">
         <span className="whitespace-nowrap rounded bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">
           {job.requested_date
-            ? `Requested for ${formatFullDate(job.requested_date)}${job.requested_time ? ` at ${formatTime(job.requested_time)}` : ""}`
+            ? `Requested for ${formatFullDate(job.requested_date)}${windowSuffix}`
             : "No requested time"}
         </span>
         <button
@@ -120,16 +161,16 @@ export function AcceptScheduleControl({
           title="Accept this request"
           aria-label="Accept this request"
           disabled={!job.requested_date}
-          onClick={() => setConfirmingVisibility(true)}
+          onClick={startAccepting}
           className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-sm font-bold leading-none text-white disabled:opacity-50"
         >
           ✓
         </button>
         <button
           type="button"
-          title="Message the customer about this request"
-          aria-label="Message the customer about this request"
-          onClick={() => onOpenChat?.()}
+          title={isSubcontractor ? "Set a different date/time by hand" : "Message the customer about this request"}
+          aria-label={isSubcontractor ? "Set a different date/time by hand" : "Message the customer about this request"}
+          onClick={() => (isSubcontractor ? onEditManually?.() : onOpenChat?.())}
           className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-red-600 text-sm font-bold leading-none text-white"
         >
           ✕
@@ -144,7 +185,11 @@ export function AcceptScheduleControl({
       className="rounded-lg border border-slate-200 bg-slate-50 p-3"
     >
       <p className="text-xs font-bold uppercase text-slate-500">Accept & Schedule</p>
-      <p className="mt-1 text-xs text-slate-500">Confirms this date/time, then asks whether to show it to the customer.</p>
+      <p className="mt-1 text-xs text-slate-500">
+        {isSubcontractor
+          ? "Confirms this date/time — there's no customer portal to ask about showing it to."
+          : "Confirms this date/time, then asks whether to show it to the customer."}
+      </p>
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <input
           type="date"
@@ -161,7 +206,7 @@ export function AcceptScheduleControl({
         <button
           type="button"
           disabled={!date}
-          onClick={() => setConfirmingVisibility(true)}
+          onClick={startAccepting}
           className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-bold text-white disabled:opacity-50"
         >
           Accept & Schedule

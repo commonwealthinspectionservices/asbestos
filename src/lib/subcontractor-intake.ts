@@ -225,12 +225,12 @@ export async function createSubcontractorJob(params: {
       site_contact_phone: parsed.clientPhone || null,
       site_contact_email: parsed.clientEmail || null,
       subcontractor_preferred_window: parsed.preferredWindowText || null,
-      // Deliberately NOT one of the app's own billable service types (no
-      // "mold"/"lead" substring either) — jobReportDomains() defaults
-      // anything else to "needs an asbestos report," which JobsDashboard's
-      // Report & Invoice tab special-cases away entirely for
-      // source === "subcontractor" (see that file's own comment).
-      service_type: `Subcontracted Inspection — ${sender.companyName}`,
+      // sender.serviceType does contain "mold" for Fast Mold Testing, which
+      // would make jobReportDomains() treat this as needing a mold report —
+      // harmless, since the Report & Invoice tab (the only thing that reads
+      // that) is hidden entirely for source === "subcontractor" regardless
+      // of what jobReportDomains says (see that tab's own comment).
+      service_type: sender.serviceType,
       requested_date: parsed.preferredDate,
       window: "ANY",
       status: "needs_scheduling",

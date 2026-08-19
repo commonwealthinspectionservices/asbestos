@@ -240,13 +240,19 @@ export default function ProjectsList() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
-      <div className="mt-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold uppercase text-brand-700">
+      <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        {/* A long company name (e.g. "Boston Harbor Water Restoration's
+            Projects") must never wrap to a second line — its own row plus
+            whitespace-nowrap guarantees that; overflow-x-auto is only a
+            last-resort escape hatch for a name too long to fit even a
+            narrow phone screen, so it scrolls within the line instead of
+            ever breaking onto a second one. */}
+        <h1 className="overflow-x-auto whitespace-nowrap text-xl font-bold uppercase text-brand-700 sm:text-2xl">
           {customer && !customer.is_individual && customer.company ? `${customer.company}'s Projects` : "My Projects"}
         </h1>
         <Link
           href="/portal/book"
-          className="inline-flex h-10 items-center bg-emerald-600 px-6 text-lg font-extrabold uppercase leading-none text-white hover:underline sm:h-12"
+          className="inline-flex h-10 shrink-0 items-center bg-emerald-600 px-6 text-lg font-extrabold uppercase leading-none text-white hover:underline sm:h-12"
         >
           Book a project
         </Link>

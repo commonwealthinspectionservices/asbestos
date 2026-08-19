@@ -11,7 +11,7 @@ import type { AddressFields } from "@/lib/address";
 import AddressAutocompleteInput from "@/components/shared/AddressAutocompleteInput";
 import JobChat from "@/components/shared/JobChat";
 import JobPhotos from "@/components/shared/JobPhotos";
-import { AcceptScheduleControl } from "@/components/admin/AcceptScheduleControl";
+import { AcceptScheduleControl, extractTimeRange, parseWindowStartTime24h } from "@/components/admin/AcceptScheduleControl";
 import { ContactForm } from "@/components/admin/ContactDetailDialog";
 import { formatDateDMY } from "@/lib/date-format";
 import { subcontractorSenderForJob } from "@/lib/subcontractor-senders";
@@ -1676,7 +1676,14 @@ export function ProjectDetailDialog({
               ) : (
                 <>
                   <DetailField label="Scheduled date" value={formatDate(job.confirmed_date)} />
-                  <DetailField label="Scheduled time" value={formatTime(job.confirmed_time) || "Not set yet"} />
+                  <DetailField
+                    label="Scheduled time"
+                    value={
+                      job.confirmed_time && job.confirmed_time === parseWindowStartTime24h(job.subcontractor_preferred_window)
+                        ? extractTimeRange(job.subcontractor_preferred_window) ?? formatTime(job.confirmed_time)
+                        : formatTime(job.confirmed_time) || "Not set yet"
+                    }
+                  />
                 </>
               )
             ) : (

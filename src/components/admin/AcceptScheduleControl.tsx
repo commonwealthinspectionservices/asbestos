@@ -38,10 +38,25 @@ function formatTime(time: string | null | undefined): string {
 // August 19, 2026 at 1:00 PM - 4:00 PM") — the "Requested for" bubble
 // already states the date on its own, so this pulls out just the "1:00 PM
 // - 4:00 PM" portion rather than repeating it.
-function extractTimeRange(windowText: string | null | undefined): string | null {
+export function extractTimeRange(windowText: string | null | undefined): string | null {
   if (!windowText) return null;
   const match = windowText.match(/\d{1,2}:\d{2}\s*[AP]M\s*-\s*\d{1,2}:\d{2}\s*[AP]M/i);
   return match ? match[0] : null;
+}
+
+// The window's own start time (e.g. "1:00 PM" out of "... 1:00 PM - 4:00
+// PM"), as a 24-hour "HH:MM" for confirmed_time — accepting fills this in
+// as a real starting point rather than leaving it blank; still editable by
+// hand afterward once the exact arrival time is confirmed with the client.
+export function parseWindowStartTime24h(windowText: string | null | undefined): string | null {
+  if (!windowText) return null;
+  const match = windowText.match(/(\d{1,2}):(\d{2})\s*([AP]M)/i);
+  if (!match) return null;
+  let hour = Number(match[1]);
+  const period = match[3].toUpperCase();
+  if (period === "PM" && hour !== 12) hour += 12;
+  if (period === "AM" && hour === 12) hour = 0;
+  return `${String(hour).padStart(2, "0")}:${match[2]}`;
 }
 
 // The one deliberate step that turns a customer's request (requested_date/
@@ -103,12 +118,12 @@ export function AcceptScheduleControl({
   function startAccepting() {
     if (isSubcontractor) {
       // No client-facing portal to ask about — accept straight away.
-      // requested_time is never set for a subcontracted job (only a window
-      // range, in subcontractor_preferred_window) — there's no per-job time
-      // to type in for these (see the accept/deny rendering below, which
-      // replaces the manual date/time form entirely), so confirmed_time
-      // stays null until set by hand later via Edit.
-      finalize(job.requested_date, null, false);
+      // confirmed_time gets the window's own start time (e.g. 1:00 PM out
+      // of "1:00 PM - 4:00 PM") rather than staying blank — JobsDashboard's
+      // Scheduled Time field shows the full range for as long as
+      // confirmed_time still matches that start, and falls back to just
+      // the specific time once it's edited by hand to something else.
+      finalize(job.requested_date, parseWindowStartTime24h(job.subcontractor_preferred_window), false);
     } else {
       setConfirmingVisibility(true);
     }

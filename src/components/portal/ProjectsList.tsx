@@ -240,21 +240,22 @@ export default function ProjectsList() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
-      <div className="mt-6 flex flex-col gap-3">
-        {/* Always its own row, at every width — sharing a row with the
-            button (even just at larger breakpoints) squeezes a long company
-            name like "Boston Harbor Water Restoration's Projects" enough
-            that overflow-x-auto clips it invisibly instead of ever
-            offering a way to see the rest, which read as broken. Full row
-            width + whitespace-nowrap keeps it on one line; overflow-x-auto
-            stays only as a last-resort escape hatch for a name too long
-            even for a full row on a narrow phone screen. */}
-        <h1 className="overflow-x-auto whitespace-nowrap text-xl font-bold uppercase text-brand-700 sm:text-2xl">
+      <div className="mt-6 flex items-center gap-3">
+        {/* Heading and button share one row at every width. min-w-0 is
+            required alongside flex-1 — without it flexbox refuses to
+            shrink the heading below its full text width, which would push
+            the button off-row or wrap it below instead of keeping both on
+            one line. whitespace-nowrap keeps the heading itself from ever
+            wrapping to a second line; overflow-x-auto is the fallback for
+            a company name too long to fit even the space left after the
+            button (e.g. "Boston Harbor Water Restoration's Projects") — it
+            scrolls within its own space rather than ever breaking the row. */}
+        <h1 className="min-w-0 flex-1 overflow-x-auto whitespace-nowrap text-xl font-bold uppercase text-brand-700">
           {customer && !customer.is_individual && customer.company ? `${customer.company}'s Projects` : "My Projects"}
         </h1>
         <Link
           href="/portal/book"
-          className="inline-flex h-10 w-fit items-center bg-emerald-600 px-6 text-lg font-extrabold uppercase leading-none text-white hover:underline sm:h-12"
+          className="inline-flex h-10 shrink-0 items-center bg-emerald-600 px-6 text-lg font-extrabold uppercase leading-none text-white hover:underline sm:h-12"
         >
           Book a project
         </Link>

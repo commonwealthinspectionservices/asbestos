@@ -669,9 +669,20 @@ async function draftReportEmailForJob(params: {
     }
   }
 
+  // Same subject + In-Reply-To/References chain as the earlier automated
+  // "request received"/"confirmed" emails (see lib/email-thread.ts) and the
+  // manual combined-draft path below — this draft is meant to land as the
+  // next reply in that same conversation, not a new email. A job with no
+  // prior automated emails (e.g. admin-entered, or an email-intake job
+  // whose only prior message is the client's own original one) just has an
+  // empty/short chain, so this becomes the next reply in whatever thread
+  // that was — same call either way.
+  const existingThreadIds: string[] = Array.isArray(job.email_thread_message_ids) ? job.email_thread_message_ids : [];
   const draft = await createDraft(accessToken, {
     to: [...new Set(recipients)].join(", "),
-    subject: `Inspection Report - ${job.service_address}`,
+    subject: threadSubject(job.service_address, job.project_number),
+    headers: threadHeaders(existingThreadIds),
+    threadId: job.email_gmail_thread_id ?? undefined,
     bodyText: reportDraftBodyText(job, settings),
     attachments: reportPackets.map(({ domain, buffer }) => ({
       filename: reportPackets.length > 1

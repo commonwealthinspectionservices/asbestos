@@ -15,8 +15,6 @@ import { generateProjectNumber } from "@/lib/project-number";
 import { resolveServiceSelection } from "@/lib/portal-booking";
 import { parseAcmOrderEmail, type ParsedJobIntake } from "@/lib/parse-job-intake";
 import { sendNewBookingRequestEmail } from "@/lib/booking-notify";
-import { threadSubject, threadHeaders } from "@/lib/email-thread";
-import { escapeHtml } from "@/lib/html";
 import {
   getValidAccessToken,
   listMessagesByQuery,
@@ -24,7 +22,6 @@ import {
   getHeader,
   getMessageBodyText,
   markMessageRead,
-  createDraft,
   type GmailMessage,
 } from "@/lib/gmail";
 import type { Settings } from "@/lib/types";
@@ -81,7 +78,12 @@ export async function checkForJobIntakeEmails(): Promise<JobIntakeResult> {
 
         const rfcMessageId = getHeader(message, "Message-ID");
         const job = await createJobFromIntake({ sender, parsed, settings, message, rfcMessageId });
-        await replyAcknowledgingIntake({ accessToken, message, job, rfcMessageId });
+        // No acknowledgment reply here on purpose — per explicit owner
+        // instruction, the only automated thing for this intake channel is
+        // the final report draft (see draftReportEmailForJob's own
+        // threading, lib/lab-email.ts), once lab results actually land.
+        // Everything else in this conversation — including the initial
+        // reply to the client — stays manual, same as it already is today.
         await markMessageRead(accessToken, candidate.id);
         result.created.push({ projectNumber: job.projectNumber, jobId: job.jobId });
       } catch (err) {
@@ -212,39 +214,4 @@ export async function createJobFromIntake(params: {
   }
 
   return { jobId: job.id, projectNumber, serviceLabel: serviceTypeLabel, address: formattedAddress };
-}
-
-// A draft, not an auto-send — replying into a client's own thread on their
-// behalf without a human glancing at it first is a bigger step than the
-// small, deliberately curated set of emails this app already auto-sends
-// (see lib/gmail.ts's SCOPES comment), so this waits in Gmail Drafts like
-// every report/invoice draft already does.
-async function replyAcknowledgingIntake(params: {
-  accessToken: string;
-  message: GmailMessage;
-  job: { jobId: string; projectNumber: string; serviceLabel: string; address: string };
-  rfcMessageId: string | null;
-}): Promise<void> {
-  const { accessToken, message, job, rfcMessageId } = params;
-  const from = getHeader(message, "From") ?? "";
-  const cc = getHeader(message, "Cc") ?? "";
-
-  const emailMatch = from.match(/<([^>]+)>/);
-  const replyTo = emailMatch ? emailMatch[1] : from;
-
-  await createDraft(accessToken, {
-    to: replyTo,
-    cc: cc || undefined,
-    subject: `Re: ${getHeader(message, "Subject") ?? threadSubject(job.address, job.projectNumber)}`,
-    bodyHtml: [
-      `Hi,`,
-      ``,
-      `Got it — this is queued up as ${escapeHtml(job.projectNumber)} (${escapeHtml(job.serviceLabel)}) at ${escapeHtml(job.address)}. We'll follow up to confirm a date and time.`,
-      ``,
-      `Thank you,`,
-    ].join("<br>"),
-    attachments: [],
-    threadId: message.threadId,
-    headers: rfcMessageId ? threadHeaders([rfcMessageId]) : undefined,
-  });
 }

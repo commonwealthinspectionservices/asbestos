@@ -944,6 +944,22 @@ function JobRow({
   // AcceptScheduleControl (below) is the only thing that promotes status.
   const isUnscheduled = job.status === "needs_scheduling";
   const overdueDays = daysOverdue(job);
+  // Subcontracted-job-only: clicking the red X on the requested-window
+  // bubble (see AcceptScheduleControl) drops the bubble and hands control
+  // to the row's own date/time cells instead of opening the full Edit
+  // dialog — filling in both is itself what accepts the job, at exactly
+  // that date/time, with no separate confirm step.
+  const [subManualEntry, setSubManualEntry] = useState(false);
+  const [subManualDate, setSubManualDate] = useState("");
+  const [subManualTime, setSubManualTime] = useState("");
+  function trySubmitSubManual(nextDate: string, nextTime: string) {
+    if (nextDate && nextTime) {
+      onFieldChange({ status: "scheduled", confirmed_date: nextDate, confirmed_time: nextTime, schedule_visible_to_customer: false });
+      setSubManualEntry(false);
+      setSubManualDate("");
+      setSubManualTime("");
+    }
+  }
   return (
     <div
       onClick={onOpen}
@@ -1029,14 +1045,35 @@ function JobRow({
               ) : (
                 <input
                   type="date"
-                  value={isUnscheduled ? "" : job.requested_date ?? ""}
-                  onChange={(e) => onFieldChange({ requested_date: e.target.value || null })}
+                  value={
+                    job.source === "subcontractor" && subManualEntry
+                      ? subManualDate
+                      : isUnscheduled ? "" : job.requested_date ?? ""
+                  }
+                  onChange={(e) => {
+                    if (job.source === "subcontractor" && subManualEntry) {
+                      const v = e.target.value;
+                      setSubManualDate(v);
+                      trySubmitSubManual(v, subManualTime);
+                    } else {
+                      onFieldChange({ requested_date: e.target.value || null });
+                    }
+                  }}
                   className="w-32 rounded-lg border border-slate-300 px-1.5 py-1 text-xs text-slate-600"
                 />
               )}
               <div className="flex shrink-0 items-center gap-2">
                 {isUnscheduled ? (
-                  <AcceptScheduleControl job={job} variant="button" onAccept={onFieldChange} onOpenChat={onOpenChat} onEditManually={onEdit} stopPropagation />
+                  job.source === "subcontractor" && subManualEntry ? null : (
+                    <AcceptScheduleControl
+                      job={job}
+                      variant="button"
+                      onAccept={onFieldChange}
+                      onOpenChat={onOpenChat}
+                      onEditManually={job.source === "subcontractor" ? () => setSubManualEntry(true) : onEdit}
+                      stopPropagation
+                    />
+                  )
                 ) : job.status === "scheduled" && job.confirmed_date && job.source !== "subcontractor" && (
                   <div className="flex flex-col items-end gap-0.5">
                     <label
@@ -1082,8 +1119,20 @@ function JobRow({
                 ) : (
                   <input
                     type="time"
-                    value={isUnscheduled ? "" : job.requested_time ?? ""}
-                    onChange={(e) => onFieldChange({ requested_time: e.target.value || null })}
+                    value={
+                      job.source === "subcontractor" && subManualEntry
+                        ? subManualTime
+                        : isUnscheduled ? "" : job.requested_time ?? ""
+                    }
+                    onChange={(e) => {
+                      if (job.source === "subcontractor" && subManualEntry) {
+                        const v = e.target.value;
+                        setSubManualTime(v);
+                        trySubmitSubManual(subManualDate, v);
+                      } else {
+                        onFieldChange({ requested_time: e.target.value || null });
+                      }
+                    }}
                     className="w-32 rounded-lg border border-slate-300 px-1.5 py-1 text-xs text-slate-600"
                   />
                 )}

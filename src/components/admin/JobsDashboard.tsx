@@ -1576,15 +1576,17 @@ export function ProjectDetailDialog({
           <div className="space-y-2">
             <div className="flex items-start justify-between gap-2">
               <DetailField label="Project #" value={job.project_number} />
-              <button onClick={onEdit} className="shrink-0 rounded-lg border border-slate-300 px-3.5 py-1.5 text-sm font-bold uppercase hover:underline">
-                Edit
-              </button>
+              <div className="flex shrink-0 items-center gap-2">
+                {job.source === "subcontractor" && (
+                  <span className="shrink-0 whitespace-nowrap rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-bold uppercase text-indigo-700">
+                    Subcontracted
+                  </span>
+                )}
+                <button onClick={onEdit} className="shrink-0 rounded-lg border border-slate-300 px-3.5 py-1.5 text-sm font-bold uppercase hover:underline">
+                  Edit
+                </button>
+              </div>
             </div>
-            {job.source === "subcontractor" && (
-              <span className="inline-block w-fit shrink-0 whitespace-nowrap rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-bold uppercase text-indigo-700">
-                Subcontracted
-              </span>
-            )}
             {(job.cancellation_requested_at || job.payment_reversed_at) && (
               <div className="flex flex-wrap gap-1.5">
                 {job.cancellation_requested_at && (

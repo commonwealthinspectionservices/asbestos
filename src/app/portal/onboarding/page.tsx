@@ -22,19 +22,22 @@ export default async function PortalOnboardingPage() {
 
   // A teammate invited via another portal user's own "Teammates" section
   // (POST /api/portal/contacts) has company_id set but never the free-text
-  // company field — that route only ever collects a name and email, unlike
-  // an admin Invite. company_id is what actually governs the link (see
-  // POST /api/portal/profile), so this is purely a display gap: without
-  // resolving it here, OnboardingForm would show a blank Company input for
-  // someone who's already definitely part of a real company.
+  // company field, nor a billing_address — that route only ever collects an
+  // email, unlike an admin Invite. company_id is what actually governs the
+  // link (see POST /api/portal/profile), so this is purely a display gap:
+  // without resolving it here, OnboardingForm would show a blank Company
+  // input, or worse, prompt them to type in a billing address that isn't
+  // theirs to set — see companyBillingAddress below.
   let companyName = session.customer?.company ?? null;
-  if (!companyName && session.customer?.company_id) {
+  let companyBillingAddress: string | null = null;
+  if (session.customer?.company_id) {
     const { data: company } = await getSupabaseAdmin()
       .from("companies")
-      .select("name")
+      .select("name, billing_address")
       .eq("id", session.customer.company_id)
       .maybeSingle();
-    companyName = company?.name ?? null;
+    if (!companyName) companyName = company?.name ?? null;
+    companyBillingAddress = company?.billing_address ?? null;
   }
 
   return (
@@ -43,6 +46,7 @@ export default async function PortalOnboardingPage() {
       email={session.email}
       customer={session.customer}
       companyName={companyName}
+      companyBillingAddress={companyBillingAddress}
     />
   );
 }

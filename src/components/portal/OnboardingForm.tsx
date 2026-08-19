@@ -16,6 +16,7 @@ export default function OnboardingForm({
   email,
   customer,
   companyName,
+  companyBillingAddress,
 }: {
   accountType: "company" | "individual" | null;
   email: string | undefined;
@@ -25,8 +26,8 @@ export default function OnboardingForm({
   // carry the *same* fields though (see each flag below), so this is
   // checked per field, not as one all-or-nothing "has a profile" flag —
   // an admin Invite sets name/phone/company/billing address all at once,
-  // while a Teammates invite (POST /api/portal/contacts) only ever sets a
-  // name and email, leaving phone/company/address genuinely blank. Locking
+  // while a Teammates invite (POST /api/portal/contacts) only ever sets an
+  // email, leaving name/phone/company/address genuinely blank. Locking
   // fields that are actually still empty would strand that person with no
   // way to fill them in and a Continue button that can never enable.
   customer: Customer | null;
@@ -37,6 +38,12 @@ export default function OnboardingForm({
   // whatever company_id an existing row already has, regardless of what's
   // typed here), so this is display-only, never a source of truth to edit.
   companyName: string | null;
+  // Same company_id fallback as companyName, for the same reason — but
+  // unlike name/phone, a company account's billing address is never
+  // something the person being invited fills in here at all, known or not.
+  // It belongs to the company (companies.billing_address is the one place
+  // it's meant to live), not to whoever happens to be joining it.
+  companyBillingAddress: string | null;
 }) {
   // Stub rows from the on_auth_user_created trigger (schema.sql) always
   // have name === email and phone === '' — this is what tells a genuinely
@@ -46,10 +53,17 @@ export default function OnboardingForm({
   const hasKnownName = Boolean(customer && customer.name && customer.name !== customer.email);
   const hasKnownPhone = Boolean(customer?.phone);
   const hasKnownCompany = Boolean(companyName);
-  const hasKnownAddress = Boolean(customer?.billing_address);
+  const isCompanyAccount = accountType !== "individual";
+  // A company account never edits its billing address on this screen — it's
+  // predetermined by the company, not the person joining it. Individuals
+  // have no company to inherit from, so they still enter their own below
+  // when one isn't already on file.
+  const resolvedAddress = customer?.billing_address || (isCompanyAccount ? companyBillingAddress : null);
+  const hasKnownAddress = Boolean(resolvedAddress);
+  const addressIsEditable = !isCompanyAccount && !hasKnownAddress;
 
   const prefilledName = hasKnownName ? splitFullName(customer!.name) : { first: "", last: "" };
-  const prefilledAddress = hasKnownAddress ? parseAddressToFields(customer!.billing_address) : null;
+  const prefilledAddress = hasKnownAddress ? parseAddressToFields(resolvedAddress!) : null;
 
   const router = useRouter();
   const [firstName, setFirstName] = useState(prefilledName.first);
@@ -153,12 +167,13 @@ export default function OnboardingForm({
       <input className="mt-4 w-full rounded-lg border border-slate-300 px-4 py-3 text-base" placeholder="Create a password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
       <input className="mt-4 w-full rounded-lg border border-slate-300 px-4 py-3 text-base" placeholder="Confirm password" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
 
-      {hasKnownAddress ? (
+      {hasKnownAddress && (
         <div className="mt-4 space-y-1 rounded-lg bg-slate-100 px-4 py-3 text-sm text-slate-600">
           <p className="text-xs font-semibold uppercase text-slate-500">Billing address</p>
           <div>{[street, unit].filter(Boolean).join(" ")}{(street || unit) && (city || addrState || zip) ? ", " : ""}{[city, addrState, zip].filter(Boolean).join(" ")}</div>
         </div>
-      ) : (
+      )}
+      {addressIsEditable && (
         <>
           <p className="mt-4 text-sm font-semibold uppercase text-slate-500">Billing address</p>
           <div className="mt-2 flex gap-2">

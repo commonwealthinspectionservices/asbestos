@@ -39,10 +39,9 @@ export const POST = withApiErrors(async (req: NextRequest) => {
   if (auth.error) return auth.error;
 
   const body = await req.json().catch(() => null);
-  const name = body?.name?.trim();
   const email = body?.email?.trim()?.toLowerCase();
-  if (!name || !email) {
-    return NextResponse.json({ error: "Name and email are required" }, { status: 400 });
+  if (!email) {
+    return NextResponse.json({ error: "Email is required" }, { status: 400 });
   }
 
   const supabase = getSupabaseAdmin();
@@ -56,9 +55,14 @@ export const POST = withApiErrors(async (req: NextRequest) => {
     await supabase.from("customers").update({ company_id: companyId }).eq("id", auth.customer.id);
   }
 
+  // name is deliberately just the email here, not collected from whoever's
+  // sending the invite — same sentinel the on_auth_user_created trigger uses
+  // for a brand-new signup (see OnboardingForm's hasKnownName check), so the
+  // invited person fills in their own name/phone once, on the one onboarding
+  // screen, rather than someone else typing it in for them.
   const { data: contact, error } = await supabase
     .from("customers")
-    .insert({ name, email, phone: "", company_id: companyId })
+    .insert({ name: email, email, phone: "", company_id: companyId })
     .select("id, name, email, phone")
     .single();
 

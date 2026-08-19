@@ -36,9 +36,29 @@ const PIPELINE_STATUSES = [
   "cancelled",
 ] as const;
 
+// A subcontracted job (source === "subcontractor") has no report, invoice,
+// or lab relationship of its own — Tim's involvement ends once he's done
+// the site visit and shipped the samples/data off to the company that
+// subcontracted him. "pending_lab_results"/"ready_to_send" would never
+// apply, so they're skipped entirely rather than showing steps that don't
+// mean anything for this job type. "paid" is reused as the terminal
+// "closed out" state (see CLOSED_STATUSES) and relabeled "Done" — see
+// statusLabelForJob — purely a UI label, no separate status value needed.
+const SUBCONTRACTOR_PIPELINE_STATUSES = ["needs_scheduling", "scheduled", "paid", "cancelled"] as const;
+
+function pipelineStatusesForJob(job: JobWithCustomer): readonly string[] {
+  return job.source === "subcontractor" ? SUBCONTRACTOR_PIPELINE_STATUSES : PIPELINE_STATUSES;
+}
+
+function statusLabelForJob(job: JobWithCustomer, status: string): string {
+  if (job.source === "subcontractor" && status === "paid") return "Done";
+  return STATUS_LABEL[status];
+}
+
 // The linear progression shown as a horizontal tracker on a project's detail
 // dialog — "cancelled" is excluded since it's an exception path, not a step.
 const TRACKER_STATUSES = ["needs_scheduling", "scheduled", "pending_lab_results", "ready_to_send", "paid"] as const;
+const SUBCONTRACTOR_TRACKER_STATUSES = ["needs_scheduling", "scheduled", "paid"] as const;
 
 // The tracker's own segment list — same real, clickable job.status steps as
 // TRACKER_STATUSES, with one extra "sent" segment spliced in between
@@ -59,6 +79,15 @@ const TRACKER_SEGMENTS: TrackerSegment[] = [
   { key: "ready_to_send", label: <>Report and<br />Invoice Ready</>, status: "ready_to_send", done: (_job, i) => i >= 3 },
   { key: "sent", label: <>Report and<br />Invoice Sent</>, done: (job, i) => (Boolean(job.invoice_sent_at) && Boolean(job.report_sent_at)) || i >= 4 },
   { key: "paid", label: "Paid", status: "paid", done: (_job, i) => i >= 4 },
+];
+
+// Subcontracted jobs skip straight from Scheduled to Done — see
+// SUBCONTRACTOR_PIPELINE_STATUSES above for why the report/invoice steps
+// don't apply.
+const SUBCONTRACTOR_TRACKER_SEGMENTS: TrackerSegment[] = [
+  { key: "needs_scheduling", label: <>To Be<br />Scheduled</>, status: "needs_scheduling", done: (_job, i) => i >= 0 },
+  { key: "scheduled", label: "Scheduled", status: "scheduled", done: (_job, i) => i >= 1 },
+  { key: "paid", label: "Done", status: "paid", done: (_job, i) => i >= 2 },
 ];
 
 export const STATUS_LABEL: Record<string, string> = {
@@ -898,6 +927,9 @@ function JobRow({
           {job.project_number && (
             <span className="shrink-0 whitespace-nowrap rounded bg-slate-200 px-2 py-0.5 text-sm font-mono font-bold text-slate-800 hover:underline">{job.project_number}</span>
           )}
+          {job.source === "subcontractor" && (
+            <span className="shrink-0 whitespace-nowrap rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-bold uppercase text-indigo-700">Subcontracted</span>
+          )}
           <div className="whitespace-nowrap font-medium text-slate-800">{job.customers?.company || job.customers?.name}</div>
         </div>
 
@@ -909,7 +941,7 @@ function JobRow({
           )}
           {CLOSED_STATUSES.has(job.status) ? (
             <span className="shrink-0 whitespace-nowrap rounded bg-slate-200 px-2 py-0.5 text-sm font-bold text-slate-700">
-              {STATUS_LABEL[job.status]}
+              {statusLabelForJob(job, job.status)}
             </span>
           ) : (
             <select
@@ -918,8 +950,8 @@ function JobRow({
               onClick={(e) => e.stopPropagation()}
               className="shrink-0 whitespace-nowrap rounded border-0 bg-slate-200 px-2 py-0.5 text-sm font-bold text-slate-700"
             >
-              {PIPELINE_STATUSES.map((s) => (
-                <option key={s} value={s}>{STATUS_LABEL[s]}</option>
+              {pipelineStatusesForJob(job).map((s) => (
+                <option key={s} value={s}>{statusLabelForJob(job, s)}</option>
               ))}
             </select>
           )}
@@ -1548,6 +1580,11 @@ export function ProjectDetailDialog({
                 Edit
               </button>
             </div>
+            {job.source === "subcontractor" && (
+              <span className="inline-block w-fit shrink-0 whitespace-nowrap rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-bold uppercase text-indigo-700">
+                Subcontracted
+              </span>
+            )}
             {(job.cancellation_requested_at || job.payment_reversed_at) && (
               <div className="flex flex-wrap gap-1.5">
                 {job.cancellation_requested_at && (
@@ -2154,47 +2191,54 @@ export function ProjectDetailDialog({
         )}
 
         <div className="mt-5 border-t border-slate-100 pt-4">
-          {job.status === "cancelled" ? (
-            <div className="flex h-2.5 items-center rounded-full bg-red-500">
-              <span className="w-full text-center text-xs font-bold text-white">&nbsp;</span>
-            </div>
-          ) : (
-            <div className="flex gap-1">
-              {TRACKER_SEGMENTS.map((seg) => {
-                const currentIndex = TRACKER_STATUSES.indexOf(job.status as (typeof TRACKER_STATUSES)[number]);
-                const done = seg.done(job, currentIndex);
-                return seg.status ? (
-                  <button
-                    key={seg.key}
-                    onClick={() => onStatusChange(seg.status!)}
-                    title={`Set status to ${STATUS_LABEL[seg.status]}`}
-                    className={`h-2.5 flex-1 rounded-full ${done ? "bg-emerald-500" : "bg-slate-200"}`}
-                  />
+          {(() => {
+            const segments = job.source === "subcontractor" ? SUBCONTRACTOR_TRACKER_SEGMENTS : TRACKER_SEGMENTS;
+            const trackerStatuses = job.source === "subcontractor" ? SUBCONTRACTOR_TRACKER_STATUSES : TRACKER_STATUSES;
+            const currentIndex = (trackerStatuses as readonly string[]).indexOf(job.status);
+            return (
+              <>
+                {job.status === "cancelled" ? (
+                  <div className="flex h-2.5 items-center rounded-full bg-red-500">
+                    <span className="w-full text-center text-xs font-bold text-white">&nbsp;</span>
+                  </div>
                 ) : (
-                  <div
-                    key={seg.key}
-                    title="Set automatically once both the report and invoice are sent — there's no manual toggle for this one"
-                    className={`h-2.5 flex-1 rounded-full ${done ? "bg-emerald-500" : "bg-slate-200"}`}
-                  />
-                );
-              })}
-            </div>
-          )}
-          <div className="mt-1.5 flex gap-1">
-            {job.status === "cancelled" ? (
-              <span className="flex-1 text-center text-sm font-bold text-red-600">Cancelled</span>
-            ) : (
-              TRACKER_SEGMENTS.map((seg) => {
-                const currentIndex = TRACKER_STATUSES.indexOf(job.status as (typeof TRACKER_STATUSES)[number]);
-                const done = seg.done(job, currentIndex);
-                return (
-                  <span key={seg.key} className={`flex-1 text-center text-sm font-bold ${done ? "text-emerald-700" : "text-slate-400"}`}>
-                    {seg.label}
-                  </span>
-                );
-              })
-            )}
-          </div>
+                  <div className="flex gap-1">
+                    {segments.map((seg) => {
+                      const done = seg.done(job, currentIndex);
+                      return seg.status ? (
+                        <button
+                          key={seg.key}
+                          onClick={() => onStatusChange(seg.status!)}
+                          title={`Set status to ${statusLabelForJob(job, seg.status)}`}
+                          className={`h-2.5 flex-1 rounded-full ${done ? "bg-emerald-500" : "bg-slate-200"}`}
+                        />
+                      ) : (
+                        <div
+                          key={seg.key}
+                          title="Set automatically once both the report and invoice are sent — there's no manual toggle for this one"
+                          className={`h-2.5 flex-1 rounded-full ${done ? "bg-emerald-500" : "bg-slate-200"}`}
+                        />
+                      );
+                    })}
+                  </div>
+                )}
+                <div className="mt-1.5 flex gap-1">
+                  {job.status === "cancelled" ? (
+                    <span className="flex-1 text-center text-sm font-bold text-red-600">Cancelled</span>
+                  ) : (
+                    segments.map((seg) => {
+                      const done = seg.done(job, currentIndex);
+                      return (
+                        <span key={seg.key} className={`flex-1 text-center text-sm font-bold ${done ? "text-emerald-700" : "text-slate-400"}`}>
+                          {seg.label}
+                        </span>
+                      );
+                    })
+                  )}
+                </div>
+              </>
+            );
+          })()}
         </div>
       </div>
     </div>
@@ -3659,8 +3703,8 @@ export function EditProjectDialog({
             value={status}
             onChange={(e) => setStatus(e.target.value)}
           >
-            {PIPELINE_STATUSES.map((s) => (
-              <option key={s} value={s}>{STATUS_LABEL[s]}</option>
+            {pipelineStatusesForJob(job).map((s) => (
+              <option key={s} value={s}>{statusLabelForJob(job, s)}</option>
             ))}
           </select>
           <span className="pointer-events-none absolute inset-y-0 right-0 flex w-9 items-center justify-center rounded-r-lg bg-slate-200 text-slate-500">▾</span>

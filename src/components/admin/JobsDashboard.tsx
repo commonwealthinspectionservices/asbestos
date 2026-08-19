@@ -1066,12 +1066,13 @@ function JobRow({
   );
 }
 
-function DetailField({ label, value, nowrap }: { label: string; value: React.ReactNode; nowrap?: boolean }) {
+function DetailField({ label, value, nowrap, trailing }: { label: string; value: React.ReactNode; nowrap?: boolean; trailing?: React.ReactNode }) {
   if (value == null || value === "" || (typeof value === "string" && !value.trim())) return null;
   return (
-    <div className="flex gap-2 text-sm">
+    <div className="flex items-center gap-2 text-sm">
       <span className="w-32 shrink-0 whitespace-nowrap uppercase font-bold text-black">{label}</span>
       <span className={`text-black ${nowrap ? "whitespace-nowrap" : ""}`}>{value}</span>
+      {trailing}
     </div>
   );
 }
@@ -1675,7 +1676,14 @@ export function ProjectDetailDialog({
               }
             />
             <DetailField label="Time" value={formatTime(job.confirmed_time) || "--:--"} />
-            <DetailField label="Preferred window" value={job.subcontractor_preferred_window} nowrap />
+            <DetailField
+              label="Preferred window"
+              value={job.subcontractor_preferred_window}
+              nowrap
+              trailing={job.status === "needs_scheduling" && (
+                <AcceptScheduleControl job={job} variant="inline" onAccept={acceptSchedule} onEditManually={onEdit} />
+              )}
+            />
             {job.confirmation_sent_at && (
               <div className="flex gap-2 text-xs text-slate-400">
                 <span className="w-32 shrink-0 uppercase font-bold">Confirmation Sent</span>
@@ -1688,7 +1696,7 @@ export function ProjectDetailDialog({
                 <span>{formatDateTime(job.reminder_sent_at)}</span>
               </div>
             )}
-            {job.status === "needs_scheduling" && (
+            {job.status === "needs_scheduling" && job.source !== "subcontractor" && (
               <AcceptScheduleControl job={job} variant="panel" onAccept={acceptSchedule} onEditManually={onEdit} />
             )}
             <DetailField label="Service type" value={serviceTypeLabel(job.service_type)} nowrap />

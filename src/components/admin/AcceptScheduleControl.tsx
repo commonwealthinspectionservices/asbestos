@@ -73,7 +73,8 @@ export function AcceptScheduleControl({
   onAccept: (patch: Record<string, unknown>) => void | Promise<void>;
   onOpenChat?: () => void;
   onEditManually?: () => void;
-  variant: "button" | "panel";
+  /** "inline" is a subcontractor-only ✓/✗ pair with no bubble/card — meant to sit directly next to a "Preferred window" field that already shows the date/time, rather than repeating it. */
+  variant: "button" | "panel" | "inline";
   stopPropagation?: boolean;
 }) {
   const [date, setDate] = useState(job.requested_date ?? "");
@@ -177,43 +178,34 @@ export function AcceptScheduleControl({
     );
   }
 
-  if (isSubcontractor) {
-    // No per-job time to type in here — a subcontracted job only ever
-    // carries a window range (subcontractor_preferred_window), not a real
-    // appointment time, so this is a straight accept/deny of that window
-    // rather than the manual date/time form below (which exists for real
-    // customer requests, where picking a different exact time is normal).
-    const timeRange = extractTimeRange(job.subcontractor_preferred_window);
-    const windowSuffix = timeRange ? ` (${timeRange})` : "";
+  if (variant === "inline") {
+    // A subcontracted job only ever carries a window range
+    // (subcontractor_preferred_window), never a real appointment time, so
+    // this is just accept/deny of that window — no bubble repeating the
+    // date/time, since it's meant to sit right next to the "Preferred
+    // window" field that already shows it.
     return (
-      <div
-        onClick={(e) => stopPropagation && e.stopPropagation()}
-        className="rounded-lg border border-slate-200 bg-slate-50 p-3"
-      >
-        <p className="text-xs font-bold uppercase text-slate-500">Accept or Deny Requested Window</p>
-        <p className="mt-1 text-xs text-slate-500">
-          {job.requested_date
-            ? `Requested for ${formatFullDate(job.requested_date)}${windowSuffix}`
-            : "No requested time"}
-        </p>
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            disabled={!job.requested_date || submitting}
-            onClick={startAccepting}
-            className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-bold text-white disabled:opacity-50"
-          >
-            {submitting ? "…" : "Accept"}
-          </button>
-          <button
-            type="button"
-            onClick={() => onEditManually?.()}
-            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-bold text-slate-600"
-          >
-            Deny — Set a Different Time
-          </button>
-        </div>
-      </div>
+      <span onClick={(e) => stopPropagation && e.stopPropagation()} className="inline-flex shrink-0 items-center gap-1.5">
+        <button
+          type="button"
+          title="Accept this window"
+          aria-label="Accept this window"
+          disabled={!job.requested_date || submitting}
+          onClick={startAccepting}
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-sm font-bold leading-none text-white disabled:opacity-50"
+        >
+          ✓
+        </button>
+        <button
+          type="button"
+          title="Deny — set a different date/time by hand"
+          aria-label="Deny — set a different date/time by hand"
+          onClick={() => onEditManually?.()}
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-red-600 text-sm font-bold leading-none text-white"
+        >
+          ✕
+        </button>
+      </span>
     );
   }
 

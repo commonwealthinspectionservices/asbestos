@@ -421,9 +421,22 @@ function AddContactForm({
         />
 
         {selected ? (
-          <p className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">
-            Linking existing contact <span className="font-medium text-slate-800">{selected.name}</span> ({selected.email}) to this company.
-          </p>
+          <>
+            <p className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">
+              Linking existing contact <span className="font-medium text-slate-800">{selected.name}</span> ({selected.email}) to this company.
+            </p>
+            {selected.is_individual && selected.auth_user_id && (
+              // Linking sets is_individual: false unconditionally (see
+              // submit() below) — for someone who's already a standalone
+              // individual with their own working portal login, that's a
+              // real identity change (they'd see this company's projects
+              // instead of their own going forward), not just adding a
+              // directory entry. Worth surfacing before it happens silently.
+              <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                {selected.name} already has their own portal login as an individual. Linking them here converts their account to a company contact under {selected.company || "this company"}.
+              </p>
+            )}
+          </>
         ) : (
           <div className="mt-3 flex gap-2">
             <div className="flex-1">

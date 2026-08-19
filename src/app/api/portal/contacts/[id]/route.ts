@@ -6,7 +6,7 @@ import { withApiErrors } from "@/lib/api-handler";
 async function ownedContact(companyId: string | null, contactId: string) {
   if (!companyId) return null;
   const supabase = getSupabaseAdmin();
-  const { data } = await supabase.from("customers").select("id, company_id").eq("id", contactId).maybeSingle();
+  const { data } = await supabase.from("customers").select("id, company_id, auth_user_id").eq("id", contactId).maybeSingle();
   if (!data || data.company_id !== companyId) return null;
   return data;
 }
@@ -108,5 +108,19 @@ export const DELETE = withApiErrors(async (
 
   const { error } = await supabase.from("customers").delete().eq("id", params.id);
   if (error) throw new Error(error.message);
+
+  // Without this, removing an invited-but-never-onboarded (or fully
+  // onboarded) teammate leaves an orphaned Supabase auth account behind —
+  // generateLink creates it the instant an invite is sent (see
+  // on_auth_user_created in schema.sql), not when they actually finish
+  // onboarding. Left behind, re-inviting this same email later fails with
+  // "already registered" and there's no contact left to recover it from.
+  // Best-effort: the contact is already gone either way.
+  if (owned.auth_user_id) {
+    await supabase.auth.admin.deleteUser(owned.auth_user_id).catch((e) => {
+      console.error(`DELETE /api/portal/contacts/${params.id}: failed to delete auth user:`, e);
+    });
+  }
+
   return NextResponse.json({ ok: true });
 });

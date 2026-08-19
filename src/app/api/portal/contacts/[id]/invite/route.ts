@@ -65,7 +65,10 @@ export const POST = withApiErrors(async (
 
   const inviteLink = data.properties.action_link;
   const settings = await getSettings();
-  const firstName = contact.name?.split(" ")[0] || "there";
+  // A contact added with just an email (POST /api/portal/contacts) has
+  // name === email as a sentinel for "not actually known yet" — using it
+  // here would greet them with their own email address instead of a name.
+  const firstName = contact.name && contact.name !== contact.email ? contact.name.split(" ")[0] : "there";
   const inviterName = auth.customer.name || "A teammate";
   const companyName = auth.customer.company || "your company";
 

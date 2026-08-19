@@ -8,6 +8,7 @@ interface Contact {
   email: string;
   phone: string | null;
   hasLogin: boolean;
+  invited: boolean;
 }
 
 // Company-account-only section on My Account (see AccountForm.tsx) — lets
@@ -151,8 +152,15 @@ export default function TeammatesSection() {
                   </button>
                 )}
                 {c.id !== selfId && !c.hasLogin && (
-                  invitedId === c.id ? (
-                    <span className="text-xs font-medium text-emerald-700">Invite sent</span>
+                  invitedId === c.id || c.invited ? (
+                    // c.invited is the persisted signal (Supabase creates
+                    // their auth account the instant the invite is sent,
+                    // before they've opened the email or set a password —
+                    // see /api/portal/contacts) — without checking it too,
+                    // reloading this page after a session ends would show
+                    // the Invite button again and a second click would just
+                    // fail with "already has a portal login."
+                    <span className="text-xs font-medium text-emerald-700">Invited</span>
                   ) : (
                     <button
                       onClick={() => invite(c.id)}

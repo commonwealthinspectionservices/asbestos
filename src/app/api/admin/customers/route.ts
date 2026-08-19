@@ -74,6 +74,29 @@ export const POST = withApiErrors(async (req: NextRequest) => {
     company = await upsertCompany(companyName, { billingAddress });
   }
 
+  // This upserts on the email unique constraint below, which is fine when
+  // it's the same person being re-added to the same company (idempotent),
+  // but an admin typing a new name whose email happens to already belong
+  // to someone else entirely — a standalone individual, or a contact at a
+  // different company — would otherwise silently overwrite that person's
+  // name/company/billing_address instead of creating anyone new. Block
+  // that specific case and point at the "search existing contacts" picker
+  // instead, which links by id rather than guessing from typed text.
+  const resolvedCompanyId = company?.id ?? null;
+  const { data: existingByEmail } = await supabase
+    .from("customers")
+    .select("id, name, company, company_id")
+    .eq("email", email)
+    .maybeSingle();
+  if (existingByEmail && existingByEmail.company_id !== resolvedCompanyId) {
+    return NextResponse.json(
+      {
+        error: `${email} already belongs to an existing contact (${existingByEmail.name}${existingByEmail.company ? ` at ${existingByEmail.company}` : ""}). Search for them by name instead of typing a new one.`,
+      },
+      { status: 409 }
+    );
+  }
+
   const { data, error } = await supabase
     .from("customers")
     .upsert(

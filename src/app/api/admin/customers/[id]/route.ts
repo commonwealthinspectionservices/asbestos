@@ -157,9 +157,33 @@ export const DELETE = withApiErrors(async (
     );
   }
 
+  // Fetched before the delete so there's still something to look up —
+  // needed to clean up the matching Supabase auth account below, since
+  // customers.auth_user_id is the only place that link is recorded.
+  const { data: customerBeforeDelete } = await supabase
+    .from("customers")
+    .select("auth_user_id")
+    .eq("id", params.id)
+    .maybeSingle();
+
   const { error } = await supabase.from("customers").delete().eq("id", params.id);
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  // Without this, deleting an invited-but-never-onboarded (or fully
+  // onboarded) contact leaves an orphaned Supabase auth account behind —
+  // generateLink creates it the instant an invite is sent (see
+  // on_auth_user_created in schema.sql), not when they actually complete
+  // onboarding, so this is a real account, not a stub. Left behind, a
+  // future invite to this same email fails with "already registered" and
+  // there's no longer any contact left to Merge from to recover it.
+  // Best-effort: the contact is already gone either way at this point.
+  if (customerBeforeDelete?.auth_user_id) {
+    await supabase.auth.admin.deleteUser(customerBeforeDelete.auth_user_id).catch((e) => {
+      console.error(`DELETE /api/admin/customers/${params.id}: failed to delete auth user:`, e);
+    });
+  }
+
   return NextResponse.json({ ok: true });
 });

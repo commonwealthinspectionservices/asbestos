@@ -21,14 +21,25 @@ export const GET = withApiErrors(async () => {
   const [{ data: contacts }, { data: company }] = await Promise.all([
     supabase
       .from("customers")
-      .select("id, name, email, phone, auth_user_id")
+      .select("id, name, email, phone, auth_user_id, onboarding_completed_at")
       .eq("company_id", auth.customer.company_id)
       .order("created_at", { ascending: true }),
     supabase.from("companies").select("billing_contact_id").eq("id", auth.customer.company_id).single(),
   ]);
 
   return NextResponse.json({
-    contacts: (contacts ?? []).map(({ auth_user_id, ...rest }) => ({ ...rest, hasLogin: Boolean(auth_user_id) })),
+    // Supabase creates the auth account (and sets auth_user_id, via the
+    // on_auth_user_created trigger) the instant an invite is generated —
+    // well before the person actually opens the email and sets a password.
+    // hasLogin only means "actually finished," so the Invite button doesn't
+    // permanently vanish for someone who was invited but never followed
+    // through; `invited` distinguishes that pending state from "never
+    // invited at all" so it's not confused with either extreme.
+    contacts: (contacts ?? []).map(({ auth_user_id, onboarding_completed_at, ...rest }) => ({
+      ...rest,
+      hasLogin: Boolean(auth_user_id) && Boolean(onboarding_completed_at),
+      invited: Boolean(auth_user_id) && !onboarding_completed_at,
+    })),
     billingContactId: company?.billing_contact_id ?? null,
     selfId: auth.customer.id,
   });

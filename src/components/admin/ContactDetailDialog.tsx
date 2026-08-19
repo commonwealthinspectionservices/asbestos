@@ -421,10 +421,24 @@ export function ContactDetailDialog({
               )}
             </div>
 
-            {customer.auth_user_id ? (
+            {customer.auth_user_id && customer.onboarding_completed_at ? (
               <div className="mt-4 border-t border-slate-100 pt-4 text-sm uppercase text-emerald-700">
                 <span>Portal login </span>
                 <span>Connected</span>
+              </div>
+            ) : customer.auth_user_id ? (
+              // The invite link/auth account exists (Supabase creates it the
+              // instant generateLink runs, not when they actually click it —
+              // see the on_auth_user_created trigger in schema.sql), but
+              // onboarding_completed_at only gets set once they finish
+              // setting a password and submitting their profile. Without
+              // this distinct state, "Connected" would show — and the
+              // "Draft invite link" / "Invite" button would permanently
+              // disappear — the moment an invite is sent, even if they
+              // never open the email.
+              <div className="mt-4 border-t border-slate-100 pt-4">
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Portal login</h4>
+                <p className="mt-1 text-sm text-slate-500">Invited — hasn&apos;t finished setting up their login yet.</p>
               </div>
             ) : hasUnlinkedAuthAccount ? (
               <div className="mt-4 border-t border-slate-100 pt-4">

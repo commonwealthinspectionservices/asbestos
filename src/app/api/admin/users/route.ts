@@ -20,7 +20,7 @@ export const GET = withApiErrors(async (req: NextRequest) => {
 
   const { data: customers, error: customersError } = await supabase
     .from("customers")
-    .select("id, auth_user_id, name, company");
+    .select("id, auth_user_id, name, company, onboarding_completed_at");
   if (customersError) {
     return NextResponse.json({ error: customersError.message }, { status: 500 });
   }
@@ -39,7 +39,12 @@ export const GET = withApiErrors(async (req: NextRequest) => {
         lastSignInAt: u.last_sign_in_at ?? null,
         emailConfirmed: !!u.email_confirmed_at,
         accountType: (u.user_metadata?.account_type as string | undefined) ?? null,
-        onboardingComplete: !!customer,
+        // The on_auth_user_created trigger creates a customers row the
+        // instant this auth account exists — including the moment an
+        // admin/teammate invite is generated, well before the person ever
+        // opens the email. A customers row existing is proof of an invite
+        // or signup attempt, not proof they actually finished onboarding.
+        onboardingComplete: Boolean(customer?.onboarding_completed_at),
         customerId: customer?.id ?? null,
         name: customer?.name ?? null,
         company: customer?.company ?? null,

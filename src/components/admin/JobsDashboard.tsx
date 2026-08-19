@@ -1665,25 +1665,35 @@ export function ProjectDetailDialog({
               ) : null}
               nowrap
             />
-            <DetailField
-              label="Date of Sampling"
-              value={
-                job.confirmed_date
-                  ? formatDate(job.confirmed_date)
-                  : job.requested_date
-                  ? `${formatDate(job.requested_date)} (requested — not yet accepted)`
-                  : "Unscheduled"
-              }
-            />
-            <DetailField label="Time" value={formatTime(job.confirmed_time) || "--:--"} />
-            <DetailField
-              label="Preferred window"
-              value={job.subcontractor_preferred_window}
-              nowrap
-              trailing={job.status === "needs_scheduling" && (
-                <AcceptScheduleControl job={job} variant="inline" onAccept={acceptSchedule} onEditManually={onEdit} />
-              )}
-            />
+            {job.source === "subcontractor" ? (
+              job.status === "needs_scheduling" ? (
+                <DetailField
+                  label="Preferred window"
+                  value={job.subcontractor_preferred_window}
+                  nowrap
+                  trailing={<AcceptScheduleControl job={job} variant="inline" onAccept={acceptSchedule} onEditManually={onEdit} />}
+                />
+              ) : (
+                <>
+                  <DetailField label="Scheduled date" value={formatDate(job.confirmed_date)} />
+                  <DetailField label="Scheduled time" value={formatTime(job.confirmed_time) || "Not set yet"} />
+                </>
+              )
+            ) : (
+              <>
+                <DetailField
+                  label="Date of Sampling"
+                  value={
+                    job.confirmed_date
+                      ? formatDate(job.confirmed_date)
+                      : job.requested_date
+                      ? `${formatDate(job.requested_date)} (requested — not yet accepted)`
+                      : "Unscheduled"
+                  }
+                />
+                <DetailField label="Time" value={formatTime(job.confirmed_time) || "--:--"} />
+              </>
+            )}
             {job.confirmation_sent_at && (
               <div className="flex gap-2 text-xs text-slate-400">
                 <span className="w-32 shrink-0 uppercase font-bold">Confirmation Sent</span>

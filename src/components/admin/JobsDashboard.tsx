@@ -1011,12 +1011,22 @@ function JobRow({
             </div>
           ) : (
             <div className="flex shrink-0 flex-col items-end gap-1.5" onClick={(e) => e.stopPropagation()}>
-              <input
-                type="date"
-                value={isUnscheduled ? "" : job.requested_date ?? ""}
-                onChange={(e) => onFieldChange({ requested_date: e.target.value || null })}
-                className="w-32 rounded-lg border border-slate-300 px-1.5 py-1 text-xs text-slate-600"
-              />
+              {job.source === "subcontractor" && !isUnscheduled ? (
+                // Same reasoning as the time slot below — this normally
+                // edits requested_date, but once a subcontracted job is
+                // accepted there's nothing left to "request"; show the
+                // confirmed date as plain text instead of an editable cell.
+                <span className="w-32 shrink-0 whitespace-nowrap px-1.5 py-1 text-right text-xs text-slate-600">
+                  {formatDate(job.confirmed_date ?? job.requested_date)}
+                </span>
+              ) : (
+                <input
+                  type="date"
+                  value={isUnscheduled ? "" : job.requested_date ?? ""}
+                  onChange={(e) => onFieldChange({ requested_date: e.target.value || null })}
+                  className="w-32 rounded-lg border border-slate-300 px-1.5 py-1 text-xs text-slate-600"
+                />
+              )}
               <div className="flex shrink-0 items-center gap-2">
                 {isUnscheduled ? (
                   <AcceptScheduleControl job={job} variant="button" onAccept={onFieldChange} onOpenChat={onOpenChat} onEditManually={onEdit} stopPropagation />

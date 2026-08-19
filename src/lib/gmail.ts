@@ -158,6 +158,7 @@ export interface GmailMessage {
   id: string;
   threadId: string;
   payload?: GmailMessagePart;
+  internalDate?: string;
 }
 
 // Headers (Subject, From, etc.) live on the top-level payload node, same

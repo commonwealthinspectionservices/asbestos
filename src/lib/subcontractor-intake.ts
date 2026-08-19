@@ -70,9 +70,17 @@ export async function checkForSubcontractorAssignments(): Promise<SubcontractorI
     const query = `is:unread from:${sender.domain} newer_than:14d`;
     const candidates = await listMessagesByQuery(accessToken, query);
 
-    for (const candidate of candidates) {
+    // listMessagesByQuery has no explicit sort and Gmail's default order is
+    // newest-first, so within one run a later "Rescheduled" email could
+    // otherwise be processed before the earlier "New Assignment" email it
+    // depends on, making applyReschedule() find no job yet and fire a false
+    // "no matching job" alert. Fetch everything up front and process oldest
+    // first so a reschedule always sees its assignment already created.
+    const messages = await Promise.all(candidates.map((c) => getMessage(accessToken, c.id)));
+    messages.sort((a, b) => Number(a.internalDate ?? 0) - Number(b.internalDate ?? 0));
+
+    for (const message of messages) {
       result.checked++;
-      const message = await getMessage(accessToken, candidate.id);
       const from = getHeader(message, "From") ?? "";
       const subject = getHeader(message, "Subject") ?? "(no subject)";
       if (!from.toLowerCase().includes(sender.domain)) {
@@ -87,7 +95,7 @@ export async function checkForSubcontractorAssignments(): Promise<SubcontractorI
           const parsed = parseRescheduledEmail(html);
           if (!parsed) {
             await alertOwnerOfIssue({ sender, subject, reason: "Didn't match the expected reschedule format.", bodyExcerpt: html });
-            await markMessageRead(accessToken, candidate.id);
+            await markMessageRead(accessToken, message.id);
             result.unmatched++;
             continue;
           }
@@ -101,7 +109,7 @@ export async function checkForSubcontractorAssignments(): Promise<SubcontractorI
           } else {
             result.updated.push(job);
           }
-          await markMessageRead(accessToken, candidate.id);
+          await markMessageRead(accessToken, message.id);
           continue;
         }
 
@@ -116,23 +124,23 @@ export async function checkForSubcontractorAssignments(): Promise<SubcontractorI
         const parsed = parseNewAssignmentEmail(html);
         if (!parsed) {
           await alertOwnerOfIssue({ sender, subject, reason: "Didn't match the expected new-assignment format.", bodyExcerpt: html });
-          await markMessageRead(accessToken, candidate.id);
+          await markMessageRead(accessToken, message.id);
           result.unmatched++;
           continue;
         }
 
         const job = await createSubcontractorJob({ sender, parsed });
-        await markMessageRead(accessToken, candidate.id);
+        await markMessageRead(accessToken, message.id);
         if (job) result.created.push(job);
         else result.unmatched++; // duplicate — see createSubcontractorJob's own comment
       } catch (err) {
-        console.error(`checkForSubcontractorAssignments: failed to process message ${candidate.id}:`, err);
+        console.error(`checkForSubcontractorAssignments: failed to process message ${message.id}:`, err);
         await alertOwnerOfIssue({
           sender, subject,
           reason: err instanceof Error ? err.message : "Unknown error.",
           bodyExcerpt: html,
         });
-        await markMessageRead(accessToken, candidate.id);
+        await markMessageRead(accessToken, message.id);
         result.unmatched++;
       }
     }

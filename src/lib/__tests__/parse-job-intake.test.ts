@@ -38,6 +38,7 @@ describe("parseAcmOrderEmail", () => {
       homeownerName: "Peter Linski",
       streetAddress: "22 Sunnyplain Ave",
       town: "Weymouth",
+      stateHint: null,
       homeownerPhone: "781-974-6204",
       companyContactName: "Jack Cook",
       companyContactPhone: "781-985-7432",
@@ -46,12 +47,26 @@ describe("parseAcmOrderEmail", () => {
     });
   });
 
-  it("strips a trailing state abbreviation off the town and joins a multi-paragraph scope", () => {
+  it("captures a trailing state abbreviation off the town (not silently discarded) and joins a multi-paragraph scope", () => {
     const result = parseAcmOrderEmail(ALLIE_DUFFY);
     expect(result?.town).toBe("Somerville");
+    expect(result?.stateHint).toBe("MA");
     expect(result?.scopeOfWork).toBe(
       "Entrance flooring, drywall on vent and window wall Flooring and affected drywall in office and Pilates area"
     );
+  });
+
+  it("captures a non-MA state hint instead of assuming Massachusetts", () => {
+    const nhOrder = PETER_LINSKI.replace("Weymouth", "Nashua, NH");
+    const result = parseAcmOrderEmail(nhOrder);
+    expect(result?.town).toBe("Nashua");
+    expect(result?.stateHint).toBe("NH");
+  });
+
+  it("returns null when the name and street-address lines are swapped", () => {
+    // A real street address always has a house number; a name never does.
+    const swapped = "22 Sunnyplain Ave\nPeter Linski\nWeymouth\n781-974-6204\nJack Cook\n781-985-7432\n2026-08-18\nDining room ceiling";
+    expect(parseAcmOrderEmail(swapped)).toBeNull();
   });
 
   it("still parses when the first line has a greeting glued onto the homeowner's name", () => {

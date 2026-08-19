@@ -10,11 +10,13 @@
 // emails.
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { getSettings } from "@/lib/settings";
-import { geocodeAddress, GeocodeError } from "@/lib/geocode";
+import { geocodeAddress, GeocodeError, isWithinServiceStates } from "@/lib/geocode";
 import { generateProjectNumber } from "@/lib/project-number";
 import { resolveServiceSelection } from "@/lib/portal-booking";
 import { parseAcmOrderEmail, type ParsedJobIntake } from "@/lib/parse-job-intake";
 import { sendNewBookingRequestEmail } from "@/lib/booking-notify";
+import { sendEmail, emailShell } from "@/lib/email";
+import { escapeHtml } from "@/lib/html";
 import {
   getValidAccessToken,
   listMessagesByQuery,
@@ -45,6 +47,40 @@ export interface JobIntakeResult {
   unmatched: number;
 }
 
+// A candidate email that matched the sender/subject search but couldn't
+// become a job — a parse failure, a state-license mismatch, a likely
+// duplicate, a missing company/contact, etc. Previously these just
+// incremented `unmatched` and left the email sitting unread with no other
+// signal; the ONLY way the owner would ever learn an order was missed was
+// noticing old unread mail by hand. Now every one of these sends a real,
+// immediate alert instead — see alertOwnerOfIntakeIssue below.
+async function alertOwnerOfIntakeIssue(params: {
+  sender: JobIntakeSender;
+  from: string;
+  subject: string;
+  reason: string;
+  bodyExcerpt: string;
+}): Promise<void> {
+  try {
+    await sendEmail({
+      to: process.env.OWNER_EMAIL!,
+      subject: `Action needed: couldn't auto-create a job from ${params.sender.companyName}'s email`,
+      html: emailShell(`
+        <p style="font-size:15px;">An email from <strong>${escapeHtml(params.from)}</strong> matched ${escapeHtml(params.sender.companyName)}'s job-intake pattern but couldn't be turned into a job automatically.</p>
+        <p><strong>Subject:</strong> ${escapeHtml(params.subject)}</p>
+        <p><strong>Reason:</strong> ${escapeHtml(params.reason)}</p>
+        <p>Check your inbox and enter this job manually if it's real — it's been marked read so this alert won't repeat for the same email.</p>
+        <p style="margin-top:16px; white-space:pre-wrap; font-size:13px; color:#555; border-top:1px solid #e2e8f0; padding-top:12px;">${escapeHtml(params.bodyExcerpt.slice(0, 1000))}</p>
+      `),
+    });
+  } catch (err) {
+    // Best-effort in the sense that a failed alert shouldn't crash the
+    // whole cron run — but this is the last line of defense against a
+    // silently missed order, so it's still logged loudly.
+    console.error("alertOwnerOfIntakeIssue: failed to send alert email:", err);
+  }
+}
+
 export async function checkForJobIntakeEmails(): Promise<JobIntakeResult> {
   const accessToken = await getValidAccessToken();
   if (!accessToken) throw new Error("Gmail is not connected");
@@ -58,20 +94,29 @@ export async function checkForJobIntakeEmails(): Promise<JobIntakeResult> {
 
     for (const candidate of candidates) {
       result.checked++;
-      try {
-        const message = await getMessage(accessToken, candidate.id);
-        const from = getHeader(message, "From") ?? "";
-        if (!from.toLowerCase().includes(sender.domain)) {
-          result.unmatched++;
-          continue;
-        }
+      const message = await getMessage(accessToken, candidate.id);
+      const from = getHeader(message, "From") ?? "";
+      const subject = getHeader(message, "Subject") ?? "(no subject)";
+      const bodyText = getMessageBodyText(message);
 
-        const bodyText = getMessageBodyText(message);
+      if (!from.toLowerCase().includes(sender.domain)) {
+        // Only reachable if Gmail's own search returned something outside
+        // the `from:` filter it was given — not a real client order, so no
+        // owner alert (would just be noise), but still left unread since
+        // it's genuinely not this pipeline's to touch.
+        result.unmatched++;
+        continue;
+      }
+
+      try {
         const parsed = parseAcmOrderEmail(bodyText);
         if (!parsed) {
-          // Off-template — left unread on purpose, same as an unmatched lab
-          // email, so it stays visible in the inbox for manual handling
-          // instead of silently vanishing into "checked, found nothing."
+          await alertOwnerOfIntakeIssue({
+            sender, from, subject,
+            reason: "Didn't match the expected order template (name/address/phone/date/scope lines) — could be off-format, a reply, or a forward.",
+            bodyExcerpt: bodyText,
+          });
+          await markMessageRead(accessToken, candidate.id);
           result.unmatched++;
           continue;
         }
@@ -88,6 +133,12 @@ export async function checkForJobIntakeEmails(): Promise<JobIntakeResult> {
         result.created.push({ projectNumber: job.projectNumber, jobId: job.jobId });
       } catch (err) {
         console.error(`checkForJobIntakeEmails: failed to process message ${candidate.id}:`, err);
+        await alertOwnerOfIntakeIssue({
+          sender, from, subject,
+          reason: err instanceof Error ? err.message : "Unknown error while creating the job.",
+          bodyExcerpt: bodyText,
+        });
+        await markMessageRead(accessToken, candidate.id);
         result.unmatched++;
       }
     }
@@ -111,7 +162,7 @@ export async function createJobFromIntake(params: {
 
   const { data: company } = await supabase
     .from("companies")
-    .select("id")
+    .select("id, billing_contact_id")
     .ilike("name", sender.companyName)
     .maybeSingle();
   if (!company) {
@@ -121,24 +172,41 @@ export async function createJobFromIntake(params: {
   const { data: contacts } = await supabase
     .from("customers")
     .select("id, email")
-    .eq("company_id", company.id);
+    .eq("company_id", company.id)
+    .order("created_at", { ascending: true });
   if (!contacts || contacts.length === 0) {
     throw new Error(`Company "${sender.companyName}" has no contact on file to bill this job to`);
   }
-  const customer = contacts[0];
+  // The company's designated billing contact (see companies.billing_contact_id
+  // — the same mechanism lab-email.ts already resolves for invoices) if one's
+  // set, else whichever contact has been on file longest — an explicit,
+  // deterministic fallback rather than "whichever row Postgres returns
+  // first," which has no ordering guarantee at all.
+  const customer = contacts.find((c) => c.id === company.billing_contact_id) ?? contacts[0];
+
+  // An explicit out-of-state town (the town line carried a state code that
+  // isn't MA) is rejected before even attempting to geocode — cheaper, and
+  // catches the mistake regardless of whether Google can resolve the address.
+  if (parsed.stateHint && !isWithinServiceStates(parsed.stateHint, settings.service_states)) {
+    throw new Error(
+      `Job site is in ${parsed.stateHint}, outside the licensed service area (${settings.service_states.join(", ")}).`
+    );
+  }
 
   // Geocoded first so resolveServiceSelection's own pricing-zone lookup
   // (matched by town name, see its own comment) sees the full address, not
   // just the bare street — a street-only string can't match a zone at all.
-  const fullAddress = `${parsed.streetAddress}, ${parsed.town}, MA`;
+  const fullAddress = `${parsed.streetAddress}, ${parsed.town}, ${parsed.stateHint ?? "MA"}`;
   let lat: number | null = null;
   let lng: number | null = null;
   let formattedAddress = fullAddress;
+  let resolvedState: string | null = null;
   try {
     const geo = await geocodeAddress(fullAddress);
     lat = geo.lat;
     lng = geo.lng;
     formattedAddress = geo.formattedAddress;
+    resolvedState = geo.state;
   } catch (err) {
     // Best-effort — an ambiguous or unrecognized address shouldn't block
     // the job from being created; it just won't have a map pin until the
@@ -147,11 +215,43 @@ export async function createJobFromIntake(params: {
     console.error(`createJobFromIntake: geocoding failed for "${fullAddress}":`, err instanceof GeocodeError ? err.status : err);
   }
 
+  // Safety net for the no-stateHint case (the common one, since the real
+  // template rarely carries a state) — if Google itself resolves the
+  // address to a state we're not licensed in, don't silently create the
+  // job anyway just because the geocode technically "succeeded."
+  if (resolvedState && !isWithinServiceStates(resolvedState, settings.service_states)) {
+    throw new Error(
+      `Geocoded to ${resolvedState}, outside the licensed service area (${settings.service_states.join(", ")}) — check "${fullAddress}" manually.`
+    );
+  }
+
   // Same zone-aware pricing every other job (portal or admin-entered) gets
   // — no special-cased flat rate for this sender.
   const resolved = resolveServiceSelection([sender.serviceTypeKey], formattedAddress, settings);
   if ("error" in resolved) throw new Error(resolved.error);
   const { serviceTypeLabel, baseFeeCents, perSampleCents } = resolved;
+
+  // Boston Harbor sends no acknowledgment (by design — see the comment in
+  // checkForJobIntakeEmails), so from their side a real order that failed
+  // to process looks identical to one that succeeded, and they have every
+  // reason to resend "just in case." Same address + same requested date
+  // for this company within the last few days is treated as a likely
+  // duplicate rather than silently creating a second identical job.
+  const contactIds = contacts.map((c) => c.id);
+  const { data: possibleDuplicate } = await supabase
+    .from("jobs")
+    .select("project_number")
+    .in("customer_id", contactIds)
+    .eq("requested_date", parsed.requestedDate)
+    .eq("service_address", formattedAddress)
+    .gte("created_at", new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString())
+    .limit(1)
+    .maybeSingle();
+  if (possibleDuplicate) {
+    throw new Error(
+      `Looks like a duplicate of ${possibleDuplicate.project_number} — same address and requested date, created in the last 3 days.`
+    );
+  }
 
   const projectNumber = await generateProjectNumber();
 

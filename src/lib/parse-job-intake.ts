@@ -21,6 +21,16 @@ export interface ParsedJobIntake {
   homeownerName: string;
   streetAddress: string;
   town: string;
+  /**
+   * Explicit state code if the town line carried one ("Somerville, NH"),
+   * else null. Previously this was silently stripped and every address
+   * was assumed Massachusetts regardless — safe for the real examples
+   * seen so far, but a real out-of-state town (plausible for a company
+   * this close to the NH border) would then get mislabeled "MA" instead
+   * of caught. The caller (job-intake.ts) validates this against the
+   * licensed service states before creating anything.
+   */
+  stateHint: string | null;
   homeownerPhone: string;
   companyContactName: string;
   companyContactPhone: string;
@@ -53,18 +63,30 @@ export function parseAcmOrderEmail(bodyText: string): ParsedJobIntake | null {
   if (!PHONE_LINE.test(homeownerPhone)) return null;
   if (!PHONE_LINE.test(companyContactPhone)) return null;
   if (!DATE_LINE.test(requestedDate)) return null;
+  // A real street address always has a house number; a real person's name
+  // never does — cheap, low-false-positive guard against the two lines
+  // having been swapped (e.g. a copy-paste mistake in an off-template
+  // email), which would otherwise parse "clean" into a job with a person's
+  // name as its service address and a street as the site contact's name.
+  if (!/\d/.test(streetAddress)) return null;
 
   const scopeOfWork = scopeLines.join(" ").trim();
   if (!homeownerName || !streetAddress || !town || !companyContactName || !scopeOfWork) return null;
 
+  // Some real examples include the state ("Somerville, Ma"), some don't
+  // ("Weymouth") — captured here rather than discarded, so a genuine
+  // out-of-state town doesn't silently get labeled Massachusetts. The
+  // comma is required (not just any trailing 2 letters) — otherwise a
+  // plain town name ending in a 2-letter sequence, e.g. "Weymouth" → "th",
+  // would falsely read as a state code.
+  const stateMatch = town.match(/,\s*([A-Za-z]{2})\.?$/);
+  const stateHint = stateMatch ? stateMatch[1].toUpperCase() : null;
+
   return {
     homeownerName,
     streetAddress,
-    // Some real examples include the state ("Somerville, Ma"), some don't
-    // ("Weymouth") — stripped here since the full address (street + town)
-    // gets geocoded as one string with ", MA" appended regardless (every
-    // real example so far has been a Massachusetts address).
     town: town.replace(/,\s*[A-Za-z]{2}\.?$/, "").trim(),
+    stateHint,
     homeownerPhone,
     companyContactName,
     companyContactPhone,

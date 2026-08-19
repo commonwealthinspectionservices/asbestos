@@ -38,16 +38,7 @@ export default function CompaniesDirectory() {
 
   return (
     <div>
-      <div className="flex items-center justify-end gap-2">
-        <button
-          onClick={() => setAdding(true)}
-          className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white"
-        >
-          ADD COMPANY
-        </button>
-      </div>
-
-      <div className="mt-3 flex gap-2">
+      <div className="flex gap-2">
         <input
           className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm"
           placeholder="Search by company name…"
@@ -57,6 +48,12 @@ export default function CompaniesDirectory() {
         />
         <button onClick={() => loadCompanies()} className="rounded-lg border border-slate-300 px-3 py-2 text-sm">
           Search
+        </button>
+        <button
+          onClick={() => setAdding(true)}
+          className="shrink-0 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white"
+        >
+          ADD COMPANY
         </button>
       </div>
 

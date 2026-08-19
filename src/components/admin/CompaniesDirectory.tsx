@@ -358,9 +358,10 @@ function AddContactForm({
   onClose: () => void;
   onDone: () => void;
 }) {
-  const [query, setQuery] = useState("");
+  const [name, setName] = useState("");
   const [selected, setSelected] = useState<Customer | null>(null);
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -379,10 +380,7 @@ function AddContactForm({
       // A picked existing contact (e.g. an individual portal account like
       // Joe Klein) gets linked directly by id instead of going through
       // the create-new path — matches how the Company field's own
-      // combobox (ContactForm) resolves a picked suggestion. Inviting
-      // someone new only ever needs their email — same as Joe inviting his
-      // own teammates (TeammatesSection.tsx) — they fill in their own name
-      // and phone at onboarding instead of an admin typing it in for them.
+      // combobox (ContactForm) resolves a picked suggestion.
       const res = selected
         ? await fetch(`/api/admin/customers/${selected.id}`, {
             method: "PATCH",
@@ -392,7 +390,7 @@ function AddContactForm({
         : await fetch("/api/admin/customers", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email: email.trim(), companyId }),
+            body: JSON.stringify({ name: name.trim(), email: email.trim(), phone: phone.trim(), companyId }),
           });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to add contact");
@@ -411,15 +409,15 @@ function AddContactForm({
 
         {error && <div className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
 
-        <label className="mt-3 block text-sm font-medium text-slate-700">Link an existing contact</label>
+        <label className="mt-3 block text-sm font-medium text-slate-700">Name *</label>
         <ComboboxInput
-          value={selected ? selected.name : query}
-          onChange={(v) => { setQuery(v); setSelected(null); }}
+          value={selected ? selected.name : name}
+          onChange={(v) => { setName(v); setSelected(null); }}
           fetchOptions={searchContacts}
           getLabel={(c: Customer) => c.name}
           getSublabel={(c: Customer) => c.email}
           onSelect={(c: Customer) => setSelected(c)}
-          placeholder="Search by name or email…"
+          placeholder="Search existing contacts, or type a new name…"
         />
 
         {selected ? (
@@ -427,19 +425,22 @@ function AddContactForm({
             Linking existing contact <span className="font-medium text-slate-800">{selected.name}</span> ({selected.email}) to this company.
           </p>
         ) : (
-          <>
-            <label className="mt-4 block text-sm font-medium text-slate-700">Or invite someone new — Email *</label>
-            <input type="email" className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value={email} onChange={(e) => setEmail(e.target.value)} />
-            <p className="mt-2 text-xs text-slate-500">
-              They&apos;ll fill in their own name and phone number when they set their password.
-            </p>
-          </>
+          <div className="mt-3 flex gap-2">
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-slate-700">Email *</label>
+              <input type="email" className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value={email} onChange={(e) => setEmail(e.target.value)} />
+            </div>
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-slate-700">Phone</label>
+              <input className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value={phone} onChange={(e) => setPhone(formatPhoneInput(e.target.value))} />
+            </div>
+          </div>
         )}
 
         <div className="mt-4 flex gap-2">
           <button
             onClick={submit}
-            disabled={submitting || (!selected && !email.trim())}
+            disabled={submitting || (!selected && (!name.trim() || !email.trim()))}
             className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
           >
             {submitting ? "Saving…" : selected ? "Link contact" : "Save"}

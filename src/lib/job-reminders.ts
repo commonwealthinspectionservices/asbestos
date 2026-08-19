@@ -49,7 +49,18 @@ export function buildReminderEmailHtml(params: {
   `);
 }
 
+// Off for launch — a daily cron sending directly to real clients with no
+// review is a bigger step than the two Gmail-send exceptions already
+// approved (booking-received, job-confirmed), and this one doesn't have
+// that same explicit sign-off. Same pattern as AREA_HEALTH_ALERTS_ENABLED
+// in area-health.ts: the cron itself, the dedup guard, and the whole
+// implementation stay in place — this is the one flag to flip once it's
+// been watched working correctly and gets an explicit go-ahead.
+const JOB_REMINDERS_ENABLED = false;
+
 export async function sendJobReminders(): Promise<{ sent: number; failed: number }> {
+  if (!JOB_REMINDERS_ENABLED) return { sent: 0, failed: 0 };
+
   const supabase = getSupabaseAdmin();
   const settings = await getSettings();
   const tomorrow = addDaysIso(nowInTimeZone(settings.timezone).dateIso, 1);

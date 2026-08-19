@@ -74,7 +74,7 @@ export const POST = withApiErrors(async (req: NextRequest) => {
     }
   }
 
-  const patch = {
+  const patch: Record<string, unknown> = {
     auth_user_id: session.authUserId,
     name,
     // Canonical spelling from the newly created company row (when we made
@@ -83,13 +83,20 @@ export const POST = withApiErrors(async (req: NextRequest) => {
     company: newCompany?.name ?? company,
     company_id: existing?.company_id ?? newCompany?.id ?? null,
     phone,
-    billing_address: billingAddress,
     is_individual: isIndividual,
     // The real "onboarding finished" signal /portal/onboarding's redirect
     // gate checks — set here because this route only ever runs right after
     // OnboardingForm's client-side updateUser({password}) succeeds.
     onboarding_completed_at: new Date().toISOString(),
   };
+  // A company account's billing address is never collected on this screen
+  // (see OnboardingForm) — it belongs to the company record, not this
+  // person. Omitting the key here (rather than writing null) leaves
+  // whatever's already on this customer row untouched, which matters for
+  // an admin-invited contact that already had one copied down.
+  if (isIndividual) {
+    patch.billing_address = billingAddress;
+  }
 
   let { data: customer, error } = existing
     ? await admin.from("customers").update(patch).eq("id", existing.id).select("*").single()

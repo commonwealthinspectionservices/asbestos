@@ -16,7 +16,6 @@ export default function OnboardingForm({
   email,
   customer,
   companyName,
-  companyBillingAddress,
 }: {
   accountType: "company" | "individual" | null;
   email: string | undefined;
@@ -27,9 +26,9 @@ export default function OnboardingForm({
   // checked per field, not as one all-or-nothing "has a profile" flag —
   // an admin Invite sets name/phone/company/billing address all at once,
   // while a Teammates invite (POST /api/portal/contacts) only ever sets an
-  // email, leaving name/phone/company/address genuinely blank. Locking
-  // fields that are actually still empty would strand that person with no
-  // way to fill them in and a Continue button that can never enable.
+  // email, leaving name/phone/company genuinely blank. Locking fields that
+  // are actually still empty would strand that person with no way to fill
+  // them in and a Continue button that can never enable.
   customer: Customer | null;
   // Resolved server-side (see onboarding/page.tsx) — falls back to a
   // company_id lookup when customer.company itself is blank, which is
@@ -38,12 +37,6 @@ export default function OnboardingForm({
   // whatever company_id an existing row already has, regardless of what's
   // typed here), so this is display-only, never a source of truth to edit.
   companyName: string | null;
-  // Same company_id fallback as companyName, for the same reason — but
-  // unlike name/phone, a company account's billing address is never
-  // something the person being invited fills in here at all, known or not.
-  // It belongs to the company (companies.billing_address is the one place
-  // it's meant to live), not to whoever happens to be joining it.
-  companyBillingAddress: string | null;
 }) {
   // Stub rows from the on_auth_user_created trigger (schema.sql) always
   // have name === email and phone === '' — this is what tells a genuinely
@@ -54,16 +47,17 @@ export default function OnboardingForm({
   const hasKnownPhone = Boolean(customer?.phone);
   const hasKnownCompany = Boolean(companyName);
   const isCompanyAccount = accountType !== "individual";
-  // A company account never edits its billing address on this screen — it's
-  // predetermined by the company, not the person joining it. Individuals
-  // have no company to inherit from, so they still enter their own below
-  // when one isn't already on file.
-  const resolvedAddress = customer?.billing_address || (isCompanyAccount ? companyBillingAddress : null);
-  const hasKnownAddress = Boolean(resolvedAddress);
+  // A company account never sees a billing address field here at all —
+  // known or not, editable or not. It's a company-level fact
+  // (companies.billing_address), not something whoever's joining that
+  // company enters or reviews on their own way in. Individuals have no
+  // company to inherit from, so they're the only ones who still see this
+  // section, exactly as before this account-type distinction existed.
+  const hasKnownAddress = !isCompanyAccount && Boolean(customer?.billing_address);
   const addressIsEditable = !isCompanyAccount && !hasKnownAddress;
 
   const prefilledName = hasKnownName ? splitFullName(customer!.name) : { first: "", last: "" };
-  const prefilledAddress = hasKnownAddress ? parseAddressToFields(resolvedAddress!) : null;
+  const prefilledAddress = hasKnownAddress ? parseAddressToFields(customer!.billing_address) : null;
 
   const router = useRouter();
   const [firstName, setFirstName] = useState(prefilledName.first);

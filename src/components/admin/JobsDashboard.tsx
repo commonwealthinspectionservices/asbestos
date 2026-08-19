@@ -953,7 +953,11 @@ function JobRow({
               {subcontractorSenderForJob(job.customers?.email)?.companyName ?? "Subcontracted"}
             </span>
           )}
-          <div className="whitespace-nowrap font-medium text-slate-800">{job.customers?.company || job.customers?.name}</div>
+          <div className="whitespace-nowrap font-medium text-slate-800">
+            {job.source === "subcontractor"
+              ? subcontractorSenderForJob(job.customers?.email)?.companyName ?? (job.customers?.company || job.customers?.name)
+              : (job.customers?.company || job.customers?.name)}
+          </div>
         </div>
 
         <div className="flex shrink-0 items-center gap-1.5">
@@ -992,6 +996,15 @@ function JobRow({
 
         <div className="min-w-0 flex-[1.2]">
           {(() => {
+            if (job.source === "subcontractor") {
+              const sender = subcontractorSenderForJob(job.customers?.email);
+              return (
+                <>
+                  <div className="whitespace-nowrap text-sm text-slate-500">Subcontracted Inspection</div>
+                  <div className="whitespace-nowrap text-sm text-slate-500">{sender?.companyName ?? job.service_type}</div>
+                </>
+              );
+            }
             const labels = (job.service_type ?? "").split(",").map((s) => s.trim()).filter(Boolean);
             return labels.map((label, i) => (
               <div key={i} className="whitespace-nowrap text-sm text-slate-500">
@@ -1763,7 +1776,11 @@ export function ProjectDetailDialog({
           {job.notes && job.notes.trim() && (
             <div className="space-y-2">
               <h4 className="text-sm font-bold uppercase tracking-wide text-black underline">Notes</h4>
-              <p className="whitespace-pre-wrap text-sm text-black"><Linkify text={job.notes} /></p>
+              <ul className="list-disc space-y-1 pl-5 text-sm text-black">
+                {job.notes.split("\n").map((line) => line.trim()).filter(Boolean).map((line, i) => (
+                  <li key={i}><Linkify text={line} /></li>
+                ))}
+              </ul>
             </div>
           )}
           {(job.job_classification || job.payment_method || job.po_number || job.invoice_number) && (

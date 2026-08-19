@@ -35,6 +35,13 @@ export const POST = withApiErrors(async (
   if (!customer.email) {
     return NextResponse.json({ error: "This contact has no email on file" }, { status: 400 });
   }
+  // An invite link's whole purpose is bringing someone onto a team — an
+  // individual has no team to join, so this stays company-only even if
+  // called directly rather than through the (already-hidden-for-
+  // individuals) UI button. See ContactDetailDialog.tsx.
+  if (customer.is_individual) {
+    return NextResponse.json({ error: "Individuals sign up on their own — they aren't invited" }, { status: 400 });
+  }
 
   const accessToken = await getValidAccessToken();
   if (!accessToken) {
@@ -45,12 +52,10 @@ export const POST = withApiErrors(async (
     type: "invite",
     email: customer.email,
     options: {
-      // Without this, the invited contact lands on /portal/onboarding with
-      // no account_type in their auth metadata — OnboardingForm then
-      // defaults to showing the Company field even for an actual
-      // individual contact, since it only hides Company when
-      // account_type === "individual".
-      data: { account_type: customer.is_individual ? "individual" : "company" },
+      // Always "company" — this route is company-contact-only (see the
+      // is_individual guard above), and OnboardingForm needs it set to show
+      // the Company field.
+      data: { account_type: "company" },
       // Without an explicit redirectTo, Supabase falls back to the bare
       // Site URL (the marketing homepage) instead of carrying the invite
       // into onboarding — req.nextUrl.origin rather than a hardcoded
@@ -75,7 +80,10 @@ export const POST = withApiErrors(async (
 
   const inviteLink = data.properties.action_link;
   const settings = await getSettings();
-  const firstName = customer.name?.split(" ")[0] || "there";
+  // A brand-new contact invited by email only (see /api/admin/customers)
+  // has name === email as a sentinel for "not actually known yet" — using
+  // it here would greet them with their own email address instead of a name.
+  const firstName = customer.name && customer.name !== customer.email ? customer.name.split(" ")[0] : "there";
 
   const draft = await createDraft(accessToken, {
     to: customer.email,

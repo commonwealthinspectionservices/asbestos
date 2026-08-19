@@ -41,11 +41,22 @@ export const POST = withApiErrors(async (req: NextRequest) => {
   if (unauthorized) return unauthorized;
 
   const body = await req.json().catch(() => null);
-  const name = body?.name?.trim();
-  const email = body?.email?.trim();
-  if (!name || !email) {
-    return NextResponse.json({ error: "Name and email are required" }, { status: 400 });
+  const email = body?.email?.trim()?.toLowerCase();
+  const isIndividual = body?.is_individual === true;
+  let name = body?.name?.trim();
+  if (!email) {
+    return NextResponse.json({ error: "Email is required" }, { status: 400 });
   }
+  if (isIndividual && !name) {
+    return NextResponse.json({ error: "Name is required" }, { status: 400 });
+  }
+  // A company contact can be added with just an email — same sentinel
+  // POST /api/portal/contacts uses for a self-service Teammates invite, so
+  // this admin-created row is indistinguishable from one Joe invited
+  // himself: OnboardingForm's hasKnownName check treats name === email as
+  // "not actually known yet" and lets the invited person fill in their own
+  // name (and phone) instead of an admin typing it in for them.
+  if (!name) name = email;
 
   const companyId = body?.companyId?.trim() || null;
   const companyName = body?.company?.trim() || null;
@@ -70,10 +81,10 @@ export const POST = withApiErrors(async (req: NextRequest) => {
         name,
         company: company?.name ?? null,
         company_id: company?.id ?? null,
-        email: email.toLowerCase(),
+        email,
         phone: body?.phone?.trim() || "",
         billing_address: company?.billing_address ?? billingAddress,
-        is_individual: body?.is_individual === true,
+        is_individual: isIndividual,
       },
       { onConflict: "email" }
     )

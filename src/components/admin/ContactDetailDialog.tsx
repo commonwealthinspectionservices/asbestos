@@ -84,7 +84,15 @@ export function ContactForm({
 
   useAutoZip(street, city, addrState, setZip, "/api/admin");
 
-  const canSubmit = firstName.trim() && lastName.trim() && email.trim() && (!isCompany || company.trim());
+  // Inviting a brand-new person into a team only ever needs their email —
+  // same as Joe inviting his own teammates (see TeammatesSection.tsx). They
+  // fill in their own name and phone at onboarding instead of an admin
+  // typing it in for them. Editing an existing contact (`initial` set)
+  // always shows the full form — that's a correction, not an invite.
+  const isNewCompanyContact = !initial && isCompany;
+  const canSubmit = isNewCompanyContact
+    ? company.trim() && email.trim()
+    : firstName.trim() && lastName.trim() && email.trim() && (!isCompany || company.trim());
 
   async function searchCompanies(q: string): Promise<Company[]> {
     const res = await fetch(`/api/admin/companies?q=${encodeURIComponent(q)}`);
@@ -172,22 +180,34 @@ export function ContactForm({
           </>
         )}
 
-        <label className="mt-3 block text-sm font-medium text-slate-700">Name *</label>
-        <div className="mt-1 flex gap-2">
-          <input className="w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm" value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder={isCompany ? "e.g. Joe" : "e.g. Karen"} />
-          <input className="w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm" value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder={isCompany ? "Kline" : "Stahl"} />
-        </div>
-
-        <div className="mt-3 flex gap-2">
-          <div className="flex-1">
-            <label className="block text-sm font-medium text-slate-700">Email *</label>
+        {isNewCompanyContact ? (
+          <>
+            <label className="mt-3 block text-sm font-medium text-slate-700">Email *</label>
             <input type="email" className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value={email} onChange={(e) => setEmail(e.target.value)} />
-          </div>
-          <div className="flex-1">
-            <label className="block text-sm font-medium text-slate-700">Phone</label>
-            <input className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value={phone} onChange={(e) => setPhone(formatPhoneInput(e.target.value))} />
-          </div>
-        </div>
+            <p className="mt-2 text-xs text-slate-500">
+              They&apos;ll fill in their own name and phone number when they set their password.
+            </p>
+          </>
+        ) : (
+          <>
+            <label className="mt-3 block text-sm font-medium text-slate-700">Name *</label>
+            <div className="mt-1 flex gap-2">
+              <input className="w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm" value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder={isCompany ? "e.g. Joe" : "e.g. Karen"} />
+              <input className="w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm" value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder={isCompany ? "Kline" : "Stahl"} />
+            </div>
+
+            <div className="mt-3 flex gap-2">
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-slate-700">Email *</label>
+                <input type="email" className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value={email} onChange={(e) => setEmail(e.target.value)} />
+              </div>
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-slate-700">Phone</label>
+                <input className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value={phone} onChange={(e) => setPhone(formatPhoneInput(e.target.value))} />
+              </div>
+            </div>
+          </>
+        )}
 
         {!isCompany && (
           <>
@@ -441,6 +461,18 @@ export function ContactDetailDialog({
                 >
                   {linking ? "Linking…" : "Link existing portal account"}
                 </button>
+              </div>
+            ) : customer.is_individual ? (
+              // An invite link's whole purpose is bringing someone onto a
+              // team (see the company-only branch below) — an individual
+              // has no team to join, so there's nothing to invite them
+              // into. They get portal access by signing up on their own
+              // (see /portal/signup), not an admin-sent link.
+              <div className="mt-4 border-t border-slate-100 pt-4">
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Portal login</h4>
+                <p className="mt-1 text-sm text-slate-500">
+                  No portal login yet — individuals sign up on their own at commonwealthinspectionservices.com, they&apos;re not invited.
+                </p>
               </div>
             ) : (
               <div className="mt-4 border-t border-slate-100 pt-4">

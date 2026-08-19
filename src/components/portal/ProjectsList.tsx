@@ -241,7 +241,9 @@ export default function ProjectsList() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
       <div className="mt-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold uppercase text-brand-700">My Projects</h1>
+        <h1 className="text-2xl font-bold uppercase text-brand-700">
+          {customer && !customer.is_individual && customer.company ? `${customer.company}'s Projects` : "My Projects"}
+        </h1>
         <Link
           href="/portal/book"
           className="inline-flex h-10 items-center bg-emerald-600 px-6 text-lg font-extrabold uppercase leading-none text-white hover:underline sm:h-12"

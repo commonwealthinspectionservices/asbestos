@@ -109,79 +109,103 @@ export default function OnboardingForm({
         <div className="mb-4 rounded-lg bg-slate-100 px-4 py-3 text-sm text-slate-600">{email}</div>
       )}
 
-      <div className="flex gap-2">
-        <input className="w-0 flex-1 rounded-lg border border-slate-300 px-4 py-3 text-base" placeholder="First name" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
-        <input className="w-0 flex-1 rounded-lg border border-slate-300 px-4 py-3 text-base" placeholder="Last name" value={lastName} onChange={(e) => setLastName(e.target.value)} />
-      </div>
-      {accountType !== "individual" && (
-        <input className="mt-4 w-full rounded-lg border border-slate-300 px-4 py-3 text-base" placeholder="Company" value={company} onChange={(e) => setCompany(e.target.value)} />
+      {hasRealProfile ? (
+        // Invited with a real profile already on file (see hasRealProfile's
+        // own comment) — nothing here is editable. This is a confirmation
+        // of what's already on file, not a form; changing any of it is an
+        // Edit-contact action for the admin, not something to fold into the
+        // one moment someone's setting their password. Keeps "the only
+        // thing you have to do is create a password" literally true.
+        <div className="mb-4 space-y-2 rounded-lg bg-slate-100 px-4 py-3 text-sm text-slate-600">
+          <div>{joinName(firstName, lastName)}</div>
+          {accountType !== "individual" && company && <div>{company}</div>}
+          {phone && <div>{phone}</div>}
+          {(street || city) && (
+            <div>{[street, unit].filter(Boolean).join(" ")}{(street || unit) && (city || addrState || zip) ? ", " : ""}{[city, addrState, zip].filter(Boolean).join(" ")}</div>
+          )}
+        </div>
+      ) : (
+        <>
+          <div className="flex gap-2">
+            <input className="w-0 flex-1 rounded-lg border border-slate-300 px-4 py-3 text-base" placeholder="First name" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+            <input className="w-0 flex-1 rounded-lg border border-slate-300 px-4 py-3 text-base" placeholder="Last name" value={lastName} onChange={(e) => setLastName(e.target.value)} />
+          </div>
+          {accountType !== "individual" && (
+            <input className="mt-4 w-full rounded-lg border border-slate-300 px-4 py-3 text-base" placeholder="Company" value={company} onChange={(e) => setCompany(e.target.value)} />
+          )}
+          <input className="mt-4 w-full rounded-lg border border-slate-300 px-4 py-3 text-base" placeholder="Phone" type="tel" value={phone} onChange={(e) => setPhone(formatPhoneNumber(e.target.value))} />
+        </>
       )}
-      <input className="mt-4 w-full rounded-lg border border-slate-300 px-4 py-3 text-base" placeholder="Phone" type="tel" value={phone} onChange={(e) => setPhone(formatPhoneNumber(e.target.value))} />
+
       <input className="mt-4 w-full rounded-lg border border-slate-300 px-4 py-3 text-base" placeholder="Create a password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
       <input className="mt-4 w-full rounded-lg border border-slate-300 px-4 py-3 text-base" placeholder="Confirm password" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
 
-      <p className="mt-4 text-sm font-semibold uppercase text-slate-500">Billing address</p>
-      <div className="mt-2 flex gap-2">
-        <div className="w-0 flex-1">
-          <AddressAutocompleteInput
-            apiBase="/api"
-            value={street}
-            onChange={setStreet}
-            onSelectAddress={(fields) => {
-              setStreet(fields.street);
-              setUnit(fields.unit);
-              setCity(fields.city);
-              setAddrState(fields.state || "MA");
-              setZip(fields.zip);
-            }}
-            placeholder="Street address"
-            townHint={city}
-            inputClassName="w-full rounded-lg border border-slate-300 px-4 py-3 text-base"
-          />
-        </div>
-        <input
-          className="w-24 shrink-0 rounded-lg border border-slate-300 px-4 py-3 text-base"
-          placeholder="Unit #"
-          value={unit}
-          onChange={(e) => setUnit(e.target.value)}
-        />
-      </div>
-      <div className="mt-2 grid grid-cols-[2fr_0.8fr_1fr] gap-2">
-        <AddressAutocompleteInput
-          apiBase="/api"
-          value={city}
-          onChange={(v) => {
-            setCity(v);
-            if (!v.trim()) setZip("");
-          }}
-          mode="city"
-          onSelectAddress={(fields) => {
-            setCity(fields.city);
-            setAddrState("MA");
-            setZip(fields.zip);
-          }}
-          placeholder="Town"
-          inputClassName="w-full rounded-lg border border-slate-300 px-4 py-3 text-base"
-        />
-        <select
-          className="rounded-lg border border-slate-300 px-4 py-3 text-base"
-          value={addrState}
-          onChange={(e) => setAddrState(e.target.value)}
-        >
-          {US_STATES.map((s) => (
-            <option key={s} value={s}>{s}</option>
-          ))}
-        </select>
-        <ZipInput
-          street={street}
-          city={city}
-          state={addrState}
-          zip={zip}
-          setZip={setZip}
-          apiBase="/api"
-          inputClassName="w-full rounded-lg border border-slate-300 px-4 py-3 text-base"
-        />
-      </div>
+      {!hasRealProfile && (
+        <>
+          <p className="mt-4 text-sm font-semibold uppercase text-slate-500">Billing address</p>
+          <div className="mt-2 flex gap-2">
+            <div className="w-0 flex-1">
+              <AddressAutocompleteInput
+                apiBase="/api"
+                value={street}
+                onChange={setStreet}
+                onSelectAddress={(fields) => {
+                  setStreet(fields.street);
+                  setUnit(fields.unit);
+                  setCity(fields.city);
+                  setAddrState(fields.state || "MA");
+                  setZip(fields.zip);
+                }}
+                placeholder="Street address"
+                townHint={city}
+                inputClassName="w-full rounded-lg border border-slate-300 px-4 py-3 text-base"
+              />
+            </div>
+            <input
+              className="w-24 shrink-0 rounded-lg border border-slate-300 px-4 py-3 text-base"
+              placeholder="Unit #"
+              value={unit}
+              onChange={(e) => setUnit(e.target.value)}
+            />
+          </div>
+          <div className="mt-2 grid grid-cols-[2fr_0.8fr_1fr] gap-2">
+            <AddressAutocompleteInput
+              apiBase="/api"
+              value={city}
+              onChange={(v) => {
+                setCity(v);
+                if (!v.trim()) setZip("");
+              }}
+              mode="city"
+              onSelectAddress={(fields) => {
+                setCity(fields.city);
+                setAddrState("MA");
+                setZip(fields.zip);
+              }}
+              placeholder="Town"
+              inputClassName="w-full rounded-lg border border-slate-300 px-4 py-3 text-base"
+            />
+            <select
+              className="rounded-lg border border-slate-300 px-4 py-3 text-base"
+              value={addrState}
+              onChange={(e) => setAddrState(e.target.value)}
+            >
+              {US_STATES.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+            <ZipInput
+              street={street}
+              city={city}
+              state={addrState}
+              zip={zip}
+              setZip={setZip}
+              apiBase="/api"
+              inputClassName="w-full rounded-lg border border-slate-300 px-4 py-3 text-base"
+            />
+          </div>
+        </>
+      )}
 
       <button
         className="mt-5 flex w-full items-center justify-center border-[3px] border-brand-700 bg-brand-50 py-4 pt-[18px] text-base font-extrabold uppercase leading-none text-brand-700 hover:bg-yellow-100 disabled:opacity-50"

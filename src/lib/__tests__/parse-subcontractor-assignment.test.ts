@@ -56,7 +56,8 @@ const NEW_ASSIGNMENT_HTML = `
     <!-- Story 0820 — pre-line, or HTML collapses every newline. -->
     <td style="padding: 8px 0; color: #2d3748; white-space: pre-line;">PLEASE CALL/TEXT CLIENT TO CONFIRM ARRIVAL TIME:
 
-Infrared used in all areas of property by request of client.</td>
+Infrared used in all areas of property by request of client.
+Includes: (x1 Outdoor Air) + (x1 Indoor Air) + (1x swab and/or air sample/s - confirm type with customer during inspection) + (x1 HERTSMI-2 Dust Test)</td>
   </tr>
 </table>
 <div style="background-color: #f7fafc; border-radius: 6px; padding: 24px; margin-bottom: 24px;">
@@ -108,7 +109,9 @@ describe("parseNewAssignmentEmail", () => {
       clientEmail: "shakid79@gmail.com",
       clientPhone: "+18573852993",
       clientNotes: "Client believes there is mold in her apartment.",
-      jobNotes: "PLEASE CALL/TEXT CLIENT TO CONFIRM ARRIVAL TIME:\nInfrared used in all areas of property by request of client.",
+      scopeOfWork: "Infrared used in all areas of property by request of client.",
+      sampleTypes: ["x1 Outdoor Air", "x1 Indoor Air", "1x swab and/or air sample/s - confirm type with customer during inspection", "x1 HERTSMI-2 Dust Test"],
+      arrivalInstruction: "PLEASE CALL/TEXT CLIENT TO CONFIRM ARRIVAL TIME",
       baseCompensation: "$470.16",
       labFees: "-$100.00",
       netPayment: "$370.16",
@@ -121,6 +124,23 @@ describe("parseNewAssignmentEmail", () => {
 
   it("returns null for a body that doesn't match the expected table format at all", () => {
     expect(parseNewAssignmentEmail("<p>Hey, just checking in.</p>")).toBeNull();
+  });
+
+  it("leaves sampleTypes empty and arrivalInstruction null when job notes has neither line", () => {
+    const plainJobNotesHtml = `
+<table><tr>
+  <td>Preferred Windows:</td>
+  <td><strong>Window 1:</strong> Wednesday, August 19, 2026, 8:00 AM - 4:00 PM</td>
+</tr>
+<tr><td>Address:</td><td>352 Centre Street, Boston, MA 02122</td></tr>
+<tr><td>Name:</td><td>Shaki</td></tr>
+<tr><td>Job Notes:</td><td>Just go do the inspection.</td></tr>
+</table>
+`;
+    const result = parseNewAssignmentEmail(plainJobNotesHtml);
+    expect(result?.sampleTypes).toEqual([]);
+    expect(result?.arrivalInstruction).toBeNull();
+    expect(result?.scopeOfWork).toBe("Just go do the inspection.");
   });
 
   it("leaves shipping fields null when the email has no Shipping Information section", () => {

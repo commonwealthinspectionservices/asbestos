@@ -308,6 +308,8 @@ export interface Job {
   subcontractor_compensation: { base: string | null; labFees: string | null; net: string | null } | null;
   /** Human-readable time range as the subcontracting company sent it (e.g. "8:00 AM - 4:00 PM") — requested_date/window can't represent a range like this. Overwritten (not appended) on a reschedule email so it's always current. */
   subcontractor_preferred_window: string | null;
+  /** From an "Includes: (x1 A) + (x1 B) + ..." line in the subcontracting company's job notes — see splitJobNotes in parse-subcontractor-assignment.ts. Empty means no such line was present, not "no samples." */
+  subcontractor_sample_types: string[];
   /** Distinct from the free-text `payment_method` field above (informational, import-only). This one drives real behavior: "online" auto-creates a Stripe hosted invoice and includes its pay-now link on drafted invoice emails, and shows the portal's Pay now button. "check" skips Stripe entirely on those automatic paths — the admin's own on-demand "Get payment link" button still works regardless. */
   payment_type: "online" | "check";
   created_at: string;

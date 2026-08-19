@@ -906,3 +906,10 @@ alter table jobs add column if not exists subcontractor_compensation jsonb;
 -- a reschedule email so it never goes stale.
 alter table jobs add column if not exists site_contact_email text;
 alter table jobs add column if not exists subcontractor_preferred_window text;
+
+-- The itemized sample/service list a subcontractor's "Job Notes" buries in
+-- an "Includes: (x1 Outdoor Air) + (x1 Indoor Air) + ..." line, split out
+-- (see splitJobNotes in parse-subcontractor-assignment.ts) so it can be
+-- shown as an actual list instead of read out of a wall of prose. Empty
+-- array means no such line was present, not "no samples."
+alter table jobs add column if not exists subcontractor_sample_types jsonb not null default '[]'::jsonb;

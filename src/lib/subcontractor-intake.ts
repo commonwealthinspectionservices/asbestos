@@ -169,19 +169,20 @@ async function getOrCreateSenderContact(sender: SubcontractorSender): Promise<{ 
   return created;
 }
 
-// Shipping, compensation, the client's contact info, and the preferred
-// window all get their own structured columns (and, for the first two,
-// their own tabs in JobsDashboard.tsx) rather than living in this
-// free-text blob — see subcontractor_shipping/subcontractor_compensation/
-// site_contact_email/subcontractor_preferred_window in schema.sql.
-// parsed.jobNotes deliberately isn't repeated here either — it's already
-// the job's scope_of_work (see createSubcontractorJob), which has its own
-// dedicated field in Project Info. This is just the leftover context that
-// has nowhere else to live: the subcontracting relationship itself, and
-// what the client told them (distinct from what the job notes instruct).
+// Shipping, compensation, the client's contact info, the preferred window,
+// the sample/service list, and the real scope of work all get their own
+// structured columns (and, for shipping/compensation, their own tabs in
+// JobsDashboard.tsx) rather than living in this free-text blob — see
+// subcontractor_shipping/subcontractor_compensation/site_contact_email/
+// subcontractor_preferred_window/subcontractor_sample_types in schema.sql
+// and scope_of_work in createSubcontractorJob below. This is just the
+// leftover context with nowhere else to live: the subcontracting
+// relationship itself, the arrival-confirmation instruction (logistics,
+// not scope of work), and what the client told them.
 function buildJobNotes(params: { sender: SubcontractorSender; parsed: ParsedAssignment }): string {
   const { sender, parsed } = params;
   const lines = [`Subcontracted via ${sender.companyName} — they handle the final report and invoice for this job, not us.`];
+  if (parsed.arrivalInstruction) lines.push(`\n${parsed.arrivalInstruction}`);
   // Their template fills this with "No additional notes" when the client
   // didn't write anything — that's a placeholder, not real content.
   if (parsed.clientNotes && parsed.clientNotes.trim().toLowerCase() !== "no additional notes") {
@@ -234,7 +235,8 @@ export async function createSubcontractorJob(params: {
       window: "ANY",
       status: "needs_scheduling",
       source: "subcontractor",
-      scope_of_work: parsed.jobNotes || null,
+      scope_of_work: parsed.scopeOfWork || null,
+      subcontractor_sample_types: parsed.sampleTypes,
       notes: buildJobNotes({ sender, parsed }),
       subcontractor_shipping: parsed.shippingTrackingNumber || parsed.shippingLabelUrl
         ? { provider: parsed.shippingProvider, speed: parsed.shippingSpeed, trackingNumber: parsed.shippingTrackingNumber, labelUrl: parsed.shippingLabelUrl }

@@ -1082,7 +1082,7 @@ function DetailField({ label, value, nowrap }: { label: string; value: React.Rea
   if (value == null || value === "" || (typeof value === "string" && !value.trim())) return null;
   return (
     <div className="flex gap-2 text-sm">
-      <span className="w-32 shrink-0 uppercase font-bold text-black">{label}</span>
+      <span className="w-32 shrink-0 whitespace-nowrap uppercase font-bold text-black">{label}</span>
       <span className={`text-black ${nowrap ? "whitespace-nowrap" : ""}`}>{value}</span>
     </div>
   );
@@ -1693,7 +1693,7 @@ export function ProjectDetailDialog({
                   : "Unscheduled"
               }
             />
-            <DetailField label="Time" value={formatTime(job.confirmed_time ?? job.requested_time) || "--:--"} />
+            <DetailField label="Time" value={formatTime(job.confirmed_time) || "--:--"} />
             <DetailField label="Preferred window" value={job.subcontractor_preferred_window} nowrap />
             {job.confirmation_sent_at && (
               <div className="flex gap-2 text-xs text-slate-400">
@@ -1715,6 +1715,14 @@ export function ProjectDetailDialog({
               <span className="w-32 shrink-0 uppercase font-bold text-black">Scope of Work</span>
               <span className="text-black">{job.scope_of_work || "—"}</span>
             </div>
+            {job.subcontractor_sample_types.length > 0 && (
+              <div className="flex gap-2 text-sm">
+                <span className="w-32 shrink-0 uppercase font-bold text-black">Samples</span>
+                <ul className="list-disc space-y-0.5 pl-4 text-black">
+                  {job.subcontractor_sample_types.map((s, i) => <li key={i}>{s}</li>)}
+                </ul>
+              </div>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">

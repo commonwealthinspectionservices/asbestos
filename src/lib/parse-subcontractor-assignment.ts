@@ -17,7 +17,12 @@ export interface ParsedAssignment {
   clientEmail: string;
   clientPhone: string;
   clientNotes: string;
-  jobNotes: string;
+  /** The job's real scope of work — physical inspection/testing instructions — with the sample/service list and any "call/text to confirm arrival" line split out into sampleTypes/arrivalInstruction, so this stays focused on what to actually do on site rather than logistics or an itemized list. */
+  scopeOfWork: string;
+  /** From an "Includes: (x1 A) + (x1 B) + ..." line, e.g. ["x1 Outdoor Air", "x1 Indoor Air", ...] — empty if no such line was present. */
+  sampleTypes: string[];
+  /** A scheduling instruction like "PLEASE CALL/TEXT CLIENT TO CONFIRM ARRIVAL TIME" — logistics, not scope of work, so it's split out here instead of living inside it. Null if the job notes didn't have one. */
+  arrivalInstruction: string | null;
   baseCompensation: string | null;
   labFees: string | null;
   netPayment: string | null;
@@ -69,6 +74,41 @@ function stripHtml(fragment: string): string {
     .trim();
 }
 
+// Fast Mold Testing's "Job Notes" is one freeform multi-line blob mixing
+// real work instructions with an itemized sample list and a scheduling
+// aside — split those two out by their own recognizable shape (an
+// "Includes: (...) + (...)" line, and any line mentioning "confirm
+// arrival time") rather than trying to classify every sentence, which
+// would mean guessing at wording this template hasn't shown us yet.
+// Whatever's left is the real scope of work.
+function splitJobNotes(raw: string): { scopeOfWork: string; sampleTypes: string[]; arrivalInstruction: string | null } {
+  let sampleTypes: string[] = [];
+  let arrivalInstruction: string | null = null;
+  const kept: string[] = [];
+
+  for (const line of raw.split("\n")) {
+    const includesMatch = line.match(/^Includes:\s*(.+)$/i);
+    if (includesMatch) {
+      sampleTypes = includesMatch[1]
+        .split(/\)\s*\+\s*\(/)
+        .map((s) => s.replace(/^\(/, "").replace(/\)$/, "").trim())
+        .filter(Boolean);
+      continue;
+    }
+    if (/confirm\s+arrival\s+time/i.test(line)) {
+      arrivalInstruction = line.trim().replace(/:\s*$/, "");
+      continue;
+    }
+    kept.push(line);
+  }
+
+  return {
+    scopeOfWork: kept.join("\n").replace(/\n{3,}/g, "\n\n").trim(),
+    sampleTypes,
+    arrivalInstruction,
+  };
+}
+
 const MONTHS: Record<string, string> = {
   january: "01", february: "02", march: "03", april: "04", may: "05", june: "06",
   july: "07", august: "08", september: "09", october: "10", november: "11", december: "12",
@@ -118,6 +158,7 @@ export function parseNewAssignmentEmail(html: string): ParsedAssignment | null {
   // always provisional, not a promise of which window wins.
   const windowMatch = preferredWindowsRaw.match(/Window 1:\s*(.+)/i) ?? [null, preferredWindowsRaw];
   const preferredWindowText = (windowMatch[1] ?? preferredWindowsRaw).trim();
+  const { scopeOfWork, sampleTypes, arrivalInstruction } = splitJobNotes(jobNotes ?? "");
 
   return {
     address,
@@ -127,7 +168,9 @@ export function parseNewAssignmentEmail(html: string): ParsedAssignment | null {
     clientEmail: clientEmail ?? "",
     clientPhone: clientPhone ?? "",
     clientNotes: clientNotes ?? "",
-    jobNotes: jobNotes ?? "",
+    scopeOfWork,
+    sampleTypes,
+    arrivalInstruction,
     baseCompensation,
     labFees,
     netPayment,

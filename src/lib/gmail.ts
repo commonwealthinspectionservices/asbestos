@@ -194,6 +194,23 @@ export function getMessageBodyText(message: GmailMessage): string {
   return "";
 }
 
+// Unlike getMessageBodyText above, returns the raw HTML untouched — for a
+// sender whose emails have no text/plain alternative at all (confirmed for
+// Fast Mold Testing's assignment emails) and whose parser needs the actual
+// tag structure (label/value table cells), not tag-stripped text.
+export function getMessageBodyHtml(message: GmailMessage): string {
+  let html: string | null = null;
+  function walk(part: GmailMessagePart | undefined) {
+    if (!part) return;
+    if (part.mimeType === "text/html" && part.body?.data && !html) {
+      html = Buffer.from(part.body.data, "base64url").toString("utf8");
+    }
+    for (const child of part.parts ?? []) walk(child);
+  }
+  walk(message.payload);
+  return html ?? "";
+}
+
 async function gmailFetch(accessToken: string, path: string, init?: RequestInit): Promise<Response> {
   const res = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me${path}`, {
     ...init,

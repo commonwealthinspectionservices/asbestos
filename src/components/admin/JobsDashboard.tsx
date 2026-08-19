@@ -1683,6 +1683,19 @@ export function ProjectDetailDialog({
         )}
 
         {tab === "report" && (
+          job.source === "subcontractor" ? (
+            // No lab/report/invoice pipeline applies here at all — this job
+            // was subcontracted TO Tim by another company (see
+            // subcontractor-intake.ts), who handle their own final report
+            // and billing. Without this branch, jobReportDomains() would
+            // default this job's non-standard service_type to "needs an
+            // asbestos report" (see its own comment) and show a
+            // permanently-incomplete checklist for a report that's never
+            // coming from this app.
+            <div className="mt-4 rounded-lg bg-slate-50 p-4 text-sm text-slate-600">
+              This is a subcontracted job — {job.customers?.company || job.customers?.name || "the company that sent it"} handles the final report and invoice. Nothing to fill in here.
+            </div>
+          ) : (
           <div className="mt-4 space-y-6">
             <div>
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -2111,6 +2124,7 @@ export function ProjectDetailDialog({
               </div>
             </div>
           </div>
+          )
         )}
 
         {tab === "chat" && (

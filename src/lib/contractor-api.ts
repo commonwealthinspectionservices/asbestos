@@ -75,6 +75,20 @@ export async function requireContractorApi(): Promise<ContractorAuthResult> {
       error: NextResponse.json({ error: "No contractor profile found for this account" }, { status: 404 }),
     };
   }
+  // The on_auth_user_created trigger (schema.sql) creates this row — and an
+  // invite link authenticates the browser — the instant a portal invite is
+  // generated, well before the person ever opens the email, sets a real
+  // password, or fills in their profile (see OnboardingForm.tsx). Without
+  // this check, that half-authenticated session could already call every
+  // API route below, seeing/acting on real data under a stub identity
+  // (name still literally equal to their own email). POST /api/portal/profile
+  // itself — the route that sets this — deliberately doesn't go through
+  // here (it calls getContractorSession() directly), so it's unaffected.
+  if (!session.customer.onboarding_completed_at) {
+    return {
+      error: NextResponse.json({ error: "Finish setting up your account first" }, { status: 403 }),
+    };
+  }
 
   return { customer: session.customer };
 }

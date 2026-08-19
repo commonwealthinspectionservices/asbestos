@@ -1051,12 +1051,25 @@ function JobRow({
                     )}
                   </div>
                 )}
-                <input
-                  type="time"
-                  value={isUnscheduled ? "" : job.requested_time ?? ""}
-                  onChange={(e) => onFieldChange({ requested_time: e.target.value || null })}
-                  className="w-32 rounded-lg border border-slate-300 px-1.5 py-1 text-xs text-slate-600"
-                />
+                {job.source === "subcontractor" && !isUnscheduled ? (
+                  // This slot normally edits requested_time, but a
+                  // subcontracted job never has one (only a window range) —
+                  // once accepted, show that window (or the specific time
+                  // if it's since been pinned via Edit) as read-only text
+                  // instead of a blank, misleading time input.
+                  <span className="w-32 shrink-0 whitespace-nowrap rounded-lg border border-slate-300 bg-slate-50 px-1.5 py-1 text-xs text-slate-600">
+                    {job.confirmed_time && job.confirmed_time === parseWindowStartTime24h(job.subcontractor_preferred_window)
+                      ? extractTimeRange(job.subcontractor_preferred_window) ?? formatTime(job.confirmed_time)
+                      : formatTime(job.confirmed_time) || "--:--"}
+                  </span>
+                ) : (
+                  <input
+                    type="time"
+                    value={isUnscheduled ? "" : job.requested_time ?? ""}
+                    onChange={(e) => onFieldChange({ requested_time: e.target.value || null })}
+                    className="w-32 rounded-lg border border-slate-300 px-1.5 py-1 text-xs text-slate-600"
+                  />
+                )}
               </div>
             </div>
           )}

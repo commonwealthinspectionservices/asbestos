@@ -68,7 +68,14 @@ const PIPELINE_STATUSES = [
 const SUBCONTRACTOR_PIPELINE_STATUSES = ["needs_scheduling", "scheduled", "paid", "cancelled"] as const;
 
 function pipelineStatusesForJob(job: JobWithCustomer): readonly string[] {
-  return job.source === "subcontractor" ? SUBCONTRACTOR_PIPELINE_STATUSES : PIPELINE_STATUSES;
+  if (job.source !== "subcontractor") return PIPELINE_STATUSES;
+  // The only way from To Be Scheduled to Scheduled is accepting the
+  // requested window (AcceptScheduleControl) — jumping straight there
+  // from the status dropdown would skip setting a real confirmed_date/
+  // confirmed_time, leaving the job "scheduled" with nothing actually
+  // scheduled. Once it's past that point, the dropdown works normally.
+  if (job.status === "needs_scheduling") return SUBCONTRACTOR_PIPELINE_STATUSES.filter((s) => s !== "scheduled");
+  return SUBCONTRACTOR_PIPELINE_STATUSES;
 }
 
 function statusLabelForJob(job: JobWithCustomer, status: string): string {

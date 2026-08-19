@@ -3,7 +3,7 @@ import { Document, Page, Text, View, Image, StyleSheet, renderToBuffer } from "@
 import type { Style } from "@react-pdf/types";
 import { splitAddress } from "@/lib/address";
 import { primaryInspector } from "@/lib/settings";
-import { formatDateDMY } from "@/lib/date-format";
+import { formatDateMDY } from "@/lib/date-format";
 import type { Job, Customer, Settings } from "@/lib/types";
 import {
   ASBESTOS_POSITIVE_REMARK, ASBESTOS_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK,
@@ -311,7 +311,7 @@ function AsbestosReportDocument({ job, customer, settings }: ProjectReportData) 
 
         <Text style={styles.sectionTitleTight}>Sampling Summary:</Text>
         <View style={styles.summaryBlock}>
-          <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Date of Sampling:</Text><ValueOrBlank style={styles.summaryValue} value={formatDateDMY(job.requested_date)} /></View>
+          <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Date of Sampling:</Text><ValueOrBlank style={styles.summaryValue} value={formatDateMDY(job.requested_date)} /></View>
           <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Total # of Samples:</Text><ValueOrBlank style={styles.summaryValue} value={totalSamples} /></View>
           <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Samples Analyzed At:</Text><ValueOrBlank style={styles.summaryValue} value={job.lab_name} /></View>
           <View style={styles.summaryRow}><Text style={styles.summaryLabel}>NIST/NVLAP Certification#:</Text><ValueOrBlank style={styles.summaryValue} value={job.lab_nist_cert} /></View>
@@ -439,7 +439,7 @@ function LeadReportDocument({ job, customer, settings }: ProjectReportData) {
 
         <Text style={styles.sectionTitleTight}>Sampling Summary:</Text>
         <View style={styles.summaryBlock}>
-          <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Date of Sampling:</Text><ValueOrBlank style={styles.summaryValue} value={formatDateDMY(job.requested_date)} /></View>
+          <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Date of Sampling:</Text><ValueOrBlank style={styles.summaryValue} value={formatDateMDY(job.requested_date)} /></View>
           <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Total # of Samples:</Text><ValueOrBlank style={styles.summaryValue} value={totalSamples} /></View>
           <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Samples Analyzed At:</Text><ValueOrBlank style={styles.summaryValue} value={job.lab_name} /></View>
           <View style={styles.summaryRow}><Text style={styles.summaryLabel}>AIHA Certification#:</Text><ValueOrBlank style={styles.summaryValue} value={job.lab_nist_cert} /></View>

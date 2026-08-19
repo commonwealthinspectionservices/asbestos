@@ -13,7 +13,7 @@ import JobChat from "@/components/shared/JobChat";
 import JobPhotos from "@/components/shared/JobPhotos";
 import { AcceptScheduleControl, extractTimeRange, parseWindowStartTime24h } from "@/components/admin/AcceptScheduleControl";
 import { ContactForm } from "@/components/admin/ContactDetailDialog";
-import { formatDateDMY } from "@/lib/date-format";
+import { formatDateMDY } from "@/lib/date-format";
 import { subcontractorSenderForJob } from "@/lib/subcontractor-senders";
 
 // Splits on (captured) bare URLs so odd-indexed segments are the URLs
@@ -333,9 +333,9 @@ function formatTime(time: string | null | undefined): string {
 
 // Postgres `date` columns round-trip as "YYYY-MM-DD" — displayed as-is that
 // reads ambiguously, so every plain-text date in this file goes through
-// this to show it the standard DD/MM/YYYY way the rest of the app does.
+// this to show it the standard MM/DD/YYYY way the rest of the app does.
 export function formatDate(date: string | null | undefined): string {
-  return formatDateDMY(date) ?? "";
+  return formatDateMDY(date) ?? "";
 }
 
 const DOCUMENT_KIND_LABEL: Record<JobDocument["kind"], string> = {

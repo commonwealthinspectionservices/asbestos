@@ -1,23 +1,15 @@
 // Standard display format for every date shown anywhere in this app —
-// DD/MM/YYYY, not the US-conventional MM/DD/YYYY — per explicit owner
-// request (2026-08-15). Takes an ISO "YYYY-MM-DD" string (however it
-// reached the caller — a DB column, a form field, etc.) and returns it
-// reordered; returns null for anything that isn't a real date so callers
-// can fall back to their own blank/placeholder handling.
-export function formatDateDMY(dateStr: string | null | undefined): string | null {
-  if (!dateStr) return null;
-  const [y, m, d] = dateStr.slice(0, 10).split("-");
-  if (!y || !m || !d || y.length !== 4) return null;
-  return `${d}/${m}/${y}`;
-}
-
-// Every customer-facing job-lifecycle email (request received, confirmed,
-// day-before reminder, final report/invoice draft) uses MM/DD/YYYY
-// specifically — a deliberate exception to the DD/MM/YYYY convention used
-// everywhere else in the app (admin/portal UI), per explicit owner request
-// (2026-08-17): dates read ambiguous to a US-habituated reader inside an
-// email specifically, even though the numeric-order convention itself was
-// already correct.
+// MM/DD/YYYY. Was briefly swept to DD/MM/YYYY per an owner request on
+// 2026-08-15 (that variant lived here as formatDateDMY), then reverted
+// back to MM/DD/YYYY everywhere per a follow-up owner request on
+// 2026-08-19 — DD/MM/YYYY turned out to be the wrong call. Emails already
+// used MM/DD/YYYY throughout (see the old comment below, now moot since
+// there's no longer a second convention to be an exception to), so this
+// single function now covers both admin/portal UI and every email. Takes
+// an ISO "YYYY-MM-DD" string (however it reached the caller — a DB
+// column, a form field, etc.) and returns it reordered; returns null for
+// anything that isn't a real date so callers can fall back to their own
+// blank/placeholder handling.
 export function formatDateMDY(dateStr: string | null | undefined): string | null {
   if (!dateStr) return null;
   const [y, m, d] = dateStr.slice(0, 10).split("-");

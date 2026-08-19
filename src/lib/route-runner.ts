@@ -10,7 +10,7 @@ import { maybeSendImmediateAreaAlert } from "@/lib/area-health";
 import { escapeHtml } from "@/lib/html";
 import { getAppUrl } from "@/lib/app-url";
 import { estimateDurationMinutes } from "@/lib/pricing";
-import { formatDateDMY } from "@/lib/date-format";
+import { formatDateMDY } from "@/lib/date-format";
 import type { JobWithCustomer } from "@/lib/types";
 
 export interface RunMorningRouteResult {
@@ -35,7 +35,7 @@ export async function runMorningRoute(dateIso: string): Promise<RunMorningRouteR
   const weekdayLabel = new Date(`${dateIso}T12:00:00Z`).toLocaleDateString("en-US", {
     weekday: "long", month: "short", day: "numeric", timeZone: settings.timezone,
   });
-  const subjectDateLabel = formatDateDMY(dateIso);
+  const subjectDateLabel = formatDateMDY(dateIso);
 
   if (!jobs || jobs.length === 0) {
     await sendEmail({

@@ -5,7 +5,7 @@ import type { JobWithCustomer } from "@/lib/types";
 import { ProjectDetailDialog, EditProjectDialog } from "@/components/admin/JobsDashboard";
 import { AcceptScheduleControl } from "@/components/admin/AcceptScheduleControl";
 import { googleMapsUrl } from "@/lib/address";
-import { formatDateDMY } from "@/lib/date-format";
+import { formatDateMDY } from "@/lib/date-format";
 
 const STATUS_LABEL: Record<string, string> = {
   needs_scheduling: "To Be Scheduled",
@@ -69,7 +69,7 @@ function formatTime(time: string | null | undefined): string {
 }
 
 function formatDate(date: string | null | undefined): string {
-  return formatDateDMY(date) ?? "";
+  return formatDateMDY(date) ?? "";
 }
 
 // Local-component based, never through toISOString() — that converts

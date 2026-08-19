@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getContractorSession } from "@/lib/contractor-api";
+import { getSupabaseAdmin } from "@/lib/supabase";
 import OnboardingForm from "@/components/portal/OnboardingForm";
 
 export const dynamic = "force-dynamic";
@@ -19,5 +20,29 @@ export default async function PortalOnboardingPage() {
   // returned true for accounts that never set a password at all).
   if (session.customer?.onboarding_completed_at) redirect("/portal/dashboard");
 
-  return <OnboardingForm accountType={session.accountType} email={session.email} customer={session.customer} />;
+  // A teammate invited via another portal user's own "Teammates" section
+  // (POST /api/portal/contacts) has company_id set but never the free-text
+  // company field — that route only ever collects a name and email, unlike
+  // an admin Invite. company_id is what actually governs the link (see
+  // POST /api/portal/profile), so this is purely a display gap: without
+  // resolving it here, OnboardingForm would show a blank Company input for
+  // someone who's already definitely part of a real company.
+  let companyName = session.customer?.company ?? null;
+  if (!companyName && session.customer?.company_id) {
+    const { data: company } = await getSupabaseAdmin()
+      .from("companies")
+      .select("name")
+      .eq("id", session.customer.company_id)
+      .maybeSingle();
+    companyName = company?.name ?? null;
+  }
+
+  return (
+    <OnboardingForm
+      accountType={session.accountType}
+      email={session.email}
+      customer={session.customer}
+      companyName={companyName}
+    />
+  );
 }

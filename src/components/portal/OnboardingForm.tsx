@@ -15,30 +15,47 @@ export default function OnboardingForm({
   accountType,
   email,
   customer,
+  companyName,
 }: {
   accountType: "company" | "individual" | null;
   email: string | undefined;
-  // Only set for a real existing customers row — an admin Invite (or a
-  // returning contact whose row predates their own login) can already
-  // carry a real name/phone/company/billing address, in which case the
-  // only thing actually missing is a password. `customer.name !== email`
-  // is what tells that apart from the on_auth_user_created trigger's own
-  // stub row (always `name: email, phone: ''`, created the instant anyone
-  // signs up, before onboarding ever runs — see schema.sql) — pre-filling
-  // from that stub would show a garbled "first name" of someone's own
-  // email address for a brand-new self-signup, so this only pre-fills once
-  // there's a real name on file to show.
+  // Only set for a real existing customers row — an admin Invite, or
+  // another portal user's own "Teammates" invite, can already carry some
+  // real profile data before a password is ever set. The two paths don't
+  // carry the *same* fields though (see each flag below), so this is
+  // checked per field, not as one all-or-nothing "has a profile" flag —
+  // an admin Invite sets name/phone/company/billing address all at once,
+  // while a Teammates invite (POST /api/portal/contacts) only ever sets a
+  // name and email, leaving phone/company/address genuinely blank. Locking
+  // fields that are actually still empty would strand that person with no
+  // way to fill them in and a Continue button that can never enable.
   customer: Customer | null;
+  // Resolved server-side (see onboarding/page.tsx) — falls back to a
+  // company_id lookup when customer.company itself is blank, which is
+  // exactly the Teammates-invite case: company_id is already set and
+  // already governs the real link (POST /api/portal/profile keeps
+  // whatever company_id an existing row already has, regardless of what's
+  // typed here), so this is display-only, never a source of truth to edit.
+  companyName: string | null;
 }) {
-  const hasRealProfile = Boolean(customer && customer.name && customer.name !== customer.email);
-  const prefilledName = hasRealProfile ? splitFullName(customer!.name) : { first: "", last: "" };
-  const prefilledAddress = hasRealProfile ? parseAddressToFields(customer!.billing_address) : null;
+  // Stub rows from the on_auth_user_created trigger (schema.sql) always
+  // have name === email and phone === '' — this is what tells a genuinely
+  // unknown field apart from one a real invite already filled in. Pre-
+  // filling a brand-new self-signup's First Name with their own email
+  // would be worse than just leaving it blank.
+  const hasKnownName = Boolean(customer && customer.name && customer.name !== customer.email);
+  const hasKnownPhone = Boolean(customer?.phone);
+  const hasKnownCompany = Boolean(companyName);
+  const hasKnownAddress = Boolean(customer?.billing_address);
+
+  const prefilledName = hasKnownName ? splitFullName(customer!.name) : { first: "", last: "" };
+  const prefilledAddress = hasKnownAddress ? parseAddressToFields(customer!.billing_address) : null;
 
   const router = useRouter();
   const [firstName, setFirstName] = useState(prefilledName.first);
   const [lastName, setLastName] = useState(prefilledName.last);
-  const [company, setCompany] = useState(hasRealProfile ? customer!.company ?? "" : "");
-  const [phone, setPhone] = useState(hasRealProfile && customer!.phone ? formatPhoneNumber(customer!.phone) : "");
+  const [company, setCompany] = useState(hasKnownCompany ? companyName ?? "" : "");
+  const [phone, setPhone] = useState(hasKnownPhone ? formatPhoneNumber(customer!.phone) : "");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   // Same structured street/unit/town/state/zip layout as Book a Project and
@@ -109,38 +126,39 @@ export default function OnboardingForm({
         <div className="mb-4 rounded-lg bg-slate-100 px-4 py-3 text-sm text-slate-600">{email}</div>
       )}
 
-      {hasRealProfile ? (
-        // Invited with a real profile already on file (see hasRealProfile's
-        // own comment) — nothing here is editable. This is a confirmation
-        // of what's already on file, not a form; changing any of it is an
-        // Edit-contact action for the admin, not something to fold into the
-        // one moment someone's setting their password. Keeps "the only
-        // thing you have to do is create a password" literally true.
+      {(hasKnownName || (accountType !== "individual" && hasKnownCompany) || hasKnownPhone) && (
+        // Confirmation of whatever's already on file — not a form. Each
+        // field below only shows here once, either here (read-only) or as
+        // an editable input further down, never both and never neither.
         <div className="mb-4 space-y-2 rounded-lg bg-slate-100 px-4 py-3 text-sm text-slate-600">
-          <div>{joinName(firstName, lastName)}</div>
-          {accountType !== "individual" && company && <div>{company}</div>}
-          {phone && <div>{phone}</div>}
-          {(street || city) && (
-            <div>{[street, unit].filter(Boolean).join(" ")}{(street || unit) && (city || addrState || zip) ? ", " : ""}{[city, addrState, zip].filter(Boolean).join(" ")}</div>
-          )}
+          {hasKnownName && <div>{joinName(firstName, lastName)}</div>}
+          {accountType !== "individual" && hasKnownCompany && <div>{company}</div>}
+          {hasKnownPhone && <div>{phone}</div>}
         </div>
-      ) : (
-        <>
-          <div className="flex gap-2">
-            <input className="w-0 flex-1 rounded-lg border border-slate-300 px-4 py-3 text-base" placeholder="First name" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
-            <input className="w-0 flex-1 rounded-lg border border-slate-300 px-4 py-3 text-base" placeholder="Last name" value={lastName} onChange={(e) => setLastName(e.target.value)} />
-          </div>
-          {accountType !== "individual" && (
-            <input className="mt-4 w-full rounded-lg border border-slate-300 px-4 py-3 text-base" placeholder="Company" value={company} onChange={(e) => setCompany(e.target.value)} />
-          )}
-          <input className="mt-4 w-full rounded-lg border border-slate-300 px-4 py-3 text-base" placeholder="Phone" type="tel" value={phone} onChange={(e) => setPhone(formatPhoneNumber(e.target.value))} />
-        </>
+      )}
+
+      {!hasKnownName && (
+        <div className="flex gap-2">
+          <input className="w-0 flex-1 rounded-lg border border-slate-300 px-4 py-3 text-base" placeholder="First name" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+          <input className="w-0 flex-1 rounded-lg border border-slate-300 px-4 py-3 text-base" placeholder="Last name" value={lastName} onChange={(e) => setLastName(e.target.value)} />
+        </div>
+      )}
+      {accountType !== "individual" && !hasKnownCompany && (
+        <input className="mt-4 w-full rounded-lg border border-slate-300 px-4 py-3 text-base" placeholder="Company" value={company} onChange={(e) => setCompany(e.target.value)} />
+      )}
+      {!hasKnownPhone && (
+        <input className="mt-4 w-full rounded-lg border border-slate-300 px-4 py-3 text-base" placeholder="Phone" type="tel" value={phone} onChange={(e) => setPhone(formatPhoneNumber(e.target.value))} />
       )}
 
       <input className="mt-4 w-full rounded-lg border border-slate-300 px-4 py-3 text-base" placeholder="Create a password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
       <input className="mt-4 w-full rounded-lg border border-slate-300 px-4 py-3 text-base" placeholder="Confirm password" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
 
-      {!hasRealProfile && (
+      {hasKnownAddress ? (
+        <div className="mt-4 space-y-1 rounded-lg bg-slate-100 px-4 py-3 text-sm text-slate-600">
+          <p className="text-xs font-semibold uppercase text-slate-500">Billing address</p>
+          <div>{[street, unit].filter(Boolean).join(" ")}{(street || unit) && (city || addrState || zip) ? ", " : ""}{[city, addrState, zip].filter(Boolean).join(" ")}</div>
+        </div>
+      ) : (
         <>
           <p className="mt-4 text-sm font-semibold uppercase text-slate-500">Billing address</p>
           <div className="mt-2 flex gap-2">

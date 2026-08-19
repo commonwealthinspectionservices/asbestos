@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { JobWithCustomer } from "@/lib/types";
 import { ProjectDetailDialog, EditProjectDialog } from "@/components/admin/JobsDashboard";
-import { AcceptScheduleControl } from "@/components/admin/AcceptScheduleControl";
+import { AcceptScheduleControl, extractTimeRange, parseWindowStartTime24h } from "@/components/admin/AcceptScheduleControl";
 import { googleMapsUrl } from "@/lib/address";
 import { formatDateMDY } from "@/lib/date-format";
 
@@ -152,6 +152,8 @@ function JobCard({
           <div className="truncate whitespace-nowrap text-sm text-slate-700">
             {isPending
               ? `Requested for: ${formatDate(job.requested_date)}${job.requested_time ? ` ${formatTime(job.requested_time)}` : ""}`
+              : job.source === "subcontractor" && job.confirmed_time && job.confirmed_time === parseWindowStartTime24h(job.subcontractor_preferred_window)
+              ? extractTimeRange(job.subcontractor_preferred_window) ?? formatTime(job.confirmed_time)
               : formatTime(job.confirmed_time ?? job.requested_time) || "--:--"}
           </div>
           {(job.site_contact_name || job.site_contact_phone) && (

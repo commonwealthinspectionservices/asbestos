@@ -112,12 +112,15 @@ export const STATUS_COLOR: Record<string, string> = {
 
 // The one status whose label/color genuinely depends on more than just
 // job.status — see the STATUS_LABEL comment above.
+function isAwaitingReview(job: Pick<Job, "status" | "source">): boolean {
+  return job.status === "needs_scheduling" && (job.source === "portal_booking" || job.source === "email_intake");
+}
 function statusLabelFor(job: Pick<Job, "status" | "source">): string {
-  if (job.status === "needs_scheduling" && job.source === "portal_booking") return "Pending Approval";
+  if (isAwaitingReview(job)) return "Pending Approval";
   return STATUS_LABEL[job.status];
 }
 function statusColorFor(job: Pick<Job, "status" | "source">): string {
-  if (job.status === "needs_scheduling" && job.source === "portal_booking") return "bg-amber-100 text-amber-700";
+  if (isAwaitingReview(job)) return "bg-amber-100 text-amber-700";
   return STATUS_COLOR[job.status];
 }
 

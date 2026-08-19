@@ -149,7 +149,7 @@ export async function disconnectGmail(): Promise<void> {
 interface GmailMessagePart {
   mimeType?: string;
   filename?: string;
-  body?: { attachmentId?: string; size?: number };
+  body?: { attachmentId?: string; size?: number; data?: string };
   parts?: GmailMessagePart[];
   headers?: { name: string; value: string }[];
 }
@@ -170,6 +170,30 @@ export function getHeader(message: GmailMessage, name: string): string | null {
   return header?.value ?? null;
 }
 
+// Used by lib/job-intake.ts — unlike the lab-report path (which only ever
+// reads PDF attachments), a new-job-request email's real content is the
+// message body itself, inline in the MIME tree rather than an attachment.
+// Prefers text/plain; falls back to a crude tag-strip of text/html for a
+// client that only sent that part.
+export function getMessageBodyText(message: GmailMessage): string {
+  let plain: string | null = null;
+  let html: string | null = null;
+  function walk(part: GmailMessagePart | undefined) {
+    if (!part) return;
+    if (part.mimeType === "text/plain" && part.body?.data && !plain) {
+      plain = Buffer.from(part.body.data, "base64url").toString("utf8");
+    }
+    if (part.mimeType === "text/html" && part.body?.data && !html) {
+      html = Buffer.from(part.body.data, "base64url").toString("utf8");
+    }
+    for (const child of part.parts ?? []) walk(child);
+  }
+  walk(message.payload);
+  if (plain) return plain;
+  if (html) return (html as string).replace(/<[^>]+>/g, "\n");
+  return "";
+}
+
 async function gmailFetch(accessToken: string, path: string, init?: RequestInit): Promise<Response> {
   const res = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me${path}`, {
     ...init,
@@ -187,10 +211,18 @@ async function gmailFetch(accessToken: string, path: string, init?: RequestInit)
 // whole mailbox.
 const CANDIDATE_QUERY = "is:unread has:attachment filename:pdf newer_than:14d";
 
-export async function listCandidateMessages(accessToken: string): Promise<{ id: string; threadId: string }[]> {
-  const res = await gmailFetch(accessToken, `/messages?q=${encodeURIComponent(CANDIDATE_QUERY)}&maxResults=25`);
+// Shared by listCandidateMessages above (lab-report emails) and
+// listJobIntakeCandidates (lib/job-intake.ts, new-job-request emails from a
+// known repeat company) — same "search, let the caller's own content check
+// decide what's a real hit" shape, just a different query per use case.
+export async function listMessagesByQuery(accessToken: string, query: string): Promise<{ id: string; threadId: string }[]> {
+  const res = await gmailFetch(accessToken, `/messages?q=${encodeURIComponent(query)}&maxResults=25`);
   const data = await res.json();
   return data.messages ?? [];
+}
+
+export async function listCandidateMessages(accessToken: string): Promise<{ id: string; threadId: string }[]> {
+  return listMessagesByQuery(accessToken, CANDIDATE_QUERY);
 }
 
 export async function getMessage(accessToken: string, id: string): Promise<GmailMessage> {

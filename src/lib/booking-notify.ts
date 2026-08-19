@@ -154,10 +154,18 @@ export async function sendJobConfirmedEmailIfDue(jobId: string): Promise<void> {
   const supabase = getSupabaseAdmin();
   const { data: job } = await supabase
     .from("jobs")
-    .select("id, project_number, service_address, service_type, confirmed_date, confirmed_time, confirmation_sent_at, email_thread_message_ids, email_gmail_thread_id, customer_id")
+    .select("id, project_number, service_address, service_type, confirmed_date, confirmed_time, confirmation_sent_at, email_thread_message_ids, email_gmail_thread_id, customer_id, source")
     .eq("id", jobId)
     .maybeSingle();
   if (!job || !job.confirmed_date || job.confirmation_sent_at) return;
+  // email_intake jobs (see lib/job-intake.ts) are threaded into a
+  // conversation a real client started, with a real distribution list
+  // (whoever they CC'd) this app has no reliable way to reconstruct —
+  // sending an auto-generated reply there, to just the one on-file company
+  // contact, isn't the same manual back-and-forth the owner actually wants
+  // for this intake channel. No automated sends at all for these; every
+  // reply is manual, same as the existing process.
+  if (job.source === "email_intake") return;
 
   const { data: customer } = await supabase.from("customers").select("name, email").eq("id", job.customer_id).maybeSingle();
   if (!customer?.email) return;

@@ -37,17 +37,17 @@ type TrackerSegment = {
   label: React.ReactNode;
   done: (job: Job, currentIndex: number) => boolean;
 };
-// The first step reads "Pending Approval" only for a real customer-submitted
-// request still awaiting the owner's review (source === "portal_booking" —
-// the same condition AcceptScheduleControl.tsx uses on the admin side to
-// show its own accept/decline notification). An admin-entered job left at
-// "needs_scheduling" on purpose has nothing pending the owner's approval, so
-// it reads "To Be Scheduled" instead, matching the admin dashboard's own
-// label for that same status.
+// The first step reads "Pending Approval" only for a real unreviewed
+// request still awaiting the owner's review (source === "portal_booking" or
+// "email_intake" — the same condition AcceptScheduleControl.tsx uses on the
+// admin side to show its own accept/decline notification). An admin-entered
+// job left at "needs_scheduling" on purpose has nothing pending the owner's
+// approval, so it reads "To Be Scheduled" instead, matching the admin
+// dashboard's own label for that same status.
 function firstTrackerSegment(source: Job["source"]): TrackerSegment {
   return {
     key: "needs_scheduling",
-    label: source === "portal_booking" ? <>Pending<br />Approval</> : <>To Be<br />Scheduled</>,
+    label: source === "portal_booking" || source === "email_intake" ? <>Pending<br />Approval</> : <>To Be<br />Scheduled</>,
     done: (_job, i) => i >= 0,
   };
 }
@@ -224,6 +224,11 @@ export default function ProjectDetailModal({
         <div className="max-h-[60vh] overflow-y-auto px-5 py-4">
           {tab === "info" && (
             <div className="grid grid-cols-1 gap-y-4">
+              {/* Editable only for a self-submitted portal booking — an
+                  email_intake job's source of truth is the original email
+                  it was parsed from, not something to let a portal user
+                  edit out from under it, so that one stays read-only below
+                  even while "Pending Approval" (see firstTrackerSegment). */}
               {job.status === "needs_scheduling" && job.source === "portal_booking" ? (
                 <PendingRequestEditor job={job} isIndividual={job.is_individual} onSaved={onChanged} />
               ) : (

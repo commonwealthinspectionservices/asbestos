@@ -14,6 +14,27 @@ import JobPhotos from "@/components/shared/JobPhotos";
 import { AcceptScheduleControl } from "@/components/admin/AcceptScheduleControl";
 import { ContactForm } from "@/components/admin/ContactDetailDialog";
 import { formatDateDMY } from "@/lib/date-format";
+import { subcontractorSenderForJob } from "@/lib/subcontractor-senders";
+
+// Splits on (captured) bare URLs so odd-indexed segments are the URLs
+// themselves — used for job.notes, which can contain a real link (e.g. a
+// subcontractor's shipping label) that's otherwise just inert text.
+function Linkify({ text }: { text: string }) {
+  const parts = text.split(/(https?:\/\/[^\s]+)/g);
+  return (
+    <>
+      {parts.map((part, i) =>
+        i % 2 === 1 ? (
+          <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="break-all text-brand-700 underline">
+            {part}
+          </a>
+        ) : (
+          <span key={i}>{part}</span>
+        )
+      )}
+    </>
+  );
+}
 
 // The full job-flow pipeline, in order — every open project is tracked
 // somewhere along this list from intake to close-out. Admin-controlled via a
@@ -1586,6 +1607,20 @@ export function ProjectDetailDialog({
                     Subcontracted
                   </span>
                 )}
+                {job.source === "subcontractor" && (() => {
+                  const sender = subcontractorSenderForJob(job.customers?.email);
+                  return sender ? (
+                    <a
+                      href={sender.portalUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="shrink-0 whitespace-nowrap rounded-full border border-indigo-300 px-2 py-0.5 text-xs font-bold uppercase text-indigo-700 hover:bg-indigo-50"
+                      title={`Open ${sender.companyName}'s own portal — useful for anything not included in their assignment email, like a shipment added afterward`}
+                    >
+                      {sender.companyName} Portal ↗
+                    </a>
+                  ) : null;
+                })()}
                 <button onClick={onEdit} className="shrink-0 rounded-lg border border-slate-300 px-3.5 py-1.5 text-sm font-bold uppercase hover:underline">
                   Edit
                 </button>
@@ -1708,7 +1743,7 @@ export function ProjectDetailDialog({
           {job.notes && job.notes.trim() && (
             <div className="space-y-2">
               <h4 className="text-sm font-bold uppercase tracking-wide text-black underline">Notes</h4>
-              <p className="text-sm text-black">{job.notes}</p>
+              <p className="whitespace-pre-wrap text-sm text-black"><Linkify text={job.notes} /></p>
             </div>
           )}
           {(job.job_classification || job.payment_method || job.po_number || job.invoice_number) && (

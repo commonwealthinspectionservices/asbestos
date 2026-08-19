@@ -59,6 +59,33 @@ const NEW_ASSIGNMENT_HTML = `
 Infrared used in all areas of property by request of client.</td>
   </tr>
 </table>
+<div style="background-color: #f7fafc; border-radius: 6px; padding: 24px; margin-bottom: 24px;">
+  <h2 style="color: #2d3748; font-size: 18px; font-weight: 600; margin: 0 0 16px;">
+    Shipping Information
+  </h2>
+  <table style="width: 100%; border-collapse: collapse;">
+    <tr>
+      <td style="padding: 8px 0; color: #718096; width: 120px;">Label URL:</td>
+      <td style="padding: 8px 0; color: #2d3748;">
+        <a href="https://drive.google.com/file/d/1bZdyEkiJIsWwVmKG9jzDiWLOk1auowHu/view?usp=drivesdk" style="color: #0ea5e9; text-decoration: underline;">
+          https://drive.google.com/file/d/1bZdyEkiJIsWwVmKG9jzDiWLOk1auowHu/view?usp=drivesdk
+        </a>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding: 8px 0; color: #718096;">Provider:</td>
+      <td style="padding: 8px 0; color: #2d3748;">FedEx</td>
+    </tr>
+    <tr>
+      <td style="padding: 8px 0; color: #718096;">Speed:</td>
+      <td style="padding: 8px 0; color: #2d3748;">Overnight</td>
+    </tr>
+    <tr>
+      <td style="padding: 8px 0; color: #718096;">Tracking Number:</td>
+      <td style="padding: 8px 0; color: #2d3748;">875740319363</td>
+    </tr>
+  </table>
+</div>
 `;
 
 const RESCHEDULED_HTML = `
@@ -85,11 +112,29 @@ describe("parseNewAssignmentEmail", () => {
       baseCompensation: "$470.16",
       labFees: "-$100.00",
       netPayment: "$370.16",
+      shippingProvider: "FedEx",
+      shippingSpeed: "Overnight",
+      shippingTrackingNumber: "875740319363",
+      shippingLabelUrl: "https://drive.google.com/file/d/1bZdyEkiJIsWwVmKG9jzDiWLOk1auowHu/view?usp=drivesdk",
     });
   });
 
   it("returns null for a body that doesn't match the expected table format at all", () => {
     expect(parseNewAssignmentEmail("<p>Hey, just checking in.</p>")).toBeNull();
+  });
+
+  it("leaves shipping fields null when the email has no Shipping Information section", () => {
+    const withoutShipping = NEW_ASSIGNMENT_HTML.replace(
+      /<div style="background-color: #f7fafc[\s\S]*?<\/div>\n$/,
+      ""
+    );
+    const result = parseNewAssignmentEmail(withoutShipping);
+    expect(result?.shippingProvider).toBeNull();
+    expect(result?.shippingSpeed).toBeNull();
+    expect(result?.shippingTrackingNumber).toBeNull();
+    expect(result?.shippingLabelUrl).toBeNull();
+    // The rest of the parse is unaffected by the missing section.
+    expect(result?.address).toBe("352 Centre Street, Boston, MA 02122");
   });
 });
 

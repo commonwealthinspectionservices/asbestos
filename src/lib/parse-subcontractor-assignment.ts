@@ -21,6 +21,11 @@ export interface ParsedAssignment {
   baseCompensation: string | null;
   labFees: string | null;
   netPayment: string | null;
+  /** Only the shipment included in this email (typically the sample kit) — Fast Mold Testing's portal has shown a second shipment (e.g. a HERTSMI dust-test kit to a different lab) added later with no follow-up email, so this is a floor, not a guarantee of everything they'll eventually ship. */
+  shippingProvider: string | null;
+  shippingSpeed: string | null;
+  shippingTrackingNumber: string | null;
+  shippingLabelUrl: string | null;
 }
 
 export interface ParsedReschedule {
@@ -96,6 +101,14 @@ export function parseNewAssignmentEmail(html: string): ParsedAssignment | null {
   // exact label text.
   const labFeesMatch = html.match(/<td[^>]*>\s*Est\.\s*Lab Fees[^<]*<\/td>\s*<td[^>]*>([\s\S]*?)<\/td>/i);
   const labFees = labFeesMatch ? stripHtml(labFeesMatch[1]) : null;
+  // Present on most assignments (the sample-kit shipment) but not
+  // guaranteed — e.g. the "Rescheduled" email never has one, and it's
+  // plausible some assignment type doesn't ship anything. Left optional
+  // rather than failing the whole parse over it.
+  const shippingProvider = extractLabeledField(html, "Provider:");
+  const shippingSpeed = extractLabeledField(html, "Speed:");
+  const shippingTrackingNumber = extractLabeledField(html, "Tracking Number:");
+  const shippingLabelUrl = extractLabeledField(html, "Label URL:");
 
   if (!address || !preferredWindowsRaw || !clientName) return null;
 
@@ -118,6 +131,10 @@ export function parseNewAssignmentEmail(html: string): ParsedAssignment | null {
     baseCompensation,
     labFees,
     netPayment,
+    shippingProvider,
+    shippingSpeed,
+    shippingTrackingNumber,
+    shippingLabelUrl,
   };
 }
 

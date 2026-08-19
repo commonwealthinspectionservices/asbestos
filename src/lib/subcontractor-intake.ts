@@ -16,6 +16,7 @@ import { generateProjectNumber } from "@/lib/project-number";
 import { sendEmail, emailShell } from "@/lib/email";
 import { escapeHtml } from "@/lib/html";
 import { parseNewAssignmentEmail, parseRescheduledEmail, type ParsedAssignment } from "@/lib/parse-subcontractor-assignment";
+import { KNOWN_SUBCONTRACTOR_SENDERS, type SubcontractorSender } from "@/lib/subcontractor-senders";
 import {
   getValidAccessToken,
   listMessagesByQuery,
@@ -24,16 +25,6 @@ import {
   getMessageBodyHtml,
   markMessageRead,
 } from "@/lib/gmail";
-
-interface SubcontractorSender {
-  domain: string;
-  companyName: string;
-  companyPhone: string;
-}
-
-const KNOWN_SUBCONTRACTOR_SENDERS: SubcontractorSender[] = [
-  { domain: "fastmoldtesting.com", companyName: "Fast Mold Testing", companyPhone: "424-274-7425" },
-];
 
 export interface SubcontractorIntakeResult {
   checked: number;
@@ -187,6 +178,13 @@ function buildJobNotes(params: { sender: SubcontractorSender; parsed: ParsedAssi
   ];
   if (parsed.baseCompensation) {
     lines.push(`Compensation: ${parsed.baseCompensation} base${parsed.labFees ? `, ${parsed.labFees} est. lab fees` : ""}${parsed.netPayment ? `, ${parsed.netPayment} est. net` : ""} (estimated by ${sender.companyName}, not tracked here).`);
+  }
+  if (parsed.shippingTrackingNumber || parsed.shippingLabelUrl) {
+    const parts = [parsed.shippingProvider, parsed.shippingSpeed].filter(Boolean).join(" ");
+    lines.push(
+      `\nShipping: ${parts || "carrier not given"}${parsed.shippingTrackingNumber ? ` — tracking ${parsed.shippingTrackingNumber}` : ""}${parsed.shippingLabelUrl ? `\nLabel: ${parsed.shippingLabelUrl}` : ""}` +
+      `\n(${sender.companyName}'s portal may show additional shipments — e.g. a lab kit — added after this email went out; check ${KNOWN_SUBCONTRACTOR_SENDERS.find((s) => s.domain === sender.domain)?.portalUrl ?? "their portal"} if in doubt.)`
+    );
   }
   if (parsed.clientNotes) lines.push(`\nClient notes: ${parsed.clientNotes}`);
   if (parsed.jobNotes) lines.push(`\nJob notes:\n${parsed.jobNotes}`);

@@ -1694,6 +1694,7 @@ export function ProjectDetailDialog({
               }
             />
             <DetailField label="Time" value={formatTime(job.confirmed_time ?? job.requested_time) || "--:--"} />
+            <DetailField label="Preferred window" value={job.subcontractor_preferred_window} nowrap />
             {job.confirmation_sent_at && (
               <div className="flex gap-2 text-xs text-slate-400">
                 <span className="w-32 shrink-0 uppercase font-bold">Confirmation Sent</span>
@@ -1763,6 +1764,7 @@ export function ProjectDetailDialog({
               <h4 className="text-sm font-bold uppercase tracking-wide text-black underline">Job site contact</h4>
               <DetailField label="Name" value={job.site_contact_name ?? "—"} />
               <DetailField label="Phone" value={job.site_contact_phone ?? "—"} />
+              <DetailField label="Email" value={job.site_contact_email} nowrap />
             </div>
             {job.report_emails && job.report_emails.trim() && (
               <div className="space-y-2">

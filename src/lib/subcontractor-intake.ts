@@ -169,19 +169,24 @@ async function getOrCreateSenderContact(sender: SubcontractorSender): Promise<{ 
   return created;
 }
 
-// Shipping and compensation get their own structured columns (and their
-// own tabs in JobsDashboard.tsx) rather than living in this free-text
-// blob — see subcontractor_shipping/subcontractor_compensation in
-// schema.sql.
+// Shipping, compensation, the client's contact info, and the preferred
+// window all get their own structured columns (and, for the first two,
+// their own tabs in JobsDashboard.tsx) rather than living in this
+// free-text blob — see subcontractor_shipping/subcontractor_compensation/
+// site_contact_email/subcontractor_preferred_window in schema.sql.
+// parsed.jobNotes deliberately isn't repeated here either — it's already
+// the job's scope_of_work (see createSubcontractorJob), which has its own
+// dedicated field in Project Info. This is just the leftover context that
+// has nowhere else to live: the subcontracting relationship itself, and
+// what the client told them (distinct from what the job notes instruct).
 function buildJobNotes(params: { sender: SubcontractorSender; parsed: ParsedAssignment }): string {
   const { sender, parsed } = params;
-  const lines = [
-    `Subcontracted via ${sender.companyName} — they handle the final report and invoice for this job, not us.`,
-    `Preferred window: ${parsed.preferredWindowText} — call/text the client to confirm the exact time.`,
-    `Client: ${parsed.clientName}${parsed.clientPhone ? ` (${parsed.clientPhone})` : ""}${parsed.clientEmail ? ` — ${parsed.clientEmail}` : ""}`,
-  ];
-  if (parsed.clientNotes) lines.push(`\nClient notes: ${parsed.clientNotes}`);
-  if (parsed.jobNotes) lines.push(`\nJob notes:\n${parsed.jobNotes}`);
+  const lines = [`Subcontracted via ${sender.companyName} — they handle the final report and invoice for this job, not us.`];
+  // Their template fills this with "No additional notes" when the client
+  // didn't write anything — that's a placeholder, not real content.
+  if (parsed.clientNotes && parsed.clientNotes.trim().toLowerCase() !== "no additional notes") {
+    lines.push(`\nClient notes: ${parsed.clientNotes}`);
+  }
   return lines.join("\n");
 }
 
@@ -217,6 +222,8 @@ export async function createSubcontractorJob(params: {
       service_address: parsed.address,
       site_contact_name: parsed.clientName,
       site_contact_phone: parsed.clientPhone || null,
+      site_contact_email: parsed.clientEmail || null,
+      subcontractor_preferred_window: parsed.preferredWindowText || null,
       // Deliberately NOT one of the app's own billable service types (no
       // "mold"/"lead" substring either) — jobReportDomains() defaults
       // anything else to "needs an asbestos report," which JobsDashboard's
@@ -268,7 +275,11 @@ async function applyReschedule(params: {
     .from("jobs")
     .update({
       requested_date: parsed.newDate,
-      notes: `${job.notes ?? ""}\n\nRescheduled by ${sender.companyName} — new preferred window: ${parsed.newWindowText}. Call/text the client to reconfirm.`.trim(),
+      // Overwritten, not appended — subcontractor_preferred_window is
+      // meant to reflect the current window, not a history of them. The
+      // notes line below is the one place a reschedule leaves a trace.
+      subcontractor_preferred_window: parsed.newWindowText,
+      notes: `${job.notes ?? ""}\n\nRescheduled by ${sender.companyName} — call/text the client to reconfirm the new window.`.trim(),
     })
     .eq("id", job.id);
 

@@ -28,6 +28,8 @@ function baseJob(overrides: Partial<JobWithCustomer> = {}): JobWithCustomer {
     lat: 42.347, lng: -71.082,
     site_contact_name: null,
     site_contact_phone: null,
+    site_contact_email: null,
+    subcontractor_preferred_window: null,
     service_type: "Limited Asbestos Inspection",
     scope_of_work: null,
     base_fee_cents: null,

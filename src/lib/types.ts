@@ -190,6 +190,7 @@ export interface Job {
   /** The on-site contact (e.g. whoever is present during the inspection) — distinct from customer_id, which is who pays. */
   site_contact_name: string | null;
   site_contact_phone: string | null;
+  site_contact_email: string | null;
   service_type: string | null;
   /** What the contractor actually wants sampled (e.g. "Sample the walls in the kitchen") — job-specific instructions, distinct from `notes`. */
   scope_of_work: string | null;
@@ -305,6 +306,8 @@ export interface Job {
   subcontractor_shipping: { provider: string | null; speed: string | null; trackingNumber: string | null; labelUrl: string | null } | null;
   /** Same idea as subcontractor_shipping — Fast Mold Testing's own estimate, not tracked/billed by this app. */
   subcontractor_compensation: { base: string | null; labFees: string | null; net: string | null } | null;
+  /** Human-readable time range as the subcontracting company sent it (e.g. "8:00 AM - 4:00 PM") — requested_date/window can't represent a range like this. Overwritten (not appended) on a reschedule email so it's always current. */
+  subcontractor_preferred_window: string | null;
   /** Distinct from the free-text `payment_method` field above (informational, import-only). This one drives real behavior: "online" auto-creates a Stripe hosted invoice and includes its pay-now link on drafted invoice emails, and shows the portal's Pay now button. "check" skips Stripe entirely on those automatic paths — the admin's own on-demand "Get payment link" button still works regardless. */
   payment_type: "online" | "check";
   created_at: string;

@@ -894,3 +894,15 @@ alter table settings add column if not exists cron_alert_sent_at jsonb not null 
 -- provided in the email," not "known to be zero."
 alter table jobs add column if not exists subcontractor_shipping jsonb;
 alter table jobs add column if not exists subcontractor_compensation jsonb;
+
+-- Two more fields that were living as redundant free-text lines inside
+-- jobs.notes ("Client: Shaki (...) — shakid...@gmail.com" and "Preferred
+-- window: ..."), duplicating what Job Site Contact/Date of Sampling
+-- already show (or should show). site_contact_email fills the one gap
+-- Job Site Contact didn't already cover (name/phone only, no email);
+-- subcontractor_preferred_window holds the human-readable time range
+-- (e.g. "8:00 AM - 4:00 PM") a subcontractor's requested_date/window
+-- can't represent on its own, and gets overwritten (not appended to) on
+-- a reschedule email so it never goes stale.
+alter table jobs add column if not exists site_contact_email text;
+alter table jobs add column if not exists subcontractor_preferred_window text;

@@ -55,6 +55,8 @@ const job: Job = {
   lat: 42.347, lng: -71.082,
   site_contact_name: "John Homeowner",
   site_contact_phone: "617-555-0111",
+  site_contact_email: null,
+  subcontractor_preferred_window: null,
   service_type: "asbestos",
   scope_of_work: null,
   base_fee_cents: 45000,

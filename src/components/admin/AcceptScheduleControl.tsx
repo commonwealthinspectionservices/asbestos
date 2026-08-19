@@ -102,14 +102,12 @@ export function AcceptScheduleControl({
   function startAccepting() {
     if (isSubcontractor) {
       // No client-facing portal to ask about — accept straight away.
-      // requested_time is never set for a subcontracted job (only a
-      // window range, in subcontractor_preferred_window) — the button
-      // variant has no time to offer, so confirmed_time stays null there;
-      // the panel variant's own time input (if the admin filled it in)
-      // still gets respected.
-      const confirmedDate = variant === "button" ? job.requested_date : date || null;
-      const confirmedTime = variant === "button" ? null : time || null;
-      finalize(confirmedDate, confirmedTime, false);
+      // requested_time is never set for a subcontracted job (only a window
+      // range, in subcontractor_preferred_window) — there's no per-job time
+      // to type in for these (see the accept/deny rendering below, which
+      // replaces the manual date/time form entirely), so confirmed_time
+      // stays null until set by hand later via Edit.
+      finalize(job.requested_date, null, false);
     } else {
       setConfirmingVisibility(true);
     }
@@ -179,17 +177,53 @@ export function AcceptScheduleControl({
     );
   }
 
+  if (isSubcontractor) {
+    // No per-job time to type in here — a subcontracted job only ever
+    // carries a window range (subcontractor_preferred_window), not a real
+    // appointment time, so this is a straight accept/deny of that window
+    // rather than the manual date/time form below (which exists for real
+    // customer requests, where picking a different exact time is normal).
+    const timeRange = extractTimeRange(job.subcontractor_preferred_window);
+    const windowSuffix = timeRange ? ` (${timeRange})` : "";
+    return (
+      <div
+        onClick={(e) => stopPropagation && e.stopPropagation()}
+        className="rounded-lg border border-slate-200 bg-slate-50 p-3"
+      >
+        <p className="text-xs font-bold uppercase text-slate-500">Accept or Deny Requested Window</p>
+        <p className="mt-1 text-xs text-slate-500">
+          {job.requested_date
+            ? `Requested for ${formatFullDate(job.requested_date)}${windowSuffix}`
+            : "No requested time"}
+        </p>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            disabled={!job.requested_date || submitting}
+            onClick={startAccepting}
+            className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-bold text-white disabled:opacity-50"
+          >
+            {submitting ? "…" : "Accept"}
+          </button>
+          <button
+            type="button"
+            onClick={() => onEditManually?.()}
+            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-bold text-slate-600"
+          >
+            Deny — Set a Different Time
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       onClick={(e) => stopPropagation && e.stopPropagation()}
       className="rounded-lg border border-slate-200 bg-slate-50 p-3"
     >
       <p className="text-xs font-bold uppercase text-slate-500">Accept & Schedule</p>
-      <p className="mt-1 text-xs text-slate-500">
-        {isSubcontractor
-          ? "Confirms this date/time — there's no customer portal to ask about showing it to."
-          : "Confirms this date/time, then asks whether to show it to the customer."}
-      </p>
+      <p className="mt-1 text-xs text-slate-500">Confirms this date/time, then asks whether to show it to the customer.</p>
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <input
           type="date"

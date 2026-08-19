@@ -19,5 +19,5 @@ export default async function PortalOnboardingPage() {
   // returned true for accounts that never set a password at all).
   if (session.customer?.onboarding_completed_at) redirect("/portal/dashboard");
 
-  return <OnboardingForm accountType={session.accountType} email={session.email} />;
+  return <OnboardingForm accountType={session.accountType} email={session.email} customer={session.customer} />;
 }

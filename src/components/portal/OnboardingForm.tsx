@@ -5,32 +5,49 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import AddressAutocompleteInput from "@/components/shared/AddressAutocompleteInput";
 import ZipInput, { useAutoZip } from "@/components/shared/ZipInput";
-import { buildBillingAddress, US_STATES } from "@/lib/address";
+import { buildBillingAddress, parseAddressToFields, US_STATES } from "@/lib/address";
 import { formatPhoneNumber } from "@/lib/phone";
-import { joinName } from "@/lib/name";
+import { joinName, splitFullName } from "@/lib/name";
 import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
+import type { Customer } from "@/lib/types";
 
 export default function OnboardingForm({
   accountType,
   email,
+  customer,
 }: {
   accountType: "company" | "individual" | null;
   email: string | undefined;
+  // Only set for a real existing customers row — an admin Invite (or a
+  // returning contact whose row predates their own login) can already
+  // carry a real name/phone/company/billing address, in which case the
+  // only thing actually missing is a password. `customer.name !== email`
+  // is what tells that apart from the on_auth_user_created trigger's own
+  // stub row (always `name: email, phone: ''`, created the instant anyone
+  // signs up, before onboarding ever runs — see schema.sql) — pre-filling
+  // from that stub would show a garbled "first name" of someone's own
+  // email address for a brand-new self-signup, so this only pre-fills once
+  // there's a real name on file to show.
+  customer: Customer | null;
 }) {
+  const hasRealProfile = Boolean(customer && customer.name && customer.name !== customer.email);
+  const prefilledName = hasRealProfile ? splitFullName(customer!.name) : { first: "", last: "" };
+  const prefilledAddress = hasRealProfile ? parseAddressToFields(customer!.billing_address) : null;
+
   const router = useRouter();
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [company, setCompany] = useState("");
-  const [phone, setPhone] = useState("");
+  const [firstName, setFirstName] = useState(prefilledName.first);
+  const [lastName, setLastName] = useState(prefilledName.last);
+  const [company, setCompany] = useState(hasRealProfile ? customer!.company ?? "" : "");
+  const [phone, setPhone] = useState(hasRealProfile && customer!.phone ? formatPhoneNumber(customer!.phone) : "");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   // Same structured street/unit/town/state/zip layout as Book a Project and
   // the admin's Add Project form (see AddressBook.tsx / PortalBookingForm.tsx).
-  const [street, setStreet] = useState("");
-  const [unit, setUnit] = useState("");
-  const [city, setCity] = useState("");
-  const [addrState, setAddrState] = useState("MA");
-  const [zip, setZip] = useState("");
+  const [street, setStreet] = useState(prefilledAddress?.street ?? "");
+  const [unit, setUnit] = useState(prefilledAddress?.unit ?? "");
+  const [city, setCity] = useState(prefilledAddress?.city ?? "");
+  const [addrState, setAddrState] = useState(prefilledAddress?.state || "MA");
+  const [zip, setZip] = useState(prefilledAddress?.zip ?? "");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 

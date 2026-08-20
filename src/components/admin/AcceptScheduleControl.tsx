@@ -164,8 +164,8 @@ export function AcceptScheduleControl({
       ? ` (${timeRange})`
       : job.requested_time ? ` at ${formatTime(job.requested_time)}` : "";
     return (
-      <div onClick={(e) => stopPropagation && e.stopPropagation()} className="flex w-full min-w-0 flex-wrap items-center gap-1.5 sm:w-auto">
-        <span className="min-w-0 rounded bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">
+      <div onClick={(e) => stopPropagation && e.stopPropagation()} className="flex shrink-0 flex-wrap items-center gap-1.5">
+        <span className="whitespace-nowrap rounded bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">
           {job.requested_date
             ? `Requested for ${formatFullDate(job.requested_date)}${windowSuffix}`
             : "No requested time"}

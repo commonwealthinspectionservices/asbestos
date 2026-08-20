@@ -966,20 +966,28 @@ function JobRow({
       role="button"
       tabIndex={0}
       onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onOpen()}
-      className="flex w-full cursor-pointer flex-col gap-2 rounded-lg border border-slate-200 bg-white p-3 hover:border-brand-400 sm:gap-0"
+      className="flex w-full cursor-pointer flex-col rounded-lg border border-slate-200 bg-white p-3 hover:border-brand-400"
     >
       <div className="flex w-full items-center justify-between gap-2">
-        {job.project_number && (
-          <span className="inline-flex h-7 shrink-0 items-center whitespace-nowrap rounded bg-slate-200 px-2 text-sm font-mono font-bold text-slate-800 hover:underline">{job.project_number}</span>
-        )}
-        <div className="flex flex-wrap items-center justify-end gap-1.5">
+        <div className="flex min-w-0 items-center gap-2">
+          {job.project_number && (
+            <span className="shrink-0 whitespace-nowrap rounded bg-slate-200 px-2 py-0.5 text-sm font-mono font-bold text-slate-800 hover:underline">{job.project_number}</span>
+          )}
+          <div className="whitespace-nowrap font-medium text-slate-800">
+            {job.source === "subcontractor"
+              ? subcontractorSenderForJob(job.customers?.email)?.companyName ?? (job.customers?.company || job.customers?.name)
+              : (job.customers?.company || job.customers?.name)}
+          </div>
+        </div>
+
+        <div className="flex shrink-0 items-center gap-1.5">
           {overdueDays !== null && (
             <span className="shrink-0 whitespace-nowrap rounded-full bg-red-600 px-2 py-1 text-xs font-bold text-white">
               {overdueDays} day{overdueDays === 1 ? "" : "s"} overdue
             </span>
           )}
           {CLOSED_STATUSES.has(job.status) ? (
-            <span className="inline-flex h-7 shrink-0 items-center whitespace-nowrap rounded bg-slate-200 px-2 text-sm font-bold text-slate-700">
+            <span className="shrink-0 whitespace-nowrap rounded bg-slate-200 px-2 py-0.5 text-sm font-bold text-slate-700">
               {statusLabelForJob(job, job.status)}
             </span>
           ) : (
@@ -987,7 +995,7 @@ function JobRow({
               value={job.status}
               onChange={(e) => onFieldChange({ status: e.target.value })}
               onClick={(e) => e.stopPropagation()}
-              className="inline-flex h-7 shrink-0 items-center whitespace-nowrap rounded border-0 bg-slate-200 px-2 text-sm font-bold text-slate-700"
+              className="shrink-0 whitespace-nowrap rounded border-0 bg-slate-200 px-2 py-0.5 text-sm font-bold text-slate-700"
             >
               {pipelineStatusesForJob(job).map((s) => (
                 <option key={s} value={s}>{statusLabelForJob(job, s)}</option>
@@ -997,22 +1005,16 @@ function JobRow({
         </div>
       </div>
 
-      <div className="min-w-0 truncate font-medium text-slate-800 sm:mt-1.5">
-        {job.source === "subcontractor"
-          ? subcontractorSenderForJob(job.customers?.email)?.companyName ?? (job.customers?.company || job.customers?.name)
-          : (job.customers?.company || job.customers?.name)}
-      </div>
+      <div className="text-sm text-slate-500">&nbsp;</div>
 
-      <div className="hidden text-sm text-slate-500 sm:block">&nbsp;</div>
-
-      <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
-        <div className="min-w-0 w-full sm:flex-[0.9]">
+      <div className="flex w-full items-start gap-3">
+        <div className="min-w-0 flex-[0.9]">
           {locationName && <div className="truncate whitespace-nowrap text-sm text-slate-500">{locationName}</div>}
           <div className="truncate whitespace-nowrap text-sm text-slate-500">{street}</div>
           {cityStateZip && <div className="truncate whitespace-nowrap text-sm text-slate-500">{cityStateZip}</div>}
         </div>
 
-        <div className="min-w-0 w-full sm:flex-[1.2]">
+        <div className="min-w-0 flex-[1.2]">
           {(() => {
             const labels = (job.service_type ?? "").split(",").map((s) => s.trim()).filter(Boolean);
             return labels.map((label, i) => (
@@ -1023,21 +1025,21 @@ function JobRow({
           })()}
         </div>
 
-        <div className="flex min-w-0 w-full flex-col sm:flex-[0.9] sm:items-end">
+        <div className="flex min-w-0 flex-[0.9] justify-end">
           {CLOSED_STATUSES.has(job.status) ? (
-            <div className="flex flex-col items-start gap-0.5 px-1.5 py-1 text-xs text-slate-500 sm:items-end">
+            <div className="flex flex-col items-end gap-0.5 px-1.5 py-1 text-xs text-slate-500">
               <span>Date of Project: {formatDate(job.requested_date) || "—"}</span>
               <span>Date of Payment: {formatDate(job.paid_date) || "—"}</span>
               <span>Date Sent: {formatDateTime(job.report_sent_at) || "—"}</span>
             </div>
           ) : (
-            <div className="flex w-full min-w-0 flex-col items-start gap-2 sm:items-end sm:gap-1.5" onClick={(e) => e.stopPropagation()}>
+            <div className="flex shrink-0 flex-col items-end gap-1.5" onClick={(e) => e.stopPropagation()}>
               {job.source === "subcontractor" && !isUnscheduled ? (
                 // Same reasoning as the time slot below — this normally
                 // edits requested_date, but once a subcontracted job is
                 // accepted there's nothing left to "request"; show the
                 // confirmed date as plain text instead of an editable cell.
-                <span className="w-full shrink-0 whitespace-nowrap px-1.5 py-1 text-left text-xs text-slate-600 sm:w-32 sm:text-right">
+                <span className="w-32 shrink-0 whitespace-nowrap px-1.5 py-1 text-right text-xs text-slate-600">
                   {formatDate(job.confirmed_date ?? job.requested_date)}
                 </span>
               ) : (
@@ -1057,10 +1059,10 @@ function JobRow({
                       onFieldChange({ requested_date: e.target.value || null });
                     }
                   }}
-                  className="w-full rounded-lg border border-slate-300 px-1.5 py-1 text-xs text-slate-600 sm:w-32"
+                  className="w-32 rounded-lg border border-slate-300 px-1.5 py-1 text-xs text-slate-600"
                 />
               )}
-              <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto">
+              <div className="flex shrink-0 items-center gap-2">
                 {isUnscheduled ? (
                   job.source === "subcontractor" && subManualEntry ? null : (
                     <AcceptScheduleControl
@@ -1073,7 +1075,7 @@ function JobRow({
                     />
                   )
                 ) : job.status === "scheduled" && job.confirmed_date && job.source !== "subcontractor" && (
-                  <div className="flex w-full flex-col items-start gap-0.5 sm:w-auto sm:items-end">
+                  <div className="flex flex-col items-end gap-0.5">
                     <label
                       className="flex shrink-0 items-center gap-1.5 whitespace-nowrap text-xs uppercase text-slate-600"
                       title="Off by default — the client's portal never shows a date/time until this is on. While on, it stays live-synced to the date/time above as you edit them."
@@ -1109,7 +1111,7 @@ function JobRow({
                   // once accepted, show that window (or the specific time
                   // if it's since been pinned via Edit) as read-only text
                   // instead of a blank, misleading time input.
-                  <span className="w-full shrink-0 whitespace-nowrap px-1.5 py-1 text-left text-xs text-slate-600 sm:w-32 sm:text-right">
+                  <span className="w-32 shrink-0 whitespace-nowrap px-1.5 py-1 text-right text-xs text-slate-600">
                     {job.confirmed_time && job.confirmed_time === parseWindowStartTime24h(job.subcontractor_preferred_window)
                       ? extractTimeRange(job.subcontractor_preferred_window) ?? formatTime(job.confirmed_time)
                       : formatTime(job.confirmed_time) || "--:--"}
@@ -1131,7 +1133,7 @@ function JobRow({
                         onFieldChange({ requested_time: e.target.value || null });
                       }
                     }}
-                    className="w-full rounded-lg border border-slate-300 px-1.5 py-1 text-xs text-slate-600 sm:w-32"
+                    className="w-32 rounded-lg border border-slate-300 px-1.5 py-1 text-xs text-slate-600"
                   />
                 )}
               </div>
@@ -3202,9 +3204,9 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
   const contactFields = (
     <>
       <label className="mt-3 block text-sm font-medium text-slate-700">Company contact</label>
-      <div className="mt-1 flex flex-col gap-2 sm:flex-row">
-        <div className="w-full sm:w-0 sm:flex-1">{nameField}</div>
-        <div className="w-full sm:w-0 sm:flex-1">{phoneField}</div>
+      <div className="mt-1 flex gap-2">
+        <div className="w-0 flex-1">{nameField}</div>
+        <div className="w-0 flex-1">{phoneField}</div>
       </div>
     </>
   );
@@ -3245,8 +3247,8 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
           </button>
         </div>
 
-        <div className="mt-4 flex flex-col gap-4 sm:flex-row">
-          <div className="w-full sm:w-auto sm:shrink-0">
+        <div className="mt-4 flex gap-4">
+          <div className="shrink-0">
             <label className="block text-sm font-medium text-slate-700">Project Number</label>
             <div className="mt-1 flex gap-1.5">
               <button
@@ -3261,17 +3263,17 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
           </div>
           {customerKind === "individual" ? (
             <>
-              <div className="min-w-0 w-full sm:flex-1">
+              <div className="min-w-0 flex-1">
                 <label className="block text-sm font-medium text-slate-700">Customer name</label>
                 <div className="mt-1">{nameField}</div>
               </div>
-              <div className="min-w-0 w-full sm:flex-1">
+              <div className="min-w-0 flex-1">
                 <label className="block text-sm font-medium text-slate-700">Phone</label>
                 <div className="mt-1">{phoneField}</div>
               </div>
             </>
           ) : (
-            <div className="min-w-0 w-full sm:flex-1">
+            <div className="min-w-0 flex-1">
               <label className="block text-sm font-medium text-slate-700">Company</label>
               <div className="mt-1">
                 <ComboboxInput
@@ -3301,8 +3303,8 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
         {customerKind === "company" && contactFields}
 
         <label className="mt-3 block text-sm font-medium text-slate-700">Job site address</label>
-        <div className="mt-1 flex flex-col gap-1.5 sm:flex-row">
-          <div className="w-full sm:w-0 sm:flex-1">
+        <div className="mt-1 flex gap-1.5">
+          <div className="w-0 flex-1">
             <AddressAutocompleteInput
               apiBase="/api/admin"
               value={serviceStreet}
@@ -3319,13 +3321,13 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
             />
           </div>
           <input
-            className="w-full rounded-lg border border-slate-300 px-2 py-2 text-sm sm:w-28 sm:shrink-0"
+            className="w-28 shrink-0 rounded-lg border border-slate-300 px-2 py-2 text-sm"
             placeholder="Unit #"
             value={serviceUnit}
             onChange={(e) => setServiceUnit(e.target.value)}
           />
         </div>
-        <div className="mt-1.5 grid grid-cols-1 gap-1.5 sm:grid-cols-3">
+        <div className="mt-1.5 grid grid-cols-3 gap-1.5">
           <AddressAutocompleteInput
             apiBase="/api/admin"
             value={serviceCity}
@@ -3377,12 +3379,12 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
         </div>
 
         {startingStatus === "scheduled" && (
-          <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-            <div className="w-full sm:flex-1">
+          <div className="mt-3 flex gap-2">
+            <div className="flex-1">
               <label className="block text-sm font-medium text-slate-700">Date</label>
               <input type="date" className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value={requestedDate} onChange={(e) => setRequestedDate(e.target.value)} />
             </div>
-            <div className="w-full sm:flex-1">
+            <div className="flex-1">
               <label className="block text-sm font-medium text-slate-700">Scheduled time</label>
               <input type="time" className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value={requestedTime} onChange={(e) => setRequestedTime(e.target.value)} />
             </div>
@@ -3390,8 +3392,8 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
         )}
 
         <label className="mt-3 block text-sm font-medium text-slate-700">Service type</label>
-        <div className="mt-1 flex flex-col gap-1.5 sm:flex-row sm:gap-4">
-          <div className="space-y-1.5 sm:flex-1">
+        <div className="mt-1 flex gap-4">
+          <div className="flex-1 space-y-1.5">
             {serviceTypes.slice(3).map((s) => (
               <label key={s.key} className="flex items-center gap-1.5 whitespace-nowrap text-sm text-slate-700">
                 <input
@@ -3403,7 +3405,7 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
               </label>
             ))}
           </div>
-          <div className="space-y-1.5 sm:flex-1">
+          <div className="flex-1 space-y-1.5">
             {serviceTypes.slice(0, 3).map((s) => (
               <label key={s.key} className="flex items-center gap-1.5 whitespace-nowrap text-sm text-slate-700">
                 <input
@@ -3445,8 +3447,8 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
         />
 
         <label className="mt-3 block text-sm font-medium text-slate-700">Job site contact</label>
-        <div className="mt-1 flex flex-col gap-2 sm:flex-row">
-          <div className="w-full sm:w-0 sm:flex-1">
+        <div className="mt-1 flex gap-2">
+          <div className="w-0 flex-1">
             <ComboboxInput
               value={siteContactName}
               onChange={(v) => { setSiteContactName(v); setSiteContactSameAsContact(false); }}
@@ -3461,7 +3463,7 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
               placeholder="Name"
             />
           </div>
-          <div className="w-full sm:w-0 sm:flex-1">
+          <div className="w-0 flex-1">
             <input
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
               placeholder="Phone"
@@ -3867,12 +3869,12 @@ export function EditProjectDialog({
 
         {error && <div className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
 
-        <div className="mt-4 flex flex-col gap-4 sm:flex-row">
-          <div className="w-full sm:w-28 sm:shrink-0">
+        <div className="mt-4 flex gap-4">
+          <div className="w-28 shrink-0">
             <label className="block text-sm font-medium text-slate-700">Project #</label>
             <input className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-2 text-sm" value={projectNumber} onChange={(e) => setProjectNumber(e.target.value)} />
           </div>
-          <div className="min-w-0 w-full sm:flex-1">
+          <div className="min-w-0 flex-1">
             <label className="block text-sm font-medium text-slate-700">Company (leave blank for an individual)</label>
             <div className="mt-1">
               <ComboboxInput
@@ -3887,8 +3889,8 @@ export function EditProjectDialog({
         </div>
 
         <label className="mt-3 block text-sm font-medium text-slate-700">Job site address</label>
-        <div className="mt-1 flex flex-col gap-1.5 sm:flex-row">
-          <div className="w-full sm:w-0 sm:flex-1">
+        <div className="mt-1 flex gap-1.5">
+          <div className="w-0 flex-1">
             <AddressAutocompleteInput
               apiBase="/api/admin"
               value={serviceStreet}
@@ -3905,13 +3907,13 @@ export function EditProjectDialog({
             />
           </div>
           <input
-            className="w-full rounded-lg border border-slate-300 px-2 py-2 text-sm sm:w-28 sm:shrink-0"
+            className="w-28 shrink-0 rounded-lg border border-slate-300 px-2 py-2 text-sm"
             placeholder="Unit #"
             value={serviceUnit}
             onChange={(e) => setServiceUnit(e.target.value)}
           />
         </div>
-        <div className="mt-1.5 grid grid-cols-1 gap-1.5 sm:grid-cols-3">
+        <div className="mt-1.5 grid grid-cols-3 gap-1.5">
           <input
             className="rounded-lg border border-slate-300 px-2 py-2 text-sm"
             placeholder="Town"
@@ -3945,12 +3947,12 @@ export function EditProjectDialog({
           <span className="pointer-events-none absolute inset-y-0 right-0 flex w-9 items-center justify-center rounded-r-lg bg-slate-200 text-slate-500">▾</span>
         </div>
 
-        <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-          <div className="w-full sm:flex-1">
+        <div className="mt-3 flex gap-2">
+          <div className="flex-1">
             <label className="block text-sm font-medium text-slate-700">Scheduled date</label>
             <input type="date" className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value={confirmedDate} onChange={(e) => setConfirmedDate(e.target.value)} />
           </div>
-          <div className="w-full sm:flex-1">
+          <div className="flex-1">
             <label className="block text-sm font-medium text-slate-700">Scheduled time</label>
             <input type="time" className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value={confirmedTime} onChange={(e) => setConfirmedTime(e.target.value)} />
           </div>
@@ -3963,8 +3965,8 @@ export function EditProjectDialog({
         )}
 
         <label className="mt-3 block text-sm font-medium text-slate-700">Service type</label>
-        <div className="mt-1 flex flex-col gap-1.5 sm:flex-row sm:gap-4">
-          <div className="space-y-1.5 sm:flex-1">
+        <div className="mt-1 flex gap-4">
+          <div className="flex-1 space-y-1.5">
             {serviceTypes.slice(3).map((s) => (
               <label key={s.key} className="flex items-center gap-1.5 whitespace-nowrap text-sm text-slate-700">
                 <input
@@ -3976,7 +3978,7 @@ export function EditProjectDialog({
               </label>
             ))}
           </div>
-          <div className="space-y-1.5 sm:flex-1">
+          <div className="flex-1 space-y-1.5">
             {serviceTypes.slice(0, 3).map((s) => (
               <label key={s.key} className="flex items-center gap-1.5 whitespace-nowrap text-sm text-slate-700">
                 <input
@@ -4018,8 +4020,8 @@ export function EditProjectDialog({
         />
 
         <label className="mt-3 block text-sm font-medium text-slate-700">Job site contact</label>
-        <div className="mt-1 flex flex-col gap-2 sm:flex-row">
-          <div className="w-full sm:w-0 sm:flex-1">
+        <div className="mt-1 flex gap-2">
+          <div className="w-0 flex-1">
             <ComboboxInput
               value={siteContactName}
               onChange={setSiteContactName}
@@ -4034,7 +4036,7 @@ export function EditProjectDialog({
               disabled={siteContactSameAsContact}
             />
           </div>
-          <div className="w-full sm:w-0 sm:flex-1">
+          <div className="w-0 flex-1">
             <input
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-500"
               placeholder="Phone"
@@ -4061,8 +4063,8 @@ export function EditProjectDialog({
         </label>
 
         <label className="mt-3 block text-sm font-medium text-slate-700">Customer contact</label>
-        <div className="mt-1 flex flex-col gap-2 sm:flex-row">
-          <div className="w-full sm:w-0 sm:flex-1">
+        <div className="mt-1 flex gap-2">
+          <div className="w-0 flex-1">
             <ComboboxInput
               value={contactName}
               onChange={(v) => { setContactName(v); setEmail(""); setPhone(""); setCustomerId(""); }}
@@ -4073,7 +4075,7 @@ export function EditProjectDialog({
               placeholder="Name"
             />
           </div>
-          <div className="w-full sm:w-0 sm:flex-1">
+          <div className="w-0 flex-1">
             <input
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
               placeholder="Phone"

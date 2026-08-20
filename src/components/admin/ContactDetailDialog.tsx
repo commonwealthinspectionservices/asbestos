@@ -454,7 +454,7 @@ export function ContactDetailDialog({
                   className="mt-2 rounded-lg border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-50"
                   title="Their original link may have expired — this generates a fresh one and drafts a new email with it"
                 >
-                  {inviting ? "Drafting…" : "Resend invite link"}
+                  {inviting ? "Drafting…" : "Draft new invite link"}
                 </button>
                 {inviteDrafted && (
                   <p className="mt-1.5 text-xs text-slate-400">

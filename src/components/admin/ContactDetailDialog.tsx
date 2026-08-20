@@ -141,19 +141,27 @@ export function ContactForm({
 
         {error && <div className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
 
-        <div className="mt-4 flex gap-2">
-          <button
-            onClick={() => setIsCompany(false)}
-            className={`flex-1 rounded-lg px-3 py-1.5 text-sm font-medium ${!isCompany ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}
-          >
+        <div className="mt-4 flex gap-6">
+          <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+            <input
+              type="radio"
+              name="contactType"
+              checked={!isCompany}
+              onChange={() => setIsCompany(false)}
+              className="h-4 w-4 accent-brand-600"
+            />
             Individual
-          </button>
-          <button
-            onClick={() => setIsCompany(true)}
-            className={`flex-1 rounded-lg px-3 py-1.5 text-sm font-medium ${isCompany ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}
-          >
+          </label>
+          <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+            <input
+              type="radio"
+              name="contactType"
+              checked={isCompany}
+              onChange={() => setIsCompany(true)}
+              className="h-4 w-4 accent-brand-600"
+            />
             Company contact
-          </button>
+          </label>
         </div>
 
         {isCompany && (

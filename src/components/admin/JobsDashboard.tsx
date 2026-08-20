@@ -966,7 +966,7 @@ function JobRow({
       role="button"
       tabIndex={0}
       onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onOpen()}
-      className="flex w-full cursor-pointer flex-col rounded-lg border border-slate-200 bg-white p-3 hover:border-brand-400"
+      className="flex w-full cursor-pointer flex-col gap-2 rounded-lg border border-slate-200 bg-white p-3 hover:border-brand-400 sm:gap-0"
     >
       <div className="flex w-full items-center justify-between gap-2">
         {job.project_number && (
@@ -997,13 +997,13 @@ function JobRow({
         </div>
       </div>
 
-      <div className="mt-1.5 min-w-0 truncate font-medium text-slate-800">
+      <div className="min-w-0 truncate font-medium text-slate-800 sm:mt-1.5">
         {job.source === "subcontractor"
           ? subcontractorSenderForJob(job.customers?.email)?.companyName ?? (job.customers?.company || job.customers?.name)
           : (job.customers?.company || job.customers?.name)}
       </div>
 
-      <div className="text-sm text-slate-500">&nbsp;</div>
+      <div className="hidden text-sm text-slate-500 sm:block">&nbsp;</div>
 
       <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
         <div className="min-w-0 w-full sm:flex-[0.9]">
@@ -1031,7 +1031,7 @@ function JobRow({
               <span>Date Sent: {formatDateTime(job.report_sent_at) || "—"}</span>
             </div>
           ) : (
-            <div className="flex w-full flex-col items-start gap-1.5 sm:w-auto sm:shrink-0 sm:items-end" onClick={(e) => e.stopPropagation()}>
+            <div className="flex w-full flex-col items-start gap-2 sm:w-auto sm:shrink-0 sm:items-end sm:gap-1.5" onClick={(e) => e.stopPropagation()}>
               {job.source === "subcontractor" && !isUnscheduled ? (
                 // Same reasoning as the time slot below — this normally
                 // edits requested_date, but once a subcontracted job is

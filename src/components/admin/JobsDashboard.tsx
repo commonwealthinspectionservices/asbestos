@@ -1023,7 +1023,7 @@ function JobRow({
           })()}
         </div>
 
-        <div className="flex min-w-0 w-full flex-col sm:w-auto sm:flex-[0.9] sm:items-end">
+        <div className="flex min-w-0 w-full flex-col sm:flex-[0.9] sm:items-end">
           {CLOSED_STATUSES.has(job.status) ? (
             <div className="flex flex-col items-start gap-0.5 px-1.5 py-1 text-xs text-slate-500 sm:items-end">
               <span>Date of Project: {formatDate(job.requested_date) || "—"}</span>
@@ -1031,7 +1031,7 @@ function JobRow({
               <span>Date Sent: {formatDateTime(job.report_sent_at) || "—"}</span>
             </div>
           ) : (
-            <div className="flex w-full flex-col items-start gap-2 sm:w-auto sm:shrink-0 sm:items-end sm:gap-1.5" onClick={(e) => e.stopPropagation()}>
+            <div className="flex w-full min-w-0 flex-col items-start gap-2 sm:items-end sm:gap-1.5" onClick={(e) => e.stopPropagation()}>
               {job.source === "subcontractor" && !isUnscheduled ? (
                 // Same reasoning as the time slot below — this normally
                 // edits requested_date, but once a subcontracted job is
@@ -1060,7 +1060,7 @@ function JobRow({
                   className="w-full rounded-lg border border-slate-300 px-1.5 py-1 text-xs text-slate-600 sm:w-32"
                 />
               )}
-              <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:shrink-0">
+              <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto">
                 {isUnscheduled ? (
                   job.source === "subcontractor" && subManualEntry ? null : (
                     <AcceptScheduleControl

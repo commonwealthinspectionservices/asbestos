@@ -447,6 +447,20 @@ export function ContactDetailDialog({
               <div className="mt-4 border-t border-slate-100 pt-4">
                 <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Portal login</h4>
                 <p className="mt-1 text-sm text-slate-500">Invited — hasn&apos;t finished setting up their login yet.</p>
+                {inviteError && <p className="mt-2 text-sm text-red-600">{inviteError}</p>}
+                <button
+                  onClick={sendInvite}
+                  disabled={inviting || !customer.email}
+                  className="mt-2 rounded-lg border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-50"
+                  title="Their original link may have expired — this generates a fresh one and drafts a new email with it"
+                >
+                  {inviting ? "Drafting…" : "Resend invite link"}
+                </button>
+                {inviteDrafted && (
+                  <p className="mt-1.5 text-xs text-slate-400">
+                    Drafted in Gmail — review it in your Drafts folder and hit send yourself.
+                  </p>
+                )}
               </div>
             ) : hasUnlinkedAuthAccount ? (
               <div className="mt-4 border-t border-slate-100 pt-4">

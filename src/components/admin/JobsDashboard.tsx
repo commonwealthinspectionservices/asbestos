@@ -763,7 +763,7 @@ export default function JobsDashboard() {
         </div>
         <button
           onClick={() => setAddingProject(true)}
-          className="shrink-0 whitespace-nowrap rounded-lg bg-emerald-600 px-3 py-2 text-sm font-bold uppercase text-white"
+          className="shrink-0 whitespace-nowrap rounded-lg bg-emerald-600 px-3 py-2 text-sm font-bold text-white"
         >
           Add Project
         </button>
@@ -790,7 +790,7 @@ export default function JobsDashboard() {
         </button>
         <button
           onClick={() => setAddingProject(true)}
-          className="shrink-0 whitespace-nowrap rounded-lg bg-emerald-600 px-3 py-1 text-sm font-bold uppercase text-white hover:underline"
+          className="shrink-0 whitespace-nowrap rounded-lg bg-emerald-600 px-3 py-1 text-sm font-bold text-white hover:underline"
         >
           Add Project
         </button>
@@ -1289,7 +1289,7 @@ function DetailField({ label, value, nowrap, trailing }: { label: string; value:
   if (value == null || value === "" || (typeof value === "string" && !value.trim())) return null;
   return (
     <div className="flex items-start gap-2 text-sm">
-      <span className="w-32 shrink-0 whitespace-nowrap uppercase font-bold text-black">{label}</span>
+      <span className="w-32 shrink-0 whitespace-nowrap font-bold text-black">{label}</span>
       <span className={`min-w-0 flex-1 text-black ${nowrap ? "sm:whitespace-nowrap" : ""}`}>{value}</span>
       {trailing}
     </div>
@@ -1504,11 +1504,22 @@ export function ProjectDetailDialog({
     () => (job.service_type ?? "").split(",").map((s) => s.trim()).filter(Boolean),
     [job.service_type]
   );
-  // Every report domain actually on this job — one lab dropdown per domain,
-  // shown either next to the Laboratory Paperwork heading (single domain)
-  // or inline with that domain's own service type section below (multiple
-  // domains), see the "report" tab render.
-  const reportDomains = useMemo(() => jobReportDomains(job.service_type), [job.service_type]);
+  // Same-domain labels (e.g. "Mold Air Sampling" + "Mold Bulk Sampling")
+  // grouped under one section instead of two separate ones — otherwise
+  // shared, domain-level things (Turnaround, the Lab pick, mold's own
+  // Discussion of Results/Conclusions & Recommendations) end up visually
+  // attached to whichever label happens to render first or last, reading
+  // as if they only applied to that one specific service type.
+  const serviceTypeGroups = useMemo(() => {
+    const groups: { domain: ReportDomain; labels: string[] }[] = [];
+    for (const label of serviceTypeLabels) {
+      const domain = domainForServiceTypeLabel(label);
+      const existing = groups.find((g) => g.domain === domain);
+      if (existing) existing.labels.push(label);
+      else groups.push({ domain, labels: [label] });
+    }
+    return groups;
+  }, [serviceTypeLabels]);
   const turnaroundControl = (
     <div className="flex items-center gap-2 text-sm">
       <span className="text-xs font-semibold uppercase text-slate-400">Turnaround</span>
@@ -1527,10 +1538,10 @@ export function ProjectDetailDialog({
     </div>
   );
   const labDropdown = (domain: ReportDomain) => (
-    <div className="flex items-center gap-2 text-sm">
-      <span className="text-xs font-semibold uppercase text-slate-400">Lab</span>
+    <div className="flex w-full items-center gap-2 text-sm">
+      <span className="shrink-0 text-xs font-semibold uppercase text-slate-400">Lab</span>
       <select
-        className="h-9 w-40 truncate rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+        className="h-9 w-full min-w-0 flex-1 truncate rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
         value={(domain === "mold" ? job.mold_lab_name : job.lab_name) ?? ""}
         onChange={(e) => selectLab(e.target.value, domain)}
       >
@@ -1548,7 +1559,7 @@ export function ProjectDetailDialog({
   // or lead. A mixed job (e.g. asbestos + mold air sampling) can order its
   // labels either way, so anchoring to the first non-mold label rather
   // than a bare labelIndex === 0 gets it right regardless of order.
-  const resultDropdownLabelIndex = serviceTypeLabels.findIndex((l) => !l.toLowerCase().includes("mold"));
+  const resultDropdownLabel = serviceTypeLabels.find((l) => !l.toLowerCase().includes("mold"));
 
   async function saveReportSummary(value: string) {
     await fetch(`/api/admin/jobs/${job.id}`, {
@@ -2014,12 +2025,12 @@ export function ProjectDetailDialog({
               }
             />
             <div className="flex items-start gap-2 text-sm">
-              <span className="w-32 shrink-0 uppercase font-bold text-black">Scope of Work</span>
+              <span className="w-32 shrink-0 font-bold text-black">Scope of Work</span>
               <span className="min-w-0 flex-1 text-black">{job.scope_of_work || "—"}</span>
             </div>
             {job.subcontractor_sample_types.length > 0 && (
               <div className="flex items-start gap-2 text-sm">
-                <span className="w-32 shrink-0 uppercase font-bold text-black">Samples</span>
+                <span className="w-32 shrink-0 font-bold text-black">Samples</span>
                 <ul className="min-w-0 flex-1 list-disc space-y-0.5 pl-4 text-black">
                   {job.subcontractor_sample_types.map((s, i) => <li key={i}>{s}</li>)}
                 </ul>
@@ -2028,14 +2039,14 @@ export function ProjectDetailDialog({
           </div>
           <div className="grid grid-cols-1 gap-y-6 sm:grid-cols-2 sm:gap-x-4 sm:gap-y-4">
             <div className="space-y-3 sm:space-y-2">
-              <h4 className="text-sm font-bold uppercase tracking-wide text-black underline">Job site contact</h4>
+              <h4 className="text-sm font-bold tracking-wide text-black underline">Job site contact</h4>
               <DetailField label="Name" value={job.site_contact_name ?? "—"} />
               <DetailField label="Phone" value={job.site_contact_phone ?? "—"} />
               <DetailField label="Email" value={job.site_contact_email} nowrap />
             </div>
             {job.report_emails && job.report_emails.trim() && (
               <div className="space-y-3 sm:space-y-2">
-                <h4 className="text-sm font-bold uppercase tracking-wide text-black underline">Email results to</h4>
+                <h4 className="text-sm font-bold tracking-wide text-black underline">Email results to</h4>
                 {job.report_emails.split(",").map((e) => e.trim()).filter(Boolean).map((addr, i) => (
                   <div key={i} className="text-sm text-black">{addr}</div>
                 ))}
@@ -2044,7 +2055,7 @@ export function ProjectDetailDialog({
           </div>
           <div className="grid grid-cols-1 gap-y-6 sm:grid-cols-2 sm:gap-x-4 sm:gap-y-4">
             <div className="space-y-3 sm:space-y-2">
-              <h4 className="text-sm font-bold uppercase tracking-wide text-black underline">Customer contact</h4>
+              <h4 className="text-sm font-bold tracking-wide text-black underline">Customer contact</h4>
               <DetailField
                 label="Name"
                 value={job.customer_id && job.customers?.name ? (
@@ -2067,7 +2078,7 @@ export function ProjectDetailDialog({
               job.customers.companies.billing_contact || job.customers.companies.phone || job.customers.companies.billing_address
             ) && (
               <div className="space-y-3 sm:space-y-2">
-                <h4 className="text-sm font-bold uppercase tracking-wide text-black underline">Company info</h4>
+                <h4 className="text-sm font-bold tracking-wide text-black underline">Company info</h4>
                 {job.customers.companies.billing_contact && (
                   <DetailField
                     label="Billing contact"
@@ -2089,7 +2100,7 @@ export function ProjectDetailDialog({
           </div>
           {job.notes && job.notes.trim() && (
             <div className="space-y-3 sm:space-y-2">
-              <h4 className="text-sm font-bold uppercase tracking-wide text-black underline">Notes</h4>
+              <h4 className="text-sm font-bold tracking-wide text-black underline">Notes</h4>
               <ul className="list-disc space-y-1 pl-5 text-sm text-black">
                 {job.notes.split("\n").map((line) => line.trim()).filter(Boolean).map((line, i) => (
                   <li key={i}><Linkify text={line} /></li>
@@ -2099,7 +2110,7 @@ export function ProjectDetailDialog({
           )}
           {(job.job_classification || job.payment_method || job.po_number || job.invoice_number) && (
             <div className="space-y-2">
-              <h4 className="text-sm font-bold uppercase tracking-wide text-black underline">Job details</h4>
+              <h4 className="text-sm font-bold tracking-wide text-black underline">Job details</h4>
               <DetailField label="Classification" value={job.job_classification} />
               <DetailField label="Payment method" value={job.payment_method} />
               <DetailField label="PO #" value={job.po_number} />
@@ -2127,119 +2138,192 @@ export function ProjectDetailDialog({
           ) : (
           <div className="mt-4 space-y-6">
             <div>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h3 className="text-lg font-bold uppercase tracking-wide text-black underline">Laboratory Paperwork</h3>
-                {/* Single service type: the one lab dropdown fits right next
-                    to the heading, alongside Turnaround. With more than one
-                    service type, each domain's dropdown moves down to sit
-                    inline with that service type's own section instead (see
-                    the label loop below) — Turnaround stays up here either
-                    way, directly across from the heading. */}
-                {reportDomains.length === 1 ? (
-                  <div className="flex flex-wrap items-center gap-4">
-                    {turnaroundControl}
-                    {labDropdown(reportDomains[0])}
-                  </div>
-                ) : (
-                  turnaroundControl
-                )}
-              </div>
-              <div className="mt-3">
-                {serviceTypeLabels.length > 0 ? (
+              <div>
+                {serviceTypeGroups.length > 0 ? (
                   <div className="space-y-5">
-                    {serviceTypeLabels.map((label, labelIndex) => {
-                      const labelDomain = domainForServiceTypeLabel(label);
-                      // Only the first section for a given domain shows that
-                      // domain's dropdown — "Mold Air Sampling" and "Mold Bulk
-                      // Sampling" share one mold lab pick, so repeating the
-                      // same control on both sections would just be noise.
-                      const showLabDropdown =
-                        reportDomains.length > 1 &&
-                        serviceTypeLabels.findIndex((l) => domainForServiceTypeLabel(l) === labelDomain) === labelIndex;
-                      return (
-                      <div key={label} className={labelIndex > 0 ? "border-t-2 border-slate-200 pt-5" : ""}>
-                        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                          <p className="text-base font-bold uppercase text-slate-700">{label}</p>
-                          {showLabDropdown && labDropdown(labelDomain)}
+                    {serviceTypeGroups.map((group, groupIndex) => (
+                      <div key={group.domain} className={groupIndex > 0 ? "border-t-2 border-slate-200 pt-5" : ""}>
+                        {/* Same-domain labels ("Mold Air Sampling" + "Mold
+                            Bulk Sampling") share one heading, one Turnaround,
+                            and one Lab pick — showing each separately made
+                            domain-level things look like they only applied
+                            to whichever label happened to render. */}
+                        <div>
+                          {group.labels.map((label, i) => (
+                            <p key={label} className="text-base font-bold uppercase text-slate-700">
+                              {label}{i < group.labels.length - 1 ? "," : ""}
+                            </p>
+                          ))}
                         </div>
-                        <div className="grid grid-cols-2 gap-3">
-                          <DocumentStation
-                            job={job}
-                            onChanged={onChanged}
-                            kind="lab_report"
-                            label="Laboratory Results"
-                            serviceType={label}
-                          />
-                          <div>
-                            <div className="flex flex-nowrap items-center gap-2">
-                              <h4 className="whitespace-nowrap text-xs font-semibold uppercase tracking-wide text-slate-400">Sample Results</h4>
+                        <div className="mt-2 space-y-2">
+                          {turnaroundControl}
+                          {labDropdown(group.domain)}
+                        </div>
+                        {group.labels.map((label) => (
+                          <div key={label} className="mt-3">
+                            {/* Only shown when this domain has more than one
+                                label on the job, to say which one this
+                                particular set of upload stations is for. */}
+                            {group.labels.length > 1 && (
+                              <p className="mb-1.5 text-sm font-semibold uppercase text-slate-500">{label}</p>
+                            )}
+                            <div className="grid grid-cols-2 gap-3">
+                              <DocumentStation
+                                job={job}
+                                onChanged={onChanged}
+                                kind="lab_report"
+                                label="Laboratory Results"
+                                serviceType={label}
+                              />
+                              <div>
+                                <div className="flex flex-nowrap items-center gap-2">
+                                  <h4 className="whitespace-nowrap text-xs font-semibold uppercase tracking-wide text-slate-400">Sample Results</h4>
+                                </div>
+                                {(() => {
+                                  // Mold's sample results live in their own
+                                  // field, separate from asbestos/lead's —
+                                  // each label shows the results that actually
+                                  // belong to it.
+                                  const results = group.domain === "mold" ? job.mold_sample_results : job.sample_results;
+                                  return results && results.length > 0 ? (
+                                    <div className="mt-1.5 h-[116px] w-full overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 p-2 font-mono text-xs">
+                                      {results.map((s, i) => (
+                                        <div key={i} className={/%/.test(s.result) ? "text-red-600" : "text-slate-900"}>{s.fieldCode}: {s.result}</div>
+                                      ))}
+                                      <div className="mt-1.5 border-t border-slate-200 pt-1.5 font-sans font-semibold text-slate-500">
+                                        Total: {results.length} sample{results.length === 1 ? "" : "s"}
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="mt-1.5 flex h-[116px] w-full flex-col items-center justify-center rounded-lg border-2 border-dashed border-slate-300 px-3 text-center text-sm text-slate-500">
+                                      Populates once Laboratory Results are uploaded
+                                    </div>
+                                  );
+                                })()}
+                              </div>
+                              <DocumentStation job={job} onChanged={onChanged} kind="coc" label="Chain of Custody" serviceType={label} />
+                              <DocumentStation job={job} onChanged={onChanged} kind="lab_invoice" label="Laboratory Invoice" serviceType={label} />
                             </div>
-                            {(() => {
-                              // Mold's sample results live in their own
-                              // field, separate from asbestos/lead's —
-                              // each label shows the results that actually
-                              // belong to it.
-                              const results = domainForServiceTypeLabel(label) === "mold" ? job.mold_sample_results : job.sample_results;
-                              return results && results.length > 0 ? (
-                                <div className="mt-1.5 h-[116px] w-full overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 p-2 font-mono text-xs">
-                                  {results.map((s, i) => (
-                                    <div key={i} className={/%/.test(s.result) ? "text-red-600" : "text-slate-900"}>{s.fieldCode}: {s.result}</div>
-                                  ))}
-                                  <div className="mt-1.5 border-t border-slate-200 pt-1.5 font-sans font-semibold text-slate-500">
-                                    Total: {results.length} sample{results.length === 1 ? "" : "s"}
-                                  </div>
-                                </div>
-                              ) : (
-                                <div className="mt-1.5 flex h-[116px] w-full flex-col items-center justify-center rounded-lg border-2 border-dashed border-slate-300 px-3 text-center text-xs text-slate-500">
-                                  Populates once Laboratory Results are uploaded
-                                </div>
-                              );
-                            })()}
+                            {label === resultDropdownLabel && (
+                              <div className="mt-3">
+                                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">Result</label>
+                                <ComboboxInput
+                                  value={reportSummaryInput}
+                                  onChange={setReportSummaryInput}
+                                  options={isLeadJob(job) ? [LEAD_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK] : [ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK]}
+                                  filterOptions={false}
+                                  getLabel={(o) => o}
+                                  showChevron
+                                  onSelect={(o) => {
+                                    setReportSummaryInput(o);
+                                    // Picking one of the two canned findings sentences IS
+                                    // the positive/negative determination — no separate
+                                    // Results button needed to duplicate that choice.
+                                    // One combined PATCH (not two separate save calls,
+                                    // each with its own onChanged()/loadJobs() refetch) —
+                                    // two independent fetches racing could let an older
+                                    // GET overwrite the newer one's field, leaving the
+                                    // report looking incomplete until an unrelated edit
+                                    // happened to trigger another refetch.
+                                    const negativeRemark = isLeadJob(job) ? LEAD_NEGATIVE_REMARK : ASBESTOS_NEGATIVE_REMARK;
+                                    const positiveRemark = isLeadJob(job) ? LEAD_POSITIVE_REMARK : ASBESTOS_POSITIVE_REMARK;
+                                    const resultField = isLeadJob(job) ? "lead_result" : "asbestos_result";
+                                    const patch: Record<string, unknown> = { report_summary: o.trim() || null };
+                                    if (o === negativeRemark) {
+                                      patch[resultField] = "negative";
+                                    } else if (o === positiveRemark) {
+                                      patch[resultField] = "positive";
+                                    }
+                                    saveJobField(patch);
+                                  }}
+                                  onEnter={(v) => saveReportSummary(v)}
+                                  onBlur={(v) => saveReportSummary(v)}
+                                  placeholder="e.g. None of the suspect materials sampled were determined to have asbestos fibers present."
+                                />
+                              </div>
+                            )}
                           </div>
-                          <DocumentStation job={job} onChanged={onChanged} kind="coc" label="Chain of Custody" serviceType={label} />
-                          <DocumentStation job={job} onChanged={onChanged} kind="lab_invoice" label="Laboratory Invoice" serviceType={label} />
-                        </div>
-                        {labelIndex === resultDropdownLabelIndex && (
-                          <div className="mt-3">
-                            <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">Result</label>
-                            <ComboboxInput
-                              value={reportSummaryInput}
-                              onChange={setReportSummaryInput}
-                              options={isLeadJob(job) ? [LEAD_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK] : [ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK]}
-                              filterOptions={false}
-                              getLabel={(o) => o}
-                              showChevron
-                              onSelect={(o) => {
-                                setReportSummaryInput(o);
-                                // Picking one of the two canned findings sentences IS
-                                // the positive/negative determination — no separate
-                                // Results button needed to duplicate that choice.
-                                // One combined PATCH (not two separate save calls,
-                                // each with its own onChanged()/loadJobs() refetch) —
-                                // two independent fetches racing could let an older
-                                // GET overwrite the newer one's field, leaving the
-                                // report looking incomplete until an unrelated edit
-                                // happened to trigger another refetch.
-                                const negativeRemark = isLeadJob(job) ? LEAD_NEGATIVE_REMARK : ASBESTOS_NEGATIVE_REMARK;
-                                const positiveRemark = isLeadJob(job) ? LEAD_POSITIVE_REMARK : ASBESTOS_POSITIVE_REMARK;
-                                const resultField = isLeadJob(job) ? "lead_result" : "asbestos_result";
-                                const patch: Record<string, unknown> = { report_summary: o.trim() || null };
-                                if (o === negativeRemark) {
-                                  patch[resultField] = "negative";
-                                } else if (o === positiveRemark) {
-                                  patch[resultField] = "positive";
-                                }
-                                saveJobField(patch);
-                              }}
-                              onEnter={(v) => saveReportSummary(v)}
-                              onBlur={(v) => saveReportSummary(v)}
-                              placeholder="e.g. None of the suspect materials sampled were determined to have asbestos fibers present."
-                            />
-                          </div>
+                        ))}
+                        {/* Mold's Discussion of Results/Conclusions &
+                            Recommendations live inside this same group —
+                            they cover every mold label on the job, not just
+                            whichever one happened to render last. */}
+                        {group.domain === "mold" && (
+                          <>
+                            {isMoldJob(job) && !moldServiceTypeFlags(job.service_type).hasAir && (
+                              <div className="mt-5 rounded-lg border border-slate-200 p-3">
+                                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
+                                  Discussion of Results
+                                </label>
+                                <textarea
+                                  className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+                                  rows={6}
+                                  value={moldReportSummaryInput}
+                                  onChange={(e) => setMoldReportSummaryInput(e.target.value)}
+                                  onBlur={(e) => saveMoldReportSummary(e.target.value)}
+                                  placeholder="Sample counts, dates, and any notable findings for this job."
+                                />
+                              </div>
+                            )}
+                            <div className="mt-5 rounded-lg border border-slate-200 p-3">
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
+                                  Conclusions &amp; Recommendations
+                                </label>
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => applyMoldNotesListFormat(false)}
+                                    title="Bullet list"
+                                    className="rounded border border-slate-300 p-1.5 text-slate-600 hover:bg-slate-50"
+                                  >
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                      <circle cx="2" cy="3.5" r="1.25" fill="currentColor" />
+                                      <circle cx="2" cy="8" r="1.25" fill="currentColor" />
+                                      <circle cx="2" cy="12.5" r="1.25" fill="currentColor" />
+                                      <rect x="5.5" y="2.75" width="9" height="1.5" rx="0.5" fill="currentColor" />
+                                      <rect x="5.5" y="7.25" width="9" height="1.5" rx="0.5" fill="currentColor" />
+                                      <rect x="5.5" y="11.75" width="9" height="1.5" rx="0.5" fill="currentColor" />
+                                    </svg>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => applyMoldNotesListFormat(true)}
+                                    title="Numbered list"
+                                    className="rounded border border-slate-300 p-1.5 text-slate-600 hover:bg-slate-50"
+                                  >
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                      <text x="0.5" y="4.6" fontSize="4" fontWeight="700" fill="currentColor">1</text>
+                                      <text x="0.5" y="9.1" fontSize="4" fontWeight="700" fill="currentColor">2</text>
+                                      <text x="0.5" y="13.6" fontSize="4" fontWeight="700" fill="currentColor">3</text>
+                                      <rect x="5.5" y="2.75" width="9" height="1.5" rx="0.5" fill="currentColor" />
+                                      <rect x="5.5" y="7.25" width="9" height="1.5" rx="0.5" fill="currentColor" />
+                                      <rect x="5.5" y="11.75" width="9" height="1.5" rx="0.5" fill="currentColor" />
+                                    </svg>
+                                  </button>
+                                </div>
+                              </div>
+                              {/* The two fixed generic-IAQ paragraphs (air-inclusive
+                                  jobs only) render unconditionally in the PDF — see
+                                  MoldReportDocument — so this cell is purely for the
+                                  admin's own case-specific recommendations. Lines
+                                  starting with "• " or "1. " render as an actual
+                                  bulleted/numbered list in the PDF (see report-pdf.tsx's
+                                  blocksFromText), not literal dashes/digits. */}
+                              <textarea
+                                ref={moldReportNotesRef}
+                                className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+                                rows={6}
+                                value={moldReportNotesInput}
+                                onChange={(e) => setMoldReportNotesInput(e.target.value)}
+                                onBlur={(e) => saveMoldReportNotes(e.target.value)}
+                                placeholder="Case-specific recommendations for this job."
+                              />
+                            </div>
+                          </>
                         )}
                       </div>
-                      );
-                    })}
+                    ))}
                   </div>
                 ) : (
                   <p className="text-sm text-slate-500">Pick a service type on the Project Information tab to set up its upload stations.</p>
@@ -2264,88 +2348,6 @@ export function ProjectDetailDialog({
                       ))}
                     </tbody>
                   </table>
-                )}
-
-
-                {/* Air jobs' entire Discussion of Results is fixed, auto-
-                    filled content (heading, ACGIH paragraph, sample-count
-                    sentence — see MoldReportDocument) with nothing left to
-                    type, so there's no cell for it at all, same treatment
-                    as the Scope of Work closing line. Bulk/swab-only jobs
-                    have no equivalent fixed template — that's still fully
-                    custom findings, so they keep the editable cell. */}
-                {isMoldJob(job) && !moldServiceTypeFlags(job.service_type).hasAir && (
-                  <div className="mt-5 rounded-lg border border-slate-200 p-3">
-                    <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
-                      Discussion of Results
-                    </label>
-                    <textarea
-                      className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
-                      rows={6}
-                      value={moldReportSummaryInput}
-                      onChange={(e) => setMoldReportSummaryInput(e.target.value)}
-                      onBlur={(e) => saveMoldReportSummary(e.target.value)}
-                      placeholder="Sample counts, dates, and any notable findings for this job."
-                    />
-                  </div>
-                )}
-
-                {isMoldJob(job) && (
-                  <div className="mt-5 rounded-lg border border-slate-200 p-3">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
-                        Conclusions &amp; Recommendations
-                      </label>
-                      <div className="flex items-center gap-1">
-                        <button
-                          type="button"
-                          onClick={() => applyMoldNotesListFormat(false)}
-                          title="Bullet list"
-                          className="rounded border border-slate-300 p-1.5 text-slate-600 hover:bg-slate-50"
-                        >
-                          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <circle cx="2" cy="3.5" r="1.25" fill="currentColor" />
-                            <circle cx="2" cy="8" r="1.25" fill="currentColor" />
-                            <circle cx="2" cy="12.5" r="1.25" fill="currentColor" />
-                            <rect x="5.5" y="2.75" width="9" height="1.5" rx="0.5" fill="currentColor" />
-                            <rect x="5.5" y="7.25" width="9" height="1.5" rx="0.5" fill="currentColor" />
-                            <rect x="5.5" y="11.75" width="9" height="1.5" rx="0.5" fill="currentColor" />
-                          </svg>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => applyMoldNotesListFormat(true)}
-                          title="Numbered list"
-                          className="rounded border border-slate-300 p-1.5 text-slate-600 hover:bg-slate-50"
-                        >
-                          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <text x="0.5" y="4.6" fontSize="4" fontWeight="700" fill="currentColor">1</text>
-                            <text x="0.5" y="9.1" fontSize="4" fontWeight="700" fill="currentColor">2</text>
-                            <text x="0.5" y="13.6" fontSize="4" fontWeight="700" fill="currentColor">3</text>
-                            <rect x="5.5" y="2.75" width="9" height="1.5" rx="0.5" fill="currentColor" />
-                            <rect x="5.5" y="7.25" width="9" height="1.5" rx="0.5" fill="currentColor" />
-                            <rect x="5.5" y="11.75" width="9" height="1.5" rx="0.5" fill="currentColor" />
-                          </svg>
-                        </button>
-                      </div>
-                    </div>
-                    {/* The two fixed generic-IAQ paragraphs (air-inclusive
-                        jobs only) render unconditionally in the PDF — see
-                        MoldReportDocument — so this cell is purely for the
-                        admin's own case-specific recommendations. Lines
-                        starting with "• " or "1. " render as an actual
-                        bulleted/numbered list in the PDF (see report-pdf.tsx's
-                        blocksFromText), not literal dashes/digits. */}
-                    <textarea
-                      ref={moldReportNotesRef}
-                      className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
-                      rows={6}
-                      value={moldReportNotesInput}
-                      onChange={(e) => setMoldReportNotesInput(e.target.value)}
-                      onBlur={(e) => saveMoldReportNotes(e.target.value)}
-                      placeholder="Case-specific recommendations for this job."
-                    />
-                  </div>
                 )}
               </div>
             </div>
@@ -2419,7 +2421,7 @@ export function ProjectDetailDialog({
                       const reportUrl = `/api/admin/jobs/${job.id}/report?type=${domain}&v=${encodeURIComponent(reportRevision)}`;
                       const downloadUrl = `/api/admin/jobs/${job.id}/report?type=${domain}&download=1`;
                       return domainReady ? (
-                        <div key={domain} className="w-48 overflow-hidden rounded-lg border border-slate-200">
+                        <div key={domain} className="w-full overflow-hidden rounded-lg border border-slate-200 sm:w-48">
                           <a href={reportUrl} target="_blank" rel="noreferrer" className="block">
                             <PdfThumbnail url={reportUrl} alt={`${tileLabel} preview`} />
                             <p className="border-t border-slate-200 bg-white px-2 py-1 text-center text-xs font-bold uppercase text-slate-700">{tileLabel}</p>
@@ -2435,7 +2437,7 @@ export function ProjectDetailDialog({
                           </div>
                         </div>
                       ) : (
-                        <div key={domain} className="block w-48 overflow-hidden rounded-lg border border-dashed border-slate-300">
+                        <div key={domain} className="block w-full overflow-hidden rounded-lg border border-dashed border-slate-300 sm:w-48">
                           <div className="flex h-40 w-full items-center justify-center bg-slate-50 px-2 text-center text-xs text-slate-400">Not ready yet</div>
                           <p className="border-t border-dashed border-slate-300 px-2 py-1 text-center text-xs font-bold uppercase text-slate-400">{tileLabel}</p>
                         </div>
@@ -2443,7 +2445,7 @@ export function ProjectDetailDialog({
                     });
                   })()}
                   {reportComplete && job.invoice_total_cents != null ? (
-                    <div className="w-48 overflow-hidden rounded-lg border border-slate-200">
+                    <div className="w-full overflow-hidden rounded-lg border border-slate-200 sm:w-48">
                       <a href={`/api/admin/jobs/${job.id}/invoice?v=${encodeURIComponent(invoiceRevision)}`} target="_blank" rel="noreferrer" className="block">
                         <PdfThumbnail url={`/api/admin/jobs/${job.id}/invoice?v=${encodeURIComponent(invoiceRevision)}`} alt="Invoice preview" />
                         <p className="border-t border-slate-200 bg-white px-2 py-1 text-center text-xs font-bold uppercase text-slate-700">Invoice</p>
@@ -2459,7 +2461,7 @@ export function ProjectDetailDialog({
                       </div>
                     </div>
                   ) : (
-                    <div className="block w-48 overflow-hidden rounded-lg border border-dashed border-slate-300">
+                    <div className="block w-full overflow-hidden rounded-lg border border-dashed border-slate-300 sm:w-48">
                       <div className="flex h-40 w-full items-center justify-center bg-slate-50 px-2 text-center text-xs text-slate-400">Not ready yet</div>
                       <p className="border-t border-dashed border-slate-300 px-2 py-1 text-center text-xs font-bold uppercase text-slate-400">Invoice</p>
                     </div>
@@ -2941,7 +2943,7 @@ function DocumentStation({
             setDragOver(false);
             if (e.dataTransfer.files.length > 0) uploadFiles(e.dataTransfer.files);
           }}
-          className={`mt-1.5 flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-6 text-center ${
+          className={`mt-1.5 flex h-[116px] w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-3 text-center ${
             dragOver ? "border-brand-600 bg-brand-50" : "border-slate-300"
           }`}
         >
@@ -4595,8 +4597,20 @@ function LineItemsEditor({
         <div key={i}>
           <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Base Fee</h4>
           <textarea
-            rows={row.description.includes("\n") ? 2 : 1}
-            className="mt-0.5 w-full resize-none rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+            rows={1}
+            ref={(el) => {
+              // Grows to fit the actual content — a long description like
+              // "Licensed Asbestos Inspector (Limited Asbestos Inspection,
+              // Mold Air Sampling, Mold Bulk Sampling)" wraps to more than
+              // one line even with no literal newline in it, and a fixed
+              // row count was clipping the wrapped line instead of showing
+              // it. Re-runs every render (inline ref = new identity each
+              // time), which is exactly when the content might have changed.
+              if (!el) return;
+              el.style.height = "auto";
+              el.style.height = `${el.scrollHeight}px`;
+            }}
+            className="mt-0.5 w-full resize-none overflow-hidden rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
             placeholder="Description"
             value={row.description}
             onChange={(e) => update(i, { description: e.target.value })}
@@ -4765,24 +4779,25 @@ function LineItemsEditor({
         </div>
       ))}
 
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="flex gap-3">
+        <button onClick={() => add()} className="text-sm text-brand-600 hover:underline">
+          + Custom Line Item
+        </button>
+        <button onClick={() => addSample()} className="text-sm text-brand-600 hover:underline">
+          + Samples
+        </button>
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
         <p className="text-base font-bold uppercase text-emerald-600">Invoice total: {currency(total)}</p>
-        <div className="flex items-center gap-2">
+        <div className="flex w-full flex-col gap-1 sm:w-auto sm:flex-row sm:items-center sm:gap-2">
           <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">Payment due date</label>
           <input
             type="date"
-            className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+            className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm sm:w-auto"
             value={paymentDueDate}
             onChange={(e) => onPaymentDueDateChange(e.target.value)}
           />
-        </div>
-        <div className="flex gap-3">
-          <button onClick={() => add()} className="text-sm text-brand-600 hover:underline">
-            + Custom Line Item
-          </button>
-          <button onClick={() => addSample()} className="text-sm text-brand-600 hover:underline">
-            + Samples
-          </button>
         </div>
       </div>
     </div>

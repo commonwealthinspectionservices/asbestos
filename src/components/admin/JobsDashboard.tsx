@@ -2170,12 +2170,12 @@ export function ProjectDetailDialog({
                                 separately-uploaded section below. On desktop,
                                 Turnaround shares the title's row, pinned to
                                 the far right. */}
-                            <div className="mb-1.5 flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                               <p className="text-base font-bold uppercase text-slate-700">{label}</p>
                               {labelIdx === 0 && turnaroundControl}
                             </div>
                             {labelIdx === 0 && (
-                              <div className="mb-3">
+                              <div className="mb-4">
                                 {labDropdown(group.domain)}
                               </div>
                             )}
@@ -2387,20 +2387,20 @@ export function ProjectDetailDialog({
 
             {job.invoice_total_cents != null && (
               <div className={`border-t-4 border-slate-300 pt-6 ${tab === "report" ? "hidden sm:block" : ""}`}>
-                <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center justify-between gap-3">
                   <h3 className="text-lg font-bold uppercase tracking-wide text-black underline">Stripe Payment Link</h3>
-                  <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex w-full items-center justify-center gap-3 sm:w-auto sm:justify-end">
                     <button
                       onClick={getPaymentLink}
                       disabled={payLinkLoading}
-                      className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-bold uppercase text-slate-700 hover:underline disabled:opacity-50"
+                      className="rounded-lg border border-slate-300 px-5 py-2 text-sm font-bold uppercase text-slate-700 hover:underline disabled:opacity-50"
                     >
                       {payLinkLoading ? "Loading…" : "View"}
                     </button>
                     <button
                       onClick={copyPaymentLink}
                       disabled={copyLinkLoading}
-                      className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-bold uppercase text-slate-700 hover:underline disabled:opacity-50"
+                      className="rounded-lg border border-slate-300 px-5 py-2 text-sm font-bold uppercase text-slate-700 hover:underline disabled:opacity-50"
                     >
                       {copyLinkLoading ? "Loading…" : copyLinkDone ? "Copied!" : "Copy"}
                     </button>
@@ -2420,7 +2420,7 @@ export function ProjectDetailDialog({
                     every domain's report is too, regardless of whether it's
                     been priced — an invoice for an incomplete report isn't
                     actually final. */}
-                <div className="flex flex-wrap gap-3">
+                <div className="flex flex-wrap gap-4 sm:gap-5">
                   {/* One tile per domain actually on the job (asbestos/lead/
                       mold) — a job combining service types from more than
                       one domain gets a separate final report per domain,
@@ -2436,7 +2436,7 @@ export function ProjectDetailDialog({
                       const reportUrl = `/api/admin/jobs/${job.id}/report?type=${domain}&v=${encodeURIComponent(reportRevision)}`;
                       const downloadUrl = `/api/admin/jobs/${job.id}/report?type=${domain}&download=1`;
                       return domainReady ? (
-                        <div key={domain} className="w-full overflow-hidden rounded-lg border border-slate-200 sm:w-48">
+                        <div key={domain} className="w-full overflow-hidden rounded-lg border border-slate-200 sm:w-60">
                           <a href={reportUrl} target="_blank" rel="noreferrer" className="block">
                             <PdfThumbnail url={reportUrl} alt={`${tileLabel} preview`} />
                             <p className="border-t border-slate-200 bg-white px-2 py-1 text-center text-xs font-bold uppercase text-slate-700">{tileLabel}</p>
@@ -2452,7 +2452,7 @@ export function ProjectDetailDialog({
                           </div>
                         </div>
                       ) : (
-                        <div key={domain} className="block w-full overflow-hidden rounded-lg border border-dashed border-slate-300 sm:w-48">
+                        <div key={domain} className="block w-full overflow-hidden rounded-lg border border-dashed border-slate-300 sm:w-60">
                           <div className="flex h-40 w-full items-center justify-center bg-slate-50 px-2 text-center text-xs text-slate-400">Not ready yet</div>
                           <p className="border-t border-dashed border-slate-300 px-2 py-1 text-center text-xs font-bold uppercase text-slate-400">{tileLabel}</p>
                         </div>
@@ -2462,7 +2462,7 @@ export function ProjectDetailDialog({
                   </div>
                   <div className={tab === "report" ? "hidden sm:contents" : "contents"}>
                   {reportComplete && job.invoice_total_cents != null ? (
-                    <div className="w-full overflow-hidden rounded-lg border border-slate-200 sm:w-48">
+                    <div className="w-full overflow-hidden rounded-lg border border-slate-200 sm:w-60">
                       <a href={`/api/admin/jobs/${job.id}/invoice?v=${encodeURIComponent(invoiceRevision)}`} target="_blank" rel="noreferrer" className="block">
                         <PdfThumbnail url={`/api/admin/jobs/${job.id}/invoice?v=${encodeURIComponent(invoiceRevision)}`} alt="Invoice preview" />
                         <p className="border-t border-slate-200 bg-white px-2 py-1 text-center text-xs font-bold uppercase text-slate-700">Invoice</p>
@@ -2478,7 +2478,7 @@ export function ProjectDetailDialog({
                       </div>
                     </div>
                   ) : (
-                    <div className="block w-full overflow-hidden rounded-lg border border-dashed border-slate-300 sm:w-48">
+                    <div className="block w-full overflow-hidden rounded-lg border border-dashed border-slate-300 sm:w-60">
                       <div className="flex h-40 w-full items-center justify-center bg-slate-50 px-2 text-center text-xs text-slate-400">Not ready yet</div>
                       <p className="border-t border-dashed border-slate-300 px-2 py-1 text-center text-xs font-bold uppercase text-slate-400">Invoice</p>
                     </div>

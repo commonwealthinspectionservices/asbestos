@@ -517,10 +517,10 @@ export default function JobsDashboard() {
   const [companyQuery, setCompanyQuery] = useState("");
   const [addressQuery, setAddressQuery] = useState("");
   const [dateQuery, setDateQuery] = useState("");
-  // Collapsed by default — search is used occasionally, not on every visit,
-  // so the four full-width fields it takes up on mobile shouldn't always
-  // sit in the way. Opens on tap of the magnifying-glass toggle below.
-  const [searchOpen, setSearchOpen] = useState(false);
+  // Mobile only — one search box standing in for the desktop's four
+  // separate fields (project #/company/address/date), matched with OR
+  // against project #, company, and address (see filteredJobs below).
+  const [mobileSearch, setMobileSearch] = useState("");
 
   function selectStatusView(view: "open" | "closed" | "all") {
     setStatusView(view);
@@ -587,6 +587,51 @@ export default function JobsDashboard() {
     setSortDir("asc");
   }
 
+  function disableSort() {
+    if (sortEnabled) {
+      frozenOrderRef.current = liveSortedJobs.map((j) => j.id);
+      setSortEnabled(false);
+    }
+  }
+
+  // Mobile's single consolidated dropdown — one active choice at a time
+  // (sort by a field, or filter by one status, or filter by one service
+  // type), encoded as "sort:date" / "status:<key>" / "service:<label>".
+  // Desktop keeps the separate sort buttons + multi-select filter menus
+  // below, unchanged.
+  const mobileSortFilterValue = sortEnabled
+    ? `sort:${sortBy}`
+    : statusFilter.size > 0
+    ? `status:${[...statusFilter][0]}`
+    : serviceTypeFilter.size > 0
+    ? `service:${[...serviceTypeFilter][0]}`
+    : "";
+
+  function handleMobileSortFilterChange(value: string) {
+    if (!value) {
+      disableSort();
+      clearAllFilters();
+      return;
+    }
+    const sep = value.indexOf(":");
+    const kind = value.slice(0, sep);
+    const key = value.slice(sep + 1);
+    if (kind === "sort") {
+      clearAllFilters();
+      setSortEnabled(true);
+      setSortBy(key as SortField);
+      setSortDir("asc");
+    } else if (kind === "status") {
+      disableSort();
+      setServiceTypeFilter(new Set());
+      setStatusFilter(new Set([key]));
+    } else if (kind === "service") {
+      disableSort();
+      setStatusFilter(new Set());
+      setServiceTypeFilter(new Set([key]));
+    }
+  }
+
   async function loadJobs() {
     const requestId = ++loadJobsRequestIdRef.current;
     setLoading(true);
@@ -650,8 +695,16 @@ export default function JobsDashboard() {
     if (dateQuery) {
       result = result.filter((j) => j.requested_date === dateQuery);
     }
+    if (mobileSearch.trim()) {
+      result = result.filter(
+        (j) =>
+          matchesAnyWord(j.project_number ?? "", mobileSearch) ||
+          matchesAnyWord(j.customers?.company || j.customers?.name || "", mobileSearch) ||
+          matchesAnyWord(j.service_address ?? "", mobileSearch)
+      );
+    }
     return result;
-  }, [jobs, statusView, statusFilter, serviceTypeFilter, projectNumberQuery, companyQuery, addressQuery, dateQuery]);
+  }, [jobs, statusView, statusFilter, serviceTypeFilter, projectNumberQuery, companyQuery, addressQuery, dateQuery, mobileSearch]);
 
   const liveSortedJobs = useMemo(() => {
     const dir = sortDir === "asc" ? 1 : -1;
@@ -692,28 +745,52 @@ export default function JobsDashboard() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
-      <div className="grid grid-cols-2 items-center gap-2 border-b border-slate-200 pb-4 sm:flex sm:flex-wrap sm:gap-2">
+      {/* Mobile: a dropdown (same pattern as the Directory's tab selector)
+          instead of three separate buttons, with Add Project directly
+          across on the same line. Desktop: unchanged row of four buttons. */}
+      <div className="flex items-center gap-2 border-b border-slate-200 pb-4 sm:hidden">
+        <div className="relative min-w-0 flex-1">
+          <select
+            value={statusFilter.size === 0 ? statusView : ""}
+            onChange={(e) => selectStatusView(e.target.value as "open" | "closed" | "all")}
+            className="w-full appearance-none rounded-lg border border-slate-300 bg-white py-2 pl-3 pr-10 text-sm font-bold uppercase text-slate-700"
+          >
+            <option value="open">Open Projects</option>
+            <option value="closed">Closed Projects</option>
+            <option value="all">All Projects</option>
+          </select>
+          <span className="pointer-events-none absolute inset-y-0 right-0 flex w-9 items-center justify-center text-slate-500">▾</span>
+        </div>
+        <button
+          onClick={() => setAddingProject(true)}
+          className="shrink-0 whitespace-nowrap rounded-lg bg-emerald-600 px-3 py-2 text-sm font-bold uppercase text-white"
+        >
+          Add Project
+        </button>
+      </div>
+
+      <div className="hidden items-center gap-2 border-b border-slate-200 pb-4 sm:flex sm:flex-wrap">
         <button
           onClick={() => selectStatusView("open")}
-          className={`w-full whitespace-nowrap rounded px-2 py-2 text-sm font-bold uppercase sm:order-1 sm:w-auto sm:shrink-0 sm:rounded-lg sm:px-2.5 sm:py-1 ${statusFilter.size === 0 && statusView === "open" ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
+          className={`whitespace-nowrap rounded-lg px-2.5 py-1 text-sm font-bold uppercase shrink-0 ${statusFilter.size === 0 && statusView === "open" ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
         >
           Open Projects
         </button>
         <button
-          onClick={() => selectStatusView("all")}
-          className={`w-full whitespace-nowrap rounded px-2 py-2 text-sm font-bold uppercase sm:order-3 sm:w-auto sm:shrink-0 sm:rounded-lg sm:px-2.5 sm:py-1 ${statusFilter.size === 0 && statusView === "all" ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
-        >
-          All Projects
-        </button>
-        <button
           onClick={() => selectStatusView("closed")}
-          className={`w-full whitespace-nowrap rounded px-2 py-2 text-sm font-bold uppercase sm:order-2 sm:w-auto sm:shrink-0 sm:rounded-lg sm:px-2.5 sm:py-1 ${statusFilter.size === 0 && statusView === "closed" ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
+          className={`whitespace-nowrap rounded-lg px-2.5 py-1 text-sm font-bold uppercase shrink-0 ${statusFilter.size === 0 && statusView === "closed" ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
         >
           Closed Projects
         </button>
         <button
+          onClick={() => selectStatusView("all")}
+          className={`whitespace-nowrap rounded-lg px-2.5 py-1 text-sm font-bold uppercase shrink-0 ${statusFilter.size === 0 && statusView === "all" ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
+        >
+          All Projects
+        </button>
+        <button
           onClick={() => setAddingProject(true)}
-          className="w-full whitespace-nowrap rounded bg-emerald-600 px-2 py-2 text-sm font-bold uppercase text-white sm:order-4 sm:w-auto sm:shrink-0 sm:rounded-lg sm:px-3 sm:py-1 hover:underline"
+          className="shrink-0 whitespace-nowrap rounded-lg bg-emerald-600 px-3 py-1 text-sm font-bold uppercase text-white hover:underline"
         >
           Add Project
         </button>
@@ -728,8 +805,47 @@ export default function JobsDashboard() {
         </button>
       )}
 
-      <div className="mt-4 flex flex-nowrap items-center justify-between gap-0.5 overflow-x-auto sm:flex-wrap sm:justify-start sm:gap-2 sm:overflow-visible">
-        <span className="shrink-0 text-xs font-medium uppercase text-slate-500 sm:text-sm">Sort by:</span>
+      {/* Mobile: one dropdown (sort fields + every status/service filter,
+          single choice at a time) and one search box, half the row each,
+          replacing the whole sort/filter/search row below. Desktop:
+          unchanged — that row stays exactly as it's always been. */}
+      <div className="mt-4 flex gap-2 sm:hidden">
+        <div className="relative min-w-0 flex-1">
+          <select
+            value={mobileSortFilterValue}
+            onChange={(e) => handleMobileSortFilterChange(e.target.value)}
+            className="w-full appearance-none rounded-lg border border-slate-300 bg-white py-2 pl-3 pr-8 text-sm text-slate-700"
+          >
+            <option value="">Sort by</option>
+            <optgroup label="Sort by">
+              {SORT_FIELDS.map((f) => (
+                <option key={f.key} value={`sort:${f.key}`}>{f.label}</option>
+              ))}
+            </optgroup>
+            <optgroup label="Status">
+              {overdueJobs.length > 0 && <option value="status:overdue">Overdue ({overdueJobs.length})</option>}
+              {PIPELINE_STATUSES.map((s) => (
+                <option key={s} value={`status:${s}`}>{STATUS_LABEL[s]}</option>
+              ))}
+            </optgroup>
+            <optgroup label="Service type">
+              {availableServiceTypes.map((t) => (
+                <option key={t.key} value={`service:${t.label}`}>{t.label}</option>
+              ))}
+            </optgroup>
+          </select>
+          <span className="pointer-events-none absolute inset-y-0 right-0 flex w-7 items-center justify-center text-slate-500">▾</span>
+        </div>
+        <input
+          value={mobileSearch}
+          onChange={(e) => setMobileSearch(e.target.value)}
+          placeholder="Search…"
+          className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm"
+        />
+      </div>
+
+      <div className="mt-4 hidden flex-wrap items-center gap-2 sm:flex">
+        <span className="shrink-0 text-sm font-medium uppercase text-slate-500">Sort by:</span>
         {SORT_FIELDS.map((f) => (
           <button
             key={f.key}
@@ -823,26 +939,11 @@ export default function JobsDashboard() {
             Clear filters
           </button>
         )}
-        <button
-          type="button"
-          onClick={() => setSearchOpen((v) => !v)}
-          title="Search by project #, company, address, or date"
-          className={`relative shrink-0 rounded px-1 text-xs leading-none sm:hidden ${searchOpen ? "opacity-100" : "opacity-60"}`}
-          aria-expanded={searchOpen}
-          aria-label="Search"
-        >
-          <span aria-hidden>🔍</span>
-          {!searchOpen && (projectNumberQuery || companyQuery || addressQuery || dateQuery) && (
-            <span className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-brand-600" title="A search field is set" />
-          )}
-        </button>
       </div>
 
-      {/* Mobile: collapsed behind the 🔍 toggle above, used occasionally.
-          Desktop: always visible, exactly as it's always been — the toggle
-          is mobile-only (sm:hidden above), so sm:flex here always wins. */}
-      <div className={`${searchOpen ? "flex" : "hidden"} mt-2 flex-col gap-2 sm:mt-4 sm:flex sm:flex-row sm:flex-nowrap sm:items-center`}>
-            <span className="hidden shrink-0 text-sm font-medium uppercase text-slate-500 sm:block">Search by:</span>
+      {/* Desktop only now — mobile uses the single search box above instead. */}
+      <div className="mt-4 hidden gap-2 sm:flex sm:flex-row sm:flex-nowrap sm:items-center">
+            <span className="shrink-0 text-sm font-medium uppercase text-slate-500">Search by:</span>
             <input
               value={projectNumberQuery}
               onChange={(e) => setProjectNumberQuery(e.target.value)}
@@ -1607,7 +1708,13 @@ export function ProjectDetailDialog({
   // tab is meant to stay "live" the same way Edit Project does, rather than
   // requiring a separate explicit save step. Skips the very first render so
   // loading the tab's own default line items doesn't immediately PATCH.
+  // Also skipped entirely for a subcontracted job — it has no Invoice tab
+  // to begin with (see the "report" tab's own subcontractor branch below),
+  // but invoiceLineItems still gets a computed default like any other job,
+  // and without this guard that default would silently get auto-saved as a
+  // real invoice nobody ever asked for.
   useEffect(() => {
+    if (job.source === "subcontractor") return;
     if (!invoiceHasMountedRef.current) {
       invoiceHasMountedRef.current = true;
       return;

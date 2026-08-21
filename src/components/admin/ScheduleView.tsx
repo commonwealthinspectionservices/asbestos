@@ -319,7 +319,7 @@ export default function ScheduleView() {
         <>
           {viewMode === "month" && (
             <div className="mt-4 overflow-x-auto">
-              <div className="min-w-[560px]">
+              <div className="min-w-0 sm:min-w-[560px]">
                 <div className="grid grid-cols-7 gap-1 text-center text-xs font-semibold text-slate-400">
                   {WEEKDAY_SHORT.map((w) => (
                     <div key={w} className="py-1">{w}</div>

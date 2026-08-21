@@ -185,8 +185,14 @@ export const PATCH = withApiErrors(async (
   // paid_date itself is being explicitly backfilled in the same request.
   let justBecamePaid = false;
   if (patch.status === "paid") {
-    const { data: current, error: selectError } = await supabase.from("jobs").select("status, paid_date").eq("id", params.id).single();
-    if (!selectError && current?.status !== "paid") {
+    const { data: current, error: selectError } = await supabase.from("jobs").select("status, paid_date, source").eq("id", params.id).single();
+    // A subcontracted job reuses "paid" as its terminal "Done" status (see
+    // SUBCONTRACTOR_PIPELINE_STATUSES in JobsDashboard.tsx) — that's the
+    // site visit being complete, not an invoice being paid. Skipped here so
+    // it never picks up a paid_date or triggers autoDraftReportIfJustPaid,
+    // neither of which apply — these jobs have no invoice or report of
+    // their own at all (the subcontracting company handles both).
+    if (!selectError && current?.status !== "paid" && current?.source !== "subcontractor") {
       justBecamePaid = true;
       if (!("paid_date" in patch) && !current?.paid_date) {
         patch.paid_date = new Date().toISOString().slice(0, 10);

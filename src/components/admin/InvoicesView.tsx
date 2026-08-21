@@ -98,7 +98,10 @@ export default function InvoicesView() {
   const invoicedJobs = useMemo(
     () =>
       jobs.filter(
-        (j) => j.invoice_total_cents != null && (j.invoice_sent_at || j.paid_date || reportIsComplete(j))
+        // A subcontracted job has no invoice of its own — the company that
+        // sent it handles billing on their end — so it never belongs here
+        // even if it somehow picked up an invoice_total_cents value.
+        (j) => j.source !== "subcontractor" && j.invoice_total_cents != null && (j.invoice_sent_at || j.paid_date || reportIsComplete(j))
       ),
     [jobs]
   );
@@ -183,6 +186,24 @@ export default function InvoicesView() {
     <div className="mx-auto max-w-3xl px-4 py-6">
       <h1 className="text-lg font-semibold text-slate-800">Invoices</h1>
 
+      {/* Mobile: a dropdown, same pattern as the Directory's tab selector
+          and the Projects page's status filter — five labels (especially
+          "Sent (Unpaid)") don't fit comfortably as buttons at this width.
+          Sits above the Outstanding/Overdue summary on mobile; desktop's
+          own button row stays below it, unchanged. */}
+      <div className="relative mt-3 sm:hidden">
+        <select
+          value={filter}
+          onChange={(e) => setFilter(e.target.value as FilterKey)}
+          className="w-full appearance-none rounded-lg border border-slate-300 bg-white py-2 pl-3 pr-10 text-sm font-medium text-slate-700"
+        >
+          {FILTERS.map((f) => (
+            <option key={f.key} value={f.key}>{f.label}</option>
+          ))}
+        </select>
+        <span className="pointer-events-none absolute inset-y-0 right-0 flex w-9 items-center justify-center text-slate-500">▾</span>
+      </div>
+
       <div className="mt-3 flex flex-wrap gap-4 rounded-lg border border-slate-200 bg-white p-3 text-sm">
         <div>
           <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Outstanding</div>
@@ -197,12 +218,12 @@ export default function InvoicesView() {
         </div>
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-1.5">
+      <div className="mt-3 hidden gap-1.5 sm:flex sm:flex-wrap">
         {FILTERS.map((f) => (
           <button
             key={f.key}
             onClick={() => setFilter(f.key)}
-            className={`rounded-lg px-3 py-1.5 text-sm font-medium ${
+            className={`shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium ${
               filter === f.key ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"
             }`}
           >
@@ -215,9 +236,7 @@ export default function InvoicesView() {
 
       {loading ? (
         <p className="mt-6 text-sm text-slate-500">Loading…</p>
-      ) : rows.length === 0 ? (
-        <p className="mt-6 text-sm text-slate-500">No invoices in this view.</p>
-      ) : (
+      ) : rows.length === 0 ? null : (
         <div className="mt-4 space-y-2">
           {rows.map(({ job, status }) => (
             <button
@@ -244,7 +263,7 @@ export default function InvoicesView() {
               </div>
               <div className="flex shrink-0 items-center gap-3">
                 <span className="text-sm font-semibold text-slate-800">{formatCents(job.invoice_total_cents ?? 0)}</span>
-                <span className={`rounded-full px-2 py-1 text-xs font-medium ${STATUS_COLOR[status]}`}>{STATUS_LABEL[status]}</span>
+                <span className={`rounded-lg px-2 py-1 text-xs font-medium ${STATUS_COLOR[status]}`}>{STATUS_LABEL[status]}</span>
               </div>
             </button>
           ))}

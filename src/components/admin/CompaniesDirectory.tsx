@@ -8,12 +8,19 @@ import AddressAutocompleteInput from "@/components/shared/AddressAutocompleteInp
 import ZipInput, { useAutoZip } from "@/components/shared/ZipInput";
 import { buildBillingAddress, parseAddressToFields, US_STATES } from "@/lib/address";
 
-export default function CompaniesDirectory() {
+export default function CompaniesDirectory({
+  adding, onAddingChange, mobileSearch,
+}: {
+  /** Controlled from the parent so the header's mobile-only "Add Company" button (next to the Directory title) and this row's own desktop button open the same form. */
+  adding: boolean;
+  onAddingChange: (v: boolean) => void;
+  /** The parent's single shared mobile search box — this tab's own search row below is desktop-only now. */
+  mobileSearch: string;
+}) {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [adding, setAdding] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   async function loadCompanies(q = search) {
@@ -36,9 +43,17 @@ export default function CompaniesDirectory() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Debounced so mobile typing doesn't fire a request per keystroke.
+  useEffect(() => {
+    const t = setTimeout(() => loadCompanies(mobileSearch), 300);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mobileSearch]);
+
   return (
     <div>
-      <div className="flex gap-2">
+      {/* Desktop only — mobile uses the parent's single shared search box instead. */}
+      <div className="hidden gap-2 sm:flex">
         <input
           className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm"
           placeholder="Search by company name…"
@@ -50,7 +65,7 @@ export default function CompaniesDirectory() {
           Search
         </button>
         <button
-          onClick={() => setAdding(true)}
+          onClick={() => onAddingChange(true)}
           className="shrink-0 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white"
         >
           ADD COMPANY
@@ -80,9 +95,9 @@ export default function CompaniesDirectory() {
 
       {adding && (
         <CompanyAddForm
-          onClose={() => setAdding(false)}
+          onClose={() => onAddingChange(false)}
           onDone={() => {
-            setAdding(false);
+            onAddingChange(false);
             loadCompanies();
           }}
         />

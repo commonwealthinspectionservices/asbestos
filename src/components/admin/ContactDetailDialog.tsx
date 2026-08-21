@@ -182,8 +182,8 @@ export function ContactForm({
 
         <label className="mt-3 block text-sm font-medium text-slate-700">Name *</label>
         <div className="mt-1 flex gap-2">
-          <input className="w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm" value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder={isCompany ? "e.g. Joe" : "e.g. Karen"} />
-          <input className="w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm" value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder={isCompany ? "Kline" : "Stahl"} />
+          <input className="w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm" value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="First name" />
+          <input className="w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm" value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Last name" />
         </div>
 
         <div className="mt-3 flex gap-2">

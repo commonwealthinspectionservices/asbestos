@@ -27,12 +27,19 @@ function ContactRow({ c, onClick }: { c: Customer; onClick: () => void }) {
 // individual who's the client themselves) or one of several contacts at a
 // company (an employee of Boston Harbor Water Restoration) — companies
 // themselves live on their own "Companies" tab, not here.
-export default function ContactsDirectory() {
+export default function ContactsDirectory({
+  adding, onAddingChange, mobileSearch,
+}: {
+  /** Controlled from the parent so the header's mobile-only "Add Contact" button (next to the Directory title) and this row's own desktop button open the same form. */
+  adding: boolean;
+  onAddingChange: (v: boolean) => void;
+  /** The parent's single shared mobile search box — this tab's own search row below is desktop-only now. */
+  mobileSearch: string;
+}) {
   const [contacts, setContacts] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [adding, setAdding] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   // Lets another page deep-link straight to one contact (e.g. a job's
@@ -66,21 +73,31 @@ export default function ContactsDirectory() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Debounced so mobile typing doesn't fire a request per keystroke.
+  useEffect(() => {
+    const t = setTimeout(() => loadContacts(mobileSearch), 300);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mobileSearch]);
+
   const needsPortalAccount = useMemo(() => contacts.filter((c) => !c.auth_user_id), [contacts]);
   const hasPortalAccount = useMemo(() => contacts.filter((c) => c.auth_user_id), [contacts]);
 
   return (
     <div>
-      <div className="flex items-center justify-end gap-2">
+      {/* Hidden on mobile — the header's own Add Contact button (next to
+          the Directory title) covers that width instead. */}
+      <div className="hidden items-center justify-end gap-2 sm:flex">
         <button
-          onClick={() => setAdding(true)}
+          onClick={() => onAddingChange(true)}
           className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white"
         >
           ADD CONTACT
         </button>
       </div>
 
-      <div className="mt-3 flex gap-2">
+      {/* Desktop only — mobile uses the parent's single shared search box instead. */}
+      <div className="mt-3 hidden gap-2 sm:flex">
         <input
           className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm"
           placeholder="Search by name, company, or email…"
@@ -133,9 +150,9 @@ export default function ContactsDirectory() {
 
       {adding && (
         <ContactForm
-          onClose={() => setAdding(false)}
+          onClose={() => onAddingChange(false)}
           onDone={() => {
-            setAdding(false);
+            onAddingChange(false);
             loadContacts();
           }}
         />

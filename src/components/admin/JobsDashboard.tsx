@@ -3560,17 +3560,14 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
         <label className="mt-3 block text-sm font-medium text-slate-700">Job site contact</label>
         <div className="mt-1 flex gap-2">
           <div className="w-0 flex-1">
-            <ComboboxInput
+            {/* Plain text, not ComboboxInput — the job site contact is the
+                homeowner, essentially never one of the company/individual
+                contacts already on file, so suggesting matches from that
+                list is just noise here. */}
+            <input
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
               value={siteContactName}
-              onChange={(v) => { setSiteContactName(v); setSiteContactSameAsContact(false); }}
-              fetchOptions={searchContacts}
-              getLabel={(c) => c.name}
-              getSublabel={(c) => c.email}
-              onSelect={(c) => {
-                setSiteContactName(c.name);
-                setSiteContactPhone(c.phone);
-                setSiteContactSameAsContact(false);
-              }}
+              onChange={(e) => { setSiteContactName(e.target.value); setSiteContactSameAsContact(false); }}
               placeholder="Name"
             />
           </div>
@@ -4133,16 +4130,14 @@ export function EditProjectDialog({
         <label className="mt-3 block text-sm font-medium text-slate-700">Job site contact</label>
         <div className="mt-1 flex gap-2">
           <div className="w-0 flex-1">
-            <ComboboxInput
+            {/* Plain text, not ComboboxInput — the job site contact is the
+                homeowner, essentially never one of the company/individual
+                contacts already on file, so suggesting matches from that
+                list is just noise here. */}
+            <input
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-500"
               value={siteContactName}
-              onChange={setSiteContactName}
-              fetchOptions={searchContacts}
-              getLabel={(c) => c.name}
-              getSublabel={(c) => c.email}
-              onSelect={(c) => {
-                setSiteContactName(c.name);
-                setSiteContactPhone(c.phone);
-              }}
+              onChange={(e) => setSiteContactName(e.target.value)}
               placeholder="Name"
               disabled={siteContactSameAsContact}
             />

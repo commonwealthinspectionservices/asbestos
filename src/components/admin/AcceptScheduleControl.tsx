@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { JobWithCustomer } from "@/lib/types";
+import { formatDateMDY } from "@/lib/date-format";
 
 function ordinalSuffix(day: number): string {
   if (day >= 11 && day <= 13) return "th";
@@ -137,7 +138,7 @@ export function AcceptScheduleControl({
         onClick={(e) => stopPropagation && e.stopPropagation()}
         className="flex shrink-0 flex-wrap items-center gap-1.5 rounded-lg border border-slate-200 bg-white p-2 text-xs"
       >
-        <span className="whitespace-nowrap font-medium text-slate-700">Show the date and time to the customer?</span>
+        <span className="font-medium text-slate-700 sm:whitespace-nowrap">Show the date and time to the customer?</span>
         <button
           type="button"
           disabled={submitting}
@@ -163,12 +164,27 @@ export function AcceptScheduleControl({
     const windowSuffix = timeRange
       ? ` (${timeRange})`
       : job.requested_time ? ` at ${formatTime(job.requested_time)}` : "";
+    const windowLine = timeRange ?? (job.requested_time ? formatTime(job.requested_time) : null);
     return (
-      <div onClick={(e) => stopPropagation && e.stopPropagation()} className="flex shrink-0 flex-wrap items-center gap-1.5">
-        <span className="whitespace-nowrap rounded bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">
-          {job.requested_date
-            ? `Requested for ${formatFullDate(job.requested_date)}${windowSuffix}`
-            : "No requested time"}
+      <div onClick={(e) => stopPropagation && e.stopPropagation()} className="flex w-full shrink-0 items-center gap-1.5 sm:w-auto sm:flex-wrap">
+        <span className="min-w-0 flex-1 rounded bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">
+          {/* Desktop: single line when it fits, wraps instead of overflowing into neighboring text when it doesn't. */}
+          <span className="hidden sm:inline">
+            {job.requested_date
+              ? `Requested for ${formatFullDate(job.requested_date)}${windowSuffix}`
+              : "No requested time"}
+          </span>
+          {/* Mobile: labeled date/time lines instead of one sentence-style line. */}
+          <span className="flex flex-col gap-0.5 sm:hidden">
+            {job.requested_date ? (
+              <>
+                <span>Requested date: {formatDateMDY(job.requested_date)}</span>
+                {windowLine && <span>Requested time: {windowLine}</span>}
+              </>
+            ) : (
+              <span>No requested time</span>
+            )}
+          </span>
         </span>
         <button
           type="button"

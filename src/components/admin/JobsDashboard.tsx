@@ -97,25 +97,30 @@ const SUBCONTRACTOR_TRACKER_STATUSES = ["needs_scheduling", "scheduled", "paid"]
 type TrackerSegment = {
   key: string;
   label: React.ReactNode;
+  // Desktop's label forces a line break (via <br/>) to sit neatly under a
+  // narrow segment bar — the mobile vertical list has a full-width row per
+  // step instead, so it uses this plain single-line string rather than
+  // inheriting that hard break.
+  plainLabel: string;
   status?: (typeof TRACKER_STATUSES)[number];
   done: (job: JobWithCustomer, currentIndex: number) => boolean;
 };
 const TRACKER_SEGMENTS: TrackerSegment[] = [
-  { key: "needs_scheduling", label: <>To Be<br />Scheduled</>, status: "needs_scheduling", done: (_job, i) => i >= 0 },
-  { key: "scheduled", label: "Scheduled", status: "scheduled", done: (_job, i) => i >= 1 },
-  { key: "pending_lab_results", label: <>Pending<br />Lab Results</>, status: "pending_lab_results", done: (_job, i) => i >= 2 },
-  { key: "ready_to_send", label: <>Report and<br />Invoice Ready</>, status: "ready_to_send", done: (_job, i) => i >= 3 },
-  { key: "sent", label: <>Report and<br />Invoice Sent</>, done: (job, i) => (Boolean(job.invoice_sent_at) && Boolean(job.report_sent_at)) || i >= 4 },
-  { key: "paid", label: "Paid", status: "paid", done: (_job, i) => i >= 4 },
+  { key: "needs_scheduling", label: <>To Be<br />Scheduled</>, plainLabel: "To Be Scheduled", status: "needs_scheduling", done: (_job, i) => i >= 0 },
+  { key: "scheduled", label: "Scheduled", plainLabel: "Scheduled", status: "scheduled", done: (_job, i) => i >= 1 },
+  { key: "pending_lab_results", label: <>Pending<br />Lab Results</>, plainLabel: "Pending Lab Results", status: "pending_lab_results", done: (_job, i) => i >= 2 },
+  { key: "ready_to_send", label: <>Report and<br />Invoice Ready</>, plainLabel: "Report and Invoice Ready", status: "ready_to_send", done: (_job, i) => i >= 3 },
+  { key: "sent", label: <>Report and<br />Invoice Sent</>, plainLabel: "Report and Invoice Sent", done: (job, i) => (Boolean(job.invoice_sent_at) && Boolean(job.report_sent_at)) || i >= 4 },
+  { key: "paid", label: "Paid", plainLabel: "Paid", status: "paid", done: (_job, i) => i >= 4 },
 ];
 
 // Subcontracted jobs skip straight from Scheduled to Done — see
 // SUBCONTRACTOR_PIPELINE_STATUSES above for why the report/invoice steps
 // don't apply.
 const SUBCONTRACTOR_TRACKER_SEGMENTS: TrackerSegment[] = [
-  { key: "needs_scheduling", label: <>To Be<br />Scheduled</>, status: "needs_scheduling", done: (_job, i) => i >= 0 },
-  { key: "scheduled", label: "Scheduled", status: "scheduled", done: (_job, i) => i >= 1 },
-  { key: "paid", label: "Done", status: "paid", done: (_job, i) => i >= 2 },
+  { key: "needs_scheduling", label: <>To Be<br />Scheduled</>, plainLabel: "To Be Scheduled", status: "needs_scheduling", done: (_job, i) => i >= 0 },
+  { key: "scheduled", label: "Scheduled", plainLabel: "Scheduled", status: "scheduled", done: (_job, i) => i >= 1 },
+  { key: "paid", label: "Done", plainLabel: "Done", status: "paid", done: (_job, i) => i >= 2 },
 ];
 
 export const STATUS_LABEL: Record<string, string> = {
@@ -518,6 +523,10 @@ export default function JobsDashboard() {
   const [companyQuery, setCompanyQuery] = useState("");
   const [addressQuery, setAddressQuery] = useState("");
   const [dateQuery, setDateQuery] = useState("");
+  // Collapsed by default — search is used occasionally, not on every visit,
+  // so the four full-width fields it takes up on mobile shouldn't always
+  // sit in the way. Opens on tap of the magnifying-glass toggle below.
+  const [searchOpen, setSearchOpen] = useState(false);
 
   function selectStatusView(view: "open" | "closed" | "all") {
     setStatusView(view);
@@ -689,36 +698,30 @@ export default function JobsDashboard() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
-      <div className="flex items-center justify-between gap-2">
-        <h1 className="text-lg font-semibold uppercase text-slate-800">Projects</h1>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setAddingProject(true)}
-            className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-bold text-white hover:underline"
-          >
-            ADD PROJECT
-          </button>
-        </div>
-      </div>
-
-      <div className="mt-4 flex flex-wrap items-center gap-2 border-b border-slate-200 pb-4">
-        <button
-          onClick={() => selectStatusView("all")}
-          className={`rounded-lg px-2.5 py-1 text-sm font-medium uppercase ${statusFilter.size === 0 && statusView === "all" ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
-        >
-          All Projects
-        </button>
+      <div className="grid grid-cols-2 items-center gap-2 border-b border-slate-200 pb-4 sm:flex sm:flex-wrap sm:gap-2">
         <button
           onClick={() => selectStatusView("open")}
-          className={`rounded-lg px-2.5 py-1 text-sm font-medium uppercase ${statusFilter.size === 0 && statusView === "open" ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
+          className={`w-full whitespace-nowrap rounded px-2 py-2 text-sm font-bold uppercase sm:order-1 sm:w-auto sm:shrink-0 sm:rounded-lg sm:px-2.5 sm:py-1 ${statusFilter.size === 0 && statusView === "open" ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
         >
           Open Projects
         </button>
         <button
+          onClick={() => selectStatusView("all")}
+          className={`w-full whitespace-nowrap rounded px-2 py-2 text-sm font-bold uppercase sm:order-3 sm:w-auto sm:shrink-0 sm:rounded-lg sm:px-2.5 sm:py-1 ${statusFilter.size === 0 && statusView === "all" ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
+        >
+          All Projects
+        </button>
+        <button
           onClick={() => selectStatusView("closed")}
-          className={`rounded-lg px-2.5 py-1 text-sm font-medium uppercase ${statusFilter.size === 0 && statusView === "closed" ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
+          className={`w-full whitespace-nowrap rounded px-2 py-2 text-sm font-bold uppercase sm:order-2 sm:w-auto sm:shrink-0 sm:rounded-lg sm:px-2.5 sm:py-1 ${statusFilter.size === 0 && statusView === "closed" ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
         >
           Closed Projects
+        </button>
+        <button
+          onClick={() => setAddingProject(true)}
+          className="w-full whitespace-nowrap rounded bg-emerald-600 px-2 py-2 text-sm font-bold uppercase text-white sm:order-4 sm:w-auto sm:shrink-0 sm:rounded-lg sm:px-3 sm:py-1 hover:underline"
+        >
+          Add Project
         </button>
       </div>
 
@@ -731,24 +734,24 @@ export default function JobsDashboard() {
         </button>
       )}
 
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        <span className="text-sm font-medium uppercase text-slate-500">Sort by:</span>
+      <div className="mt-4 flex flex-nowrap items-center justify-between gap-0.5 overflow-x-auto sm:flex-wrap sm:justify-start sm:gap-2 sm:overflow-visible">
+        <span className="shrink-0 text-xs font-medium uppercase text-slate-500 sm:text-sm">Sort by:</span>
         {SORT_FIELDS.map((f) => (
           <button
             key={f.key}
             onClick={() => toggleSort(f.key)}
-            className={`rounded-lg px-2.5 py-1 text-sm font-medium uppercase ${sortEnabled && sortBy === f.key ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
+            className={`shrink-0 rounded-lg px-1.5 py-0.5 text-xs font-medium uppercase sm:px-2.5 sm:py-1 sm:text-sm ${sortEnabled && sortBy === f.key ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
           >
             {f.label}{sortEnabled && sortBy === f.key ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
           </button>
         ))}
         <div
-          className="relative"
+          className="relative shrink-0"
           onMouseEnter={openStatusFilter}
           onMouseLeave={closeStatusFilter}
         >
           <button
-            className={`rounded-lg px-2.5 py-1 text-sm font-medium uppercase ${statusFilter.size > 0 ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
+            className={`shrink-0 rounded-lg px-1.5 py-0.5 text-xs font-medium uppercase sm:px-2.5 sm:py-1 sm:text-sm ${statusFilter.size > 0 ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
           >
             Status{statusFilter.size > 0 ? ` (${statusFilter.size})` : ""} ▾
           </button>
@@ -789,14 +792,16 @@ export default function JobsDashboard() {
           )}
         </div>
         <div
-          className="relative"
+          className="relative shrink-0"
           onMouseEnter={openServiceTypeFilter}
           onMouseLeave={closeServiceTypeFilter}
         >
           <button
-            className={`rounded-lg px-2.5 py-1 text-sm font-medium uppercase ${serviceTypeFilter.size > 0 ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
+            className={`shrink-0 rounded-lg px-1.5 py-0.5 text-xs font-medium uppercase sm:px-2.5 sm:py-1 sm:text-sm ${serviceTypeFilter.size > 0 ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
           >
-            Service Type{serviceTypeFilter.size > 0 ? ` (${serviceTypeFilter.size})` : ""} ▾
+            <span className="sm:hidden">Service</span>
+            <span className="hidden sm:inline">Service Type</span>
+            {serviceTypeFilter.size > 0 ? ` (${serviceTypeFilter.size})` : ""} ▾
           </button>
           {serviceTypeFilterOpen && (
             <div className="absolute z-10 mt-1 w-max max-w-xs rounded-lg border border-slate-200 bg-white p-2 shadow-lg">
@@ -820,43 +825,59 @@ export default function JobsDashboard() {
           )}
         </div>
         {(statusFilter.size > 0 || serviceTypeFilter.size > 0) && (
-          <button onClick={clearAllFilters} className="rounded-lg px-2.5 py-1 text-xs font-normal text-brand-600 underline">
+          <button onClick={clearAllFilters} className="shrink-0 rounded-lg px-2.5 py-1 text-xs font-normal text-brand-600 underline">
             Clear filters
           </button>
         )}
+        <button
+          type="button"
+          onClick={() => setSearchOpen((v) => !v)}
+          title="Search by project #, company, address, or date"
+          className={`relative shrink-0 rounded px-1 text-xs leading-none sm:hidden ${searchOpen ? "opacity-100" : "opacity-60"}`}
+          aria-expanded={searchOpen}
+          aria-label="Search"
+        >
+          <span aria-hidden>🔍</span>
+          {!searchOpen && (projectNumberQuery || companyQuery || addressQuery || dateQuery) && (
+            <span className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-brand-600" title="A search field is set" />
+          )}
+        </button>
       </div>
 
-      <div className="mt-4 flex flex-nowrap items-center gap-2">
-        <span className="shrink-0 text-sm font-medium uppercase text-slate-500">Search by:</span>
-        <input
-          value={projectNumberQuery}
-          onChange={(e) => setProjectNumberQuery(e.target.value)}
-          placeholder="Project #"
-          className="w-0 min-w-0 flex-1 rounded-lg border border-slate-300 px-2.5 py-1 text-sm uppercase placeholder:uppercase"
-        />
-        <input
-          value={companyQuery}
-          onChange={(e) => setCompanyQuery(e.target.value)}
-          placeholder="Company"
-          className="w-0 min-w-0 flex-1 rounded-lg border border-slate-300 px-2.5 py-1 text-sm uppercase placeholder:uppercase"
-        />
-        <input
-          value={addressQuery}
-          onChange={(e) => setAddressQuery(e.target.value)}
-          placeholder="Address"
-          className="w-0 min-w-0 flex-1 rounded-lg border border-slate-300 px-2.5 py-1 text-sm uppercase placeholder:uppercase"
-        />
-        <input
-          type="date"
-          value={dateQuery}
-          onChange={(e) => setDateQuery(e.target.value)}
-          className="w-36 shrink-0 rounded-lg border border-slate-300 px-2.5 py-1 text-sm uppercase"
-        />
-        {dateQuery && (
-          <button onClick={() => setDateQuery("")} className="text-xs text-brand-600 underline">
-            Clear date
-          </button>
-        )}
+      {/* Mobile: collapsed behind the 🔍 toggle above, used occasionally.
+          Desktop: always visible, exactly as it's always been — the toggle
+          is mobile-only (sm:hidden above), so sm:flex here always wins. */}
+      <div className={`${searchOpen ? "flex" : "hidden"} mt-2 flex-col gap-2 sm:mt-4 sm:flex sm:flex-row sm:flex-nowrap sm:items-center`}>
+            <span className="hidden shrink-0 text-sm font-medium uppercase text-slate-500 sm:block">Search by:</span>
+            <input
+              value={projectNumberQuery}
+              onChange={(e) => setProjectNumberQuery(e.target.value)}
+              placeholder="Project #"
+              className="w-full min-w-0 rounded-lg border border-slate-300 px-2.5 py-1 text-sm uppercase placeholder:uppercase sm:w-0 sm:flex-1"
+            />
+            <input
+              value={companyQuery}
+              onChange={(e) => setCompanyQuery(e.target.value)}
+              placeholder="Company"
+              className="w-full min-w-0 rounded-lg border border-slate-300 px-2.5 py-1 text-sm uppercase placeholder:uppercase sm:w-0 sm:flex-1"
+            />
+            <input
+              value={addressQuery}
+              onChange={(e) => setAddressQuery(e.target.value)}
+              placeholder="Address"
+              className="w-full min-w-0 rounded-lg border border-slate-300 px-2.5 py-1 text-sm uppercase placeholder:uppercase sm:w-0 sm:flex-1"
+            />
+            <input
+              type="date"
+              value={dateQuery}
+              onChange={(e) => setDateQuery(e.target.value)}
+              className="w-full shrink-0 rounded-lg border border-slate-300 px-2.5 py-1 text-sm uppercase sm:w-36"
+            />
+            {dateQuery && (
+              <button onClick={() => setDateQuery("")} className="shrink-0 text-xs text-brand-600 underline">
+                Clear date
+              </button>
+            )}
       </div>
 
       {error && <div className="mt-3 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>}
@@ -938,6 +959,9 @@ function JobRow({
   onFieldChange: (patch: Record<string, unknown>) => void;
 }) {
   const { locationName, street, cityStateZip } = splitAddress(job.service_address);
+  const customerLabel = job.source === "subcontractor"
+    ? subcontractorSenderForJob(job.customers?.email)?.companyName ?? (job.customers?.company || job.customers?.name)
+    : (job.customers?.company || job.customers?.name);
   // Blank while unscheduled rather than showing whatever placeholder date
   // came in with the job — the empty calendar/clock is the visual cue that
   // nothing's booked yet. Editing these just updates what was requested;
@@ -966,17 +990,15 @@ function JobRow({
       role="button"
       tabIndex={0}
       onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onOpen()}
-      className="flex w-full cursor-pointer flex-col rounded-lg border border-slate-200 bg-white p-3 hover:border-brand-400"
+      className="flex w-full cursor-pointer flex-col gap-2 rounded-lg border border-slate-200 bg-white p-3 hover:border-brand-400 sm:gap-0"
     >
       <div className="flex w-full items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
           {job.project_number && (
             <span className="shrink-0 whitespace-nowrap rounded bg-slate-200 px-2 py-0.5 text-sm font-mono font-bold text-slate-800 hover:underline">{job.project_number}</span>
           )}
-          <div className="whitespace-nowrap font-medium text-slate-800">
-            {job.source === "subcontractor"
-              ? subcontractorSenderForJob(job.customers?.email)?.companyName ?? (job.customers?.company || job.customers?.name)
-              : (job.customers?.company || job.customers?.name)}
+          <div className="hidden truncate whitespace-nowrap font-medium text-slate-800 sm:block">
+            {customerLabel}
           </div>
         </div>
 
@@ -987,7 +1009,7 @@ function JobRow({
             </span>
           )}
           {CLOSED_STATUSES.has(job.status) ? (
-            <span className="shrink-0 whitespace-nowrap rounded bg-slate-200 px-2 py-0.5 text-sm font-bold text-slate-700">
+            <span className="w-48 shrink-0 truncate rounded bg-slate-200 px-2 py-0.5 text-sm font-bold text-slate-700">
               {statusLabelForJob(job, job.status)}
             </span>
           ) : (
@@ -995,7 +1017,7 @@ function JobRow({
               value={job.status}
               onChange={(e) => onFieldChange({ status: e.target.value })}
               onClick={(e) => e.stopPropagation()}
-              className="shrink-0 whitespace-nowrap rounded border-0 bg-slate-200 px-2 py-0.5 text-sm font-bold text-slate-700"
+              className="w-48 shrink-0 truncate rounded border-0 bg-slate-200 px-2 py-0.5 text-sm font-bold text-slate-700"
             >
               {pipelineStatusesForJob(job).map((s) => (
                 <option key={s} value={s}>{statusLabelForJob(job, s)}</option>
@@ -1005,16 +1027,18 @@ function JobRow({
         </div>
       </div>
 
-      <div className="text-sm text-slate-500">&nbsp;</div>
+      <div className="truncate whitespace-nowrap text-sm font-medium text-slate-800 sm:hidden">{customerLabel}</div>
 
-      <div className="flex w-full items-start gap-3">
-        <div className="min-w-0 flex-[0.9]">
+      <div className="hidden text-sm text-slate-500 sm:block">&nbsp;</div>
+
+      <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-start">
+        <div className="min-w-0 w-full sm:w-auto sm:flex-[0.9]">
           {locationName && <div className="truncate whitespace-nowrap text-sm text-slate-500">{locationName}</div>}
           <div className="truncate whitespace-nowrap text-sm text-slate-500">{street}</div>
           {cityStateZip && <div className="truncate whitespace-nowrap text-sm text-slate-500">{cityStateZip}</div>}
         </div>
 
-        <div className="min-w-0 flex-[1.2]">
+        <div className="min-w-0 w-full sm:w-auto sm:flex-[1.2]">
           {(() => {
             const labels = (job.service_type ?? "").split(",").map((s) => s.trim()).filter(Boolean);
             return labels.map((label, i) => (
@@ -1025,21 +1049,21 @@ function JobRow({
           })()}
         </div>
 
-        <div className="flex min-w-0 flex-[0.9] justify-end">
+        <div className="flex min-w-0 w-full sm:w-auto sm:flex-[0.9] sm:justify-end">
           {CLOSED_STATUSES.has(job.status) ? (
-            <div className="flex flex-col items-end gap-0.5 px-1.5 py-1 text-xs text-slate-500">
+            <div className="flex flex-col items-start gap-0.5 px-1.5 py-1 text-xs text-slate-500 sm:items-end">
               <span>Date of Project: {formatDate(job.requested_date) || "—"}</span>
               <span>Date of Payment: {formatDate(job.paid_date) || "—"}</span>
               <span>Date Sent: {formatDateTime(job.report_sent_at) || "—"}</span>
             </div>
           ) : (
-            <div className="flex shrink-0 flex-col items-end gap-1.5" onClick={(e) => e.stopPropagation()}>
-              {job.source === "subcontractor" && !isUnscheduled ? (
+            (() => {
+              const dateCell = job.source === "subcontractor" && !isUnscheduled ? (
                 // Same reasoning as the time slot below — this normally
                 // edits requested_date, but once a subcontracted job is
                 // accepted there's nothing left to "request"; show the
                 // confirmed date as plain text instead of an editable cell.
-                <span className="w-32 shrink-0 whitespace-nowrap px-1.5 py-1 text-right text-xs text-slate-600">
+                <span className="min-w-0 flex-1 whitespace-nowrap px-1.5 py-1 text-right text-xs text-slate-600 sm:w-32 sm:flex-none sm:shrink-0">
                   {formatDate(job.confirmed_date ?? job.requested_date)}
                 </span>
               ) : (
@@ -1059,85 +1083,112 @@ function JobRow({
                       onFieldChange({ requested_date: e.target.value || null });
                     }
                   }}
-                  className="w-32 rounded-lg border border-slate-300 px-1.5 py-1 text-xs text-slate-600"
+                  className="min-w-0 flex-1 rounded-lg border border-slate-300 px-1.5 py-1 text-xs text-slate-600 sm:w-32 sm:flex-none sm:shrink-0"
                 />
-              )}
-              <div className="flex shrink-0 items-center gap-2">
-                {isUnscheduled ? (
-                  job.source === "subcontractor" && subManualEntry ? null : (
-                    <AcceptScheduleControl
-                      job={job}
-                      variant="button"
-                      onAccept={onFieldChange}
-                      onOpenChat={onOpenChat}
-                      onEditManually={job.source === "subcontractor" ? () => setSubManualEntry(true) : onEdit}
-                      stopPropagation
-                    />
-                  )
-                ) : job.status === "scheduled" && job.confirmed_date && job.source !== "subcontractor" && (
-                  <div className="flex flex-col items-end gap-0.5">
-                    <label
-                      className="flex shrink-0 items-center gap-1.5 whitespace-nowrap text-xs uppercase text-slate-600"
-                      title="Off by default — the client's portal never shows a date/time until this is on. While on, it stays live-synced to the date/time above as you edit them."
-                    >
-                      <span>Show customer</span>
-                      <button
-                        type="button"
-                        role="switch"
-                        aria-checked={!!job.schedule_visible_to_customer}
-                        onClick={() => onFieldChange({ schedule_visible_to_customer: !job.schedule_visible_to_customer })}
-                        className={`relative h-5 w-9 shrink-0 rounded-full transition ${job.schedule_visible_to_customer ? "bg-emerald-600" : "bg-slate-300"}`}
-                      >
-                        <span
-                          className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition ${job.schedule_visible_to_customer ? "left-4" : "left-0.5"}`}
-                        />
-                      </button>
-                    </label>
-                    {job.confirmation_sent_at && (
-                      <span className="whitespace-nowrap text-[10px] text-slate-400">
-                        Confirmation sent {formatDateTime(job.confirmation_sent_at)}
-                      </span>
-                    )}
-                    {job.reminder_sent_at && (
-                      <span className="whitespace-nowrap text-[10px] text-slate-400">
-                        Reminder sent {formatDateTime(job.reminder_sent_at)}
-                      </span>
-                    )}
-                  </div>
-                )}
-                {job.source === "subcontractor" && !isUnscheduled ? (
-                  // This slot normally edits requested_time, but a
-                  // subcontracted job never has one (only a window range) —
-                  // once accepted, show that window (or the specific time
-                  // if it's since been pinned via Edit) as read-only text
-                  // instead of a blank, misleading time input.
-                  <span className="w-32 shrink-0 whitespace-nowrap px-1.5 py-1 text-right text-xs text-slate-600">
-                    {job.confirmed_time && job.confirmed_time === parseWindowStartTime24h(job.subcontractor_preferred_window)
-                      ? extractTimeRange(job.subcontractor_preferred_window) ?? formatTime(job.confirmed_time)
-                      : formatTime(job.confirmed_time) || "--:--"}
-                  </span>
-                ) : (
-                  <input
-                    type="time"
-                    value={
-                      job.source === "subcontractor" && subManualEntry
-                        ? subManualTime
-                        : isUnscheduled ? "" : job.requested_time ?? ""
+              );
+              const timeCell = job.source === "subcontractor" && !isUnscheduled ? (
+                // This slot normally edits requested_time, but a
+                // subcontracted job never has one (only a window range) —
+                // once accepted, show that window (or the specific time
+                // if it's since been pinned via Edit) as read-only text
+                // instead of a blank, misleading time input.
+                <span className="min-w-0 flex-1 whitespace-nowrap px-1.5 py-1 text-right text-xs text-slate-600 sm:w-32 sm:flex-none sm:shrink-0">
+                  {job.confirmed_time && job.confirmed_time === parseWindowStartTime24h(job.subcontractor_preferred_window)
+                    ? extractTimeRange(job.subcontractor_preferred_window) ?? formatTime(job.confirmed_time)
+                    : formatTime(job.confirmed_time) || "--:--"}
+                </span>
+              ) : (
+                <input
+                  type="time"
+                  value={
+                    job.source === "subcontractor" && subManualEntry
+                      ? subManualTime
+                      : isUnscheduled ? "" : job.requested_time ?? ""
+                  }
+                  onChange={(e) => {
+                    if (job.source === "subcontractor" && subManualEntry) {
+                      const v = e.target.value;
+                      setSubManualTime(v);
+                      trySubmitSubManual(subManualDate, v);
+                    } else {
+                      onFieldChange({ requested_time: e.target.value || null });
                     }
-                    onChange={(e) => {
-                      if (job.source === "subcontractor" && subManualEntry) {
-                        const v = e.target.value;
-                        setSubManualTime(v);
-                        trySubmitSubManual(subManualDate, v);
-                      } else {
-                        onFieldChange({ requested_time: e.target.value || null });
-                      }
-                    }}
-                    className="w-32 rounded-lg border border-slate-300 px-1.5 py-1 text-xs text-slate-600"
+                  }}
+                  className="min-w-0 flex-1 rounded-lg border border-slate-300 px-1.5 py-1 text-xs text-slate-600 sm:w-32 sm:flex-none sm:shrink-0"
+                />
+              );
+              const acceptOrToggleCell = isUnscheduled ? (
+                job.source === "subcontractor" && subManualEntry ? null : (
+                  <AcceptScheduleControl
+                    job={job}
+                    variant="button"
+                    onAccept={onFieldChange}
+                    onOpenChat={onOpenChat}
+                    onEditManually={job.source === "subcontractor" ? () => setSubManualEntry(true) : onEdit}
+                    stopPropagation
                   />
-                )}
-              </div>
-            </div>
+                )
+              ) : job.status === "scheduled" && job.confirmed_date && job.source !== "subcontractor" ? (
+                <div className="flex flex-col items-end gap-0.5">
+                  <label
+                    className="flex shrink-0 items-center gap-1.5 whitespace-nowrap text-xs uppercase text-slate-600"
+                    title="Off by default — the client's portal never shows a date/time until this is on. While on, it stays live-synced to the date/time above as you edit them."
+                  >
+                    <span>Show customer</span>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={!!job.schedule_visible_to_customer}
+                      onClick={() => onFieldChange({ schedule_visible_to_customer: !job.schedule_visible_to_customer })}
+                      className={`relative h-5 w-9 shrink-0 rounded-full transition ${job.schedule_visible_to_customer ? "bg-emerald-600" : "bg-slate-300"}`}
+                    >
+                      <span
+                        className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition ${job.schedule_visible_to_customer ? "left-4" : "left-0.5"}`}
+                      />
+                    </button>
+                  </label>
+                  {job.confirmation_sent_at && (
+                    <span className="whitespace-nowrap text-[10px] text-slate-400">
+                      Confirmation sent {formatDateTime(job.confirmation_sent_at)}
+                    </span>
+                  )}
+                  {job.reminder_sent_at && (
+                    <span className="whitespace-nowrap text-[10px] text-slate-400">
+                      Reminder sent {formatDateTime(job.reminder_sent_at)}
+                    </span>
+                  )}
+                </div>
+              ) : null;
+              // A pending request already shows its own date/time via
+              // AcceptScheduleControl's bubble — showing the still-empty
+              // date/time inputs above it too is pure clutter, so they're
+              // skipped once there's a real request to accept. They stay
+              // for subcontractor manual entry (no bubble in that state)
+              // and admin-created jobs with no request to display at all.
+              const showDateTimeInputs = !isUnscheduled || !acceptOrToggleCell;
+              return (
+                <div className="flex w-full shrink-0 flex-col items-start gap-1.5 sm:w-auto sm:items-end" onClick={(e) => e.stopPropagation()}>
+                  {/* Desktop: date on its own line, accept/toggle control paired with the time field — unchanged from the original layout. */}
+                  <div className="hidden sm:flex sm:flex-col sm:items-end sm:gap-1.5">
+                    {showDateTimeInputs && dateCell}
+                    <div className="flex shrink-0 items-center gap-2">
+                      {acceptOrToggleCell}
+                      {showDateTimeInputs && timeCell}
+                    </div>
+                  </div>
+                  {/* Mobile: date and time paired on one line, accept/toggle control gets its own full-width line. */}
+                  <div className="flex w-full flex-col items-start gap-2 sm:hidden">
+                    {showDateTimeInputs && (
+                      <div className="flex w-full items-center gap-2">
+                        {dateCell}
+                        {timeCell}
+                      </div>
+                    )}
+                    {acceptOrToggleCell}
+                  </div>
+                </div>
+              );
+            })()
           )}
         </div>
       </div>
@@ -1148,9 +1199,9 @@ function JobRow({
 function DetailField({ label, value, nowrap, trailing }: { label: string; value: React.ReactNode; nowrap?: boolean; trailing?: React.ReactNode }) {
   if (value == null || value === "" || (typeof value === "string" && !value.trim())) return null;
   return (
-    <div className="flex items-center gap-2 text-sm">
+    <div className="flex items-start gap-2 text-sm">
       <span className="w-32 shrink-0 whitespace-nowrap uppercase font-bold text-black">{label}</span>
-      <span className={`text-black ${nowrap ? "whitespace-nowrap" : ""}`}>{value}</span>
+      <span className={`min-w-0 flex-1 text-black ${nowrap ? "sm:whitespace-nowrap" : ""}`}>{value}</span>
       {trailing}
     </div>
   );
@@ -1645,11 +1696,11 @@ export function ProjectDetailDialog({
 
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black/40 px-4">
-      <div className="max-h-[90vh] w-full max-w-5xl overflow-y-auto rounded-xl bg-white p-5">
-        <div className="sticky top-0 z-10 flex items-center gap-1 border-b border-slate-200 bg-white pb-1">
+      <div className="h-[90vh] w-full max-w-5xl overflow-y-auto rounded-xl bg-white p-3 sm:p-5">
+        <div className="sticky top-0 z-10 flex flex-nowrap items-center gap-0.5 overflow-x-auto border-b border-slate-200 bg-white pb-1 sm:gap-1 sm:overflow-visible">
           <button
             onClick={() => setTab("info")}
-            className={`whitespace-nowrap px-3 py-1.5 text-sm font-bold uppercase ${tab === "info" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
+            className={`shrink-0 whitespace-nowrap px-1 py-1.5 text-[11px] font-bold uppercase sm:px-3 sm:text-sm ${tab === "info" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
           >
             Project Info
           </button>
@@ -1657,19 +1708,19 @@ export function ProjectDetailDialog({
             <>
               <button
                 onClick={() => setTab("report")}
-                className={`whitespace-nowrap px-3 py-1.5 text-sm font-bold uppercase ${tab === "report" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
+                className={`shrink-0 whitespace-nowrap px-1 py-1.5 text-[11px] font-bold uppercase sm:px-3 sm:text-sm ${tab === "report" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
               >
                 Report &amp; Invoice
               </button>
               <button
                 onClick={() => setTab("chat")}
-                className={`whitespace-nowrap px-3 py-1.5 text-sm font-bold uppercase ${tab === "chat" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
+                className={`shrink-0 whitespace-nowrap px-1 py-1.5 text-[11px] font-bold uppercase sm:px-3 sm:text-sm ${tab === "chat" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
               >
                 Chat
               </button>
               <button
                 onClick={() => setTab("photos")}
-                className={`whitespace-nowrap px-3 py-1.5 text-sm font-bold uppercase ${tab === "photos" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
+                className={`shrink-0 whitespace-nowrap px-1 py-1.5 text-[11px] font-bold uppercase sm:px-3 sm:text-sm ${tab === "photos" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
               >
                 Photos
               </button>
@@ -1679,13 +1730,13 @@ export function ProjectDetailDialog({
             <>
               <button
                 onClick={() => setTab("shipping")}
-                className={`whitespace-nowrap px-3 py-1.5 text-sm font-bold uppercase ${tab === "shipping" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
+                className={`shrink-0 whitespace-nowrap px-1 py-1.5 text-[11px] font-bold uppercase sm:px-3 sm:text-sm ${tab === "shipping" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
               >
                 Shipping
               </button>
               <button
                 onClick={() => setTab("compensation")}
-                className={`whitespace-nowrap px-3 py-1.5 text-sm font-bold uppercase ${tab === "compensation" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
+                className={`shrink-0 whitespace-nowrap px-1 py-1.5 text-[11px] font-bold uppercase sm:px-3 sm:text-sm ${tab === "compensation" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
               >
                 Compensation
               </button>
@@ -1696,30 +1747,52 @@ export function ProjectDetailDialog({
 
         {tab === "info" && (
         <>
-        <div className="mt-6 grid grid-cols-1 gap-y-4">
-          <div className="space-y-2">
-            <div className="flex items-start justify-between gap-2">
-              <DetailField label="Project #" value={job.project_number} />
-              <div className="flex shrink-0 items-center gap-2">
-                {job.source === "subcontractor" && (() => {
-                  const sender = subcontractorSenderForJob(job.customers?.email);
-                  return sender ? (
-                    <a
-                      href={sender.portalUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="shrink-0 whitespace-nowrap rounded-full border border-indigo-300 px-2 py-0.5 text-xs font-bold uppercase text-indigo-700 hover:bg-indigo-50"
-                      title={`Open ${sender.companyName}'s own portal — useful for anything not included in their assignment email, like a shipment added afterward`}
-                    >
-                      {sender.companyName} Portal ↗
-                    </a>
-                  ) : null;
-                })()}
-                <button onClick={onEdit} className="shrink-0 rounded-lg border border-slate-300 px-3.5 py-1.5 text-sm font-bold uppercase hover:underline">
-                  Edit
-                </button>
-              </div>
-            </div>
+        <div className="mt-6 grid grid-cols-1 gap-y-3 sm:gap-y-4">
+          <div className="space-y-3 sm:space-y-2">
+            {(() => {
+              const portalBadge = job.source === "subcontractor" && (() => {
+                const sender = subcontractorSenderForJob(job.customers?.email);
+                return sender ? (
+                  <a
+                    href={sender.portalUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="shrink-0 whitespace-nowrap rounded-full border border-indigo-300 px-2 py-0.5 text-xs font-bold uppercase text-indigo-700 hover:bg-indigo-50"
+                    title={`Open ${sender.companyName}'s own portal — useful for anything not included in their assignment email, like a shipment added afterward`}
+                  >
+                    {sender.companyName} Portal ↗
+                  </a>
+                ) : null;
+              })();
+              return (
+                <>
+                  {/* Edit stays top-right next to Project # at every width; the portal badge (subcontractor jobs only) sits beside Edit on desktop, same as always. */}
+                  <div className="flex items-center justify-between gap-2">
+                    <DetailField label="Project #" value={job.project_number} />
+                    <div className="flex shrink-0 items-center gap-2">
+                      <span className="hidden sm:inline-flex">{portalBadge}</span>
+                      <button onClick={onEdit} className="shrink-0 rounded-lg border border-slate-300 px-3.5 py-1.5 text-sm font-bold uppercase hover:underline">
+                        Edit
+                      </button>
+                    </div>
+                  </div>
+                  <DetailField
+                    label="Company"
+                    nowrap
+                    value={
+                      portalBadge ? (
+                        <>
+                          <span className="hidden sm:inline">{job.customers?.company}</span>
+                          <span className="sm:hidden">{portalBadge}</span>
+                        </>
+                      ) : (
+                        job.customers?.company
+                      )
+                    }
+                  />
+                </>
+              );
+            })()}
             {(job.cancellation_requested_at || job.payment_reversed_at) && (
               <div className="flex flex-wrap gap-1.5">
                 {job.cancellation_requested_at && (
@@ -1734,24 +1807,35 @@ export function ProjectDetailDialog({
                 )}
               </div>
             )}
-            <DetailField label="Company" value={job.customers?.company} nowrap />
             <DetailField
               label="Job site address"
-              value={job.service_address ? (
-                <a href={googleMapsUrl(job.service_address)} target="_blank" rel="noreferrer" className="hover:underline">
-                  {job.service_address}
-                </a>
-              ) : null}
+              value={job.service_address ? (() => {
+                const { street, cityStateZip } = splitAddress(job.service_address);
+                return (
+                  <a href={googleMapsUrl(job.service_address)} target="_blank" rel="noreferrer" className="hover:underline">
+                    {/* Desktop: unchanged single-line address. */}
+                    <span className="hidden sm:inline">{job.service_address}</span>
+                    {/* Mobile: street, then town/state/zip on its own line — matching the project list card. */}
+                    <span className="sm:hidden">
+                      <span className="block">{street}</span>
+                      {cityStateZip && <span className="block">{cityStateZip}</span>}
+                    </span>
+                  </a>
+                );
+              })() : null}
               nowrap
             />
             {job.source === "subcontractor" ? (
               job.status === "needs_scheduling" ? (
-                <DetailField
-                  label="Preferred window"
-                  value={job.subcontractor_preferred_window}
-                  nowrap
-                  trailing={<AcceptScheduleControl job={job} variant="inline" onAccept={acceptSchedule} onEditManually={onEdit} />}
-                />
+                <>
+                  <DetailField label="Preferred date" value={formatDate(job.requested_date)} />
+                  {/* Accept/deny lives only on the list card (JobRow) now — not duplicated here. */}
+                  <DetailField
+                    label="Preferred time"
+                    value={extractTimeRange(job.subcontractor_preferred_window) ?? job.subcontractor_preferred_window}
+                    nowrap
+                  />
+                </>
               ) : (
                 <>
                   <DetailField label="Scheduled date" value={formatDate(job.confirmed_date)} />
@@ -1768,49 +1852,58 @@ export function ProjectDetailDialog({
             ) : (
               <>
                 <DetailField
-                  label="Date of Sampling"
+                  label={job.confirmed_date ? "Scheduled date" : job.requested_date ? "Requested date" : "Scheduled date"}
                   value={
                     job.confirmed_date
                       ? formatDate(job.confirmed_date)
                       : job.requested_date
-                      ? `${formatDate(job.requested_date)} (requested — not yet accepted)`
+                      ? formatDate(job.requested_date)
                       : "Unscheduled"
                   }
                 />
-                <DetailField label="Time" value={formatTime(job.confirmed_time) || "--:--"} />
+                <DetailField
+                  label={job.confirmed_date ? "Scheduled time" : job.requested_date ? "Requested time" : "Scheduled time"}
+                  value={
+                    job.confirmed_date
+                      ? formatTime(job.confirmed_time) || "--:--"
+                      : job.requested_date
+                      ? formatTime(job.requested_time) || "--:--"
+                      : "--:--"
+                  }
+                />
               </>
             )}
             {job.confirmation_sent_at && (
-              <div className="flex gap-2 text-xs text-slate-400">
+              <div className="flex items-start gap-2 text-xs text-slate-400">
                 <span className="w-32 shrink-0 uppercase font-bold">Confirmation Sent</span>
-                <span>{formatDateTime(job.confirmation_sent_at)}</span>
+                <span className="min-w-0 flex-1">{formatDateTime(job.confirmation_sent_at)}</span>
               </div>
             )}
             {job.reminder_sent_at && (
-              <div className="flex gap-2 text-xs text-slate-400">
+              <div className="flex items-start gap-2 text-xs text-slate-400">
                 <span className="w-32 shrink-0 uppercase font-bold">Reminder Sent</span>
-                <span>{formatDateTime(job.reminder_sent_at)}</span>
+                <span className="min-w-0 flex-1">{formatDateTime(job.reminder_sent_at)}</span>
               </div>
             )}
             {job.status === "needs_scheduling" && job.source !== "subcontractor" && (
               <AcceptScheduleControl job={job} variant="panel" onAccept={acceptSchedule} onEditManually={onEdit} />
             )}
             <DetailField label="Service type" value={serviceTypeLabel(job.service_type)} nowrap />
-            <div className="flex gap-2 text-sm">
+            <div className="flex items-start gap-2 text-sm">
               <span className="w-32 shrink-0 uppercase font-bold text-black">Scope of Work</span>
-              <span className="text-black">{job.scope_of_work || "—"}</span>
+              <span className="min-w-0 flex-1 text-black">{job.scope_of_work || "—"}</span>
             </div>
             {job.subcontractor_sample_types.length > 0 && (
-              <div className="flex gap-2 text-sm">
+              <div className="flex items-start gap-2 text-sm">
                 <span className="w-32 shrink-0 uppercase font-bold text-black">Samples</span>
-                <ul className="list-disc space-y-0.5 pl-4 text-black">
+                <ul className="min-w-0 flex-1 list-disc space-y-0.5 pl-4 text-black">
                   {job.subcontractor_sample_types.map((s, i) => <li key={i}>{s}</li>)}
                 </ul>
               </div>
             )}
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
+            <div className="space-y-3 sm:space-y-2">
               <h4 className="text-sm font-bold uppercase tracking-wide text-black underline">Customer contact</h4>
               <DetailField
                 label="Name"
@@ -1831,7 +1924,7 @@ export function ProjectDetailDialog({
               <DetailField label="Email" value={job.customers?.email} nowrap />
             </div>
             {!job.customers?.is_individual && job.customers?.companies && (
-              <div className="space-y-2">
+              <div className="space-y-3 sm:space-y-2">
                 <h4 className="text-sm font-bold uppercase tracking-wide text-black underline">Company info</h4>
                 {job.customers.companies.billing_contact && (
                   <DetailField
@@ -1852,15 +1945,15 @@ export function ProjectDetailDialog({
               </div>
             )}
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
+            <div className="space-y-3 sm:space-y-2">
               <h4 className="text-sm font-bold uppercase tracking-wide text-black underline">Job site contact</h4>
               <DetailField label="Name" value={job.site_contact_name ?? "—"} />
               <DetailField label="Phone" value={job.site_contact_phone ?? "—"} />
               <DetailField label="Email" value={job.site_contact_email} nowrap />
             </div>
             {job.report_emails && job.report_emails.trim() && (
-              <div className="space-y-2">
+              <div className="space-y-3 sm:space-y-2">
                 <h4 className="text-sm font-bold uppercase tracking-wide text-black underline">Email results to</h4>
                 {job.report_emails.split(",").map((e) => e.trim()).filter(Boolean).map((addr, i) => (
                   <div key={i} className="text-sm text-black">{addr}</div>
@@ -1869,7 +1962,7 @@ export function ProjectDetailDialog({
             )}
           </div>
           {job.notes && job.notes.trim() && (
-            <div className="space-y-2">
+            <div className="space-y-3 sm:space-y-2">
               <h4 className="text-sm font-bold uppercase tracking-wide text-black underline">Notes</h4>
               <ul className="list-disc space-y-1 pl-5 text-sm text-black">
                 {job.notes.split("\n").map((line) => line.trim()).filter(Boolean).map((line, i) => (
@@ -2364,7 +2457,6 @@ export function ProjectDetailDialog({
         )}
 
         {tab === "shipping" && job.source === "subcontractor" && (() => {
-          const sender = subcontractorSenderForJob(job.customers?.email);
           const shipping = job.subcontractor_shipping;
           // Only ever seen FedEx so far — a carrier we don't recognize just
           // shows its raw tracking number rather than guessing a URL.
@@ -2395,17 +2487,6 @@ export function ProjectDetailDialog({
               ) : (
                 <p className="text-sm text-slate-500">No shipping information was included in the assignment email.</p>
               )}
-              <p className="text-xs text-slate-500">
-                {sender?.companyName ?? "Their"} portal may show additional shipments (e.g. a lab kit) added after the assignment email went out — this only reflects what was in the email.
-                {sender && (
-                  <>
-                    {" "}
-                    <a href={sender.portalUrl} target="_blank" rel="noopener noreferrer" className="text-brand-700 underline">
-                      Check their portal ↗
-                    </a>
-                  </>
-                )}
-              </p>
             </div>
           );
         })()}
@@ -2417,9 +2498,6 @@ export function ProjectDetailDialog({
                 <DetailField label="Base" value={job.subcontractor_compensation.base ?? "—"} />
                 <DetailField label="Est. lab fees" value={job.subcontractor_compensation.labFees ?? "—"} />
                 <DetailField label="Est. net" value={job.subcontractor_compensation.net ?? "—"} />
-                <p className="text-xs text-slate-500">
-                  {subcontractorSenderForJob(job.customers?.email)?.companyName ?? "The subcontracting company"}&apos;s own estimate — not tracked or billed through this app.
-                </p>
               </>
             ) : (
               <p className="text-sm text-slate-500">No compensation estimate was included in the assignment email.</p>
@@ -2427,6 +2505,7 @@ export function ProjectDetailDialog({
           </div>
         )}
 
+        {tab === "info" && (
         <div className="mt-5 border-t border-slate-100 pt-4">
           {(() => {
             const segments = job.source === "subcontractor" ? SUBCONTRACTOR_TRACKER_SEGMENTS : TRACKER_SEGMENTS;
@@ -2434,41 +2513,73 @@ export function ProjectDetailDialog({
             const currentIndex = (trackerStatuses as readonly string[]).indexOf(job.status);
             return (
               <>
-                {job.status === "cancelled" ? (
-                  <div className="flex h-2.5 items-center rounded-full bg-red-500">
-                    <span className="w-full text-center text-xs font-bold text-white">&nbsp;</span>
+                {/* Desktop: horizontal bar of segments with a label row underneath — unchanged. */}
+                <div className="hidden sm:block">
+                  {job.status === "cancelled" ? (
+                    <div className="flex h-2.5 items-center rounded-full bg-red-500">
+                      <span className="w-full text-center text-xs font-bold text-white">&nbsp;</span>
+                    </div>
+                  ) : (
+                    <div className="flex gap-1">
+                      {segments.map((seg) => {
+                        const done = seg.done(job, currentIndex);
+                        return seg.status ? (
+                          <button
+                            key={seg.key}
+                            onClick={() => onStatusChange(seg.status!)}
+                            title={`Set status to ${statusLabelForJob(job, seg.status)}`}
+                            className={`h-2.5 flex-1 rounded-full ${done ? "bg-emerald-500" : "bg-slate-200"}`}
+                          />
+                        ) : (
+                          <div
+                            key={seg.key}
+                            title="Set automatically once both the report and invoice are sent — there's no manual toggle for this one"
+                            className={`h-2.5 flex-1 rounded-full ${done ? "bg-emerald-500" : "bg-slate-200"}`}
+                          />
+                        );
+                      })}
+                    </div>
+                  )}
+                  <div className="mt-1.5 flex gap-1">
+                    {job.status === "cancelled" ? (
+                      <span className="flex-1 text-center text-sm font-bold text-red-600">Cancelled</span>
+                    ) : (
+                      segments.map((seg) => {
+                        const done = seg.done(job, currentIndex);
+                        return (
+                          <span key={seg.key} className={`flex-1 text-center text-sm font-bold ${done ? "text-emerald-700" : "text-slate-400"}`}>
+                            {seg.label}
+                          </span>
+                        );
+                      })
+                    )}
                   </div>
-                ) : (
-                  <div className="flex gap-1">
-                    {segments.map((seg) => {
+                </div>
+                {/* Mobile: a vertical step list — each status gets its own row instead of a cramped horizontal strip with wrapped labels. */}
+                <div className="flex flex-col gap-2 sm:hidden">
+                  {job.status === "cancelled" ? (
+                    <span className="text-sm font-bold text-red-600">Cancelled</span>
+                  ) : (
+                    segments.map((seg) => {
                       const done = seg.done(job, currentIndex);
+                      const cellClass = `w-full overflow-hidden text-ellipsis whitespace-nowrap rounded px-3 py-2 text-sm font-bold ${done ? "bg-emerald-500 text-white" : "bg-slate-200 text-slate-400"}`;
                       return seg.status ? (
                         <button
                           key={seg.key}
                           onClick={() => onStatusChange(seg.status!)}
                           title={`Set status to ${statusLabelForJob(job, seg.status)}`}
-                          className={`h-2.5 flex-1 rounded-full ${done ? "bg-emerald-500" : "bg-slate-200"}`}
-                        />
+                          className={`text-left ${cellClass}`}
+                        >
+                          {seg.plainLabel}
+                        </button>
                       ) : (
                         <div
                           key={seg.key}
                           title="Set automatically once both the report and invoice are sent — there's no manual toggle for this one"
-                          className={`h-2.5 flex-1 rounded-full ${done ? "bg-emerald-500" : "bg-slate-200"}`}
-                        />
-                      );
-                    })}
-                  </div>
-                )}
-                <div className="mt-1.5 flex gap-1">
-                  {job.status === "cancelled" ? (
-                    <span className="flex-1 text-center text-sm font-bold text-red-600">Cancelled</span>
-                  ) : (
-                    segments.map((seg) => {
-                      const done = seg.done(job, currentIndex);
-                      return (
-                        <span key={seg.key} className={`flex-1 text-center text-sm font-bold ${done ? "text-emerald-700" : "text-slate-400"}`}>
-                          {seg.label}
-                        </span>
+                          className={cellClass}
+                        >
+                          {seg.plainLabel}
+                        </div>
                       );
                     })
                   )}
@@ -2477,6 +2588,7 @@ export function ProjectDetailDialog({
             );
           })()}
         </div>
+        )}
       </div>
     </div>
   );

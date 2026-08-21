@@ -17,6 +17,7 @@ import { parseAcmOrderEmail, type ParsedJobIntake } from "@/lib/parse-job-intake
 import { sendNewBookingRequestEmail } from "@/lib/booking-notify";
 import { sendEmail, emailShell } from "@/lib/email";
 import { escapeHtml } from "@/lib/html";
+import { formatDateMDY } from "@/lib/date-format";
 import {
   getValidAccessToken,
   listMessagesByQuery,
@@ -147,6 +148,23 @@ export async function checkForJobIntakeEmails(): Promise<JobIntakeResult> {
   return result;
 }
 
+// "Email received 8/18/2026 2:41 PM from Jack Cook (555-123-4567), Boston
+// Harbor Water Restoration. Order requested for 8/20/2026." — these jobs
+// carry no requested_date/requested_time of their own (see JobsDashboard's
+// email_intake handling), so this note is the only place either fact is
+// recorded. internalDate is Gmail's own received-at timestamp, not the
+// sender's claimed send time, so it can't be spoofed by a wrong clock.
+function buildEmailIntakeNote(sender: JobIntakeSender, parsed: ParsedJobIntake, message: GmailMessage): string {
+  const receivedAtMs = message.internalDate ? Number(message.internalDate) : NaN;
+  const receivedLabel = Number.isFinite(receivedAtMs)
+    ? new Date(receivedAtMs).toLocaleString("en-US", {
+        month: "numeric", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit",
+      })
+    : null;
+  const requestedLabel = formatDateMDY(parsed.requestedDate) ?? parsed.requestedDate;
+  return `Email received${receivedLabel ? ` ${receivedLabel}` : ""} from ${parsed.companyContactName} (${parsed.companyContactPhone}), ${sender.companyName}. Order requested for ${requestedLabel}.`;
+}
+
 // Exported so it's independently testable without needing a real inbound
 // Gmail message — every real caller reaches this through
 // checkForJobIntakeEmails above.
@@ -275,8 +293,12 @@ export async function createJobFromIntake(params: {
       // The actual person who emailed this in — not a customers row of
       // their own, since no email address for them is ever given in these
       // messages (only the on-file company contact's). Kept as plain,
-      // visible text on the job rather than guessed at.
-      notes: `Requested via email by ${parsed.companyContactName} (${parsed.companyContactPhone}), ${sender.companyName}.`,
+      // visible text on the job rather than guessed at. Includes exactly
+      // when the order email arrived and the date it named, since neither
+      // is tracked anywhere else — these jobs never carry a real requested
+      // date/time on the job itself (see JobsDashboard's email_intake
+      // handling), so this note is the only record of what was actually asked.
+      notes: buildEmailIntakeNote(sender, parsed, message),
       disclaimer_ack: true,
       is_individual: false,
       // Seeds this job's own email thread with the client's original

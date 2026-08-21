@@ -961,16 +961,16 @@ function JobRow({
   const { locationName, street, cityStateZip } = splitAddress(job.service_address);
   const subcontractorSender = job.source === "subcontractor" ? subcontractorSenderForJob(job.customers?.email) : null;
   const customerLabel = subcontractorSender?.companyName ?? (job.customers?.company || job.customers?.name);
-  // Subcontractor jobs: the company name doubles as a quick link straight
-  // to their own portal (same link as the badge in the detail dialog) —
-  // no need to open the dialog just to jump over there.
+  // Subcontractor jobs: the company name is replaced entirely by the same
+  // portal-link badge shown in the detail dialog — a quick way straight to
+  // their own portal, no need to open the dialog just to jump over there.
   const customerLabelNode = subcontractorSender ? (
     <a
       href={subcontractorSender.portalUrl}
       target="_blank"
       rel="noopener noreferrer"
       onClick={(e) => e.stopPropagation()}
-      className="hover:underline"
+      className="inline-flex h-7 shrink-0 items-center whitespace-nowrap rounded border border-indigo-300 px-2 py-0.5 text-sm font-bold text-indigo-700 hover:bg-indigo-50 sm:h-auto"
     >
       {customerLabel}
     </a>
@@ -1800,10 +1800,10 @@ export function ProjectDetailDialog({
             {job.source === "subcontractor" ? (
               job.status === "needs_scheduling" ? (
                 <>
-                  <DetailField label="Preferred date" value={formatDate(job.requested_date)} />
+                  <DetailField label="Requested date" value={formatDate(job.requested_date)} />
                   {/* Accept/deny lives only on the list card (JobRow) now — not duplicated here. */}
                   <DetailField
-                    label="Preferred time"
+                    label="Requested time"
                     value={extractTimeRange(job.subcontractor_preferred_window) ?? job.subcontractor_preferred_window}
                     nowrap
                   />
@@ -1821,26 +1821,34 @@ export function ProjectDetailDialog({
                   />
                 </>
               )
+            ) : job.source === "email_intake" && job.status === "needs_scheduling" ? (
+              // Boston Harbor Water's order never carries a real requested
+              // time, so there's nothing to show yet — this stays plain text
+              // here too. Actually setting the date/time (and with it,
+              // scheduling the job) happens in the Edit dialog, not inline
+              // in this read-only tab.
+              <>
+                <DetailField label="Scheduled date" value="—" />
+                <DetailField label="Scheduled time" value="—" />
+              </>
             ) : (
               <>
+                <DetailField label="Requested date" value={job.requested_date ? formatDate(job.requested_date) : "—"} />
+                <DetailField label="Requested time" value={job.requested_date ? formatTime(job.requested_time) || "—" : "—"} />
                 <DetailField
-                  label={job.confirmed_date ? "Scheduled date" : job.requested_date ? "Requested date" : "Scheduled date"}
+                  label="Scheduled date"
                   value={
-                    job.confirmed_date
-                      ? formatDate(job.confirmed_date)
-                      : job.requested_date
-                      ? formatDate(job.requested_date)
-                      : "Unscheduled"
+                    job.status === "needs_scheduling"
+                      ? formatDate(job.confirmed_date) || "—"
+                      : formatDate(job.confirmed_date ?? job.requested_date) || "—"
                   }
                 />
                 <DetailField
-                  label={job.confirmed_date ? "Scheduled time" : job.requested_date ? "Requested time" : "Scheduled time"}
+                  label="Scheduled time"
                   value={
-                    job.confirmed_date
-                      ? formatTime(job.confirmed_time) || "--:--"
-                      : job.requested_date
-                      ? formatTime(job.requested_time) || "--:--"
-                      : "--:--"
+                    job.status === "needs_scheduling"
+                      ? formatTime(job.confirmed_time) || "—"
+                      : formatTime(job.confirmed_time ?? job.requested_time) || "—"
                   }
                 />
               </>
@@ -1857,7 +1865,7 @@ export function ProjectDetailDialog({
                 <span className="min-w-0 flex-1">{formatDateTime(job.reminder_sent_at)}</span>
               </div>
             )}
-            {job.status === "needs_scheduling" && job.source !== "subcontractor" && (
+            {job.status === "needs_scheduling" && job.source !== "subcontractor" && job.source !== "email_intake" && (
               <AcceptScheduleControl job={job} variant="panel" onAccept={acceptSchedule} onEditManually={onEdit} />
             )}
             <DetailField label="Service type" value={serviceTypeLabel(job.service_type)} nowrap />
@@ -1896,6 +1904,8 @@ export function ProjectDetailDialog({
               <DetailField label="Email" value={job.customers?.email} nowrap />
             </div>
             {!job.customers?.is_individual && job.customers?.companies && (
+              job.customers.companies.billing_contact || job.customers.companies.phone || job.customers.companies.billing_address
+            ) && (
               <div className="space-y-3 sm:space-y-2">
                 <h4 className="text-sm font-bold uppercase tracking-wide text-black underline">Company info</h4>
                 {job.customers.companies.billing_contact && (

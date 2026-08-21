@@ -959,29 +959,43 @@ function JobRow({
   onFieldChange: (patch: Record<string, unknown>) => void;
 }) {
   const { locationName, street, cityStateZip } = splitAddress(job.service_address);
-  const customerLabel = job.source === "subcontractor"
-    ? subcontractorSenderForJob(job.customers?.email)?.companyName ?? (job.customers?.company || job.customers?.name)
-    : (job.customers?.company || job.customers?.name);
+  const subcontractorSender = job.source === "subcontractor" ? subcontractorSenderForJob(job.customers?.email) : null;
+  const customerLabel = subcontractorSender?.companyName ?? (job.customers?.company || job.customers?.name);
+  // Subcontractor jobs: the company name doubles as a quick link straight
+  // to their own portal (same link as the badge in the detail dialog) —
+  // no need to open the dialog just to jump over there.
+  const customerLabelNode = subcontractorSender ? (
+    <a
+      href={subcontractorSender.portalUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={(e) => e.stopPropagation()}
+      className="hover:underline"
+    >
+      {customerLabel}
+    </a>
+  ) : (
+    customerLabel
+  );
   // Blank while unscheduled rather than showing whatever placeholder date
   // came in with the job — the empty calendar/clock is the visual cue that
   // nothing's booked yet. Editing these just updates what was requested;
   // AcceptScheduleControl (below) is the only thing that promotes status.
   const isUnscheduled = job.status === "needs_scheduling";
   const overdueDays = daysOverdue(job);
-  // Subcontracted-job-only: clicking the red X on the requested-window
-  // bubble (see AcceptScheduleControl) drops the bubble and hands control
-  // to the row's own date/time cells instead of opening the full Edit
-  // dialog — filling in both is itself what accepts the job, at exactly
-  // that date/time, with no separate confirm step.
-  const [subManualEntry, setSubManualEntry] = useState(false);
-  const [subManualDate, setSubManualDate] = useState("");
-  const [subManualTime, setSubManualTime] = useState("");
-  function trySubmitSubManual(nextDate: string, nextTime: string) {
+  const isEmailIntake = job.source === "email_intake";
+  const isSubcontractor = job.source === "subcontractor";
+  // Boston Harbor Water's email-intake jobs never carry a real requested
+  // time — there's no accept step for them, just blank date/time cells the
+  // admin fills in directly after calling the homeowner. Any edit is itself
+  // what schedules the job (see trySubmitManual below).
+  const [manualDate, setManualDate] = useState("");
+  const [manualTime, setManualTime] = useState("");
+  function trySubmitManual(nextDate: string, nextTime: string) {
     if (nextDate && nextTime) {
       onFieldChange({ status: "scheduled", confirmed_date: nextDate, confirmed_time: nextTime, schedule_visible_to_customer: false });
-      setSubManualEntry(false);
-      setSubManualDate("");
-      setSubManualTime("");
+      setManualDate("");
+      setManualTime("");
     }
   }
   return (
@@ -995,10 +1009,10 @@ function JobRow({
       <div className="flex w-full items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
           {job.project_number && (
-            <span className="shrink-0 whitespace-nowrap rounded bg-slate-200 px-2 py-0.5 text-sm font-mono font-bold text-slate-800 hover:underline">{job.project_number}</span>
+            <span className="inline-flex h-7 shrink-0 items-center whitespace-nowrap rounded bg-slate-200 px-2 py-0.5 text-sm font-mono font-bold text-slate-800 hover:underline sm:inline sm:h-auto">{job.project_number}</span>
           )}
           <div className="hidden truncate whitespace-nowrap font-medium text-slate-800 sm:block">
-            {customerLabel}
+            {customerLabelNode}
           </div>
         </div>
 
@@ -1009,7 +1023,7 @@ function JobRow({
             </span>
           )}
           {CLOSED_STATUSES.has(job.status) ? (
-            <span className="w-48 shrink-0 truncate rounded bg-slate-200 px-2 py-0.5 text-sm font-bold text-slate-700">
+            <span className="inline-flex h-7 w-48 shrink-0 items-center truncate rounded bg-slate-200 px-2 py-0.5 text-sm font-bold text-slate-700 sm:inline sm:h-auto">
               {statusLabelForJob(job, job.status)}
             </span>
           ) : (
@@ -1017,7 +1031,7 @@ function JobRow({
               value={job.status}
               onChange={(e) => onFieldChange({ status: e.target.value })}
               onClick={(e) => e.stopPropagation()}
-              className="w-48 shrink-0 truncate rounded border-0 bg-slate-200 px-2 py-0.5 text-sm font-bold text-slate-700"
+              className="inline-flex h-7 w-48 shrink-0 items-center truncate rounded border-0 bg-slate-200 px-2 py-0.5 text-sm font-bold text-slate-700 sm:inline-block sm:h-auto"
             >
               {pipelineStatusesForJob(job).map((s) => (
                 <option key={s} value={s}>{statusLabelForJob(job, s)}</option>
@@ -1027,7 +1041,7 @@ function JobRow({
         </div>
       </div>
 
-      <div className="truncate whitespace-nowrap text-sm font-medium text-slate-800 sm:hidden">{customerLabel}</div>
+      <div className="truncate whitespace-nowrap text-sm font-medium text-slate-800 sm:hidden">{customerLabelNode}</div>
 
       <div className="hidden text-sm text-slate-500 sm:block">&nbsp;</div>
 
@@ -1056,79 +1070,66 @@ function JobRow({
               <span>Date of Payment: {formatDate(job.paid_date) || "—"}</span>
               <span>Date Sent: {formatDateTime(job.report_sent_at) || "—"}</span>
             </div>
-          ) : (
-            (() => {
-              const dateCell = job.source === "subcontractor" && !isUnscheduled ? (
-                // Same reasoning as the time slot below — this normally
-                // edits requested_date, but once a subcontracted job is
-                // accepted there's nothing left to "request"; show the
-                // confirmed date as plain text instead of an editable cell.
-                <span className="min-w-0 flex-1 whitespace-nowrap px-1.5 py-1 text-right text-xs text-slate-600 sm:w-32 sm:flex-none sm:shrink-0">
-                  {formatDate(job.confirmed_date ?? job.requested_date)}
-                </span>
-              ) : (
+          ) : isEmailIntake && isUnscheduled ? (
+            // Boston Harbor Water's own order never carries a real
+            // appointment — there's no "requested time" to reference, only
+            // the homeowner to call and negotiate one with directly — so
+            // this gets blank editable cells right away instead of the
+            // plain requested-date/time text every other source shows.
+            // Filling both is itself what schedules the job (trySubmitManual).
+            <div className="flex w-full shrink-0 flex-col items-start gap-1.5 sm:w-auto sm:items-end" onClick={(e) => e.stopPropagation()}>
+              <span className="min-w-0 truncate whitespace-nowrap text-sm text-slate-500">
+                {job.site_contact_name}{job.site_contact_phone ? ` ${job.site_contact_phone}` : ""}
+              </span>
+              <div className="flex w-full items-center gap-2 sm:w-auto">
                 <input
                   type="date"
-                  value={
-                    job.source === "subcontractor" && subManualEntry
-                      ? subManualDate
-                      : isUnscheduled ? "" : job.requested_date ?? ""
-                  }
+                  value={manualDate}
                   onChange={(e) => {
-                    if (job.source === "subcontractor" && subManualEntry) {
-                      const v = e.target.value;
-                      setSubManualDate(v);
-                      trySubmitSubManual(v, subManualTime);
-                    } else {
-                      onFieldChange({ requested_date: e.target.value || null });
-                    }
+                    const v = e.target.value;
+                    setManualDate(v);
+                    trySubmitManual(v, manualTime);
                   }}
                   className="min-w-0 flex-1 rounded-lg border border-slate-300 px-1.5 py-1 text-xs text-slate-600 sm:w-32 sm:flex-none sm:shrink-0"
                 />
-              );
-              const timeCell = job.source === "subcontractor" && !isUnscheduled ? (
-                // This slot normally edits requested_time, but a
-                // subcontracted job never has one (only a window range) —
-                // once accepted, show that window (or the specific time
-                // if it's since been pinned via Edit) as read-only text
-                // instead of a blank, misleading time input.
-                <span className="min-w-0 flex-1 whitespace-nowrap px-1.5 py-1 text-right text-xs text-slate-600 sm:w-32 sm:flex-none sm:shrink-0">
-                  {job.confirmed_time && job.confirmed_time === parseWindowStartTime24h(job.subcontractor_preferred_window)
-                    ? extractTimeRange(job.subcontractor_preferred_window) ?? formatTime(job.confirmed_time)
-                    : formatTime(job.confirmed_time) || "--:--"}
-                </span>
-              ) : (
                 <input
                   type="time"
-                  value={
-                    job.source === "subcontractor" && subManualEntry
-                      ? subManualTime
-                      : isUnscheduled ? "" : job.requested_time ?? ""
-                  }
+                  value={manualTime}
                   onChange={(e) => {
-                    if (job.source === "subcontractor" && subManualEntry) {
-                      const v = e.target.value;
-                      setSubManualTime(v);
-                      trySubmitSubManual(subManualDate, v);
-                    } else {
-                      onFieldChange({ requested_time: e.target.value || null });
-                    }
+                    const v = e.target.value;
+                    setManualTime(v);
+                    trySubmitManual(manualDate, v);
                   }}
                   className="min-w-0 flex-1 rounded-lg border border-slate-300 px-1.5 py-1 text-xs text-slate-600 sm:w-32 sm:flex-none sm:shrink-0"
                 />
-              );
-              const acceptOrToggleCell = isUnscheduled ? (
-                job.source === "subcontractor" && subManualEntry ? null : (
-                  <AcceptScheduleControl
-                    job={job}
-                    variant="button"
-                    onAccept={onFieldChange}
-                    onOpenChat={onOpenChat}
-                    onEditManually={job.source === "subcontractor" ? () => setSubManualEntry(true) : onEdit}
-                    stopPropagation
-                  />
-                )
-              ) : job.status === "scheduled" && job.confirmed_date && job.source !== "subcontractor" ? (
+              </div>
+            </div>
+          ) : (
+            // No editable date/time cells for any other job source — just
+            // plain reference text, in the same label/value format either
+            // way: "Requested date/time" while still unscheduled,
+            // "Scheduled date/time" once it's not. Editing happens in the
+            // Edit dialog now, not inline here.
+            <div className="flex w-full shrink-0 flex-col items-start gap-1.5 sm:w-auto sm:items-end" onClick={(e) => e.stopPropagation()}>
+              <div className="text-sm text-slate-500 sm:text-right">
+                {!isUnscheduled ? (
+                  <>
+                    <div>Scheduled date: {formatDate(job.confirmed_date ?? job.requested_date) || "—"}</div>
+                    <div>Scheduled time: {formatTime(job.confirmed_time ?? job.requested_time) || "—"}</div>
+                  </>
+                ) : (
+                  <>
+                    <div>Requested date: {formatDate(job.requested_date) || "—"}</div>
+                    <div>
+                      Requested time:{" "}
+                      {isSubcontractor
+                        ? extractTimeRange(job.subcontractor_preferred_window) ?? "—"
+                        : formatTime(job.requested_time) || "—"}
+                    </div>
+                  </>
+                )}
+              </div>
+              {!isUnscheduled && job.status === "scheduled" && job.confirmed_date && !isSubcontractor && (
                 <div className="flex flex-col items-end gap-0.5">
                   <label
                     className="flex shrink-0 items-center gap-1.5 whitespace-nowrap text-xs uppercase text-slate-600"
@@ -1158,37 +1159,8 @@ function JobRow({
                     </span>
                   )}
                 </div>
-              ) : null;
-              // A pending request already shows its own date/time via
-              // AcceptScheduleControl's bubble — showing the still-empty
-              // date/time inputs above it too is pure clutter, so they're
-              // skipped once there's a real request to accept. They stay
-              // for subcontractor manual entry (no bubble in that state)
-              // and admin-created jobs with no request to display at all.
-              const showDateTimeInputs = !isUnscheduled || !acceptOrToggleCell;
-              return (
-                <div className="flex w-full shrink-0 flex-col items-start gap-1.5 sm:w-auto sm:items-end" onClick={(e) => e.stopPropagation()}>
-                  {/* Desktop: date on its own line, accept/toggle control paired with the time field — unchanged from the original layout. */}
-                  <div className="hidden sm:flex sm:flex-col sm:items-end sm:gap-1.5">
-                    {showDateTimeInputs && dateCell}
-                    <div className="flex shrink-0 items-center gap-2">
-                      {acceptOrToggleCell}
-                      {showDateTimeInputs && timeCell}
-                    </div>
-                  </div>
-                  {/* Mobile: date and time paired on one line, accept/toggle control gets its own full-width line. */}
-                  <div className="flex w-full flex-col items-start gap-2 sm:hidden">
-                    {showDateTimeInputs && (
-                      <div className="flex w-full items-center gap-2">
-                        {dateCell}
-                        {timeCell}
-                      </div>
-                    )}
-                    {acceptOrToggleCell}
-                  </div>
-                </div>
-              );
-            })()
+              )}
+            </div>
           )}
         </div>
       </div>

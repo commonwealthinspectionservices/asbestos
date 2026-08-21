@@ -69,12 +69,6 @@ const SUBCONTRACTOR_PIPELINE_STATUSES = ["needs_scheduling", "scheduled", "paid"
 
 function pipelineStatusesForJob(job: JobWithCustomer): readonly string[] {
   if (job.source !== "subcontractor") return PIPELINE_STATUSES;
-  // The only way from To Be Scheduled to Scheduled is accepting the
-  // requested window (AcceptScheduleControl) — jumping straight there
-  // from the status dropdown would skip setting a real confirmed_date/
-  // confirmed_time, leaving the job "scheduled" with nothing actually
-  // scheduled. Once it's past that point, the dropdown works normally.
-  if (job.status === "needs_scheduling") return SUBCONTRACTOR_PIPELINE_STATUSES.filter((s) => s !== "scheduled");
   return SUBCONTRACTOR_PIPELINE_STATUSES;
 }
 
@@ -1029,7 +1023,24 @@ function JobRow({
           ) : (
             <select
               value={job.status}
-              onChange={(e) => onFieldChange({ status: e.target.value })}
+              onChange={(e) => {
+                const nextStatus = e.target.value;
+                if (isSubcontractor && job.status === "needs_scheduling" && nextStatus === "scheduled") {
+                  // Right 90% of the time, so it defaults straight to the
+                  // window's own date/start time (e.g. "1:00 PM" out of
+                  // "1:00 PM - 4:00 PM") the moment this flips to Scheduled
+                  // — the other 10%, it's still just a normal edit away via
+                  // the Edit tab's Scheduled date/time fields.
+                  onFieldChange({
+                    status: "scheduled",
+                    confirmed_date: job.requested_date,
+                    confirmed_time: parseWindowStartTime24h(job.subcontractor_preferred_window),
+                    schedule_visible_to_customer: false,
+                  });
+                } else {
+                  onFieldChange({ status: nextStatus });
+                }
+              }}
               onClick={(e) => e.stopPropagation()}
               className="inline-flex h-7 w-48 shrink-0 items-center truncate rounded border-0 bg-slate-200 px-2 py-0.5 text-sm font-bold text-slate-700 sm:inline-block sm:h-auto"
             >
@@ -1115,7 +1126,12 @@ function JobRow({
                 {!isUnscheduled ? (
                   <>
                     <div>Scheduled date: {formatDate(job.confirmed_date ?? job.requested_date) || "—"}</div>
-                    <div>Scheduled time: {formatTime(job.confirmed_time ?? job.requested_time) || "—"}</div>
+                    <div>
+                      Scheduled time:{" "}
+                      {isSubcontractor && job.confirmed_time && job.confirmed_time === parseWindowStartTime24h(job.subcontractor_preferred_window)
+                        ? extractTimeRange(job.subcontractor_preferred_window) ?? formatTime(job.confirmed_time)
+                        : formatTime(job.confirmed_time ?? job.requested_time) || "—"}
+                    </div>
                   </>
                 ) : (
                   <>
@@ -1748,6 +1764,7 @@ export function ProjectDetailDialog({
                       </button>
                     </div>
                   </div>
+                  <DetailField label="Status" value={statusLabelForJob(job, job.status)} />
                   <DetailField
                     label="Company"
                     nowrap

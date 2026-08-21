@@ -71,8 +71,8 @@ export default function AddressBook() {
 
       <div className="rounded-lg border border-slate-200 bg-white p-3">
         <h2 className="mb-2 text-xs font-bold uppercase text-slate-500">Save a new address</h2>
-        <div className="flex gap-1.5">
-          <div className="w-0 flex-1">
+        <div className="flex flex-col gap-1.5 sm:flex-row">
+          <div className="min-w-0 sm:w-0 sm:flex-1">
             <AddressAutocompleteInput
               apiBase="/api/portal"
               value={street}
@@ -89,13 +89,13 @@ export default function AddressBook() {
             />
           </div>
           <input
-            className="w-20 shrink-0 rounded-lg border border-slate-300 px-2 py-2 text-sm"
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm sm:w-20 sm:shrink-0"
             placeholder="Unit #"
             value={unit}
             onChange={(e) => setUnit(e.target.value)}
           />
         </div>
-        <div className="mt-1.5 grid grid-cols-3 gap-1.5">
+        <div className="mt-1.5 grid grid-cols-1 gap-1.5 sm:grid-cols-3">
           <AddressAutocompleteInput
             apiBase="/api/portal"
             value={city}
@@ -112,7 +112,7 @@ export default function AddressBook() {
             placeholder="Town"
           />
           <select
-            className="rounded-lg border border-slate-300 px-2 py-2 text-sm"
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
             value={addrState}
             onChange={(e) => setAddrState(e.target.value)}
           >

@@ -135,7 +135,7 @@ export const POST = withApiErrors(async (req: NextRequest) => {
   // route, which no longer auto-advances status on a bare date edit (see
   // AcceptScheduleControl for that job's real promotion path).
   const startingStatus =
-    body.status === "needs_scheduling" || body.status === "scheduled"
+    body.status === "needs_scheduling" || body.status === "scheduled" || body.status === "pending_lab_results"
       ? body.status
       : body.requestedDate
       ? "scheduled"

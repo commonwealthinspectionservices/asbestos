@@ -75,7 +75,7 @@ export default function CustomersDirectory() {
         <select
           value={tab}
           onChange={(e) => setTab(e.target.value as typeof tab)}
-          className="w-full appearance-none rounded-lg border border-slate-300 bg-white py-2 pl-3 pr-10 text-sm font-medium uppercase text-slate-700"
+          className="w-full appearance-none rounded-lg border border-slate-300 bg-white py-2 pl-3 pr-10 text-sm font-medium text-slate-700"
         >
           <option value="companies">Companies</option>
           <option value="contacts">Individuals</option>

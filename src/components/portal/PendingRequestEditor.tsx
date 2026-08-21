@@ -267,31 +267,27 @@ export default function PendingRequestEditor({
 
       <div>
         <label className="block text-sm font-medium text-slate-700">Job site address</label>
-        <div className="mt-1 flex gap-1.5">
-          <div className="w-0 flex-1">
-            <AddressAutocompleteInput
-              apiBase="/api/portal"
-              value={street}
-              onChange={setStreet}
-              onSelectAddress={(fields) => {
-                setStreet(fields.street);
-                setUnit(fields.unit);
-                setCity(fields.city);
-                setAddrState(fields.state || "MA");
-                setZip(fields.zip);
-              }}
-              placeholder="Street address"
-              townHint={city}
-            />
-          </div>
+        <div className="mt-1 flex flex-col gap-1.5">
+          <AddressAutocompleteInput
+            apiBase="/api/portal"
+            value={street}
+            onChange={setStreet}
+            onSelectAddress={(fields) => {
+              setStreet(fields.street);
+              setUnit(fields.unit);
+              setCity(fields.city);
+              setAddrState(fields.state || "MA");
+              setZip(fields.zip);
+            }}
+            placeholder="Street address"
+            townHint={city}
+          />
           <input
-            className="w-20 shrink-0 rounded-lg border border-slate-300 px-2 py-2 text-sm"
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
             placeholder="Unit #"
             value={unit}
             onChange={(e) => setUnit(e.target.value)}
           />
-        </div>
-        <div className="mt-1.5 grid grid-cols-3 gap-1.5">
           <AddressAutocompleteInput
             apiBase="/api/portal"
             value={city}
@@ -301,7 +297,7 @@ export default function PendingRequestEditor({
             placeholder="Town"
           />
           <select
-            className="rounded-lg border border-slate-300 px-2 py-2 text-sm"
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
             value={addrState}
             onChange={(e) => setAddrState(e.target.value)}
           >
@@ -360,7 +356,7 @@ export default function PendingRequestEditor({
         <label className="block text-sm font-medium text-slate-700">Scope of work</label>
         <textarea
           className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-          rows={3}
+          rows={4}
           value={scopeOfWork}
           onChange={(e) => setScopeOfWork(e.target.value)}
         />
@@ -434,7 +430,7 @@ export default function PendingRequestEditor({
         <label className="block text-sm font-medium text-slate-700">Notes</label>
         <textarea
           className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-          rows={2}
+          rows={4}
           placeholder="Gate code, anything else we should know (optional)"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}

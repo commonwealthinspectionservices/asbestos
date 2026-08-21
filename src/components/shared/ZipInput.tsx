@@ -79,8 +79,8 @@ export default function ZipInput({
     <div className="relative">
       <div className="flex gap-1">
         <input
-          className={inputClassName ?? "w-full rounded-lg border border-slate-300 px-2 py-2 text-sm"}
-          placeholder="ZIP"
+          className={inputClassName ?? "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"}
+          placeholder="Zip Code"
           value={zip}
           onChange={(e) => setZip(e.target.value)}
           autoComplete="postal-code"

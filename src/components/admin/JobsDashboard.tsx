@@ -1390,7 +1390,7 @@ export function ProjectDetailDialog({
   onStatusChange: (status: string) => void;
   initialTab?: "info" | "report" | "chat" | "photos";
 }) {
-  const [tab, setTab] = useState<"info" | "report" | "chat" | "photos" | "shipping" | "compensation">(initialTab ?? "info");
+  const [tab, setTab] = useState<"info" | "report" | "invoice" | "chat" | "photos" | "shipping" | "compensation">(initialTab ?? "info");
   const [confirmingReleaseOverride, setConfirmingReleaseOverride] = useState(false);
   const [submittingReleaseOverride, setSubmittingReleaseOverride] = useState(false);
   const [releaseOverrideError, setReleaseOverrideError] = useState<string | null>(null);
@@ -1819,9 +1819,24 @@ export function ProjectDetailDialog({
           </button>
           {job.source !== "subcontractor" && (
             <>
+              {/* Mobile: "Report & Invoice" splits into two separate tabs —
+                  together they're a lot of scrolling on a small screen.
+                  Desktop keeps the single combined tab, unchanged. */}
               <button
                 onClick={() => setTab("report")}
-                className={`flex-1 whitespace-nowrap px-1 py-1.5 text-center text-[11px] font-bold uppercase sm:flex-none sm:px-3 sm:text-sm ${tab === "report" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
+                className={`flex-1 whitespace-nowrap px-1 py-1.5 text-center text-[11px] font-bold uppercase sm:hidden ${tab === "report" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
+              >
+                Report
+              </button>
+              <button
+                onClick={() => setTab("invoice")}
+                className={`flex-1 whitespace-nowrap px-1 py-1.5 text-center text-[11px] font-bold uppercase sm:hidden ${tab === "invoice" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
+              >
+                Invoice
+              </button>
+              <button
+                onClick={() => setTab("report")}
+                className={`hidden whitespace-nowrap px-3 py-1.5 text-sm font-bold uppercase sm:block ${(tab === "report" || tab === "invoice") ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
               >
                 Report &amp; Invoice
               </button>
@@ -2122,7 +2137,7 @@ export function ProjectDetailDialog({
         </>
         )}
 
-        {tab === "report" && (
+        {(tab === "report" || tab === "invoice") && (
           job.source === "subcontractor" ? (
             // No lab/report/invoice pipeline applies here at all — this job
             // was subcontracted TO Tim by another company (see
@@ -2137,35 +2152,32 @@ export function ProjectDetailDialog({
             </div>
           ) : (
           <div className="mt-4 space-y-6">
-            <div>
+            {/* Lab Paperwork — hidden on mobile's Invoice sub-tab, always
+                shown on desktop (its tab is always "report", never
+                "invoice", since there's no separate Invoice button there). */}
+            <div className={tab === "invoice" ? "hidden sm:block" : ""}>
               <div>
                 {serviceTypeGroups.length > 0 ? (
                   <div className="space-y-5">
                     {serviceTypeGroups.map((group, groupIndex) => (
                       <div key={group.domain} className={groupIndex > 0 ? "border-t-2 border-slate-200 pt-5" : ""}>
-                        {/* Same-domain labels ("Mold Air Sampling" + "Mold
-                            Bulk Sampling") share one heading, one Turnaround,
-                            and one Lab pick — showing each separately made
-                            domain-level things look like they only applied
-                            to whichever label happened to render. */}
-                        <div>
-                          {group.labels.map((label, i) => (
-                            <p key={label} className="text-base font-bold uppercase text-slate-700">
-                              {label}{i < group.labels.length - 1 ? "," : ""}
-                            </p>
-                          ))}
-                        </div>
-                        <div className="mt-2 space-y-2">
-                          {turnaroundControl}
-                          {labDropdown(group.domain)}
-                        </div>
-                        {group.labels.map((label) => (
-                          <div key={label} className="mt-3">
-                            {/* Only shown when this domain has more than one
-                                label on the job, to say which one this
-                                particular set of upload stations is for. */}
-                            {group.labels.length > 1 && (
-                              <p className="mb-1.5 text-sm font-semibold uppercase text-slate-500">{label}</p>
+                        {group.labels.map((label, labelIdx) => (
+                          <div key={label} className={labelIdx > 0 ? "mt-5" : ""}>
+                            {/* Turnaround/Lab are domain-level (one mold lab
+                                pick covers every mold label on the job) so
+                                they sit once, under the group's first title,
+                                ahead of every service type's own
+                                separately-uploaded section below. On desktop,
+                                Turnaround shares the title's row, pinned to
+                                the far right. */}
+                            <div className="mb-1.5 flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
+                              <p className="text-base font-bold uppercase text-slate-700">{label}</p>
+                              {labelIdx === 0 && turnaroundControl}
+                            </div>
+                            {labelIdx === 0 && (
+                              <div className="mb-3">
+                                {labDropdown(group.domain)}
+                              </div>
                             )}
                             <div className="grid grid-cols-2 gap-3">
                               <DocumentStation
@@ -2352,7 +2364,9 @@ export function ProjectDetailDialog({
               </div>
             </div>
 
-            <div className="border-t-4 border-slate-300 pt-6">
+            {/* Invoice + Stripe Payment Link — hidden on mobile's Report
+                sub-tab, always shown on desktop. */}
+            <div className={`pt-6 ${tab === "invoice" ? "" : "border-t-4 border-slate-300"} ${tab === "report" ? "hidden sm:block" : ""}`}>
               <h3 className="text-lg font-bold uppercase tracking-wide text-black underline">Invoice</h3>
               <div className="mt-3">
                 <div className="mb-4 space-y-1">
@@ -2372,7 +2386,7 @@ export function ProjectDetailDialog({
             </div>
 
             {job.invoice_total_cents != null && (
-              <div className="border-t-4 border-slate-300 pt-6">
+              <div className={`border-t-4 border-slate-300 pt-6 ${tab === "report" ? "hidden sm:block" : ""}`}>
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <h3 className="text-lg font-bold uppercase tracking-wide text-black underline">Stripe Payment Link</h3>
                   <div className="flex flex-wrap items-center gap-2">
@@ -2413,6 +2427,7 @@ export function ProjectDetailDialog({
                       each independently Ready/Not-ready. Labeled only once
                       there's more than one, so the common single-type job
                       still just says "Final Report". */}
+                  <div className={tab === "invoice" ? "hidden" : "contents"}>
                   {(() => {
                     const domains = jobReportDomains(job.service_type);
                     return domains.map((domain) => {
@@ -2444,6 +2459,8 @@ export function ProjectDetailDialog({
                       );
                     });
                   })()}
+                  </div>
+                  <div className={tab === "report" ? "hidden sm:contents" : "contents"}>
                   {reportComplete && job.invoice_total_cents != null ? (
                     <div className="w-full overflow-hidden rounded-lg border border-slate-200 sm:w-48">
                       <a href={`/api/admin/jobs/${job.id}/invoice?v=${encodeURIComponent(invoiceRevision)}`} target="_blank" rel="noreferrer" className="block">
@@ -2489,6 +2506,7 @@ export function ProjectDetailDialog({
                       )}
                     </div>
                   )}
+                  </div>
                 </div>
                 {job.is_individual && job.status !== "paid" && (
                   job.report_release_override ? (

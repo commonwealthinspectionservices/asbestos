@@ -426,6 +426,13 @@ function isLeadJob(job: JobWithCustomer): boolean {
   return (job.service_type ?? "").toLowerCase().includes("lead");
 }
 
+// Once a job reaches Pending Lab Results or later, the confirmed date/time
+// describe a completed appointment, not a future one — label it that way
+// instead of "Scheduled".
+function hasCompletedFieldwork(status: string): boolean {
+  return status === "pending_lab_results" || status === "ready_to_send" || status === "paid";
+}
+
 // Fields shared by every domain's own report — same job, so these don't
 // vary by which report is being checked.
 function commonReportChecklist(job: JobWithCustomer): { label: string; done: boolean }[] {
@@ -1230,9 +1237,9 @@ function JobRow({
               <div className="text-sm text-slate-500 sm:text-right">
                 {!isUnscheduled ? (
                   <>
-                    <div>Scheduled date: {formatDate(job.confirmed_date ?? job.requested_date) || "—"}</div>
+                    <div>{hasCompletedFieldwork(job.status) ? "Completed" : "Scheduled"} date: {formatDate(job.confirmed_date ?? job.requested_date) || "—"}</div>
                     <div>
-                      Scheduled time:{" "}
+                      {hasCompletedFieldwork(job.status) ? "Completed" : "Scheduled"} time:{" "}
                       {isSubcontractor && job.confirmed_time && job.confirmed_time === parseWindowStartTime24h(job.subcontractor_preferred_window)
                         ? extractTimeRange(job.subcontractor_preferred_window) ?? formatTime(job.confirmed_time)
                         : formatTime(job.confirmed_time ?? job.requested_time) || "—"}
@@ -2013,9 +2020,9 @@ export function ProjectDetailDialog({
                 </>
               ) : (
                 <>
-                  <DetailField label="Scheduled date" value={formatDate(job.confirmed_date)} />
+                  <DetailField label={hasCompletedFieldwork(job.status) ? "Completed date" : "Scheduled date"} value={formatDate(job.confirmed_date)} />
                   <DetailField
-                    label="Scheduled time"
+                    label={hasCompletedFieldwork(job.status) ? "Completed time" : "Scheduled time"}
                     value={
                       job.confirmed_time && job.confirmed_time === parseWindowStartTime24h(job.subcontractor_preferred_window)
                         ? extractTimeRange(job.subcontractor_preferred_window) ?? formatTime(job.confirmed_time)
@@ -2039,7 +2046,7 @@ export function ProjectDetailDialog({
                 <DetailField label="Requested date" value={job.requested_date ? formatDate(job.requested_date) : "—"} />
                 <DetailField label="Requested time" value={job.requested_date ? formatTime(job.requested_time) || "—" : "—"} />
                 <DetailField
-                  label="Scheduled date"
+                  label={hasCompletedFieldwork(job.status) ? "Completed date" : "Scheduled date"}
                   value={
                     job.status === "needs_scheduling"
                       ? formatDate(job.confirmed_date) || "—"
@@ -2047,7 +2054,7 @@ export function ProjectDetailDialog({
                   }
                 />
                 <DetailField
-                  label="Scheduled time"
+                  label={hasCompletedFieldwork(job.status) ? "Completed time" : "Scheduled time"}
                   value={
                     job.status === "needs_scheduling"
                       ? formatTime(job.confirmed_time) || "—"

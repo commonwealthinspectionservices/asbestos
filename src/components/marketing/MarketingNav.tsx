@@ -35,7 +35,7 @@ export default function MarketingNav() {
     }`;
 
   const mobileLinkClass = (href: string) =>
-    `block px-1 py-2 text-sm font-bold uppercase text-brand-700 ${pathname === href ? "underline" : ""}`;
+    `block px-1 py-2 text-sm font-bold uppercase text-brand-700 hover:underline ${pathname === href ? "underline" : ""}`;
 
   const clientPortalClass =
     "inline-flex h-[22px] shrink-0 items-center whitespace-nowrap border-[3px] border-brand-700 bg-brand-50 px-1.5 pt-0.5 text-[9px] font-extrabold uppercase leading-none text-brand-700 hover:bg-yellow-100 sm:px-2 sm:text-xs md:h-[29px] md:text-sm";

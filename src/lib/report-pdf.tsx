@@ -9,8 +9,10 @@ import {
   ASBESTOS_POSITIVE_REMARK, ASBESTOS_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK,
   moldScopeOfWorkItems, moldServiceTypeFlags, MOLD_SCOPE_CLOSING_LINE, MOLD_ACGIH_PARAGRAPH, MOLD_INDOOR_AIR_QUALITY_PARAGRAPH, MOLD_AIR_INVESTIGATION_GOAL_PARAGRAPH,
   jobReportDomains, domainForServiceTypeLabel, type ReportDomain,
-  isFullInspectionAsbestosJob, FULL_INSPECTION_SCOPE_PARAGRAPH, FULL_INSPECTION_LIMITATIONS_PARAGRAPH,
-  FULL_INSPECTION_METHODOLOGY_PARAGRAPH, FULL_INSPECTION_ACM_ABATEMENT_REMARK, FULL_INSPECTION_ACM_PLAN_DISCLAIMER_REMARK,
+  isFullInspectionAsbestosJob, FULL_INSPECTION_SCOPE_PARAGRAPH, FULL_INSPECTION_NON_SUSPECT_PARAGRAPH,
+  FULL_INSPECTION_WALLS_PARAGRAPH, FULL_INSPECTION_BULK_SAMPLING_PARAGRAPH, FULL_INSPECTION_ACM_CATEGORY_PARAGRAPH,
+  FULL_INSPECTION_NON_ACM_CATEGORY_PARAGRAPH, FULL_INSPECTION_ADDITIONAL_SUSPECT_REMARK,
+  FULL_INSPECTION_ACM_ABATEMENT_REMARK, FULL_INSPECTION_ACM_PLAN_DISCLAIMER_REMARK,
 } from "@/lib/report-findings";
 
 // The site header's own text wordmark (see AdminNav.tsx's "boxed brand
@@ -49,11 +51,21 @@ const styles = StyleSheet.create({
   // page and can't afford to give any of that back.
   page: { paddingTop: 26, paddingBottom: 58, paddingHorizontal: 69, fontSize: BODY_FONT_SIZE, fontFamily: "Times-Roman", color: "#000000", lineHeight: 1.22 },
   pageAsbestos: { fontSize: ASBESTOS_FONT_SIZE, paddingBottom: 26 },
-  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 14, paddingBottom: 8, borderBottomWidth: 2, borderBottomColor: "#193466" },
-  headerLeft: { flexDirection: "row", alignItems: "center" },
+  // Full-inspection only — extra breathing room at the very top of the page.
+  pageFullInspection: { paddingTop: 58 },
+  header: { flexDirection: "row", alignItems: "center", marginBottom: 22, paddingBottom: 12, borderBottomWidth: 2, borderBottomColor: "#193466" },
+  // Logo and email size to their own natural width; the phone number sits
+  // centered in whatever's left between them via two equal flexGrow
+  // spacers, rather than a fixed-ratio column — that's what actually
+  // centers it between the logo and the email address (a fixed 1:2.4
+  // column split centered phone within its own narrow column instead,
+  // biased toward the logo rather than centered in the true remaining
+  // space). Shrinking the logo and the contact fontSize both matter here:
+  // at the original sizes, logo + phone + email already filled ~100% of
+  // the row on their own, leaving nothing for the spacers to grow into.
+  headerSpacer: { flexGrow: 1 },
   // Matches letterhead.png's own 968x178 aspect ratio (~5.44:1).
-  logo: { width: 190, height: 34.9 },
-  headerRight: { alignItems: "flex-end", justifyContent: "center" },
+  logo: { width: 165, height: 30.3 },
   // lineHeight:1 is deliberate, not a stylistic choice — react-pdf's fixed +
   // render (used for the continuation header below) silently fails to
   // render any Text inside it that inherits styles.page's lineHeight:1.22.
@@ -61,7 +73,7 @@ const styles = StyleSheet.create({
   // off the Page and onto a wrapper View instead was tried first and
   // visibly loosened the whole body's spacing (confirmed side-by-side) —
   // this is the only fix that leaves body text untouched.
-  headerRightLine: { color: "#000000", marginBottom: 2, lineHeight: 1 },
+  headerContact: { color: "#000000", lineHeight: 1, fontSize: 10 },
   // Continuation pages (2+) swap the logo/phone letterhead for this compact
   // plain-text identification block instead — matches real multi-page
   // letters (subject/customer/address on the left, project #/date/page
@@ -78,12 +90,25 @@ const styles = StyleSheet.create({
   // what actually looked like "double spacing") — color gets the same
   // direct treatment on principle, not chancing the same class of bug.
   continuationHeaderLine: { fontSize: 9, lineHeight: 1, color: "#999999" },
-  recipientRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 0 },
   recipient: { marginBottom: 0 },
+  recipientRow: { flexDirection: "row", justifyContent: "space-between" },
   recipientBlock: { marginBottom: STANDARD_GAP },
+  // Full-inspection only — slightly more room between the recipient block,
+  // RE block, salutation, and intro paragraph than the other 3 templates use.
+  recipientBlockFullInspection: { marginBottom: STANDARD_GAP + 6 },
   dateLine: {},
   reBlock: { marginBottom: STANDARD_GAP },
+  reBlockFullInspection: { marginBottom: STANDARD_GAP + 6 },
+  salutationFullInspection: { marginBottom: STANDARD_GAP + 6 },
   reRow: { flexDirection: "row" },
+  // The RE block's first line carries the subject ("RE: ... at") on the
+  // left and the date on the right, on one shared row — not its own
+  // flex:1 reValue box (which would claim the whole row width, leaving no
+  // room for the date). reTopLeft sizes to its own text naturally; the
+  // date lands in the leftover space via justifyContent: "space-between"
+  // on the row.
+  reRowTop: { flexDirection: "row", justifyContent: "space-between" },
+  reTopLeft: { flexDirection: "row" },
   reLabel: { width: 27 },
   reProjectLabel: { width: 75 },
   reValue: { flex: 1 },
@@ -91,6 +116,17 @@ const styles = StyleSheet.create({
   paragraph: { marginBottom: STANDARD_GAP, textAlign: "justify" },
   sectionTitle: { fontWeight: 700, marginBottom: STANDARD_GAP, textDecoration: "underline" },
   sectionTitleTight: { fontWeight: 700, marginBottom: TIGHT_GAP, textDecoration: "underline" },
+  // Full-inspection-only variants with extra marginTop, so consecutive
+  // section titles ("Scope and Approach:" right after "Inspection Summary:",
+  // etc) get real breathing room above them, not just below. Kept separate
+  // from sectionTitle/sectionTitleTight above rather than adding marginTop
+  // there directly — those are also used by the Limited Asbestos letter,
+  // whose page margin is deliberately tuned to hold worst-case content to
+  // exactly one page and can't afford extra vertical space.
+  // Same value above and below every underlined section title, throughout
+  // the whole document — no separate "tight" variant for Inspection
+  // Summary specifically, so spacing stays visually consistent everywhere.
+  sectionTitleFullInspection: { fontWeight: 700, marginTop: 22, marginBottom: 22, textDecoration: "underline" },
   summaryBlock: { marginBottom: STANDARD_GAP },
   summaryRow: { flexDirection: "row", marginLeft: 101 },
   summaryLabel: { width: 155, textAlign: "right", marginRight: 21, color: "#000000" },
@@ -99,6 +135,10 @@ const styles = StyleSheet.create({
   blankLineInline: { flex: 0, minWidth: 70, borderBottomWidth: 1, borderBottomColor: "#94a3b8" },
   listBlock: { marginBottom: STANDARD_GAP - TIGHT_GAP },
   listItem: { flexDirection: "row", marginBottom: TIGHT_GAP, paddingLeft: 4 },
+  // Full-inspection Remarks and Limitations only — a full paragraph-style
+  // gap between each numbered remark instead of the tight list spacing
+  // used for other templates' shorter lists.
+  listItemFullInspection: { flexDirection: "row", marginBottom: STANDARD_GAP + 6, paddingLeft: 4 },
   listIndex: { width: 16 },
   listText: { flex: 1, textAlign: "justify" },
   // The positive/negative sentence both wrap to ~2 lines at this width;
@@ -296,20 +336,13 @@ function AsbestosReportDocument({ job, customer, settings }: ProjectReportData) 
           dateText={dateText}
         />
 
-        <View style={styles.recipientBlock}>
-          <View style={styles.recipientRow}>
-            <ValueOrBlank style={styles.recipient} value={knownCustomerName} inline />
-            <Text style={styles.dateLine}>{dateText}</Text>
-          </View>
-          {customer.company && <Text style={styles.recipient}>{customer.company}</Text>}
-          <ValueOrBlank style={styles.recipient} value={billingStreet} inline />
-          <ValueOrBlank style={styles.recipient} value={billing.cityStateZip} inline />
-        </View>
-
         <View style={styles.reBlock}>
-          <View style={styles.reRow}>
-            <Text style={styles.reLabel}>RE:</Text>
-            <Text style={styles.reValue}>Bulk Sample Analytical Results</Text>
+          <View style={styles.reRowTop}>
+            <View style={styles.reTopLeft}>
+              <Text style={styles.reLabel}>RE:</Text>
+              <Text>Bulk Sample Analytical Results</Text>
+            </View>
+            <Text style={styles.dateLine}>{dateText}</Text>
           </View>
           <View style={styles.reRow}>
             <Text style={styles.reLabel} />
@@ -325,6 +358,13 @@ function AsbestosReportDocument({ job, customer, settings }: ProjectReportData) 
             <ValueOrBlank style={styles.reValue} value={job.project_number} inline />
           </View>
         </View>
+
+        <RecipientBlock
+          knownCustomerName={knownCustomerName}
+          customer={customer}
+          billingStreet={billingStreet}
+          billingCityStateZip={billing.cityStateZip}
+        />
 
         <Text style={styles.salutation}>Dear <ValueOrBlank style={styles.salutation} value={knownCustomerName} inline />:</Text>
 
@@ -424,20 +464,13 @@ function LeadReportDocument({ job, customer, settings }: ProjectReportData) {
           dateText={dateText}
         />
 
-        <View style={styles.recipientBlock}>
-          <View style={styles.recipientRow}>
-            <ValueOrBlank style={styles.recipient} value={knownCustomerName} inline />
-            <Text style={styles.dateLine}>{dateText}</Text>
-          </View>
-          {customer.company && <Text style={styles.recipient}>{customer.company}</Text>}
-          <ValueOrBlank style={styles.recipient} value={billingStreet} inline />
-          <ValueOrBlank style={styles.recipient} value={billing.cityStateZip} inline />
-        </View>
-
         <View style={styles.reBlock}>
-          <View style={styles.reRow}>
-            <Text style={styles.reLabel}>RE:</Text>
-            <Text style={styles.reValue}>Bulk Paint Chip Sample Analytical Results</Text>
+          <View style={styles.reRowTop}>
+            <View style={styles.reTopLeft}>
+              <Text style={styles.reLabel}>RE:</Text>
+              <Text>Bulk Paint Chip Sample Analytical Results</Text>
+            </View>
+            <Text style={styles.dateLine}>{dateText}</Text>
           </View>
           <View style={styles.reRow}>
             <Text style={styles.reLabel} />
@@ -453,6 +486,13 @@ function LeadReportDocument({ job, customer, settings }: ProjectReportData) {
             <ValueOrBlank style={styles.reValue} value={job.project_number} inline />
           </View>
         </View>
+
+        <RecipientBlock
+          knownCustomerName={knownCustomerName}
+          customer={customer}
+          billingStreet={billingStreet}
+          billingCityStateZip={billing.cityStateZip}
+        />
 
         <Text style={styles.salutation}>Dear <ValueOrBlank style={styles.salutation} value={knownCustomerName} inline />:</Text>
 
@@ -514,7 +554,7 @@ function FullInspectionAsbestosReportDocument({ job, customer, settings }: Proje
   const acmMaterials = materials.filter((m) => m.is_acm);
   const nonAcmMaterials = materials.filter((m) => !m.is_acm);
 
-  const remarks = [FULL_INSPECTION_LIMITATIONS_PARAGRAPH, FULL_INSPECTION_METHODOLOGY_PARAGRAPH];
+  const remarks = [FULL_INSPECTION_ADDITIONAL_SUSPECT_REMARK];
   if (job.asbestos_result === "positive") {
     remarks.push(FULL_INSPECTION_ACM_ABATEMENT_REMARK, FULL_INSPECTION_ACM_PLAN_DISCLAIMER_REMARK);
   } else if (job.asbestos_result === "negative") {
@@ -533,7 +573,7 @@ function FullInspectionAsbestosReportDocument({ job, customer, settings }: Proje
 
   return (
     <Document title={`Inspection for Asbestos Containing Materials — ${job.service_address}`}>
-      <Page size="LETTER" style={styles.page}>
+      <Page size="LETTER" style={[styles.page, styles.pageFullInspection]}>
         <LetterHeader
           settings={settings}
           reTitle="Inspection for Asbestos Containing Materials"
@@ -543,19 +583,27 @@ function FullInspectionAsbestosReportDocument({ job, customer, settings }: Proje
           dateText={dateText}
         />
 
-        <View style={styles.recipientBlock}>
-          <View style={styles.recipientRow}>
-            <ValueOrBlank style={styles.recipient} value={knownCustomerName} inline />
-            <Text style={styles.dateLine}>{dateText}</Text>
-          </View>
-          {customer.company && <Text style={styles.recipient}>{customer.company}</Text>}
-          <ValueOrBlank style={styles.recipient} value={billingStreet} inline />
-          <ValueOrBlank style={styles.recipient} value={billing.cityStateZip} inline />
-        </View>
+        {/* Recipient block leads with the date paired against the customer
+            name, top-right — then RE: (with Project # as RE's own first
+            line, not its last), not the date-shares-the-RE-line layout the
+            other 3 templates use. */}
+        <RecipientBlock
+          knownCustomerName={knownCustomerName}
+          customer={customer}
+          billingStreet={billingStreet}
+          billingCityStateZip={billing.cityStateZip}
+          dateText={dateText}
+          style={styles.recipientBlockFullInspection}
+        />
 
-        <View style={styles.reBlock}>
+        <View style={styles.reBlockFullInspection}>
           <View style={styles.reRow}>
             <Text style={styles.reLabel}>RE:</Text>
+            <Text style={styles.reProjectLabel}>Project #:</Text>
+            <ValueOrBlank style={styles.reValue} value={job.project_number} inline />
+          </View>
+          <View style={styles.reRow}>
+            <Text style={styles.reLabel} />
             <Text style={styles.reValue}>Inspection for Asbestos Containing Materials at</Text>
           </View>
           <View style={styles.reRow}>
@@ -566,14 +614,9 @@ function FullInspectionAsbestosReportDocument({ job, customer, settings }: Proje
             <Text style={styles.reLabel} />
             <ValueOrBlank style={styles.reValue} value={service.cityStateZip} inline />
           </View>
-          <View style={styles.reRow}>
-            <Text style={styles.reLabel} />
-            <Text style={styles.reProjectLabel}>Project #:</Text>
-            <ValueOrBlank style={styles.reValue} value={job.project_number} inline />
-          </View>
         </View>
 
-        <Text style={styles.salutation}>Dear <ValueOrBlank style={styles.salutation} value={knownCustomerName} inline />:</Text>
+        <Text style={styles.salutationFullInspection}>Dear <ValueOrBlank style={styles.salutationFullInspection} value={knownCustomerName} inline />:</Text>
 
         <Text style={styles.paragraph}>
           {settings.business_name} performed an inspection for asbestos containing materials (ACMs) at the property
@@ -581,7 +624,7 @@ function FullInspectionAsbestosReportDocument({ job, customer, settings }: Proje
           summary of analytical results provided by {settings.business_name}.
         </Text>
 
-        <Text style={styles.sectionTitleTight}>Inspection Summary:</Text>
+        <Text style={styles.sectionTitleFullInspection}>Inspection Summary:</Text>
         <View style={styles.summaryBlock}>
           <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Asbestos Inspector:</Text><ValueOrBlank style={styles.summaryValue} value={inspector.name} /></View>
           <View style={styles.summaryRow}><Text style={styles.summaryLabel}>License #:</Text><ValueOrBlank style={styles.summaryValue} value={inspector.license_number} /></View>
@@ -592,13 +635,24 @@ function FullInspectionAsbestosReportDocument({ job, customer, settings }: Proje
           <View style={styles.summaryRow}><Text style={styles.summaryLabel}>MassDLS Lab Certification#:</Text><ValueOrBlank style={styles.summaryValue} value={job.lab_massdls_cert} /></View>
         </View>
 
-        <Text style={styles.sectionTitle}>Scope and Approach:</Text>
+        <Text style={styles.sectionTitleFullInspection}>Scope and Approach:</Text>
         <Text style={styles.paragraph}>{settings.business_name} {FULL_INSPECTION_SCOPE_PARAGRAPH}</Text>
+        <Text style={styles.paragraph}>{FULL_INSPECTION_NON_SUSPECT_PARAGRAPH}</Text>
+        <Text style={styles.paragraph}>{FULL_INSPECTION_WALLS_PARAGRAPH}</Text>
 
-        <Text style={styles.sectionTitle}>Remarks and Limitations:</Text>
+        <Text style={styles.sectionTitleFullInspection}>Bulk Sampling:</Text>
+        <Text style={styles.paragraph}>{FULL_INSPECTION_BULK_SAMPLING_PARAGRAPH}</Text>
+
+        <Text style={styles.sectionTitleFullInspection}>Asbestos Containing Materials:</Text>
+        <Text style={styles.paragraph}>{FULL_INSPECTION_ACM_CATEGORY_PARAGRAPH}</Text>
+
+        <Text style={styles.sectionTitleFullInspection}>Non-Asbestos Containing Materials:</Text>
+        <Text style={styles.paragraph}>{FULL_INSPECTION_NON_ACM_CATEGORY_PARAGRAPH}</Text>
+
+        <Text style={styles.sectionTitleFullInspection}>Remarks and Limitations:</Text>
         <View style={styles.listBlock}>
           {remarks.map((text, i) => (
-            <View style={styles.listItem} key={i}>
+            <View style={styles.listItemFullInspection} key={i}>
               <Text style={styles.listIndex}>{i + 1}.</Text>
               <Text style={styles.listText}>{text}</Text>
             </View>
@@ -612,7 +666,7 @@ function FullInspectionAsbestosReportDocument({ job, customer, settings }: Proje
 
         <SignatureBlock settings={settings} showLicense />
 
-        <Text style={styles.sectionTitle} break>Appendix A</Text>
+        <Text style={styles.sectionTitleFullInspection} break>Appendix A</Text>
         <Text style={styles.paragraph}>Asbestos Containing Materials Summary Table</Text>
         <View style={styles.appendixTable}>
           <View style={styles.appendixHeaderRow}>
@@ -631,7 +685,7 @@ function FullInspectionAsbestosReportDocument({ job, customer, settings }: Proje
           ))}
         </View>
 
-        <Text style={styles.sectionTitle} break>Appendix B</Text>
+        <Text style={styles.sectionTitleFullInspection} break>Appendix B</Text>
         <Text style={styles.paragraph}>Suspect Materials Found Not to Contain Asbestos</Text>
         <View style={styles.appendixTable}>
           <View style={styles.appendixHeaderRow}>
@@ -771,20 +825,13 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
           dateText={dateText}
         />
 
-        <View style={styles.recipientBlock}>
-          <View style={styles.recipientRow}>
-            <ValueOrBlank style={styles.recipient} value={knownCustomerName} inline />
-            <Text style={styles.dateLine}>{dateText}</Text>
-          </View>
-          {customer.company && <Text style={styles.recipient}>{customer.company}</Text>}
-          <ValueOrBlank style={styles.recipient} value={billingStreet} inline />
-          <ValueOrBlank style={styles.recipient} value={billing.cityStateZip} inline />
-        </View>
-
         <View style={styles.reBlock}>
-          <View style={styles.reRow}>
-            <Text style={styles.reLabel}>RE:</Text>
-            <Text style={styles.reValue}>Limited Mold Assessment & Sampling</Text>
+          <View style={styles.reRowTop}>
+            <View style={styles.reTopLeft}>
+              <Text style={styles.reLabel}>RE:</Text>
+              <Text>Limited Mold Assessment & Sampling</Text>
+            </View>
+            <Text style={styles.dateLine}>{dateText}</Text>
           </View>
           <View style={styles.reRow}>
             <Text style={styles.reLabel} />
@@ -800,6 +847,13 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
             <ValueOrBlank style={styles.reValue} value={job.project_number} inline />
           </View>
         </View>
+
+        <RecipientBlock
+          knownCustomerName={knownCustomerName}
+          customer={customer}
+          billingStreet={billingStreet}
+          billingCityStateZip={billing.cityStateZip}
+        />
 
         <Text style={styles.salutation}>Dear <ValueOrBlank style={styles.salutation} value={knownCustomerName} inline />:</Text>
 
@@ -887,12 +941,14 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
 // plain-text identification block instead (subject, customer, address on
 // the left; project #, date, page number on the right) — matches real
 // multi-page letters, and lets a page stand on its own if separated from
-// the rest of the packet. Two separate fixed elements, each gating its own
-// visibility via render() returning null on the "wrong" pages. Style must
-// live on the View returned FROM render(), never on the outer fixed View
-// itself — putting it there silently broke rendering entirely on every
-// page but the first (confirmed empirically against several isolated
-// repros before finding this).
+// the rest of the packet. Only the continuation header is `fixed` (it must
+// repeat identically on every page 2+); the page-1 header is a plain child
+// since it only ever needs to render once, at the top of the flow — see the
+// note above it. For the continuation header, style must live on the View
+// returned FROM render(), never on the outer fixed View itself — putting it
+// there silently broke rendering entirely on every page but the first
+// (confirmed empirically against several isolated repros before finding
+// this).
 function LetterHeader({
   settings, reTitle, knownCustomerName, serviceAddress, projectNumber, dateText,
 }: {
@@ -905,20 +961,24 @@ function LetterHeader({
 }) {
   return (
     <>
-      <View fixed render={({ pageNumber }) => pageNumber !== 1 ? null : (
-        <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            <Image src={LOGO_PATH} style={styles.logo} />
-          </View>
-          <View style={styles.headerRight}>
-            {[settings.business_phone, settings.business_email].filter(Boolean).length > 0 && (
-              <Text style={styles.headerRightLine}>
-                {[settings.business_phone, settings.business_email].filter(Boolean).join("  |  ")}
-              </Text>
-            )}
-          </View>
-        </View>
-      )} />
+      {/* Not `fixed` — this only ever needs to appear once, at the top of
+          page 1's normal document flow, which is exactly where it lands
+          without repeating. */}
+      <View style={styles.header}>
+        <Image src={LOGO_PATH} style={styles.logo} />
+        {settings.business_phone && (
+          <>
+            <View style={styles.headerSpacer} />
+            <Text style={styles.headerContact}>{settings.business_phone}</Text>
+          </>
+        )}
+        {settings.business_email && (
+          <>
+            <View style={styles.headerSpacer} />
+            <Text style={styles.headerContact}>{settings.business_email}</Text>
+          </>
+        )}
+      </View>
       <View fixed render={({ pageNumber }) => pageNumber === 1 ? null : (
         <View style={styles.continuationHeader}>
           <View style={styles.continuationHeaderLeft}>
@@ -934,6 +994,43 @@ function LetterHeader({
         </View>
       )} />
     </>
+  );
+}
+
+// Shared across all 4 letter templates. For the 3 templates whose RE block
+// carries the date on its own top line, dateText is omitted here and this
+// is just name/company/billing address. Full-inspection instead passes
+// dateText through — its RE block leads with Project #, not the date — so
+// the date pairs with the customer name on this block's own top line
+// instead, top-right, matching the real FLI letters' recipient block. Each
+// line only rendered when there's real content for it. A billing address
+// that's entirely missing renders nothing at all (not even a blank
+// fill-in line): unlike the customer name, which every letter needs some
+// line for, an absent billing address is just... absent.
+function RecipientBlock({
+  knownCustomerName, customer, billingStreet, billingCityStateZip, dateText, style,
+}: {
+  knownCustomerName: string | null;
+  customer: Customer;
+  billingStreet: string;
+  billingCityStateZip: string;
+  dateText?: string;
+  style?: Style;
+}) {
+  return (
+    <View style={style ?? styles.recipientBlock}>
+      {dateText ? (
+        <View style={styles.recipientRow}>
+          <ValueOrBlank style={styles.recipient} value={knownCustomerName} inline />
+          <Text style={styles.dateLine}>{dateText}</Text>
+        </View>
+      ) : (
+        <ValueOrBlank style={styles.recipient} value={knownCustomerName} />
+      )}
+      {customer.company && <Text style={styles.recipient}>{customer.company}</Text>}
+      {billingStreet && <Text style={styles.recipient}>{billingStreet}</Text>}
+      {billingCityStateZip && <Text style={styles.recipient}>{billingCityStateZip}</Text>}
+    </View>
   );
 }
 

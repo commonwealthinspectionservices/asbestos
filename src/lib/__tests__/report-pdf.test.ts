@@ -309,6 +309,17 @@ describe("renderProjectReportPdf", () => {
       expect(text).not.toContain("Bulk Sample Analytical Results");
     });
 
+    it("splits Scope and Approach into its own titled sections, matching the real reports", async () => {
+      const pdf = await renderProjectReportPdfForDomain({ job: fullInspectionJob, customer, settings }, "asbestos");
+      const { text } = await pdfParse(pdf);
+      expect(text).toContain("Bulk Sampling:");
+      expect(text).toContain("Asbestos Containing Materials:");
+      expect(text).toContain("Non-Asbestos Containing Materials:");
+      expect(text).toContain("Remarks and Limitations:");
+      // The old version wrongly folded these into the numbered Remarks list.
+      expect(text).toContain("Additional suspect materials may be present beneath surfaces");
+    });
+
     it("shows Total Materials Sampled as the materials list length, not sample_counts", async () => {
       const pdf = await renderProjectReportPdfForDomain({ job: fullInspectionJob, customer, settings }, "asbestos");
       const { text } = await pdfParse(pdf);

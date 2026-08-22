@@ -474,7 +474,7 @@ function reportChecklist(job: JobWithCustomer, domain: ReportDomain): { label: s
   const isFull = isFullInspectionAsbestosJob(job.service_type);
   return [
     ...commonReportChecklist(job),
-    { label: "Sample count", done: totalSamples > 0 },
+    { label: "Sample count", done: isFull ? job.full_inspection_materials.length > 0 : totalSamples > 0 },
     { label: "Lab info", done: Boolean(job.lab_name && job.lab_nist_cert && job.lab_massdls_cert) },
     { label: "Results", done: isFull ? job.full_inspection_materials.length > 0 : Boolean(job.asbestos_result) },
   ];

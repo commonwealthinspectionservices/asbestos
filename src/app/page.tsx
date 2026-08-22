@@ -71,7 +71,7 @@ export default function HomePage() {
         <div className="relative mt-6 flex justify-center gap-3 sm:mt-10 sm:gap-4">
           <Link
             href="/portal"
-            className="inline-flex items-center border-[3px] border-brand-700 bg-brand-50 px-3 py-1.5 text-xs font-extrabold uppercase leading-none text-brand-700 hover:bg-yellow-100 sm:px-5 sm:py-2.5 sm:text-sm"
+            className="inline-flex items-center border-[3px] border-emerald-600 bg-emerald-600 px-3 py-1.5 text-xs font-extrabold uppercase leading-none text-white hover:bg-emerald-700 sm:px-5 sm:py-2.5 sm:text-sm"
           >
             Book an Inspection
           </Link>

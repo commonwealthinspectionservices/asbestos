@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getContractorSession } from "@/lib/contractor-api";
 
@@ -8,15 +9,40 @@ import { getContractorSession } from "@/lib/contractor-api";
 export const dynamic = "force-dynamic";
 
 // The public "Client Portal" link on the marketing site (nav, homepage,
-// service pages) always points here — deliberately only two destinations,
-// signed-in-with-a-profile or the sign-in page, never straight into
-// onboarding. Landing mid-onboarding from a passive nav click (e.g. after
-// starting signup, wandering off, then clicking the nav link again) was
-// confusing; the sign-in page's own "Create account" link is the way back
-// in for that case. A session that's mid-onboarding still reaches it
-// normally via an explicit sign-in (see /portal/login).
+// service pages) always points here. A signed-in visitor still only ever
+// has two destinations — dashboard, or the sign-in page if mid-onboarding
+// (see /portal/login) — unchanged from before. A genuinely anonymous
+// visitor used to get bounced straight to /portal/login, which meant even
+// a brand-new homeowner had to create an account before describing the
+// job they wanted. Individuals now go straight into the guest booking
+// wizard instead (/portal/book handles having no session at all — see its
+// own comment) and only make an account at the very end. Company/
+// contractor bookings still need to sign in first — their signup has an
+// extra "start a new company vs. join an existing one" branch that's
+// harder to resolve after the fact — so that option here still points at
+// today's /portal/login flow.
 export default async function PortalIndexPage() {
   const session = await getContractorSession();
   if (session?.customer) redirect("/portal/dashboard");
-  redirect("/portal/login");
+  if (session) redirect("/portal/login");
+
+  return (
+    <div className="mx-auto max-w-sm px-4 py-24">
+      <h1 className="text-xl font-semibold uppercase text-brand-700">Book a project</h1>
+      <div className="mt-6 space-y-3">
+        <Link
+          href="/portal/book"
+          className="block rounded-lg bg-brand-600 px-4 py-3 text-center font-medium text-white"
+        >
+          I'm a homeowner
+        </Link>
+        <Link
+          href="/portal/login"
+          className="block rounded-lg border border-slate-300 px-4 py-3 text-center font-medium text-slate-700"
+        >
+          I'm a company / contractor
+        </Link>
+      </div>
+    </div>
+  );
 }

@@ -817,11 +817,9 @@ export default function JobsDashboard() {
             className="w-full appearance-none rounded-lg border border-slate-300 bg-white py-2 pl-3 pr-8 text-sm text-slate-700"
           >
             <option value="">Sort by</option>
-            <optgroup label="Sort by">
-              {SORT_FIELDS.map((f) => (
-                <option key={f.key} value={`sort:${f.key}`}>{f.label}</option>
-              ))}
-            </optgroup>
+            {SORT_FIELDS.map((f) => (
+              <option key={f.key} value={`sort:${f.key}`}>{f.label}</option>
+            ))}
             <optgroup label="Status">
               {overdueJobs.length > 0 && <option value="status:overdue">Overdue ({overdueJobs.length})</option>}
               {PIPELINE_STATUSES.map((s) => (
@@ -2387,20 +2385,20 @@ export function ProjectDetailDialog({
 
             {job.invoice_total_cents != null && (
               <div className={`border-t-4 border-slate-300 pt-6 ${tab === "report" ? "hidden sm:block" : ""}`}>
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <h3 className="text-lg font-bold uppercase tracking-wide text-black underline">Stripe Payment Link</h3>
-                  <div className="flex w-full items-center justify-center gap-3 sm:w-auto sm:justify-end">
+                <div className="flex flex-nowrap items-center justify-between gap-1.5">
+                  <h3 className="whitespace-nowrap text-base font-bold uppercase tracking-wide text-black underline sm:text-lg">Stripe Payment Link</h3>
+                  <div className="flex shrink-0 items-center gap-1.5">
                     <button
                       onClick={getPaymentLink}
                       disabled={payLinkLoading}
-                      className="rounded-lg border border-slate-300 px-5 py-2 text-sm font-bold uppercase text-slate-700 hover:underline disabled:opacity-50"
+                      className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold uppercase text-slate-700 hover:underline disabled:opacity-50 sm:px-4"
                     >
                       {payLinkLoading ? "Loading…" : "View"}
                     </button>
                     <button
                       onClick={copyPaymentLink}
                       disabled={copyLinkLoading}
-                      className="rounded-lg border border-slate-300 px-5 py-2 text-sm font-bold uppercase text-slate-700 hover:underline disabled:opacity-50"
+                      className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold uppercase text-slate-700 hover:underline disabled:opacity-50 sm:px-4"
                     >
                       {copyLinkLoading ? "Loading…" : copyLinkDone ? "Copied!" : "Copy"}
                     </button>
@@ -4808,11 +4806,11 @@ function LineItemsEditor({
 
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
         <p className="text-base font-bold uppercase text-emerald-600">Invoice total: {currency(total)}</p>
-        <div className="flex w-full flex-col gap-1 sm:w-auto sm:flex-row sm:items-center sm:gap-2">
-          <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">Payment due date</label>
+        <div className="flex items-center gap-2">
+          <label className="whitespace-nowrap text-xs font-semibold uppercase tracking-wide text-slate-400">Payment due date</label>
           <input
             type="date"
-            className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm sm:w-auto"
+            className="w-auto rounded border border-slate-300 px-1.5 py-0.5 text-sm"
             value={paymentDueDate}
             onChange={(e) => onPaymentDueDateChange(e.target.value)}
           />

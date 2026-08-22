@@ -32,7 +32,7 @@ export default async function PortalIndexPage() {
       <div className="mt-6 space-y-3">
         <Link
           href="/portal/book"
-          className="block rounded-lg bg-brand-600 px-4 py-3 text-center font-medium text-white"
+          className="block rounded-lg border border-slate-300 px-4 py-3 text-center font-medium text-slate-700"
         >
           I'm a homeowner
         </Link>
@@ -40,7 +40,7 @@ export default async function PortalIndexPage() {
           href="/portal/login"
           className="block rounded-lg border border-slate-300 px-4 py-3 text-center font-medium text-slate-700"
         >
-          I'm a company / contractor
+          I'm booking for my company
         </Link>
       </div>
     </div>

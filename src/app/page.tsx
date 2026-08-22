@@ -76,10 +76,10 @@ export default function HomePage() {
             Book an Inspection
           </Link>
           <Link
-            href="/contact"
+            href="/portal/login"
             className="inline-flex items-center border-[3px] border-brand-700 bg-brand-50 px-3 py-1.5 text-xs font-extrabold uppercase leading-none text-brand-700 hover:bg-yellow-100 sm:px-5 sm:py-2.5 sm:text-sm"
           >
-            Contact
+            Client Portal
           </Link>
         </div>
         </div>

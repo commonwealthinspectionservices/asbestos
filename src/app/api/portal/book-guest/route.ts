@@ -139,13 +139,14 @@ export const POST = withApiErrors(async (req: NextRequest) => {
       jobId: job.id,
       customerEmail: trimmedEmail,
       customerName: trimmedName,
-      businessName: settings.business_name,
       businessPhone: settings.business_phone,
       projectNumber,
       serviceLabel: serviceTypeLabel,
       address,
       requestedDate,
       requestedTime: time,
+      scopeOfWork,
+      notes,
     });
   } catch (err) {
     console.error("Customer booking-received confirmation failed:", err);

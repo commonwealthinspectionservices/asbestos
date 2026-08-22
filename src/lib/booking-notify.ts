@@ -49,7 +49,7 @@ export async function sendNewBookingRequestEmail(params: {
   const tableRows = rows
     .map(
       ([label, value]) =>
-        `<tr><td style="padding:4px 8px 4px 0; color:#64748b; white-space:nowrap; vertical-align:top;">${escapeHtml(label)}</td><td>${escapeHtml(value)}</td></tr>`
+        `<tr><td style="padding:4px 8px 4px 0; color:#64748b; white-space:nowrap; vertical-align:top;">${escapeHtml(label)}</td><td style="white-space:pre-wrap;">${escapeHtml(value)}</td></tr>`
     )
     .join("");
 
@@ -83,7 +83,6 @@ export async function sendCustomerBookingReceivedEmail(params: {
   jobId: string;
   customerEmail: string;
   customerName: string;
-  businessName: string;
   businessPhone: string;
   projectNumber: string | null;
   serviceLabel: string;
@@ -91,27 +90,54 @@ export async function sendCustomerBookingReceivedEmail(params: {
   requestedDate: string | null;
   requestedTime?: string | null;
   scheduleViaContact?: boolean;
+  scopeOfWork?: string | null;
+  siteContactName?: string | null;
+  siteContactPhone?: string | null;
+  notes?: string | null;
 }): Promise<void> {
   const firstName = params.customerName?.split(" ")[0] || "there";
   const exactTime = params.requestedTime ? formatRequestedTime(params.requestedTime) : null;
   const timeWindow = params.requestedTime ? formatRequestedTimeWindow(params.requestedTime) : null;
-  const whenLine = params.scheduleViaContact
-    ? "We'll reach out to your job site contact to schedule"
-    : [formatDateMDY(params.requestedDate), exactTime].filter(Boolean).join(" at ") || "No specific date preference given";
 
-  const rows = [
+  // Requested date/time are their own rows (not one combined "Requested"
+  // line) so the approximate-time disclaimer below can sit directly under
+  // the actual time it's talking about, rather than trailing the whole
+  // table after Scope of work/Notes.
+  const topRows: [string, string][] = [
     ["Service", params.serviceLabel],
     ["Address", params.address],
-    ["Requested", whenLine],
   ];
-  if (params.projectNumber) rows.unshift(["Project #", params.projectNumber]);
+  if (params.scheduleViaContact) {
+    topRows.push(["Requested", "We'll reach out to your job site contact to schedule"]);
+  } else {
+    topRows.push(["Requested date", formatDateMDY(params.requestedDate) ?? "No specific date preference given"]);
+    topRows.push(["Requested time", exactTime ?? "No preference"]);
+  }
+  if (params.projectNumber) topRows.unshift(["Project #", params.projectNumber]);
 
-  const tableRows = rows
-    .map(
-      ([label, value]) =>
-        `<tr><td style="padding:4px 8px 4px 0; color:#64748b; white-space:nowrap; vertical-align:top;">${escapeHtml(label)}</td><td>${escapeHtml(value)}</td></tr>`
-    )
-    .join("");
+  const bottomRows: [string, string][] = [];
+  if (params.scopeOfWork) bottomRows.push(["Scope of work", params.scopeOfWork]);
+  // Only shown when it's someone other than the requester themselves — an
+  // individual booking for their own home already sees their own name at
+  // the top of this email, so repeating it here as "Job site contact"
+  // would just be noise. A company's job site contact is a genuinely
+  // different person worth confirming back to them.
+  if (params.siteContactName && params.siteContactName !== params.customerName) {
+    bottomRows.push(["Job site contact", [params.siteContactName, params.siteContactPhone].filter(Boolean).join(" — ")]);
+  }
+  if (params.notes) bottomRows.push(["Notes", params.notes]);
+
+  // Fixed label-column width, not left to each <table> to auto-size —
+  // topRows/bottomRows render as two separate tables (see below) so the
+  // approximate-time note can sit between them, and two tables auto-sizing
+  // independently would misalign their value columns against each other.
+  const renderRows = (rows: [string, string][]) =>
+    rows
+      .map(
+        ([label, value]) =>
+          `<tr><td style="width:130px; padding:4px 8px 4px 0; color:#64748b; white-space:nowrap; vertical-align:top;">${escapeHtml(label)}</td><td style="white-space:pre-wrap;">${escapeHtml(value)}</td></tr>`
+      )
+      .join("");
 
   const result = await sendThreadedEmail({
     to: params.customerEmail,
@@ -120,9 +146,10 @@ export async function sendCustomerBookingReceivedEmail(params: {
     gmailThreadId: null,
     html: emailShell(`
       <p style="font-size:15px;">Hi ${escapeHtml(firstName)},</p>
-      <p style="font-size:15px;">Thanks for requesting an inspection with ${escapeHtml(params.businessName)}. Here's what you requested:</p>
-      <table style="width:100%; font-size:14px; color:#16213a;">${tableRows}</table>
+      <p style="font-size:15px;">Thanks for requesting an inspection — here's a summary of your request:</p>
+      <table style="width:100%; font-size:14px; color:#16213a;">${renderRows(topRows)}</table>
       ${timeWindow ? `<p style="font-size:12px; color:#94a3b8; margin-top:6px;">The time above is approximate, and we'll confirm the exact date and time when we're in touch.</p>` : ""}
+      ${bottomRows.length > 0 ? `<table style="width:100%; font-size:14px; color:#16213a; margin-top:6px;">${renderRows(bottomRows)}</table>` : ""}
       <p style="font-size:15px; margin-top:16px;">We'll be in touch shortly to confirm an exact date and time.</p>
       <p style="font-size:15px;">Questions in the meantime? Call us at ${escapeHtml(params.businessPhone)}.</p>
     `),

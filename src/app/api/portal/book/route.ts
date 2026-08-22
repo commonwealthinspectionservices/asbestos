@@ -137,7 +137,6 @@ export const POST = withApiErrors(async (req: NextRequest) => {
         jobId: job.id,
         customerEmail: auth.customer.email,
         customerName: auth.customer.name,
-        businessName: settings.business_name,
         businessPhone: settings.business_phone,
         projectNumber,
         serviceLabel: serviceTypeLabel,
@@ -145,6 +144,10 @@ export const POST = withApiErrors(async (req: NextRequest) => {
         requestedDate: scheduleViaContact ? null : date,
         requestedTime: time,
         scheduleViaContact,
+        scopeOfWork,
+        siteContactName: resolvedSiteContactName,
+        siteContactPhone: resolvedSiteContactPhone,
+        notes,
       });
     } catch (err) {
       console.error("Customer booking-received confirmation failed:", err);

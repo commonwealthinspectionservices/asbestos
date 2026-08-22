@@ -6,6 +6,12 @@ import { getSupabaseAdmin } from "@/lib/supabase";
 import { requireCronAuth, withCronAlert } from "@/lib/cron-auth";
 import { withApiErrors } from "@/lib/api-handler";
 
+// Reads req.headers (via requireCronAuth) — without this, Next tries to
+// statically render the route at build time and throws "Dynamic server
+// usage", which surfaced as this cron failing every single invocation
+// once deployed (see withCronAlert's failure emails).
+export const dynamic = "force-dynamic";
+
 // Vercel Cron schedules run in UTC, and Hobby-tier cron jobs are limited to
 // one invocation per day — so this can't poll every few minutes until local
 // time catches up to route_email_time_local. Instead vercel.json fires this

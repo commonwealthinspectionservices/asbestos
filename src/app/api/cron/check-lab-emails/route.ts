@@ -3,6 +3,12 @@ import { requireCronAuth, withCronAlert } from "@/lib/cron-auth";
 import { withApiErrors } from "@/lib/api-handler";
 import { checkForLabResultEmails } from "@/lib/lab-email";
 
+// Reads req.headers (via requireCronAuth) — without this, Next tries to
+// statically render the route at build time and throws "Dynamic server
+// usage", which surfaced as this cron failing every single invocation
+// once deployed (see withCronAlert's failure emails).
+export const dynamic = "force-dynamic";
+
 // Automatic replacement for the old "Check for new lab emails" button
 // (removed from Settings — see checkForLabResultEmails's own doc comment).
 // That button was always meant as a Phase 1 stand-in for real automation

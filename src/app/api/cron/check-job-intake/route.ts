@@ -3,6 +3,12 @@ import { requireCronAuth, withCronAlert } from "@/lib/cron-auth";
 import { withApiErrors } from "@/lib/api-handler";
 import { checkForJobIntakeEmails } from "@/lib/job-intake";
 
+// Reads req.headers (via requireCronAuth) — without this, Next tries to
+// statically render the route at build time and throws "Dynamic server
+// usage", which surfaced as this cron failing every single invocation
+// once deployed (see withCronAlert's failure emails).
+export const dynamic = "force-dynamic";
+
 // Polls every 15 minutes (see vercel.json), same cadence as check-lab-emails
 // — a new job request deserves showing up on the dashboard about as
 // promptly as a lab result does. Separate cron/route from check-lab-emails

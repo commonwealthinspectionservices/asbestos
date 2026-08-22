@@ -164,6 +164,10 @@ create table if not exists jobs (
   -- Sampling": 3, "Asbestos Inspection": 5) — settable by hand from the
   -- lab's results, independent of sample_count/sample_items above
   sample_counts jsonb not null default '{}'::jsonb,
+  -- Full-inspection (Pre-Renovation/Pre-Demolition) asbestos jobs only —
+  -- one row per homogeneous material identified/sampled, driving the
+  -- report's Appendix A/B tables. Empty for Limited/mold/lead jobs.
+  full_inspection_materials jsonb not null default '[]'::jsonb,
   -- who analyzed the samples, and what it cost — a real business expense,
   -- entered alongside lab results
   lab_name text,
@@ -315,8 +319,10 @@ create table if not exists settings (
   -- drives the report's header/signature block (src/lib/report-pdf.tsx) and
   -- email header (src/lib/email.ts) without hardcoding them in code
   business_name text not null default 'Commonwealth Inspection Services, LLC.',
-  -- printed in the report letterhead's top-right contact block, alongside base_address
+  -- printed in the report letterhead's top-right contact block
   business_phone text not null default '617-390-4778',
+  -- printed in the report letterhead's top-right contact block, next to business_phone
+  business_email text not null default 'tim@commonwealthinspectionservices.com',
   owner_name text not null default 'Timothy Hall',
   owner_title text not null default 'Project Manager',
   -- MA asbestos inspector license #, printed on the COC and report footer
@@ -365,6 +371,8 @@ alter table customers add column if not exists auth_user_id uuid unique referenc
 create index if not exists customers_auth_user_id_idx on customers (auth_user_id);
 alter table jobs add column if not exists sample_items jsonb not null default '[]'::jsonb;
 alter table jobs add column if not exists report_notes text;
+-- Full-inspection (Pre-Renovation/Pre-Demolition) asbestos jobs' per-material sample log — see the inline column comment above.
+alter table jobs add column if not exists full_inspection_materials jsonb not null default '[]'::jsonb;
 
 -- Real-workflow additions: project numbers, site contact, lab cost/results,
 -- report summary, the awaiting_lab_results status, and report branding settings.
@@ -476,6 +484,8 @@ alter type job_status add value if not exists 'pending_lab_results' after 'needs
 -- matching the real FLI letter's address/phone block — printed alongside
 -- the existing base_address field.
 alter table settings add column if not exists business_phone text not null default '617-390-4778';
+-- Printed in the report letterhead's top-right contact block, next to business_phone.
+alter table settings add column if not exists business_email text not null default 'tim@commonwealthinspectionservices.com';
 
 -- Single-row Gmail OAuth connection (the owner's own inbox, watched for
 -- incoming lab result emails). Deliberately its own table rather than
@@ -630,6 +640,26 @@ create table if not exists job_messages (
 );
 create index if not exists job_messages_job_id_idx on job_messages (job_id, created_at);
 
+-- "Ray's Library" — a reference-only catalog of materials/locations/results
+-- seen across real past full-inspection asbestos reports (all inspected by
+-- Raymond Leger at the owner's prior company), kept for the owner's own
+-- reference while doing full inspections himself. Deliberately NOT wired
+-- into any data-entry workflow (confirmed with the owner) — full-inspection
+-- jobs' own materials (jobs.full_inspection_materials) are entered fresh
+-- per job, independent of this table.
+create table if not exists rays_library (
+  id uuid primary key default gen_random_uuid(),
+  material text not null,
+  locations text[] not null default '{}',
+  -- null = seen both ways (ACM in one source report, non-ACM in another)
+  is_acm boolean,
+  source_project_number text,
+  source_address text,
+  notes text,
+  created_at timestamptz not null default now()
+);
+create index if not exists rays_library_material_idx on rays_library (material);
+
 alter table customers enable row level security;
 alter table jobs enable row level security;
 alter table saved_addresses enable row level security;
@@ -638,6 +668,7 @@ alter table settings enable row level security;
 alter table companies enable row level security;
 alter table gmail_connection enable row level security;
 alter table job_messages enable row level security;
+alter table rays_library enable row level security;
 
 -- Consolidates a duplicate contact into the one being kept — e.g. someone
 -- who self-signed-up through the portal with a different email than the

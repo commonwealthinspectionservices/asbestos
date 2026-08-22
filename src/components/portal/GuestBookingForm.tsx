@@ -247,17 +247,28 @@ export default function GuestBookingForm() {
       }
       // identities is empty (not absent) specifically for "email already
       // registered" under anti-enumeration behavior — a genuinely new user
-      // always has at least one identity attached.
+      // always has at least one identity attached. This also legitimately
+      // fires on a retry of this exact form: signUp can succeed while the
+      // profile call below fails for an unrelated reason, so a second
+      // attempt with the same email/password is really our own account,
+      // not someone else's — sign in with what was just typed before
+      // assuming it's a real conflict.
+      let session = signUpData.session;
       if (signUpData.user && signUpData.user.identities?.length === 0) {
-        setStep("already-registered");
-        return;
+        const browserClient = createSupabaseBrowserClient();
+        const { data: signInData } = await browserClient.auth.signInWithPassword({ email, password });
+        if (!signInData.session) {
+          setStep("already-registered");
+          return;
+        }
+        session = signInData.session;
       }
 
-      if (signUpData.session) {
+      if (session) {
         const browserClient = createSupabaseBrowserClient();
         await browserClient.auth.setSession({
-          access_token: signUpData.session.access_token,
-          refresh_token: signUpData.session.refresh_token,
+          access_token: session.access_token,
+          refresh_token: session.refresh_token,
         });
         const profileRes = await fetch("/api/portal/profile", {
           method: "POST",
@@ -514,11 +525,17 @@ export default function GuestBookingForm() {
             onChange={(e) => setName(e.target.value)}
           />
           <input
-            className="w-full rounded-lg border border-slate-300 px-3 py-2"
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 disabled:bg-slate-100 disabled:text-slate-500"
             placeholder="Email"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            // Locked once the booking is already submitted (jobId set) —
+            // the job's customer record is already tied to this exact
+            // email server-side, so changing it here on a retry would
+            // create the account under a different email than the one the
+            // job is actually attached to, orphaning the booking.
+            disabled={!!jobId}
           />
           <input
             className="w-full rounded-lg border border-slate-300 px-3 py-2"

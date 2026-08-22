@@ -49,7 +49,7 @@ export async function sendNewBookingRequestEmail(params: {
   const tableRows = rows
     .map(
       ([label, value]) =>
-        `<tr><td style="padding:4px 8px 4px 0; color:#64748b; white-space:nowrap; vertical-align:top;">${escapeHtml(label)}</td><td style="white-space:pre-wrap;">${escapeHtml(value)}</td></tr>`
+        `<tr><td style="padding:4px 8px 4px 0; color:#64748b; white-space:nowrap; vertical-align:top;">${escapeHtml(label)}</td><td style="white-space:pre-wrap; overflow-wrap:anywhere;">${escapeHtml(value)}</td></tr>`
     )
     .join("");
 
@@ -135,7 +135,7 @@ export async function sendCustomerBookingReceivedEmail(params: {
     rows
       .map(
         ([label, value]) =>
-          `<tr><td style="width:130px; padding:4px 8px 4px 0; color:#64748b; white-space:nowrap; vertical-align:top;">${escapeHtml(label)}</td><td style="white-space:pre-wrap;">${escapeHtml(value)}</td></tr>`
+          `<tr><td style="width:130px; padding:4px 8px 4px 0; color:#64748b; white-space:nowrap; vertical-align:top;">${escapeHtml(label)}</td><td style="white-space:pre-wrap; overflow-wrap:anywhere;">${escapeHtml(value)}</td></tr>`
       )
       .join("");
 

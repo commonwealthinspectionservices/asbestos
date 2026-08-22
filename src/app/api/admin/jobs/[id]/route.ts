@@ -3,7 +3,7 @@ import { getSupabaseAdmin } from "@/lib/supabase";
 import { requireAdminApi } from "@/lib/admin-api";
 import { withApiErrors } from "@/lib/api-handler";
 import { parseLineItems, lineItemsTotalCents } from "@/lib/invoice-line-items";
-import { parseSampleItems, parseSampleCounts } from "@/lib/sample-items";
+import { parseSampleItems, parseSampleCounts, parseFullInspectionMaterials } from "@/lib/sample-items";
 
 const EDITABLE_FIELDS = [
   "project_number",
@@ -105,6 +105,29 @@ export const PATCH = withApiErrors(async (
     patch.sample_counts = parsed.counts;
   }
 
+  // Full-inspection (Pre-Renovation/Pre-Demolition) asbestos jobs log one
+  // row per homogeneous material instead of picking a single Overall
+  // Findings remark — asbestos_result is derived from the materials list
+  // here (positive if any row is ACM, else negative once at least one
+  // material's logged) rather than admin-settable directly for these jobs,
+  // so the report's Remarks list and Appendix A can never contradict each
+  // other. Only overrides asbestos_result when the admin isn't already
+  // setting it explicitly in the same request (mirrors sample_count above).
+  if ("full_inspection_materials" in body) {
+    const parsed = parseFullInspectionMaterials(body.full_inspection_materials);
+    if ("error" in parsed) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
+    }
+    patch.full_inspection_materials = parsed.materials;
+    if (!("asbestos_result" in body)) {
+      patch.asbestos_result = parsed.materials.some((m) => m.is_acm)
+        ? "positive"
+        : parsed.materials.length > 0
+        ? "negative"
+        : null;
+    }
+  }
+
   if (Object.keys(patch).length === 0) {
     return NextResponse.json({ error: "No editable fields provided" }, { status: 400 });
   }
@@ -203,7 +226,7 @@ export const PATCH = withApiErrors(async (
   // Columns added after this route was first written — tolerated in case
   // the migration adding them hasn't been run against this database yet,
   // so a save never hard-fails over one of them being missing.
-  const TOLERATED_MISSING_COLUMNS = ["paid_date", "sample_counts", "report_emails", "invoice_emails", "scope_of_work", "payment_due_date", "asbestos_result", "lead_result", "invoice_auto", "confirmed_date", "confirmed_time", "schedule_visible_to_customer", "report_release_override"];
+  const TOLERATED_MISSING_COLUMNS = ["paid_date", "sample_counts", "report_emails", "invoice_emails", "scope_of_work", "payment_due_date", "asbestos_result", "lead_result", "invoice_auto", "confirmed_date", "confirmed_time", "schedule_visible_to_customer", "report_release_override", "full_inspection_materials"];
 
   let currentPatch = patch;
   let data: Record<string, unknown> | null = null;

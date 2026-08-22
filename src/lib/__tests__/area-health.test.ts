@@ -22,6 +22,7 @@ const baseSettings: Settings = {
   last_area_alert_sent_at: null,
   business_name: "Commonwealth Inspection Services, LLC.",
   business_phone: "617-390-4778",
+  business_email: "tim@commonwealthinspectionservices.com",
   service_types: [],
   pricing_zones: [],
   labs: [],

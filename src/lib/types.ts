@@ -70,8 +70,10 @@ export interface Settings {
   alert_centroid_offset_miles: number;
   last_area_alert_sent_at: string | null;
   business_name: string;
-  /** Printed in the report letterhead's top-right contact block, alongside base_address. */
+  /** Printed in the report letterhead's top-right contact block. */
   business_phone: string;
+  /** Printed in the report letterhead's top-right contact block, next to business_phone. */
+  business_email: string;
   service_types: ServiceType[];
   pricing_zones: PricingZone[];
   labs: LabProfile[];
@@ -135,6 +137,37 @@ export interface SampleItem {
   sample_number: string;
   material: string;
   location: string;
+}
+
+/**
+ * One homogeneous material logged on a full-inspection (Pre-Renovation/
+ * Pre-Demolition) asbestos job — a different concept from SampleItem above
+ * (one row per physical sample for the paper COC log): this is one row per
+ * distinct material the inspector identified and grouped, which is what the
+ * report's Appendix A/B tables are actually keyed on. is_acm decides which
+ * appendix a row renders in; estimated_quantity only applies to Appendix A
+ * (ACM) rows. See jobReportDomains/isFullInspectionAsbestosJob in
+ * report-findings.ts and FullInspectionAsbestosReportDocument in
+ * report-pdf.tsx.
+ */
+export interface FullInspectionMaterial {
+  material: string;
+  is_acm: boolean;
+  locations: string[];
+  sample_numbers: string;
+  estimated_quantity: string | null;
+}
+
+/** One entry in "Ray's Library" — a reference-only catalog, see supabase/schema.sql's rays_library table comment. */
+export interface RaysLibraryEntry {
+  id: string;
+  material: string;
+  locations: string[];
+  is_acm: boolean | null;
+  source_project_number: string | null;
+  source_address: string | null;
+  notes: string | null;
+  created_at: string;
 }
 
 export interface JobDocument {
@@ -202,6 +235,8 @@ export interface Job {
   sample_items: SampleItem[];
   /** One count per service type label on the job (e.g. "Mold Air Sampling": 3), settable straight from the lab's results. */
   sample_counts: Record<string, number>;
+  /** Full-inspection (Pre-Renovation/Pre-Demolition) asbestos jobs only — see FullInspectionMaterial. Empty for Limited/mold/lead jobs. */
+  full_inspection_materials: FullInspectionMaterial[];
   lab_name: string | null;
   lab_cost_cents: number | null;
   lab_nist_cert: string | null;

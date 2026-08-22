@@ -22,6 +22,7 @@ const settings: Settings = {
   last_area_alert_sent_at: null,
   business_name: "Commonwealth Inspection Services, LLC.",
   business_phone: "617-390-4778",
+  business_email: "tim@commonwealthinspectionservices.com",
   service_types: [
     { key: "asbestos", label: "Asbestos Inspection", base_fee_cents: 45000, per_sample_cents: 2500, rush_fee_cents: 5000 },
   ],
@@ -69,6 +70,7 @@ const job: Job = {
     { sample_number: "01B", material: "Pipe wrap", location: "Basement pipe insulation" },
   ],
   sample_counts: {},
+  full_inspection_materials: [],
   lab_name: "Crystal Analytical, LLC.",
   lab_cost_cents: 12000,
   lab_nist_cert: "600387-0",

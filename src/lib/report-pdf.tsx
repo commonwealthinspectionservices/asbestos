@@ -9,6 +9,8 @@ import {
   ASBESTOS_POSITIVE_REMARK, ASBESTOS_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK,
   moldScopeOfWorkItems, moldServiceTypeFlags, MOLD_SCOPE_CLOSING_LINE, MOLD_ACGIH_PARAGRAPH, MOLD_INDOOR_AIR_QUALITY_PARAGRAPH, MOLD_AIR_INVESTIGATION_GOAL_PARAGRAPH,
   jobReportDomains, domainForServiceTypeLabel, type ReportDomain,
+  isFullInspectionAsbestosJob, FULL_INSPECTION_SCOPE_PARAGRAPH, FULL_INSPECTION_LIMITATIONS_PARAGRAPH,
+  FULL_INSPECTION_METHODOLOGY_PARAGRAPH, FULL_INSPECTION_ACM_ABATEMENT_REMARK, FULL_INSPECTION_ACM_PLAN_DISCLAIMER_REMARK,
 } from "@/lib/report-findings";
 
 // The site header's own text wordmark (see AdminNav.tsx's "boxed brand
@@ -118,6 +120,22 @@ const styles = StyleSheet.create({
   // un-underlined sub-headings within Sampling Methodology / Discussion.
   romanTitle: { fontWeight: 700, marginBottom: STANDARD_GAP },
   subHeading: { fontWeight: 700, marginBottom: TIGHT_GAP },
+  // Full-inspection asbestos report's Appendix A/B tables — react-pdf has
+  // no native table primitive, so these are plain flexbox rows. Shared
+  // between both appendices; column widths differ per appendix (A has 4
+  // wider columns, B has 5 narrower ones for its 3 location sub-columns).
+  appendixTable: { marginTop: 4, marginBottom: STANDARD_GAP },
+  appendixHeaderRow: { flexDirection: "row", borderBottomWidth: 1, borderBottomColor: "#193466", paddingBottom: 4, marginBottom: 4 },
+  appendixRow: { flexDirection: "row", paddingVertical: 3, borderBottomWidth: 0.5, borderBottomColor: "#cbd5e1" },
+  appendixHeaderText: { fontWeight: 700, fontSize: 9.5 },
+  appendixCellText: { fontSize: 9.5 },
+  appendixColMaterialA: { width: "30%", paddingRight: 4 },
+  appendixColLocationA: { width: "34%", paddingRight: 4 },
+  appendixColQuantityA: { width: "18%", paddingRight: 4 },
+  appendixColSamplesA: { width: "18%" },
+  appendixColSamplesB: { width: "14%", paddingRight: 4 },
+  appendixColMaterialB: { width: "24%", paddingRight: 4 },
+  appendixColLocB: { width: "20.66%", paddingRight: 4 },
 });
 
 export interface ProjectReportData {
@@ -212,6 +230,12 @@ function ReportDocumentForDomain({ job, customer, settings, domain }: ProjectRep
   }
   if (domain === "lead") {
     return <LeadReportDocument job={job} customer={customer} settings={settings} />;
+  }
+  // Pre-Renovation/Pre-Demolition are a full, inspector-directed survey —
+  // a genuinely different report from Limited's short, client-directed
+  // sampling letter. See isFullInspectionAsbestosJob's own comment.
+  if (isFullInspectionAsbestosJob(job.service_type)) {
+    return <FullInspectionAsbestosReportDocument job={job} customer={customer} settings={settings} />;
   }
   return <AsbestosReportDocument job={job} customer={customer} settings={settings} />;
 }
@@ -476,6 +500,162 @@ function LeadReportDocument({ job, customer, settings }: ProjectReportData) {
   );
 }
 
+// Pre-Renovation/Pre-Demolition — a full, inspector-directed survey of the
+// whole property, structurally and substantively different from Limited's
+// short client-directed sampling letter above. Modeled verbatim on 12 real
+// past reports (all "Inspection for Asbestos Containing Materials" format,
+// all the same structure regardless of address/findings). One <Page> — like
+// MoldReportDocument, not AsbestosReportDocument — since this always runs
+// multiple physical pages (Appendix A/B tables), unlike the simple letter
+// which is deliberately held to one page.
+function FullInspectionAsbestosReportDocument({ job, customer, settings }: ProjectReportData) {
+  const inspector = primaryInspector(settings);
+  const materials = job.full_inspection_materials ?? [];
+  const acmMaterials = materials.filter((m) => m.is_acm);
+  const nonAcmMaterials = materials.filter((m) => !m.is_acm);
+
+  const remarks = [FULL_INSPECTION_LIMITATIONS_PARAGRAPH, FULL_INSPECTION_METHODOLOGY_PARAGRAPH];
+  if (job.asbestos_result === "positive") {
+    remarks.push(FULL_INSPECTION_ACM_ABATEMENT_REMARK, FULL_INSPECTION_ACM_PLAN_DISCLAIMER_REMARK);
+  } else if (job.asbestos_result === "negative") {
+    remarks.push(ASBESTOS_NEGATIVE_REMARK);
+  } else {
+    remarks.push("NO RESULTS YET.");
+  }
+  // Further per-finding narrative the admin writes by hand (e.g. "Areas
+  // where damaged Textured Skim Coating... considered contaminated...") —
+  // one line per remark, continuing the numbering. Reuses report_notes,
+  // the same field AsbestosReportDocument's own comment calls out as
+  // existing specifically for this and never having a UI to reach it.
+  remarks.push(...paragraphsFromText(job.report_notes));
+
+  const { knownCustomerName, dateText, billingStreet, billing, serviceStreet, service } = commonLetterFields(job, customer, settings);
+
+  return (
+    <Document title={`Inspection for Asbestos Containing Materials — ${job.service_address}`}>
+      <Page size="LETTER" style={styles.page}>
+        <LetterHeader
+          settings={settings}
+          reTitle="Inspection for Asbestos Containing Materials"
+          knownCustomerName={knownCustomerName}
+          serviceAddress={job.service_address}
+          projectNumber={job.project_number}
+          dateText={dateText}
+        />
+
+        <View style={styles.recipientBlock}>
+          <View style={styles.recipientRow}>
+            <ValueOrBlank style={styles.recipient} value={knownCustomerName} inline />
+            <Text style={styles.dateLine}>{dateText}</Text>
+          </View>
+          {customer.company && <Text style={styles.recipient}>{customer.company}</Text>}
+          <ValueOrBlank style={styles.recipient} value={billingStreet} inline />
+          <ValueOrBlank style={styles.recipient} value={billing.cityStateZip} inline />
+        </View>
+
+        <View style={styles.reBlock}>
+          <View style={styles.reRow}>
+            <Text style={styles.reLabel}>RE:</Text>
+            <Text style={styles.reValue}>Inspection for Asbestos Containing Materials at</Text>
+          </View>
+          <View style={styles.reRow}>
+            <Text style={styles.reLabel} />
+            <ValueOrBlank style={styles.reValue} value={serviceStreet} inline />
+          </View>
+          <View style={styles.reRow}>
+            <Text style={styles.reLabel} />
+            <ValueOrBlank style={styles.reValue} value={service.cityStateZip} inline />
+          </View>
+          <View style={styles.reRow}>
+            <Text style={styles.reLabel} />
+            <Text style={styles.reProjectLabel}>Project #:</Text>
+            <ValueOrBlank style={styles.reValue} value={job.project_number} inline />
+          </View>
+        </View>
+
+        <Text style={styles.salutation}>Dear <ValueOrBlank style={styles.salutation} value={knownCustomerName} inline />:</Text>
+
+        <Text style={styles.paragraph}>
+          {settings.business_name} performed an inspection for asbestos containing materials (ACMs) at the property
+          located at the address noted above. This report outlines the initial visual survey, sample collection and
+          summary of analytical results provided by {settings.business_name}.
+        </Text>
+
+        <Text style={styles.sectionTitleTight}>Inspection Summary:</Text>
+        <View style={styles.summaryBlock}>
+          <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Asbestos Inspector:</Text><ValueOrBlank style={styles.summaryValue} value={inspector.name} /></View>
+          <View style={styles.summaryRow}><Text style={styles.summaryLabel}>License #:</Text><ValueOrBlank style={styles.summaryValue} value={inspector.license_number} /></View>
+          <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Date of Inspection:</Text><ValueOrBlank style={styles.summaryValue} value={formatDateMDY(job.requested_date)} /></View>
+          <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Total Materials Sampled:</Text><ValueOrBlank style={styles.summaryValue} value={materials.length} /></View>
+          <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Samples Analyzed At:</Text><ValueOrBlank style={styles.summaryValue} value={job.lab_name} /></View>
+          <View style={styles.summaryRow}><Text style={styles.summaryLabel}>NIST/NVLAP Certification#:</Text><ValueOrBlank style={styles.summaryValue} value={job.lab_nist_cert} /></View>
+          <View style={styles.summaryRow}><Text style={styles.summaryLabel}>MassDLS Lab Certification#:</Text><ValueOrBlank style={styles.summaryValue} value={job.lab_massdls_cert} /></View>
+        </View>
+
+        <Text style={styles.sectionTitle}>Scope and Approach:</Text>
+        <Text style={styles.paragraph}>{settings.business_name} {FULL_INSPECTION_SCOPE_PARAGRAPH}</Text>
+
+        <Text style={styles.sectionTitle}>Remarks and Limitations:</Text>
+        <View style={styles.listBlock}>
+          {remarks.map((text, i) => (
+            <View style={styles.listItem} key={i}>
+              <Text style={styles.listIndex}>{i + 1}.</Text>
+              <Text style={styles.listText}>{text}</Text>
+            </View>
+          ))}
+        </View>
+
+        <Text style={styles.paragraph}>
+          Should you have any questions or need additional information, please contact our office at {settings.business_phone}. Thank you for the
+          opportunity to provide you with our services and we look forward to working together in the future.
+        </Text>
+
+        <SignatureBlock settings={settings} showLicense />
+
+        <Text style={styles.sectionTitle} break>Appendix A</Text>
+        <Text style={styles.paragraph}>Asbestos Containing Materials Summary Table</Text>
+        <View style={styles.appendixTable}>
+          <View style={styles.appendixHeaderRow}>
+            <Text style={[styles.appendixColMaterialA, styles.appendixHeaderText]}>Material</Text>
+            <Text style={[styles.appendixColLocationA, styles.appendixHeaderText]}>Location</Text>
+            <Text style={[styles.appendixColQuantityA, styles.appendixHeaderText]}>Estimated Quantity</Text>
+            <Text style={[styles.appendixColSamplesA, styles.appendixHeaderText]}>Sample #(&apos;s)</Text>
+          </View>
+          {acmMaterials.map((m, i) => (
+            <View style={styles.appendixRow} key={i}>
+              <Text style={[styles.appendixColMaterialA, styles.appendixCellText]}>{m.material}</Text>
+              <Text style={[styles.appendixColLocationA, styles.appendixCellText]}>{m.locations.join(", ")}</Text>
+              <Text style={[styles.appendixColQuantityA, styles.appendixCellText]}>{m.estimated_quantity ?? ""}</Text>
+              <Text style={[styles.appendixColSamplesA, styles.appendixCellText]}>{m.sample_numbers}</Text>
+            </View>
+          ))}
+        </View>
+
+        <Text style={styles.sectionTitle} break>Appendix B</Text>
+        <Text style={styles.paragraph}>Suspect Materials Found Not to Contain Asbestos</Text>
+        <View style={styles.appendixTable}>
+          <View style={styles.appendixHeaderRow}>
+            <Text style={[styles.appendixColSamplesB, styles.appendixHeaderText]}>Sample #(&apos;s)</Text>
+            <Text style={[styles.appendixColMaterialB, styles.appendixHeaderText]}>Material</Text>
+            <Text style={[styles.appendixColLocB, styles.appendixHeaderText]}>Sample Location A</Text>
+            <Text style={[styles.appendixColLocB, styles.appendixHeaderText]}>Sample Location B</Text>
+            <Text style={[styles.appendixColLocB, styles.appendixHeaderText]}>Sample Location C</Text>
+          </View>
+          {nonAcmMaterials.map((m, i) => (
+            <View style={styles.appendixRow} key={i}>
+              <Text style={[styles.appendixColSamplesB, styles.appendixCellText]}>{m.sample_numbers}</Text>
+              <Text style={[styles.appendixColMaterialB, styles.appendixCellText]}>{m.material}</Text>
+              <Text style={[styles.appendixColLocB, styles.appendixCellText]}>{m.locations[0] ?? ""}</Text>
+              <Text style={[styles.appendixColLocB, styles.appendixCellText]}>{m.locations[1] ?? ""}</Text>
+              <Text style={[styles.appendixColLocB, styles.appendixCellText]}>{m.locations[2] ?? ""}</Text>
+            </View>
+          ))}
+        </View>
+      </Page>
+    </Document>
+  );
+}
+
 // Modeled directly on two real final mold reports (letterhead cover letter +
 // EMSL Air-O-Cell/bulk lab reports as an appendix) — see the "MOLD 26-2641"
 // and "FINAL MOLD REPORT 14 Rawson Road" letters. Scope of Work, Sampling
@@ -731,7 +911,11 @@ function LetterHeader({
             <Image src={LOGO_PATH} style={styles.logo} />
           </View>
           <View style={styles.headerRight}>
-            {settings.business_phone && <Text style={styles.headerRightLine}>{settings.business_phone}</Text>}
+            {[settings.business_phone, settings.business_email].filter(Boolean).length > 0 && (
+              <Text style={styles.headerRightLine}>
+                {[settings.business_phone, settings.business_email].filter(Boolean).join("  |  ")}
+              </Text>
+            )}
           </View>
         </View>
       )} />

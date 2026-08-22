@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { domainForServiceTypeLabel, jobReportDomains } from "@/lib/report-findings";
+import { domainForServiceTypeLabel, jobReportDomains, isFullInspectionAsbestosJob } from "@/lib/report-findings";
 
 describe("domainForServiceTypeLabel", () => {
   it("classifies mold labels", () => {
@@ -39,5 +39,28 @@ describe("jobReportDomains", () => {
     expect(jobReportDomains(undefined)).toEqual(["asbestos"]);
     expect(jobReportDomains("")).toEqual(["asbestos"]);
     expect(jobReportDomains("  ,  ")).toEqual(["asbestos"]);
+  });
+});
+
+describe("isFullInspectionAsbestosJob", () => {
+  it("is true for Pre-Renovation and Pre-Demolition", () => {
+    expect(isFullInspectionAsbestosJob("Pre-Renovation Asbestos Inspection")).toBe(true);
+    expect(isFullInspectionAsbestosJob("Pre-Demolition Asbestos Inspection")).toBe(true);
+  });
+
+  it("is false for Limited Asbestos Inspection and other domains", () => {
+    expect(isFullInspectionAsbestosJob("Limited Asbestos Inspection")).toBe(false);
+    expect(isFullInspectionAsbestosJob("Mold Air Sampling")).toBe(false);
+    expect(isFullInspectionAsbestosJob("Lead Bulk Sampling")).toBe(false);
+  });
+
+  it("is false for null, undefined, or empty", () => {
+    expect(isFullInspectionAsbestosJob(null)).toBe(false);
+    expect(isFullInspectionAsbestosJob(undefined)).toBe(false);
+    expect(isFullInspectionAsbestosJob("")).toBe(false);
+  });
+
+  it("matches within a combined-domain label list", () => {
+    expect(isFullInspectionAsbestosJob("Pre-Renovation Asbestos Inspection, Mold Air Sampling")).toBe(true);
   });
 });

@@ -32,6 +32,7 @@ const settings: Settings = {
   last_area_alert_sent_at: null,
   business_name: "Commonwealth Inspection Services, LLC.",
   business_phone: "617-390-4778",
+  business_email: "tim@commonwealthinspectionservices.com",
   service_types: [
     { key: "asbestos", label: "Asbestos Inspection", base_fee_cents: 45000, per_sample_cents: 2500, rush_fee_cents: 5000 },
   ],
@@ -81,6 +82,7 @@ const job: Job = {
     { sample_number: "02B", material: "Drywall wall skim", location: "Back bedroom - Unit 11" },
   ],
   sample_counts: {},
+  full_inspection_materials: [],
   lab_name: "Crystal Analytical, LLC.",
   lab_cost_cents: 12000,
   lab_nist_cert: "600387-0",
@@ -285,5 +287,92 @@ describe("renderProjectReportPdf", () => {
     }, "mold");
     const { text } = await pdfParse(pdf);
     expect(text).toContain("No further mold-specific remediation is recommended at this time.");
+  });
+
+  describe("full-inspection asbestos report (Pre-Renovation/Pre-Demolition)", () => {
+    const fullInspectionJob: Job = {
+      ...job,
+      service_type: "Pre-Renovation Asbestos Inspection",
+      asbestos_result: "positive",
+      report_notes: "Additional samples were taken on 8-4-26 to rule out any additional asbestos containing materials.",
+      full_inspection_materials: [
+        { material: "Transite Siding", is_acm: true, locations: ["Exterior Siding"], sample_numbers: "2458-1", estimated_quantity: "~1,600 SF" },
+        { material: "Asphalt Shingle", is_acm: false, locations: ["Roof, Debris", "Roof, Debris"], sample_numbers: "2458-5", estimated_quantity: null },
+      ],
+    };
+
+    it("renders the full-inspection letter, not the Limited template", async () => {
+      const pdf = await renderProjectReportPdfForDomain({ job: fullInspectionJob, customer, settings }, "asbestos");
+      const { text } = await pdfParse(pdf);
+      expect(text).toContain("Inspection for Asbestos Containing Materials");
+      expect(text).toContain("Scope and Approach");
+      expect(text).not.toContain("Bulk Sample Analytical Results");
+    });
+
+    it("shows Total Materials Sampled as the materials list length, not sample_counts", async () => {
+      const pdf = await renderProjectReportPdfForDomain({ job: fullInspectionJob, customer, settings }, "asbestos");
+      const { text } = await pdfParse(pdf);
+      expect(text).toMatch(/Total Materials Sampled:\s*2/);
+    });
+
+    it("lists a positive material in Appendix A with its quantity", async () => {
+      const pdf = await renderProjectReportPdfForDomain({ job: fullInspectionJob, customer, settings }, "asbestos");
+      const { text } = await pdfParse(pdf);
+      expect(text).toContain("Appendix A");
+      expect(text).toContain("Transite Siding");
+      expect(text).toContain("~1,600 SF");
+    });
+
+    it("lists a negative material in Appendix B with up to 3 locations", async () => {
+      const pdf = await renderProjectReportPdfForDomain({ job: fullInspectionJob, customer, settings }, "asbestos");
+      const { text } = await pdfParse(pdf);
+      expect(text).toContain("Appendix B");
+      expect(text).toContain("Asphalt Shingle");
+    });
+
+    it("includes the fixed abatement remarks when any material is ACM", async () => {
+      const pdf = await renderProjectReportPdfForDomain({ job: fullInspectionJob, customer, settings }, "asbestos");
+      const { text } = await pdfParse(pdf);
+      expect(text).toContain("must be removed by a licensed asbestos abatement contractor");
+      expect(text).toContain("not meant to be used as an asbestos abatement plan");
+    });
+
+    it("includes the admin's free-text additional remark", async () => {
+      const pdf = await renderProjectReportPdfForDomain({ job: fullInspectionJob, customer, settings }, "asbestos");
+      const { text } = await pdfParse(pdf);
+      expect(text).toContain("Additional samples were taken on 8-4-26");
+    });
+
+    it("uses the shared negative remark, not the abatement remarks, when nothing is ACM", async () => {
+      const pdf = await renderProjectReportPdfForDomain({
+        job: { ...fullInspectionJob, asbestos_result: "negative", full_inspection_materials: [fullInspectionJob.full_inspection_materials[1]] },
+        customer,
+        settings,
+      }, "asbestos");
+      const { text } = await pdfParse(pdf);
+      expect(text).toContain("None of the suspect materials sampled were determined to have asbestos fibers present");
+      expect(text).not.toContain("must be removed by a licensed asbestos abatement contractor");
+    });
+
+    it("Pre-Demolition uses the same full-inspection template as Pre-Renovation", async () => {
+      const pdf = await renderProjectReportPdfForDomain({
+        job: { ...fullInspectionJob, service_type: "Pre-Demolition Asbestos Inspection" },
+        customer,
+        settings,
+      }, "asbestos");
+      const { text } = await pdfParse(pdf);
+      expect(text).toContain("Inspection for Asbestos Containing Materials");
+    });
+
+    it("Limited Asbestos Inspection still renders the original simple template", async () => {
+      const pdf = await renderProjectReportPdfForDomain({
+        job: { ...job, service_type: "Limited Asbestos Inspection" },
+        customer,
+        settings,
+      }, "asbestos");
+      const { text } = await pdfParse(pdf);
+      expect(text).toContain("Bulk Sample Analytical Results");
+      expect(text).not.toContain("Inspection for Asbestos Containing Materials");
+    });
   });
 });

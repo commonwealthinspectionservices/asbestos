@@ -27,6 +27,40 @@ export function domainForServiceTypeLabel(label: string): ReportDomain {
   return "asbestos";
 }
 
+// Pre-Renovation and Pre-Demolition are a full, inspector-directed survey of
+// the whole property (the inspector decides what/where to sample) — a
+// genuinely different report from Limited Asbestos Inspection's short,
+// client-directed sampling letter, confirmed against 12 real past reports.
+// Both share this one "full inspection" template (they only differ from
+// each other in why the inspection happened, not in report structure).
+// Same substring-match-on-job.service_type pattern as isMoldJob/isLeadJob
+// elsewhere — accepts the same risk (renaming a service type's label in
+// Settings reclassifies future jobs) that those already carry.
+export function isFullInspectionAsbestosJob(serviceType: string | null | undefined): boolean {
+  const l = (serviceType ?? "").toLowerCase();
+  return l.includes("pre-renovation") || l.includes("pre-demolition");
+}
+
+// Fixed paragraphs for the full-inspection asbestos report, confirmed
+// verbatim across 12 real past reports (all inspected by the same
+// AHERA-accredited inspector under the owner's prior company) — same
+// "rendered unconditionally, not admin-editable" treatment as the mold
+// ACGIH/IAQ paragraphs above.
+export const FULL_INSPECTION_SCOPE_PARAGRAPH =
+  "provided a state licensed and EPA AHERA accredited asbestos inspector to perform an inspection of the subject area(s). The purpose of the inspection was to identify and sample building materials suspected to contain asbestos. Suspect materials include thermal system insulation, fireproofing, soundproofing, plasters, skimcoating, spray-applied or trowel applied finishes, ceiling & floor tiles, sheet flooring, caulking, glazing, mastics, adhesives, cement board products, roofing materials and numerous other products. Materials having the same function/application, similar color, texture or other observed similar characteristics were grouped together and sampled as one homogeneous material. A minimum of 2 samples of each homogenous material were collected.";
+
+export const FULL_INSPECTION_LIMITATIONS_PARAGRAPH =
+  "If present, areas within walls, drywall encased columns and above ceilings were inspected where possible in accessible representative locations. However, each individual enclosed area was not inspected. Accessible areas beneath such surfaces were examined and sampled, and material quantities were estimated based on these observations. Additional suspect materials may be present beneath surfaces (multiple layers) or within chases or crawlspace areas that were unknown or unaccessible at the time of the inspection but may be discovered during demolition, renovation or maintenance activities. Any additional suspect materials not identified in this report that become exposed during building renovation, maintenance or demolition should be sampled and analyzed for asbestos content prior to disturbing.";
+
+export const FULL_INSPECTION_METHODOLOGY_PARAGRAPH =
+  "Bulk samples were collected in a random manner and submitted via chain of custody to the analytical laboratory. The samples were analyzed by Polarized Light Microscopy per EPA Method 600/R-93-116, July 1993. The detection limit of the EPA recommended method is one percent asbestos by weight. Materials containing greater than one percent asbestos are treated as asbestos-containing as required by the EPA. The laboratory is accredited by the National Institute of Standards and Technologies NIST/NVLAP Program and licensed by the Massachusetts Department of Labor Standards (DLS) for asbestos analysis in bulk materials. Homogeneous materials determined to be non-suspect by the inspector (if observed), include concrete floors, wood flooring/joists, concrete block, black/brown vinyl flexible duct connectors, fiberglass insulation, armaflex (neoprene) insulation, rubber, plastic, ceramic tile, glass and metal. Any homogeneous material having at least one (1) sample analytically identified as containing one percent (1%) asbestos or greater is categorized as an asbestos containing material. Any material analytically identified as containing any asbestos fibers is categorized as an asbestos containing waste material. A summary of materials identified to contain asbestos is provided in Appendix A including approximate location(s) of the material and estimated quantities. Laboratory Analytical Data Sheets for each sample analyzed are included in Appendix C. Homogeneous materials where each sample analyzed was determined not to contain asbestos are categorized as non-asbestos. A summary of non-asbestos materials is provided in Appendix B. Laboratory Analytical Data Sheets for each sample analyzed are included in Appendix C.";
+
+export const FULL_INSPECTION_ACM_ABATEMENT_REMARK =
+  "Each identified asbestos containing material must be removed by a licensed asbestos abatement contractor prior to being disturbed by building maintenance, renovation or demolition activities.";
+
+export const FULL_INSPECTION_ACM_PLAN_DISCLAIMER_REMARK =
+  "This report is not meant to be used as an asbestos abatement plan or abatement specification. Material quantities and locations are estimates and approximations and should not be used to obtain pricing from contractors. We recommend contracting for abatement after an abatement specification is prepared by a licensed Asbestos Project Designer.";
+
 // Every report domain actually present on a job, in the order their labels
 // were originally selected — a job combining service types from more than
 // one domain (e.g. "Limited Asbestos Inspection, Mold Air Sampling")

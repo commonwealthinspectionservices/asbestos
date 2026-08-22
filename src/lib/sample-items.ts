@@ -1,4 +1,4 @@
-import type { SampleItem } from "@/lib/types";
+import type { FullInspectionMaterial, SampleItem } from "@/lib/types";
 
 /** Validates and normalizes a raw SampleItem[] payload from the Samples tab. */
 export function parseSampleItems(raw: unknown): { items: SampleItem[] } | { error: string } {
@@ -39,4 +39,25 @@ export function parseSampleCounts(raw: unknown): { counts: Record<string, number
   }
 
   return { counts };
+}
+
+/** Validates and normalizes a raw FullInspectionMaterial[] payload from the full-inspection materials editor. */
+export function parseFullInspectionMaterials(raw: unknown): { materials: FullInspectionMaterial[] } | { error: string } {
+  if (!Array.isArray(raw)) {
+    return { error: "full_inspection_materials must be an array" };
+  }
+
+  const materials: FullInspectionMaterial[] = [];
+  for (const rawItem of raw) {
+    const material = typeof rawItem?.material === "string" ? rawItem.material.trim() : "";
+    const isAcm = Boolean(rawItem?.is_acm);
+    const locations = Array.isArray(rawItem?.locations)
+      ? rawItem.locations.filter((l: unknown): l is string => typeof l === "string").map((l: string) => l.trim()).filter(Boolean)
+      : [];
+    const sampleNumbers = typeof rawItem?.sample_numbers === "string" ? rawItem.sample_numbers.trim() : "";
+    const estimatedQuantity = typeof rawItem?.estimated_quantity === "string" ? rawItem.estimated_quantity.trim() || null : null;
+    materials.push({ material, is_acm: isAcm, locations, sample_numbers: sampleNumbers, estimated_quantity: estimatedQuantity });
+  }
+
+  return { materials };
 }

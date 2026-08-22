@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { requireAdminApi } from "@/lib/admin-api";
 import { withApiErrors } from "@/lib/api-handler";
+import { normalizeMaterialName } from "@/lib/rays-library-normalize";
 
 // "Ray's Library" — a reference-only catalog of materials/locations/results
 // seen across real past full-inspection asbestos reports (all inspected by
@@ -33,10 +34,11 @@ export const POST = withApiErrors(async (req: NextRequest) => {
   if (unauthorized) return unauthorized;
 
   const body = await req.json().catch(() => null);
-  const material = body?.material?.trim();
-  if (!material) {
+  const materialRaw = body?.material?.trim();
+  if (!materialRaw) {
     return NextResponse.json({ error: "Material is required" }, { status: 400 });
   }
+  const material = normalizeMaterialName(materialRaw);
   const locations = Array.isArray(body?.locations)
     ? body.locations.filter((l: unknown): l is string => typeof l === "string" && l.trim().length > 0).map((l: string) => l.trim())
     : [];

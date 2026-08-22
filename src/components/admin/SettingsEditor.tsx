@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import type { Settings, ServiceType, PricingZone, LabProfile, Inspector } from "@/lib/types";
 
 type FormState = Omit<Settings, "id" | "updated_at" | "last_area_alert_sent_at">;
@@ -170,12 +169,7 @@ export default function SettingsEditor() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-6 pb-16">
-      <div className="flex items-center justify-between gap-2">
-        <h1 className="text-lg font-semibold text-slate-800">Settings</h1>
-        <Link href="/admin/rays-library" className="text-sm text-brand-600 hover:underline">
-          Ray&apos;s Library →
-        </Link>
-      </div>
+      <h1 className="text-lg font-semibold text-slate-800">Settings</h1>
       {error && <div className="mt-3 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>}
 
       <Section title="Business">

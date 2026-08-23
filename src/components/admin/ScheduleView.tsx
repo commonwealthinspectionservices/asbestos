@@ -6,6 +6,7 @@ import { ProjectDetailDialog, EditProjectDialog } from "@/components/admin/JobsD
 import { AcceptScheduleControl, extractTimeRange, parseWindowStartTime24h } from "@/components/admin/AcceptScheduleControl";
 import { googleMapsUrl } from "@/lib/address";
 import { formatDateMDY } from "@/lib/date-format";
+import { formatPhoneNumber } from "@/lib/phone";
 
 const STATUS_LABEL: Record<string, string> = {
   needs_scheduling: "To Be Scheduled",
@@ -158,7 +159,7 @@ function JobCard({
           </div>
           {(job.site_contact_name || job.site_contact_phone) && (
             <div className="text-sm text-slate-700">
-              Job site contact: {job.site_contact_name}{job.site_contact_name && job.site_contact_phone ? " · " : ""}{job.site_contact_phone}
+              Job site contact: {job.site_contact_name}{job.site_contact_name && job.site_contact_phone ? " · " : ""}{job.site_contact_phone ? formatPhoneNumber(job.site_contact_phone) : ""}
             </div>
           )}
         </div>

@@ -17,6 +17,8 @@
 // blind — a genuinely malformed or off-template email should fail to parse
 // and fall through to manual handling, not silently misfile a wrong address
 // into a real job.
+import { formatPhoneNumber } from "@/lib/phone";
+
 export interface ParsedJobIntake {
   homeownerName: string;
   streetAddress: string;
@@ -100,9 +102,9 @@ export function parseAcmOrderEmail(bodyText: string): ParsedJobIntake | null {
     streetAddress,
     town: town.replace(/,\s*[A-Za-z]{2}\.?$/, "").trim(),
     stateHint,
-    homeownerPhone,
+    homeownerPhone: formatPhoneNumber(homeownerPhone),
     companyContactName,
-    companyContactPhone,
+    companyContactPhone: formatPhoneNumber(companyContactPhone),
     requestedDate,
     scopeOfWork,
   };

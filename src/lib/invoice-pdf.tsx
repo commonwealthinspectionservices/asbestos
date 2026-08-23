@@ -5,6 +5,7 @@ import { lineItemsTotalCents } from "@/lib/invoice-line-items";
 import { primaryInspector } from "@/lib/settings";
 import type { Job, Customer, Company, Settings, InvoiceLineItem } from "@/lib/types";
 import { formatDateMDY } from "@/lib/date-format";
+import { formatPhoneNumber } from "@/lib/phone";
 
 const LETTERHEAD_PATH = path.join(process.cwd(), "public", "letterhead.png");
 
@@ -87,7 +88,7 @@ function InvoiceDocument({ job, customer, company, settings }: InvoiceData) {
           <Text style={styles.meta}>{company?.name || customer.company || customer.name}</Text>
           {(company?.name || customer.company) && customer.name && <Text style={styles.meta}>Attn: {customer.name}</Text>}
           {customer.billing_address && <Text style={styles.meta}>{customer.billing_address}</Text>}
-          {(company?.phone || customer.phone) && <Text style={styles.meta}>{company?.phone || customer.phone}</Text>}
+          {(company?.phone || customer.phone) && <Text style={styles.meta}>{formatPhoneNumber(company?.phone || customer.phone || "")}</Text>}
         </View>
 
         <View style={styles.section}>

@@ -9,6 +9,7 @@ import JobChat from "@/components/shared/JobChat";
 import PendingRequestEditor from "@/components/portal/PendingRequestEditor";
 import { jobReportDomains } from "@/lib/report-findings";
 import { formatDateMDY } from "@/lib/date-format";
+import { formatPhoneNumber } from "@/lib/phone";
 
 const REPORT_DOMAIN_LABEL: Record<string, string> = { asbestos: "Asbestos", lead: "Lead", mold: "Mold" };
 
@@ -260,7 +261,7 @@ export default function ProjectDetailModal({
                     <div className="space-y-1">
                       <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Job site contact</h4>
                       <DetailField label="Name" value={job.site_contact_name} />
-                      <DetailField label="Phone" value={job.site_contact_phone} />
+                      <DetailField label="Phone" value={job.site_contact_phone ? formatPhoneNumber(job.site_contact_phone) : undefined} />
                     </div>
                   )}
 

@@ -1202,7 +1202,7 @@ function JobRow({
             // Filling both is itself what schedules the job (trySubmitManual).
             <div className="flex w-full shrink-0 flex-col items-start gap-1.5 sm:w-auto sm:items-end" onClick={(e) => e.stopPropagation()}>
               <span className="min-w-0 truncate whitespace-nowrap text-sm text-slate-500">
-                {job.site_contact_name}{job.site_contact_phone ? ` ${job.site_contact_phone}` : ""}
+                {job.site_contact_name}{job.site_contact_phone ? ` ${formatPhoneInput(job.site_contact_phone)}` : ""}
               </span>
               <div className="flex w-full items-center gap-2 sm:w-auto">
                 <input
@@ -2107,7 +2107,7 @@ export function ProjectDetailDialog({
             <div className="space-y-3 sm:space-y-2">
               <h4 className="text-sm font-bold tracking-wide text-black underline">Job site contact</h4>
               <DetailField label="Name" value={job.site_contact_name ?? "—"} />
-              <DetailField label="Phone" value={job.site_contact_phone ?? "—"} />
+              <DetailField label="Phone" value={job.site_contact_phone ? formatPhoneInput(job.site_contact_phone) : "—"} />
               <DetailField label="Email" value={job.site_contact_email} nowrap />
             </div>
             {job.report_emails && job.report_emails.trim() && (
@@ -2137,7 +2137,7 @@ export function ProjectDetailDialog({
                 ) : job.customers?.name}
                 nowrap
               />
-              <DetailField label="Phone" value={job.customers?.phone} />
+              <DetailField label="Phone" value={job.customers?.phone ? formatPhoneInput(job.customers.phone) : undefined} />
               <DetailField label="Email" value={job.customers?.email} nowrap />
             </div>
             {!job.customers?.is_individual && job.customers?.companies && (
@@ -2159,7 +2159,7 @@ export function ProjectDetailDialog({
                     nowrap
                   />
                 )}
-                <DetailField label="Phone" value={job.customers.companies.phone} />
+                <DetailField label="Phone" value={job.customers.companies.phone ? formatPhoneInput(job.customers.companies.phone) : undefined} />
                 <DetailField label="Billing address" value={job.customers.companies.billing_address} nowrap />
               </div>
             )}

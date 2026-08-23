@@ -18,6 +18,7 @@ import { sendNewBookingRequestEmail } from "@/lib/booking-notify";
 import { sendEmail, emailShell } from "@/lib/email";
 import { escapeHtml } from "@/lib/html";
 import { formatDateMDY } from "@/lib/date-format";
+import { formatPhoneNumber } from "@/lib/phone";
 import {
   getValidAccessToken,
   listMessagesByQuery,
@@ -236,7 +237,7 @@ function buildEmailIntakeNote(sender: JobIntakeSender, parsed: ParsedJobIntake, 
       })
     : null;
   const requestedLabel = formatDateMDY(parsed.requestedDate) ?? parsed.requestedDate;
-  return `Email received${receivedLabel ? ` ${receivedLabel}` : ""} from ${parsed.companyContactName} (${parsed.companyContactPhone}), ${sender.companyName}. Order requested for ${requestedLabel}.`;
+  return `Email received${receivedLabel ? ` ${receivedLabel}` : ""} from ${parsed.companyContactName} (${formatPhoneNumber(parsed.companyContactPhone)}), ${sender.companyName}. Order requested for ${requestedLabel}.`;
 }
 
 // Exported so it's independently testable without needing a real inbound
@@ -401,7 +402,7 @@ export async function createJobFromIntake(params: {
       requestedDate: parsed.requestedDate,
       requestedTime: null,
       scopeOfWork: parsed.scopeOfWork,
-      notes: `Requested by ${parsed.companyContactName} (${parsed.companyContactPhone})`,
+      notes: `Requested by ${parsed.companyContactName} (${formatPhoneNumber(parsed.companyContactPhone)})`,
       siteContactName: parsed.homeownerName,
       siteContactPhone: parsed.homeownerPhone,
     });

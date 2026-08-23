@@ -139,6 +139,13 @@ function JobCard({
               {job.customers?.company || job.customers?.name}
             </div>
           </div>
+          <div className="truncate whitespace-nowrap text-sm text-slate-700">
+            {isPending
+              ? `Requested for: ${formatDate(job.requested_date)}${job.requested_time ? ` ${formatTime(job.requested_time)}` : ""}`
+              : job.source === "subcontractor" && job.confirmed_time && job.confirmed_time === parseWindowStartTime24h(job.subcontractor_preferred_window)
+              ? extractTimeRange(job.subcontractor_preferred_window) ?? formatTime(job.confirmed_time)
+              : formatTime(job.confirmed_time ?? job.requested_time) || "--:--"}
+          </div>
           {job.service_address && (
             <a
               href={googleMapsUrl(job.service_address)}
@@ -150,15 +157,8 @@ function JobCard({
               {[locationName, street, cityStateZip].filter(Boolean).join(", ")}
             </a>
           )}
-          <div className="truncate whitespace-nowrap text-sm text-slate-700">
-            {isPending
-              ? `Requested for: ${formatDate(job.requested_date)}${job.requested_time ? ` ${formatTime(job.requested_time)}` : ""}`
-              : job.source === "subcontractor" && job.confirmed_time && job.confirmed_time === parseWindowStartTime24h(job.subcontractor_preferred_window)
-              ? extractTimeRange(job.subcontractor_preferred_window) ?? formatTime(job.confirmed_time)
-              : formatTime(job.confirmed_time ?? job.requested_time) || "--:--"}
-          </div>
           {(job.site_contact_name || job.site_contact_phone) && (
-            <div className="text-sm text-slate-700">
+            <div className="truncate whitespace-nowrap text-sm text-slate-700">
               Job site contact: {job.site_contact_name}{job.site_contact_name && job.site_contact_phone ? " · " : ""}{job.site_contact_phone ? formatPhoneNumber(job.site_contact_phone) : ""}
             </div>
           )}

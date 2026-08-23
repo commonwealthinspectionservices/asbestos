@@ -40,10 +40,10 @@ const styles = StyleSheet.create({
   colSample: { width: 66, borderRightWidth: 1, borderRightColor: LINE_COLOR },
   colMaterial: { flex: 1, borderRightWidth: 1, borderRightColor: LINE_COLOR },
   colLocation: { flex: 1 },
-  // One shared gap used below the table and between every footer row
-  // (turnaround/notes, date needed, relinquished, received) — evenly
-  // spaced rather than each row carrying its own hand-tuned margin.
-  footer: { marginTop: 27 },
+  // Matches the owner's real form's own gaps below the table — not
+  // perfectly uniform (15/17/24pt below), that's genuinely how the
+  // original is spaced.
+  footer: { marginTop: 15 },
   footerTopRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
   turnaroundLine: { flexDirection: "row", alignItems: "baseline" },
   turnaroundLabel: { fontSize: 11, fontWeight: 700 },
@@ -53,12 +53,12 @@ const styles = StyleSheet.create({
   // left-aligned against each other instead of sharing a right edge.
   notesWrap: { width: 340 },
   notes: { fontSize: 11, fontStyle: "italic", textAlign: "right", lineHeight: 1.3 },
-  dateNeededRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 27 },
+  dateNeededRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 17 },
   dateNeededLabel: { fontSize: 11, fontWeight: 700, marginRight: 4 },
   // Short enough to stay clear of the right-aligned "*Sampled by..." note
   // sitting above it — the full 220pt width used to run underneath it.
   dateNeededValue: { width: 160, borderBottomWidth: 1, borderBottomColor: LINE_COLOR },
-  signatureRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 27 },
+  signatureRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 24 },
   signatureSubRow: { flexDirection: "row", alignItems: "flex-end" },
   // Fixed width (not auto-sized to the text) so "RELINQUISHED BY" and the
   // shorter "RECEIVED BY" both hand off to their line at the same x — the

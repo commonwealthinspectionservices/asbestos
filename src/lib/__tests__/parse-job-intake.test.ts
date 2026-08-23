@@ -80,6 +80,13 @@ describe("parseAcmOrderEmail", () => {
     expect(result?.requestedDate).toBe("2026-08-17");
   });
 
+  it("drops a standalone greeting line before the template starts", () => {
+    // Real-world quirk from an actual forwarded order: "Hi," on its own
+    // line (with a blank line after it), rather than glued to the name.
+    const withGreeting = `Hi,\n\n${PETER_LINSKI}`;
+    expect(parseAcmOrderEmail(withGreeting)).toEqual(parseAcmOrderEmail(PETER_LINSKI));
+  });
+
   it("returns null for a body that doesn't match the template at all", () => {
     expect(parseAcmOrderEmail("Hey, just checking in on the invoice for last week's job.")).toBeNull();
   });

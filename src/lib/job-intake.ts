@@ -53,19 +53,28 @@ export interface JobIntakeResult {
   unmatched: number;
 }
 
-const FORWARD_MARKER = /^-{2,}\s*forwarded message\s*-{2,}\s*$/i;
+// Gmail's own "Forward" action: "---------- Forwarded message ---------".
+// Outlook/Exchange's (confirmed against a real email — the owner's day job
+// at FLI Environmental uses Outlook): a bare line of underscores, no text.
+const GMAIL_FORWARD_MARKER = /^-{2,}\s*forwarded message\s*-{2,}\s*$/i;
+const OUTLOOK_FORWARD_MARKER = /^_{10,}$/;
 
 // The owner doesn't always receive these directly at the connected inbox —
-// he sometimes forwards a real order email he got elsewhere on to it. A
-// forward's own From header is the owner's own address, not the sender's,
-// so the plain from-header check below can't see through it. Gmail's
-// standard "Forward" action prepends a fixed boilerplate block:
+// he sometimes forwards a real order email he got elsewhere (including from
+// his day-job Outlook address) on to it. A forward's own From header is the
+// owner's own address, not the sender's, so the plain from-header check
+// below can't see through it. Both Gmail's and Outlook's "Forward" actions
+// prepend a fixed boilerplate block ahead of the original body — same shape
+// either way, just a different marker line and a couple of extra header
+// lines (Outlook adds Sent:/Cc: alongside From/Subject):
 //
-//   ---------- Forwarded message ---------
+//   ---------- Forwarded message ---------      (Gmail)
+//   ________________________________            (Outlook)
 //   From: Name <email@domain>
-//   Date: ...
-//   Subject: ...
+//   Date: / Sent: ...
 //   To: ...
+//   Cc: ...
+//   Subject: ...
 //
 //   [original body]
 //
@@ -77,7 +86,10 @@ const FORWARD_MARKER = /^-{2,}\s*forwarded message\s*-{2,}\s*$/i;
 // such block — the common case for an email that arrived directly.
 export function stripGmailForwardBoilerplate(bodyText: string): { originalFrom: string | null; body: string } {
   const lines = bodyText.split("\n");
-  const markerIndex = lines.findIndex((l) => FORWARD_MARKER.test(l.trim()));
+  const markerIndex = lines.findIndex((l) => {
+    const trimmed = l.trim();
+    return GMAIL_FORWARD_MARKER.test(trimmed) || OUTLOOK_FORWARD_MARKER.test(trimmed);
+  });
   if (markerIndex === -1) return { originalFrom: null, body: bodyText };
 
   let i = markerIndex + 1;

@@ -39,4 +39,24 @@ from: Jack Cook <jack@bostonharborwater.com>
 ${ORIGINAL_BODY}`;
     expect(stripGmailForwardBoilerplate(forwarded).originalFrom).toBe("Jack Cook <jack@bostonharborwater.com>");
   });
+
+  it("extracts the original sender and strips Outlook's forward boilerplate", () => {
+    // Verbatim shape (trimmed) of a real order the owner forwarded from his
+    // Outlook-based day-job address — underscore-line marker, and extra
+    // Sent:/Cc: header lines the Gmail case doesn't have.
+    const forwarded = `Tim Hall
+Project Manager
+________________________________
+From: Jack Cook <jack@bostonharborwater.com>
+Sent: Sunday, 23 August 2026 10:24:17
+To: Timothy Hall <thall@flienv.com>
+Cc: joe@bostonharborwater.com <joe@bostonharborwater.com>
+Subject: ACM Order
+
+${ORIGINAL_BODY}`;
+    expect(stripGmailForwardBoilerplate(forwarded)).toEqual({
+      originalFrom: "Jack Cook <jack@bostonharborwater.com>",
+      body: ORIGINAL_BODY,
+    });
+  });
 });

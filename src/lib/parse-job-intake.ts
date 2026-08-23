@@ -38,14 +38,27 @@ export interface ParsedJobIntake {
   scopeOfWork: string;
 }
 
-const PHONE_LINE = /^\d{3}-\d{3}-\d{4}$/;
+// Usually dashed ("781-974-6204"), but a real forwarded order had bare
+// 10-digit phone lines instead ("5089582862") — both accepted.
+const PHONE_LINE = /^\d{3}-?\d{3}-?\d{4}$/;
 const DATE_LINE = /^\d{4}-\d{2}-\d{2}$/;
+// A greeting glued onto the name line itself ("Hi, Mike Drummond") is left
+// as-is — see the test for that. This is the other real-world shape: a
+// standalone salutation on its own line before the template starts
+// (confirmed against a real forwarded order: "Hi,\n\nMelanie steck\n...").
+// Unlike the glued case there's no ambiguity about where it ends, so it's
+// safe to just drop it rather than fold it into the name.
+const GREETING_LINE = /^(hi|hello|hey|dear)\b[,.]?\s*$/i;
 
 export function parseAcmOrderEmail(bodyText: string): ParsedJobIntake | null {
-  const lines = bodyText
+  let lines = bodyText
     .split("\n")
     .map((l) => l.trim())
     .filter((l) => l.length > 0);
+
+  if (lines.length > 0 && GREETING_LINE.test(lines[0])) {
+    lines = lines.slice(1);
+  }
 
   if (lines.length < 8) return null;
 

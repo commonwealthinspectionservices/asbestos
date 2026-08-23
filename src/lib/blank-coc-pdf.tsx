@@ -12,7 +12,7 @@ import type { Job, Customer, Settings } from "@/lib/types";
 // documents are meant to look different; that's not a bug.
 const LETTERHEAD_PATH = path.join(process.cwd(), "public", "letterhead-blue.png");
 const BLANK_ROW_COUNT = 20;
-const PAGE_TWO_ROW_COUNT = 24;
+const PAGE_TWO_ROW_COUNT = 20;
 const LINE_COLOR = "#000000";
 
 const styles = StyleSheet.create({
@@ -80,9 +80,9 @@ const styles = StyleSheet.create({
   // right at the line.
   dateTimeOverlay: { position: "absolute", right: 4, bottom: -13, alignItems: "center" },
   dateTimeSlashes: { fontSize: 11, letterSpacing: 6 },
-  dateTimeCaption: { fontSize: 7, color: "#000000", marginTop: 10 },
+  dateTimeCaption: { fontSize: 8, color: "#000000", marginTop: 10 },
   page2Table: { flex: 1, borderWidth: 1, borderColor: LINE_COLOR, marginTop: 4 },
-  page2Footer: { flexDirection: "row", justifyContent: "flex-end", alignItems: "flex-end", marginTop: 10 },
+  page2Footer: { flexDirection: "row", justifyContent: "flex-end", alignItems: "flex-end", marginTop: 22 },
   page2FieldLabel: { fontSize: 11, fontWeight: 700, marginRight: 4 },
   page2FieldValue: { width: 120, borderBottomWidth: 1, borderBottomColor: LINE_COLOR, marginRight: 20 },
 });

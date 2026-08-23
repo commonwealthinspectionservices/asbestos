@@ -30,7 +30,12 @@ import {
 import type { Settings } from "@/lib/types";
 
 interface JobIntakeSender {
-  /** Matched against the message's From header, case-insensitively. */
+  /**
+   * Matched case-insensitively against the message's own From header, or —
+   * for an email the owner forwarded on to the connected inbox himself —
+   * the original sender embedded in Gmail's forward boilerplate (see
+   * stripGmailForwardBoilerplate below).
+   */
   domain: string;
   companyName: string;
   serviceTypeKey: string;
@@ -46,6 +51,45 @@ export interface JobIntakeResult {
   checked: number;
   created: { projectNumber: string; jobId: string }[];
   unmatched: number;
+}
+
+const FORWARD_MARKER = /^-{2,}\s*forwarded message\s*-{2,}\s*$/i;
+
+// The owner doesn't always receive these directly at the connected inbox —
+// he sometimes forwards a real order email he got elsewhere on to it. A
+// forward's own From header is the owner's own address, not the sender's,
+// so the plain from-header check below can't see through it. Gmail's
+// standard "Forward" action prepends a fixed boilerplate block:
+//
+//   ---------- Forwarded message ---------
+//   From: Name <email@domain>
+//   Date: ...
+//   Subject: ...
+//   To: ...
+//
+//   [original body]
+//
+// This pulls the embedded original From out of that block (so the real
+// sender can still be checked against KNOWN_SENDERS) and strips the whole
+// block from the body, so parseAcmOrderEmail sees the same clean
+// line-by-line template it would if the email had arrived unforwarded.
+// Returns null for originalFrom (and the body untouched) when there's no
+// such block — the common case for an email that arrived directly.
+export function stripGmailForwardBoilerplate(bodyText: string): { originalFrom: string | null; body: string } {
+  const lines = bodyText.split("\n");
+  const markerIndex = lines.findIndex((l) => FORWARD_MARKER.test(l.trim()));
+  if (markerIndex === -1) return { originalFrom: null, body: bodyText };
+
+  let i = markerIndex + 1;
+  let originalFrom: string | null = null;
+  while (i < lines.length && lines[i].trim() !== "") {
+    const match = lines[i].match(/^from:\s*(.+)$/i);
+    if (match) originalFrom = match[1].trim();
+    i++;
+  }
+  if (i < lines.length && lines[i].trim() === "") i++;
+
+  return { originalFrom, body: lines.slice(i).join("\n") };
 }
 
 // A candidate email that matched the sender/subject search but couldn't
@@ -90,7 +134,13 @@ export async function checkForJobIntakeEmails(): Promise<JobIntakeResult> {
   const result: JobIntakeResult = { checked: 0, created: [], unmatched: 0 };
 
   for (const sender of KNOWN_SENDERS) {
-    const query = `is:unread from:${sender.domain} subject:"${sender.subjectHint}" newer_than:14d`;
+    // No `from:` filter here — a real order the owner forwarded on to this
+    // inbox himself carries his own From header, not the sender's, so a
+    // from:-filtered search would never even see it. The subject hint
+    // still does the real narrowing; sender identity is checked below
+    // against either the direct From header or, for a forward, the
+    // original sender embedded in Gmail's forward boilerplate.
+    const query = `is:unread subject:"${sender.subjectHint}" newer_than:14d`;
     const candidates = await listMessagesByQuery(accessToken, query);
 
     for (const candidate of candidates) {
@@ -98,16 +148,22 @@ export async function checkForJobIntakeEmails(): Promise<JobIntakeResult> {
       const message = await getMessage(accessToken, candidate.id);
       const from = getHeader(message, "From") ?? "";
       const subject = getHeader(message, "Subject") ?? "(no subject)";
-      const bodyText = getMessageBodyText(message);
+      const rawBodyText = getMessageBodyText(message);
 
-      if (!from.toLowerCase().includes(sender.domain)) {
-        // Only reachable if Gmail's own search returned something outside
-        // the `from:` filter it was given — not a real client order, so no
-        // owner alert (would just be noise), but still left unread since
-        // it's genuinely not this pipeline's to touch.
+      const directMatch = from.toLowerCase().includes(sender.domain);
+      const { originalFrom, body: strippedBody } = stripGmailForwardBoilerplate(rawBodyText);
+      const forwardMatch = !directMatch && (originalFrom?.toLowerCase().includes(sender.domain) ?? false);
+
+      if (!directMatch && !forwardMatch) {
+        // Some other unread email that happens to share the subject hint —
+        // not a real client order, so no owner alert (would just be
+        // noise), but still left unread since it's genuinely not this
+        // pipeline's to touch.
         result.unmatched++;
         continue;
       }
+
+      const bodyText = forwardMatch ? strippedBody : rawBodyText;
 
       try {
         const parsed = parseAcmOrderEmail(bodyText);

@@ -40,28 +40,33 @@ const styles = StyleSheet.create({
   colSample: { width: 66, borderRightWidth: 1, borderRightColor: LINE_COLOR },
   colMaterial: { flex: 1, borderRightWidth: 1, borderRightColor: LINE_COLOR },
   colLocation: { flex: 1 },
-  footer: { marginTop: 6 },
+  // One shared gap used below the table and between every footer row
+  // (turnaround/notes, date needed, relinquished, received) — evenly
+  // spaced rather than each row carrying its own hand-tuned margin.
+  footer: { marginTop: 14 },
   footerTopRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
-  turnaroundLine: { fontSize: 11, fontWeight: 700 },
-  turnaroundOption: { fontWeight: 400 },
+  turnaroundLine: { flexDirection: "row", alignItems: "baseline" },
+  turnaroundLabel: { fontSize: 11, fontWeight: 700 },
+  turnaroundOption: { fontSize: 11, fontWeight: 400, marginLeft: 20 },
   notes: { fontSize: 11, fontStyle: "italic", textAlign: "right", lineHeight: 1.3 },
-  dateNeededRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 10 },
+  dateNeededRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 14 },
   dateNeededLabel: { fontSize: 11, fontWeight: 700, marginRight: 4 },
   dateNeededValue: { width: 220, borderBottomWidth: 1, borderBottomColor: LINE_COLOR },
-  signatureRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 16 },
-  signatureRowTight: { flexDirection: "row", alignItems: "flex-end", marginTop: 12 },
+  signatureRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 14 },
   signatureLabel: { fontSize: 11, fontWeight: 700, marginRight: 4 },
   // Fixed width, not flex — RECEIVED BY's row has extra trailing content
-  // (the date/time field, then PAGE) competing for space, which used to
-  // leave its line shorter than RELINQUISHED BY's. A fixed width sized to
-  // fit RECEIVED BY's more crowded row keeps both lines identical.
-  signatureLine: { width: 320, borderBottomWidth: 1, borderBottomColor: LINE_COLOR },
+  // (PAGE) competing for space, which used to leave its line shorter than
+  // RELINQUISHED BY's. A fixed width sized to fit RECEIVED BY's more
+  // crowded row keeps both lines identical.
+  signatureLineWrap: { position: "relative", width: 320 },
+  signatureLine: { borderBottomWidth: 1, borderBottomColor: LINE_COLOR },
   pageLabel: { fontSize: 11, fontWeight: 700, marginLeft: 16 },
-  // marginBottom pulls the whole block down relative to the row's shared
-  // flex-end baseline, so the slashes (top of this block) land AT that
-  // baseline — level with the label text and underline — instead of
-  // floating above it, and "date / time" hangs below the baseline instead.
-  dateTimeWrap: { alignItems: "center", marginLeft: 10, marginBottom: -9 },
+  // The date/time sits ON the line itself — right-anchored inside the same
+  // box the line occupies — rather than as its own element appended after
+  // the line, matching the owner's real form exactly. bottom:-11 drops the
+  // "date / time" caption below the line while the slashes above it land
+  // right at the line.
+  dateTimeOverlay: { position: "absolute", right: 4, bottom: -11, alignItems: "center" },
   dateTimeSlashes: { fontSize: 11, letterSpacing: 6 },
   dateTimeCaption: { fontSize: 7, color: "#000000", marginTop: 2 },
   page2Table: { flex: 1, borderWidth: 1, borderColor: LINE_COLOR, marginTop: 4 },
@@ -70,12 +75,12 @@ const styles = StyleSheet.create({
   page2FieldValue: { width: 120, borderBottomWidth: 1, borderBottomColor: LINE_COLOR, marginRight: 20 },
 });
 
-// A pre-slashed date/time fill-in to the right of a signature line, exactly
+// A pre-slashed date/time fill-in overlaid on a signature line, exactly
 // matching the owner's own real form (two bare "/" marks over a "date /
-// time" caption — nothing fancier, no per-digit blanks).
+// time" caption, sitting on the line itself rather than after it).
 function DateTimeField() {
   return (
-    <View style={styles.dateTimeWrap}>
+    <View style={styles.dateTimeOverlay}>
       <Text style={styles.dateTimeSlashes}>/  /</Text>
       <Text style={styles.dateTimeCaption}>date / time</Text>
     </View>
@@ -141,9 +146,11 @@ function BlankCocDocument({ job, customer, settings }: BlankCocData) {
 
         <View style={styles.footer}>
           <View style={styles.footerTopRow}>
-            <Text style={styles.turnaroundLine}>
-              TURNAROUND  <Text style={styles.turnaroundOption}>RUSH          24HR</Text>
-            </Text>
+            <View style={styles.turnaroundLine}>
+              <Text style={styles.turnaroundLabel}>TURNAROUND</Text>
+              <Text style={styles.turnaroundOption}>RUSH</Text>
+              <Text style={styles.turnaroundOption}>24HR</Text>
+            </View>
             <View>
               <Text style={styles.notes}>*Samples for analysis by Polarized Light Microscopy</Text>
               <Text style={styles.notes}>
@@ -159,14 +166,18 @@ function BlankCocDocument({ job, customer, settings }: BlankCocData) {
 
           <View style={styles.signatureRow}>
             <Text style={styles.signatureLabel}>RELINQUISHED BY</Text>
-            <Text style={styles.signatureLine} />
-            <DateTimeField />
+            <View style={styles.signatureLineWrap}>
+              <Text style={styles.signatureLine} />
+              <DateTimeField />
+            </View>
           </View>
 
-          <View style={styles.signatureRowTight}>
+          <View style={styles.signatureRow}>
             <Text style={styles.signatureLabel}>RECEIVED BY</Text>
-            <Text style={styles.signatureLine} />
-            <DateTimeField />
+            <View style={styles.signatureLineWrap}>
+              <Text style={styles.signatureLine} />
+              <DateTimeField />
+            </View>
             <Text style={styles.pageLabel}>PAGE</Text>
             <Text style={[styles.signatureLine, { width: 70, marginLeft: 4 }]} />
           </View>

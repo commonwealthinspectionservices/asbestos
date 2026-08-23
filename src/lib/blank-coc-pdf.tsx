@@ -56,7 +56,12 @@ const styles = StyleSheet.create({
   dateNeededValue: { width: 160, borderBottomWidth: 1, borderBottomColor: LINE_COLOR },
   signatureRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 14 },
   signatureSubRow: { flexDirection: "row", alignItems: "flex-end" },
-  signatureLabel: { fontSize: 11, fontWeight: 700, marginRight: 4 },
+  // Fixed width (not auto-sized to the text) so "RELINQUISHED BY" and the
+  // shorter "RECEIVED BY" both hand off to their line at the same x — the
+  // two lines then start and end at identical points, and the date/time
+  // overlaid on each (right-anchored within the line) lines up directly
+  // above/below between the two rows instead of drifting with label length.
+  signatureLabel: { fontSize: 11, fontWeight: 700, width: 112 },
   // Fixed width, not flex — RECEIVED BY's row has extra trailing content
   // (PAGE) competing for space, which used to leave its line shorter than
   // RELINQUISHED BY's. A fixed width sized to fit RECEIVED BY's more

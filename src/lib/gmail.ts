@@ -64,6 +64,11 @@ export async function exchangeCodeForTokens(code: string): Promise<GoogleTokenRe
       redirect_uri: REDIRECT_URI,
       grant_type: "authorization_code",
     }),
+    // Every call in this file talks to a live external API that must never
+    // be served from Next.js's fetch Data Cache — a cached auth failure
+    // (or a cached stale token) would keep getting replayed indefinitely
+    // regardless of the account's real, current state. See gmailFetch below.
+    cache: "no-store",
   });
   if (!res.ok) throw new Error(`Google token exchange failed: ${await res.text()}`);
   return res.json();
@@ -79,6 +84,7 @@ async function refreshAccessToken(refreshToken: string): Promise<GoogleTokenResp
       client_secret: CLIENT_SECRET,
       grant_type: "refresh_token",
     }),
+    cache: "no-store",
   });
   if (!res.ok) throw new Error(`Google token refresh failed: ${await res.text()}`);
   return res.json();
@@ -87,6 +93,7 @@ async function refreshAccessToken(refreshToken: string): Promise<GoogleTokenResp
 export async function getGmailProfileEmail(accessToken: string): Promise<string> {
   const res = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/profile", {
     headers: { Authorization: `Bearer ${accessToken}` },
+    cache: "no-store",
   });
   if (!res.ok) throw new Error(`Failed to load Gmail profile: ${await res.text()}`);
   const data = await res.json();
@@ -216,6 +223,14 @@ async function gmailFetch(accessToken: string, path: string, init?: RequestInit)
   const res = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me${path}`, {
     ...init,
     headers: { ...init?.headers, Authorization: `Bearer ${accessToken}` },
+    // Next.js's fetch Data Cache defaults to caching GET requests by URL —
+    // it does NOT vary by Authorization header, so once any call to a given
+    // Gmail endpoint (e.g. this exact unread-messages search) got back a
+    // 401, every later call to that same URL would keep replaying the
+    // cached failure forever, even from a freshly reconnected, genuinely
+    // valid token. Confirmed live: Vercel's function panel showed
+    // "Using cache" on calls to gmail.googleapis.com and oauth2.googleapis.com.
+    cache: "no-store",
   });
   if (!res.ok) throw new Error(`Gmail API ${path} failed (${res.status}): ${await res.text()}`);
   return res;
@@ -407,6 +422,7 @@ export async function deleteDraft(accessToken: string, draftId: string): Promise
   const res = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/drafts/${draftId}`, {
     method: "DELETE",
     headers: { Authorization: `Bearer ${accessToken}` },
+    cache: "no-store",
   });
   if (!res.ok && res.status !== 404) {
     throw new Error(`Gmail API DELETE /drafts/${draftId} failed (${res.status}): ${await res.text()}`);
@@ -420,6 +436,7 @@ export async function deleteDraft(accessToken: string, draftId: string): Promise
 export async function draftExists(accessToken: string, draftId: string): Promise<boolean> {
   const res = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/drafts/${draftId}`, {
     headers: { Authorization: `Bearer ${accessToken}` },
+    cache: "no-store",
   });
   if (res.status === 404) return false;
   if (!res.ok) throw new Error(`Gmail API /drafts/${draftId} failed (${res.status}): ${await res.text()}`);
@@ -436,6 +453,7 @@ export async function draftExists(accessToken: string, draftId: string): Promise
 export async function getSentMessageInfo(accessToken: string, messageId: string): Promise<{ sent: boolean; sentAt: string | null }> {
   const res = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${messageId}?format=minimal`, {
     headers: { Authorization: `Bearer ${accessToken}` },
+    cache: "no-store",
   });
   if (res.status === 404) return { sent: false, sentAt: null };
   if (!res.ok) throw new Error(`Gmail API /messages/${messageId} failed (${res.status}): ${await res.text()}`);

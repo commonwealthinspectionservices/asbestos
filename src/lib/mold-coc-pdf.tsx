@@ -69,11 +69,19 @@ const styles = StyleSheet.create({
   dateNeededRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 14 },
   dateNeededLabel: { fontSize: 9, fontWeight: 700, marginRight: 4 },
   dateNeededValue: { width: 220, borderBottomWidth: 1, borderBottomColor: "#16213a" },
-  signatureRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", marginTop: 26 },
+  signatureRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 26 },
   signatureLabel: { fontSize: 9, fontWeight: 700, marginRight: 4 },
-  signatureLine: { flex: 1, borderBottomWidth: 1, borderBottomColor: "#16213a" },
+  // Fixed width, not flex — RECEIVED BY's row has extra trailing content
+  // (the date/time field, then PAGE) competing for space, which used to
+  // leave its line shorter than RELINQUISHED BY's. A fixed width sized to
+  // fit RECEIVED BY's more crowded row keeps both lines identical.
+  signatureLine: { width: 330, borderBottomWidth: 1, borderBottomColor: "#16213a" },
   pageLabel: { fontSize: 9, fontWeight: 700, marginLeft: 16 },
-  dateTimeWrap: { alignItems: "center", marginLeft: 10 },
+  // marginBottom pulls the whole block down relative to the row's shared
+  // flex-end baseline, so the slashes (top of this block) land AT that
+  // baseline — level with the label text and underline — instead of
+  // floating above it, and "date / time" hangs below the baseline instead.
+  dateTimeWrap: { alignItems: "center", marginLeft: 10, marginBottom: -9 },
   dateTimeSlashes: { fontSize: 9, letterSpacing: 6 },
   dateTimeCaption: { fontSize: 6.5, color: "#64748b", marginTop: 2 },
   page2Table: { flex: 1, borderWidth: 1, borderColor: "#16213a", marginTop: 4 },
@@ -170,7 +178,7 @@ function MoldCocDocument({ job, customer, settings, sampleType }: MoldCocData) {
             <Text style={styles.signatureLine} />
             <DateTimeField />
             <Text style={styles.pageLabel}>PAGE</Text>
-            <Text style={[styles.signatureLine, { flex: 0.3, marginLeft: 4 }]} />
+            <Text style={[styles.signatureLine, { width: 70, marginLeft: 4 }]} />
           </View>
         </View>
       </Page>

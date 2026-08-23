@@ -170,6 +170,15 @@ export interface RaysLibraryEntry {
   created_at: string;
 }
 
+/** One reference site photo for a Ray's Library material, see supabase/schema.sql's rays_library_photos table comment. */
+export interface RaysLibraryPhoto {
+  id: string;
+  material: string;
+  source_project_number: string | null;
+  source_address: string | null;
+  created_at: string;
+}
+
 export interface JobDocument {
   id: string;
   /** "report" = a finished report packet (his own, possibly retroactively archived from before this system existed). */

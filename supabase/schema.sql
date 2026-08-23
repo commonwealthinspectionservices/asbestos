@@ -660,6 +660,21 @@ create table if not exists rays_library (
 );
 create index if not exists rays_library_material_idx on rays_library (material);
 
+-- Reference site photos for Ray's Library, keyed by material name (not tied
+-- to any one rays_library row, since those are per-occurrence and a photo
+-- represents the material generally) — stored in the "rays-library-photos"
+-- Storage bucket, served through an authenticated API route the same way
+-- job documents/photos already are (see job-documents/job-photos buckets).
+create table if not exists rays_library_photos (
+  id uuid primary key default gen_random_uuid(),
+  material text not null,
+  storage_path text not null,
+  source_project_number text,
+  source_address text,
+  created_at timestamptz not null default now()
+);
+create index if not exists rays_library_photos_material_idx on rays_library_photos (material);
+
 alter table customers enable row level security;
 alter table jobs enable row level security;
 alter table saved_addresses enable row level security;
@@ -669,6 +684,7 @@ alter table companies enable row level security;
 alter table gmail_connection enable row level security;
 alter table job_messages enable row level security;
 alter table rays_library enable row level security;
+alter table rays_library_photos enable row level security;
 
 -- Consolidates a duplicate contact into the one being kept — e.g. someone
 -- who self-signed-up through the portal with a different email than the

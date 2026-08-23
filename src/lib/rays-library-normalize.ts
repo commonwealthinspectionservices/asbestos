@@ -38,6 +38,13 @@ const RENAMES: Record<string, string> = {
   "caulk": "Roof Caulk",
   "adhesive": "Roofing Adhesive",
   "joint compound/patch": "Joint Compound, Patch",
+  "shower caulk": "Shower Caulking",
+  "sink undercoat": "Sink Undercoating",
+  "window glaze": "Exterior Window Glazing",
+  "window caulk": "Exterior Window Caulking",
+  "shingles": "Asphalt Shingle",
+  "sink condensate undercoat": "Sink Undercoating",
+  "gypsum board": "Gypsum",
 };
 
 /** Strips a leading color descriptor, then applies the known-duplicate rename table. */

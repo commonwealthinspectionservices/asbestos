@@ -4,62 +4,70 @@ import { primaryInspector } from "@/lib/settings";
 import { formatDateMDY } from "@/lib/date-format";
 import type { Job, Customer, Settings } from "@/lib/types";
 
-const LETTERHEAD_PATH = path.join(process.cwd(), "public", "letterhead.png");
-const BLANK_ROW_COUNT = 18;
-const PAGE_TWO_ROW_COUNT = 20;
+// The owner's own real asbestos bulk sample form, deliberately kept as an
+// exact pixel-level match — extracted the real letterhead image (own blue,
+// not the app's navy brand color used everywhere else) and every spacing/
+// font/row-count value straight from the owner's reference PDF, rather
+// than the app's usual document styling. This form and the app's other
+// documents are meant to look different; that's not a bug.
+const LETTERHEAD_PATH = path.join(process.cwd(), "public", "letterhead-blue.png");
+const BLANK_ROW_COUNT = 20;
+const PAGE_TWO_ROW_COUNT = 24;
+const LINE_COLOR = "#000000";
 
 const styles = StyleSheet.create({
-  page: { padding: 28, fontSize: 9, fontFamily: "Helvetica", color: "#16213a" },
-  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 14, paddingBottom: 8, borderBottomWidth: 2, borderBottomColor: "#193466" },
+  page: { paddingTop: 15, paddingLeft: 12, paddingRight: 13, paddingBottom: 17, fontSize: 11, fontFamily: "Helvetica", color: "#000000" },
+  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
   headerLeft: { flexDirection: "row", alignItems: "center" },
-  letterhead: { width: 170, height: 31 },
+  letterhead: { width: 283, height: 55 },
   title: { fontSize: 11, fontWeight: 700 },
-  metaGrid: { marginBottom: 10 },
-  metaRow: { flexDirection: "row", marginBottom: 8, alignItems: "flex-end" },
+  metaGrid: { marginBottom: 14 },
+  metaRow: { flexDirection: "row", marginBottom: 12, alignItems: "flex-end" },
   metaLabel: { fontWeight: 700, marginRight: 4 },
-  metaValue: { flex: 1, borderBottomWidth: 1, borderBottomColor: "#16213a", marginRight: 16 },
-  metaValueLast: { flex: 1, borderBottomWidth: 1, borderBottomColor: "#16213a" },
-  metaValueWide: { flex: 1, borderBottomWidth: 1, borderBottomColor: "#16213a" },
+  metaValue: { flex: 1, borderBottomWidth: 1, borderBottomColor: LINE_COLOR, marginRight: 17 },
+  metaValueLast: { flex: 1, borderBottomWidth: 1, borderBottomColor: LINE_COLOR },
+  metaValueWide: { flex: 1, borderBottomWidth: 1, borderBottomColor: LINE_COLOR },
   // flex: 1 (with a following sibling — footer below) so the table's rows
   // stretch to fill the page's remaining height, same proven pattern as
   // page2Table. Confirmed live: flex-grow on a *trailing* element (no
   // sibling after it) is unreliable in react-pdf's pagination pass — it
   // only reliably claims space when something follows it, which is why
   // this grows the table (before the footer) rather than the footer itself.
-  table: { flex: 1, borderWidth: 1, borderColor: "#16213a" },
-  tableHeaderRow: { flexDirection: "row", backgroundColor: "#f1f5f9", borderBottomWidth: 1, borderBottomColor: "#16213a" },
-  tableHeaderCell: { fontSize: 8, fontWeight: 700, textAlign: "center", padding: 3, borderRightWidth: 1, borderRightColor: "#16213a" },
-  tableRow: { flexDirection: "row", borderBottomWidth: 1, borderBottomColor: "#cbd5e1", minHeight: 25, flexGrow: 1 },
-  colSample: { width: 60, borderRightWidth: 1, borderRightColor: "#16213a" },
-  colMaterial: { flex: 1, borderRightWidth: 1, borderRightColor: "#16213a" },
+  table: { flex: 1, borderWidth: 1, borderColor: LINE_COLOR },
+  tableHeaderRow: { flexDirection: "row", borderBottomWidth: 1, borderBottomColor: LINE_COLOR },
+  tableHeaderCell: { fontSize: 11, fontWeight: 700, textAlign: "center", padding: 5, borderRightWidth: 1, borderRightColor: LINE_COLOR },
+  tableRow: { flexDirection: "row", borderBottomWidth: 1, borderBottomColor: LINE_COLOR, minHeight: 24, flexGrow: 1 },
+  colSample: { width: 66, borderRightWidth: 1, borderRightColor: LINE_COLOR },
+  colMaterial: { flex: 1, borderRightWidth: 1, borderRightColor: LINE_COLOR },
   colLocation: { flex: 1 },
-  footer: { marginTop: 16 },
+  footer: { marginTop: 6 },
   footerTopRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
-  turnaroundLine: { fontSize: 9, fontWeight: 700 },
+  turnaroundLine: { fontSize: 11, fontWeight: 700 },
   turnaroundOption: { fontWeight: 400 },
-  notes: { fontSize: 8, fontStyle: "italic", textAlign: "right", lineHeight: 1.4 },
-  dateNeededRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 14 },
-  dateNeededLabel: { fontSize: 9, fontWeight: 700, marginRight: 4 },
-  dateNeededValue: { width: 220, borderBottomWidth: 1, borderBottomColor: "#16213a" },
-  signatureRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 26 },
-  signatureLabel: { fontSize: 9, fontWeight: 700, marginRight: 4 },
+  notes: { fontSize: 11, fontStyle: "italic", textAlign: "right", lineHeight: 1.3 },
+  dateNeededRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 10 },
+  dateNeededLabel: { fontSize: 11, fontWeight: 700, marginRight: 4 },
+  dateNeededValue: { width: 220, borderBottomWidth: 1, borderBottomColor: LINE_COLOR },
+  signatureRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 16 },
+  signatureRowTight: { flexDirection: "row", alignItems: "flex-end", marginTop: 12 },
+  signatureLabel: { fontSize: 11, fontWeight: 700, marginRight: 4 },
   // Fixed width, not flex — RECEIVED BY's row has extra trailing content
   // (the date/time field, then PAGE) competing for space, which used to
   // leave its line shorter than RELINQUISHED BY's. A fixed width sized to
   // fit RECEIVED BY's more crowded row keeps both lines identical.
-  signatureLine: { width: 330, borderBottomWidth: 1, borderBottomColor: "#16213a" },
-  pageLabel: { fontSize: 9, fontWeight: 700, marginLeft: 16 },
+  signatureLine: { width: 320, borderBottomWidth: 1, borderBottomColor: LINE_COLOR },
+  pageLabel: { fontSize: 11, fontWeight: 700, marginLeft: 16 },
   // marginBottom pulls the whole block down relative to the row's shared
   // flex-end baseline, so the slashes (top of this block) land AT that
   // baseline — level with the label text and underline — instead of
   // floating above it, and "date / time" hangs below the baseline instead.
   dateTimeWrap: { alignItems: "center", marginLeft: 10, marginBottom: -9 },
-  dateTimeSlashes: { fontSize: 9, letterSpacing: 6 },
-  dateTimeCaption: { fontSize: 6.5, color: "#64748b", marginTop: 2 },
-  page2Table: { flex: 1, borderWidth: 1, borderColor: "#16213a", marginTop: 4 },
+  dateTimeSlashes: { fontSize: 11, letterSpacing: 6 },
+  dateTimeCaption: { fontSize: 7, color: "#000000", marginTop: 2 },
+  page2Table: { flex: 1, borderWidth: 1, borderColor: LINE_COLOR, marginTop: 4 },
   page2Footer: { flexDirection: "row", justifyContent: "flex-end", alignItems: "flex-end", marginTop: 10 },
-  page2FieldLabel: { fontSize: 9, fontWeight: 700, marginRight: 4 },
-  page2FieldValue: { width: 120, borderBottomWidth: 1, borderBottomColor: "#16213a", marginRight: 20 },
+  page2FieldLabel: { fontSize: 11, fontWeight: 700, marginRight: 4 },
+  page2FieldValue: { width: 120, borderBottomWidth: 1, borderBottomColor: LINE_COLOR, marginRight: 20 },
 });
 
 // A pre-slashed date/time fill-in to the right of a signature line, exactly
@@ -86,6 +94,11 @@ export interface BlankCocData {
 function BlankCocDocument({ job, customer, settings }: BlankCocData) {
   const inspector = primaryInspector(settings);
   const clientLabel = customer ? customer.company || customer.name : "";
+  // The owner's on-file license number has no internal space
+  // ("AI901405"), but his own real form always writes it "AI 901405" —
+  // matched here for this one form rather than changing the stored value
+  // everywhere else it's used.
+  const licenseDisplay = inspector.license_number.replace(/^([A-Za-z]+)(\d+)$/, "$1 $2");
   return (
     <Document title={job ? `Chain of Custody — ${job.service_address}` : "Chain of Custody — Blank"}>
       <Page size="LETTER" style={styles.page}>
@@ -129,12 +142,12 @@ function BlankCocDocument({ job, customer, settings }: BlankCocData) {
         <View style={styles.footer}>
           <View style={styles.footerTopRow}>
             <Text style={styles.turnaroundLine}>
-              TURNAROUND  <Text style={styles.turnaroundOption}>RUSH   24HR</Text>
+              TURNAROUND  <Text style={styles.turnaroundOption}>RUSH          24HR</Text>
             </Text>
             <View>
               <Text style={styles.notes}>*Samples for analysis by Polarized Light Microscopy</Text>
               <Text style={styles.notes}>
-                *Sampled by {inspector.name} MA Asbestos Inspector License {inspector.license_number}
+                *Sampled by {inspector.name} MA Asbestos Inspector License {licenseDisplay}
               </Text>
             </View>
           </View>
@@ -150,7 +163,7 @@ function BlankCocDocument({ job, customer, settings }: BlankCocData) {
             <DateTimeField />
           </View>
 
-          <View style={styles.signatureRow}>
+          <View style={styles.signatureRowTight}>
             <Text style={styles.signatureLabel}>RECEIVED BY</Text>
             <Text style={styles.signatureLine} />
             <DateTimeField />

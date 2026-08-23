@@ -85,7 +85,13 @@ const OUTLOOK_FORWARD_MARKER = /^_{10,}$/;
 // Returns null for originalFrom (and the body untouched) when there's no
 // such block — the common case for an email that arrived directly.
 export function stripGmailForwardBoilerplate(bodyText: string): { originalFrom: string | null; body: string } {
-  const lines = bodyText.split("\n");
+  // Outlook sends CRLF ("\r\n") line endings — normalize before splitting
+  // so no line carries a trailing "\r" that would silently break exact-end
+  // regex matches like the From: extraction below (confirmed live: a real
+  // Outlook-forwarded email stripped its boilerplate correctly, since the
+  // marker/blank-line checks below already .trim(), but originalFrom came
+  // back null because the From: line's untrimmed "\r" broke the match).
+  const lines = bodyText.replace(/\r\n/g, "\n").split("\n");
   const markerIndex = lines.findIndex((l) => {
     const trimmed = l.trim();
     return GMAIL_FORWARD_MARKER.test(trimmed) || OUTLOOK_FORWARD_MARKER.test(trimmed);

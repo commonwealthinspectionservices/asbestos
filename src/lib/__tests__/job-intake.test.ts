@@ -59,4 +59,19 @@ ${ORIGINAL_BODY}`;
       body: ORIGINAL_BODY,
     });
   });
+
+  it("extracts the original sender from a real CRLF-line-ended Outlook forward", () => {
+    // Outlook sends "\r\n" line endings. The From: line's untrimmed
+    // trailing "\r" previously broke the exact-end regex match even though
+    // marker detection and body stripping (which already .trim()) worked.
+    const crlfBody = ORIGINAL_BODY.replace(/\n/g, "\r\n");
+    const forwarded =
+      "Tim Hall\r\nProject Manager\r\n________________________________\r\n" +
+      "From: Jack Cook <jack@bostonharborwater.com>\r\nSent: Sunday, 23 August 2026 10:24:17\r\n" +
+      "To: Timothy Hall <thall@flienv.com>\r\nSubject: ACM Order\r\n\r\n" + crlfBody;
+    expect(stripGmailForwardBoilerplate(forwarded)).toEqual({
+      originalFrom: "Jack Cook <jack@bostonharborwater.com>",
+      body: ORIGINAL_BODY,
+    });
+  });
 });

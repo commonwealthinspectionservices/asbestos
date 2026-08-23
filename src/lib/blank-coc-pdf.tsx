@@ -48,6 +48,10 @@ const styles = StyleSheet.create({
   turnaroundLine: { flexDirection: "row", alignItems: "baseline" },
   turnaroundLabel: { fontSize: 11, fontWeight: 700 },
   turnaroundOption: { fontSize: 11, fontWeight: 400, marginLeft: 20 },
+  // Fixed width so textAlign:"right" actually has room to do something —
+  // without it each line auto-sizes to its own text and both end up
+  // left-aligned against each other instead of sharing a right edge.
+  notesWrap: { width: 340 },
   notes: { fontSize: 11, fontStyle: "italic", textAlign: "right", lineHeight: 1.3 },
   dateNeededRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 14 },
   dateNeededLabel: { fontSize: 11, fontWeight: 700, marginRight: 4 },
@@ -159,11 +163,11 @@ function BlankCocDocument({ job, customer, settings }: BlankCocData) {
               <Text style={styles.turnaroundOption}>RUSH</Text>
               <Text style={styles.turnaroundOption}>24HR</Text>
             </View>
-            <View>
-              <Text style={styles.notes}>*Samples for analysis by Polarized Light Microscopy</Text>
+            <View style={styles.notesWrap}>
               <Text style={styles.notes}>
                 *Sampled by {inspector.name} MA Asbestos Inspector License {licenseDisplay}
               </Text>
+              <Text style={styles.notes}>*Samples for analysis by Polarized Light Microscopy</Text>
             </View>
           </View>
 

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { JobWithCustomer } from "@/lib/types";
 import { formatDateMDY } from "@/lib/date-format";
+import { timeSelectOptions } from "@/lib/time-options";
 
 function ordinalSuffix(day: number): string {
   if (day >= 11 && day <= 13) return "th";
@@ -62,23 +63,21 @@ export function parseWindowStartTime24h(windowText: string | null | undefined): 
 
 // The one deliberate step that turns a customer's request (requested_date/
 // requested_time) into a real confirmed job — sets confirmed_date/
-// confirmed_time, flips status to "scheduled", and asks once whether to
-// turn on schedule_visible_to_customer before finalizing (rather than
-// always defaulting it on) — the answer becomes the toggle's starting
-// state, still changeable afterward from JobRow. The "button" variant's
-// red X opens the job's chat instead of taking any direct action on the
-// request itself — for working out a real time with the customer rather
-// than guessing at one. Renders nothing once a job is past
-// "needs_scheduling", or if it's needs_scheduling for a reason other than
-// a real unreviewed request (portal_booking/email_intake, or subcontractor
-// — e.g. the admin entered it directly via Add Project and left it
-// unscheduled on purpose).
+// confirmed_time, flips status to "scheduled", and turns on
+// schedule_visible_to_customer immediately (the client's portal always
+// shows a confirmed schedule now — there's no separate ask/toggle for it
+// anymore). The "button" variant's red X opens the job's chat instead of
+// taking any direct action on the request itself — for working out a real
+// time with the customer rather than guessing at one. Renders nothing once
+// a job is past "needs_scheduling", or if it's needs_scheduling for a
+// reason other than a real unreviewed request (portal_booking/email_intake,
+// or subcontractor — e.g. the admin entered it directly via Add Project and
+// left it unscheduled on purpose).
 //
 // Subcontractor jobs get the same accept-checkmark, but two things differ:
-// there's no client-facing portal for a subcontracting company's contact
-// to see a date/time in, so the "show this to the customer?" prompt is
-// skipped entirely (accepts immediately, schedule_visible_to_customer
-// stays off); and there's no Chat tab for these jobs (see
+// there's no client-facing portal for a subcontracting company's contact to
+// see a date/time in, so schedule_visible_to_customer is left off — it's
+// simply unused for this source; and there's no Chat tab for these jobs (see
 // JobsDashboard.tsx), so the red X opens the Edit dialog instead of chat —
 // for picking a real date/time by hand when the requested window doesn't
 // work as-is, via onEditManually rather than onOpenChat.
@@ -96,7 +95,6 @@ export function AcceptScheduleControl({
   const [date, setDate] = useState(job.requested_date ?? "");
   const [time, setTime] = useState(job.requested_time ?? "");
   const [submitting, setSubmitting] = useState(false);
-  const [confirmingVisibility, setConfirmingVisibility] = useState(false);
 
   const isSubcontractor = job.source === "subcontractor";
   if (job.status !== "needs_scheduling" || !(job.source === "portal_booking" || job.source === "email_intake" || isSubcontractor)) return null;
@@ -112,13 +110,11 @@ export function AcceptScheduleControl({
       });
     } finally {
       setSubmitting(false);
-      setConfirmingVisibility(false);
     }
   }
 
   function startAccepting() {
     if (isSubcontractor) {
-      // No client-facing portal to ask about — accept straight away.
       // confirmed_time gets the window's own start time (e.g. 1:00 PM out
       // of "1:00 PM - 4:00 PM") rather than staying blank — JobsDashboard's
       // Scheduled Time field shows the full range for as long as
@@ -126,37 +122,10 @@ export function AcceptScheduleControl({
       // the specific time once it's edited by hand to something else.
       finalize(job.requested_date, parseWindowStartTime24h(job.subcontractor_preferred_window), false);
     } else {
-      setConfirmingVisibility(true);
+      const confirmedDate = variant === "button" ? job.requested_date : date || null;
+      const confirmedTime = variant === "button" ? job.requested_time ?? null : time || null;
+      finalize(confirmedDate, confirmedTime, true);
     }
-  }
-
-  if (confirmingVisibility) {
-    const confirmedDate = variant === "button" ? job.requested_date : date || null;
-    const confirmedTime = variant === "button" ? job.requested_time ?? null : time || null;
-    return (
-      <div
-        onClick={(e) => stopPropagation && e.stopPropagation()}
-        className="flex shrink-0 flex-wrap items-center gap-1.5 rounded-lg border border-slate-200 bg-white p-2 text-xs"
-      >
-        <span className="font-medium text-slate-700 sm:whitespace-nowrap">Show the date and time to the customer?</span>
-        <button
-          type="button"
-          disabled={submitting}
-          onClick={() => finalize(confirmedDate, confirmedTime, true)}
-          className="shrink-0 rounded bg-emerald-600 px-2 py-1 font-bold text-white disabled:opacity-50"
-        >
-          {submitting ? "…" : "Yes"}
-        </button>
-        <button
-          type="button"
-          disabled={submitting}
-          onClick={() => finalize(confirmedDate, confirmedTime, false)}
-          className="shrink-0 rounded border border-slate-300 px-2 py-1 font-bold text-slate-600 disabled:opacity-50"
-        >
-          {submitting ? "…" : "No"}
-        </button>
-      </div>
-    );
   }
 
   if (variant === "button") {
@@ -246,7 +215,7 @@ export function AcceptScheduleControl({
       className="rounded-lg border border-slate-200 bg-slate-50 p-3"
     >
       <p className="text-xs font-bold uppercase text-slate-500">Accept & Schedule</p>
-      <p className="mt-1 text-xs text-slate-500">Confirms this date/time, then asks whether to show it to the customer.</p>
+      <p className="mt-1 text-xs text-slate-500">Confirms this date and time and shows it to the customer.</p>
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <input
           type="date"
@@ -254,15 +223,19 @@ export function AcceptScheduleControl({
           onChange={(e) => setDate(e.target.value)}
           className="rounded-lg border border-slate-300 px-2 py-1 text-sm"
         />
-        <input
-          type="time"
+        <select
           value={time}
           onChange={(e) => setTime(e.target.value)}
           className="rounded-lg border border-slate-300 px-2 py-1 text-sm"
-        />
+        >
+          <option value="">Time</option>
+          {timeSelectOptions(job.requested_time).map((t) => (
+            <option key={t} value={t}>{formatTime(t)}</option>
+          ))}
+        </select>
         <button
           type="button"
-          disabled={!date}
+          disabled={!date || !time}
           onClick={startAccepting}
           className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-bold text-white disabled:opacity-50"
         >

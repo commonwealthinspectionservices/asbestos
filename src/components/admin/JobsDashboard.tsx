@@ -15,6 +15,7 @@ import { AcceptScheduleControl, extractTimeRange, parseWindowStartTime24h } from
 import { ContactForm } from "@/components/admin/ContactDetailDialog";
 import { formatDateMDY } from "@/lib/date-format";
 import { subcontractorSenderForJob } from "@/lib/subcontractor-senders";
+import { timeSelectOptions } from "@/lib/time-options";
 
 // Splits on (captured) bare URLs so odd-indexed segments are the URLs
 // themselves — used for job.notes, which can contain a real link (e.g. a
@@ -1093,13 +1094,15 @@ function JobRow({
   const isSubcontractor = job.source === "subcontractor";
   // Boston Harbor Water's email-intake jobs never carry a real requested
   // time — there's no accept step for them, just blank date/time cells the
-  // admin fills in directly after calling the homeowner. Any edit is itself
-  // what schedules the job (see trySubmitManual below).
+  // admin fills in directly after calling the homeowner, then an explicit
+  // Schedule click (not a submit-on-change the moment both happen to be
+  // filled — a half-picked date on mobile could otherwise fire that before
+  // the admin ever got to the time field).
   const [manualDate, setManualDate] = useState("");
   const [manualTime, setManualTime] = useState("");
   function trySubmitManual(nextDate: string, nextTime: string) {
     if (nextDate && nextTime) {
-      onFieldChange({ status: "scheduled", confirmed_date: nextDate, confirmed_time: nextTime, schedule_visible_to_customer: false });
+      onFieldChange({ status: "scheduled", confirmed_date: nextDate, confirmed_time: nextTime, schedule_visible_to_customer: true });
       setManualDate("");
       setManualTime("");
     }
@@ -1198,8 +1201,12 @@ function JobRow({
             // appointment — there's no "requested time" to reference, only
             // the homeowner to call and negotiate one with directly — so
             // this gets blank editable cells right away instead of the
-            // plain requested-date/time text every other source shows.
-            // Filling both is itself what schedules the job (trySubmitManual).
+            // plain requested-date/time text every other source shows. An
+            // explicit Schedule click is what schedules the job, not just
+            // filling both cells (see trySubmitManual) — that used to fire
+            // from onChange the moment the second field got a value, which
+            // on mobile could trigger off a half-picked date before the
+            // admin ever reached the time field.
             <div className="flex w-full shrink-0 flex-col items-start gap-1.5 sm:w-auto sm:items-end" onClick={(e) => e.stopPropagation()}>
               <span className="min-w-0 truncate whitespace-nowrap text-sm text-slate-500">
                 {job.site_contact_name}{job.site_contact_phone ? ` ${formatPhoneInput(job.site_contact_phone)}` : ""}
@@ -1208,23 +1215,27 @@ function JobRow({
                 <input
                   type="date"
                   value={manualDate}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    setManualDate(v);
-                    trySubmitManual(v, manualTime);
-                  }}
+                  onChange={(e) => setManualDate(e.target.value)}
                   className="min-w-0 flex-1 rounded-lg border border-slate-300 px-1.5 py-1 text-xs text-slate-600 sm:w-32 sm:flex-none sm:shrink-0"
                 />
-                <input
-                  type="time"
+                <select
                   value={manualTime}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    setManualTime(v);
-                    trySubmitManual(manualDate, v);
-                  }}
-                  className="min-w-0 flex-1 rounded-lg border border-slate-300 px-1.5 py-1 text-xs text-slate-600 sm:w-32 sm:flex-none sm:shrink-0"
-                />
+                  onChange={(e) => setManualTime(e.target.value)}
+                  className="min-w-0 flex-1 rounded-lg border border-slate-300 px-1.5 py-1 text-xs text-slate-600 sm:w-28 sm:flex-none sm:shrink-0"
+                >
+                  <option value="">Time</option>
+                  {timeSelectOptions().map((t) => (
+                    <option key={t} value={t}>{formatTime(t)}</option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  disabled={!manualDate || !manualTime}
+                  onClick={() => trySubmitManual(manualDate, manualTime)}
+                  className="shrink-0 rounded-lg bg-emerald-600 px-2 py-1 text-xs font-bold text-white disabled:opacity-50"
+                >
+                  Schedule
+                </button>
               </div>
             </div>
           ) : (
@@ -1257,25 +1268,8 @@ function JobRow({
                   </>
                 )}
               </div>
-              {!isUnscheduled && job.status === "scheduled" && job.confirmed_date && !isSubcontractor && (
+              {!isUnscheduled && job.status === "scheduled" && job.confirmed_date && !isSubcontractor && (job.confirmation_sent_at || job.reminder_sent_at) && (
                 <div className="flex flex-col items-end gap-0.5">
-                  <label
-                    className="flex shrink-0 items-center gap-1.5 whitespace-nowrap text-xs uppercase text-slate-600"
-                    title="Off by default — the client's portal never shows a date/time until this is on. While on, it stays live-synced to the date/time above as you edit them."
-                  >
-                    <span>Show customer</span>
-                    <button
-                      type="button"
-                      role="switch"
-                      aria-checked={!!job.schedule_visible_to_customer}
-                      onClick={() => onFieldChange({ schedule_visible_to_customer: !job.schedule_visible_to_customer })}
-                      className={`relative h-5 w-9 shrink-0 rounded-full transition ${job.schedule_visible_to_customer ? "bg-emerald-600" : "bg-slate-300"}`}
-                    >
-                      <span
-                        className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition ${job.schedule_visible_to_customer ? "left-4" : "left-0.5"}`}
-                      />
-                    </button>
-                  </label>
                   {job.confirmation_sent_at && (
                     <span className="whitespace-nowrap text-[10px] text-slate-400">
                       Confirmation sent {formatDateTime(job.confirmation_sent_at)}
@@ -3846,7 +3840,12 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
             </div>
             <div className="sm:flex-1">
               <label className="block text-sm font-medium text-slate-700">Scheduled time</label>
-              <input type="time" className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value={requestedTime} onChange={(e) => setRequestedTime(e.target.value)} />
+              <select className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value={requestedTime} onChange={(e) => setRequestedTime(e.target.value)}>
+                <option value="">No time</option>
+                {timeSelectOptions(requestedTime).map((t) => (
+                  <option key={t} value={t}>{formatTime(t)}</option>
+                ))}
+              </select>
             </div>
           </div>
         )}
@@ -4340,7 +4339,12 @@ export function EditProjectDialog({
           </div>
           <div className="sm:flex-1">
             <label className="block text-sm font-medium text-slate-700">Scheduled time</label>
-            <input type="time" className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value={confirmedTime} onChange={(e) => setConfirmedTime(e.target.value)} />
+            <select className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value={confirmedTime} onChange={(e) => setConfirmedTime(e.target.value)}>
+              <option value="">No time</option>
+              {timeSelectOptions(confirmedTime).map((t) => (
+                <option key={t} value={t}>{formatTime(t)}</option>
+              ))}
+            </select>
           </div>
         </div>
         {job.requested_date && (

@@ -8,6 +8,7 @@ import ZipInput, { useAutoZip } from "@/components/shared/ZipInput";
 import { buildBillingAddress, parseAddressToFields, US_STATES } from "@/lib/address";
 import { formatPhoneNumber } from "@/lib/phone";
 import { formatDateMDY } from "@/lib/date-format";
+import { TIME_OPTIONS } from "@/lib/time-options";
 
 interface ServiceTypeOption {
   key: string;
@@ -23,16 +24,6 @@ type Step = "address" | "category" | "scope" | "date" | "contact" | "review" | "
 function todayIso(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-// 30-minute slots from 5:00 AM to 7:30 PM — excludes the 8pm-5am overnight
-// window entirely rather than just discouraging it, since a plain
-// <input type="time"> lets someone type any time at all.
-const TIME_OPTIONS: string[] = [];
-for (let totalMinutes = 5 * 60; totalMinutes <= 19 * 60 + 30; totalMinutes += 30) {
-  const h = Math.floor(totalMinutes / 60);
-  const m = totalMinutes % 60;
-  TIME_OPTIONS.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
 }
 
 // Mirrors ProjectsList.tsx's formatDate — MM/DD/YYYY instead of the raw

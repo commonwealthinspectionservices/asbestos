@@ -205,8 +205,13 @@ export async function sendJobConfirmedEmailIfDue(jobId: string): Promise<void> {
   // confirmed_date just went from empty to set, independent of visibility.
   if (job.source === "subcontractor") return;
 
-  const { data: customer } = await supabase.from("customers").select("name, email").eq("id", job.customer_id).maybeSingle();
+  const { data: customer } = await supabase.from("customers").select("name, email, is_individual").eq("id", job.customer_id).maybeSingle();
   if (!customer?.email) return;
+  // Same reasoning again, one level down: a company customer already knows
+  // its own schedule — it's either who set it, or a contact who negotiated
+  // it directly, same as the subcontractor case above. Only individual
+  // homeowners get this.
+  if (!customer.is_individual) return;
 
   const { getSettings } = await import("@/lib/settings");
   const settings = await getSettings();

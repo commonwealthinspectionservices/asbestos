@@ -1,4 +1,4 @@
-import { getSupabaseAdmin } from "@/lib/supabase";
+import { getSupabaseAdminFresh } from "@/lib/supabase";
 import { FROM } from "@/lib/email";
 
 // The owner's own Gmail inbox, watched for incoming lab result emails —
@@ -110,7 +110,7 @@ export async function getGmailProfileEmail(accessToken: string): Promise<string>
 // exercises the token via getValidAccessToken() (which refreshes/throws
 // for real) so "Connected" means what it says.
 export async function getGmailConnectionStatus(): Promise<{ connected: boolean; email: string | null }> {
-  const supabase = getSupabaseAdmin();
+  const supabase = getSupabaseAdminFresh();
   const { data } = await supabase
     .from("gmail_connection")
     .select("email, refresh_token")
@@ -133,7 +133,7 @@ export async function saveGmailTokens(params: {
   refreshToken?: string;
   expiresIn: number;
 }): Promise<void> {
-  const supabase = getSupabaseAdmin();
+  const supabase = getSupabaseAdminFresh();
   const patch: Record<string, unknown> = {
     id: 1,
     email: params.email,
@@ -149,7 +149,7 @@ export async function saveGmailTokens(params: {
 }
 
 export async function disconnectGmail(): Promise<void> {
-  const supabase = getSupabaseAdmin();
+  const supabase = getSupabaseAdminFresh();
   await supabase.from("gmail_connection").delete().eq("id", 1);
 }
 
@@ -465,7 +465,7 @@ export async function getSentMessageInfo(accessToken: string, messageId: string)
 
 /** Refreshes first if the stored access token is missing/expiring, so callers never think about token lifetime. */
 export async function getValidAccessToken(): Promise<string | null> {
-  const supabase = getSupabaseAdmin();
+  const supabase = getSupabaseAdminFresh();
   const { data } = await supabase.from("gmail_connection").select("*").eq("id", 1).maybeSingle();
   if (!data?.refresh_token) return null;
 

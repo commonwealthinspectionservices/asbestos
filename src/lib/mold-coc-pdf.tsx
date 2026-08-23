@@ -102,16 +102,19 @@ function DateTimeField() {
 }
 
 export interface MoldCocData {
-  job: Job;
-  customer: Customer;
+  // null for a generic, job-independent blank template — see
+  // blank-coc-pdf.tsx's BlankCocData for the same pattern.
+  job: Job | null;
+  customer: Customer | null;
   settings: Settings;
   sampleType: MoldSampleType;
 }
 
 function MoldCocDocument({ job, customer, settings, sampleType }: MoldCocData) {
   const config = SAMPLE_TYPE_CONFIG[sampleType];
+  const clientLabel = customer ? customer.company || customer.name : "";
   return (
-    <Document title={`${config.title} — ${job.service_address}`}>
+    <Document title={job ? `${config.title} — ${job?.service_address ?? ""}` : `${config.title} — Blank`}>
       <Page size="LETTER" style={styles.page}>
         <View style={styles.header}>
           <View style={styles.headerLeft}>
@@ -123,15 +126,15 @@ function MoldCocDocument({ job, customer, settings, sampleType }: MoldCocData) {
         <View style={styles.metaGrid}>
           <View style={styles.metaRow}>
             <Text style={styles.metaLabel}>CLIENT</Text>
-            <Text style={styles.metaValue}>{customer.company || customer.name}</Text>
+            <Text style={styles.metaValue}>{clientLabel}</Text>
             <Text style={styles.metaLabel}>PROJECT #</Text>
-            <Text style={styles.metaValue}>{job.project_number ?? ""}</Text>
+            <Text style={styles.metaValue}>{job?.project_number ?? ""}</Text>
             <Text style={styles.metaLabel}>DATE</Text>
-            <Text style={styles.metaValueLast}>{formatDateMDY(job.requested_date)}</Text>
+            <Text style={styles.metaValueLast}>{formatDateMDY(job?.requested_date) ?? ""}</Text>
           </View>
           <View style={styles.metaRow}>
             <Text style={styles.metaLabel}>SITE</Text>
-            <Text style={styles.metaValueWide}>{job.service_address}</Text>
+            <Text style={styles.metaValueWide}>{job?.service_address ?? ""}</Text>
           </View>
         </View>
 
@@ -164,7 +167,7 @@ function MoldCocDocument({ job, customer, settings, sampleType }: MoldCocData) {
 
           <View style={styles.dateNeededRow}>
             <Text style={styles.dateNeededLabel}>DATE NEEDED</Text>
-            <Text style={styles.dateNeededValue}>{job.lab_date_needed ?? ""}</Text>
+            <Text style={styles.dateNeededValue}>{job?.lab_date_needed ?? ""}</Text>
           </View>
 
           <View style={styles.signatureRow}>
@@ -210,7 +213,7 @@ function MoldCocDocument({ job, customer, settings, sampleType }: MoldCocData) {
 
         <View style={styles.page2Footer}>
           <Text style={styles.page2FieldLabel}>PROJECT #</Text>
-          <Text style={styles.page2FieldValue}>{job.project_number ?? ""}</Text>
+          <Text style={styles.page2FieldValue}>{job?.project_number ?? ""}</Text>
           <Text style={styles.pageLabel}>PAGE</Text>
           <Text style={[styles.dateNeededValue, { width: 60, marginLeft: 4 }]} />
         </View>

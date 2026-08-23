@@ -75,15 +75,19 @@ function DateTimeField() {
 }
 
 export interface BlankCocData {
-  job: Job;
-  customer: Customer;
+  // null for a generic, job-independent blank template — printed ahead of
+  // time to keep on hand, filled in entirely by hand on-site rather than
+  // pre-populated from a real job.
+  job: Job | null;
+  customer: Customer | null;
   settings: Settings;
 }
 
 function BlankCocDocument({ job, customer, settings }: BlankCocData) {
   const inspector = primaryInspector(settings);
+  const clientLabel = customer ? customer.company || customer.name : "";
   return (
-    <Document title={`Chain of Custody — ${job.service_address}`}>
+    <Document title={job ? `Chain of Custody — ${job.service_address}` : "Chain of Custody — Blank"}>
       <Page size="LETTER" style={styles.page}>
         <View style={styles.header}>
           <View style={styles.headerLeft}>
@@ -95,15 +99,15 @@ function BlankCocDocument({ job, customer, settings }: BlankCocData) {
         <View style={styles.metaGrid}>
           <View style={styles.metaRow}>
             <Text style={styles.metaLabel}>CLIENT</Text>
-            <Text style={styles.metaValue}>{customer.company || customer.name}</Text>
+            <Text style={styles.metaValue}>{clientLabel}</Text>
             <Text style={styles.metaLabel}>PROJECT #</Text>
-            <Text style={styles.metaValue}>{job.project_number ?? ""}</Text>
+            <Text style={styles.metaValue}>{job?.project_number ?? ""}</Text>
             <Text style={styles.metaLabel}>DATE</Text>
-            <Text style={styles.metaValueLast}>{formatDateMDY(job.requested_date)}</Text>
+            <Text style={styles.metaValueLast}>{formatDateMDY(job?.requested_date) ?? ""}</Text>
           </View>
           <View style={styles.metaRow}>
             <Text style={styles.metaLabel}>SITE</Text>
-            <Text style={styles.metaValueWide}>{job.service_address}</Text>
+            <Text style={styles.metaValueWide}>{job?.service_address ?? ""}</Text>
           </View>
         </View>
 
@@ -137,7 +141,7 @@ function BlankCocDocument({ job, customer, settings }: BlankCocData) {
 
           <View style={styles.dateNeededRow}>
             <Text style={styles.dateNeededLabel}>DATE NEEDED</Text>
-            <Text style={styles.dateNeededValue}>{job.lab_date_needed ?? ""}</Text>
+            <Text style={styles.dateNeededValue}>{job?.lab_date_needed ?? ""}</Text>
           </View>
 
           <View style={styles.signatureRow}>
@@ -185,7 +189,7 @@ function BlankCocDocument({ job, customer, settings }: BlankCocData) {
 
         <View style={styles.page2Footer}>
           <Text style={styles.page2FieldLabel}>PROJECT #</Text>
-          <Text style={styles.page2FieldValue}>{job.project_number ?? ""}</Text>
+          <Text style={styles.page2FieldValue}>{job?.project_number ?? ""}</Text>
           <Text style={styles.pageLabel}>PAGE</Text>
           <Text style={[styles.dateNeededValue, { width: 60, marginLeft: 4 }]} />
         </View>

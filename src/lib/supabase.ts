@@ -19,6 +19,15 @@ export function getSupabaseAdmin() {
 
   client = createClient<any, any, any>(url, key, {
     auth: { persistSession: false },
+    // Supabase's client uses the ambient global fetch, which in a Next.js
+    // server environment is Next.js's own patched fetch with its Data
+    // Cache — caching GET requests by URL regardless of what's actually in
+    // the database right now. Confirmed live: after fixing the same issue
+    // in lib/gmail.ts, a route reading this table moments after a real,
+    // verified write still returned the pre-write row. Every DB read in
+    // the app goes through this one client, so this single fix covers all
+    // of them rather than patching each call site.
+    global: { fetch: (input, init) => fetch(input, { ...init, cache: "no-store" }) },
   });
   return client;
 }

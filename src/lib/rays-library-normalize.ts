@@ -45,6 +45,8 @@ const RENAMES: Record<string, string> = {
   "shingles": "Asphalt Shingle",
   "sink condensate undercoat": "Sink Undercoating",
   "gypsum board": "Gypsum",
+  "vinyl floor tile": "Floor Tile",
+  "siding underlayment": "Siding Paper Underlayment",
 };
 
 /** Strips a leading color descriptor, then applies the known-duplicate rename table. */

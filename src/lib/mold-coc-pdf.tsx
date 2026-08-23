@@ -1,12 +1,41 @@
 import path from "path";
 import { Document, Page, Text, View, Image, StyleSheet, renderToBuffer } from "@react-pdf/renderer";
-import { primaryInspector } from "@/lib/settings";
 import { formatDateMDY } from "@/lib/date-format";
 import type { Job, Customer, Settings } from "@/lib/types";
 
 const LETTERHEAD_PATH = path.join(process.cwd(), "public", "letterhead.png");
 const BLANK_ROW_COUNT = 18;
 const PAGE_TWO_ROW_COUNT = 20;
+
+export type MoldSampleType = "air_o_cell" | "bulk" | "swab";
+
+// Same template as blank-coc-pdf.tsx's asbestos form, field-for-field —
+// own letterhead, same meta/table/footer layout — just three variants of
+// the sample table's third column, since a bulk material chunk and a
+// surface swab don't have a "volume" the way an air sample does. Notes
+// mirror the asbestos template's own "*Samples for analysis by..." line:
+// Air-O-Cell samples are read by Spore Trap Analysis and are always a
+// fixed 75ml (so that's a single note here rather than repeated down
+// every one of BLANK_ROW_COUNT rows regardless of how many samples an
+// actual job has); bulk and swab samples are both read by Direct
+// Examination instead.
+const SAMPLE_TYPE_CONFIG: Record<MoldSampleType, { title: string; thirdColumnLabel: string; notes: string[] }> = {
+  air_o_cell: {
+    title: "MOLD AIR-O-CELL SAMPLE CHAIN OF CUSTODY",
+    thirdColumnLabel: "VOLUME",
+    notes: ["*Samples for analysis by Spore Trap Analysis", "*Air-O-Cell samples are 75ml"],
+  },
+  bulk: {
+    title: "MOLD BULK SAMPLE CHAIN OF CUSTODY",
+    thirdColumnLabel: "MATERIAL",
+    notes: ["*Samples for analysis by Direct Examination"],
+  },
+  swab: {
+    title: "MOLD SWAB SAMPLE CHAIN OF CUSTODY",
+    thirdColumnLabel: "SURFACE SWABBED",
+    notes: ["*Samples for analysis by Direct Examination"],
+  },
+};
 
 const styles = StyleSheet.create({
   page: { padding: 28, fontSize: 9, fontFamily: "Helvetica", color: "#16213a" },
@@ -22,16 +51,15 @@ const styles = StyleSheet.create({
   metaValueWide: { flex: 1, borderBottomWidth: 1, borderBottomColor: "#16213a" },
   // flex: 1 (with a following sibling — footer below) so the table's rows
   // stretch to fill the page's remaining height, same proven pattern as
-  // page2Table. Confirmed live: flex-grow on a *trailing* element (no
-  // sibling after it) is unreliable in react-pdf's pagination pass — it
-  // only reliably claims space when something follows it, which is why
-  // this grows the table (before the footer) rather than the footer itself.
+  // page2Table. flex-grow on a *trailing* element (no sibling after it) is
+  // unreliable in react-pdf's pagination pass, confirmed live — it only
+  // reliably claims space when something follows it.
   table: { flex: 1, borderWidth: 1, borderColor: "#16213a" },
   tableHeaderRow: { flexDirection: "row", backgroundColor: "#f1f5f9", borderBottomWidth: 1, borderBottomColor: "#16213a" },
   tableHeaderCell: { fontSize: 8, fontWeight: 700, textAlign: "center", padding: 3, borderRightWidth: 1, borderRightColor: "#16213a" },
   tableRow: { flexDirection: "row", borderBottomWidth: 1, borderBottomColor: "#cbd5e1", minHeight: 25, flexGrow: 1 },
   colSample: { width: 60, borderRightWidth: 1, borderRightColor: "#16213a" },
-  colMaterial: { flex: 1, borderRightWidth: 1, borderRightColor: "#16213a" },
+  colThird: { flex: 1, borderRightWidth: 1, borderRightColor: "#16213a" },
   colLocation: { flex: 1 },
   footer: { marginTop: 16 },
   footerTopRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
@@ -54,9 +82,8 @@ const styles = StyleSheet.create({
   page2FieldValue: { width: 120, borderBottomWidth: 1, borderBottomColor: "#16213a", marginRight: 20 },
 });
 
-// A pre-slashed date/time fill-in to the right of a signature line, exactly
-// matching the owner's own real form (two bare "/" marks over a "date /
-// time" caption — nothing fancier, no per-digit blanks).
+// Matches the owner's own real form exactly — two bare "/" marks over a
+// "date / time" caption, not per-digit blanks.
 function DateTimeField() {
   return (
     <View style={styles.dateTimeWrap}>
@@ -66,22 +93,23 @@ function DateTimeField() {
   );
 }
 
-export interface BlankCocData {
+export interface MoldCocData {
   job: Job;
   customer: Customer;
   settings: Settings;
+  sampleType: MoldSampleType;
 }
 
-function BlankCocDocument({ job, customer, settings }: BlankCocData) {
-  const inspector = primaryInspector(settings);
+function MoldCocDocument({ job, customer, settings, sampleType }: MoldCocData) {
+  const config = SAMPLE_TYPE_CONFIG[sampleType];
   return (
-    <Document title={`Chain of Custody — ${job.service_address}`}>
+    <Document title={`${config.title} — ${job.service_address}`}>
       <Page size="LETTER" style={styles.page}>
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             <Image src={LETTERHEAD_PATH} style={styles.letterhead} />
           </View>
-          <Text style={styles.title}>ASBESTOS BULK SAMPLE CHAIN OF CUSTODY</Text>
+          <Text style={styles.title}>{config.title}</Text>
         </View>
 
         <View style={styles.metaGrid}>
@@ -102,13 +130,13 @@ function BlankCocDocument({ job, customer, settings }: BlankCocData) {
         <View style={styles.table}>
           <View style={styles.tableHeaderRow}>
             <Text style={[styles.tableHeaderCell, styles.colSample]}>SAMPLE #</Text>
-            <Text style={[styles.tableHeaderCell, styles.colMaterial]}>MATERIAL</Text>
+            <Text style={[styles.tableHeaderCell, styles.colThird]}>{config.thirdColumnLabel}</Text>
             <Text style={[styles.tableHeaderCell, styles.colLocation, { borderRightWidth: 0 }]}>LOCATION</Text>
           </View>
           {Array.from({ length: BLANK_ROW_COUNT }).map((_, i) => (
             <View style={styles.tableRow} key={i}>
               <View style={styles.colSample} />
-              <View style={styles.colMaterial} />
+              <View style={styles.colThird} />
               <View style={styles.colLocation} />
             </View>
           ))}
@@ -120,10 +148,9 @@ function BlankCocDocument({ job, customer, settings }: BlankCocData) {
               TURNAROUND  <Text style={styles.turnaroundOption}>RUSH   24HR</Text>
             </Text>
             <View>
-              <Text style={styles.notes}>*Samples for analysis by Polarized Light Microscopy</Text>
-              <Text style={styles.notes}>
-                *Sampled by {inspector.name} MA Asbestos Inspector License {inspector.license_number}
-              </Text>
+              {config.notes.map((note) => (
+                <Text style={styles.notes} key={note}>{note}</Text>
+              ))}
             </View>
           </View>
 
@@ -148,28 +175,26 @@ function BlankCocDocument({ job, customer, settings }: BlankCocData) {
         </View>
       </Page>
 
-      {/* Continuation sheet — same real form as page 1, for when a job has
-          more samples than fit on the first page's table. No meta/signature
-          fields here, just more rows plus the project #/page # a loose
-          second sheet needs to stay identifiable. */}
+      {/* Continuation sheet, same as blank-coc-pdf.tsx's asbestos one — more
+          rows, no meta/signature fields, just enough to stay identifiable. */}
       <Page size="LETTER" style={styles.page}>
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             <Image src={LETTERHEAD_PATH} style={styles.letterhead} />
           </View>
-          <Text style={styles.title}>ASBESTOS BULK SAMPLE CHAIN OF CUSTODY</Text>
+          <Text style={styles.title}>{config.title}</Text>
         </View>
 
         <View style={styles.page2Table}>
           <View style={styles.tableHeaderRow}>
             <Text style={[styles.tableHeaderCell, styles.colSample]}>SAMPLE #</Text>
-            <Text style={[styles.tableHeaderCell, styles.colMaterial]}>MATERIAL</Text>
+            <Text style={[styles.tableHeaderCell, styles.colThird]}>{config.thirdColumnLabel}</Text>
             <Text style={[styles.tableHeaderCell, styles.colLocation, { borderRightWidth: 0 }]}>LOCATION</Text>
           </View>
           {Array.from({ length: PAGE_TWO_ROW_COUNT }).map((_, i) => (
             <View style={styles.tableRow} key={i}>
               <View style={styles.colSample} />
-              <View style={styles.colMaterial} />
+              <View style={styles.colThird} />
               <View style={styles.colLocation} />
             </View>
           ))}
@@ -186,6 +211,6 @@ function BlankCocDocument({ job, customer, settings }: BlankCocData) {
   );
 }
 
-export async function renderBlankCocPdf(data: BlankCocData): Promise<Buffer> {
-  return renderToBuffer(<BlankCocDocument {...data} />);
+export async function renderMoldCocPdf(data: MoldCocData): Promise<Buffer> {
+  return renderToBuffer(<MoldCocDocument {...data} />);
 }

@@ -2,21 +2,26 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApi } from "@/lib/admin-api";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { getSettings } from "@/lib/settings";
-import { renderBlankCocPdf } from "@/lib/blank-coc-pdf";
+import { renderMoldCocPdf, type MoldSampleType } from "@/lib/mold-coc-pdf";
 import { withApiErrors } from "@/lib/api-handler";
 import type { Customer, Job } from "@/lib/types";
 
-// A printable chain-of-custody with the header fields (client, site,
-// project #, date, license #) already filled in from the job — the only
-// thing left to fill by hand in the field is the sample table itself,
-// which has to exist on paper regardless since it travels with the
-// physical samples to the lab.
+const SAMPLE_TYPES: MoldSampleType[] = ["air_o_cell", "bulk", "swab"];
+
+// Three printable, Commonwealth-branded mold chain-of-custody forms — one
+// per sample type (?type=air_o_cell|bulk|swab), since a bulk-material
+// column and a surface-swab column don't mean anything on an air-sample
+// form and vice versa. Same idea as blank-coc for asbestos (own letterhead,
+// fill the sample table and sign by hand on-site).
 export const GET = withApiErrors(async (
   req: NextRequest,
   { params }: { params: { id: string } }
 ) => {
   const unauthorized = requireAdminApi(req);
   if (unauthorized) return unauthorized;
+
+  const typeParam = req.nextUrl.searchParams.get("type");
+  const sampleType = SAMPLE_TYPES.includes(typeParam as MoldSampleType) ? (typeParam as MoldSampleType) : "air_o_cell";
 
   const supabase = getSupabaseAdmin();
   const { data: job, error } = await supabase
@@ -31,13 +36,13 @@ export const GET = withApiErrors(async (
 
   const jobRow = job as unknown as Job & { customers: Customer };
   const settings = await getSettings();
-  const pdf = await renderBlankCocPdf({ job: jobRow, customer: jobRow.customers, settings });
+  const pdf = await renderMoldCocPdf({ job: jobRow, customer: jobRow.customers, settings, sampleType });
 
   const disposition = req.nextUrl.searchParams.get("download") != null ? "attachment" : "inline";
   return new NextResponse(new Uint8Array(pdf), {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `${disposition}; filename="coc-${jobRow.project_number ?? params.id}.pdf"`,
+      "Content-Disposition": `${disposition}; filename="mold-coc-${sampleType}-${jobRow.project_number ?? params.id}.pdf"`,
     },
   });
 });

@@ -11,23 +11,19 @@ import type { RaysLibraryEntry, RaysLibraryPhoto } from "@/lib/types";
 // in JobsDashboard.tsx) are entered fresh per job, independent of this list.
 //
 // Each row in rays_library is one real occurrence (one homogeneous material
-// sampled once) — aggregated here by material into a positive count, which
-// grows more accurate as more real reports get added over time. Locations
-// aren't tracked here — just the material and how often it's turned out to
-// be ACM. A material with real site photos (rays_library_photos — only ever
-// populated for materials that tested positive somewhere, since that's the
-// only thing the source reports photograph) is clickable to view them.
+// sampled once) — deduped here down to a distinct material list, which
+// grows as more real reports get added over time. Locations aren't tracked
+// here — just the material itself, as a visual "what to look for on an
+// inspection" reference. A material with real site photos
+// (rays_library_photos) is clickable to view them.
 //
 // is_acm can be null — a handful of entries are official ACM-category
 // reference materials (from EPA/college facilities-management guidance)
-// that haven't shown up in a real sampled report yet. Those count toward
-// `total` (so the material is listed at all) but not `sampled`/`positive`,
-// so the card reads "Not yet sampled" instead of a fabricated "0 of 1".
+// that haven't shown up in a real sampled report yet. They're still listed
+// as materials to watch for; the card no longer surfaces a sampled/positive
+// stat at all.
 interface MaterialGroup {
   material: string;
-  total: number;
-  sampled: number;
-  positive: number;
 }
 
 export default function RaysLibrary() {
@@ -80,17 +76,10 @@ export default function RaysLibrary() {
   }, [search]);
 
   const groups: MaterialGroup[] = useMemo(() => {
-    const byMaterial = new Map<string, MaterialGroup>();
-    for (const e of entries) {
-      const existing = byMaterial.get(e.material) ?? { material: e.material, total: 0, sampled: 0, positive: 0 };
-      existing.total += 1;
-      if (e.is_acm !== null) {
-        existing.sampled += 1;
-        if (e.is_acm) existing.positive += 1;
-      }
-      byMaterial.set(e.material, existing);
-    }
-    return Array.from(byMaterial.values()).sort((a, b) => a.material.localeCompare(b.material));
+    const materials = new Set(entries.map((e) => e.material));
+    return Array.from(materials, (material) => ({ material })).sort((a, b) =>
+      a.material.localeCompare(b.material)
+    );
   }, [entries]);
 
   const photosByMaterial = useMemo(() => {
@@ -144,8 +133,8 @@ export default function RaysLibrary() {
                   {g.material}
                   {hasPhotos && <span className="text-slate-400">📷</span>}
                 </span>
-                <span className={`text-sm font-semibold ${g.positive > 0 ? "text-red-600" : "text-slate-500"}`}>
-                  {g.sampled > 0 ? `${g.positive} of ${g.sampled} positive` : "Not yet sampled"}
+                <span className="text-sm text-slate-400">
+                  {hasPhotos ? "View photos" : "No photo yet"}
                 </span>
               </button>
             );

@@ -2584,6 +2584,48 @@ export function ProjectDetailDialog({
                     </div>
                   )}
                   </div>
+                  {jobReportDomains(job.service_type).includes("asbestos") && (
+                    <div className="w-full overflow-hidden rounded-lg border border-slate-200 sm:w-60">
+                      <a href={`/api/admin/jobs/${job.id}/blank-coc`} target="_blank" rel="noreferrer" className="block">
+                        <PdfThumbnail url={`/api/admin/jobs/${job.id}/blank-coc`} alt="Chain of Custody preview" />
+                        <p className="border-t border-slate-200 bg-white px-2 py-1 text-center text-xs font-bold uppercase text-slate-700">Chain of Custody</p>
+                      </a>
+                      <div className="border-t border-slate-200 px-2 py-1 text-center text-xs">
+                        <a href={`/api/admin/jobs/${job.id}/blank-coc`} target="_blank" rel="noreferrer" className="text-brand-600 hover:underline">
+                          View
+                        </a>
+                        {" · "}
+                        <a href={`/api/admin/jobs/${job.id}/blank-coc?download=1`} download={`coc-${job.project_number ?? job.id}.pdf`} className="text-brand-600 hover:underline">
+                          Download
+                        </a>
+                      </div>
+                    </div>
+                  )}
+                  {jobReportDomains(job.service_type).includes("mold") &&
+                    ([
+                      { type: "air_o_cell", label: "Mold COC — Air-O-Cell" },
+                      { type: "bulk", label: "Mold COC — Bulk" },
+                      { type: "swab", label: "Mold COC — Swab" },
+                    ] as const).map(({ type, label }) => {
+                      const url = `/api/admin/jobs/${job.id}/mold-coc?type=${type}`;
+                      return (
+                        <div key={type} className="w-full overflow-hidden rounded-lg border border-slate-200 sm:w-60">
+                          <a href={url} target="_blank" rel="noreferrer" className="block">
+                            <PdfThumbnail url={url} alt={`${label} preview`} />
+                            <p className="border-t border-slate-200 bg-white px-2 py-1 text-center text-xs font-bold uppercase text-slate-700">{label}</p>
+                          </a>
+                          <div className="border-t border-slate-200 px-2 py-1 text-center text-xs">
+                            <a href={url} target="_blank" rel="noreferrer" className="text-brand-600 hover:underline">
+                              View
+                            </a>
+                            {" · "}
+                            <a href={`${url}&download=1`} download={`mold-coc-${type}-${job.project_number ?? job.id}.pdf`} className="text-brand-600 hover:underline">
+                              Download
+                            </a>
+                          </div>
+                        </div>
+                      );
+                    })}
                 </div>
                 {job.is_individual && job.status !== "paid" && (
                   job.report_release_override ? (

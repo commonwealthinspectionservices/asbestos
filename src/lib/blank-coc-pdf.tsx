@@ -51,8 +51,11 @@ const styles = StyleSheet.create({
   notes: { fontSize: 11, fontStyle: "italic", textAlign: "right", lineHeight: 1.3 },
   dateNeededRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 14 },
   dateNeededLabel: { fontSize: 11, fontWeight: 700, marginRight: 4 },
-  dateNeededValue: { width: 220, borderBottomWidth: 1, borderBottomColor: LINE_COLOR },
+  // Short enough to stay clear of the right-aligned "*Sampled by..." note
+  // sitting above it — the full 220pt width used to run underneath it.
+  dateNeededValue: { width: 160, borderBottomWidth: 1, borderBottomColor: LINE_COLOR },
   signatureRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 14 },
+  signatureSubRow: { flexDirection: "row", alignItems: "flex-end" },
   signatureLabel: { fontSize: 11, fontWeight: 700, marginRight: 4 },
   // Fixed width, not flex — RECEIVED BY's row has extra trailing content
   // (PAGE) competing for space, which used to leave its line shorter than
@@ -66,9 +69,9 @@ const styles = StyleSheet.create({
   // the line, matching the owner's real form exactly. bottom:-11 drops the
   // "date / time" caption below the line while the slashes above it land
   // right at the line.
-  dateTimeOverlay: { position: "absolute", right: 4, bottom: -11, alignItems: "center" },
+  dateTimeOverlay: { position: "absolute", right: 4, bottom: -13, alignItems: "center" },
   dateTimeSlashes: { fontSize: 11, letterSpacing: 6 },
-  dateTimeCaption: { fontSize: 7, color: "#000000", marginTop: 2 },
+  dateTimeCaption: { fontSize: 7, color: "#000000", marginTop: 10 },
   page2Table: { flex: 1, borderWidth: 1, borderColor: LINE_COLOR, marginTop: 4 },
   page2Footer: { flexDirection: "row", justifyContent: "flex-end", alignItems: "flex-end", marginTop: 10 },
   page2FieldLabel: { fontSize: 11, fontWeight: 700, marginRight: 4 },
@@ -172,14 +175,18 @@ function BlankCocDocument({ job, customer, settings }: BlankCocData) {
             </View>
           </View>
 
-          <View style={styles.signatureRow}>
-            <Text style={styles.signatureLabel}>RECEIVED BY</Text>
-            <View style={styles.signatureLineWrap}>
-              <Text style={styles.signatureLine} />
-              <DateTimeField />
+          <View style={[styles.signatureRow, { justifyContent: "space-between" }]}>
+            <View style={styles.signatureSubRow}>
+              <Text style={styles.signatureLabel}>RECEIVED BY</Text>
+              <View style={styles.signatureLineWrap}>
+                <Text style={styles.signatureLine} />
+                <DateTimeField />
+              </View>
             </View>
-            <Text style={styles.pageLabel}>PAGE</Text>
-            <Text style={[styles.signatureLine, { width: 70, marginLeft: 4 }]} />
+            <View style={styles.signatureSubRow}>
+              <Text style={styles.pageLabel}>PAGE</Text>
+              <Text style={[styles.signatureLine, { width: 70, marginLeft: 4 }]} />
+            </View>
           </View>
         </View>
       </Page>

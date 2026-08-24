@@ -3,98 +3,124 @@ import { Document, Page, Text, View, Image, StyleSheet, renderToBuffer } from "@
 import { formatDateMDY } from "@/lib/date-format";
 import type { Job, Customer, Settings } from "@/lib/types";
 
-const LETTERHEAD_PATH = path.join(process.cwd(), "public", "letterhead.png");
-const BLANK_ROW_COUNT = 18;
+// Same exact template as blank-coc-pdf.tsx's asbestos form — own blue
+// letterhead, same spacing/font/row-count values, same footer layout —
+// just three variants of the sample table's third column and notes, since
+// a bulk material chunk and a surface swab don't have a "volume" the way
+// an air sample does, and mold has no inspector-license line the way
+// asbestos does.
+const LETTERHEAD_PATH = path.join(process.cwd(), "public", "letterhead-blue.png");
+const BLANK_ROW_COUNT = 20;
 const PAGE_TWO_ROW_COUNT = 20;
+const LINE_COLOR = "#000000";
 
 export type MoldSampleType = "air_o_cell" | "bulk" | "swab";
 
-// Same template as blank-coc-pdf.tsx's asbestos form, field-for-field —
-// own letterhead, same meta/table/footer layout — just three variants of
-// the sample table's third column, since a bulk material chunk and a
-// surface swab don't have a "volume" the way an air sample does. Notes
-// mirror the asbestos template's own "*Samples for analysis by..." line:
-// Air-O-Cell samples are read by Spore Trap Analysis and are always a
-// fixed 75ml (so that's a single note here rather than repeated down
-// every one of BLANK_ROW_COUNT rows regardless of how many samples an
-// actual job has); bulk and swab samples are both read by Direct
-// Examination instead.
-const SAMPLE_TYPE_CONFIG: Record<MoldSampleType, { title: string; thirdColumnLabel: string; notes: string[] }> = {
+// turnaroundNote sits beside TURNAROUND, dateNeededNote (if any) beside
+// DATE NEEDED — same split blank-coc-pdf.tsx uses for its two notes.
+// Air-O-Cell samples are always a fixed 75ml, worth noting once rather
+// than on every one of BLANK_ROW_COUNT rows regardless of how many
+// samples an actual job has; bulk and swab don't have a second note at
+// all, so DATE NEEDED renders alone on its row.
+const SAMPLE_TYPE_CONFIG: Record<MoldSampleType, { title: string; thirdColumnLabel: string; turnaroundNote: string; dateNeededNote: string | null }> = {
   air_o_cell: {
     title: "MOLD AIR-O-CELL SAMPLE CHAIN OF CUSTODY",
     thirdColumnLabel: "VOLUME",
-    notes: ["*Samples for analysis by Spore Trap Analysis", "*Air-O-Cell samples are 75ml"],
+    turnaroundNote: "*Samples for analysis by Spore Trap Analysis",
+    dateNeededNote: "*Air-O-Cell samples are 75ml",
   },
   bulk: {
     title: "MOLD BULK SAMPLE CHAIN OF CUSTODY",
     thirdColumnLabel: "MATERIAL",
-    notes: ["*Samples for analysis by Direct Examination"],
+    turnaroundNote: "*Samples for analysis by Direct Examination",
+    dateNeededNote: null,
   },
   swab: {
     title: "MOLD SWAB SAMPLE CHAIN OF CUSTODY",
     thirdColumnLabel: "SURFACE SWABBED",
-    notes: ["*Samples for analysis by Direct Examination"],
+    turnaroundNote: "*Samples for analysis by Direct Examination",
+    dateNeededNote: null,
   },
 };
 
 const styles = StyleSheet.create({
-  page: { padding: 28, fontSize: 9, fontFamily: "Helvetica", color: "#16213a" },
-  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 14, paddingBottom: 8, borderBottomWidth: 2, borderBottomColor: "#193466" },
+  // paddingBottom has to clear more than the last row's own text — the
+  // date/time overlay on RECEIVED BY's line reaches ~14pt below it
+  // (position:absolute, so it isn't counted in normal-flow layout at all),
+  // and too little padding here let it get clipped by the page edge.
+  page: { paddingTop: 10, paddingLeft: 12, paddingRight: 13, paddingBottom: 18, fontSize: 11, fontFamily: "Helvetica", color: "#000000" },
+  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 11 },
   headerLeft: { flexDirection: "row", alignItems: "center" },
-  letterhead: { width: 170, height: 31 },
+  letterhead: { width: 283, height: 55 },
   title: { fontSize: 11, fontWeight: 700 },
-  metaGrid: { marginBottom: 10 },
-  metaRow: { flexDirection: "row", marginBottom: 8, alignItems: "flex-end" },
+  // SITE sits close under the table (small marginBottom here) but well
+  // clear of CLIENT/PROJECT #/DATE above it (SITE's own row carries the
+  // marginTop instead — see the SITE metaRow below).
+  metaGrid: { marginBottom: 8 },
+  metaRow: { flexDirection: "row", marginBottom: 12, alignItems: "flex-end" },
   metaLabel: { fontWeight: 700, marginRight: 4 },
-  metaValue: { flex: 1, borderBottomWidth: 1, borderBottomColor: "#16213a", marginRight: 16 },
-  metaValueLast: { flex: 1, borderBottomWidth: 1, borderBottomColor: "#16213a" },
-  metaValueWide: { flex: 1, borderBottomWidth: 1, borderBottomColor: "#16213a" },
+  metaValue: { flex: 1, borderBottomWidth: 1, borderBottomColor: LINE_COLOR, marginRight: 17 },
+  metaValueLast: { flex: 1, borderBottomWidth: 1, borderBottomColor: LINE_COLOR },
+  metaValueWide: { flex: 1, borderBottomWidth: 1, borderBottomColor: LINE_COLOR },
   // flex: 1 (with a following sibling — footer below) so the table's rows
   // stretch to fill the page's remaining height, same proven pattern as
-  // page2Table. flex-grow on a *trailing* element (no sibling after it) is
-  // unreliable in react-pdf's pagination pass, confirmed live — it only
-  // reliably claims space when something follows it.
-  table: { flex: 1, borderWidth: 1, borderColor: "#16213a" },
-  tableHeaderRow: { flexDirection: "row", backgroundColor: "#f1f5f9", borderBottomWidth: 1, borderBottomColor: "#16213a" },
-  tableHeaderCell: { fontSize: 8, fontWeight: 700, textAlign: "center", padding: 3, borderRightWidth: 1, borderRightColor: "#16213a" },
-  tableRow: { flexDirection: "row", borderBottomWidth: 1, borderBottomColor: "#cbd5e1", minHeight: 25, flexGrow: 1 },
-  colSample: { width: 60, borderRightWidth: 1, borderRightColor: "#16213a" },
-  colThird: { flex: 1, borderRightWidth: 1, borderRightColor: "#16213a" },
+  // page2Table. Confirmed live: flex-grow on a *trailing* element (no
+  // sibling after it) is unreliable in react-pdf's pagination pass — it
+  // only reliably claims space when something follows it, which is why
+  // this grows the table (before the footer) rather than the footer itself.
+  table: { flex: 1, borderWidth: 1, borderColor: LINE_COLOR },
+  tableHeaderRow: { flexDirection: "row", borderBottomWidth: 1, borderBottomColor: LINE_COLOR },
+  tableHeaderCell: { fontSize: 11, fontWeight: 700, textAlign: "center", padding: 5, borderRightWidth: 1, borderRightColor: LINE_COLOR },
+  tableRow: { flexDirection: "row", borderBottomWidth: 1, borderBottomColor: LINE_COLOR, minHeight: 20, flexGrow: 1 },
+  colSample: { width: 66, borderRightWidth: 1, borderRightColor: LINE_COLOR },
+  colThird: { flex: 1, borderRightWidth: 1, borderRightColor: LINE_COLOR },
   colLocation: { flex: 1 },
-  footer: { marginTop: 16 },
-  footerTopRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
-  turnaroundLine: { fontSize: 9, fontWeight: 700 },
-  turnaroundOption: { fontWeight: 400 },
-  notes: { fontSize: 8, fontStyle: "italic", textAlign: "right", lineHeight: 1.4 },
-  dateNeededRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 14 },
-  dateNeededLabel: { fontSize: 9, fontWeight: 700, marginRight: 4 },
-  dateNeededValue: { width: 220, borderBottomWidth: 1, borderBottomColor: "#16213a" },
-  signatureRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 26 },
-  signatureLabel: { fontSize: 9, fontWeight: 700, marginRight: 4 },
+  // Matches the asbestos form's own gaps below the table — not perfectly
+  // uniform, that's genuinely how the real form is spaced.
+  footer: { marginTop: 10 },
+  footerTopRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end" },
+  turnaroundLine: { flexDirection: "row", alignItems: "baseline" },
+  turnaroundLabel: { fontSize: 11, fontWeight: 700 },
+  turnaroundOption: { fontSize: 11, fontWeight: 400, marginLeft: 20 },
+  notes: { fontSize: 11, fontStyle: "italic" },
+  dateNeededRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 24 },
+  dateNeededLabel: { fontSize: 11, fontWeight: 700, marginRight: 4 },
+  dateNeededValue: { width: 160, borderBottomWidth: 1, borderBottomColor: LINE_COLOR },
+  signatureRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 24 },
+  signatureSubRow: { flexDirection: "row", alignItems: "flex-end" },
+  // Fixed width (not auto-sized to the text) so "RELINQUISHED BY" and the
+  // shorter "RECEIVED BY" both hand off to their line at the same x — the
+  // two lines then start and end at identical points, and the date/time
+  // overlaid on each (right-anchored within the line) lines up directly
+  // above/below between the two rows instead of drifting with label length.
+  signatureLabel: { fontSize: 11, fontWeight: 700, width: 112 },
   // Fixed width, not flex — RECEIVED BY's row has extra trailing content
-  // (the date/time field, then PAGE) competing for space, which used to
-  // leave its line shorter than RELINQUISHED BY's. A fixed width sized to
-  // fit RECEIVED BY's more crowded row keeps both lines identical.
-  signatureLine: { width: 330, borderBottomWidth: 1, borderBottomColor: "#16213a" },
-  pageLabel: { fontSize: 9, fontWeight: 700, marginLeft: 16 },
-  // marginBottom pulls the whole block down relative to the row's shared
-  // flex-end baseline, so the slashes (top of this block) land AT that
-  // baseline — level with the label text and underline — instead of
-  // floating above it, and "date / time" hangs below the baseline instead.
-  dateTimeWrap: { alignItems: "center", marginLeft: 10, marginBottom: -9 },
-  dateTimeSlashes: { fontSize: 9, letterSpacing: 6 },
-  dateTimeCaption: { fontSize: 6.5, color: "#64748b", marginTop: 2 },
-  page2Table: { flex: 1, borderWidth: 1, borderColor: "#16213a", marginTop: 4 },
-  page2Footer: { flexDirection: "row", justifyContent: "flex-end", alignItems: "flex-end", marginTop: 10 },
-  page2FieldLabel: { fontSize: 9, fontWeight: 700, marginRight: 4 },
-  page2FieldValue: { width: 120, borderBottomWidth: 1, borderBottomColor: "#16213a", marginRight: 20 },
+  // (PAGE) competing for space, which used to leave its line shorter than
+  // RELINQUISHED BY's. A fixed width sized to fit RECEIVED BY's more
+  // crowded row keeps both lines identical.
+  signatureLineWrap: { position: "relative", width: 320 },
+  signatureLine: { borderBottomWidth: 1, borderBottomColor: LINE_COLOR },
+  pageLabel: { fontSize: 11, fontWeight: 700, marginLeft: 16 },
+  // The date/time sits ON the line itself — right-anchored inside the same
+  // box the line occupies — rather than as its own element appended after
+  // the line, matching the asbestos form exactly. bottom:-13 drops the
+  // "date / time" caption below the line while the slashes above it hover
+  // just clear of the line itself.
+  dateTimeOverlay: { position: "absolute", right: 4, bottom: -13, alignItems: "center" },
+  dateTimeSlashes: { fontSize: 11, letterSpacing: 6 },
+  dateTimeCaption: { fontSize: 8, color: "#000000", marginTop: 10 },
+  page2Table: { flex: 1, borderWidth: 1, borderColor: LINE_COLOR, marginTop: 4 },
+  page2Footer: { flexDirection: "row", justifyContent: "flex-end", alignItems: "flex-end", marginTop: 22 },
+  page2FieldLabel: { fontSize: 11, fontWeight: 700, marginRight: 4 },
+  page2FieldValue: { width: 120, borderBottomWidth: 1, borderBottomColor: LINE_COLOR, marginRight: 20 },
 });
 
-// Matches the owner's own real form exactly — two bare "/" marks over a
-// "date / time" caption, not per-digit blanks.
+// A pre-slashed date/time fill-in overlaid on a signature line, exactly
+// matching the asbestos form (two bare "/" marks over a "date / time"
+// caption, sitting on the line itself rather than after it).
 function DateTimeField() {
   return (
-    <View style={styles.dateTimeWrap}>
+    <View style={styles.dateTimeOverlay}>
       <Text style={styles.dateTimeSlashes}>/  /</Text>
       <Text style={styles.dateTimeCaption}>date / time</Text>
     </View>
@@ -110,11 +136,11 @@ export interface MoldCocData {
   sampleType: MoldSampleType;
 }
 
-function MoldCocDocument({ job, customer, settings, sampleType }: MoldCocData) {
+function MoldCocDocument({ job, customer, sampleType }: MoldCocData) {
   const config = SAMPLE_TYPE_CONFIG[sampleType];
   const clientLabel = customer ? customer.company || customer.name : "";
   return (
-    <Document title={job ? `${config.title} — ${job?.service_address ?? ""}` : `${config.title} — Blank`}>
+    <Document title={job ? `${config.title} — ${job.service_address}` : `${config.title} — Blank`}>
       <Page size="LETTER" style={styles.page}>
         <View style={styles.header}>
           <View style={styles.headerLeft}>
@@ -132,7 +158,7 @@ function MoldCocDocument({ job, customer, settings, sampleType }: MoldCocData) {
             <Text style={styles.metaLabel}>DATE</Text>
             <Text style={styles.metaValueLast}>{formatDateMDY(job?.requested_date) ?? ""}</Text>
           </View>
-          <View style={styles.metaRow}>
+          <View style={[styles.metaRow, { marginTop: 14, marginBottom: 0 }]}>
             <Text style={styles.metaLabel}>SITE</Text>
             <Text style={styles.metaValueWide}>{job?.service_address ?? ""}</Text>
           </View>
@@ -155,39 +181,57 @@ function MoldCocDocument({ job, customer, settings, sampleType }: MoldCocData) {
 
         <View style={styles.footer}>
           <View style={styles.footerTopRow}>
-            <Text style={styles.turnaroundLine}>
-              TURNAROUND  <Text style={styles.turnaroundOption}>RUSH   24HR</Text>
-            </Text>
-            <View>
-              {config.notes.map((note) => (
-                <Text style={styles.notes} key={note}>{note}</Text>
-              ))}
+            <View style={styles.turnaroundLine}>
+              <Text style={styles.turnaroundLabel}>TURNAROUND</Text>
+              <Text style={styles.turnaroundOption}>RUSH</Text>
+              <Text style={styles.turnaroundOption}>24HR</Text>
             </View>
+            <Text style={styles.notes}>{config.turnaroundNote}</Text>
           </View>
 
-          <View style={styles.dateNeededRow}>
-            <Text style={styles.dateNeededLabel}>DATE NEEDED</Text>
-            <Text style={styles.dateNeededValue}>{job?.lab_date_needed ?? ""}</Text>
-          </View>
+          {config.dateNeededNote ? (
+            <View style={[styles.dateNeededRow, { justifyContent: "space-between" }]}>
+              <View style={styles.signatureSubRow}>
+                <Text style={styles.dateNeededLabel}>DATE NEEDED</Text>
+                <Text style={styles.dateNeededValue}>{job?.lab_date_needed ?? ""}</Text>
+              </View>
+              <Text style={styles.notes}>{config.dateNeededNote}</Text>
+            </View>
+          ) : (
+            <View style={styles.dateNeededRow}>
+              <Text style={styles.dateNeededLabel}>DATE NEEDED</Text>
+              <Text style={styles.dateNeededValue}>{job?.lab_date_needed ?? ""}</Text>
+            </View>
+          )}
 
           <View style={styles.signatureRow}>
             <Text style={styles.signatureLabel}>RELINQUISHED BY</Text>
-            <Text style={styles.signatureLine} />
-            <DateTimeField />
+            <View style={styles.signatureLineWrap}>
+              <Text style={styles.signatureLine} />
+              <DateTimeField />
+            </View>
           </View>
 
-          <View style={styles.signatureRow}>
-            <Text style={styles.signatureLabel}>RECEIVED BY</Text>
-            <Text style={styles.signatureLine} />
-            <DateTimeField />
-            <Text style={styles.pageLabel}>PAGE</Text>
-            <Text style={[styles.signatureLine, { width: 70, marginLeft: 4 }]} />
+          <View style={[styles.signatureRow, { justifyContent: "space-between" }]}>
+            <View style={styles.signatureSubRow}>
+              <Text style={styles.signatureLabel}>RECEIVED BY</Text>
+              <View style={styles.signatureLineWrap}>
+                <Text style={styles.signatureLine} />
+                <DateTimeField />
+              </View>
+            </View>
+            <View style={styles.signatureSubRow}>
+              <Text style={styles.pageLabel}>PAGE</Text>
+              <Text style={[styles.signatureLine, { width: 70, marginLeft: 4 }]} />
+            </View>
           </View>
         </View>
       </Page>
 
-      {/* Continuation sheet, same as blank-coc-pdf.tsx's asbestos one — more
-          rows, no meta/signature fields, just enough to stay identifiable. */}
+      {/* Continuation sheet — same real form as page 1, for when a job has
+          more samples than fit on the first page's table. No meta/signature
+          fields here, just more rows plus the project #/page # a loose
+          second sheet needs to stay identifiable. */}
       <Page size="LETTER" style={styles.page}>
         <View style={styles.header}>
           <View style={styles.headerLeft}>

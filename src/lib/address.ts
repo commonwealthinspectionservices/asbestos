@@ -19,6 +19,14 @@ export function googleMapsUrl(address: string): string {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
 }
 
+// Waze's universal link — opens the Waze app directly (with turn-by-turn
+// navigation queued up, via navigate=yes) if installed, falls back to the
+// App/Play Store listing otherwise. Same "just a formatted address string,
+// no place ID" caveat as googleMapsUrl above.
+export function wazeUrl(address: string): string {
+  return `https://waze.com/ul?q=${encodeURIComponent(address)}&navigate=yes`;
+}
+
 // Splits a formatted address into a street/business/unit line and a
 // city/state/zip line — the last two comma-separated segments are always
 // "City" and "State [Zip]", regardless of what comes before (a business

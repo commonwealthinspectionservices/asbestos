@@ -5,7 +5,7 @@ import type { Dispatch, ReactNode, SetStateAction } from "react";
 import type { Company, Customer, FullInspectionMaterial, InvoiceLineItem, JobDocument, JobWithCustomer, LabProfile, PricingZone, SampleItem, ServiceType } from "@/lib/types";
 import { defaultInvoiceLineItems, sampleDescriptionForServiceType } from "@/lib/invoice-defaults";
 import { ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK, moldServiceTypeFlags, jobReportDomains, domainForServiceTypeLabel, isFullInspectionAsbestosJob, type ReportDomain } from "@/lib/report-findings";
-import { splitAddress, parseAddressToFields, buildBillingAddress, googleMapsUrl } from "@/lib/address";
+import { splitAddress, parseAddressToFields, buildBillingAddress, googleMapsUrl, wazeUrl } from "@/lib/address";
 import { joinName, splitFullName, toTitleCase } from "@/lib/name";
 import { telHref } from "@/lib/phone";
 import type { AddressFields } from "@/lib/address";
@@ -1059,6 +1059,10 @@ function JobRow({
   onFieldChange: (patch: Record<string, unknown>) => void;
 }) {
   const { locationName, street, cityStateZip } = splitAddress(job.service_address);
+  // Mobile only — see the address block below. Desktop already opens
+  // straight to Google Maps in the detail dialog, and a driver picking a
+  // nav app is a phone-in-hand, on-the-way-there thing, not a desktop one.
+  const [showMapMenu, setShowMapMenu] = useState(false);
   const subcontractorSender = job.source === "subcontractor" ? subcontractorSenderForJob(job.customers?.email) : null;
   const customerLabel = subcontractorSender?.companyName ?? (job.customers?.company || (job.customers?.name ? toTitleCase(job.customers.name) : undefined));
   // Subcontractor jobs: the company name is replaced entirely by the same
@@ -1167,8 +1171,51 @@ function JobRow({
       <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-start">
         <div className="min-w-0 w-full sm:w-auto sm:flex-[0.9]">
           {locationName && <div className="truncate whitespace-nowrap text-sm text-slate-500">{locationName}</div>}
-          <div className="truncate whitespace-nowrap text-sm text-slate-500">{street}</div>
-          {cityStateZip && <div className="truncate whitespace-nowrap text-sm text-slate-500">{cityStateZip}</div>}
+          {/* Mobile: tapping anywhere in the address (street through zip)
+              opens a Google Maps/Waze picker instead of the job detail
+              dialog — a driver on the way there wants directions, not to
+              reopen the card they just tapped from. Desktop: unchanged
+              plain text (no picker; the detail dialog's own address link
+              already goes to Maps). */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setShowMapMenu((v) => !v); }}
+              className="block w-full text-left sm:hidden"
+            >
+              <span className="block truncate whitespace-nowrap text-sm text-slate-500 hover:underline">{street}</span>
+              {cityStateZip && <span className="block truncate whitespace-nowrap text-sm text-slate-500 hover:underline">{cityStateZip}</span>}
+            </button>
+            <div className="hidden sm:block">
+              <div className="truncate whitespace-nowrap text-sm text-slate-500">{street}</div>
+              {cityStateZip && <div className="truncate whitespace-nowrap text-sm text-slate-500">{cityStateZip}</div>}
+            </div>
+            {showMapMenu && (
+              <div
+                className="absolute z-10 mt-1 w-48 rounded-lg border border-slate-200 bg-white p-1 shadow-lg sm:hidden"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <a
+                  href={googleMapsUrl(job.service_address)}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={() => setShowMapMenu(false)}
+                  className="block rounded px-2 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+                >
+                  Open in Google Maps
+                </a>
+                <a
+                  href={wazeUrl(job.service_address)}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={() => setShowMapMenu(false)}
+                  className="block rounded px-2 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+                >
+                  Open in Waze
+                </a>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="min-w-0 w-full sm:w-auto sm:flex-[1.2]">

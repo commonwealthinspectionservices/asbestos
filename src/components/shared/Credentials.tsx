@@ -1,11 +1,12 @@
 // Public-facing licensing/credibility badges — shown on the homepage and
 // service landing pages. Deliberately just the business-level license (not
 // Tim's individual inspector license number, which stays off the public
-// site per his explicit call), and deliberately NOT claiming a "Certified
-// Mold Inspector" title — he's an InterNACHI member and passed their mold
-// inspection course, but is still an applicant for full CPI membership, so
-// this sticks to what's true today rather than overstating it. Extend
-// CREDENTIALS as more certifications (e.g. a finished CPI membership) come in.
+// site per his explicit call) plus his InterNACHI membership on its own —
+// no mention of the mold inspection course he completed through them, per
+// his call, since he's still an applicant for full CPI membership rather
+// than formally mold-certified. Extend CREDENTIALS as more certifications
+// (e.g. a finished CPI membership) come in — `detail` is optional, for a
+// card that's just a label + issuing body like this one.
 const CREDENTIALS = [
   {
     label: "Asbestos Consulting Service Provider",
@@ -14,7 +15,6 @@ const CREDENTIALS = [
   },
   {
     label: "InterNACHI Member",
-    detail: `Completed: "How to Perform Mold Inspections"`,
     issuer: "International Association of Certified Home Inspectors",
   },
 ];
@@ -28,9 +28,9 @@ export default function Credentials() {
       <div className="mx-auto mt-4 grid max-w-2xl grid-cols-1 gap-4 sm:grid-cols-2">
         {CREDENTIALS.map((c) => (
           <div key={c.label} className="rounded-lg border border-slate-200 p-4 text-center">
-            <p className="font-bold text-brand-700">{c.label}</p>
-            <p className="mt-1 text-sm text-slate-600">{c.detail}</p>
-            <p className="mt-1 text-xs text-slate-500">{c.issuer}</p>
+            <p className="text-base font-bold text-brand-700">{c.label}</p>
+            {"detail" in c && <p className="mt-1 text-base text-slate-600">{c.detail}</p>}
+            <p className="mt-1 text-base text-slate-500">{c.issuer}</p>
           </div>
         ))}
       </div>

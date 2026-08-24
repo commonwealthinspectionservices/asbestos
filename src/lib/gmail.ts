@@ -293,6 +293,44 @@ export async function markMessageRead(accessToken: string, messageId: string): P
   });
 }
 
+interface GmailLabel {
+  id: string;
+  name: string;
+}
+
+// A label an automated pipeline (job-intake being the first) applies to a
+// message it's already handled — deliberately NOT the same signal as the
+// UNREAD system label markMessageRead touches above. Confirmed live
+// 2026-08-24: the inbox owner reads/replies to these order emails himself
+// right away, often before the next 15-min poll runs, which silently
+// dropped a message this pipeline had never actually processed out of an
+// is:unread search. A label only this pipeline ever sets can't be
+// defeated by the owner's own reading habits the way is:unread can.
+// Created on first use (labelHide/messageListVisibility:hide keep it out
+// of the owner's own sidebar/message chrome — this is bookkeeping for the
+// app, not something he needs to see or manage in Gmail's own UI).
+export async function getOrCreateLabelId(accessToken: string, labelName: string): Promise<string> {
+  const listRes = await gmailFetch(accessToken, "/labels");
+  const listData = await listRes.json();
+  const existing = (listData.labels as GmailLabel[] | undefined)?.find((l) => l.name === labelName);
+  if (existing) return existing.id;
+  const createRes = await gmailFetch(accessToken, "/labels", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name: labelName, labelListVisibility: "labelHide", messageListVisibility: "hide" }),
+  });
+  const created: GmailLabel = await createRes.json();
+  return created.id;
+}
+
+export async function addLabelToMessage(accessToken: string, messageId: string, labelId: string): Promise<void> {
+  await gmailFetch(accessToken, `/messages/${messageId}/modify`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ addLabelIds: [labelId] }),
+  });
+}
+
 // RFC 2047 "encoded word" — a header value with any non-ASCII character
 // (e.g. an em dash in a Subject built from a formatted address) has to be
 // wrapped like this, or Gmail renders it as raw UTF-8 bytes misread as

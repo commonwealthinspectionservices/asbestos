@@ -26,9 +26,16 @@ import {
   getHeader,
   getMessageBodyText,
   markMessageRead,
+  getOrCreateLabelId,
+  addLabelToMessage,
   type GmailMessage,
 } from "@/lib/gmail";
 import type { Settings } from "@/lib/types";
+
+// Applied to every message this pipeline actually processes (success or
+// alerted failure) — see getOrCreateLabelId's own comment for why this,
+// not is:unread, is what candidacy is filtered on below.
+const PROCESSED_LABEL = "cis-job-intake-processed";
 
 interface JobIntakeSender {
   /**
@@ -160,6 +167,7 @@ export async function checkForJobIntakeEmails(): Promise<JobIntakeResult> {
 
   const settings = await getSettings();
   const result: JobIntakeResult = { checked: 0, created: [], unmatched: 0 };
+  const processedLabelId = await getOrCreateLabelId(accessToken, PROCESSED_LABEL);
 
   for (const sender of KNOWN_SENDERS) {
     // subject OR from:domain, not subject alone — a from:-only filter would
@@ -169,7 +177,14 @@ export async function checkForJobIntakeEmails(): Promise<JobIntakeResult> {
     // comment). Sender identity is still verified below against either the
     // direct From header or, for a forward, the original sender embedded
     // in Gmail's forward boilerplate — this query only decides candidacy.
-    const query = `is:unread newer_than:14d (subject:"${sender.subjectHint}" OR from:${sender.domain})`;
+    //
+    // -label:PROCESSED_LABEL, not is:unread — confirmed live 2026-08-24
+    // that the inbox owner reads/replies to these order emails himself
+    // right away, often before the next poll, which silently made
+    // is:unread drop a message this pipeline had never actually gotten to.
+    // PROCESSED_LABEL is only ever set by this pipeline (see below), so it
+    // can't be defeated by the owner's own reading habits.
+    const query = `newer_than:14d -label:${PROCESSED_LABEL} (subject:"${sender.subjectHint}" OR from:${sender.domain})`;
     const candidates = await listMessagesByQuery(accessToken, query);
 
     for (const candidate of candidates) {
@@ -203,6 +218,7 @@ export async function checkForJobIntakeEmails(): Promise<JobIntakeResult> {
             bodyExcerpt: bodyText,
           });
           await markMessageRead(accessToken, candidate.id);
+          await addLabelToMessage(accessToken, candidate.id, processedLabelId);
           result.unmatched++;
           continue;
         }
@@ -216,6 +232,7 @@ export async function checkForJobIntakeEmails(): Promise<JobIntakeResult> {
         // Everything else in this conversation — including the initial
         // reply to the client — stays manual, same as it already is today.
         await markMessageRead(accessToken, candidate.id);
+        await addLabelToMessage(accessToken, candidate.id, processedLabelId);
         result.created.push({ projectNumber: job.projectNumber, jobId: job.jobId });
       } catch (err) {
         console.error(`checkForJobIntakeEmails: failed to process message ${candidate.id}:`, err);
@@ -225,6 +242,7 @@ export async function checkForJobIntakeEmails(): Promise<JobIntakeResult> {
           bodyExcerpt: bodyText,
         });
         await markMessageRead(accessToken, candidate.id);
+        await addLabelToMessage(accessToken, candidate.id, processedLabelId);
         result.unmatched++;
       }
     }

@@ -115,10 +115,12 @@ const styles = StyleSheet.create({
   turnaroundLabel: { fontSize: 11, fontWeight: 700 },
   turnaroundOption: { fontSize: 11, fontWeight: 400, marginLeft: 20 },
   notes: { fontSize: 11, fontStyle: "italic" },
-  emailNote: { fontSize: 11, fontStyle: "italic", textAlign: "right", marginTop: 8 },
-  dateNeededRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 14 },
+  emailNote: { fontSize: 11, fontStyle: "italic", textAlign: "right", marginTop: 10 },
+  dateNeededRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 10 },
   dateNeededLabel: { fontSize: 11, fontWeight: 700, marginRight: 4 },
-  dateNeededValue: { width: 220, borderBottomWidth: 0.5, borderBottomColor: LINE_COLOR },
+  // Same width as the asbestos form's — wider (220) ran under the
+  // "Please email..." note now sitting above this line.
+  dateNeededValue: { width: 160, borderBottomWidth: 0.5, borderBottomColor: LINE_COLOR },
   signatureRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 24 },
   signatureSubRow: { flexDirection: "row", alignItems: "flex-end" },
   // Fixed width (not auto-sized to the text) so "RELINQUISHED BY" and the

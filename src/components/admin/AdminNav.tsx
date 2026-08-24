@@ -10,6 +10,7 @@ const NAV_LINKS = [
   { href: "/admin/schedule", label: "Schedule" },
   { href: "/admin/customers", label: "Directory" },
   { href: "/admin/rays-library", label: "Ray's Library" },
+  { href: "/admin/chain-of-custody", label: "Chain of Custody" },
   { href: "/admin/settings", label: "Settings" },
 ];
 

@@ -10,7 +10,6 @@ import type { Job, Customer, Settings } from "@/lib/types";
 // an air sample does, and mold has no inspector-license line the way
 // asbestos does.
 const LETTERHEAD_PATH = path.join(process.cwd(), "public", "letterhead-blue.png");
-const BLANK_ROW_COUNT = 20;
 const PAGE_TWO_ROW_COUNT = 20;
 const LINE_COLOR = "#000000";
 
@@ -20,27 +19,35 @@ export type MoldSampleType = "air_o_cell" | "bulk" | "swab";
 // beside DATE NEEDED — same split blank-coc-pdf.tsx uses for its two
 // notes. Air-O-Cell has both: Spore Trap Analysis beside TURNAROUND, and
 // the fixed-75ml note beside DATE NEEDED (worth noting once rather than
-// on every one of BLANK_ROW_COUNT rows regardless of how many samples an
-// actual job has). Bulk and swab only have the one Direct Examination
-// note, and it goes beside DATE NEEDED — TURNAROUND renders alone.
-const SAMPLE_TYPE_CONFIG: Record<MoldSampleType, { title: string; thirdColumnLabel: string; turnaroundNote: string | null; dateNeededNote: string | null }> = {
+// on every row regardless of how many samples an actual job has). Bulk
+// and swab only have the one Direct Examination note, and it goes beside
+// DATE NEEDED — TURNAROUND renders alone (see the signature row below).
+//
+// rowCount is 10 for Air-O-Cell, not the usual 20 — a real job rarely
+// pulls more than a handful of air samples, so the table (flex:1, fills
+// whatever's left on the page) stretches each row roughly twice as tall
+// instead of leaving 10 rows sitting unused.
+const SAMPLE_TYPE_CONFIG: Record<MoldSampleType, { title: string; thirdColumnLabel: string; turnaroundNote: string | null; dateNeededNote: string | null; rowCount: number }> = {
   air_o_cell: {
     title: "MOLD AIR-O-CELL SAMPLE CHAIN OF CUSTODY",
     thirdColumnLabel: "VOLUME",
     turnaroundNote: "*Samples for analysis by Spore Trap Analysis",
     dateNeededNote: "*The volume for all Air-O-Cell samples is 75ml",
+    rowCount: 10,
   },
   bulk: {
     title: "MOLD BULK SAMPLE CHAIN OF CUSTODY",
     thirdColumnLabel: "MATERIAL",
     turnaroundNote: null,
     dateNeededNote: "*Samples for analysis by Direct Examination",
+    rowCount: 20,
   },
   swab: {
     title: "MOLD SWAB SAMPLE CHAIN OF CUSTODY",
     thirdColumnLabel: "SURFACE SWABBED",
     turnaroundNote: null,
     dateNeededNote: "*Samples for analysis by Direct Examination",
+    rowCount: 20,
   },
 };
 
@@ -171,7 +178,7 @@ function MoldCocDocument({ job, customer, sampleType }: MoldCocData) {
             <Text style={[styles.tableHeaderCell, styles.colThird]}>{config.thirdColumnLabel}</Text>
             <Text style={[styles.tableHeaderCell, styles.colLocation, { borderRightWidth: 0 }]}>LOCATION</Text>
           </View>
-          {Array.from({ length: BLANK_ROW_COUNT }).map((_, i) => (
+          {Array.from({ length: config.rowCount }).map((_, i) => (
             <View style={styles.tableRow} key={i}>
               <View style={styles.colSample} />
               <View style={styles.colThird} />

@@ -4,8 +4,21 @@ import MarketingNav from "@/components/marketing/MarketingNav";
 import MarketingFooter from "@/components/marketing/MarketingFooter";
 import FaqAccordion from "@/components/marketing/FaqAccordion";
 import IndependentTestingBanner from "@/components/shared/IndependentTestingBanner";
+import Credentials from "@/components/shared/Credentials";
 import { localTowns, REGION_CONTEXT } from "@/lib/local-towns";
 import { faqs } from "@/lib/faqs";
+
+// Mirrors the real pricing model (base fee + per-sample lab cost) behind
+// the site's own pricing estimator and the mold cost blog post — not
+// independently maintained numbers, just presented as a table here since
+// that's a much easier format to scan than a paragraph when someone's
+// specifically trying to budget for it.
+const PRICING_ROWS = [
+  { label: "1 area + outdoor baseline (2 samples)", price: "$620" },
+  { label: "2 areas + outdoor baseline (3 samples)", price: "$705" },
+  { label: "3 areas + outdoor baseline (4 samples)", price: "$790" },
+  { label: "4 areas + outdoor baseline (5 samples)", price: "$875" },
+];
 
 const moldFaqs = faqs.filter((f) => f.category === "mold");
 
@@ -54,13 +67,37 @@ export default function TownMoldTestingPage({ params }: { params: { town: string
             </p>
           </div>
           <div className="rounded-lg border border-slate-200 p-4">
-            <h3 className="font-bold text-brand-700">Pricing</h3>
+            <h3 className="font-bold text-brand-700">Pricing in {town.name}</h3>
             <p className="mt-1 text-slate-700">
-              Most mold air sampling visits run $700 to $900, depending on how many areas of
-              the home are tested. Get a specific estimate for your address with the pricing
-              estimator on the homepage.
+              Same rate everywhere in Massachusetts — a base visit fee plus a per-sample lab
+              cost, no regional markup for {town.name} specifically.
+            </p>
+            <div className="mt-3 overflow-x-auto">
+              <table className="w-full min-w-[360px] border-collapse text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 text-left text-slate-500">
+                    <th className="py-1.5 pr-2 font-medium">Scope</th>
+                    <th className="py-1.5 pl-2 text-right font-medium">Typical Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {PRICING_ROWS.map((row) => (
+                    <tr key={row.label} className="border-b border-slate-100 last:border-0">
+                      <td className="py-1.5 pr-2 text-slate-700">{row.label}</td>
+                      <td className="py-1.5 pl-2 text-right font-medium text-brand-700">{row.price}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-2 text-xs text-slate-500">
+              Get an exact quote for your address with the pricing estimator on the homepage.
             </p>
           </div>
+        </div>
+
+        <div className="mt-6">
+          <Credentials show={["internachi"]} />
         </div>
 
         {moldFaqs.length > 0 && (

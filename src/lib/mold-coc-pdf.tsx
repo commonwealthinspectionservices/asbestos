@@ -28,10 +28,14 @@ export type MoldSampleType = "air_o_cell" | "bulk" | "swab";
 // roughly twice as tall instead of leaving half the rows unused. No
 // continuation page either — 10 rows is already more than a real mold
 // job needs, unlike the asbestos form's own two-page design.
-const SAMPLE_TYPE_CONFIG: Record<MoldSampleType, { title: string; thirdColumnLabel: string; turnaroundNote: string | null; dateNeededNote: string | null; rowCount: number }> = {
+// thirdColumnLabel is null for Air-O-Cell — every sample is the same
+// fixed 75ml (see dateNeededNote below), so a per-row VOLUME column would
+// just repeat that on every line. Table collapses to SAMPLE #/LOCATION
+// only, with LOCATION taking the full remaining width.
+const SAMPLE_TYPE_CONFIG: Record<MoldSampleType, { title: string; thirdColumnLabel: string | null; turnaroundNote: string | null; dateNeededNote: string | null; rowCount: number }> = {
   air_o_cell: {
     title: "MOLD AIR-O-CELL SAMPLE CHAIN OF CUSTODY",
-    thirdColumnLabel: "VOLUME",
+    thirdColumnLabel: null,
     turnaroundNote: "*Samples for analysis by Spore Trap Analysis",
     dateNeededNote: "*The volume for all Air-O-Cell samples is 75ml",
     rowCount: 10,
@@ -172,13 +176,13 @@ function MoldCocDocument({ job, customer, sampleType }: MoldCocData) {
         <View style={styles.table}>
           <View style={styles.tableHeaderRow}>
             <Text style={[styles.tableHeaderCell, styles.colSample]}>SAMPLE #</Text>
-            <Text style={[styles.tableHeaderCell, styles.colThird]}>{config.thirdColumnLabel}</Text>
+            {config.thirdColumnLabel && <Text style={[styles.tableHeaderCell, styles.colThird]}>{config.thirdColumnLabel}</Text>}
             <Text style={[styles.tableHeaderCell, styles.colLocation, { borderRightWidth: 0 }]}>LOCATION</Text>
           </View>
           {Array.from({ length: config.rowCount }).map((_, i) => (
             <View style={styles.tableRow} key={i}>
               <View style={styles.colSample} />
-              <View style={styles.colThird} />
+              {config.thirdColumnLabel && <View style={styles.colThird} />}
               <View style={styles.colLocation} />
             </View>
           ))}

@@ -130,9 +130,9 @@ function BlankCocDocument({ job, customer, settings }: BlankCocData) {
         <View style={styles.metaGrid}>
           <View style={styles.metaRow}>
             <Text style={styles.metaLabel}>CLIENT</Text>
-            <Text style={styles.metaValue}>{clientLabel}</Text>
+            <Text style={[styles.metaValue, { flex: 2 }]}>{clientLabel}</Text>
             <Text style={styles.metaLabel}>PROJECT #</Text>
-            <Text style={styles.metaValue}>{job?.project_number ?? ""}</Text>
+            <Text style={[styles.metaValue, { flex: 0.5 }]}>{job?.project_number ?? ""}</Text>
             <Text style={styles.metaLabel}>DATE</Text>
             <Text style={styles.metaValueLast}>{formatDateMDY(job?.requested_date) ?? ""}</Text>
           </View>

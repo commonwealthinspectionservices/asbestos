@@ -3,6 +3,7 @@ import { requireCronAuth, withCronAlert } from "@/lib/cron-auth";
 import { withApiErrors } from "@/lib/api-handler";
 import { checkForJobIntakeEmails } from "@/lib/job-intake";
 import { getGmailConnectionStatus } from "@/lib/gmail";
+import { getSupabaseAdminFresh } from "@/lib/supabase";
 
 // Reads req.headers (via requireCronAuth) — without this, Next tries to
 // statically render the route at build time and throws "Dynamic server
@@ -22,6 +23,20 @@ export const dynamic = "force-dynamic";
 export const GET = withApiErrors(withCronAlert("check-job-intake", async (req: NextRequest) => {
   const unauthorized = requireCronAuth(req);
   if (unauthorized) return unauthorized;
+
+  // TEMPORARY — one-off read-only diagnostic for the 26-0003/Framingham-
+  // data mixup reported 2026-08-24. Remove once resolved.
+  const debugProjectNumber = req.nextUrl.searchParams.get("debug_project_number");
+  if (debugProjectNumber) {
+    const supabase = getSupabaseAdminFresh();
+    const { data, error } = await supabase
+      .from("jobs")
+      .select("*, customers(id, name, company, email, phone)")
+      .eq("project_number", debugProjectNumber)
+      .maybeSingle();
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ job: data });
+  }
 
   const result = await checkForJobIntakeEmails();
   // connectedEmail is a cheap, ongoing diagnostic — the search silently

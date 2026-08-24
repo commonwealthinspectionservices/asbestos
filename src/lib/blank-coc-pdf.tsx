@@ -14,6 +14,13 @@ const LETTERHEAD_PATH = path.join(process.cwd(), "public", "letterhead-blue.png"
 const BLANK_ROW_COUNT = 20;
 const PAGE_TWO_ROW_COUNT = 20;
 const LINE_COLOR = "#000000";
+// Single-side borders (borderBottomWidth/borderRightWidth used alone, as
+// almost every line on this form is) render roughly 2x their declared
+// width in react-pdf — confirmed by comparing rendered stroke width against
+// the table's own all-sides borderWidth, which renders at its literal
+// value. Declaring those at 0.5 here makes every line on the page the same
+// visual weight instead of the table's outer box looking thinner than
+// everything inside it.
 
 const styles = StyleSheet.create({
   // paddingBottom has to clear more than the last row's own text — the
@@ -31,11 +38,13 @@ const styles = StyleSheet.create({
   metaGrid: { marginBottom: 8 },
   metaTopRow: { flexDirection: "row", alignItems: "flex-end", marginBottom: 12 },
   metaBottomRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 14 },
-  metaLabel: { fontWeight: 700, marginRight: 4 },
+  // Fixed width + right-align so "CLIENT" and "SITE" end at the same x,
+  // same trick as metaLabelRight for DATE/PROJECT #.
+  metaLabel: { width: 50, textAlign: "right", fontWeight: 700, marginRight: 4 },
   // CLIENT/SITE share this — a flexible field that fills whatever's left
   // once the fixed-width DATE/PROJECT # column (metaRightField) is placed.
   metaLeftField: { flex: 1, flexDirection: "row", alignItems: "flex-end" },
-  metaLeftValue: { flex: 1, borderBottomWidth: 1, borderBottomColor: LINE_COLOR, marginRight: 20 },
+  metaLeftValue: { flex: 1, borderBottomWidth: 0.5, borderBottomColor: LINE_COLOR, marginRight: 20 },
   // PROJECT # sits directly under DATE — same fixed width both rows, so
   // their lines end up the exact same length; the label itself is right-
   // aligned within a shared fixed width so "DATE" and "PROJECT #" end at
@@ -43,7 +52,7 @@ const styles = StyleSheet.create({
   // two labels being different lengths.
   metaRightField: { width: 190, flexDirection: "row", alignItems: "flex-end" },
   metaLabelRight: { width: 65, textAlign: "right", fontWeight: 700, marginRight: 4 },
-  metaValueRight: { flex: 1, borderBottomWidth: 1, borderBottomColor: LINE_COLOR },
+  metaValueRight: { flex: 1, borderBottomWidth: 0.5, borderBottomColor: LINE_COLOR },
   // flex: 1 (with a following sibling — footer below) so the table's rows
   // stretch to fill the page's remaining height, same proven pattern as
   // page2Table. Confirmed live: flex-grow on a *trailing* element (no
@@ -51,11 +60,11 @@ const styles = StyleSheet.create({
   // only reliably claims space when something follows it, which is why
   // this grows the table (before the footer) rather than the footer itself.
   table: { flex: 1, borderWidth: 1, borderColor: LINE_COLOR },
-  tableHeaderRow: { flexDirection: "row", borderBottomWidth: 1, borderBottomColor: LINE_COLOR },
-  tableHeaderCell: { fontSize: 11, fontWeight: 700, textAlign: "center", padding: 5, borderRightWidth: 1, borderRightColor: LINE_COLOR },
-  tableRow: { flexDirection: "row", borderBottomWidth: 1, borderBottomColor: LINE_COLOR, minHeight: 20, flexGrow: 1 },
-  colSample: { width: 66, borderRightWidth: 1, borderRightColor: LINE_COLOR },
-  colMaterial: { flex: 1, borderRightWidth: 1, borderRightColor: LINE_COLOR },
+  tableHeaderRow: { flexDirection: "row", borderBottomWidth: 0.5, borderBottomColor: LINE_COLOR },
+  tableHeaderCell: { fontSize: 11, fontWeight: 700, textAlign: "center", padding: 5, borderRightWidth: 0.5, borderRightColor: LINE_COLOR },
+  tableRow: { flexDirection: "row", borderBottomWidth: 0.5, borderBottomColor: LINE_COLOR, minHeight: 20, flexGrow: 1 },
+  colSample: { width: 66, borderRightWidth: 0.5, borderRightColor: LINE_COLOR },
+  colMaterial: { flex: 1, borderRightWidth: 0.5, borderRightColor: LINE_COLOR },
   colLocation: { flex: 1 },
   // Matches the owner's real form's own gaps below the table — not
   // perfectly uniform (15/17/24pt below), that's genuinely how the
@@ -68,7 +77,7 @@ const styles = StyleSheet.create({
   notes: { fontSize: 11, fontStyle: "italic" },
   dateNeededRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 24 },
   dateNeededLabel: { fontSize: 11, fontWeight: 700, marginRight: 4 },
-  dateNeededValue: { width: 160, borderBottomWidth: 1, borderBottomColor: LINE_COLOR },
+  dateNeededValue: { width: 160, borderBottomWidth: 0.5, borderBottomColor: LINE_COLOR },
   signatureRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 24 },
   signatureSubRow: { flexDirection: "row", alignItems: "flex-end" },
   // Fixed width (not auto-sized to the text) so "RELINQUISHED BY" and the
@@ -82,7 +91,7 @@ const styles = StyleSheet.create({
   // RELINQUISHED BY's. A fixed width sized to fit RECEIVED BY's more
   // crowded row keeps both lines identical.
   signatureLineWrap: { position: "relative", width: 320 },
-  signatureLine: { borderBottomWidth: 1, borderBottomColor: LINE_COLOR },
+  signatureLine: { borderBottomWidth: 0.5, borderBottomColor: LINE_COLOR },
   pageLabel: { fontSize: 11, fontWeight: 700, marginLeft: 16 },
   // The date/time sits ON the line itself — right-anchored inside the same
   // box the line occupies — rather than as its own element appended after
@@ -95,7 +104,7 @@ const styles = StyleSheet.create({
   page2Table: { flex: 1, borderWidth: 1, borderColor: LINE_COLOR, marginTop: 4 },
   page2Footer: { flexDirection: "row", justifyContent: "flex-end", alignItems: "flex-end", marginTop: 22 },
   page2FieldLabel: { fontSize: 11, fontWeight: 700, marginRight: 4 },
-  page2FieldValue: { width: 120, borderBottomWidth: 1, borderBottomColor: LINE_COLOR, marginRight: 20 },
+  page2FieldValue: { width: 120, borderBottomWidth: 0.5, borderBottomColor: LINE_COLOR, marginRight: 20 },
 });
 
 // A pre-slashed date/time fill-in overlaid on a signature line, exactly

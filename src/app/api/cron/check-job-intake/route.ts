@@ -29,13 +29,19 @@ export const GET = withApiErrors(withCronAlert("check-job-intake", async (req: N
   const debugProjectNumber = req.nextUrl.searchParams.get("debug_project_number");
   if (debugProjectNumber) {
     const supabase = getSupabaseAdminFresh();
-    const { data, error } = await supabase
+    const { data: job, error } = await supabase
       .from("jobs")
-      .select("*, customers(id, name, company, email, phone)")
+      .select("*")
       .eq("project_number", debugProjectNumber)
       .maybeSingle();
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json({ job: data });
+    if (!job) return NextResponse.json({ job: null });
+    const { data: customer } = await supabase
+      .from("customers")
+      .select("id, name, company, email, phone")
+      .eq("id", job.customer_id)
+      .maybeSingle();
+    return NextResponse.json({ job, customer });
   }
 
   const result = await checkForJobIntakeEmails();

@@ -53,7 +53,7 @@ If you're working with an agent, it's worth asking whether they can help coordin
     slug: "how-much-does-mold-air-sampling-cost-in-massachusetts",
     title: `How Much Does Mold Air Sampling Cost in Massachusetts?`,
     excerpt: `Most mold air sampling in Massachusetts runs between $700 and $900, depending on how many areas of the home need to be tested.`,
-    image: "/marketing/mold-sample.jpg",
+    image: "/marketing/icon-microscope.png",
     body: `If you're dealing with a musty smell, recent water damage, or you just want a clear answer about your indoor air quality, cost is usually the first question. Most mold air sampling in Massachusetts runs between $700 and $900, depending on how many areas of the home need to be tested and whether an outdoor baseline sample is included.
 
 Air sampling works by pulling a measured volume of air through a small cassette in a specific room or area, then sending that sample to a lab and comparing the spore count and types against an outdoor baseline sample taken at the same time. That comparison is what actually answers the question — a house can "smell musty" for all kinds of reasons, and the only way to know whether indoor mold spore counts are genuinely elevated compared to the air outside is to test both and compare them side by side.

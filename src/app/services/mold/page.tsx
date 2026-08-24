@@ -26,7 +26,7 @@ export default function MoldServicePage() {
         </div>
 
         <div className="mt-10">
-          <Credentials />
+          <Credentials show={["internachi"]} />
         </div>
       </div>
       <MarketingFooter />

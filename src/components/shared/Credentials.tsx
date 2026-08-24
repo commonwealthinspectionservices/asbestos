@@ -8,17 +8,32 @@
 // mention of the mold inspection course he completed through InterNACHI,
 // since he's still an applicant for full CPI membership rather than
 // formally mold-certified. Extend CREDENTIALS as more come in.
-const CREDENTIALS = [
+//
+// Field order (label, then issuer, then detail) is deliberate — the license
+// number reads as the "fine print" and belongs last/at the bottom, not
+// sandwiched between the title and the issuing body.
+const CREDENTIALS: {
+  key: string;
+  label: string;
+  issuer: string;
+  detail?: string;
+  /** Mobile-only manual line break point within `issuer` — natural wrap on
+   * a narrow screen split "Certified" from "Home Inspectors" instead, which
+   * reads worse than breaking after "of". Desktop has room to stay on one
+   * line, so this only affects the stacked mobile rendering. */
+  mobileIssuerBreakAfter?: string;
+}[] = [
   {
     key: "asbestos",
     label: "Asbestos Consulting Service Provider",
-    detail: "License #AF154",
     issuer: "Mass. Department of Labor Standards",
+    detail: "License #AF154",
   },
   {
     key: "internachi",
     label: "InterNACHI Member",
     issuer: "International Association of Certified Home Inspectors",
+    mobileIssuerBreakAfter: "International Association of",
   },
 ];
 
@@ -33,11 +48,30 @@ export default function Credentials({ show }: { show?: string[] }) {
       </h2>
       <div className="mx-auto mt-4 space-y-3">
         {items.map((c) => (
-          <div key={c.key} className="overflow-x-auto rounded-lg border border-slate-200 p-4 text-center">
-            <p className="whitespace-nowrap text-sm sm:text-base">
+          <div key={c.key} className="rounded-lg border border-slate-200 p-4 text-center">
+            {/* Mobile: no room for one line, so each piece of information
+                (label, issuer, license #) gets its own line instead of
+                wrapping mid-sentence or forcing a horizontal scroll. */}
+            <div className="sm:hidden">
+              <p className="text-base font-bold text-brand-700">{c.label}</p>
+              <p className="mt-1 text-base text-slate-500">
+                {c.mobileIssuerBreakAfter ? (
+                  <>
+                    {c.mobileIssuerBreakAfter}
+                    <br />
+                    {c.issuer.slice(c.mobileIssuerBreakAfter.length + 1)}
+                  </>
+                ) : (
+                  c.issuer
+                )}
+              </p>
+              {c.detail && <p className="mt-1 text-base text-slate-600">{c.detail}</p>}
+            </div>
+            {/* Desktop: enough width for all of it on one line. */}
+            <p className="hidden whitespace-nowrap text-base sm:block">
               <span className="font-bold text-brand-700">{c.label}</span>
-              {c.detail && <span className="text-slate-600"> — {c.detail}</span>}
               <span className="text-slate-500"> — {c.issuer}</span>
+              {c.detail && <span className="text-slate-600"> — {c.detail}</span>}
             </p>
           </div>
         ))}

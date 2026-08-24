@@ -72,7 +72,12 @@ const styles = StyleSheet.create({
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 11 },
   headerLeft: { flexDirection: "row", alignItems: "center" },
   letterhead: { width: 283, height: 55 },
+  // Stacked under the title, not its own footer line — the header row's
+  // height is set by the 55pt letterhead image, so this fits inside it
+  // for free without shrinking the table (which claims whatever's left).
+  titleBlock: { alignItems: "flex-end" },
   title: { fontSize: 11, fontWeight: 700 },
+  emailNote: { fontSize: 8, fontStyle: "italic", marginTop: 3 },
   // Two rows: CLIENT+DATE, then SITE+PROJECT # directly under it. SITE
   // sits close under the table (small marginBottom here) but well clear
   // of the row above it (metaBottomRow carries its own marginTop instead).
@@ -174,7 +179,10 @@ function MoldCocDocument({ job, customer, sampleType }: MoldCocData) {
           <View style={styles.headerLeft}>
             <Image src={LETTERHEAD_PATH} style={styles.letterhead} />
           </View>
-          <Text style={styles.title}>{config.title}</Text>
+          <View style={styles.titleBlock}>
+            <Text style={styles.title}>{config.title}</Text>
+            <Text style={styles.emailNote}>Please email all results to tim@commonwealthinspectionservices.com</Text>
+          </View>
         </View>
 
         <View style={styles.metaGrid}>

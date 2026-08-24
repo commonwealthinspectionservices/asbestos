@@ -1181,7 +1181,15 @@ function JobRow({
           })()}
         </div>
 
-        <div className="flex min-w-0 w-full sm:w-auto sm:flex-[0.9] sm:justify-end">
+        <div className="flex min-w-0 w-full flex-col items-start gap-1.5 sm:w-auto sm:flex-[0.9] sm:items-end">
+          {/* Site contact (usually the homeowner) — shown regardless of
+              status so the admin can always find this number on the card,
+              not just while the job is still unscheduled. */}
+          {(job.site_contact_name || job.site_contact_phone) && (
+            <span className="min-w-0 truncate whitespace-nowrap text-sm text-slate-500" onClick={(e) => e.stopPropagation()}>
+              {job.site_contact_name}{job.site_contact_phone ? ` ${formatPhoneInput(job.site_contact_phone)}` : ""}
+            </span>
+          )}
           {CLOSED_STATUSES.has(job.status) ? (
             <div className="flex flex-col items-start gap-0.5 px-1.5 py-1 text-xs text-slate-500 sm:items-end">
               <span>Date of Project: {formatDate(job.requested_date) || "—"}</span>
@@ -1200,9 +1208,6 @@ function JobRow({
             // on mobile could trigger off a half-picked date before the
             // admin ever reached the time field.
             <div className="flex w-full shrink-0 flex-col items-start gap-1.5 sm:w-auto sm:items-end" onClick={(e) => e.stopPropagation()}>
-              <span className="min-w-0 truncate whitespace-nowrap text-sm text-slate-500">
-                {job.site_contact_name}{job.site_contact_phone ? ` ${formatPhoneInput(job.site_contact_phone)}` : ""}
-              </span>
               <div className="flex w-full items-center gap-2 sm:w-auto">
                 <input
                   type="date"

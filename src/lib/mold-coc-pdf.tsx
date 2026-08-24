@@ -10,7 +10,6 @@ import type { Job, Customer, Settings } from "@/lib/types";
 // an air sample does, and mold has no inspector-license line the way
 // asbestos does.
 const LETTERHEAD_PATH = path.join(process.cwd(), "public", "letterhead-blue.png");
-const PAGE_TWO_ROW_COUNT = 20;
 const LINE_COLOR = "#000000";
 
 export type MoldSampleType = "air_o_cell" | "bulk" | "swab";
@@ -23,10 +22,12 @@ export type MoldSampleType = "air_o_cell" | "bulk" | "swab";
 // and swab only have the one Direct Examination note, and it goes beside
 // DATE NEEDED — TURNAROUND renders alone (see the signature row below).
 //
-// rowCount is 10 for Air-O-Cell, not the usual 20 — a real job rarely
-// pulls more than a handful of air samples, so the table (flex:1, fills
-// whatever's left on the page) stretches each row roughly twice as tall
-// instead of leaving 10 rows sitting unused.
+// rowCount is 10 for every mold sample type — real mold jobs never pull
+// anywhere near the 20 samples the asbestos form is sized for, so the
+// table (flex:1, fills whatever's left on the page) stretches each row
+// roughly twice as tall instead of leaving half the rows unused. No
+// continuation page either — 10 rows is already more than a real mold
+// job needs, unlike the asbestos form's own two-page design.
 const SAMPLE_TYPE_CONFIG: Record<MoldSampleType, { title: string; thirdColumnLabel: string; turnaroundNote: string | null; dateNeededNote: string | null; rowCount: number }> = {
   air_o_cell: {
     title: "MOLD AIR-O-CELL SAMPLE CHAIN OF CUSTODY",
@@ -40,14 +41,14 @@ const SAMPLE_TYPE_CONFIG: Record<MoldSampleType, { title: string; thirdColumnLab
     thirdColumnLabel: "MATERIAL",
     turnaroundNote: null,
     dateNeededNote: "*Samples for analysis by Direct Examination",
-    rowCount: 20,
+    rowCount: 10,
   },
   swab: {
     title: "MOLD SWAB SAMPLE CHAIN OF CUSTODY",
     thirdColumnLabel: "SURFACE SWABBED",
     turnaroundNote: null,
     dateNeededNote: "*Samples for analysis by Direct Examination",
-    rowCount: 20,
+    rowCount: 10,
   },
 };
 
@@ -71,11 +72,11 @@ const styles = StyleSheet.create({
   metaValueLast: { flex: 1, borderBottomWidth: 1, borderBottomColor: LINE_COLOR },
   metaValueWide: { flex: 1, borderBottomWidth: 1, borderBottomColor: LINE_COLOR },
   // flex: 1 (with a following sibling — footer below) so the table's rows
-  // stretch to fill the page's remaining height, same proven pattern as
-  // page2Table. Confirmed live: flex-grow on a *trailing* element (no
-  // sibling after it) is unreliable in react-pdf's pagination pass — it
-  // only reliably claims space when something follows it, which is why
-  // this grows the table (before the footer) rather than the footer itself.
+  // stretch to fill the page's remaining height. Confirmed live: flex-grow
+  // on a *trailing* element (no sibling after it) is unreliable in
+  // react-pdf's pagination pass — it only reliably claims space when
+  // something follows it, which is why this grows the table (before the
+  // footer) rather than the footer itself.
   table: { flex: 1, borderWidth: 1, borderColor: LINE_COLOR },
   tableHeaderRow: { flexDirection: "row", borderBottomWidth: 1, borderBottomColor: LINE_COLOR },
   tableHeaderCell: { fontSize: 11, fontWeight: 700, textAlign: "center", padding: 5, borderRightWidth: 1, borderRightColor: LINE_COLOR },
@@ -117,10 +118,6 @@ const styles = StyleSheet.create({
   dateTimeOverlay: { position: "absolute", right: 4, bottom: -13, alignItems: "center" },
   dateTimeSlashes: { fontSize: 11, letterSpacing: 6 },
   dateTimeCaption: { fontSize: 8, color: "#000000", marginTop: 10 },
-  page2Table: { flex: 1, borderWidth: 1, borderColor: LINE_COLOR, marginTop: 4 },
-  page2Footer: { flexDirection: "row", justifyContent: "flex-end", alignItems: "flex-end", marginTop: 22 },
-  page2FieldLabel: { fontSize: 11, fontWeight: 700, marginRight: 4 },
-  page2FieldValue: { width: 120, borderBottomWidth: 1, borderBottomColor: LINE_COLOR, marginRight: 20 },
 });
 
 // A pre-slashed date/time fill-in overlaid on a signature line, exactly
@@ -248,41 +245,6 @@ function MoldCocDocument({ job, customer, sampleType }: MoldCocData) {
               <Text style={[styles.signatureLine, { width: 70, marginLeft: 4 }]} />
             </View>
           </View>
-        </View>
-      </Page>
-
-      {/* Continuation sheet — same real form as page 1, for when a job has
-          more samples than fit on the first page's table. No meta/signature
-          fields here, just more rows plus the project #/page # a loose
-          second sheet needs to stay identifiable. */}
-      <Page size="LETTER" style={styles.page}>
-        <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            <Image src={LETTERHEAD_PATH} style={styles.letterhead} />
-          </View>
-          <Text style={styles.title}>{config.title}</Text>
-        </View>
-
-        <View style={styles.page2Table}>
-          <View style={styles.tableHeaderRow}>
-            <Text style={[styles.tableHeaderCell, styles.colSample]}>SAMPLE #</Text>
-            <Text style={[styles.tableHeaderCell, styles.colThird]}>{config.thirdColumnLabel}</Text>
-            <Text style={[styles.tableHeaderCell, styles.colLocation, { borderRightWidth: 0 }]}>LOCATION</Text>
-          </View>
-          {Array.from({ length: PAGE_TWO_ROW_COUNT }).map((_, i) => (
-            <View style={styles.tableRow} key={i}>
-              <View style={styles.colSample} />
-              <View style={styles.colThird} />
-              <View style={styles.colLocation} />
-            </View>
-          ))}
-        </View>
-
-        <View style={styles.page2Footer}>
-          <Text style={styles.page2FieldLabel}>PROJECT #</Text>
-          <Text style={styles.page2FieldValue}>{job?.project_number ?? ""}</Text>
-          <Text style={styles.pageLabel}>PAGE</Text>
-          <Text style={[styles.dateNeededValue, { width: 60, marginLeft: 4 }]} />
         </View>
       </Page>
     </Document>

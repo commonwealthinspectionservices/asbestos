@@ -821,7 +821,7 @@ export default function JobsDashboard() {
           <select
             value={mobileSortFilterValue}
             onChange={(e) => handleMobileSortFilterChange(e.target.value)}
-            className="w-full appearance-none rounded-lg border border-slate-300 bg-white py-2 pl-3 pr-8 text-sm text-slate-700"
+            className={`w-full appearance-none rounded-lg border border-slate-300 bg-white py-2 pl-3 pr-8 text-sm ${mobileSortFilterValue === "" ? "text-gray-400" : "text-slate-700"}`}
           >
             <option value="">Sort by</option>
             {SORT_FIELDS.map((f) => (

@@ -331,6 +331,14 @@ export async function addLabelToMessage(accessToken: string, messageId: string, 
   });
 }
 
+export async function removeLabelFromMessage(accessToken: string, messageId: string, labelId: string): Promise<void> {
+  await gmailFetch(accessToken, `/messages/${messageId}/modify`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ removeLabelIds: [labelId] }),
+  });
+}
+
 // RFC 2047 "encoded word" — a header value with any non-ASCII character
 // (e.g. an em dash in a Subject built from a formatted address) has to be
 // wrapped like this, or Gmail renders it as raw UTF-8 bytes misread as

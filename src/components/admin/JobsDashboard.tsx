@@ -1233,13 +1233,19 @@ function JobRow({
                     a native date input's own min-content width (its "mm /
                     dd / yyyy" segments have real intrinsic width even once
                     colored transparent) won out over Time's shorter
-                    content, leaving Date visibly wider on real devices. */}
+                    content, leaving Date visibly wider on real devices.
+                    iOS Safari specifically goes further and ignores an
+                    explicit width on input[type=date] entirely while its
+                    native chrome is intact — appearance-none strips that
+                    chrome so the box actually obeys w-28 like every other
+                    input here, matching Time's plain custom-styled look
+                    too instead of iOS's own pill-shaped date control. */}
                 <div className="relative w-28 min-w-0 shrink-0">
                   <input
                     type="date"
                     value={manualDate}
                     onChange={(e) => setManualDate(e.target.value)}
-                    className={`peer w-full min-w-0 rounded-lg border border-slate-300 px-1.5 py-1 text-xs ${manualDate ? "text-slate-600" : "text-transparent focus:text-slate-600"}`}
+                    className={`peer w-full min-w-0 appearance-none rounded-lg border border-slate-300 px-1.5 py-1 text-xs ${manualDate ? "text-slate-600" : "text-transparent focus:text-slate-600"}`}
                   />
                   {!manualDate && (
                     <span className="pointer-events-none absolute inset-0 flex items-center px-1.5 text-xs text-slate-600 peer-focus:hidden">Date</span>

@@ -291,6 +291,17 @@ function formatPhoneInput(value: string): string {
   return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
 }
 
+// Site contact names come in from email intake as free text (e.g. all
+// lowercase from an email signature) — capitalized for display only, the
+// stored value is left as-is.
+function toTitleCase(value: string): string {
+  return value
+    .toLowerCase()
+    .split(" ")
+    .map((word) => word.split("-").map((part) => (part ? part[0].toUpperCase() + part.slice(1) : part)).join("-"))
+    .join(" ");
+}
+
 // report_drafted_at/report_sent_at are full timestamptz values (unlike the
 // plain "date" columns formatDate handles) — shown with a time so the admin
 // can tell two same-day drafts apart, not just the date.
@@ -1187,7 +1198,15 @@ function JobRow({
               not just while the job is still unscheduled. */}
           {(job.site_contact_name || job.site_contact_phone) && (
             <span className="min-w-0 truncate whitespace-nowrap text-sm text-slate-500" onClick={(e) => e.stopPropagation()}>
-              {job.site_contact_name}{job.site_contact_phone ? ` ${formatPhoneInput(job.site_contact_phone)}` : ""}
+              {job.site_contact_name ? toTitleCase(job.site_contact_name) : ""}
+              {job.site_contact_phone ? (
+                <>
+                  {" "}
+                  <a href={`tel:${job.site_contact_phone.replace(/\D/g, "")}`} className="text-brand-700 hover:underline">
+                    {formatPhoneInput(job.site_contact_phone)}
+                  </a>
+                </>
+              ) : ""}
             </span>
           )}
           {CLOSED_STATUSES.has(job.status) ? (

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { JobWithCustomer } from "@/lib/types";
 import { ProjectDetailDialog, EditProjectDialog } from "@/components/admin/JobsDashboard";
-import { AcceptScheduleControl, extractTimeRange, parseWindowStartTime24h } from "@/components/admin/AcceptScheduleControl";
+import { extractTimeRange, parseWindowStartTime24h } from "@/components/admin/AcceptScheduleControl";
 import { googleMapsUrl } from "@/lib/address";
 import { formatDateMDY } from "@/lib/date-format";
 import { formatPhoneNumber, telHref } from "@/lib/phone";
@@ -36,11 +36,6 @@ const STATUS_COLOR: Record<string, string> = {
   paid: "bg-emerald-100 text-emerald-700",
   cancelled: "bg-red-100 text-red-700",
 };
-
-// What's actually happening on the calendar — jobs still on their way to
-// being sampled. Once a job moves to Pending Lab Results, it's tracked
-// purely by status on the Projects tab, not as an "upcoming visit" here.
-const SCHEDULE_STATUSES = new Set(["needs_scheduling", "scheduled"]);
 
 // A "Location Name - Street" prefix on the street portion (e.g. "Freedom
 // Trail Clinic - 25 Staniford Street") gets its own line, since some
@@ -111,12 +106,10 @@ const WEEKDAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 type ViewMode = "day" | "month";
 
 function JobCard({
-  job, onOpen, onOpenChat, onAccept,
+  job, onOpen,
 }: {
   job: JobWithCustomer;
   onOpen: () => void;
-  onOpenChat: () => void;
-  onAccept: (patch: Record<string, unknown>) => void;
 }) {
   const { locationName, street, cityStateZip } = splitAddress(job.service_address);
   const isPending = job.status === "needs_scheduling";
@@ -173,7 +166,6 @@ function JobCard({
           <span className={`shrink-0 rounded px-2 py-1 text-sm font-medium ${STATUS_COLOR[job.status]}`}>
             {STATUS_LABEL[job.status]}
           </span>
-          <AcceptScheduleControl job={job} variant="button" onAccept={onAccept} onOpenChat={onOpenChat} stopPropagation />
         </div>
       </div>
     </div>
@@ -221,8 +213,11 @@ export default function ScheduleView() {
   const jobsByDate = useMemo(() => {
     const map = new Map<string, JobWithCustomer[]>();
     for (const job of jobs) {
+      // Every status shows, not just upcoming ones — the schedule is meant
+      // to double as a look-back record of what happened on a given day,
+      // not just a forward-looking booking calendar.
       const key = job.confirmed_date ?? job.requested_date;
-      if (!SCHEDULE_STATUSES.has(job.status) || !key) continue;
+      if (!key) continue;
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(job);
     }
@@ -385,8 +380,6 @@ export default function ScheduleView() {
                           key={job.id}
                           job={job}
                           onOpen={() => { setSelectedJobInitialTab("info"); setSelectedJobId(job.id); }}
-                          onOpenChat={() => { setSelectedJobInitialTab("chat"); setSelectedJobId(job.id); }}
-                          onAccept={(patch) => patchJob(job, patch)}
                         />)
                       )}
                     </div>
@@ -407,8 +400,6 @@ export default function ScheduleView() {
                           key={job.id}
                           job={job}
                           onOpen={() => { setSelectedJobInitialTab("info"); setSelectedJobId(job.id); }}
-                          onOpenChat={() => { setSelectedJobInitialTab("chat"); setSelectedJobId(job.id); }}
-                          onAccept={(patch) => patchJob(job, patch)}
                         />)
                 )}
               </div>

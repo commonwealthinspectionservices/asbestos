@@ -2,31 +2,7 @@
 
 import { useState } from "react";
 import type { JobWithCustomer } from "@/lib/types";
-import { formatDateMDY } from "@/lib/date-format";
 import { timeSelectOptions } from "@/lib/time-options";
-
-function ordinalSuffix(day: number): string {
-  if (day >= 11 && day <= 13) return "th";
-  switch (day % 10) {
-    case 1: return "st";
-    case 2: return "nd";
-    case 3: return "rd";
-    default: return "th";
-  }
-}
-
-// "Thursday August 7th, 2026" — the full spelled-out form, used only for
-// the "Requested for" bubble, which is meant to read like a sentence
-// rather than a compact MM/DD/YYYY field value.
-function formatFullDate(date: string | null | undefined): string {
-  if (!date) return "";
-  const [y, m, d] = date.split("-").map(Number);
-  if (!y || !m || !d) return date;
-  const parsed = new Date(y, m - 1, d);
-  const weekday = parsed.toLocaleDateString("en-US", { weekday: "long" });
-  const month = parsed.toLocaleDateString("en-US", { month: "long" });
-  return `${weekday} ${month} ${d}${ordinalSuffix(d)}, ${y}`;
-}
 
 function formatTime(time: string | null | undefined): string {
   if (!time) return "";
@@ -66,13 +42,10 @@ export function parseWindowStartTime24h(windowText: string | null | undefined): 
 // confirmed_time, flips status to "scheduled", and turns on
 // schedule_visible_to_customer immediately (the client's portal always
 // shows a confirmed schedule now — there's no separate ask/toggle for it
-// anymore). The "button" variant's red X opens the job's chat instead of
-// taking any direct action on the request itself — for working out a real
-// time with the customer rather than guessing at one. Renders nothing once
-// a job is past "needs_scheduling", or if it's needs_scheduling for a
-// reason other than a real unreviewed request (portal_booking/email_intake,
-// or subcontractor — e.g. the admin entered it directly via Add Project and
-// left it unscheduled on purpose).
+// anymore). Renders nothing once a job is past "needs_scheduling", or if
+// it's needs_scheduling for a reason other than a real unreviewed request
+// (portal_booking/email_intake, or subcontractor — e.g. the admin entered
+// it directly via Add Project and left it unscheduled on purpose).
 //
 // Subcontractor jobs get the same accept-checkmark, but two things differ:
 // there's no client-facing portal for a subcontracting company's contact to
@@ -80,16 +53,15 @@ export function parseWindowStartTime24h(windowText: string | null | undefined): 
 // simply unused for this source; and there's no Chat tab for these jobs (see
 // JobsDashboard.tsx), so the red X opens the Edit dialog instead of chat —
 // for picking a real date/time by hand when the requested window doesn't
-// work as-is, via onEditManually rather than onOpenChat.
+// work as-is, via onEditManually.
 export function AcceptScheduleControl({
-  job, onAccept, onOpenChat, onEditManually, variant, stopPropagation,
+  job, onAccept, onEditManually, variant, stopPropagation,
 }: {
   job: JobWithCustomer;
   onAccept: (patch: Record<string, unknown>) => void | Promise<void>;
-  onOpenChat?: () => void;
   onEditManually?: () => void;
   /** "inline" is a subcontractor-only ✓/✗ pair with no bubble/card — meant to sit directly next to a "Preferred window" field that already shows the date/time, rather than repeating it. */
-  variant: "button" | "panel" | "inline";
+  variant: "panel" | "inline";
   stopPropagation?: boolean;
 }) {
   const [date, setDate] = useState(job.requested_date ?? "");
@@ -122,60 +94,8 @@ export function AcceptScheduleControl({
       // the specific time once it's edited by hand to something else.
       finalize(job.requested_date, parseWindowStartTime24h(job.subcontractor_preferred_window), false);
     } else {
-      const confirmedDate = variant === "button" ? job.requested_date : date || null;
-      const confirmedTime = variant === "button" ? job.requested_time ?? null : time || null;
-      finalize(confirmedDate, confirmedTime, true);
+      finalize(date || null, time || null, true);
     }
-  }
-
-  if (variant === "button") {
-    const timeRange = isSubcontractor ? extractTimeRange(job.subcontractor_preferred_window) : null;
-    const windowSuffix = timeRange
-      ? ` (${timeRange})`
-      : job.requested_time ? ` at ${formatTime(job.requested_time)}` : "";
-    const windowLine = timeRange ?? (job.requested_time ? formatTime(job.requested_time) : null);
-    return (
-      <div onClick={(e) => stopPropagation && e.stopPropagation()} className="flex w-full shrink-0 items-center gap-1.5 sm:w-auto sm:flex-wrap">
-        <span className="min-w-0 flex-1 rounded bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">
-          {/* Desktop: single line when it fits, wraps instead of overflowing into neighboring text when it doesn't. */}
-          <span className="hidden sm:inline">
-            {job.requested_date
-              ? `Requested for ${formatFullDate(job.requested_date)}${windowSuffix}`
-              : "No requested time"}
-          </span>
-          {/* Mobile: labeled date/time lines instead of one sentence-style line. */}
-          <span className="flex flex-col gap-0.5 sm:hidden">
-            {job.requested_date ? (
-              <>
-                <span>Requested date: {formatDateMDY(job.requested_date)}</span>
-                {windowLine && <span>Requested time: {windowLine}</span>}
-              </>
-            ) : (
-              <span>No requested time</span>
-            )}
-          </span>
-        </span>
-        <button
-          type="button"
-          title="Accept this request"
-          aria-label="Accept this request"
-          disabled={!job.requested_date}
-          onClick={startAccepting}
-          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-sm font-bold leading-none text-white disabled:opacity-50"
-        >
-          ✓
-        </button>
-        <button
-          type="button"
-          title={isSubcontractor ? "Set a different date/time by hand" : "Message the customer about this request"}
-          aria-label={isSubcontractor ? "Set a different date/time by hand" : "Message the customer about this request"}
-          onClick={() => (isSubcontractor ? onEditManually?.() : onOpenChat?.())}
-          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-red-600 text-sm font-bold leading-none text-white"
-        >
-          ✕
-        </button>
-      </div>
-    );
   }
 
   if (variant === "inline") {

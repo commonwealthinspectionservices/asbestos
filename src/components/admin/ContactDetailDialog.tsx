@@ -486,13 +486,12 @@ export function ContactDetailDialog({
               // An invite link's whole purpose is bringing someone onto a
               // team (see the company-only branch below) — an individual
               // has no team to join, so there's nothing to invite them
-              // into. They get portal access by signing up on their own
-              // (see /portal/signup), not an admin-sent link.
-              <div className="mt-4 border-t border-slate-100 pt-4">
-                <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Portal login</h4>
-                <p className="mt-1 text-sm text-slate-500">
-                  No portal login yet — individuals sign up on their own at commonwealthinspectionservices.com, they&apos;re not invited.
-                </p>
+              // into, and no admin action applies here. Just the same
+              // plain status line the "Connected" branch above uses,
+              // rather than a paragraph explaining why it's not connected.
+              <div className="mt-4 border-t border-slate-100 pt-4 text-sm uppercase text-slate-400">
+                <span>Portal login </span>
+                <span>Not connected</span>
               </div>
             ) : (
               <div className="mt-4 border-t border-slate-100 pt-4">

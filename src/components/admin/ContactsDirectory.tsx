@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import type { Customer } from "@/lib/types";
 import { ContactDetailDialog, ContactForm } from "@/components/admin/ContactDetailDialog";
 
@@ -80,9 +80,6 @@ export default function ContactsDirectory({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mobileSearch]);
 
-  const needsPortalAccount = useMemo(() => contacts.filter((c) => !c.auth_user_id), [contacts]);
-  const hasPortalAccount = useMemo(() => contacts.filter((c) => c.auth_user_id), [contacts]);
-
   return (
     <div>
       {/* Hidden on mobile — the header's own Add Contact button (next to
@@ -117,35 +114,11 @@ export default function ContactsDirectory({
       ) : contacts.length === 0 ? (
         <p className="mt-6 text-sm text-slate-500">No contacts found.</p>
       ) : (
-        <>
-          {needsPortalAccount.length > 0 && (
-            <div className="mt-4">
-              <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                Needs portal account ({needsPortalAccount.length})
-              </h4>
-              <div className="mt-2 space-y-2">
-                {needsPortalAccount.map((c) => (
-                  <ContactRow key={c.id} c={c} onClick={() => setSelectedId(c.id)} />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {hasPortalAccount.length > 0 && (
-            <div className="mt-4">
-              {needsPortalAccount.length > 0 && (
-                <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                  All contacts
-                </h4>
-              )}
-              <div className="mt-2 space-y-2">
-                {hasPortalAccount.map((c) => (
-                  <ContactRow key={c.id} c={c} onClick={() => setSelectedId(c.id)} />
-                ))}
-              </div>
-            </div>
-          )}
-        </>
+        <div className="mt-4 space-y-2">
+          {contacts.map((c) => (
+            <ContactRow key={c.id} c={c} onClick={() => setSelectedId(c.id)} />
+          ))}
+        </div>
       )}
 
       {adding && (

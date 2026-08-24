@@ -51,7 +51,9 @@ const styles = StyleSheet.create({
   // perfectly uniform (15/17/24pt below), that's genuinely how the
   // original is spaced.
   footer: { marginTop: 10 },
-  footerTopRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
+  // flex-end so TURNAROUND lines up with the notes block's bottom line
+  // ("*Samples for analysis...") rather than its top line.
+  footerTopRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end" },
   turnaroundLine: { flexDirection: "row", alignItems: "baseline" },
   turnaroundLabel: { fontSize: 11, fontWeight: 700 },
   turnaroundOption: { fontSize: 11, fontWeight: 400, marginLeft: 20 },

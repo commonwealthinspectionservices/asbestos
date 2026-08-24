@@ -181,17 +181,23 @@ function MoldCocDocument({ job, customer, sampleType }: MoldCocData) {
         </View>
 
         <View style={styles.footer}>
-          <View style={styles.footerTopRow}>
-            <View style={styles.turnaroundLine}>
-              <Text style={styles.turnaroundLabel}>TURNAROUND</Text>
-              <Text style={styles.turnaroundOption}>RUSH</Text>
-              <Text style={styles.turnaroundOption}>24HR</Text>
+          {/* No turnaroundNote for this sample type — TURNAROUND has
+              nothing to sit across from up here, so it moves down onto
+              the RELINQUISHED BY row instead of sitting alone with the
+              rest of the row empty. */}
+          {config.turnaroundNote && (
+            <View style={styles.footerTopRow}>
+              <View style={styles.turnaroundLine}>
+                <Text style={styles.turnaroundLabel}>TURNAROUND</Text>
+                <Text style={styles.turnaroundOption}>RUSH</Text>
+                <Text style={styles.turnaroundOption}>24HR</Text>
+              </View>
+              <Text style={styles.notes}>{config.turnaroundNote}</Text>
             </View>
-            {config.turnaroundNote && <Text style={styles.notes}>{config.turnaroundNote}</Text>}
-          </View>
+          )}
 
           {config.dateNeededNote ? (
-            <View style={[styles.dateNeededRow, { justifyContent: "space-between" }]}>
+            <View style={[styles.dateNeededRow, { justifyContent: "space-between" }, config.turnaroundNote ? {} : { marginTop: 0 }]}>
               <View style={styles.signatureSubRow}>
                 <Text style={styles.dateNeededLabel}>DATE NEEDED</Text>
                 <Text style={styles.dateNeededValue}>{job?.lab_date_needed ?? ""}</Text>
@@ -199,24 +205,33 @@ function MoldCocDocument({ job, customer, sampleType }: MoldCocData) {
               <Text style={styles.notes}>{config.dateNeededNote}</Text>
             </View>
           ) : (
-            <View style={styles.dateNeededRow}>
+            <View style={[styles.dateNeededRow, config.turnaroundNote ? {} : { marginTop: 0 }]}>
               <Text style={styles.dateNeededLabel}>DATE NEEDED</Text>
               <Text style={styles.dateNeededValue}>{job?.lab_date_needed ?? ""}</Text>
             </View>
           )}
 
-          <View style={styles.signatureRow}>
-            <Text style={styles.signatureLabel}>RELINQUISHED BY</Text>
-            <View style={styles.signatureLineWrap}>
-              <Text style={styles.signatureLine} />
-              <DateTimeField />
+          <View style={[styles.signatureRow, config.turnaroundNote ? {} : { justifyContent: "space-between" }]}>
+            <View style={styles.signatureSubRow}>
+              <Text style={styles.signatureLabel}>RELINQUISHED BY</Text>
+              <View style={[styles.signatureLineWrap, config.turnaroundNote ? {} : { width: 240 }]}>
+                <Text style={styles.signatureLine} />
+                <DateTimeField />
+              </View>
             </View>
+            {!config.turnaroundNote && (
+              <View style={[styles.turnaroundLine, { marginLeft: 16 }]}>
+                <Text style={styles.turnaroundLabel}>TURNAROUND</Text>
+                <Text style={styles.turnaroundOption}>RUSH</Text>
+                <Text style={styles.turnaroundOption}>24HR</Text>
+              </View>
+            )}
           </View>
 
           <View style={[styles.signatureRow, { justifyContent: "space-between" }]}>
             <View style={styles.signatureSubRow}>
               <Text style={styles.signatureLabel}>RECEIVED BY</Text>
-              <View style={styles.signatureLineWrap}>
+              <View style={[styles.signatureLineWrap, config.turnaroundNote ? {} : { width: 240 }]}>
                 <Text style={styles.signatureLine} />
                 <DateTimeField />
               </View>

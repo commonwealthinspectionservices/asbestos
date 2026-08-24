@@ -4,6 +4,7 @@ import MarketingNav from "@/components/marketing/MarketingNav";
 import MarketingFooter from "@/components/marketing/MarketingFooter";
 import PricingCalculator from "@/components/marketing/PricingCalculator";
 import Credentials from "@/components/shared/Credentials";
+import IndependentTestingBanner from "@/components/shared/IndependentTestingBanner";
 import { blogPosts } from "@/lib/blog-posts";
 
 const SERVICE_AREAS = [
@@ -107,6 +108,10 @@ export default function HomePage() {
           ))}
         </div>
       </section>
+
+      <div className="mt-10">
+        <IndependentTestingBanner />
+      </div>
 
       <section className="bg-white px-4 pt-16">
         <Credentials />

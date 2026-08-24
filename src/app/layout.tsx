@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { League_Spartan } from "next/font/google";
 import { Analytics } from "@vercel/analytics/react";
+import LocalBusinessSchema from "@/components/marketing/LocalBusinessSchema";
 import "./globals.css";
 
 const leagueSpartan = League_Spartan({ subsets: ["latin"], variable: "--font-league-spartan" });
@@ -19,6 +20,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={leagueSpartan.variable}>
       <body className="min-h-screen bg-slate-50 antialiased font-sans">
+        <LocalBusinessSchema />
         {children}
         <Analytics />
       </body>

@@ -3,6 +3,7 @@ import MarketingNav from "@/components/marketing/MarketingNav";
 import MarketingFooter from "@/components/marketing/MarketingFooter";
 import { MoldServiceInfo } from "@/components/shared/ServiceInfo";
 import Credentials from "@/components/shared/Credentials";
+import IndependentTestingBanner from "@/components/shared/IndependentTestingBanner";
 
 export const metadata = {
   title: "Mold Inspections | Commonwealth Inspection Services, LLC.",
@@ -13,6 +14,7 @@ export default function MoldServicePage() {
   return (
     <div className="min-h-screen bg-white">
       <MarketingNav />
+      <IndependentTestingBanner />
       <div className="mx-auto max-w-2xl px-4 py-10">
         <MoldServiceInfo />
 

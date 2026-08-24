@@ -1,7 +1,9 @@
-// Boston Harbor Water Restoration's "ACM Order" emails follow one fixed,
-// consistent line-by-line template every time (confirmed against 3 real
-// examples: Peter Linski/22 Sunnyplain Ave, Allie Duffy/315 Broadway,
-// Mike Drummond/27 Spring St) — not freeform English, an actual template:
+// Boston Harbor Water Restoration's "ACM Order" emails follow one of two
+// fixed templates — not freeform English, an actual template either way,
+// just two different ones seen in the wild:
+//
+// Bare/positional (confirmed against 3 real examples: Peter Linski/22
+// Sunnyplain Ave, Allie Duffy/315 Broadway, Mike Drummond/27 Spring St):
 //
 //   Homeowner name
 //   Job site street address
@@ -12,11 +14,38 @@
 //   Date of request (YYYY-MM-DD)
 //   Scope of work (one or more lines)
 //
+// Labeled (confirmed live 2026-08-24 against a real order — Geraldine
+// Burns/61 Partridge St — that the bare-format parser rejected outright,
+// which meant no candidate email even fell through to the "couldn't
+// parse" alert path since it wasn't recognized as a real order at all):
+// each field is its own label line immediately followed by its value line,
+// and a trailing "--" line (a conventional email signature delimiter)
+// marks the end of the scope-of-work text, not more of it:
+//
+//   Customer Name
+//   <value>
+//   Customer Address
+//   <value>
+//   City
+//   <value>
+//   Customer Phone
+//   <value>
+//   BHWR contact
+//   <value>
+//   BHWR contact phone
+//   <value>
+//   Date needed
+//   <value>
+//   Description
+//   <value — everything up to a lone "--" line, or end of message>
+//
 // Anchoring on the two phone-number lines and the date line (all three have
 // a strict, unambiguous shape) rather than just taking "the first 8 lines"
 // blind — a genuinely malformed or off-template email should fail to parse
 // and fall through to manual handling, not silently misfile a wrong address
-// into a real job.
+// into a real job. Same discipline applies to the labeled format: every
+// field must be present and pass its own shape check, or this returns null
+// just like the bare format does.
 import { formatPhoneNumber } from "@/lib/phone";
 
 export interface ParsedJobIntake {
@@ -52,28 +81,20 @@ const DATE_LINE = /^\d{4}-\d{2}-\d{2}$/;
 // safe to just drop it rather than fold it into the name.
 const GREETING_LINE = /^(hi|hello|hey|dear)\b[,.]?\s*$/i;
 
-export function parseAcmOrderEmail(bodyText: string): ParsedJobIntake | null {
-  let lines = bodyText
-    .split("\n")
-    .map((l) => l.trim())
-    .filter((l) => l.length > 0);
-
-  if (lines.length > 0 && GREETING_LINE.test(lines[0])) {
-    lines = lines.slice(1);
-  }
-
-  if (lines.length < 8) return null;
-
-  const [
-    homeownerName,
-    streetAddress,
-    town,
-    homeownerPhone,
-    companyContactName,
-    companyContactPhone,
-    requestedDate,
-    ...scopeLines
-  ] = lines;
+// Shared by both formats below — every field's already been split out by
+// the time either parser gets here, this just runs the one validation/
+// shape-checking pass and builds the final result (or rejects) either way.
+function buildParsedResult(fields: {
+  homeownerName: string;
+  streetAddress: string;
+  town: string;
+  homeownerPhone: string;
+  companyContactName: string;
+  companyContactPhone: string;
+  requestedDate: string;
+  scopeOfWork: string;
+}): ParsedJobIntake | null {
+  const { homeownerName, streetAddress, town, homeownerPhone, companyContactName, companyContactPhone, requestedDate, scopeOfWork } = fields;
 
   if (!PHONE_LINE.test(homeownerPhone)) return null;
   if (!PHONE_LINE.test(companyContactPhone)) return null;
@@ -84,8 +105,6 @@ export function parseAcmOrderEmail(bodyText: string): ParsedJobIntake | null {
   // email), which would otherwise parse "clean" into a job with a person's
   // name as its service address and a street as the site contact's name.
   if (!/\d/.test(streetAddress)) return null;
-
-  const scopeOfWork = scopeLines.join(" ").trim();
   if (!homeownerName || !streetAddress || !town || !companyContactName || !scopeOfWork) return null;
 
   // Some real examples include the state ("Somerville, Ma"), some don't
@@ -108,4 +127,93 @@ export function parseAcmOrderEmail(bodyText: string): ParsedJobIntake | null {
     requestedDate,
     scopeOfWork,
   };
+}
+
+function parseBareFormat(lines: string[]): ParsedJobIntake | null {
+  if (lines.length < 8) return null;
+
+  const [
+    homeownerName,
+    streetAddress,
+    town,
+    homeownerPhone,
+    companyContactName,
+    companyContactPhone,
+    requestedDate,
+    ...scopeLines
+  ] = lines;
+
+  return buildParsedResult({
+    homeownerName, streetAddress, town, homeownerPhone,
+    companyContactName, companyContactPhone, requestedDate,
+    scopeOfWork: scopeLines.join(" ").trim(),
+  });
+}
+
+// label line -> which field it introduces; the line immediately after a
+// label is that field's value, except "description", which runs to the end
+// of the message (or a signature block, see below) rather than just one line.
+const LABELED_FIELD_FOR_LABEL: Record<string, string> = {
+  "customer name": "homeownerName",
+  "customer address": "streetAddress",
+  "city": "town",
+  "customer phone": "homeownerPhone",
+  "bhwr contact": "companyContactName",
+  "bhwr contact phone": "companyContactPhone",
+  "date needed": "requestedDate",
+  "description": "scopeOfWork",
+};
+
+function parseLabeledFormat(lines: string[]): ParsedJobIntake | null {
+  const values: Record<string, string> = {};
+  let i = 0;
+  while (i < lines.length) {
+    const field = LABELED_FIELD_FOR_LABEL[lines[i].toLowerCase()];
+    if (!field) {
+      i++;
+      continue;
+    }
+    if (field === "scopeOfWork") {
+      // Everything after "Description" up to a lone "--" line (the
+      // conventional email-signature delimiter) is the scope text — not
+      // just the next line, since a real description can run longer, and
+      // not the rest of the message either, since that would swallow the
+      // sender's name/company/phone/website signature block as if it were
+      // part of the scope of work.
+      const rest = lines.slice(i + 1);
+      const signatureIndex = rest.findIndex((l) => /^-{2,}$/.test(l));
+      const scopeLines = signatureIndex === -1 ? rest : rest.slice(0, signatureIndex);
+      values[field] = scopeLines.join(" ").trim();
+      break;
+    }
+    values[field] = lines[i + 1] ?? "";
+    i += 2;
+  }
+
+  const requiredFields = Object.values(LABELED_FIELD_FOR_LABEL);
+  if (!requiredFields.every((f) => values[f])) return null;
+
+  return buildParsedResult({
+    homeownerName: values.homeownerName,
+    streetAddress: values.streetAddress,
+    town: values.town,
+    homeownerPhone: values.homeownerPhone,
+    companyContactName: values.companyContactName,
+    companyContactPhone: values.companyContactPhone,
+    requestedDate: values.requestedDate,
+    scopeOfWork: values.scopeOfWork,
+  });
+}
+
+export function parseAcmOrderEmail(bodyText: string): ParsedJobIntake | null {
+  let lines = bodyText
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0);
+
+  if (lines.length > 0 && GREETING_LINE.test(lines[0])) {
+    lines = lines.slice(1);
+  }
+
+  return parseBareFormat(lines) ?? parseLabeledFormat(lines);
 }

@@ -32,6 +32,37 @@ Ryan Hammond
 2026-08-17
 Ceiling and wall in kitchen and hallway area after kitchen`;
 
+// A real order (Geraldine Burns/61 Partridge St) that the bare-format
+// parser rejected outright — Boston Harbor Water switched to this labeled
+// shape at some point, confirmed live 2026-08-24 (it never even reached
+// the "couldn't parse" alert as a recognized-but-broken order; the whole
+// email just wasn't recognized as this sender's pattern until this format
+// was added). Includes the real trailing signature block, verbatim.
+const GERALDINE_BURNS_LABELED = `Hey Tim,
+
+Customer Name
+Geraldine Burns
+Customer Address
+61 Partridge st
+City
+West Roxbury
+Customer Phone
+617-678-1565
+BHWR contact
+Niall
+BHWR contact phone
+857-939-7890
+Date needed
+2026-08-24
+Description
+Alvin Kamara jersey wall, the ceiling above it, hardwood flooring beneath it. Thank you!
+
+--
+Jack Cook
+*Boston Harbor Water Restoration*
+781-985-7432
+bostonharborwater.com`;
+
 describe("parseAcmOrderEmail", () => {
   it("parses a simple single-line scope of work", () => {
     expect(parseAcmOrderEmail(PETER_LINSKI)).toEqual({
@@ -99,5 +130,24 @@ describe("parseAcmOrderEmail", () => {
   it("returns null when the date isn't in YYYY-MM-DD form", () => {
     const bad = PETER_LINSKI.replace("2026-08-18", "8/18/2026");
     expect(parseAcmOrderEmail(bad)).toBeNull();
+  });
+
+  it("parses the labeled format (Customer Name / value pairs), stopping the description at the signature", () => {
+    expect(parseAcmOrderEmail(GERALDINE_BURNS_LABELED)).toEqual({
+      homeownerName: "Geraldine Burns",
+      streetAddress: "61 Partridge st",
+      town: "West Roxbury",
+      stateHint: null,
+      homeownerPhone: "617-678-1565",
+      companyContactName: "Niall",
+      companyContactPhone: "857-939-7890",
+      requestedDate: "2026-08-24",
+      scopeOfWork: "Alvin Kamara jersey wall, the ceiling above it, hardwood flooring beneath it. Thank you!",
+    });
+  });
+
+  it("returns null for a labeled email missing a required field", () => {
+    const missingCity = GERALDINE_BURNS_LABELED.replace("City\nWest Roxbury\n", "");
+    expect(parseAcmOrderEmail(missingCity)).toBeNull();
   });
 });

@@ -8,12 +8,12 @@
 // legit" decision actually gets made.
 export default function IndependentTestingBanner() {
   return (
-    <div className="bg-brand-700 px-4 py-8">
+    <div className="bg-yellow-100 px-4 py-8">
       <div className="mx-auto max-w-3xl text-center">
-        <h2 className="text-lg font-black uppercase text-white sm:text-xl">
+        <h2 className="text-lg font-black uppercase text-brand-700 sm:text-xl">
           Independent Testing. No Abatement. No Conflict of Interest.
         </h2>
-        <p className="mt-3 text-sm text-brand-50 sm:text-base">
+        <p className="mt-3 text-sm text-brand-700 sm:text-base">
           We only test — we don&apos;t sell abatement, remediation, or removal work of any
           kind. A lot of &quot;free&quot; or discounted testing comes from companies who
           profit from finding a problem for them to fix. Since we have no abatement business

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireCronAuth, withCronAlert } from "@/lib/cron-auth";
 import { withApiErrors } from "@/lib/api-handler";
 import { checkForJobIntakeEmails } from "@/lib/job-intake";
-import { getGmailConnectionStatus } from "@/lib/gmail";
+import { getGmailConnectionStatus, getValidAccessToken, listMessagesByQuery, getOrCreateLabelId, removeLabelFromMessage } from "@/lib/gmail";
 import { getSupabaseAdminFresh } from "@/lib/supabase";
 
 // Reads req.headers (via requireCronAuth) — without this, Next tries to
@@ -42,6 +42,20 @@ export const GET = withApiErrors(withCronAlert("check-job-intake", async (req: N
       .eq("id", job.customer_id)
       .maybeSingle();
     return NextResponse.json({ job, customer });
+  }
+
+  // TEMPORARY — one-off: the real Geraldine Burns order already got the
+  // "processed" label from an earlier attempt, before today's labeled-
+  // format parser fix could help it. Un-stick it so the next real check
+  // can pick it up again. Remove once resolved.
+  const unstickSubject = req.nextUrl.searchParams.get("unstick_subject");
+  if (unstickSubject) {
+    const accessToken = await getValidAccessToken();
+    if (!accessToken) return NextResponse.json({ error: "Gmail is not connected" }, { status: 500 });
+    const labelId = await getOrCreateLabelId(accessToken, "cis-job-intake-processed");
+    const matches = await listMessagesByQuery(accessToken, `subject:"${unstickSubject}"`);
+    for (const m of matches) await removeLabelFromMessage(accessToken, m.id, labelId);
+    return NextResponse.json({ unstuck: matches.length, ids: matches.map((m) => m.id) });
   }
 
   const result = await checkForJobIntakeEmails();

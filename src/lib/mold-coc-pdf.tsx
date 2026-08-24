@@ -72,12 +72,7 @@ const styles = StyleSheet.create({
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 11 },
   headerLeft: { flexDirection: "row", alignItems: "center" },
   letterhead: { width: 283, height: 55 },
-  // Stacked under the title, not its own footer line — the header row's
-  // height is set by the 55pt letterhead image, so this fits inside it
-  // for free without shrinking the table (which claims whatever's left).
-  titleBlock: { alignItems: "flex-end" },
   title: { fontSize: 11, fontWeight: 700 },
-  emailNote: { fontSize: 8, fontStyle: "italic", marginTop: 3 },
   // Two rows: CLIENT+DATE, then SITE+PROJECT # directly under it. SITE
   // sits close under the table (small marginBottom here) but well clear
   // of the row above it (metaBottomRow carries its own marginTop instead).
@@ -120,7 +115,8 @@ const styles = StyleSheet.create({
   turnaroundLabel: { fontSize: 11, fontWeight: 700 },
   turnaroundOption: { fontSize: 11, fontWeight: 400, marginLeft: 20 },
   notes: { fontSize: 11, fontStyle: "italic" },
-  dateNeededRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 24 },
+  emailNote: { fontSize: 11, fontStyle: "italic", textAlign: "right", marginTop: 8 },
+  dateNeededRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 14 },
   dateNeededLabel: { fontSize: 11, fontWeight: 700, marginRight: 4 },
   dateNeededValue: { width: 220, borderBottomWidth: 0.5, borderBottomColor: LINE_COLOR },
   signatureRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 24 },
@@ -179,10 +175,7 @@ function MoldCocDocument({ job, customer, sampleType }: MoldCocData) {
           <View style={styles.headerLeft}>
             <Image src={LETTERHEAD_PATH} style={styles.letterhead} />
           </View>
-          <View style={styles.titleBlock}>
-            <Text style={styles.title}>{config.title}</Text>
-            <Text style={styles.emailNote}>Please email all results to tim@commonwealthinspectionservices.com</Text>
-          </View>
+          <Text style={styles.title}>{config.title}</Text>
         </View>
 
         <View style={styles.metaGrid}>
@@ -239,8 +232,12 @@ function MoldCocDocument({ job, customer, sampleType }: MoldCocData) {
             </View>
           )}
 
+          <Text style={[styles.emailNote, config.turnaroundNote ? {} : { marginTop: 0 }]}>
+            Please email all results to tim@commonwealthinspectionservices.com
+          </Text>
+
           {config.dateNeededNote ? (
-            <View style={[styles.dateNeededRow, { justifyContent: "space-between" }, config.turnaroundNote ? {} : { marginTop: 0 }]}>
+            <View style={[styles.dateNeededRow, { justifyContent: "space-between" }]}>
               <View style={styles.signatureSubRow}>
                 <Text style={styles.dateNeededLabel}>DATE NEEDED</Text>
                 <Text style={styles.dateNeededValue}>{job?.lab_date_needed ?? ""}</Text>
@@ -248,7 +245,7 @@ function MoldCocDocument({ job, customer, sampleType }: MoldCocData) {
               <Text style={styles.notes}>{config.dateNeededNote}</Text>
             </View>
           ) : (
-            <View style={[styles.dateNeededRow, config.turnaroundNote ? {} : { marginTop: 0 }]}>
+            <View style={styles.dateNeededRow}>
               <Text style={styles.dateNeededLabel}>DATE NEEDED</Text>
               <Text style={styles.dateNeededValue}>{job?.lab_date_needed ?? ""}</Text>
             </View>

@@ -850,7 +850,7 @@ export default function JobsDashboard() {
       </div>
 
       <div className="mt-4 hidden flex-wrap items-center gap-2 sm:flex">
-        <span className="shrink-0 text-sm font-medium text-slate-500">Sort by:</span>
+        <span className="shrink-0 text-sm font-medium text-gray-400">Sort by:</span>
         {SORT_FIELDS.map((f) => (
           <button
             key={f.key}
@@ -1217,42 +1217,39 @@ function JobRow({
             // on mobile could trigger off a half-picked date before the
             // admin ever reached the time field.
             <div className="flex w-full shrink-0 flex-col items-start gap-1.5 sm:w-auto sm:items-end" onClick={(e) => e.stopPropagation()}>
-              <div className="flex w-full items-center gap-2 sm:w-auto">
-                {/* A native date input can't take a plain-text placeholder
-                    like the Time select's own empty <option> does — its
-                    "mm/dd/yyyy" segments are the browser's own UI. Made
-                    transparent (only while empty) and overlaid with a
-                    "Date" label instead, so the empty state matches Time's
-                    at a glance rather than showing that wide blank field.
-                    peer-focus:hidden drops the overlay the moment it's
-                    focused (paired with focus:text-slate-600 below) so the
-                    real "dd/mm/yyyy" segments are visible while editing,
-                    not fighting with the "Date" label on top of them. */}
-                {/* iOS Safari ignores an explicit width on input[type=date]
-                    while its native chrome is intact (confirmed live — it
-                    rendered wider than Time regardless), and stripping that
-                    chrome with appearance-none backfired worse, collapsing
-                    it to a sliver instead. Fighting the input's own layout
-                    isn't reliable, so the border/rounding/fixed width moved
-                    to this wrapper instead, with overflow-hidden clipping
-                    whatever width iOS insists on giving the input itself —
-                    a plain div's own box model, not a native form control's
-                    quirky one, is what actually holds w-28 everywhere. */}
-                <div className="relative w-28 shrink-0 overflow-hidden rounded-lg border border-slate-300">
+              {/* items-stretch (not items-center) so Date and Time share the
+                  row's own height exactly, rather than each sizing itself
+                  off its own padding/line-height math — that left Date 3px
+                  taller than Time's actual rendered height, being a <div>
+                  standing in for a <select>'s slightly different UA metrics. */}
+              <div className="flex w-full items-stretch gap-2 sm:w-auto">
+                {/* Real iOS Safari won't hold a fixed width on input[type=date]
+                    no matter how it's constrained — not via a direct width,
+                    not via appearance-none (which just broke it worse), not
+                    via a clipping wrapper. Giving up on making the native
+                    control itself look right: what's visible now is a
+                    plain, fully custom div sized exactly like Time, and the
+                    real date input sits on top of it at opacity-0 — still
+                    genuinely there and tappable (opacity doesn't disable
+                    interaction), so tapping anywhere in the box still opens
+                    the OS's native date picker exactly as before. Its own
+                    layout quirks no longer matter since nothing about it is
+                    ever seen. */}
+                <div className="relative w-28 shrink-0 rounded-lg border border-slate-300">
+                  <div className="flex h-full items-center px-1.5 text-xs text-slate-600">
+                    {manualDate ? formatDateMDY(manualDate) : "Date"}
+                  </div>
                   <input
                     type="date"
                     value={manualDate}
                     onChange={(e) => setManualDate(e.target.value)}
-                    className={`peer w-full border-0 px-1.5 py-1 text-xs ${manualDate ? "text-slate-600" : "text-transparent focus:text-slate-600"}`}
+                    className="absolute inset-0 h-full w-full opacity-0"
                   />
-                  {!manualDate && (
-                    <span className="pointer-events-none absolute inset-0 flex items-center px-1.5 text-xs text-slate-600 peer-focus:hidden">Date</span>
-                  )}
                 </div>
                 <select
                   value={manualTime}
                   onChange={(e) => setManualTime(e.target.value)}
-                  className="w-28 min-w-0 shrink-0 rounded-lg border border-slate-300 px-1.5 py-1 text-xs text-slate-600"
+                  className="w-28 min-w-0 shrink-0 rounded-lg border border-slate-300 px-1.5 text-xs text-slate-600"
                 >
                   <option value="">Time</option>
                   {timeSelectOptions().map((t) => (

@@ -127,6 +127,32 @@ export function stripGmailForwardBoilerplate(bodyText: string): { originalFrom: 
   return { originalFrom, body: lines.slice(i).join("\n") };
 }
 
+// Everyone who was actually on the original order email (sender + To + Cc),
+// minus the owner's own inbox — becomes the job's report_emails, so the
+// results email that auto-drafts once lab results land (draftReportEmailForJob
+// in lib/lab-email.ts) comes pre-addressed to the real team on that thread
+// instead of just the one billing contact on file for the company. Confirmed
+// live 2026-08-24: a real order's report_emails had only ended up as the
+// billing contact (whoever createJobFromIntake resolved as customer_id),
+// even though that person is the one who receives invoices, not who should
+// be getting results — the actual team is whoever was in To/Cc.
+export function extractOtherRecipients(message: GmailMessage): string[] {
+  const ownerEmail = (process.env.OWNER_EMAIL ?? "").toLowerCase();
+  const headerValues = [getHeader(message, "From"), getHeader(message, "To"), getHeader(message, "Cc")].filter(
+    (v): v is string => Boolean(v)
+  );
+
+  const emails = new Set<string>();
+  for (const value of headerValues) {
+    for (const part of value.split(",")) {
+      const match = part.match(/[\w.+-]+@[\w-]+\.[\w.-]+/);
+      const email = match?.[0]?.toLowerCase();
+      if (email && email !== ownerEmail) emails.add(email);
+    }
+  }
+  return [...emails];
+}
+
 // A candidate email that matched the sender/subject search but couldn't
 // become a job — a parse failure, a state-license mismatch, a likely
 // duplicate, a missing company/contact, etc. Previously these just
@@ -432,6 +458,11 @@ export async function createJobFromIntake(params: {
       notes: buildEmailIntakeNote(sender, parsed, message),
       disclaimer_ack: true,
       is_individual: false,
+      // The actual team on the original order email (see
+      // extractOtherRecipients's own comment) — not the resolved billing
+      // contact (customer.id above), who's who invoices go to, not
+      // necessarily who should be getting results.
+      report_emails: extractOtherRecipients(message).join(",") || null,
       // Seeds this job's own email thread with the client's original
       // message, so the later confirmed/reminder/report emails (see
       // lib/booking-notify.ts, lib/job-reminders.ts) all join the exact

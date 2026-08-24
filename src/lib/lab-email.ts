@@ -653,9 +653,15 @@ async function draftReportEmailForJob(params: {
   // rather than one email per type.
   const reportPackets = await buildAllFinalReportPackets(job, customer, settings);
 
-  const recipients = [customer.email, ...(job.report_emails?.split(",") ?? [])]
-    .map((e) => e.trim())
-    .filter(Boolean);
+  // Deduped — a company job's report_emails can legitimately include the
+  // billing contact too (e.g. cc'd on the original order email alongside
+  // customer.email being that same person), which would otherwise list them
+  // twice on the draft.
+  const recipients = [...new Set(
+    [customer.email, ...(job.report_emails?.split(",") ?? [])]
+      .map((e) => e.trim().toLowerCase())
+      .filter(Boolean)
+  )];
 
   // Recreating a draft (the admin already had one, is now clicking
   // "Recreate Report Draft") replaces it rather than leaving the stale

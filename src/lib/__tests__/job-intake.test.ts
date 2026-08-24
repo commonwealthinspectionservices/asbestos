@@ -1,5 +1,16 @@
-import { describe, it, expect } from "vitest";
-import { stripGmailForwardBoilerplate } from "@/lib/job-intake";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { stripGmailForwardBoilerplate, extractOtherRecipients } from "@/lib/job-intake";
+import type { GmailMessage } from "@/lib/gmail";
+
+function messageWithHeaders(headers: Record<string, string>): GmailMessage {
+  return {
+    id: "msg1",
+    threadId: "thread1",
+    payload: {
+      headers: Object.entries(headers).map(([name, value]) => ({ name, value })),
+    },
+  };
+}
 
 const ORIGINAL_BODY = `Peter Linski
 22 Sunnyplain Ave
@@ -74,4 +85,59 @@ ${ORIGINAL_BODY}`;
       body: ORIGINAL_BODY,
     });
   });
+});
+
+describe("extractOtherRecipients", () => {
+  let originalOwnerEmail: string | undefined;
+  beforeAll(() => {
+    originalOwnerEmail = process.env.OWNER_EMAIL;
+    process.env.OWNER_EMAIL = "tim@commonwealthinspectionservices.com";
+  });
+  afterAll(() => {
+    if (originalOwnerEmail === undefined) delete process.env.OWNER_EMAIL;
+    else process.env.OWNER_EMAIL = originalOwnerEmail;
+  });
+
+  it("collects sender + To + Cc, deduped and lowercased, minus the owner's own inbox", () => {
+    const message = messageWithHeaders({
+      From: "Patrick McDonough <patrick@bostonharborwater.com>",
+      To: "tim@commonwealthinspectionservices.com",
+      Cc: "joe@bostonharborwater.com, Ryan Hammond <Ryan@bostonharborwater.com>, nazli@bostonharborwater.com, niall@bostonharborwater.com, jack@bostonharborwater.com",
+    });
+    expect(extractOtherRecipients(message)).toEqual([
+      "patrick@bostonharborwater.com",
+      "joe@bostonharborwater.com",
+      "ryan@bostonharborwater.com",
+      "nazli@bostonharborwater.com",
+      "niall@bostonharborwater.com",
+      "jack@bostonharborwater.com",
+    ]);
+  });
+
+  it("dedupes when the same address appears in more than one header", () => {
+    const message = messageWithHeaders({
+      From: "jack@bostonharborwater.com",
+      To: "tim@commonwealthinspectionservices.com",
+      Cc: "jack@bostonharborwater.com, joe@bostonharborwater.com",
+    });
+    expect(extractOtherRecipients(message)).toEqual(["jack@bostonharborwater.com", "joe@bostonharborwater.com"]);
+  });
+
+  it("only excludes the owner's real inbox, not a different address of his own (e.g. a forwarded day-job email)", () => {
+    // Real shape of job 26-0001's thread — Tim forwarded a real order from
+    // his old FLI Environmental address, so the message's own From/To
+    // headers are just Tim forwarding to himself, not the actual BHWR team
+    // (who are only named inside the forwarded body text, not these
+    // headers) — extractOtherRecipients has no way to know that, so this
+    // case is expected to need a manual fix rather than a good automatic
+    // recipient list.
+    const message = messageWithHeaders({
+      From: "Timothy Hall <thall@flienv.com>",
+      To: "tim@commonwealthinspectionservices.com",
+    });
+    expect(extractOtherRecipients(message)).toEqual(["thall@flienv.com"]);
+  });
+
+  if (originalOwnerEmail === undefined) delete process.env.OWNER_EMAIL;
+  else process.env.OWNER_EMAIL = originalOwnerEmail;
 });

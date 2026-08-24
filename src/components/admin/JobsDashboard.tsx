@@ -1482,6 +1482,19 @@ export function ProjectDetailDialog({
   initialTab?: "info" | "report" | "chat" | "photos";
 }) {
   const [tab, setTab] = useState<"info" | "report" | "invoice" | "chat" | "photos" | "shipping" | "compensation">(initialTab ?? "info");
+  // Just for labeling "Email results to" below — report_emails is only ever
+  // stored as bare addresses (see lib/lab-email.ts's own recipient-building,
+  // which needs plain emails to send to), so names for display are looked
+  // up separately against the job's company contacts rather than stored
+  // alongside the emails themselves.
+  const [companyContactsForDisplay, setCompanyContactsForDisplay] = useState<Customer[]>([]);
+  useEffect(() => {
+    const companyId = job.customers?.company_id;
+    if (!companyId) { setCompanyContactsForDisplay([]); return; }
+    fetch(`/api/admin/customers?companyId=${companyId}`)
+      .then((res) => res.json())
+      .then((data) => setCompanyContactsForDisplay(data.customers ?? []));
+  }, [job.customers?.company_id]);
   const [confirmingReleaseOverride, setConfirmingReleaseOverride] = useState(false);
   const [submittingReleaseOverride, setSubmittingReleaseOverride] = useState(false);
   const [releaseOverrideError, setReleaseOverrideError] = useState<string | null>(null);
@@ -2221,9 +2234,14 @@ export function ProjectDetailDialog({
             {job.report_emails && job.report_emails.trim() && (
               <div className="space-y-3 sm:space-y-2">
                 <h4 className="text-sm font-bold tracking-wide text-black underline">Email results to</h4>
-                {job.report_emails.split(",").map((e) => e.trim()).filter(Boolean).map((addr, i) => (
-                  <div key={i} className="text-sm text-black">{addr}</div>
-                ))}
+                {job.report_emails.split(",").map((e) => e.trim()).filter(Boolean).map((addr, i) => {
+                  const contact = companyContactsForDisplay.find((c) => c.email?.toLowerCase() === addr.toLowerCase());
+                  return (
+                    <div key={i} className="text-sm text-black">
+                      {contact ? `${contact.name} — ${addr}` : addr}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>

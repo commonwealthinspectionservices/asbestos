@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireCronAuth, withCronAlert } from "@/lib/cron-auth";
 import { withApiErrors } from "@/lib/api-handler";
 import { checkForJobIntakeEmails } from "@/lib/job-intake";
+import { getGmailConnectionStatus } from "@/lib/gmail";
 
 // Reads req.headers (via requireCronAuth) — without this, Next tries to
 // statically render the route at build time and throws "Dynamic server
@@ -23,5 +24,11 @@ export const GET = withApiErrors(withCronAlert("check-job-intake", async (req: N
   if (unauthorized) return unauthorized;
 
   const result = await checkForJobIntakeEmails();
-  return NextResponse.json({ ok: true, ...result });
+  // connectedEmail is a cheap, ongoing diagnostic — the search silently
+  // returning 0 candidates looks identical whether nothing matched or the
+  // stored refresh token belongs to the wrong mailbox entirely, so this
+  // is worth always exposing in the response rather than digging into
+  // Supabase by hand the next time this needs debugging.
+  const { email: connectedEmail } = await getGmailConnectionStatus();
+  return NextResponse.json({ ok: true, connectedEmail, ...result });
 }));

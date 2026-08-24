@@ -51,21 +51,13 @@ const styles = StyleSheet.create({
   // perfectly uniform (15/17/24pt below), that's genuinely how the
   // original is spaced.
   footer: { marginTop: 10 },
-  // flex-end so TURNAROUND lines up with the notes block's bottom line
-  // ("*Samples for analysis...") rather than its top line.
   footerTopRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end" },
   turnaroundLine: { flexDirection: "row", alignItems: "baseline" },
   turnaroundLabel: { fontSize: 11, fontWeight: 700 },
   turnaroundOption: { fontSize: 11, fontWeight: 400, marginLeft: 20 },
-  // Fixed width so textAlign:"right" actually has room to do something —
-  // without it each line auto-sizes to its own text and both end up
-  // left-aligned against each other instead of sharing a right edge.
-  notesWrap: { width: 340 },
-  notes: { fontSize: 11, fontStyle: "italic", textAlign: "right", lineHeight: 1.3 },
+  notes: { fontSize: 11, fontStyle: "italic" },
   dateNeededRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 24 },
   dateNeededLabel: { fontSize: 11, fontWeight: 700, marginRight: 4 },
-  // Short enough to stay clear of the right-aligned "*Sampled by..." note
-  // sitting above it — the full 220pt width used to run underneath it.
   dateNeededValue: { width: 160, borderBottomWidth: 1, borderBottomColor: LINE_COLOR },
   signatureRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 24 },
   signatureSubRow: { flexDirection: "row", alignItems: "flex-end" },
@@ -172,17 +164,17 @@ function BlankCocDocument({ job, customer, settings }: BlankCocData) {
               <Text style={styles.turnaroundOption}>RUSH</Text>
               <Text style={styles.turnaroundOption}>24HR</Text>
             </View>
-            <View style={styles.notesWrap}>
-              <Text style={styles.notes}>
-                *Sampled by {inspector.name} MA Asbestos Inspector License {licenseDisplay}
-              </Text>
-              <Text style={[styles.notes, { marginTop: 13 }]}>*Samples for analysis by Polarized Light Microscopy</Text>
-            </View>
+            <Text style={styles.notes}>*Samples for analysis by Polarized Light Microscopy</Text>
           </View>
 
-          <View style={styles.dateNeededRow}>
-            <Text style={styles.dateNeededLabel}>DATE NEEDED</Text>
-            <Text style={styles.dateNeededValue}>{job?.lab_date_needed ?? ""}</Text>
+          <View style={[styles.dateNeededRow, { justifyContent: "space-between" }]}>
+            <View style={styles.signatureSubRow}>
+              <Text style={styles.dateNeededLabel}>DATE NEEDED</Text>
+              <Text style={styles.dateNeededValue}>{job?.lab_date_needed ?? ""}</Text>
+            </View>
+            <Text style={styles.notes}>
+              *Sampled by {inspector.name} MA Asbestos Inspector License {licenseDisplay}
+            </Text>
           </View>
 
           <View style={styles.signatureRow}>

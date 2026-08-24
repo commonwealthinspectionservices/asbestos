@@ -1228,12 +1228,18 @@ function JobRow({
                     focused (paired with focus:text-slate-600 below) so the
                     real "dd/mm/yyyy" segments are visible while editing,
                     not fighting with the "Date" label on top of them. */}
-                <div className="relative min-w-0 flex-1 sm:w-32 sm:flex-none sm:shrink-0">
+                {/* Fixed width at every breakpoint, matching Time exactly
+                    (not flex-1) — the two were equal-flex-basis before, but
+                    a native date input's own min-content width (its "mm /
+                    dd / yyyy" segments have real intrinsic width even once
+                    colored transparent) won out over Time's shorter
+                    content, leaving Date visibly wider on real devices. */}
+                <div className="relative w-28 min-w-0 shrink-0">
                   <input
                     type="date"
                     value={manualDate}
                     onChange={(e) => setManualDate(e.target.value)}
-                    className={`peer w-full rounded-lg border border-slate-300 px-1.5 py-1 text-xs ${manualDate ? "text-slate-600" : "text-transparent focus:text-slate-600"}`}
+                    className={`peer w-full min-w-0 rounded-lg border border-slate-300 px-1.5 py-1 text-xs ${manualDate ? "text-slate-600" : "text-transparent focus:text-slate-600"}`}
                   />
                   {!manualDate && (
                     <span className="pointer-events-none absolute inset-0 flex items-center px-1.5 text-xs text-slate-600 peer-focus:hidden">Date</span>
@@ -1242,7 +1248,7 @@ function JobRow({
                 <select
                   value={manualTime}
                   onChange={(e) => setManualTime(e.target.value)}
-                  className="min-w-0 flex-1 rounded-lg border border-slate-300 px-1.5 py-1 text-xs text-slate-600 sm:w-28 sm:flex-none sm:shrink-0"
+                  className="w-28 min-w-0 shrink-0 rounded-lg border border-slate-300 px-1.5 py-1 text-xs text-slate-600"
                 >
                   <option value="">Time</option>
                   {timeSelectOptions().map((t) => (

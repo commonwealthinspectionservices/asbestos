@@ -1228,24 +1228,22 @@ function JobRow({
                     focused (paired with focus:text-slate-600 below) so the
                     real "dd/mm/yyyy" segments are visible while editing,
                     not fighting with the "Date" label on top of them. */}
-                {/* Fixed width at every breakpoint, matching Time exactly
-                    (not flex-1) — the two were equal-flex-basis before, but
-                    a native date input's own min-content width (its "mm /
-                    dd / yyyy" segments have real intrinsic width even once
-                    colored transparent) won out over Time's shorter
-                    content, leaving Date visibly wider on real devices.
-                    iOS Safari specifically goes further and ignores an
-                    explicit width on input[type=date] entirely while its
-                    native chrome is intact — appearance-none strips that
-                    chrome so the box actually obeys w-28 like every other
-                    input here, matching Time's plain custom-styled look
-                    too instead of iOS's own pill-shaped date control. */}
-                <div className="relative w-28 min-w-0 shrink-0">
+                {/* iOS Safari ignores an explicit width on input[type=date]
+                    while its native chrome is intact (confirmed live — it
+                    rendered wider than Time regardless), and stripping that
+                    chrome with appearance-none backfired worse, collapsing
+                    it to a sliver instead. Fighting the input's own layout
+                    isn't reliable, so the border/rounding/fixed width moved
+                    to this wrapper instead, with overflow-hidden clipping
+                    whatever width iOS insists on giving the input itself —
+                    a plain div's own box model, not a native form control's
+                    quirky one, is what actually holds w-28 everywhere. */}
+                <div className="relative w-28 shrink-0 overflow-hidden rounded-lg border border-slate-300">
                   <input
                     type="date"
                     value={manualDate}
                     onChange={(e) => setManualDate(e.target.value)}
-                    className={`peer w-full min-w-0 appearance-none rounded-lg border border-slate-300 px-1.5 py-1 text-xs ${manualDate ? "text-slate-600" : "text-transparent focus:text-slate-600"}`}
+                    className={`peer w-full border-0 px-1.5 py-1 text-xs ${manualDate ? "text-slate-600" : "text-transparent focus:text-slate-600"}`}
                   />
                   {!manualDate && (
                     <span className="pointer-events-none absolute inset-0 flex items-center px-1.5 text-xs text-slate-600 peer-focus:hidden">Date</span>

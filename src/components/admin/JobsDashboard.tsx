@@ -1960,10 +1960,10 @@ export function ProjectDetailDialog({
           scroll on mobile Safari). This is the standard mobile-dialog
           shape now — see Add/Edit Project for the same pattern. */}
       <div className="flex h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl bg-white">
-        <div className="flex shrink-0 flex-nowrap items-center gap-0.5 border-b border-slate-200 bg-white px-3 pt-3 pb-1 sm:gap-1 sm:px-5 sm:pt-5">
+        <div className="flex shrink-0 flex-nowrap items-center gap-0 border-b border-slate-200 bg-white px-3 pt-3 pb-1 sm:gap-1 sm:px-5 sm:pt-5">
           <button
             onClick={() => setTab("info")}
-            className={`flex-1 whitespace-nowrap px-1 py-1.5 text-center text-[11px] font-bold uppercase sm:flex-none sm:px-3 sm:text-sm ${tab === "info" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
+            className={`flex-1 whitespace-nowrap px-0.5 py-1.5 text-center text-[11px] font-bold uppercase sm:flex-none sm:px-3 sm:text-sm ${tab === "info" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
           >
             Project Info
           </button>
@@ -1974,13 +1974,13 @@ export function ProjectDetailDialog({
                   Desktop keeps the single combined tab, unchanged. */}
               <button
                 onClick={() => setTab("report")}
-                className={`flex-1 whitespace-nowrap px-1 py-1.5 text-center text-[11px] font-bold uppercase sm:hidden ${tab === "report" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
+                className={`flex-1 whitespace-nowrap px-0.5 py-1.5 text-center text-[11px] font-bold uppercase sm:hidden ${tab === "report" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
               >
                 Report
               </button>
               <button
                 onClick={() => setTab("invoice")}
-                className={`flex-1 whitespace-nowrap px-1 py-1.5 text-center text-[11px] font-bold uppercase sm:hidden ${tab === "invoice" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
+                className={`flex-1 whitespace-nowrap px-0.5 py-1.5 text-center text-[11px] font-bold uppercase sm:hidden ${tab === "invoice" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
               >
                 Invoice
               </button>
@@ -1992,13 +1992,13 @@ export function ProjectDetailDialog({
               </button>
               <button
                 onClick={() => setTab("chat")}
-                className={`flex-1 whitespace-nowrap px-1 py-1.5 text-center text-[11px] font-bold uppercase sm:flex-none sm:px-3 sm:text-sm ${tab === "chat" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
+                className={`flex-1 whitespace-nowrap px-0.5 py-1.5 text-center text-[11px] font-bold uppercase sm:flex-none sm:px-3 sm:text-sm ${tab === "chat" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
               >
                 Chat
               </button>
               <button
                 onClick={() => setTab("photos")}
-                className={`flex-1 whitespace-nowrap px-1 py-1.5 text-center text-[11px] font-bold uppercase sm:flex-none sm:px-3 sm:text-sm ${tab === "photos" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
+                className={`flex-1 whitespace-nowrap px-0.5 py-1.5 text-center text-[11px] font-bold uppercase sm:flex-none sm:px-3 sm:text-sm ${tab === "photos" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
               >
                 Photos
               </button>
@@ -2008,19 +2008,19 @@ export function ProjectDetailDialog({
             <>
               <button
                 onClick={() => setTab("shipping")}
-                className={`flex-1 whitespace-nowrap px-1 py-1.5 text-center text-[11px] font-bold uppercase sm:flex-none sm:px-3 sm:text-sm ${tab === "shipping" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
+                className={`flex-1 whitespace-nowrap px-0.5 py-1.5 text-center text-[11px] font-bold uppercase sm:flex-none sm:px-3 sm:text-sm ${tab === "shipping" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
               >
                 Shipping
               </button>
               <button
                 onClick={() => setTab("compensation")}
-                className={`flex-1 whitespace-nowrap px-1 py-1.5 text-center text-[11px] font-bold uppercase sm:flex-none sm:px-3 sm:text-sm ${tab === "compensation" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
+                className={`flex-1 whitespace-nowrap px-0.5 py-1.5 text-center text-[11px] font-bold uppercase sm:flex-none sm:px-3 sm:text-sm ${tab === "compensation" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
               >
                 Compensation
               </button>
             </>
           )}
-          <button onClick={onClose} className="shrink-0 pl-2 text-slate-400 hover:text-slate-600 sm:ml-auto">✕</button>
+          <button onClick={onClose} className="shrink-0 pl-1 text-2xl leading-none text-slate-400 hover:text-slate-600 sm:ml-auto sm:pl-2 sm:text-base">✕</button>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3 sm:px-5 sm:pb-5">

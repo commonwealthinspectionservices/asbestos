@@ -40,7 +40,16 @@ interface JobIntakeSender {
   domain: string;
   companyName: string;
   serviceTypeKey: string;
-  /** Gmail search term — narrows candidates before the real content check (parseAcmOrderEmail) decides. */
+  /**
+   * Gmail search term — OR'd with `from:domain` below, not used alone.
+   * Matching on subject text alone silently missed a real order whose
+   * subject didn't contain this exact phrase (confirmed live 2026-08-24 —
+   * nothing was created and no alert fired, since the email never even
+   * became a search candidate). The real content check (parseAcmOrderEmail)
+   * is what actually decides whether something's a job, so casting a wider
+   * net here and letting a mismatch fall through to alertOwnerOfIntakeIssue
+   * is safer than a narrow subject filter silently dropping real orders.
+   */
   subjectHint: string;
 }
 
@@ -153,13 +162,14 @@ export async function checkForJobIntakeEmails(): Promise<JobIntakeResult> {
   const result: JobIntakeResult = { checked: 0, created: [], unmatched: 0 };
 
   for (const sender of KNOWN_SENDERS) {
-    // No `from:` filter here — a real order the owner forwarded on to this
-    // inbox himself carries his own From header, not the sender's, so a
-    // from:-filtered search would never even see it. The subject hint
-    // still does the real narrowing; sender identity is checked below
-    // against either the direct From header or, for a forward, the
-    // original sender embedded in Gmail's forward boilerplate.
-    const query = `is:unread subject:"${sender.subjectHint}" newer_than:14d`;
+    // subject OR from:domain, not subject alone — a from:-only filter would
+    // miss a forwarded order (the owner's own From header, not the
+    // sender's), and a subject-only filter missed a real order whose
+    // subject didn't happen to contain the hint (see subjectHint's own
+    // comment). Sender identity is still verified below against either the
+    // direct From header or, for a forward, the original sender embedded
+    // in Gmail's forward boilerplate — this query only decides candidacy.
+    const query = `is:unread newer_than:14d (subject:"${sender.subjectHint}" OR from:${sender.domain})`;
     const candidates = await listMessagesByQuery(accessToken, query);
 
     for (const candidate of candidates) {

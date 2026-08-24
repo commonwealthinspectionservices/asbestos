@@ -66,15 +66,25 @@ const styles = StyleSheet.create({
   headerLeft: { flexDirection: "row", alignItems: "center" },
   letterhead: { width: 283, height: 55 },
   title: { fontSize: 11, fontWeight: 700 },
-  // SITE sits close under the table (small marginBottom here) but well
-  // clear of CLIENT/PROJECT #/DATE above it (SITE's own row carries the
-  // marginTop instead — see the SITE metaRow below).
+  // Two rows: CLIENT+DATE, then SITE+PROJECT # directly under it. SITE
+  // sits close under the table (small marginBottom here) but well clear
+  // of the row above it (metaBottomRow carries its own marginTop instead).
   metaGrid: { marginBottom: 8 },
-  metaRow: { flexDirection: "row", marginBottom: 12, alignItems: "flex-end" },
+  metaTopRow: { flexDirection: "row", alignItems: "flex-end", marginBottom: 12 },
+  metaBottomRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 14 },
   metaLabel: { fontWeight: 700, marginRight: 4 },
-  metaValue: { flex: 1, borderBottomWidth: 1, borderBottomColor: LINE_COLOR, marginRight: 17 },
-  metaValueLast: { flex: 1, borderBottomWidth: 1, borderBottomColor: LINE_COLOR },
-  metaValueWide: { flex: 1, borderBottomWidth: 1, borderBottomColor: LINE_COLOR },
+  // CLIENT/SITE share this — a flexible field that fills whatever's left
+  // once the fixed-width DATE/PROJECT # column (metaRightField) is placed.
+  metaLeftField: { flex: 1, flexDirection: "row", alignItems: "flex-end" },
+  metaLeftValue: { flex: 1, borderBottomWidth: 1, borderBottomColor: LINE_COLOR, marginRight: 20 },
+  // PROJECT # sits directly under DATE — same fixed width both rows, so
+  // their lines end up the exact same length; the label itself is right-
+  // aligned within a shared fixed width so "DATE" and "PROJECT #" end at
+  // the same x (their last letter/character lining up) regardless of the
+  // two labels being different lengths.
+  metaRightField: { width: 190, flexDirection: "row", alignItems: "flex-end" },
+  metaLabelRight: { width: 65, textAlign: "right", fontWeight: 700, marginRight: 4 },
+  metaValueRight: { flex: 1, borderBottomWidth: 1, borderBottomColor: LINE_COLOR },
   // flex: 1 (with a following sibling — footer below) so the table's rows
   // stretch to fill the page's remaining height. Confirmed live: flex-grow
   // on a *trailing* element (no sibling after it) is unreliable in
@@ -159,17 +169,25 @@ function MoldCocDocument({ job, customer, sampleType }: MoldCocData) {
         </View>
 
         <View style={styles.metaGrid}>
-          <View style={styles.metaRow}>
-            <Text style={styles.metaLabel}>CLIENT</Text>
-            <Text style={[styles.metaValue, { flex: 2 }]}>{clientLabel}</Text>
-            <Text style={styles.metaLabel}>PROJECT #</Text>
-            <Text style={[styles.metaValue, { flex: 0.5 }]}>{job?.project_number ?? ""}</Text>
-            <Text style={styles.metaLabel}>DATE</Text>
-            <Text style={styles.metaValueLast}>{formatDateMDY(job?.requested_date) ?? ""}</Text>
+          <View style={styles.metaTopRow}>
+            <View style={styles.metaLeftField}>
+              <Text style={styles.metaLabel}>CLIENT</Text>
+              <Text style={styles.metaLeftValue}>{clientLabel}</Text>
+            </View>
+            <View style={styles.metaRightField}>
+              <Text style={styles.metaLabelRight}>DATE</Text>
+              <Text style={styles.metaValueRight}>{formatDateMDY(job?.requested_date) ?? ""}</Text>
+            </View>
           </View>
-          <View style={[styles.metaRow, { marginTop: 14, marginBottom: 0 }]}>
-            <Text style={styles.metaLabel}>SITE</Text>
-            <Text style={styles.metaValueWide}>{job?.service_address ?? ""}</Text>
+          <View style={styles.metaBottomRow}>
+            <View style={styles.metaLeftField}>
+              <Text style={styles.metaLabel}>SITE</Text>
+              <Text style={styles.metaLeftValue}>{job?.service_address ?? ""}</Text>
+            </View>
+            <View style={styles.metaRightField}>
+              <Text style={styles.metaLabelRight}>PROJECT #</Text>
+              <Text style={styles.metaValueRight}>{job?.project_number ?? ""}</Text>
+            </View>
           </View>
         </View>
 

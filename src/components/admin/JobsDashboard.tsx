@@ -506,9 +506,11 @@ export default function JobsDashboard() {
   const serviceTypeFilterCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [availableServiceTypes, setAvailableServiceTypes] = useState<ServiceType[]>([]);
   const [addingProject, setAddingProject] = useState(false);
-  const [sortBy, setSortBy] = useState<SortField>("date");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
-  const [sortEnabled, setSortEnabled] = useState(false);
+  // Default view: newest project number first, so a job just added shows up
+  // at the top without the admin having to sort for it.
+  const [sortBy, setSortBy] = useState<SortField>("project_number");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [sortEnabled, setSortEnabled] = useState(true);
   // The card order to fall back to while sorting is off — snapshotted the
   // moment it's turned off, so status/date edits afterward can't reshuffle
   // cards out from under the admin's eyes.

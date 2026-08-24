@@ -1235,7 +1235,7 @@ function JobRow({
                     the OS's native date picker exactly as before. Its own
                     layout quirks no longer matter since nothing about it is
                     ever seen. */}
-                <div className="relative w-28 shrink-0 rounded-lg border border-slate-300">
+                <div className="relative w-28 shrink-0 rounded-lg border border-slate-300 bg-white">
                   <div className="flex h-full items-center px-1.5 text-xs text-slate-600">
                     {manualDate ? formatDateMDY(manualDate) : "Date"}
                   </div>
@@ -1246,16 +1246,25 @@ function JobRow({
                     className="absolute inset-0 h-full w-full opacity-0"
                   />
                 </div>
-                <select
-                  value={manualTime}
-                  onChange={(e) => setManualTime(e.target.value)}
-                  className="w-28 min-w-0 shrink-0 rounded-lg border border-slate-300 px-1.5 text-xs text-slate-600"
-                >
-                  <option value="">Time</option>
-                  {timeSelectOptions().map((t) => (
-                    <option key={t} value={t}>{formatTime(t)}</option>
-                  ))}
-                </select>
+                {/* appearance-none + bg-white — same pattern used by every
+                    other <select> in this app (e.g. the status dropdown
+                    above) — strips iOS's own gray select fill, which is
+                    what made Time visibly shaded next to Date's plain
+                    white box. The stripped native arrow is replaced with
+                    the same manual chevron those other selects use. */}
+                <div className="relative w-28 shrink-0">
+                  <select
+                    value={manualTime}
+                    onChange={(e) => setManualTime(e.target.value)}
+                    className="w-full min-w-0 appearance-none rounded-lg border border-slate-300 bg-white py-1 pl-1.5 pr-5 text-xs text-slate-600"
+                  >
+                    <option value="">Time</option>
+                    {timeSelectOptions().map((t) => (
+                      <option key={t} value={t}>{formatTime(t)}</option>
+                    ))}
+                  </select>
+                  <span className="pointer-events-none absolute inset-y-0 right-1.5 flex items-center text-slate-500">▾</span>
+                </div>
                 <button
                   type="button"
                   disabled={!manualDate || !manualTime}

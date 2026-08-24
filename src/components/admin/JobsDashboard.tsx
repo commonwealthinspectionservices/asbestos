@@ -2135,8 +2135,17 @@ export function ProjectDetailDialog({
           <div className="grid grid-cols-1 gap-y-6 sm:grid-cols-2 sm:gap-x-4 sm:gap-y-4">
             <div className="space-y-3 sm:space-y-2">
               <h4 className="text-sm font-bold tracking-wide text-black underline">Job site contact</h4>
-              <DetailField label="Name" value={job.site_contact_name ?? "—"} />
-              <DetailField label="Phone" value={job.site_contact_phone ? formatPhoneInput(job.site_contact_phone) : "—"} />
+              <DetailField label="Name" value={job.site_contact_name ? toTitleCase(job.site_contact_name) : "—"} />
+              <DetailField
+                label="Phone"
+                value={
+                  job.site_contact_phone ? (
+                    <a href={`tel:${job.site_contact_phone.replace(/\D/g, "")}`} className="text-brand-700 hover:underline">
+                      {formatPhoneInput(job.site_contact_phone)}
+                    </a>
+                  ) : "—"
+                }
+              />
               <DetailField label="Email" value={job.site_contact_email} nowrap />
             </div>
             {job.report_emails && job.report_emails.trim() && (

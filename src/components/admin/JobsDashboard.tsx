@@ -3635,7 +3635,7 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
     <div className="fixed inset-0 flex items-center justify-center bg-black/40 px-4">
       <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl bg-white">
         <div className="flex shrink-0 items-start justify-between gap-2 px-5 pt-5">
-          <h3 className="font-semibold text-slate-800">ADD PROJECT</h3>
+          <h3 className="font-semibold text-slate-800">Add Project</h3>
           <button onClick={() => setConfirmingExit(true)} className="shrink-0 text-slate-400 hover:text-slate-600">✕</button>
         </div>
 
@@ -3926,7 +3926,7 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
             disabled={submitting}
             className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
           >
-            {submitting ? "ADDING…" : "ADD PROJECT"}
+            {submitting ? "Adding…" : "Add Project"}
           </button>
           <button onClick={() => setConfirmingExit(true)} className="rounded-lg border border-slate-300 px-4 py-2 text-sm">
             Cancel

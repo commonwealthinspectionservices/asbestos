@@ -86,7 +86,7 @@ const styles = StyleSheet.create({
   colLocation: { flex: 1 },
   // Matches the asbestos form's own gaps below the table — not perfectly
   // uniform, that's genuinely how the real form is spaced.
-  footer: { marginTop: 10 },
+  footer: { marginTop: 18 },
   footerTopRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end" },
   turnaroundLine: { flexDirection: "row", alignItems: "baseline" },
   turnaroundLabel: { fontSize: 11, fontWeight: 700 },
@@ -94,7 +94,7 @@ const styles = StyleSheet.create({
   notes: { fontSize: 11, fontStyle: "italic" },
   dateNeededRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 24 },
   dateNeededLabel: { fontSize: 11, fontWeight: 700, marginRight: 4 },
-  dateNeededValue: { width: 160, borderBottomWidth: 1, borderBottomColor: LINE_COLOR },
+  dateNeededValue: { width: 220, borderBottomWidth: 1, borderBottomColor: LINE_COLOR },
   signatureRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 24 },
   signatureSubRow: { flexDirection: "row", alignItems: "flex-end" },
   // Fixed width (not auto-sized to the text) so "RELINQUISHED BY" and the

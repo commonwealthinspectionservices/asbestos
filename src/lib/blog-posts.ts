@@ -12,6 +12,44 @@ export interface BlogPost {
 
 export const blogPosts: BlogPost[] = [
   {
+    slug: "what-to-expect-during-a-mold-air-sampling-visit",
+    title: `What to Expect During a Mold Air Sampling Visit`,
+    excerpt: `A mold air sampling visit is quick and non-invasive — usually well under an hour, with nothing torn open or disturbed.`,
+    image: "/marketing/icon-inspector-ppe.png",
+    body: `If you've never had mold air sampling done before, it's a lot less involved than most people expect. A typical visit is quick, non-invasive, and doesn't require tearing into anything — here's what actually happens.
+
+The visit starts with a short walkthrough. Before any samples are taken, it helps to talk through what's prompting the test — a musty smell, a past leak, a specific room that feels off — and take a quick look at the areas in question. This isn't a deep inspection of every surface; it's mainly to decide exactly where air samples make the most sense.
+
+Next comes the actual sampling. A small pump pulls a measured volume of air through a cassette over a few minutes, placed in the room or area being tested. The equipment is compact and sits quietly on a stand or tripod — there's no need to leave the room, and nothing gets disturbed, opened, or cut into. One air sample is taken per area being evaluated.
+
+An outdoor baseline sample gets taken the same way, usually right outside the home. This is what the indoor results actually get compared against — some level of mold spores in outdoor air is completely normal, so the outdoor sample is what turns an indoor number into a meaningful answer instead of just a number on its own.
+
+The whole visit is typically well under an hour for a standard one or two-area test, longer if more areas are being sampled. There's no need to leave the house, cancel plans, or clear out furniture — pets and kids don't need to be relocated either, since nothing about the process is disruptive.
+
+Once the samples are collected, they're sent to an accredited lab, and results are typically back within 24 to 48 hours, faster with rush turnaround. The report shows spore counts and types for each indoor sample compared against the outdoor baseline, so you get a clear, specific answer rather than a vague "yes there's mold" or "no there isn't."
+
+If the results come back elevated, the report gives you something concrete to act on — whether that means a bulk sample of a specific material to identify what's growing, or getting quotes from a remediation company (something this office deliberately doesn't do, so there's no incentive either way in what the report tells you). If results come back normal, you've got a clear answer and peace of mind backed by an actual lab report instead of a guess.
+
+Mold air sampling is one of the more straightforward inspections there is — no demolition, no disruption, just measured air samples and a clear answer a day or two later.`,
+  },
+  {
+    slug: "should-you-test-for-mold-before-buying-a-house-in-massachusetts",
+    title: `Should You Test for Mold Before Buying a House in Massachusetts?`,
+    excerpt: `A pre-purchase mold air test is a small cost relative to a home sale, and it turns a musty smell or a finished basement into a clear answer instead of a guess before you're committed.`,
+    image: "/marketing/icon-residential.jpg",
+    body: `For most Massachusetts homebuyers, yes — especially if the house has a finished basement, any history of water damage, or a smell that raises questions during a walkthrough. A standard home inspection covers a lot of ground, but it isn't a mold test, and mold is one of the more common things buyers end up dealing with after closing that a pre-purchase air sample would have caught.
+
+A general home inspector will usually flag visible staining or an obvious moisture issue, but a standard inspection doesn't include lab-tested air sampling. That gap matters because mold doesn't have to be visible to be a real issue — a musty smell in a finished basement, a previously wet crawl space, or a room that just feels different from the rest of the house are all reasons to get an actual air sample rather than relying on a visual walkthrough alone.
+
+The cost is small relative to what's actually on the line. A typical mold air sampling visit runs $700 to $900 for a few areas of the home — a minor cost compared to a home purchase, and considerably less than discovering a real air quality issue after you've already moved in and the seller is no longer part of the equation.
+
+Timing usually isn't a problem either. Air sampling can typically be scheduled quickly, the visit itself takes well under an hour, and lab results are normally back within 24 to 48 hours — fast enough to fit inside a standard inspection contingency window, especially with rush turnaround if the closing timeline is tight.
+
+A few situations make testing particularly worth prioritizing: a finished basement (the single most common spot for hidden moisture issues), any disclosed history of a leak or water damage even if it's since been repaired, an older home where humidity and ventilation issues have had more time to compound, or simply a smell that gives you pause during a showing. None of these guarantee a problem — that's exactly what the test is for — but they're the situations where skipping it is more likely to cost you later.
+
+If you're working with an agent, it's worth asking whether they can help coordinate a fast turnaround on testing during your contingency period — a lot of agents already have an inspector they work with for exactly this reason. Either way, a pre-purchase mold air test is one of the more straightforward ways to turn "I'm not sure" into an actual answer before you're the one who owns the problem.`,
+  },
+  {
     slug: "how-much-does-mold-air-sampling-cost-in-massachusetts",
     title: `How Much Does Mold Air Sampling Cost in Massachusetts?`,
     excerpt: `Most mold air sampling in Massachusetts runs between $700 and $900, depending on how many areas of the home need to be tested.`,

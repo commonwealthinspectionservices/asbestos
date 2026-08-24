@@ -1099,6 +1099,7 @@ function JobRow({
   // the admin ever got to the time field).
   const [manualDate, setManualDate] = useState("");
   const [manualTime, setManualTime] = useState("");
+  const dateInputRef = useRef<HTMLInputElement>(null);
   function trySubmitManual(nextDate: string, nextTime: string) {
     if (nextDate && nextTime) {
       onFieldChange({ status: "scheduled", confirmed_date: nextDate, confirmed_time: nextTime, schedule_visible_to_customer: true });
@@ -1284,11 +1285,23 @@ function JobRow({
                     the OS's native date picker exactly as before. Its own
                     layout quirks no longer matter since nothing about it is
                     ever seen. */}
-                <div className="relative w-28 shrink-0 rounded-lg border border-slate-300 bg-white">
+                <div
+                  className="relative w-28 shrink-0 rounded-lg border border-slate-300 bg-white"
+                  // Tapping anywhere opens the native picker on mobile, but
+                  // desktop Chrome/Edge only do that for a real click on the
+                  // tiny calendar-icon glyph — invisible here since the
+                  // input itself is opacity-0, so a desktop click anywhere
+                  // else in the box just silently focused it. showPicker()
+                  // forces it open regardless of where in the box was
+                  // clicked; harmless where it's unsupported (Safari) or
+                  // already open (mobile's own tap-to-open already fired).
+                  onClick={() => dateInputRef.current?.showPicker?.()}
+                >
                   <div className="flex h-full items-center px-1.5 text-xs text-slate-600">
                     {manualDate ? formatDateMDY(manualDate) : "Date"}
                   </div>
                   <input
+                    ref={dateInputRef}
                     type="date"
                     value={manualDate}
                     onChange={(e) => setManualDate(e.target.value)}

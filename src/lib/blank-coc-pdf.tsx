@@ -76,7 +76,7 @@ const styles = StyleSheet.create({
   turnaroundOption: { fontSize: 11, fontWeight: 400, marginLeft: 20 },
   notes: { fontSize: 11, fontStyle: "italic" },
   emailNote: { fontSize: 11, fontStyle: "italic", textAlign: "right", marginTop: 8 },
-  dateNeededRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 14 },
+  dateNeededRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 8 },
   dateNeededLabel: { fontSize: 11, fontWeight: 700, marginRight: 4 },
   dateNeededValue: { width: 160, borderBottomWidth: 0.5, borderBottomColor: LINE_COLOR },
   signatureRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 24 },
@@ -91,7 +91,7 @@ const styles = StyleSheet.create({
   // (PAGE) competing for space, which used to leave its line shorter than
   // RELINQUISHED BY's. A fixed width sized to fit RECEIVED BY's more
   // crowded row keeps both lines identical.
-  signatureLineWrap: { position: "relative", width: 320 },
+  signatureLineWrap: { position: "relative", width: 370 },
   signatureLine: { borderBottomWidth: 0.5, borderBottomColor: LINE_COLOR },
   pageLabel: { fontSize: 11, fontWeight: 700, marginLeft: 16 },
   // The date/time sits ON the line itself — right-anchored inside the same

@@ -16,30 +16,31 @@ const LINE_COLOR = "#000000";
 
 export type MoldSampleType = "air_o_cell" | "bulk" | "swab";
 
-// turnaroundNote sits beside TURNAROUND, dateNeededNote (if any) beside
-// DATE NEEDED — same split blank-coc-pdf.tsx uses for its two notes.
-// Air-O-Cell samples are always a fixed 75ml, worth noting once rather
-// than on every one of BLANK_ROW_COUNT rows regardless of how many
-// samples an actual job has; bulk and swab don't have a second note at
-// all, so DATE NEEDED renders alone on its row.
-const SAMPLE_TYPE_CONFIG: Record<MoldSampleType, { title: string; thirdColumnLabel: string; turnaroundNote: string; dateNeededNote: string | null }> = {
+// turnaroundNote (if any) sits beside TURNAROUND, dateNeededNote (if any)
+// beside DATE NEEDED — same split blank-coc-pdf.tsx uses for its two
+// notes. Air-O-Cell has both: Spore Trap Analysis beside TURNAROUND, and
+// the fixed-75ml note beside DATE NEEDED (worth noting once rather than
+// on every one of BLANK_ROW_COUNT rows regardless of how many samples an
+// actual job has). Bulk and swab only have the one Direct Examination
+// note, and it goes beside DATE NEEDED — TURNAROUND renders alone.
+const SAMPLE_TYPE_CONFIG: Record<MoldSampleType, { title: string; thirdColumnLabel: string; turnaroundNote: string | null; dateNeededNote: string | null }> = {
   air_o_cell: {
     title: "MOLD AIR-O-CELL SAMPLE CHAIN OF CUSTODY",
     thirdColumnLabel: "VOLUME",
     turnaroundNote: "*Samples for analysis by Spore Trap Analysis",
-    dateNeededNote: "*Air-O-Cell samples are 75ml",
+    dateNeededNote: "*The volume for all Air-O-Cell samples is 75ml",
   },
   bulk: {
     title: "MOLD BULK SAMPLE CHAIN OF CUSTODY",
     thirdColumnLabel: "MATERIAL",
-    turnaroundNote: "*Samples for analysis by Direct Examination",
-    dateNeededNote: null,
+    turnaroundNote: null,
+    dateNeededNote: "*Samples for analysis by Direct Examination",
   },
   swab: {
     title: "MOLD SWAB SAMPLE CHAIN OF CUSTODY",
     thirdColumnLabel: "SURFACE SWABBED",
-    turnaroundNote: "*Samples for analysis by Direct Examination",
-    dateNeededNote: null,
+    turnaroundNote: null,
+    dateNeededNote: "*Samples for analysis by Direct Examination",
   },
 };
 
@@ -186,7 +187,7 @@ function MoldCocDocument({ job, customer, sampleType }: MoldCocData) {
               <Text style={styles.turnaroundOption}>RUSH</Text>
               <Text style={styles.turnaroundOption}>24HR</Text>
             </View>
-            <Text style={styles.notes}>{config.turnaroundNote}</Text>
+            {config.turnaroundNote && <Text style={styles.notes}>{config.turnaroundNote}</Text>}
           </View>
 
           {config.dateNeededNote ? (

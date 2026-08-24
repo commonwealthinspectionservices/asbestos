@@ -1185,8 +1185,8 @@ function JobRow({
               onClick={(e) => { e.stopPropagation(); setShowMapMenu((v) => !v); }}
               className="block w-full text-left sm:hidden"
             >
-              <span className="block truncate whitespace-nowrap text-sm text-slate-500 hover:underline">{street}</span>
-              {cityStateZip && <span className="block truncate whitespace-nowrap text-sm text-slate-500 hover:underline">{cityStateZip}</span>}
+              <span className="block truncate whitespace-nowrap text-sm text-slate-500 underline">{street}</span>
+              {cityStateZip && <span className="block truncate whitespace-nowrap text-sm text-slate-500 underline">{cityStateZip}</span>}
             </button>
             <div className="hidden sm:block">
               <div className="truncate whitespace-nowrap text-sm text-slate-500">{street}</div>

@@ -119,7 +119,7 @@ const styles = StyleSheet.create({
   // the line, matching the asbestos form exactly. bottom:-13 drops the
   // "date / time" caption below the line while the slashes above it hover
   // just clear of the line itself.
-  dateTimeOverlay: { position: "absolute", right: 4, bottom: -13, alignItems: "center" },
+  dateTimeOverlay: { position: "absolute", right: 45, bottom: -13, alignItems: "center" },
   dateTimeSlashes: { fontSize: 11, letterSpacing: 6 },
   dateTimeCaption: { fontSize: 8, color: "#000000", marginTop: 10 },
 });

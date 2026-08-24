@@ -96,8 +96,14 @@ function buildParsedResult(fields: {
 }): ParsedJobIntake | null {
   const { homeownerName, streetAddress, town, homeownerPhone, companyContactName, companyContactPhone, requestedDate, scopeOfWork } = fields;
 
-  if (!PHONE_LINE.test(homeownerPhone)) return null;
-  if (!PHONE_LINE.test(companyContactPhone)) return null;
+  // Phones are validated when present but not required — a third labeled
+  // variant confirmed live 2026-08-24 (Cory Ford/690 Blue Hill Ave, Stephanie
+  // Kra/29 Tilesboro St) drops both phone lines from the template entirely,
+  // rather than sending them blank. Rejecting on missing phones here would
+  // silently drop every real order in that shape, same failure class as the
+  // original bare-vs-labeled mismatch.
+  if (homeownerPhone && !PHONE_LINE.test(homeownerPhone)) return null;
+  if (companyContactPhone && !PHONE_LINE.test(companyContactPhone)) return null;
   if (!DATE_LINE.test(requestedDate)) return null;
   // A real street address always has a house number; a real person's name
   // never does — cheap, low-false-positive guard against the two lines
@@ -153,16 +159,30 @@ function parseBareFormat(lines: string[]): ParsedJobIntake | null {
 // label line -> which field it introduces; the line immediately after a
 // label is that field's value, except "description", which runs to the end
 // of the message (or a signature block, see below) rather than just one line.
+// Two label spellings per field ("customer address"/"address", "city"/
+// "town", "bhwr contact"/"bhwr rep") because Boston Harbor Water switched
+// wording between the first labeled order seen (Geraldine Burns, 2026-08-24)
+// and the very next batch (Cory Ford/Stephanie Kra, same day) — both
+// confirmed live, so both stay supported rather than betting on either one
+// being final.
 const LABELED_FIELD_FOR_LABEL: Record<string, string> = {
   "customer name": "homeownerName",
   "customer address": "streetAddress",
+  "address": "streetAddress",
   "city": "town",
+  "town": "town",
   "customer phone": "homeownerPhone",
   "bhwr contact": "companyContactName",
+  "bhwr rep": "companyContactName",
   "bhwr contact phone": "companyContactPhone",
   "date needed": "requestedDate",
   "description": "scopeOfWork",
 };
+
+// Unlike the bare/positional format, the phone labels above aren't always
+// present at all in a labeled order (see buildParsedResult's own comment) —
+// required here mirrors that: every field except the two phones.
+const REQUIRED_LABELED_FIELDS = ["homeownerName", "streetAddress", "town", "companyContactName", "requestedDate", "scopeOfWork"];
 
 function parseLabeledFormat(lines: string[]): ParsedJobIntake | null {
   const values: Record<string, string> = {};
@@ -190,16 +210,19 @@ function parseLabeledFormat(lines: string[]): ParsedJobIntake | null {
     i += 2;
   }
 
-  const requiredFields = Object.values(LABELED_FIELD_FOR_LABEL);
-  if (!requiredFields.every((f) => values[f])) return null;
+  if (!REQUIRED_LABELED_FIELDS.every((f) => values[f])) return null;
 
   return buildParsedResult({
     homeownerName: values.homeownerName,
     streetAddress: values.streetAddress,
     town: values.town,
-    homeownerPhone: values.homeownerPhone,
+    // Defaulted, not just typed as string — a labeled order that never sent
+    // a phone label at all (see REQUIRED_LABELED_FIELDS) leaves these keys
+    // genuinely absent from `values`, and formatPhoneNumber below would
+    // throw on undefined rather than treat it as blank.
+    homeownerPhone: values.homeownerPhone ?? "",
     companyContactName: values.companyContactName,
-    companyContactPhone: values.companyContactPhone,
+    companyContactPhone: values.companyContactPhone ?? "",
     requestedDate: values.requestedDate,
     scopeOfWork: values.scopeOfWork,
   });

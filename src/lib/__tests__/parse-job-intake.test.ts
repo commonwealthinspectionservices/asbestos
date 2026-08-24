@@ -63,6 +63,29 @@ Jack Cook
 781-985-7432
 bostonharborwater.com`;
 
+// A real order (Cory Ford/690 Blue Hill Ave) using a third labeled shape —
+// confirmed live 2026-08-24, same day as GERALDINE_BURNS_LABELED but with
+// different label wording ("Address"/"Town"/"BHWR rep" instead of "Customer
+// Address"/"City"/"BHWR contact") and, notably, no phone lines at all. This
+// silently failed for hours (no alert — see job-intake.ts's own history)
+// because the pipeline never even applied its processed-label to it; once a
+// manual cron run picked it up, it alerted "didn't match the expected
+// template" since neither existing labeled parser recognized this wording
+// or tolerated missing phones.
+const CORY_FORD_NO_PHONE = `Customer Name
+Cory Ford
+Address
+690 Blue Hill Ave
+Town
+Boston
+BHWR rep
+Niall
+Date Needed
+2026-08-24
+Description
+Tile Wall in bathroom behind sink and vinyl plank flooring, exposed
+sheet rock in the kitchen`;
+
 describe("parseAcmOrderEmail", () => {
   it("parses a simple single-line scope of work", () => {
     expect(parseAcmOrderEmail(PETER_LINSKI)).toEqual({
@@ -149,5 +172,29 @@ describe("parseAcmOrderEmail", () => {
   it("returns null for a labeled email missing a required field", () => {
     const missingCity = GERALDINE_BURNS_LABELED.replace("City\nWest Roxbury\n", "");
     expect(parseAcmOrderEmail(missingCity)).toBeNull();
+  });
+
+  it("parses the second labeled variant (Address/Town/BHWR rep wording, no phone lines)", () => {
+    expect(parseAcmOrderEmail(CORY_FORD_NO_PHONE)).toEqual({
+      homeownerName: "Cory Ford",
+      streetAddress: "690 Blue Hill Ave",
+      town: "Boston",
+      stateHint: null,
+      homeownerPhone: "",
+      companyContactName: "Niall",
+      companyContactPhone: "",
+      requestedDate: "2026-08-24",
+      scopeOfWork: "Tile Wall in bathroom behind sink and vinyl plank flooring, exposed sheet rock in the kitchen",
+    });
+  });
+
+  it("still returns null when a genuinely required field (not a phone) is missing from the no-phone variant", () => {
+    const missingTown = CORY_FORD_NO_PHONE.replace("Town\nBoston\n", "");
+    expect(parseAcmOrderEmail(missingTown)).toBeNull();
+  });
+
+  it("rejects a malformed phone even though phones are otherwise optional", () => {
+    const badPhone = CORY_FORD_NO_PHONE.replace("BHWR rep\nNiall", "Customer Phone\ncall me maybe\nBHWR rep\nNiall");
+    expect(parseAcmOrderEmail(badPhone)).toBeNull();
   });
 });

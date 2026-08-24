@@ -418,7 +418,12 @@ function AsbestosReportDocument({ job, customer, settings }: ProjectReportData) 
 // identical to the asbestos letter (same Sampling Summary box, same
 // Remarks-and-Limitations list shape), just paint-chip/lead wording and an
 // AIHA accreditation # in place of NIST/NVLAP + MassDLS (lead labs like
-// SanAir don't carry a MassDLS cert). Neither real example showed a
+// SanAir don't carry a MassDLS cert). Uses its own lead_report_summary/
+// lead_report_notes/lead_lab_name/lead_lab_cert fields rather than
+// asbestos's report_summary/report_notes/lab_name/lab_nist_cert — a job
+// combining asbestos and lead used to leak content (and overwrite lab
+// info) between the two domains' reports before this split existed.
+// Neither real example showed a
 // license # under the signature, so this omits it like the mold letter
 // does. No "Field Technician" row — both real letters leave it blank and
 // nothing in this app tracks who was on site, so there's no value to show.
@@ -442,13 +447,13 @@ function LeadReportDocument({ job, customer, settings }: ProjectReportData) {
     remarks.push("NO RESULTS YET.");
   }
   // Selecting a canned Overall findings sentence in the admin UI now sets
-  // report_summary AND the matching lead_result together (they're the same
-  // determination) — skip re-adding it here when it just repeats the
+  // lead_report_summary AND the matching lead_result together (they're the
+  // same determination) — skip re-adding it here when it just repeats the
   // remark above verbatim.
-  if (job.report_summary && job.report_summary !== LEAD_POSITIVE_REMARK && job.report_summary !== LEAD_NEGATIVE_REMARK) {
-    remarks.push(job.report_summary);
+  if (job.lead_report_summary && job.lead_report_summary !== LEAD_POSITIVE_REMARK && job.lead_report_summary !== LEAD_NEGATIVE_REMARK) {
+    remarks.push(job.lead_report_summary);
   }
-  if (job.report_notes) remarks.push(job.report_notes);
+  if (job.lead_report_notes) remarks.push(job.lead_report_notes);
 
   const { knownCustomerName, dateText, billingStreet, billing, serviceStreet, service } = commonLetterFields(job, customer, settings);
 
@@ -505,8 +510,8 @@ function LeadReportDocument({ job, customer, settings }: ProjectReportData) {
         <View style={styles.summaryBlock}>
           <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Date of Sampling:</Text><ValueOrBlank style={styles.summaryValue} value={formatDateMDY(job.requested_date)} /></View>
           <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Total # of Samples:</Text><ValueOrBlank style={styles.summaryValue} value={totalSamples} /></View>
-          <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Samples Analyzed At:</Text><ValueOrBlank style={styles.summaryValue} value={job.lab_name} /></View>
-          <View style={styles.summaryRow}><Text style={styles.summaryLabel}>AIHA Certification#:</Text><ValueOrBlank style={styles.summaryValue} value={job.lab_nist_cert} /></View>
+          <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Samples Analyzed At:</Text><ValueOrBlank style={styles.summaryValue} value={job.lead_lab_name} /></View>
+          <View style={styles.summaryRow}><Text style={styles.summaryLabel}>AIHA Certification#:</Text><ValueOrBlank style={styles.summaryValue} value={job.lead_lab_cert} /></View>
         </View>
 
         <Text style={styles.paragraph}>

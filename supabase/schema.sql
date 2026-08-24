@@ -816,6 +816,18 @@ alter table jobs add column if not exists mold_report_notes text;
 alter table jobs add column if not exists mold_lab_name text;
 alter table jobs add column if not exists mold_sample_results jsonb not null default '[]'::jsonb;
 
+-- Same reasoning as mold above, applied to lead: a job combining asbestos
+-- and lead was sharing report_summary/report_notes/lab_name/lab_nist_cert/
+-- lab_massdls_cert between the two domains' reports, so a lead finding
+-- could leak into the asbestos letter (or vice versa) and whichever lab's
+-- info was entered/uploaded second silently overwrote the other's. lead_lab_cert
+-- (not lead_lab_nist_cert) since lead labs carry an AIHA cert, not NIST —
+-- MassDLS doesn't apply to lead at all, so there's no lead_lab_massdls_cert.
+alter table jobs add column if not exists lead_report_summary text;
+alter table jobs add column if not exists lead_report_notes text;
+alter table jobs add column if not exists lead_lab_name text;
+alter table jobs add column if not exists lead_lab_cert text;
+
 -- Auto-create (or link) a bare `customers` row the instant someone signs
 -- up for a portal account, instead of waiting until they finish onboarding
 -- (POST /api/portal/profile). Without this, a client who confirms their

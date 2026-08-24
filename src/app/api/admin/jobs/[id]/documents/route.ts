@@ -65,6 +65,7 @@ export const POST = withApiErrors(async (
     try {
       const { text } = await pdfParse(fileBuffer);
       const isMold = /mold/i.test(serviceType);
+      const isLead = /lead/i.test(serviceType);
 
       const count = isMold ? extractMoldSampleCount(text) : extractSampleCount(text);
       if (count != null) {
@@ -73,14 +74,19 @@ export const POST = withApiErrors(async (
 
       // The lab's own identity/certs are constant per lab — no need to make
       // the admin type them in by hand once the report format is recognized.
-      // Written to mold's own separate field for a mold upload, never the
-      // shared asbestos/lead one — a job combining domains can use two
-      // different labs, and until this split a mold upload would silently
-      // overwrite the asbestos lab's own name/certs (or vice versa).
+      // Written to each domain's own separate field — mold_lab_name,
+      // lead_lab_name/lead_lab_cert, or asbestos's plain lab_name/
+      // lab_nist_cert/lab_massdls_cert — never a shared one. A job combining
+      // domains can use two different labs, and until this split, whichever
+      // domain's report got uploaded second would silently overwrite the
+      // other's lab name/certs.
       const labInfo = detectLabInfo(text);
       if (labInfo) {
         if (isMold) {
           update.mold_lab_name = labInfo.labName;
+        } else if (isLead) {
+          update.lead_lab_name = labInfo.labName;
+          update.lead_lab_cert = labInfo.nistCert;
         } else {
           update.lab_name = labInfo.labName;
           update.lab_nist_cert = labInfo.nistCert;

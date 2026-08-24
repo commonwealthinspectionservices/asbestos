@@ -94,6 +94,10 @@ const job: Job = {
   mold_report_summary: null,
   mold_report_notes: null,
   mold_lab_name: null,
+  lead_report_summary: null,
+  lead_report_notes: null,
+  lead_lab_name: null,
+  lead_lab_cert: null,
   invoice_line_items: [
     { description: "Licensed Asbestos Inspector", quantity: 1, billing_unit: "Flat Fee", unit_cost_cents: 45000 },
     { description: "Bulk Samples for Asbestos Analysis by PLM", quantity: 4, billing_unit: "Sample", unit_cost_cents: 2500 },
@@ -211,6 +215,46 @@ describe("renderProjectReportPdf", () => {
     }, "lead");
     const { text } = await pdfParse(pdf);
     expect(text).toMatch(/Total # of Samples:\s*4/);
+  });
+
+  it("doesn't leak lead's report summary/lab info into the asbestos report", async () => {
+    const pdf = await renderProjectReportPdfForDomain({
+      job: {
+        ...job,
+        service_type: "Limited Asbestos Inspection, Lead Bulk Sampling",
+        report_summary: "Asbestos-only finding.",
+        lead_report_summary: "Lead-only finding, should never appear here.",
+        lab_name: "EMSL Analytical",
+        lead_lab_name: "SanAir Technologies",
+      },
+      customer,
+      settings,
+    }, "asbestos");
+    const { text } = await pdfParse(pdf);
+    expect(text).toContain("Asbestos-only finding.");
+    expect(text).not.toContain("Lead-only finding");
+    expect(text).toContain("EMSL Analytical");
+    expect(text).not.toContain("SanAir Technologies");
+  });
+
+  it("doesn't leak asbestos's report summary/lab info into the lead report", async () => {
+    const pdf = await renderProjectReportPdfForDomain({
+      job: {
+        ...job,
+        service_type: "Limited Asbestos Inspection, Lead Bulk Sampling",
+        report_summary: "Asbestos-only finding, should never appear here.",
+        lead_report_summary: "Lead-only finding.",
+        lab_name: "EMSL Analytical",
+        lead_lab_name: "SanAir Technologies",
+      },
+      customer,
+      settings,
+    }, "lead");
+    const { text } = await pdfParse(pdf);
+    expect(text).toContain("Lead-only finding.");
+    expect(text).not.toContain("Asbestos-only finding");
+    expect(text).toContain("SanAir Technologies");
+    expect(text).not.toContain("EMSL Analytical");
   });
 
   it("falls back to the legacy sample_count when sample_counts is empty", async () => {

@@ -82,6 +82,10 @@ const job: Job = {
   mold_report_summary: null,
   mold_report_notes: null,
   mold_lab_name: null,
+  lead_report_summary: null,
+  lead_report_notes: null,
+  lead_lab_name: null,
+  lead_lab_cert: null,
   invoice_line_items: [
     { description: "Licensed Asbestos Inspector", quantity: 1, billing_unit: "Flat Fee", unit_cost_cents: 45000 },
     { description: "Bulk Samples for Asbestos Analysis by PLM", quantity: 2, billing_unit: "Sample", unit_cost_cents: 2500 },

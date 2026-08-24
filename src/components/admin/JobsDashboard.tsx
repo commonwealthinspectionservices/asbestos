@@ -419,14 +419,6 @@ function isMoldJob(job: JobWithCustomer): boolean {
   return (job.service_type ?? "").toLowerCase().includes("mold");
 }
 
-// Lead labs (SanAir/Crystal Analytical) carry an AIHA cert, not MassDLS —
-// same reasoning as mold above. Lead does have its own positive/negative
-// result, just in its own field (lead_result) rather than asbestos_result.
-// See LeadReportDocument in lib/report-pdf.tsx.
-function isLeadJob(job: JobWithCustomer): boolean {
-  return (job.service_type ?? "").toLowerCase().includes("lead");
-}
-
 // Once a job reaches Pending Lab Results or later, the confirmed date/time
 // describe a completed appointment, not a future one — label it that way
 // instead of "Scheduled".
@@ -470,7 +462,7 @@ function reportChecklist(job: JobWithCustomer, domain: ReportDomain): { label: s
     return [
       ...commonReportChecklist(job),
       { label: "Sample count", done: totalSamples > 0 },
-      { label: "Lab info", done: Boolean(job.lab_name && job.lab_nist_cert) },
+      { label: "Lab info", done: Boolean(job.lead_lab_name && job.lead_lab_cert) },
       { label: "Results", done: Boolean(job.lead_result) },
     ];
   }
@@ -1404,10 +1396,13 @@ export function ProjectDetailDialog({
   const [labs, setLabs] = useState<LabProfile[]>([]);
   const [reportSummaryInput, setReportSummaryInput] = useState(job.report_summary ?? "");
   const [reportNotesInput, setReportNotesInput] = useState(job.report_notes ?? "");
+  // Lead's own Overall Findings sentence — separate from asbestos's
+  // report_summary above, since a job combining asbestos and lead produces
+  // two separate final reports and can't share one field between them.
+  const [leadReportSummaryInput, setLeadReportSummaryInput] = useState(job.lead_report_summary ?? "");
   // Mold's own Discussion of Results/Conclusions & Recommendations —
-  // separate from report_summary/report_notes (asbestos/lead's) above,
-  // since a job combining mold with asbestos or lead produces two separate
-  // final reports and can't share one field between them.
+  // same reasoning, separate from asbestos's report_summary/report_notes
+  // and lead's lead_report_summary above.
   const [moldReportSummaryInput, setMoldReportSummaryInput] = useState(job.mold_report_summary ?? "");
   const [moldReportNotesInput, setMoldReportNotesInput] = useState(job.mold_report_notes ?? "");
   const moldReportNotesRef = useRef<HTMLTextAreaElement>(null);
@@ -1553,7 +1548,7 @@ export function ProjectDetailDialog({
       <span className="shrink-0 text-xs font-semibold uppercase text-slate-400">Lab</span>
       <select
         className="h-9 w-full min-w-0 flex-1 truncate rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
-        value={(domain === "mold" ? job.mold_lab_name : job.lab_name) ?? ""}
+        value={(domain === "mold" ? job.mold_lab_name : domain === "lead" ? job.lead_lab_name : job.lab_name) ?? ""}
         onChange={(e) => selectLab(e.target.value, domain)}
       >
         <option value="">— Not set —</option>
@@ -1570,8 +1565,6 @@ export function ProjectDetailDialog({
   // or lead. A mixed job (e.g. asbestos + mold air sampling) can order its
   // labels either way, so anchoring to the first non-mold label rather
   // than a bare labelIndex === 0 gets it right regardless of order.
-  const resultDropdownLabel = serviceTypeLabels.find((l) => !l.toLowerCase().includes("mold"));
-
   async function saveReportSummary(value: string) {
     await fetch(`/api/admin/jobs/${job.id}`, {
       method: "PATCH",
@@ -1586,6 +1579,15 @@ export function ProjectDetailDialog({
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ report_notes: value.trim() || null }),
+    });
+    onChanged();
+  }
+
+  async function saveLeadReportSummary(value: string) {
+    await fetch(`/api/admin/jobs/${job.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lead_report_summary: value.trim() || null }),
     });
     onChanged();
   }
@@ -1664,11 +1666,16 @@ export function ProjectDetailDialog({
   // stuck waiting on the parser to catch up.
   async function selectLab(labName: string, domain: ReportDomain) {
     const lab = labs.find((l) => l.name === labName);
-    // Mold has its own lab field (no NIST/MassDLS certs — its report
-    // doesn't show them) so a mixed job can use two different labs
-    // without one domain's pick overwriting the other's.
+    // Each domain has its own lab field(s) so a mixed job can use two
+    // different labs without one domain's pick overwriting the other's.
+    // Mold's report shows no cert at all; lead shows one AIHA cert (reusing
+    // the same Settings "cert" field asbestos calls NIST — the Settings UI
+    // only has one generic cert field per lab, not a separate one per
+    // domain); asbestos shows both NIST and MassDLS.
     const patch = domain === "mold"
       ? { mold_lab_name: labName || null }
+      : domain === "lead"
+      ? { lead_lab_name: labName || null, lead_lab_cert: lab?.nist_cert || null }
       : { lab_name: labName || null, lab_nist_cert: lab?.nist_cert || null, lab_massdls_cert: lab?.massdls_cert || null };
     await fetch(`/api/admin/jobs/${job.id}`, {
       method: "PATCH",
@@ -1803,6 +1810,10 @@ export function ProjectDetailDialog({
     mold_report_summary: job.mold_report_summary,
     mold_report_notes: job.mold_report_notes,
     mold_lab_name: job.mold_lab_name,
+    lead_report_summary: job.lead_report_summary,
+    lead_report_notes: job.lead_report_notes,
+    lead_lab_name: job.lead_lab_name,
+    lead_lab_cert: job.lead_lab_cert,
     full_inspection_materials: job.full_inspection_materials,
     customer_id: job.customer_id,
   });
@@ -2261,18 +2272,28 @@ export function ProjectDetailDialog({
                               <DocumentStation job={job} onChanged={onChanged} kind="coc" label="Chain of Custody" serviceType={label} />
                               <DocumentStation job={job} onChanged={onChanged} kind="lab_invoice" label="Laboratory Invoice" serviceType={label} />
                             </div>
-                            {label === resultDropdownLabel && !isFullInspectionAsbestosJob(job.service_type) && (
+                            {/* Once per non-mold domain GROUP (first label
+                                within it), not once per job — a job
+                                combining asbestos and lead has two of these
+                                groups, each needing its own Result dropdown
+                                writing to its own domain's fields. Full
+                                inspection's own MaterialsEditor replaces
+                                this for asbestos only; lead has no
+                                "full inspection" concept of its own. */}
+                            {labelIdx === 0 && group.domain !== "mold" &&
+                              !(group.domain === "asbestos" && isFullInspectionAsbestosJob(job.service_type)) && (
                               <div className="mt-3">
                                 <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">Result</label>
                                 <ComboboxInput
-                                  value={reportSummaryInput}
-                                  onChange={setReportSummaryInput}
-                                  options={isLeadJob(job) ? [LEAD_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK] : [ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK]}
+                                  value={group.domain === "lead" ? leadReportSummaryInput : reportSummaryInput}
+                                  onChange={group.domain === "lead" ? setLeadReportSummaryInput : setReportSummaryInput}
+                                  options={group.domain === "lead" ? [LEAD_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK] : [ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK]}
                                   filterOptions={false}
                                   getLabel={(o) => o}
                                   showChevron
                                   onSelect={(o) => {
-                                    setReportSummaryInput(o);
+                                    if (group.domain === "lead") setLeadReportSummaryInput(o);
+                                    else setReportSummaryInput(o);
                                     // Picking one of the two canned findings sentences IS
                                     // the positive/negative determination — no separate
                                     // Results button needed to duplicate that choice.
@@ -2282,10 +2303,11 @@ export function ProjectDetailDialog({
                                     // GET overwrite the newer one's field, leaving the
                                     // report looking incomplete until an unrelated edit
                                     // happened to trigger another refetch.
-                                    const negativeRemark = isLeadJob(job) ? LEAD_NEGATIVE_REMARK : ASBESTOS_NEGATIVE_REMARK;
-                                    const positiveRemark = isLeadJob(job) ? LEAD_POSITIVE_REMARK : ASBESTOS_POSITIVE_REMARK;
-                                    const resultField = isLeadJob(job) ? "lead_result" : "asbestos_result";
-                                    const patch: Record<string, unknown> = { report_summary: o.trim() || null };
+                                    const negativeRemark = group.domain === "lead" ? LEAD_NEGATIVE_REMARK : ASBESTOS_NEGATIVE_REMARK;
+                                    const positiveRemark = group.domain === "lead" ? LEAD_POSITIVE_REMARK : ASBESTOS_POSITIVE_REMARK;
+                                    const resultField = group.domain === "lead" ? "lead_result" : "asbestos_result";
+                                    const summaryField = group.domain === "lead" ? "lead_report_summary" : "report_summary";
+                                    const patch: Record<string, unknown> = { [summaryField]: o.trim() || null };
                                     if (o === negativeRemark) {
                                       patch[resultField] = "negative";
                                     } else if (o === positiveRemark) {
@@ -2293,9 +2315,9 @@ export function ProjectDetailDialog({
                                     }
                                     saveJobField(patch);
                                   }}
-                                  onEnter={(v) => saveReportSummary(v)}
-                                  onBlur={(v) => saveReportSummary(v)}
-                                  placeholder="e.g. None of the suspect materials sampled were determined to have asbestos fibers present."
+                                  onEnter={(v) => (group.domain === "lead" ? saveLeadReportSummary(v) : saveReportSummary(v))}
+                                  onBlur={(v) => (group.domain === "lead" ? saveLeadReportSummary(v) : saveReportSummary(v))}
+                                  placeholder={group.domain === "lead" ? "e.g. None of the paint chip samples were determined to contain lead." : "e.g. None of the suspect materials sampled were determined to have asbestos fibers present."}
                                 />
                               </div>
                             )}

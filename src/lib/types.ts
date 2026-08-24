@@ -252,13 +252,20 @@ export interface Job {
   lab_massdls_cert: string | null;
   lab_turnaround: string | null;
   lab_date_needed: string | null;
+  /** Asbestos's own Overall Findings sentence/additional remarks — lead has its own lead_report_summary/lead_report_notes below, mold its own mold_report_summary/mold_report_notes, so a job combining domains never shares this between their separate report PDFs. */
   report_summary: string | null;
   report_notes: string | null;
-  /** Mold's own Discussion of Results/Conclusions & Recommendations content, separate from report_summary/report_notes (asbestos/lead's) — a job combining mold with asbestos or lead produces two separate final reports, so they can't share one field. */
+  /** Mold's own Discussion of Results/Conclusions & Recommendations content, separate from asbestos's report_summary/report_notes and lead's lead_report_summary/lead_report_notes — a job combining mold with asbestos or lead produces two (or three) separate final reports, so they can't share one field. */
   mold_report_summary: string | null;
   mold_report_notes: string | null;
-  /** Mold's own lab name, separate from lab_name (asbestos/lead's) — a mixed job can use a different lab per service type. */
+  /** Mold's own lab name, separate from lab_name (asbestos's) and lead_lab_name (lead's) — a mixed job can use a different lab per service type. */
   mold_lab_name: string | null;
+  /** Lead's own Overall Findings sentence/additional remarks — see report_summary/report_notes above for why this isn't shared with asbestos. */
+  lead_report_summary: string | null;
+  lead_report_notes: string | null;
+  /** Lead's own lab name/cert — separate from lab_name/lab_nist_cert (asbestos's). A single field, not split nist/massdls like asbestos's: lead labs carry an AIHA cert, not NIST, and MassDLS doesn't apply to lead at all. */
+  lead_lab_name: string | null;
+  lead_lab_cert: string | null;
   /** Manual line-item invoicing (Quantity/Billing Unit/Description/Unit Cost), entered at "Enter lab results" time. */
   invoice_line_items: InvoiceLineItem[];
   /** True until the admin manually edits a line item — while true, invoice_line_items keeps recomputing fresh from current sample_counts/base fee on every save rather than freezing at whatever was last auto-generated. */

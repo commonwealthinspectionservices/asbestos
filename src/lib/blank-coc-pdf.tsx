@@ -16,8 +16,12 @@ const PAGE_TWO_ROW_COUNT = 20;
 const LINE_COLOR = "#000000";
 
 const styles = StyleSheet.create({
-  page: { paddingTop: 10, paddingLeft: 12, paddingRight: 13, paddingBottom: 12, fontSize: 11, fontFamily: "Helvetica", color: "#000000" },
-  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 },
+  // paddingBottom has to clear more than the last row's own text — the
+  // date/time overlay on RECEIVED BY's line reaches ~14pt below it
+  // (position:absolute, so it isn't counted in normal-flow layout at all),
+  // and too little padding here let it get clipped by the page edge.
+  page: { paddingTop: 10, paddingLeft: 12, paddingRight: 13, paddingBottom: 18, fontSize: 11, fontFamily: "Helvetica", color: "#000000" },
+  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 11 },
   headerLeft: { flexDirection: "row", alignItems: "center" },
   letterhead: { width: 283, height: 55 },
   title: { fontSize: 11, fontWeight: 700 },
@@ -56,7 +60,7 @@ const styles = StyleSheet.create({
   // left-aligned against each other instead of sharing a right edge.
   notesWrap: { width: 340 },
   notes: { fontSize: 11, fontStyle: "italic", textAlign: "right", lineHeight: 1.3 },
-  dateNeededRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 13 },
+  dateNeededRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 24 },
   dateNeededLabel: { fontSize: 11, fontWeight: 700, marginRight: 4 },
   // Short enough to stay clear of the right-aligned "*Sampled by..." note
   // sitting above it — the full 220pt width used to run underneath it.

@@ -2,6 +2,7 @@ import Link from "next/link";
 import MarketingNav from "@/components/marketing/MarketingNav";
 import MarketingFooter from "@/components/marketing/MarketingFooter";
 import { LeadServiceInfo } from "@/components/shared/ServiceInfo";
+import IndependentTestingBanner from "@/components/shared/IndependentTestingBanner";
 
 export const metadata = {
   title: "Lead Paint Sampling | Commonwealth Inspection Services, LLC.",
@@ -12,6 +13,7 @@ export default function LeadServicePage() {
   return (
     <div className="min-h-screen bg-white">
       <MarketingNav />
+      <IndependentTestingBanner />
       <div className="mx-auto max-w-2xl px-4 py-10">
         <LeadServiceInfo />
 

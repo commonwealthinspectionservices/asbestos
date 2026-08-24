@@ -2,6 +2,7 @@ import Link from "next/link";
 import MarketingNav from "@/components/marketing/MarketingNav";
 import MarketingFooter from "@/components/marketing/MarketingFooter";
 import { MoldServiceInfo } from "@/components/shared/ServiceInfo";
+import Credentials from "@/components/shared/Credentials";
 
 export const metadata = {
   title: "Mold Inspections | Commonwealth Inspection Services, LLC.",
@@ -22,6 +23,10 @@ export default function MoldServicePage() {
           <Link href="/contact" className="inline-flex h-[22px] sm:h-[29px] items-center border-[3px] border-brand-700 bg-brand-50 px-4 text-sm font-extrabold uppercase pt-0.5 leading-none text-brand-700 hover:bg-yellow-100">
             Contact
           </Link>
+        </div>
+
+        <div className="mt-10">
+          <Credentials />
         </div>
       </div>
       <MarketingFooter />

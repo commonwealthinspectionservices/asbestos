@@ -12,6 +12,61 @@ export interface BlogPost {
 
 export const blogPosts: BlogPost[] = [
   {
+    slug: "how-much-does-mold-air-sampling-cost-in-massachusetts",
+    title: `How Much Does Mold Air Sampling Cost in Massachusetts?`,
+    excerpt: `Most mold air sampling in Massachusetts runs between $700 and $900, depending on how many areas of the home need to be tested.`,
+    image: "/marketing/mold-sample.jpg",
+    body: `If you're dealing with a musty smell, recent water damage, or you just want a clear answer about your indoor air quality, cost is usually the first question. Most mold air sampling in Massachusetts runs between $700 and $900, depending on how many areas of the home need to be tested and whether an outdoor baseline sample is included.
+
+Air sampling works by pulling a measured volume of air through a small cassette in a specific room or area, then sending that sample to a lab and comparing the spore count and types against an outdoor baseline sample taken at the same time. That comparison is what actually answers the question — a house can "smell musty" for all kinds of reasons, and the only way to know whether indoor mold spore counts are genuinely elevated compared to the air outside is to test both and compare them side by side.
+
+Pricing breaks down into a base visit fee plus a per-sample lab cost, similar to how asbestos testing is priced. The base fee covers the site visit and typically runs around $450, and each additional air sample — one per room or area being evaluated, plus the outdoor baseline — runs about $85. A single room plus an outdoor baseline is usually two samples; testing a full basement, a main living area, and a bedroom on top of the baseline might mean four or five samples total. Put together, a small job (one indoor sample plus outdoor) often lands around $620, while testing three or four areas of the home typically runs $790 to $875.
+
+A few things affect where you land in that range. The number of distinct areas you want tested matters most — a single suspicious room costs far less than testing a whole finished basement plus two upper floors. Whether the concern is isolated (one damp room after a leak) or general (a persistent odor throughout the house) also shapes how many samples make sense. And if you need a fast answer — before closing on a home purchase, for example — rush lab turnaround adds to the cost but can usually get results back same-day or next-day instead of the standard 24 to 48 hours.
+
+It's worth being cautious of anyone offering "free" mold testing, for largely the same reason it's worth being cautious with cheap asbestos testing: it's often a lead-in for a remediation sales pitch from the same company that would profit from finding a problem. An independent inspector who isn't also selling remediation work has no financial incentive to tell you anything other than what the lab results actually show.
+
+Air sampling is usually the right test when there's a musty odor, a history of water damage, or a general air-quality concern, but nothing visibly growing on a surface. If mold is already visible on a wall, ceiling, or piece of material, a bulk or swab sample of that specific material is often the faster, more direct way to confirm what it is — air sampling and material sampling answer slightly different questions, and a good inspector will help you figure out which one actually fits what you're seeing.
+
+Most Massachusetts homeowners should expect to pay somewhere between $700 and $900 for a typical mold air sampling visit covering a few areas of the home. Compared to the cost of guessing wrong — either living with a real air quality issue or paying for remediation you didn't actually need — it's a small price for a clear, lab-backed answer.`,
+  },
+  {
+    slug: "do-i-need-a-mold-air-quality-test-signs-to-look-for",
+    title: `Do I Need a Mold Air Quality Test? Signs to Look For`,
+    excerpt: `A musty smell with nothing visible, recent water damage, or ongoing allergy-like symptoms at home are the most common reasons homeowners schedule a mold air quality test.`,
+    image: "/marketing/icon-residential.jpg",
+    body: `A musty smell with nothing visible, recent water damage, or ongoing allergy-like symptoms that seem to ease up when you leave the house are the most common reasons Massachusetts homeowners end up scheduling a mold air quality test. None of those things prove mold is present on their own — that's exactly what the test is for — but they're the signals worth paying attention to.
+
+The most common trigger is smell without a visible source. Mold has a distinct musty, earthy odor, and when a room or a whole house has that smell but a walk-through doesn't turn up any obvious staining or growth, it usually means whatever's causing it is somewhere you can't see — behind a wall, under flooring, inside HVAC ductwork, or in a crawl space. An air sample is the practical way to check whether that smell is backed up by an actual elevated spore count, rather than guessing or tearing into walls speculatively.
+
+Recent water intrusion is the other big one. A roof leak, a burst pipe, basement flooding, or even a slow, ongoing leak that got fixed weeks ago can leave enough moisture behind for mold to start growing somewhere out of sight, even after the visible water damage has dried up and been repaired. Mold can start establishing itself within 24 to 48 hours of sustained moisture, which is faster than most people expect — so "we fixed the leak already" doesn't necessarily mean the air quality question is settled.
+
+Some homeowners test because of symptoms — a cough, sinus irritation, or allergy-like reactions that seem tied to being in a specific room or the house generally, and that improve when they're elsewhere. This isn't a medical diagnosis, and a mold test isn't a substitute for talking to a doctor about ongoing symptoms — but if the pattern lines up with time spent in the house, an air sample is a reasonable way to check whether indoor air quality is a plausible contributing factor.
+
+A few other situations come up regularly: buying a home, especially one with a finished basement or a history of water issues, where a pre-purchase air test gives you a clear answer before you're committed; after remediation work, to confirm the air is actually clear rather than taking a contractor's word for it; and simply persistent humidity or condensation in a specific area — a bathroom without good ventilation, a basement that never quite feels dry — where ongoing moisture is a known risk factor even without a smell or visible growth yet.
+
+What doesn't usually call for air sampling is visible mold on a specific surface — a stained ceiling tile, a moldy-looking patch on drywall, or dark spots in a shower. In that case, a bulk or swab sample taken directly from the material is faster and more direct, since you already know where the problem is and just need to confirm what it is. Air sampling earns its keep specifically when the concern is about the air itself, not a spot you can point to.
+
+If you're noticing a musty smell without an obvious source, you've had recent water damage, or you're buying a home and want a clear answer before closing, an air quality test is a straightforward way to move from "not sure" to an actual lab-backed result.`,
+  },
+  {
+    slug: "mold-air-sampling-vs-bulk-sampling-which-test-do-you-need",
+    title: `Mold Air Sampling vs. Bulk Sampling: Which Test Do You Actually Need?`,
+    excerpt: `Air sampling tests the air itself and is the right call when there's a smell or air-quality concern but nothing visible; bulk sampling tests a specific material when mold is already visible on it.`,
+    image: "/marketing/icon-inspector-ppe.png",
+    body: `The short version: air sampling tests the air itself and is the right call when there's a musty smell, a health concern, or general air-quality worry but nothing visibly growing on a surface. Bulk sampling tests a specific material — a piece of drywall, insulation, or subfloor — and is the right call when mold is already visible somewhere and you need to know exactly what it is. Most homeowners calling with a general concern about their house end up needing air sampling; bulk sampling tends to come up once there's already a visible spot to point to.
+
+Air sampling works by pulling a measured volume of air through a small cassette in a specific room, then sending it to a lab and comparing the spore count and type against an outdoor baseline sample taken at the same time. That comparison is the whole point — it's the only reliable way to tell whether indoor air is carrying more mold than the air outside already does, since some level of mold spores in outdoor air is completely normal. This is the test that answers "is there a problem in this house" when you don't already know where to look.
+
+Bulk sampling is different — it's a small physical piece of an affected material, cut or collected directly from the spot where mold is visible, and sent to a lab to identify the species and confirm it's actually mold rather than dirt, mineral staining, or something else that can look similar. This is the test that answers "what exactly is this" once you already have a visible target: a dark patch on drywall after a leak, staining on a basement ceiling, discoloration on subfloor after flooring gets pulled up.
+
+A closely related option is swab sampling — a quick swab taken directly from a stained or suspicious surface, which is often the fastest way to confirm whether visible growth is actually mold before deciding whether a fuller bulk sample or remediation plan is needed.
+
+The two tests genuinely answer different questions, which is why it's common to need both in the same visit. A finished basement with a musty smell and one visibly stained section of drywall, for example, often calls for an air sample to check the overall air quality plus a bulk sample of that one stained section to confirm what it is — the air test covers what you can't see, the bulk test covers what you can.
+
+If you're not sure which applies to your situation, the visible-versus-not-visible distinction is the fastest way to sort it out: no visible growth, just a smell or general concern, points toward air sampling; a specific stain or patch you can point to points toward bulk or swab sampling. A good inspector will walk the property with you first and recommend the combination that actually fits what's there, rather than defaulting to one test regardless of what the visit turns up.`,
+  },
+  {
     slug: "how-much-does-asbestos-testing-cost-in-massachusetts-2026-guide-for-homeowners",
     title: `How Much Does Asbestos Testing Cost in Massachusetts?`,
     excerpt: `Most asbestos inspections in Massachusetts run between $400 and $800, depending on the scope of the project and how many samples are needed.`,

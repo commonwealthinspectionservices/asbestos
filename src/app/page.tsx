@@ -3,6 +3,7 @@ import AuthHashRedirect from "@/components/AuthHashRedirect";
 import MarketingNav from "@/components/marketing/MarketingNav";
 import MarketingFooter from "@/components/marketing/MarketingFooter";
 import PricingCalculator from "@/components/marketing/PricingCalculator";
+import Credentials from "@/components/shared/Credentials";
 import { blogPosts } from "@/lib/blog-posts";
 
 const SERVICE_AREAS = [
@@ -19,18 +20,18 @@ const SERVICE_AREAS = [
 
 const SERVICES = [
   {
+    href: "/services/mold",
+    title: "Mold Air Sampling",
+    caption: "Air quality testing to find out whether mold spore counts in your home are elevated.",
+    image: "/marketing/mold-sample.jpg",
+    imageAlt: "Mold growth on framing material",
+  },
+  {
     href: "/services/asbestos",
     title: "Asbestos Inspections",
     caption: "Limited asbestos (PLM bulk sample) inspections for renovation, demolition and permits.",
     image: "/marketing/hero-bathroom-vanity.jpg",
     imageAlt: "Bathroom vanity prepared for sampling during a renovation",
-  },
-  {
-    href: "/services/mold",
-    title: "Mold Inspections",
-    caption: "Visual assessment and lab sampling to identify and clear mold before renovation.",
-    image: "/marketing/mold-sample.jpg",
-    imageAlt: "Mold growth on framing material",
   },
   {
     href: "/services/lead",
@@ -105,6 +106,10 @@ export default function HomePage() {
             </Link>
           ))}
         </div>
+      </section>
+
+      <section className="bg-white px-4 pt-16">
+        <Credentials />
       </section>
 
       <section className="bg-white px-4 py-16">

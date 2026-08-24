@@ -74,6 +74,17 @@ export default function SettingsEditor() {
     update("service_types", form.service_types.filter((_, i) => i !== index));
   }
 
+  // Array order here is also the pricing estimator's display order, and the
+  // first entry is what it auto-selects by default — see PricingCalculator.
+  function moveServiceType(index: number, direction: -1 | 1) {
+    if (!form) return;
+    const next = [...form.service_types];
+    const target = index + direction;
+    if (target < 0 || target >= next.length) return;
+    [next[index], next[target]] = [next[target], next[index]];
+    update("service_types", next);
+  }
+
   function updatePricingZone(index: number, patch: Partial<PricingZone>) {
     if (!form) return;
     const next = [...form.pricing_zones];
@@ -248,12 +259,20 @@ export default function SettingsEditor() {
       </Section>
 
       <Section title="Price by service type">
+        <p className="text-xs text-slate-500">
+          Order matters: the pricing estimator lists these top to bottom and auto-selects
+          whichever one is first.
+        </p>
         <div className="space-y-3">
           {form.service_types.map((s, i) => (
             <div key={i} className="rounded-lg border border-slate-200 p-3">
-              <div className="flex justify-between">
+              <div className="flex items-center justify-between gap-2">
                 <TextInput value={s.label} onChange={(v) => updateServiceType(i, { label: v })} placeholder="Label" />
-                <button onClick={() => removeServiceType(i)} className="ml-2 text-sm text-red-600">Remove</button>
+                <div className="flex shrink-0 gap-1">
+                  <button onClick={() => moveServiceType(i, -1)} disabled={i === 0} className="text-sm text-slate-500 disabled:opacity-30">↑</button>
+                  <button onClick={() => moveServiceType(i, 1)} disabled={i === form.service_types.length - 1} className="text-sm text-slate-500 disabled:opacity-30">↓</button>
+                  <button onClick={() => removeServiceType(i)} className="text-sm text-red-600">Remove</button>
+                </div>
               </div>
               <div className="mt-2 grid grid-cols-3 gap-2">
                 <Field label="Base fee ($)">

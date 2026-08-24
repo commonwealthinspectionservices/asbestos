@@ -6,7 +6,8 @@ import { ProjectDetailDialog, EditProjectDialog } from "@/components/admin/JobsD
 import { AcceptScheduleControl, extractTimeRange, parseWindowStartTime24h } from "@/components/admin/AcceptScheduleControl";
 import { googleMapsUrl } from "@/lib/address";
 import { formatDateMDY } from "@/lib/date-format";
-import { formatPhoneNumber } from "@/lib/phone";
+import { formatPhoneNumber, telHref } from "@/lib/phone";
+import { toTitleCase } from "@/lib/name";
 
 const STATUS_LABEL: Record<string, string> = {
   needs_scheduling: "To Be Scheduled",
@@ -136,7 +137,7 @@ function JobCard({
               <span className="shrink-0 whitespace-nowrap rounded bg-slate-100 px-1.5 py-0.5 text-sm font-mono text-slate-700">{job.project_number}</span>
             )}
             <div className="min-w-0 truncate whitespace-nowrap text-sm font-medium text-slate-700">
-              {job.customers?.company || job.customers?.name}
+              {job.customers?.company || (job.customers?.name ? toTitleCase(job.customers.name) : undefined)}
             </div>
           </div>
           <div className="truncate whitespace-nowrap text-sm text-slate-700">
@@ -159,7 +160,12 @@ function JobCard({
           )}
           {(job.site_contact_name || job.site_contact_phone) && (
             <div className="truncate whitespace-nowrap text-sm text-slate-700">
-              Job site contact: {job.site_contact_name}{job.site_contact_name && job.site_contact_phone ? " · " : ""}{job.site_contact_phone ? formatPhoneNumber(job.site_contact_phone) : ""}
+              Job site contact: {job.site_contact_name ? toTitleCase(job.site_contact_name) : ""}{job.site_contact_name && job.site_contact_phone ? " · " : ""}
+              {job.site_contact_phone && (
+                <a href={telHref(job.site_contact_phone)} className="text-brand-700 hover:underline" onClick={(e) => e.stopPropagation()}>
+                  {formatPhoneNumber(job.site_contact_phone)}
+                </a>
+              )}
             </div>
           )}
         </div>

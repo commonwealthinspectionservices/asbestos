@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { formatDate, STATUS_LABEL } from "@/components/admin/JobsDashboard";
+import { toTitleCase } from "@/lib/name";
+import { telHref, formatPhoneNumber } from "@/lib/phone";
 
 interface HomeownerJob {
   id: string;
@@ -88,7 +90,7 @@ export default function HomeownersDirectory({
                 onClick={() => setSelectedKey(key)}
                 className="block w-full rounded-lg border border-slate-200 bg-white p-3 text-left hover:border-brand-400"
               >
-                <div className="font-medium text-slate-800">{h.name}</div>
+                <div className="font-medium text-slate-800">{toTitleCase(h.name)}</div>
                 {/* Most recent job's address — the newest entry in each
                     group, since /api/admin/homeowners already orders
                     jobs newest-first before grouping. */}
@@ -115,12 +117,15 @@ function HomeownerDetailDialog({ homeowner, onClose }: { homeowner: Homeowner | 
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
       <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-5">
         <div className="flex items-start justify-between gap-2">
-          <h3 className="font-semibold text-slate-800">{homeowner.name}</h3>
+          <h3 className="font-semibold text-slate-800">{toTitleCase(homeowner.name)}</h3>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600">✕</button>
         </div>
 
         <div className="mt-3 text-sm">
-          <span className="text-slate-500">Phone </span>{homeowner.phone || "—"}
+          <span className="text-slate-500">Phone </span>
+          {homeowner.phone ? (
+            <a href={telHref(homeowner.phone)} className="text-brand-700 hover:underline">{formatPhoneNumber(homeowner.phone)}</a>
+          ) : "—"}
         </div>
 
         <div className="mt-4 space-y-2 border-t border-slate-100 pt-4">

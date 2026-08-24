@@ -10,3 +10,9 @@ export function formatPhoneNumber(value: string): string {
   if (digits.length <= 6) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
   return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
 }
+
+// href for a clickable phone number — strips formatting so it dials
+// cleanly regardless of how the stored value is punctuated.
+export function telHref(value: string): string {
+  return `tel:${value.replace(/\D/g, "")}`;
+}

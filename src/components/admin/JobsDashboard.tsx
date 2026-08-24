@@ -6,7 +6,8 @@ import type { Company, Customer, FullInspectionMaterial, InvoiceLineItem, JobDoc
 import { defaultInvoiceLineItems, sampleDescriptionForServiceType } from "@/lib/invoice-defaults";
 import { ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK, moldServiceTypeFlags, jobReportDomains, domainForServiceTypeLabel, isFullInspectionAsbestosJob, type ReportDomain } from "@/lib/report-findings";
 import { splitAddress, parseAddressToFields, buildBillingAddress, googleMapsUrl } from "@/lib/address";
-import { joinName, splitFullName } from "@/lib/name";
+import { joinName, splitFullName, toTitleCase } from "@/lib/name";
+import { telHref } from "@/lib/phone";
 import type { AddressFields } from "@/lib/address";
 import AddressAutocompleteInput from "@/components/shared/AddressAutocompleteInput";
 import JobChat from "@/components/shared/JobChat";
@@ -289,17 +290,6 @@ function formatPhoneInput(value: string): string {
   if (digits.length <= 3) return digits;
   if (digits.length <= 6) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
   return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
-}
-
-// Site contact names come in from email intake as free text (e.g. all
-// lowercase from an email signature) — capitalized for display only, the
-// stored value is left as-is.
-function toTitleCase(value: string): string {
-  return value
-    .toLowerCase()
-    .split(" ")
-    .map((word) => word.split("-").map((part) => (part ? part[0].toUpperCase() + part.slice(1) : part)).join("-"))
-    .join(" ");
 }
 
 // report_drafted_at/report_sent_at are full timestamptz values (unlike the
@@ -789,19 +779,19 @@ export default function JobsDashboard() {
       <div className="hidden items-center gap-2 border-b border-slate-200 pb-4 sm:flex sm:flex-wrap">
         <button
           onClick={() => selectStatusView("open")}
-          className={`whitespace-nowrap rounded-lg px-2.5 py-1 text-sm font-bold uppercase shrink-0 ${statusFilter.size === 0 && statusView === "open" ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
+          className={`whitespace-nowrap rounded-lg px-2.5 py-1 text-sm font-bold shrink-0 ${statusFilter.size === 0 && statusView === "open" ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
         >
           Open Projects
         </button>
         <button
           onClick={() => selectStatusView("closed")}
-          className={`whitespace-nowrap rounded-lg px-2.5 py-1 text-sm font-bold uppercase shrink-0 ${statusFilter.size === 0 && statusView === "closed" ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
+          className={`whitespace-nowrap rounded-lg px-2.5 py-1 text-sm font-bold shrink-0 ${statusFilter.size === 0 && statusView === "closed" ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
         >
           Closed Projects
         </button>
         <button
           onClick={() => selectStatusView("all")}
-          className={`whitespace-nowrap rounded-lg px-2.5 py-1 text-sm font-bold uppercase shrink-0 ${statusFilter.size === 0 && statusView === "all" ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
+          className={`whitespace-nowrap rounded-lg px-2.5 py-1 text-sm font-bold shrink-0 ${statusFilter.size === 0 && statusView === "all" ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
         >
           All Projects
         </button>
@@ -860,12 +850,12 @@ export default function JobsDashboard() {
       </div>
 
       <div className="mt-4 hidden flex-wrap items-center gap-2 sm:flex">
-        <span className="shrink-0 text-sm font-medium uppercase text-slate-500">Sort by:</span>
+        <span className="shrink-0 text-sm font-medium text-slate-500">Sort by:</span>
         {SORT_FIELDS.map((f) => (
           <button
             key={f.key}
             onClick={() => toggleSort(f.key)}
-            className={`shrink-0 rounded-lg px-1.5 py-0.5 text-xs font-medium uppercase sm:px-2.5 sm:py-1 sm:text-sm ${sortEnabled && sortBy === f.key ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
+            className={`shrink-0 rounded-lg px-1.5 py-0.5 text-xs font-medium sm:px-2.5 sm:py-1 sm:text-sm ${sortEnabled && sortBy === f.key ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
           >
             {f.label}{sortEnabled && sortBy === f.key ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
           </button>
@@ -876,7 +866,7 @@ export default function JobsDashboard() {
           onMouseLeave={closeStatusFilter}
         >
           <button
-            className={`shrink-0 rounded-lg px-1.5 py-0.5 text-xs font-medium uppercase sm:px-2.5 sm:py-1 sm:text-sm ${statusFilter.size > 0 ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
+            className={`shrink-0 rounded-lg px-1.5 py-0.5 text-xs font-medium sm:px-2.5 sm:py-1 sm:text-sm ${statusFilter.size > 0 ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
           >
             Status{statusFilter.size > 0 ? ` (${statusFilter.size})` : ""} ▾
           </button>
@@ -922,7 +912,7 @@ export default function JobsDashboard() {
           onMouseLeave={closeServiceTypeFilter}
         >
           <button
-            className={`shrink-0 rounded-lg px-1.5 py-0.5 text-xs font-medium uppercase sm:px-2.5 sm:py-1 sm:text-sm ${serviceTypeFilter.size > 0 ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
+            className={`shrink-0 rounded-lg px-1.5 py-0.5 text-xs font-medium sm:px-2.5 sm:py-1 sm:text-sm ${serviceTypeFilter.size > 0 ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
           >
             <span className="sm:hidden">Service</span>
             <span className="hidden sm:inline">Service Type</span>
@@ -958,30 +948,30 @@ export default function JobsDashboard() {
 
       {/* Desktop only now — mobile uses the single search box above instead. */}
       <div className="mt-4 hidden gap-2 sm:flex sm:flex-row sm:flex-nowrap sm:items-center">
-            <span className="shrink-0 text-sm font-medium uppercase text-slate-500">Search by:</span>
+            <span className="shrink-0 text-sm font-medium text-slate-500">Search by:</span>
             <input
               value={projectNumberQuery}
               onChange={(e) => setProjectNumberQuery(e.target.value)}
               placeholder="Project #"
-              className="w-full min-w-0 rounded-lg border border-slate-300 px-2.5 py-1 text-sm uppercase placeholder:uppercase sm:w-0 sm:flex-1"
+              className="w-full min-w-0 rounded-lg border border-slate-300 px-2.5 py-1 text-sm sm:w-0 sm:flex-1"
             />
             <input
               value={companyQuery}
               onChange={(e) => setCompanyQuery(e.target.value)}
               placeholder="Company"
-              className="w-full min-w-0 rounded-lg border border-slate-300 px-2.5 py-1 text-sm uppercase placeholder:uppercase sm:w-0 sm:flex-1"
+              className="w-full min-w-0 rounded-lg border border-slate-300 px-2.5 py-1 text-sm sm:w-0 sm:flex-1"
             />
             <input
               value={addressQuery}
               onChange={(e) => setAddressQuery(e.target.value)}
               placeholder="Address"
-              className="w-full min-w-0 rounded-lg border border-slate-300 px-2.5 py-1 text-sm uppercase placeholder:uppercase sm:w-0 sm:flex-1"
+              className="w-full min-w-0 rounded-lg border border-slate-300 px-2.5 py-1 text-sm sm:w-0 sm:flex-1"
             />
             <input
               type="date"
               value={dateQuery}
               onChange={(e) => setDateQuery(e.target.value)}
-              className="w-full shrink-0 rounded-lg border border-slate-300 px-2.5 py-1 text-sm uppercase sm:w-36"
+              className="w-full shrink-0 rounded-lg border border-slate-300 px-2.5 py-1 text-sm sm:w-36"
             />
             {dateQuery && (
               <button onClick={() => setDateQuery("")} className="shrink-0 text-xs text-brand-600 underline">
@@ -997,7 +987,7 @@ export default function JobsDashboard() {
 
         if (sortedJobs.length === 0) {
           return (
-            <p className="mt-4 text-sm uppercase text-slate-500">
+            <p className="mt-4 text-sm text-slate-500">
               {statusView === "open" ? "No open projects." : statusView === "closed" ? "No closed projects." : "No projects found."}
             </p>
           );
@@ -1070,7 +1060,7 @@ function JobRow({
 }) {
   const { locationName, street, cityStateZip } = splitAddress(job.service_address);
   const subcontractorSender = job.source === "subcontractor" ? subcontractorSenderForJob(job.customers?.email) : null;
-  const customerLabel = subcontractorSender?.companyName ?? (job.customers?.company || job.customers?.name);
+  const customerLabel = subcontractorSender?.companyName ?? (job.customers?.company || (job.customers?.name ? toTitleCase(job.customers.name) : undefined));
   // Subcontractor jobs: the company name is replaced entirely by the same
   // portal-link badge shown in the detail dialog — a quick way straight to
   // their own portal, no need to open the dialog just to jump over there.
@@ -1202,7 +1192,7 @@ function JobRow({
               {job.site_contact_phone ? (
                 <>
                   {" "}
-                  <a href={`tel:${job.site_contact_phone.replace(/\D/g, "")}`} className="text-brand-700 hover:underline">
+                  <a href={telHref(job.site_contact_phone)} className="text-brand-700 hover:underline">
                     {formatPhoneInput(job.site_contact_phone)}
                   </a>
                 </>
@@ -1228,12 +1218,27 @@ function JobRow({
             // admin ever reached the time field.
             <div className="flex w-full shrink-0 flex-col items-start gap-1.5 sm:w-auto sm:items-end" onClick={(e) => e.stopPropagation()}>
               <div className="flex w-full items-center gap-2 sm:w-auto">
-                <input
-                  type="date"
-                  value={manualDate}
-                  onChange={(e) => setManualDate(e.target.value)}
-                  className="min-w-0 flex-1 rounded-lg border border-slate-300 px-1.5 py-1 text-xs text-slate-600 sm:w-32 sm:flex-none sm:shrink-0"
-                />
+                {/* A native date input can't take a plain-text placeholder
+                    like the Time select's own empty <option> does — its
+                    "mm/dd/yyyy" segments are the browser's own UI. Made
+                    transparent (only while empty) and overlaid with a
+                    "Date" label instead, so the empty state matches Time's
+                    at a glance rather than showing that wide blank field.
+                    peer-focus:hidden drops the overlay the moment it's
+                    focused (paired with focus:text-slate-600 below) so the
+                    real "dd/mm/yyyy" segments are visible while editing,
+                    not fighting with the "Date" label on top of them. */}
+                <div className="relative min-w-0 flex-1 sm:w-32 sm:flex-none sm:shrink-0">
+                  <input
+                    type="date"
+                    value={manualDate}
+                    onChange={(e) => setManualDate(e.target.value)}
+                    className={`peer w-full rounded-lg border border-slate-300 px-1.5 py-1 text-xs ${manualDate ? "text-slate-600" : "text-transparent focus:text-slate-600"}`}
+                  />
+                  {!manualDate && (
+                    <span className="pointer-events-none absolute inset-0 flex items-center px-1.5 text-xs text-slate-600 peer-focus:hidden">Date</span>
+                  )}
+                </div>
                 <select
                   value={manualTime}
                   onChange={(e) => setManualTime(e.target.value)}
@@ -2140,7 +2145,7 @@ export function ProjectDetailDialog({
                 label="Phone"
                 value={
                   job.site_contact_phone ? (
-                    <a href={`tel:${job.site_contact_phone.replace(/\D/g, "")}`} className="text-brand-700 hover:underline">
+                    <a href={telHref(job.site_contact_phone)} className="text-brand-700 hover:underline">
                       {formatPhoneInput(job.site_contact_phone)}
                     </a>
                   ) : "—"
@@ -2170,12 +2175,15 @@ export function ProjectDetailDialog({
                   // values from before the click. A full navigation always
                   // mounts fresh and reads the real URL.
                   <a href={`/admin/customers?tab=contacts&contactId=${job.customer_id}`} className="hover:underline">
-                    {job.customers.name}
+                    {toTitleCase(job.customers.name)}
                   </a>
-                ) : job.customers?.name}
+                ) : job.customers?.name ? toTitleCase(job.customers.name) : undefined}
                 nowrap
               />
-              <DetailField label="Phone" value={job.customers?.phone ? formatPhoneInput(job.customers.phone) : undefined} />
+              <DetailField
+                label="Phone"
+                value={job.customers?.phone ? <a href={telHref(job.customers.phone)} className="text-brand-700 hover:underline">{formatPhoneInput(job.customers.phone)}</a> : undefined}
+              />
               <DetailField label="Email" value={job.customers?.email} nowrap />
             </div>
             {!job.customers?.is_individual && job.customers?.companies && (
@@ -2191,13 +2199,16 @@ export function ProjectDetailDialog({
                         href={`/admin/customers?tab=contacts&contactId=${job.customers.companies.billing_contact.id}`}
                         className="hover:underline"
                       >
-                        {job.customers.companies.billing_contact.name}
+                        {toTitleCase(job.customers.companies.billing_contact.name)}
                       </a>
                     }
                     nowrap
                   />
                 )}
-                <DetailField label="Phone" value={job.customers.companies.phone ? formatPhoneInput(job.customers.companies.phone) : undefined} />
+                <DetailField
+                  label="Phone"
+                  value={job.customers.companies.phone ? <a href={telHref(job.customers.companies.phone)} className="text-brand-700 hover:underline">{formatPhoneInput(job.customers.companies.phone)}</a> : undefined}
+                />
                 <DetailField label="Billing address" value={job.customers.companies.billing_address} nowrap />
               </div>
             )}

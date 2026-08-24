@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import type { Company, Customer } from "@/lib/types";
 import { ComboboxInput, formatDate } from "@/components/admin/JobsDashboard";
-import { joinName, splitFullName } from "@/lib/name";
+import { joinName, splitFullName, toTitleCase } from "@/lib/name";
+import { telHref } from "@/lib/phone";
 import AddressAutocompleteInput from "@/components/shared/AddressAutocompleteInput";
 import ZipInput, { useAutoZip } from "@/components/shared/ZipInput";
 import { buildBillingAddress, parseAddressToFields, US_STATES } from "@/lib/address";
@@ -408,7 +409,7 @@ export function ContactDetailDialog({
         ) : (
           <>
             <div className="flex items-start justify-between gap-2">
-              <h3 className="font-semibold text-slate-800">{customer.name}</h3>
+              <h3 className="font-semibold text-slate-800">{toTitleCase(customer.name)}</h3>
               <button onClick={onClose} className="text-slate-400 hover:text-slate-600">✕</button>
             </div>
 
@@ -418,7 +419,10 @@ export function ContactDetailDialog({
               ) : (
                 customer.company && <div><span className="text-slate-500">Company </span>{customer.company}</div>
               )}
-              <div><span className="text-slate-500">Phone </span>{customer.phone || "—"}</div>
+              <div>
+                <span className="text-slate-500">Phone </span>
+                {customer.phone ? <a href={telHref(customer.phone)} className="text-brand-700 hover:underline">{customer.phone}</a> : "—"}
+              </div>
               <div><span className="text-slate-500">Email </span>{customer.email}</div>
               {/* Billing address is a company-level concern once this contact
                   belongs to one — shown on the company's own record instead,

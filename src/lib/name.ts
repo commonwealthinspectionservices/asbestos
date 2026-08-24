@@ -13,3 +13,15 @@ export function splitFullName(fullName: string | null | undefined): { first: str
 export function joinName(first: string, last: string): string {
   return [first.trim(), last.trim()].filter(Boolean).join(" ");
 }
+
+// Person names often arrive as free text (e.g. all-lowercase from an email
+// signature, or however an admin happened to type it) — capitalized for
+// display only, everywhere a stored full name is shown. Never applied to
+// business/company names, which can have intentional casing (LLC, &, etc).
+export function toTitleCase(value: string): string {
+  return value
+    .toLowerCase()
+    .split(" ")
+    .map((word) => word.split("-").map((part) => (part ? part[0].toUpperCase() + part.slice(1) : part)).join("-"))
+    .join(" ");
+}

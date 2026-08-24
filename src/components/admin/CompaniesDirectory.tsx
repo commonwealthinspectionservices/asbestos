@@ -7,6 +7,8 @@ import { ComboboxInput } from "@/components/admin/JobsDashboard";
 import AddressAutocompleteInput from "@/components/shared/AddressAutocompleteInput";
 import ZipInput, { useAutoZip } from "@/components/shared/ZipInput";
 import { buildBillingAddress, parseAddressToFields, US_STATES } from "@/lib/address";
+import { toTitleCase } from "@/lib/name";
+import { telHref } from "@/lib/phone";
 
 export default function CompaniesDirectory({
   adding, onAddingChange, mobileSearch,
@@ -426,10 +428,10 @@ function AddContactForm({
 
         <label className="mt-3 block text-sm font-medium text-slate-700">Name *</label>
         <ComboboxInput
-          value={selected ? selected.name : name}
+          value={selected ? toTitleCase(selected.name) : name}
           onChange={(v) => { setName(v); setSelected(null); }}
           fetchOptions={searchContacts}
-          getLabel={(c: Customer) => c.name}
+          getLabel={(c: Customer) => toTitleCase(c.name)}
           getSublabel={(c: Customer) => c.email}
           onSelect={(c: Customer) => setSelected(c)}
           placeholder="Search existing contacts, or type a new name…"
@@ -438,7 +440,7 @@ function AddContactForm({
         {selected ? (
           <>
             <p className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">
-              Linking existing contact <span className="font-medium text-slate-800">{selected.name}</span> ({selected.email}) to this company.
+              Linking existing contact <span className="font-medium text-slate-800">{toTitleCase(selected.name)}</span> ({selected.email}) to this company.
             </p>
             {selected.is_individual && selected.auth_user_id && (
               // Linking sets is_individual: false unconditionally (see
@@ -448,7 +450,7 @@ function AddContactForm({
               // instead of their own going forward), not just adding a
               // directory entry. Worth surfacing before it happens silently.
               <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                {selected.name} already has their own portal login as an individual. Linking them here converts their account to a company contact under {selected.company || "this company"}.
+                {toTitleCase(selected.name)} already has their own portal login as an individual. Linking them here converts their account to a company contact under {selected.company || "this company"}.
               </p>
             )}
           </>
@@ -665,7 +667,7 @@ export function CompanyDetailDialog({
                 >
                   <option value="">Use each project's own contact</option>
                   {contacts.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
+                    <option key={c.id} value={c.id}>{toTitleCase(c.name)}</option>
                   ))}
                 </select>
                 {savingBillingContact && <span className="text-xs text-slate-400">Saving…</span>}
@@ -700,10 +702,10 @@ export function CompanyDetailDialog({
                         onClick={() => setSelectedContactId(c.id)}
                         className="w-full rounded-lg border border-slate-100 px-2 py-1.5 text-left text-sm hover:border-brand-300"
                       >
-                        <div className="font-medium text-slate-800">{c.name}</div>
+                        <div className="font-medium text-slate-800">{toTitleCase(c.name)}</div>
                         <div className="flex items-baseline justify-between text-slate-500">
                           <span>{c.email}</span>
-                          <span>{c.phone || "—"}</span>
+                          <span>{c.phone ? formatPhoneInput(c.phone) : "—"}</span>
                         </div>
                       </button>
                     ))}

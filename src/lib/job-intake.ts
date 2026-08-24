@@ -8,7 +8,7 @@
 // than a lab report's blank sample count, so this only ever acts on a
 // sender/format combination that's actually been confirmed against real
 // emails.
-import { getSupabaseAdmin } from "@/lib/supabase";
+import { getSupabaseAdmin, getSupabaseAdminFresh } from "@/lib/supabase";
 import { getSettings } from "@/lib/settings";
 import { geocodeAddress, GeocodeError, isWithinServiceStates } from "@/lib/geocode";
 import { generateProjectNumber } from "@/lib/project-number";
@@ -203,6 +203,34 @@ export async function checkForJobIntakeEmails(): Promise<JobIntakeResult> {
         // not a real client order, so no owner alert (would just be
         // noise), but still left unread since it's genuinely not this
         // pipeline's to touch.
+        result.unmatched++;
+        continue;
+      }
+
+      // A job already exists for this exact Gmail thread — this candidate
+      // is an old order this pipeline already handled once, resurfacing
+      // because -label:PROCESSED_LABEL only guards messages processed
+      // *after* that label started existing (2026-08-24). Every order from
+      // before then still lacks it, so without this check the very first
+      // run under the new query re-created a duplicate of an existing job
+      // from its original source email (confirmed live — see project
+      // 26-0001 vs. the accidental 26-0062/26-0003). Checked directly
+      // against the jobs table, not just re-applying the label speculatively,
+      // so this is authoritative regardless of whether the label ever got
+      // backfilled onto old messages.
+      // Fresh, not the shared cached client — a stale "no job found" read
+      // here would defeat the entire point of this check (see the shared
+      // client's own comment about Next's fetch Data Cache silently
+      // caching Supabase reads).
+      const supabase = getSupabaseAdminFresh();
+      const { data: existingJob } = await supabase
+        .from("jobs")
+        .select("project_number")
+        .eq("email_gmail_thread_id", message.threadId)
+        .maybeSingle();
+      if (existingJob) {
+        await markMessageRead(accessToken, candidate.id);
+        await addLabelToMessage(accessToken, candidate.id, processedLabelId);
         result.unmatched++;
         continue;
       }

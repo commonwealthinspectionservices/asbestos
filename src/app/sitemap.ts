@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { blogPosts } from "@/lib/blog-posts";
+import { localTowns } from "@/lib/local-towns";
 
 const BASE_URL = "https://www.commonwealthinspectionservices.com";
 
@@ -15,6 +16,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/services/asbestos",
     "/services/mold",
     "/services/lead",
+    "/mold-testing",
+    "/realtors",
   ].map((path) => ({
     url: `${BASE_URL}${path}`,
     changeFrequency: "monthly" as const,
@@ -27,5 +30,11 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.5,
   }));
 
-  return [...staticRoutes, ...blogRoutes];
+  const townRoutes = localTowns.map((town) => ({
+    url: `${BASE_URL}/mold-testing/${town.slug}`,
+    changeFrequency: "monthly" as const,
+    priority: 0.6,
+  }));
+
+  return [...staticRoutes, ...blogRoutes, ...townRoutes];
 }

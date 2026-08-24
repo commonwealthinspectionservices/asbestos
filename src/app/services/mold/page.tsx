@@ -27,7 +27,13 @@ export default function MoldServicePage() {
           </Link>
         </div>
 
-        <div className="mt-10">
+        <p className="mt-10 text-center text-sm text-slate-500">
+          <Link href="/mold-testing" className="text-brand-600 underline">
+            See mold air sampling by town
+          </Link>
+        </p>
+
+        <div className="mt-4">
           <Credentials show={["internachi"]} />
         </div>
       </div>

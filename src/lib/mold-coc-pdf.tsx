@@ -133,8 +133,14 @@ const styles = StyleSheet.create({
   // (PAGE) competing for space, which used to leave its line shorter than
   // RELINQUISHED BY's. A fixed width sized to fit RECEIVED BY's more
   // crowded row keeps both lines identical.
-  signatureLineWrap: { position: "relative", width: 370 },
-  signatureLine: { borderBottomWidth: 0.5, borderBottomColor: LINE_COLOR },
+  signatureLineWrap: { position: "relative", width: 320 },
+  // width:"100%" explicitly, not left to implicit block-stretch — that
+  // resolved a few points short on RECEIVED BY's line vs RELINQUISHED
+  // BY's, since RECEIVED BY's wrap sits one level deeper (inside its own
+  // signatureSubRow, for the space-between layout with PAGE) than
+  // RELINQUISHED BY's does, and yoga's implicit stretch isn't guaranteed
+  // pixel-identical between those two nesting depths.
+  signatureLine: { width: "100%", borderBottomWidth: 0.5, borderBottomColor: LINE_COLOR },
   pageLabel: { fontSize: 11, fontWeight: 700, marginLeft: 16 },
   // The date/time sits ON the line itself — right-anchored inside the same
   // box the line occupies — rather than as its own element appended after
@@ -153,7 +159,7 @@ function DateTimeField() {
   return (
     <View style={styles.dateTimeOverlay}>
       <Text style={styles.dateTimeSlashes}>/  /</Text>
-      <Text style={styles.dateTimeCaption}>date / time</Text>
+      <Text style={styles.dateTimeCaption}>time / date</Text>
     </View>
   );
 }
@@ -256,7 +262,7 @@ function MoldCocDocument({ job, customer, sampleType }: MoldCocData) {
           <View style={[styles.signatureRow, config.turnaroundNote ? {} : { justifyContent: "space-between" }]}>
             <View style={styles.signatureSubRow}>
               <Text style={styles.signatureLabel}>RELINQUISHED BY</Text>
-              <View style={[styles.signatureLineWrap, config.turnaroundNote ? {} : { width: 290 }]}>
+              <View style={[styles.signatureLineWrap, config.turnaroundNote ? {} : { width: 240 }]}>
                 <Text style={styles.signatureLine} />
                 <DateTimeField />
               </View>
@@ -273,7 +279,7 @@ function MoldCocDocument({ job, customer, sampleType }: MoldCocData) {
           <View style={[styles.signatureRow, { justifyContent: "space-between" }]}>
             <View style={styles.signatureSubRow}>
               <Text style={styles.signatureLabel}>RECEIVED BY</Text>
-              <View style={[styles.signatureLineWrap, config.turnaroundNote ? {} : { width: 290 }]}>
+              <View style={[styles.signatureLineWrap, config.turnaroundNote ? {} : { width: 240 }]}>
                 <Text style={styles.signatureLine} />
                 <DateTimeField />
               </View>

@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireCronAuth, withCronAlert } from "@/lib/cron-auth";
 import { withApiErrors } from "@/lib/api-handler";
 import { checkForJobIntakeEmails } from "@/lib/job-intake";
-import { getGmailConnectionStatus, getValidAccessToken, listMessagesByQuery, getOrCreateLabelId, removeLabelFromMessage } from "@/lib/gmail";
-import { getSupabaseAdminFresh } from "@/lib/supabase";
+import { getGmailConnectionStatus } from "@/lib/gmail";
 
 // Reads req.headers (via requireCronAuth) — without this, Next tries to
 // statically render the route at build time and throws "Dynamic server
@@ -23,40 +22,6 @@ export const dynamic = "force-dynamic";
 export const GET = withApiErrors(withCronAlert("check-job-intake", async (req: NextRequest) => {
   const unauthorized = requireCronAuth(req);
   if (unauthorized) return unauthorized;
-
-  // TEMPORARY — one-off read-only diagnostic for the 26-0003/Framingham-
-  // data mixup reported 2026-08-24. Remove once resolved.
-  const debugProjectNumber = req.nextUrl.searchParams.get("debug_project_number");
-  if (debugProjectNumber) {
-    const supabase = getSupabaseAdminFresh();
-    const { data: job, error } = await supabase
-      .from("jobs")
-      .select("*")
-      .eq("project_number", debugProjectNumber)
-      .maybeSingle();
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    if (!job) return NextResponse.json({ job: null });
-    const { data: customer } = await supabase
-      .from("customers")
-      .select("id, name, company, email, phone")
-      .eq("id", job.customer_id)
-      .maybeSingle();
-    return NextResponse.json({ job, customer });
-  }
-
-  // TEMPORARY — one-off: the real Geraldine Burns order already got the
-  // "processed" label from an earlier attempt, before today's labeled-
-  // format parser fix could help it. Un-stick it so the next real check
-  // can pick it up again. Remove once resolved.
-  const unstickSubject = req.nextUrl.searchParams.get("unstick_subject");
-  if (unstickSubject) {
-    const accessToken = await getValidAccessToken();
-    if (!accessToken) return NextResponse.json({ error: "Gmail is not connected" }, { status: 500 });
-    const labelId = await getOrCreateLabelId(accessToken, "cis-job-intake-processed");
-    const matches = await listMessagesByQuery(accessToken, `subject:"${unstickSubject}"`);
-    for (const m of matches) await removeLabelFromMessage(accessToken, m.id, labelId);
-    return NextResponse.json({ unstuck: matches.length, ids: matches.map((m) => m.id) });
-  }
 
   const result = await checkForJobIntakeEmails();
   // connectedEmail is a cheap, ongoing diagnostic — the search silently

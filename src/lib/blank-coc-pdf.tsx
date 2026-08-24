@@ -16,12 +16,15 @@ const PAGE_TWO_ROW_COUNT = 20;
 const LINE_COLOR = "#000000";
 
 const styles = StyleSheet.create({
-  page: { paddingTop: 15, paddingLeft: 12, paddingRight: 13, paddingBottom: 17, fontSize: 11, fontFamily: "Helvetica", color: "#000000" },
-  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
+  page: { paddingTop: 10, paddingLeft: 12, paddingRight: 13, paddingBottom: 12, fontSize: 11, fontFamily: "Helvetica", color: "#000000" },
+  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 },
   headerLeft: { flexDirection: "row", alignItems: "center" },
   letterhead: { width: 283, height: 55 },
   title: { fontSize: 11, fontWeight: 700 },
-  metaGrid: { marginBottom: 14 },
+  // SITE sits close under the table (small marginBottom here) but well
+  // clear of CLIENT/PROJECT #/DATE above it (SITE's own row carries the
+  // marginTop instead — see the SITE metaRow below).
+  metaGrid: { marginBottom: 8 },
   metaRow: { flexDirection: "row", marginBottom: 12, alignItems: "flex-end" },
   metaLabel: { fontWeight: 700, marginRight: 4 },
   metaValue: { flex: 1, borderBottomWidth: 1, borderBottomColor: LINE_COLOR, marginRight: 17 },
@@ -43,7 +46,7 @@ const styles = StyleSheet.create({
   // Matches the owner's real form's own gaps below the table — not
   // perfectly uniform (15/17/24pt below), that's genuinely how the
   // original is spaced.
-  footer: { marginTop: 15 },
+  footer: { marginTop: 10 },
   footerTopRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
   turnaroundLine: { flexDirection: "row", alignItems: "baseline" },
   turnaroundLabel: { fontSize: 11, fontWeight: 700 },
@@ -53,7 +56,7 @@ const styles = StyleSheet.create({
   // left-aligned against each other instead of sharing a right edge.
   notesWrap: { width: 340 },
   notes: { fontSize: 11, fontStyle: "italic", textAlign: "right", lineHeight: 1.3 },
-  dateNeededRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 17 },
+  dateNeededRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 13 },
   dateNeededLabel: { fontSize: 11, fontWeight: 700, marginRight: 4 },
   // Short enough to stay clear of the right-aligned "*Sampled by..." note
   // sitting above it — the full 220pt width used to run underneath it.
@@ -135,7 +138,7 @@ function BlankCocDocument({ job, customer, settings }: BlankCocData) {
             <Text style={styles.metaLabel}>DATE</Text>
             <Text style={styles.metaValueLast}>{formatDateMDY(job?.requested_date) ?? ""}</Text>
           </View>
-          <View style={[styles.metaRow, { marginTop: 6 }]}>
+          <View style={[styles.metaRow, { marginTop: 14, marginBottom: 0 }]}>
             <Text style={styles.metaLabel}>SITE</Text>
             <Text style={styles.metaValueWide}>{job?.service_address ?? ""}</Text>
           </View>
@@ -167,7 +170,7 @@ function BlankCocDocument({ job, customer, settings }: BlankCocData) {
               <Text style={styles.notes}>
                 *Sampled by {inspector.name} MA Asbestos Inspector License {licenseDisplay}
               </Text>
-              <Text style={styles.notes}>*Samples for analysis by Polarized Light Microscopy</Text>
+              <Text style={[styles.notes, { marginTop: 13 }]}>*Samples for analysis by Polarized Light Microscopy</Text>
             </View>
           </View>
 

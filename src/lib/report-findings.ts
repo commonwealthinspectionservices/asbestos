@@ -14,17 +14,24 @@ export const LEAD_POSITIVE_REMARK =
   "One or more of the sampled paints was determined to contain lead at a concentration meeting or exceeding the Massachusetts Department of Public Health (MassDPH) and Federal HUD lead-based paint threshold of 0.5% by weight (5,000 ppm). Materials determined to be lead-based paint should be managed in accordance with applicable state and federal regulations prior to being disturbed by building maintenance, renovation, or demolition activities.";
 
 // Newton Fire & Flood's own standing mold Conclusions & Recommendations —
-// per Tim, this exact wording every time for this one company specifically
-// (not a general per-company default feature; every other company still
-// needs its own case-specific write-up per mold job). Matched against the
-// job's customer's company_id, not the job's own customer_id, since a
-// second contact at the same company should get the same default.
+// per Tim, this exact wording (bulleted) belongs in every mold report for
+// this one company specifically, always, the same way the two fixed
+// MOLD_INDOOR_AIR_QUALITY/MOLD_AIR_INVESTIGATION_GOAL paragraphs below
+// already render unconditionally for every air-inclusive mold report.
+// Rendered directly into the report PDF (report-pdf.tsx), not pre-filled
+// into mold_report_notes — that field is real per-job "Additional
+// Conclusions & Recommendations" on top of this standing text, not a
+// starting point Tim has to edit down. Not a general per-company default
+// feature; every other company still needs its own case-specific write-up
+// per mold job. Matched against the job's customer's company_id, not the
+// job's own customer_id, since a second contact at the same company gets
+// the same standing text.
 export const NEWTON_FIRE_FLOOD_COMPANY_ID = "6481c518-8a22-4c83-83a1-6341e66d1f62";
-export const NEWTON_FIRE_FLOOD_DEFAULT_MOLD_NOTES = `Based on visual inspection and moisture assessment, materials exhibiting mold growth, elevated moisture levels, or organic buildup should undergo targeted remediation and specialized cleaning to restore indoor environmental quality.
+export const NEWTON_FIRE_FLOOD_STANDARD_MOLD_CONCLUSION = `Based on visual inspection and moisture assessment, materials exhibiting mold growth, elevated moisture levels, or organic buildup should undergo targeted remediation and specialized cleaning to restore indoor environmental quality.
 
-It is recommended that all structural surfaces, building components and hard materials identified with mold or microbial accumulation undergo thorough HEPA-vacuuming to capture settled spores and particulate prior to and following treatment.
-Where porous items have sustained microbial growth or severe water intrusion, removal and disposal is advised.
-Semi-porous and non-porous structural elements should be scrubbed and treated with an appropriate EPA-registered antimicrobial agent after HEPA-vacuuming to address residual surface growth.`;
+• It is recommended that all structural surfaces, building components and hard materials identified with mold or microbial accumulation undergo thorough HEPA-vacuuming to capture settled spores and particulate prior to and following treatment.
+• Where porous items have sustained microbial growth or severe water intrusion, removal and disposal is advised.
+• Semi-porous and non-porous structural elements should be scrubbed and treated with an appropriate EPA-registered antimicrobial agent after HEPA-vacuuming to address residual surface growth.`;
 
 // Which final-report domain a single service-type label belongs to.
 // Defaults to "asbestos" for anything that doesn't clearly say "mold" or

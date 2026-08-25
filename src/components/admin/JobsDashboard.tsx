@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import type { Company, Customer, FullInspectionMaterial, InvoiceLineItem, JobDocument, JobWithCustomer, LabProfile, PricingZone, SampleItem, ServiceType } from "@/lib/types";
 import { defaultInvoiceLineItems, sampleDescriptionForServiceType } from "@/lib/invoice-defaults";
-import { ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK, moldServiceTypeFlags, jobReportDomains, domainForServiceTypeLabel, isFullInspectionAsbestosJob, type ReportDomain } from "@/lib/report-findings";
+import { ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK, moldServiceTypeFlags, jobReportDomains, domainForServiceTypeLabel, isFullInspectionAsbestosJob, NEWTON_FIRE_FLOOD_COMPANY_ID, type ReportDomain } from "@/lib/report-findings";
 import { splitAddress, parseAddressToFields, buildBillingAddress, googleMapsUrl, wazeUrl } from "@/lib/address";
 import { joinName, splitFullName, toTitleCase } from "@/lib/name";
 import { telHref } from "@/lib/phone";
@@ -2501,7 +2501,9 @@ export function ProjectDetailDialog({
                             <div className="mt-5 rounded-lg border border-slate-200 p-3">
                               <div className="flex flex-wrap items-center justify-between gap-2">
                                 <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
-                                  Conclusions &amp; Recommendations
+                                  {job.customers?.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID
+                                    ? "Additional Conclusions & Recommendations"
+                                    : "Conclusions & Recommendations"}
                                 </label>
                                 <div className="flex items-center gap-1">
                                   <button

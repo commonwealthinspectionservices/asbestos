@@ -11,7 +11,7 @@ import { withApiErrors } from "@/lib/api-handler";
 import { extractSampleCount, detectAsbestosResult, extractSampleResults, extractReportProjectNumber, detectLabInfo, extractMoldSampleCount, extractMoldSampleResults } from "@/lib/parse-lab-report";
 import { splitTrailingCocPages } from "@/lib/split-lab-report-coc";
 import { extractPositionOrderedText } from "@/lib/pdf-position-text";
-import { ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, NEWTON_FIRE_FLOOD_COMPANY_ID, NEWTON_FIRE_FLOOD_DEFAULT_MOLD_NOTES } from "@/lib/report-findings";
+import { ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK } from "@/lib/report-findings";
 import type { Job, JobDocument } from "@/lib/types";
 
 const DOCUMENT_KINDS = new Set(["coc", "lab_report", "lab_invoice", "report", "other"]);
@@ -115,23 +115,6 @@ export const POST = withApiErrors(async (
         const sampleResults = extractMoldSampleResults(text);
         if (sampleResults.length > 0) {
           update.mold_sample_results = sampleResults;
-        }
-
-        // Newton Fire & Flood's own standing default — see its own comment
-        // in report-findings.ts. Only when nothing's there yet, so a job
-        // Tim already wrote case-specific notes on never gets clobbered.
-        // This route doesn't otherwise join customer data, so a small
-        // separate lookup rather than pulling a company_id onto every job
-        // fetch just for this one company's special case.
-        if (!jobRow.mold_report_notes && jobRow.customer_id) {
-          const { data: customer } = await supabase
-            .from("customers")
-            .select("company_id")
-            .eq("id", jobRow.customer_id)
-            .maybeSingle();
-          if (customer?.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID) {
-            update.mold_report_notes = NEWTON_FIRE_FLOOD_DEFAULT_MOLD_NOTES;
-          }
         }
       }
 

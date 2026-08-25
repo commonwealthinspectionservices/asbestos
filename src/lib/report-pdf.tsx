@@ -8,6 +8,7 @@ import type { Job, Customer, Settings } from "@/lib/types";
 import {
   ASBESTOS_POSITIVE_REMARK, ASBESTOS_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK,
   moldScopeOfWorkItems, moldServiceTypeFlags, MOLD_SCOPE_CLOSING_LINE, MOLD_ACGIH_PARAGRAPH, MOLD_INDOOR_AIR_QUALITY_PARAGRAPH, MOLD_AIR_INVESTIGATION_GOAL_PARAGRAPH,
+  NEWTON_FIRE_FLOOD_COMPANY_ID, NEWTON_FIRE_FLOOD_STANDARD_MOLD_CONCLUSION,
   jobReportDomains, domainForServiceTypeLabel, type ReportDomain,
   isFullInspectionAsbestosJob, FULL_INSPECTION_SCOPE_PARAGRAPH, FULL_INSPECTION_NON_SUSPECT_PARAGRAPH,
   FULL_INSPECTION_WALLS_PARAGRAPH, FULL_INSPECTION_BULK_SAMPLING_PARAGRAPH, FULL_INSPECTION_ACM_CATEGORY_PARAGRAPH,
@@ -803,6 +804,8 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
 
   const conclusionBlocks = blocksFromText(job.mold_report_notes);
   const discussionParagraphs = paragraphsFromText(job.mold_report_summary);
+  const isNewtonFireFlood = customer.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID;
+  const standardConclusionBlocks = isNewtonFireFlood ? blocksFromText(NEWTON_FIRE_FLOOD_STANDARD_MOLD_CONCLUSION) : [];
 
   // "[N] samples were collected on [date] inside the building. An ambient
   // sample was collected outside..." — the air total in sample_counts
@@ -911,9 +914,10 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
             <Text style={styles.paragraph}>{MOLD_AIR_INVESTIGATION_GOAL_PARAGRAPH}</Text>
           </>
         )}
+        {standardConclusionBlocks.length > 0 && <RenderTextBlocks blocks={standardConclusionBlocks} />}
         {conclusionBlocks.length > 0
           ? <RenderTextBlocks blocks={conclusionBlocks} />
-          : !hasAir && <Text style={styles.paragraph}>NO RECOMMENDATIONS YET.</Text>}
+          : !hasAir && !isNewtonFireFlood && <Text style={styles.paragraph}>NO RECOMMENDATIONS YET.</Text>}
 
         <Text style={styles.romanTitle} minPresenceAhead={30}>V.  LIMITATIONS AND CONDITIONS OF THIS REPORT</Text>
         <Text style={styles.paragraph}>

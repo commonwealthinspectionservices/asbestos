@@ -13,6 +13,19 @@ export const LEAD_NEGATIVE_REMARK =
 export const LEAD_POSITIVE_REMARK =
   "One or more of the sampled paints was determined to contain lead at a concentration meeting or exceeding the Massachusetts Department of Public Health (MassDPH) and Federal HUD lead-based paint threshold of 0.5% by weight (5,000 ppm). Materials determined to be lead-based paint should be managed in accordance with applicable state and federal regulations prior to being disturbed by building maintenance, renovation, or demolition activities.";
 
+// Newton Fire & Flood's own standing mold Conclusions & Recommendations —
+// per Tim, this exact wording every time for this one company specifically
+// (not a general per-company default feature; every other company still
+// needs its own case-specific write-up per mold job). Matched against the
+// job's customer's company_id, not the job's own customer_id, since a
+// second contact at the same company should get the same default.
+export const NEWTON_FIRE_FLOOD_COMPANY_ID = "6481c518-8a22-4c83-83a1-6341e66d1f62";
+export const NEWTON_FIRE_FLOOD_DEFAULT_MOLD_NOTES = `Based on visual inspection and moisture assessment, materials exhibiting mold growth, elevated moisture levels, or organic buildup should undergo targeted remediation and specialized cleaning to restore indoor environmental quality.
+
+• It is recommended that all structural surfaces, building components and hard materials identified with mold or microbial accumulation undergo thorough HEPA-vacuuming to capture settled spores and particulate prior to and following treatment.
+• Where porous items have sustained microbial growth or severe water intrusion, removal and disposal is advised.
+• Semi-porous and non-porous structural elements should be scrubbed and treated with an appropriate EPA-registered antimicrobial agent after HEPA-vacuuming to address residual surface growth.`;
+
 // Which final-report domain a single service-type label belongs to.
 // Defaults to "asbestos" for anything that doesn't clearly say "mold" or
 // "lead" (a custom/free-text type, or the common case where the label is

@@ -35,7 +35,7 @@ import { formatCents } from "@/lib/pricing";
 import { createStripeInvoiceForJob } from "@/lib/stripe";
 import { splitTrailingCocPages } from "@/lib/split-lab-report-coc";
 import { extractPositionOrderedText } from "@/lib/pdf-position-text";
-import { jobReportDomains, ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, type ReportDomain } from "@/lib/report-findings";
+import { jobReportDomains, ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, NEWTON_FIRE_FLOOD_COMPANY_ID, NEWTON_FIRE_FLOOD_DEFAULT_MOLD_NOTES, type ReportDomain } from "@/lib/report-findings";
 import { sendEmail, emailShell } from "@/lib/email";
 import { getAppUrl } from "@/lib/app-url";
 import { escapeHtml } from "@/lib/html";
@@ -549,6 +549,13 @@ async function processMatchedLabEmail(params: {
   if (isMold) {
     const sampleResults = extractMoldSampleResults(pdfText);
     if (sampleResults.length > 0) update.mold_sample_results = sampleResults;
+    // Newton Fire & Flood's own standing default — see its own comment in
+    // report-findings.ts. Only when nothing's there yet, same as every
+    // other auto-fill here, so a job Tim already wrote case-specific notes
+    // on never gets clobbered.
+    if (job.customers.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID && !job.mold_report_notes) {
+      update.mold_report_notes = NEWTON_FIRE_FLOOD_DEFAULT_MOLD_NOTES;
+    }
   } else if (isAsbestos) {
     const asbestosResult = detectAsbestosResult(pdfText, positionOrderedText);
     if (asbestosResult != null) {

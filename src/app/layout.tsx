@@ -9,7 +9,7 @@ const leagueSpartan = League_Spartan({ subsets: ["latin"], variable: "--font-lea
 export const metadata: Metadata = {
   title: "Commonwealth Inspection Services, LLC.",
   description:
-    "Asbestos and mold inspections in metro Boston. Book online, no card required — invoiced after the project.",
+    "Independent mold air sampling and asbestos testing across Massachusetts — no remediation, no conflict of interest. Book online, no card required.",
 };
 
 export default function RootLayout({

@@ -67,7 +67,17 @@ export default function HomePage() {
           <img src="/marketing/massachusetts-outline.png" alt="" className="h-16 w-auto shrink-0 sm:h-40" />
         </div>
         <div className="relative mx-auto max-w-3xl px-4">
-        <p className="relative mt-6 whitespace-nowrap text-[13px] font-bold uppercase text-brand-700 sm:mt-10 sm:text-2xl">
+        {/* The core positioning, right in the hero — not buried in a
+            section further down the page. Leads with mold (the service
+            actually worth driving homeowner traffic to) and states the
+            independence angle immediately, before anything else. */}
+        <h1 className="relative mt-6 text-xl font-black uppercase leading-tight text-brand-700 sm:mt-10 sm:text-4xl">
+          Independent Mold Air Sampling &amp; Asbestos Testing
+        </h1>
+        <p className="relative mt-2 text-sm font-bold uppercase text-brand-700 sm:mt-4 sm:text-xl">
+          No Remediation. No Conflict of Interest.
+        </p>
+        <p className="relative mt-2 whitespace-nowrap text-[11px] font-semibold uppercase text-slate-500 sm:mt-3 sm:text-base">
           Serving Boston + all of Massachusetts
         </p>
         <div className="relative mt-6 flex justify-center gap-3 sm:mt-10 sm:gap-4">

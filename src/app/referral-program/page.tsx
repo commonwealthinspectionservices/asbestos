@@ -3,15 +3,16 @@ import MarketingNav from "@/components/marketing/MarketingNav";
 import MarketingFooter from "@/components/marketing/MarketingFooter";
 import IndependentTestingBanner from "@/components/shared/IndependentTestingBanner";
 
-// Broader than /realtors (which is a targeted pitch for real estate agents
-// specifically) — this one's for anyone: past clients, contractors,
-// friends. Deliberately no dollar figure or tracking mechanism here — a
-// cash-per-referral incentive is a real financial commitment that's Tim's
-// call to make, not something to invent. If he decides on terms later,
-// this page is the natural place to add them.
+// $50/referral, confirmed by Tim — deliberately no accounts, referral
+// codes, or payout tracking yet (see git history for the earlier
+// no-dollar-figure version). This is intentionally just the advertised
+// offer to gauge real demand before building any of that infrastructure;
+// payouts stay a manual Venmo/PayPal send on Tim's end either way, since
+// moving money isn't something to automate through this app regardless of
+// volume.
 export const metadata = {
   title: "Referral Program | Commonwealth Inspection Services, LLC.",
-  description: "Refer a friend, client, or contact to Commonwealth Inspection Services for independent asbestos, mold, and lead testing across Massachusetts.",
+  description: "Refer someone to Commonwealth Inspection Services and get $50 when their inspection is complete.",
 };
 
 export default function ReferralProgramPage() {
@@ -20,12 +21,11 @@ export default function ReferralProgramPage() {
       <MarketingNav />
       <IndependentTestingBanner />
       <div className="mx-auto max-w-2xl px-4 py-10">
-        <h1 className="text-2xl font-bold uppercase text-brand-700">Refer Someone</h1>
+        <h1 className="text-2xl font-bold uppercase text-brand-700">Refer Someone, Get $50</h1>
         <p className="mt-4 text-slate-700">
           If you've worked with us before — or know a homeowner, contractor, or agent who could
-          use an independent asbestos, mold, or lead inspection — sending them our way is the
-          easiest way to help both sides out. They get a fast, honest inspector; we get a client
-          who already trusts the referral.
+          use an independent asbestos, mold, or lead inspection — send them our way. Once their
+          inspection is complete, you get $50.
         </p>
 
         <div className="mt-6 space-y-4">
@@ -40,9 +40,8 @@ export default function ReferralProgramPage() {
           <div className="rounded-lg border border-slate-200 p-4">
             <h3 className="font-bold text-brand-700">How it works</h3>
             <p className="mt-1 text-slate-700">
-              Just send them to commonwealthinspectionservices.com to book, or have them mention
-              your name when they reach out. There's no sign-up or referral code needed — it's
-              genuinely just letting someone know about us.
+              Have them mention your name when they book or reach out. Once their inspection is
+              complete, you'll get $50 — no sign-up, referral code, or account needed.
             </p>
           </div>
         </div>

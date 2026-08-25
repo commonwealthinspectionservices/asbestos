@@ -330,7 +330,7 @@ function AsbestosReportDocument({ job, customer, settings }: ProjectReportData) 
   // any 3rd/4th remark it would add could only ever come from something
   // set directly in the database — never a real admin edit.
 
-  const { knownCustomerName, dateText, billingStreet, billing, serviceStreet, service } = commonLetterFields(job, customer, settings);
+  const { knownCustomerName, dateText, billingStreet, billing, serviceStreet, service } = commonLetterFields(job, customer, settings, job.lab_date_sampled ?? job.requested_date);
 
   return (
     <Document title={`Bulk Sample Analytical Results — ${job.service_address}`}>
@@ -463,7 +463,7 @@ function LeadReportDocument({ job, customer, settings }: ProjectReportData) {
   }
   if (job.lead_report_notes) remarks.push(job.lead_report_notes);
 
-  const { knownCustomerName, dateText, billingStreet, billing, serviceStreet, service } = commonLetterFields(job, customer, settings);
+  const { knownCustomerName, dateText, billingStreet, billing, serviceStreet, service } = commonLetterFields(job, customer, settings, job.lead_date_sampled ?? job.requested_date);
 
   return (
     <Document title={`Bulk Paint Chip Sample Analytical Results — ${job.service_address}`}>
@@ -582,7 +582,7 @@ function FullInspectionAsbestosReportDocument({ job, customer, settings }: Proje
   // existing specifically for this and never having a UI to reach it.
   remarks.push(...paragraphsFromText(job.report_notes));
 
-  const { knownCustomerName, dateText, billingStreet, billing, serviceStreet, service } = commonLetterFields(job, customer, settings);
+  const { knownCustomerName, dateText, billingStreet, billing, serviceStreet, service } = commonLetterFields(job, customer, settings, job.lab_date_sampled ?? job.requested_date);
 
   return (
     <Document title={`Inspection for Asbestos Containing Materials — ${job.service_address}`}>
@@ -734,7 +734,7 @@ function FullInspectionAsbestosReportDocument({ job, customer, settings }: Proje
 // letter doesn't try to auto-structure that text,
 // since the real letters are themselves free-form prose written per job.
 function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
-  const { knownCustomerName, dateText, billingStreet, billing, serviceStreet, service } = commonLetterFields(job, customer, settings);
+  const { knownCustomerName, dateText, billingStreet, billing, serviceStreet, service } = commonLetterFields(job, customer, settings, job.mold_date_sampled ?? job.requested_date);
 
   // Which methodology sections apply — driven by job.service_type (known
   // from booking, see moldServiceTypeFlags), same source as Scope of Work,
@@ -1072,10 +1072,18 @@ function SignatureBlock({ settings, showLicense }: { settings: Settings; showLic
 // catch it. Treated as blank everywhere it'd otherwise print that
 // placeholder verbatim ("Dear Unknown contact:"). Shared between both
 // letter templates since the recipient/address block is identical.
-function commonLetterFields(job: Job, customer: Customer, settings: Settings) {
+// sampledDate is the domain's own actual collection date (lab_date_sampled/
+// mold_date_sampled/lead_date_sampled, falling back to requested_date) —
+// every date on the report is the sampling date, not when the letter was
+// generated, confirmed live 2026-08-25 (the RE: block used to show
+// today's date even though sampling had happened days earlier). Falls
+// back to today only when the job has no date recorded at all, so the
+// letterhead never renders truly blank.
+function commonLetterFields(job: Job, customer: Customer, settings: Settings, sampledDate: string | null) {
   const knownCustomerName = customer.name === "Unknown contact" ? null : customer.name;
 
-  const dateText = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+  const dateText = (sampledDate ? new Date(`${sampledDate}T00:00:00`) : new Date())
+    .toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
 
   // Town/state/zip always gets its own line under the street, matching the
   // real FLI letter's recipient block and RE: block — both the customer's

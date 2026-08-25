@@ -2619,12 +2619,12 @@ export function ProjectDetailDialog({
                 don't belong on this tab) were removed 2026-08-25. */}
             {tab === "report" && (
             <div className="border-t-4 border-slate-300 pt-6">
-              <h3 className="text-lg font-bold uppercase tracking-wide text-black underline">Final Report</h3>
+              <p className="text-base font-bold uppercase text-slate-700">Final {REPORT_DOMAIN_LABEL[reportDomainTab]} Report</p>
               <div className="mt-3 flex flex-wrap gap-4 sm:flex-nowrap sm:gap-5 sm:overflow-x-auto sm:pb-1">
                 {(() => {
                   const domain = reportDomainTab;
                   const domainReady = reportIsCompleteForDomain(job, domain);
-                  const tileLabel = "Final Report";
+                  const tileLabel = `Final ${REPORT_DOMAIN_LABEL[domain]} Report`;
                   const reportUrl = `/api/admin/jobs/${job.id}/report?type=${domain}&v=${encodeURIComponent(reportRevision)}`;
                   const downloadUrl = `/api/admin/jobs/${job.id}/report?type=${domain}&download=1`;
                   return domainReady ? (

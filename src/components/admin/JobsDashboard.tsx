@@ -1526,10 +1526,23 @@ export function ProjectDetailDialog({
   const [moldReportSummaryInput, setMoldReportSummaryInput] = useState(job.mold_report_summary ?? "");
   const [moldReportNotesInput, setMoldReportNotesInput] = useState(job.mold_report_notes ?? "");
   const moldReportNotesRef = useRef<HTMLTextAreaElement>(null);
+  // Which domain's report is showing on the Report tab — a job combining
+  // service types from more than one domain (e.g. asbestos + mold) gets
+  // one tab button per domain (see the tab bar below) instead of every
+  // domain's upload stations stacked into one long scroll. Reset whenever
+  // the job's own domains change out from under the current selection
+  // (an edit dropped the domain currently selected) rather than pointing
+  // at a group that no longer exists.
+  const [reportDomainTab, setReportDomainTab] = useState<ReportDomain>(() => jobReportDomains(job.service_type)[0] ?? "asbestos");
+  useEffect(() => {
+    const domains = jobReportDomains(job.service_type);
+    if (!domains.includes(reportDomainTab)) setReportDomainTab(domains[0] ?? "asbestos");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [job.service_type]);
   const combinedDraft = useDraftTracking({
     kind: "invoice",
     createKind: "combined",
-    active: tab === "report",
+    active: tab === "report" || tab === "invoice",
     jobId: job.id,
     draftedAt: job.invoice_drafted_at,
     sentAt: job.invoice_sent_at,
@@ -1995,26 +2008,25 @@ export function ProjectDetailDialog({
           </button>
           {job.source !== "subcontractor" && (
             <>
-              {/* Mobile: "Report & Invoice" splits into two separate tabs —
-                  together they're a lot of scrolling on a small screen.
-                  Desktop keeps the single combined tab, unchanged. */}
-              <button
-                onClick={() => setTab("report")}
-                className={`flex-1 whitespace-nowrap px-0.5 py-1.5 text-center text-[11px] font-bold uppercase sm:hidden ${tab === "report" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
-              >
-                Report
-              </button>
+              {/* One tab per domain actually on the job (asbestos/mold/lead)
+                  — a job combining service types from more than one domain
+                  used to stack every domain's upload stations into one long
+                  Report & Invoice tab; each domain now gets its own tab,
+                  same at every screen width. */}
+              {jobReportDomains(job.service_type).map((domain) => (
+                <button
+                  key={domain}
+                  onClick={() => { setTab("report"); setReportDomainTab(domain); }}
+                  className={`flex-1 whitespace-nowrap px-0.5 py-1.5 text-center text-[11px] font-bold uppercase sm:flex-none sm:px-3 sm:text-sm ${tab === "report" && reportDomainTab === domain ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
+                >
+                  {REPORT_DOMAIN_LABEL[domain]} Report
+                </button>
+              ))}
               <button
                 onClick={() => setTab("invoice")}
-                className={`flex-1 whitespace-nowrap px-0.5 py-1.5 text-center text-[11px] font-bold uppercase sm:hidden ${tab === "invoice" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
+                className={`flex-1 whitespace-nowrap px-0.5 py-1.5 text-center text-[11px] font-bold uppercase sm:flex-none sm:px-3 sm:text-sm ${tab === "invoice" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
               >
                 Invoice
-              </button>
-              <button
-                onClick={() => setTab("report")}
-                className={`hidden whitespace-nowrap px-3 py-1.5 text-sm font-bold uppercase sm:block ${(tab === "report" || tab === "invoice") ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
-              >
-                Report &amp; Invoice
               </button>
               <button
                 onClick={() => setTab("chat")}
@@ -2348,15 +2360,17 @@ export function ProjectDetailDialog({
             </div>
           ) : (
           <div className="mt-4 space-y-6">
-            {/* Lab Paperwork — hidden on mobile's Invoice sub-tab, always
-                shown on desktop (its tab is always "report", never
-                "invoice", since there's no separate Invoice button there). */}
-            <div className={tab === "invoice" ? "hidden sm:block" : ""}>
+            {/* Lab Paperwork — Report tab only, scoped to the one domain
+                (reportDomainTab) whose tab button is currently active. */}
+            {tab === "report" && (
+            <div>
               <div>
-                {serviceTypeGroups.length > 0 ? (
-                  <div className="space-y-5">
-                    {serviceTypeGroups.map((group, groupIndex) => (
-                      <div key={group.domain} className={groupIndex > 0 ? "border-t-2 border-slate-200 pt-5" : ""}>
+                {(() => {
+                  const group = serviceTypeGroups.find((g) => g.domain === reportDomainTab);
+                  return group ? (
+                    <div className="space-y-5">
+                      {[group].map((group) => (
+                      <div key={group.domain}>
                         {group.labels.map((label, labelIdx) => (
                           <div key={label} className={labelIdx > 0 ? "mt-5" : ""}>
                             {/* Turnaround/Lab are domain-level (one mold lab
@@ -2542,13 +2556,14 @@ export function ProjectDetailDialog({
                           </>
                         )}
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-slate-500">Pick a service type on the Project Information tab to set up its upload stations.</p>
-                )}
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-slate-500">Pick a service type on the Project Information tab to set up its upload stations.</p>
+                  );
+                })()}
 
-                {job.sample_items.length > 0 && (
+                {reportDomainTab === "asbestos" && job.sample_items.length > 0 && (
                   <table className="mt-4 w-full text-sm">
                     <thead>
                       <tr className="text-left text-xs text-slate-400">
@@ -2569,7 +2584,7 @@ export function ProjectDetailDialog({
                   </table>
                 )}
 
-                {isFullInspectionAsbestosJob(job.service_type) && (
+                {reportDomainTab === "asbestos" && isFullInspectionAsbestosJob(job.service_type) && (
                   <div className="mt-5 rounded-lg border border-slate-200 p-3">
                     <div className="flex items-center justify-between gap-2">
                       <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
@@ -2596,10 +2611,93 @@ export function ProjectDetailDialog({
                 )}
               </div>
             </div>
+            )}
 
-            {/* Invoice + Stripe Payment Link — hidden on mobile's Report
-                sub-tab, always shown on desktop. */}
-            <div className={`pt-6 ${tab === "invoice" ? "" : "border-t-4 border-slate-300"} ${tab === "report" ? "hidden sm:block" : ""}`}>
+            {/* Final Report preview + blank CoC template(s) — Report tab
+                only, scoped to reportDomainTab same as the lab paperwork
+                above. */}
+            {tab === "report" && (
+            <div className="border-t-4 border-slate-300 pt-6">
+              <div className="flex flex-wrap gap-4 sm:gap-5">
+                {(() => {
+                  const domain = reportDomainTab;
+                  const domainReady = reportIsCompleteForDomain(job, domain);
+                  const tileLabel = "Final Report";
+                  const reportUrl = `/api/admin/jobs/${job.id}/report?type=${domain}&v=${encodeURIComponent(reportRevision)}`;
+                  const downloadUrl = `/api/admin/jobs/${job.id}/report?type=${domain}&download=1`;
+                  return domainReady ? (
+                    <div className="w-full overflow-hidden rounded-lg border border-slate-200 sm:w-60">
+                      <a href={reportUrl} target="_blank" rel="noreferrer" className="block">
+                        <PdfThumbnail url={reportUrl} alt={`${tileLabel} preview`} />
+                        <p className="border-t border-slate-200 bg-white px-2 py-1 text-center text-xs font-bold uppercase text-slate-700">{tileLabel}</p>
+                      </a>
+                      <div className="border-t border-slate-200 px-2 py-1 text-center text-xs">
+                        <a href={reportUrl} target="_blank" rel="noreferrer" className="text-brand-600 hover:underline">
+                          View
+                        </a>
+                        {" · "}
+                        <a href={downloadUrl} download={`report-${domain}-${job.project_number ?? job.id}.pdf`} className="text-brand-600 hover:underline">
+                          Download
+                        </a>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="block w-full overflow-hidden rounded-lg border border-dashed border-slate-300 sm:w-60">
+                      <div className="flex h-40 w-full items-center justify-center bg-slate-50 px-2 text-center text-xs text-slate-400">Not ready yet</div>
+                      <p className="border-t border-dashed border-slate-300 px-2 py-1 text-center text-xs font-bold uppercase text-slate-400">{tileLabel}</p>
+                    </div>
+                  );
+                })()}
+                {reportDomainTab === "asbestos" && (
+                  <div className="w-full overflow-hidden rounded-lg border border-slate-200 sm:w-60">
+                    <a href={`/api/admin/jobs/${job.id}/blank-coc`} target="_blank" rel="noreferrer" className="block">
+                      <PdfThumbnail url={`/api/admin/jobs/${job.id}/blank-coc`} alt="Chain of Custody preview" />
+                      <p className="border-t border-slate-200 bg-white px-2 py-1 text-center text-xs font-bold uppercase text-slate-700">Chain of Custody</p>
+                    </a>
+                    <div className="border-t border-slate-200 px-2 py-1 text-center text-xs">
+                      <a href={`/api/admin/jobs/${job.id}/blank-coc`} target="_blank" rel="noreferrer" className="text-brand-600 hover:underline">
+                        View
+                      </a>
+                      {" · "}
+                      <a href={`/api/admin/jobs/${job.id}/blank-coc?download=1`} download={`coc-${job.project_number ?? job.id}.pdf`} className="text-brand-600 hover:underline">
+                        Download
+                      </a>
+                    </div>
+                  </div>
+                )}
+                {reportDomainTab === "mold" &&
+                  ([
+                    { type: "air_o_cell", label: "Mold COC — Air-O-Cell", show: moldServiceTypeFlags(job.service_type).hasAir },
+                    { type: "bulk", label: "Mold COC — Bulk", show: moldServiceTypeFlags(job.service_type).hasBulk },
+                    { type: "swab", label: "Mold COC — Swab", show: moldServiceTypeFlags(job.service_type).hasSwab },
+                  ] as const).filter(({ show }) => show).map(({ type, label }) => {
+                    const url = `/api/admin/jobs/${job.id}/mold-coc?type=${type}`;
+                    return (
+                      <div key={type} className="w-full overflow-hidden rounded-lg border border-slate-200 sm:w-60">
+                        <a href={url} target="_blank" rel="noreferrer" className="block">
+                          <PdfThumbnail url={url} alt={`${label} preview`} />
+                          <p className="border-t border-slate-200 bg-white px-2 py-1 text-center text-xs font-bold uppercase text-slate-700">{label}</p>
+                        </a>
+                        <div className="border-t border-slate-200 px-2 py-1 text-center text-xs">
+                          <a href={url} target="_blank" rel="noreferrer" className="text-brand-600 hover:underline">
+                            View
+                          </a>
+                          {" · "}
+                          <a href={`${url}&download=1`} download={`mold-coc-${type}-${job.project_number ?? job.id}.pdf`} className="text-brand-600 hover:underline">
+                            Download
+                          </a>
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+            )}
+
+            {/* Invoice + Stripe Payment Link — Invoice tab only. */}
+            {tab === "invoice" && (
+            <>
+            <div className="pt-6">
               <h3 className="text-lg font-bold uppercase tracking-wide text-black underline">Invoice</h3>
               <div className="mt-3">
                 <div className="mb-4 space-y-1">
@@ -2619,7 +2717,7 @@ export function ProjectDetailDialog({
             </div>
 
             {job.invoice_total_cents != null && (
-              <div className={`border-t-4 border-slate-300 pt-6 ${tab === "report" ? "hidden sm:block" : ""}`}>
+              <div className="border-t-4 border-slate-300 pt-6">
                 <div className="flex flex-nowrap items-center justify-between gap-1.5">
                   <h3 className="whitespace-nowrap text-base font-bold uppercase tracking-wide text-black underline sm:text-lg">Stripe Payment Link</h3>
                   <div className="flex shrink-0 items-center gap-1.5">
@@ -2647,53 +2745,7 @@ export function ProjectDetailDialog({
 
             <div className="border-t-4 border-slate-300 pt-6">
               <div className="space-y-3">
-                {/* Both slots always show — each one only swaps in its real
-                    preview once actually ready, otherwise it stays an empty
-                    placeholder. The invoice is never considered ready until
-                    every domain's report is too, regardless of whether it's
-                    been priced — an invoice for an incomplete report isn't
-                    actually final. */}
                 <div className="flex flex-wrap gap-4 sm:gap-5">
-                  {/* One tile per domain actually on the job (asbestos/lead/
-                      mold) — a job combining service types from more than
-                      one domain gets a separate final report per domain,
-                      each independently Ready/Not-ready. Labeled only once
-                      there's more than one, so the common single-type job
-                      still just says "Final Report". */}
-                  <div className={tab === "invoice" ? "hidden" : "contents"}>
-                  {(() => {
-                    const domains = jobReportDomains(job.service_type);
-                    return domains.map((domain) => {
-                      const domainReady = reportIsCompleteForDomain(job, domain);
-                      const tileLabel = domains.length > 1 ? `${REPORT_DOMAIN_LABEL[domain]} Final Report` : "Final Report";
-                      const reportUrl = `/api/admin/jobs/${job.id}/report?type=${domain}&v=${encodeURIComponent(reportRevision)}`;
-                      const downloadUrl = `/api/admin/jobs/${job.id}/report?type=${domain}&download=1`;
-                      return domainReady ? (
-                        <div key={domain} className="w-full overflow-hidden rounded-lg border border-slate-200 sm:w-60">
-                          <a href={reportUrl} target="_blank" rel="noreferrer" className="block">
-                            <PdfThumbnail url={reportUrl} alt={`${tileLabel} preview`} />
-                            <p className="border-t border-slate-200 bg-white px-2 py-1 text-center text-xs font-bold uppercase text-slate-700">{tileLabel}</p>
-                          </a>
-                          <div className="border-t border-slate-200 px-2 py-1 text-center text-xs">
-                            <a href={reportUrl} target="_blank" rel="noreferrer" className="text-brand-600 hover:underline">
-                              View
-                            </a>
-                            {" · "}
-                            <a href={downloadUrl} download={`report-${domain}-${job.project_number ?? job.id}.pdf`} className="text-brand-600 hover:underline">
-                              Download
-                            </a>
-                          </div>
-                        </div>
-                      ) : (
-                        <div key={domain} className="block w-full overflow-hidden rounded-lg border border-dashed border-slate-300 sm:w-60">
-                          <div className="flex h-40 w-full items-center justify-center bg-slate-50 px-2 text-center text-xs text-slate-400">Not ready yet</div>
-                          <p className="border-t border-dashed border-slate-300 px-2 py-1 text-center text-xs font-bold uppercase text-slate-400">{tileLabel}</p>
-                        </div>
-                      );
-                    });
-                  })()}
-                  </div>
-                  <div className={tab === "report" ? "hidden sm:contents" : "contents"}>
                   {reportComplete && job.invoice_total_cents != null ? (
                     <div className="w-full overflow-hidden rounded-lg border border-slate-200 sm:w-60">
                       <a href={`/api/admin/jobs/${job.id}/invoice?v=${encodeURIComponent(invoiceRevision)}`} target="_blank" rel="noreferrer" className="block">
@@ -2739,49 +2791,6 @@ export function ProjectDetailDialog({
                       )}
                     </div>
                   )}
-                  </div>
-                  {jobReportDomains(job.service_type).includes("asbestos") && (
-                    <div className="w-full overflow-hidden rounded-lg border border-slate-200 sm:w-60">
-                      <a href={`/api/admin/jobs/${job.id}/blank-coc`} target="_blank" rel="noreferrer" className="block">
-                        <PdfThumbnail url={`/api/admin/jobs/${job.id}/blank-coc`} alt="Chain of Custody preview" />
-                        <p className="border-t border-slate-200 bg-white px-2 py-1 text-center text-xs font-bold uppercase text-slate-700">Chain of Custody</p>
-                      </a>
-                      <div className="border-t border-slate-200 px-2 py-1 text-center text-xs">
-                        <a href={`/api/admin/jobs/${job.id}/blank-coc`} target="_blank" rel="noreferrer" className="text-brand-600 hover:underline">
-                          View
-                        </a>
-                        {" · "}
-                        <a href={`/api/admin/jobs/${job.id}/blank-coc?download=1`} download={`coc-${job.project_number ?? job.id}.pdf`} className="text-brand-600 hover:underline">
-                          Download
-                        </a>
-                      </div>
-                    </div>
-                  )}
-                  {jobReportDomains(job.service_type).includes("mold") &&
-                    ([
-                      { type: "air_o_cell", label: "Mold COC — Air-O-Cell", show: moldServiceTypeFlags(job.service_type).hasAir },
-                      { type: "bulk", label: "Mold COC — Bulk", show: moldServiceTypeFlags(job.service_type).hasBulk },
-                      { type: "swab", label: "Mold COC — Swab", show: moldServiceTypeFlags(job.service_type).hasSwab },
-                    ] as const).filter(({ show }) => show).map(({ type, label }) => {
-                      const url = `/api/admin/jobs/${job.id}/mold-coc?type=${type}`;
-                      return (
-                        <div key={type} className="w-full overflow-hidden rounded-lg border border-slate-200 sm:w-60">
-                          <a href={url} target="_blank" rel="noreferrer" className="block">
-                            <PdfThumbnail url={url} alt={`${label} preview`} />
-                            <p className="border-t border-slate-200 bg-white px-2 py-1 text-center text-xs font-bold uppercase text-slate-700">{label}</p>
-                          </a>
-                          <div className="border-t border-slate-200 px-2 py-1 text-center text-xs">
-                            <a href={url} target="_blank" rel="noreferrer" className="text-brand-600 hover:underline">
-                              View
-                            </a>
-                            {" · "}
-                            <a href={`${url}&download=1`} download={`mold-coc-${type}-${job.project_number ?? job.id}.pdf`} className="text-brand-600 hover:underline">
-                              Download
-                            </a>
-                          </div>
-                        </div>
-                      );
-                    })}
                 </div>
                 {job.is_individual && job.status !== "paid" && (
                   job.report_release_override ? (
@@ -2847,6 +2856,8 @@ export function ProjectDetailDialog({
                 )}
               </div>
             </div>
+            </>
+            )}
           </div>
           )
         )}

@@ -2408,7 +2408,7 @@ export function ProjectDetailDialog({
                                   // belong to it.
                                   const results = group.domain === "mold" ? job.mold_sample_results : job.sample_results;
                                   return results && results.length > 0 ? (
-                                    <div className="mt-1.5 h-[116px] w-full overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 p-2 font-mono text-xs">
+                                    <div className="mt-1.5 h-40 w-full overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 p-2 font-mono text-xs">
                                       {results.map((s, i) => (
                                         <div key={i} className={/%/.test(s.result) ? "text-red-600" : "text-slate-900"}>{s.fieldCode}: {s.result}</div>
                                       ))}
@@ -2417,7 +2417,7 @@ export function ProjectDetailDialog({
                                       </div>
                                     </div>
                                   ) : (
-                                    <div className="mt-1.5 flex h-[116px] w-full flex-col items-center justify-center rounded-lg border-2 border-dashed border-slate-300 px-3 text-center text-sm text-slate-500">
+                                    <div className="mt-1.5 flex h-40 w-full flex-col items-center justify-center rounded-lg border-2 border-dashed border-slate-300 px-3 text-center text-sm text-slate-500">
                                       Populates once Laboratory Results are uploaded
                                     </div>
                                   );
@@ -2618,7 +2618,7 @@ export function ProjectDetailDialog({
                 above. */}
             {tab === "report" && (
             <div className="border-t-4 border-slate-300 pt-6">
-              <div className="flex flex-wrap gap-4 sm:gap-5">
+              <div className="flex flex-wrap gap-4 sm:flex-nowrap sm:gap-5 sm:overflow-x-auto sm:pb-1">
                 {(() => {
                   const domain = reportDomainTab;
                   const domainReady = reportIsCompleteForDomain(job, domain);
@@ -2745,7 +2745,7 @@ export function ProjectDetailDialog({
 
             <div className="border-t-4 border-slate-300 pt-6">
               <div className="space-y-3">
-                <div className="flex flex-wrap gap-4 sm:gap-5">
+                <div className="flex flex-wrap gap-4 sm:flex-nowrap sm:gap-5 sm:overflow-x-auto sm:pb-1">
                   {reportComplete && job.invoice_total_cents != null ? (
                     <div className="w-full overflow-hidden rounded-lg border border-slate-200 sm:w-60">
                       <a href={`/api/admin/jobs/${job.id}/invoice?v=${encodeURIComponent(invoiceRevision)}`} target="_blank" rel="noreferrer" className="block">
@@ -3247,7 +3247,7 @@ function DocumentStation({
             setDragOver(false);
             if (e.dataTransfer.files.length > 0) uploadFiles(e.dataTransfer.files);
           }}
-          className={`mt-1.5 flex h-[116px] w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-3 text-center ${
+          className={`mt-1.5 flex h-40 w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-3 text-center ${
             dragOver ? "border-brand-600 bg-brand-50" : "border-slate-300"
           }`}
         >

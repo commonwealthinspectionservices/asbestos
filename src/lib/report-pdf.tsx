@@ -49,8 +49,12 @@ const styles = StyleSheet.create({
   // overrides it back down further via pageAsbestos below — its bottom
   // margin is tightly tuned to hold worst-case content to exactly one
   // page and can't afford to give any of that back.
-  page: { paddingTop: 26, paddingBottom: 58, paddingHorizontal: 69, fontSize: BODY_FONT_SIZE, fontFamily: "Times-Roman", color: "#000000", lineHeight: 1.22 },
-  pageAsbestos: { fontSize: ASBESTOS_FONT_SIZE, paddingBottom: 26 },
+  page: { paddingTop: 26, paddingBottom: 58, paddingHorizontal: 69, fontSize: BODY_FONT_SIZE, fontFamily: "Times-Roman", color: "#000000", lineHeight: 1.35 },
+  // lineHeight held back to the original 1.22 here, not inherited at 1.35 —
+  // asbestos's one-page fit above is tuned against that exact value; giving
+  // it the same bump as mold/lead (free to run longer) risks pushing a
+  // realistic worst-case letter onto a second page.
+  pageAsbestos: { fontSize: ASBESTOS_FONT_SIZE, paddingBottom: 26, lineHeight: 1.22 },
   // Full-inspection only — extra breathing room at the very top of the page.
   pageFullInspection: { paddingTop: 58 },
   header: { flexDirection: "row", alignItems: "center", marginBottom: 22, paddingBottom: 12, borderBottomWidth: 2, borderBottomColor: "#193466" },

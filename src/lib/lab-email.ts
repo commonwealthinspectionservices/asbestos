@@ -29,12 +29,13 @@ import {
   extractMoldSampleCount,
   extractMoldSampleResults,
 } from "@/lib/parse-lab-report";
-import { isLabInvoiceText, extractLabInvoiceTotalCents } from "@/lib/parse-lab-invoice";
+import { isLabInvoiceText, extractLabInvoiceTotalCents, extractInvoiceLineItems } from "@/lib/parse-lab-invoice";
 import { defaultInvoiceLineItems, invoiceLineItemsTotalCents } from "@/lib/invoice-defaults";
 import { formatCents } from "@/lib/pricing";
 import { createStripeInvoiceForJob } from "@/lib/stripe";
 import { splitTrailingCocPages } from "@/lib/split-lab-report-coc";
 import { extractPositionOrderedText } from "@/lib/pdf-position-text";
+import { jobReportDomains, type ReportDomain } from "@/lib/report-findings";
 import { sendEmail, emailShell } from "@/lib/email";
 import { getAppUrl } from "@/lib/app-url";
 import { escapeHtml } from "@/lib/html";
@@ -122,14 +123,29 @@ function invoiceDraftBodyHtml(job: Job, settings: Settings, totalCents: number, 
   ].join("<br>");
 }
 
+// "asbestos", "asbestos and mold", "asbestos, mold, and lead" — every
+// domain actually on the job, not just whichever one happens to be first
+// in service_type. Confirmed live 2026-08-25: a mixed asbestos+mold job's
+// combined draft said "the asbestos bulk sample analytical report" even
+// though a separate mold report was attached right alongside it — a client
+// skimming the email body alone would have no idea mold was even tested.
+function reportDomainListPhrase(domains: ReportDomain[]): string {
+  if (domains.length === 1) return domains[0];
+  if (domains.length === 2) return `${domains[0]} and ${domains[1]}`;
+  return `${domains.slice(0, -1).join(", ")}, and ${domains[domains.length - 1]}`;
+}
+
 // The Email tab's single manual send — attached report + invoice covering
 // both in one note rather than stitching the two standalone bodies above
 // together.
 function combinedDraftBodyHtml(job: Job, settings: Settings, totalCents: number, payNowUrl: string | null): string {
+  const domains = jobReportDomains(job.service_type);
+  const domainPhrase = reportDomainListPhrase(domains);
+  const reportNoun = domains.length > 1 ? "analytical reports" : "analytical report";
   return [
     "Hi,",
     "",
-    "Please find attached the asbestos bulk sample analytical report and invoice for:",
+    `Please find attached the ${domainPhrase} ${reportNoun} and invoice for:`,
     "",
     `Site: ${escapeHtml(job.service_address)}`,
     "",
@@ -171,7 +187,7 @@ export async function checkForLabResultEmails(): Promise<LabEmailCheckResult> {
 
   const result: LabEmailCheckResult = { checked: 0, matched: [], cocUploaded: [], labInvoicesRecorded: [], unmatched: 0 };
 
-  for (const candidate of candidates) {
+  candidateLoop: for (const candidate of candidates) {
     result.checked++;
     // One bad message (a corrupt attachment, an unexpected reply format,
     // a transient Gmail API hiccup) must never fail the whole batch — every
@@ -188,6 +204,31 @@ export async function checkForLabResultEmails(): Promise<LabEmailCheckResult> {
         try {
           const data = await getAttachmentData(accessToken, candidate.id, part.attachmentId);
           const { text } = await pdfParse(data);
+
+          // A multi-job invoice (see processMultiJobLabInvoiceEmail) needs
+          // its own path before the single-project-number match below —
+          // that match can only ever land on one job, which would
+          // attribute an invoice spanning several jobs entirely to
+          // whichever one happened to match first.
+          if (isLabInvoiceText(text)) {
+            const distinctProjectNumbers = new Set(extractInvoiceLineItems(text).map((i) => i.projectNumber));
+            if (distinctProjectNumbers.size > 1) {
+              const { recorded, unmatchedProjectNumbers } = await processMultiJobLabInvoiceEmail({
+                accessToken,
+                messageId: candidate.id,
+                pdfBuffer: data,
+                pdfText: text,
+              });
+              await addLabelToMessage(accessToken, candidate.id, processedLabelId);
+              result.labInvoicesRecorded.push(...recorded);
+              result.unmatched += unmatchedProjectNumbers.length;
+              if (unmatchedProjectNumbers.length > 0) {
+                console.error(`lab-email: invoice on message ${candidate.id} named project number(s) with no matching job: ${unmatchedProjectNumbers.join(", ")}`);
+              }
+              continue candidateLoop;
+            }
+          }
+
           const projectNumber = extractReportProjectNumber(text);
           if (!projectNumber) continue;
 
@@ -341,6 +382,77 @@ async function processMatchedLabInvoiceEmail(params: {
 
   await supabase.from("jobs").update(update).eq("id", job.id);
   await markMessageRead(accessToken, messageId);
+}
+
+// Crystal Analytical bills per lab order, not per job — one invoice
+// routinely spans every job billed that day (confirmed against a real
+// invoice, #6491: three jobs, five line items, one shared PDF). Unlike
+// EMSL's always-one-job invoice above, this looks its own jobs up rather
+// than receiving one already matched — the single-project-number match in
+// checkForLabResultEmails' main loop can only ever land on one job, which
+// would silently attribute the *entire* invoice total to whichever job
+// happened to match first. Each matched job gets its own copy of the PDF
+// (so it shows up on that job's own Laboratory Invoice station) and only
+// the amount its own line items actually total to, not the invoice grand
+// total. A project number the invoice names but this system has no job
+// for (a typo, a job from before this system, one outside FLI Environmental
+// entirely) is skipped and reported back, not silently dropped.
+async function processMultiJobLabInvoiceEmail(params: {
+  accessToken: string;
+  messageId: string;
+  pdfBuffer: Buffer;
+  pdfText: string;
+}): Promise<{ recorded: { projectNumber: string; jobId: string }[]; unmatchedProjectNumbers: string[] }> {
+  const { accessToken, messageId, pdfBuffer, pdfText } = params;
+  const supabase = getSupabaseAdmin();
+
+  const amountCentsByProject = new Map<string, number>();
+  for (const item of extractInvoiceLineItems(pdfText)) {
+    amountCentsByProject.set(item.projectNumber, (amountCentsByProject.get(item.projectNumber) ?? 0) + item.amountCents);
+  }
+
+  const labInfo = detectLabInfo(pdfText);
+  const recorded: { projectNumber: string; jobId: string }[] = [];
+  const unmatchedProjectNumbers: string[] = [];
+
+  for (const [projectNumber, amountCents] of amountCentsByProject) {
+    const { data: job } = await supabase.from("jobs").select("*").ilike("project_number", projectNumber).maybeSingle();
+    if (!job) {
+      unmatchedProjectNumbers.push(projectNumber);
+      continue;
+    }
+
+    const serviceTypeLabels = (job.service_type ?? "").split(",").map((s: string) => s.trim()).filter(Boolean);
+    const primaryServiceType = serviceTypeLabels[0] ?? "";
+
+    const docId = randomUUID();
+    const storagePath = `${job.id}/${docId}-lab-invoice.pdf`;
+    await supabase.storage.from("job-documents").upload(storagePath, pdfBuffer, { contentType: "application/pdf" });
+    const document: JobDocument = {
+      id: docId,
+      kind: "lab_invoice",
+      service_type: primaryServiceType,
+      file_name: "lab-invoice.pdf",
+      storage_path: storagePath,
+      uploaded_at: new Date().toISOString(),
+      project_number_mismatch: null,
+    };
+    const update: Record<string, unknown> = {
+      documents: [...(job.documents ?? []), document],
+      lab_cost_cents: amountCents,
+    };
+    if (labInfo) {
+      update.lab_name = labInfo.labName;
+      update.lab_nist_cert = labInfo.nistCert;
+      update.lab_massdls_cert = labInfo.massdlsCert;
+    }
+
+    await supabase.from("jobs").update(update).eq("id", job.id);
+    recorded.push({ projectNumber: job.project_number ?? projectNumber, jobId: job.id });
+  }
+
+  await markMessageRead(accessToken, messageId);
+  return { recorded, unmatchedProjectNumbers };
 }
 
 async function processMatchedLabEmail(params: {
@@ -661,12 +773,32 @@ async function draftPaymentReminderForIndividual(params: {
 // merged packet — cover letter, lab results, chain of custody, license —
 // via the same builder the "Download Final Report" button uses, not just
 // the bare letter.
+// Confirmed live 2026-08-25: unlike a Limited Asbestos Inspection report
+// (fully mechanical — sample results in, letter out, nothing for the owner
+// to add), a mold report's own "IV. Conclusions & Recommendations" section
+// (report-pdf.tsx) is the owner's professional judgment, written by hand
+// into mold_report_notes — it isn't derivable from the lab data alone.
+// Both draft-creation paths below build the actual report packet a client
+// would receive, so both must refuse rather than send that section out
+// blank/generic — draftReportEmailForJob's caller (processMatchedLabEmail)
+// already has a catch-log-and-alert-the-owner path built for exactly this
+// kind of drafting failure, so throwing here routes into that instead of
+// silently shipping an incomplete report.
+function assertMoldReportReady(job: Job): void {
+  if (jobReportDomains(job.service_type).includes("mold") && !job.mold_report_notes?.trim()) {
+    throw new Error(
+      "Mold report is missing its Conclusions & Recommendations (mold_report_notes) — add that on the job's Final Report tab before creating a report draft."
+    );
+  }
+}
+
 async function draftReportEmailForJob(params: {
   job: Job & { customers: Customer & { companies: Company | null } };
   settings: Settings;
   accessToken: string;
 }): Promise<void> {
   const { job, settings, accessToken } = params;
+  assertMoldReportReady(job);
   const supabase = getSupabaseAdmin();
 
   const customer = withCompanyBillingAddress(job.customers, job.customers.companies);
@@ -754,6 +886,7 @@ async function draftCombinedEmailForJob(params: {
   accessToken: string;
 }): Promise<void> {
   const { job, settings, accessToken } = params;
+  assertMoldReportReady(job);
   const supabase = getSupabaseAdmin();
 
   const { data: settingsRow } = await supabase.from("settings").select("service_types, pricing_zones").eq("id", 1).single();

@@ -10,11 +10,39 @@
 // "Federal Tax ID" only ever appears on EMSL's own billing paperwork (the
 // biller's own EIN disclosure, e.g. "EMSL Analytical, Inc. Federal Tax ID
 // 22-2357101") — never on an analytical results report. Confirmed against
-// 4 real EMSL invoices. EMSL-specific so far; revisit once a real invoice
-// from another lab (e.g. Crystal Analytical) is seen, same incremental,
-// real-sample-driven approach as KNOWN_LABS in parse-lab-report.ts.
+// 4 real EMSL invoices.
+//
+// "Invoice no.:" is Crystal Analytical's own equivalent marker — confirmed
+// against a real invoice (#6491, 08/25/2026): present on every invoice,
+// absent from their analytical results reports (those use "Laboratory ID:"
+// instead).
 export function isLabInvoiceText(pdfText: string): boolean {
-  return /Federal Tax ID/i.test(pdfText);
+  return /Federal Tax ID/i.test(pdfText) || /Invoice no\.\s*:/i.test(pdfText);
+}
+
+export interface LabInvoiceLineItem {
+  projectNumber: string;
+  amountCents: number;
+}
+
+// Crystal Analytical bills per lab order, not per job — a single invoice
+// routinely covers every job billed that day, one line item per lab order
+// (a job with multiple sample types, like mold's Air-O-Cell + Direct
+// Examination, gets multiple line items under the same project number).
+// Each line's Description cell prints "<lab order id> - <address> -
+// <FLI project number>", and in extracted text the line's Qty/Rate/Amount
+// run on immediately after with no separating space (confirmed against
+// invoice #6491: "...- 26-0003\n8$12.00$96.00" = qty 8, rate $12.00,
+// amount $96.00). Returns one entry per LINE (not deduped/grouped) —
+// callers that need a per-job total should group by projectNumber and sum
+// amountCents themselves, since one job can have several line items here.
+const LINE_ITEM_PATTERN = /(2\d-\d{3,6})\s*\n?\d+\$[\d,]+\.\d{2}\$([\d,]+\.\d{2})/g;
+
+export function extractInvoiceLineItems(pdfText: string): LabInvoiceLineItem[] {
+  return [...pdfText.matchAll(LINE_ITEM_PATTERN)].map((match) => ({
+    projectNumber: match[1],
+    amountCents: Math.round(parseFloat(match[2].replace(/,/g, "")) * 100),
+  }));
 }
 
 // Anchored on "Sub Total" rather than "Invoice Total" — the latter's own

@@ -35,7 +35,7 @@ import { formatCents } from "@/lib/pricing";
 import { createStripeInvoiceForJob } from "@/lib/stripe";
 import { splitTrailingCocPages } from "@/lib/split-lab-report-coc";
 import { extractPositionOrderedText } from "@/lib/pdf-position-text";
-import { jobReportDomains, type ReportDomain } from "@/lib/report-findings";
+import { jobReportDomains, ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, type ReportDomain } from "@/lib/report-findings";
 import { sendEmail, emailShell } from "@/lib/email";
 import { getAppUrl } from "@/lib/app-url";
 import { escapeHtml } from "@/lib/html";
@@ -551,7 +551,17 @@ async function processMatchedLabEmail(params: {
     if (sampleResults.length > 0) update.mold_sample_results = sampleResults;
   } else if (isAsbestos) {
     const asbestosResult = detectAsbestosResult(pdfText, positionOrderedText);
-    if (asbestosResult != null) update.asbestos_result = asbestosResult;
+    if (asbestosResult != null) {
+      update.asbestos_result = asbestosResult;
+      // Same fix as the manual upload route — the positive/negative flag
+      // alone doesn't fill in the letter's findings sentence
+      // (report_summary), which otherwise only ever got set by an admin
+      // picking from the Result dropdown. Only when nothing's there yet,
+      // so a manually-edited summary is never overwritten.
+      if (!job.report_summary) {
+        update.report_summary = asbestosResult === "positive" ? ASBESTOS_POSITIVE_REMARK : ASBESTOS_NEGATIVE_REMARK;
+      }
+    }
     const sampleResults = extractSampleResults(pdfText, positionOrderedText);
     if (sampleResults.length > 0) update.sample_results = sampleResults;
   }

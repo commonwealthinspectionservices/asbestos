@@ -11,6 +11,7 @@ import { withApiErrors } from "@/lib/api-handler";
 import { extractSampleCount, detectAsbestosResult, extractSampleResults, extractReportProjectNumber, detectLabInfo, extractMoldSampleCount, extractMoldSampleResults } from "@/lib/parse-lab-report";
 import { splitTrailingCocPages } from "@/lib/split-lab-report-coc";
 import { extractPositionOrderedText } from "@/lib/pdf-position-text";
+import { ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK } from "@/lib/report-findings";
 import type { Job, JobDocument } from "@/lib/types";
 
 const DOCUMENT_KINDS = new Set(["coc", "lab_report", "lab_invoice", "report", "other"]);
@@ -125,6 +126,18 @@ export const POST = withApiErrors(async (
         const result = detectAsbestosResult(text, positionOrderedText);
         if (result != null) {
           update.asbestos_result = result;
+          // The positive/negative flag alone doesn't fill in the letter's
+          // actual findings sentence — that's report_summary, which only
+          // ever got set by an admin picking from the Result dropdown.
+          // Confirmed live on 26-0001: asbestos_result auto-filled
+          // "negative" but report_summary stayed blank, so the Result
+          // field (and the report itself) still looked unfilled. Default
+          // it to the same canned remark the dropdown would set for this
+          // result — only when nothing's there yet, so a manually-edited
+          // summary from a prior upload is never overwritten.
+          if (!jobRow.report_summary) {
+            update.report_summary = result === "positive" ? ASBESTOS_POSITIVE_REMARK : ASBESTOS_NEGATIVE_REMARK;
+          }
         }
         const sampleResults = extractSampleResults(text, positionOrderedText);
         if (sampleResults.length > 0) {

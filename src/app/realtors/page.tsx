@@ -51,14 +51,6 @@ export default function RealtorsPage() {
               Western Massachusetts, Cape Cod, and the Islands.
             </p>
           </div>
-          <div className="rounded-lg border border-slate-200 p-4">
-            <h3 className="font-bold text-brand-700">$50 per referral</h3>
-            <p className="mt-1 text-slate-700">
-              Send a client our way and get $50 once their inspection is complete — see our{" "}
-              <Link href="/referral-program" className="text-brand-600 underline">referral program</Link>{" "}
-              for details.
-            </p>
-          </div>
         </div>
 
         <p className="mt-6 text-slate-700">

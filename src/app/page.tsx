@@ -35,9 +35,9 @@ const SERVICES = [
     imageAlt: "Bathroom vanity prepared for sampling during a renovation",
   },
   {
-    href: "/services/lead",
-    title: "Lead Paint Sampling",
-    caption: "Lead bulk sampling of painted surfaces for renovation and demolition compliance.",
+    href: "/services/mold",
+    title: "Mold Inspections",
+    caption: "Visual assessment and lab sampling to identify and clear mold before renovation.",
     image: "/marketing/lead-sample.jpg",
     imageAlt: "Framing and insulation during a renovation",
   },
@@ -58,25 +58,26 @@ export default function HomePage() {
           alt=""
           className="absolute inset-0 h-full w-full object-cover opacity-15"
         />
-        <div className="relative mx-auto flex w-full max-w-4xl items-center justify-center px-4">
+        {/* One line above the logo, one below, evenly spaced (same mt-6/
+            sm:mt-10 gap between every element in this stack) — per Tim's
+            explicit call, rather than both lines stacked below the logo.
+            Both lines share one size (text-sm/sm:text-4xl) — no visual
+            hierarchy between "what we do" and "why trust us." Sizes were
+            picked by measuring actual rendered width against the
+            viewport, not guessed — text-sm is the largest that keeps
+            either line on one line at 375px wide (16px already overflows
+            by a hair). */}
+        <div className="relative mx-auto max-w-3xl px-4">
+        <h1 className="relative whitespace-nowrap text-sm font-black uppercase leading-tight text-brand-700 sm:text-4xl">
+          Independent Mold and Asbestos Testing
+        </h1>
+        </div>
+        <div className="relative mx-auto mt-6 flex w-full max-w-4xl items-center justify-center px-4 sm:mt-10">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo.png" alt="Commonwealth Inspection Services" className="h-32 w-32 max-w-none shrink-0 rounded-full sm:h-72 sm:w-72" />
         </div>
         <div className="relative mx-auto max-w-3xl px-4">
-        {/* The core positioning, right in the hero — not buried in a
-            section further down the page. Leads with mold (the service
-            actually worth driving homeowner traffic to) and states the
-            independence angle immediately, before anything else. Both
-            lines share one size (text-sm/sm:text-4xl) per Tim's explicit
-            call — no visual hierarchy between "what we do" and "why trust
-            us." Sizes were picked by measuring actual rendered width
-            against the viewport, not guessed — text-sm is the largest
-            that keeps the h1 on one line at 375px wide (16px already
-            overflows by a hair).  */}
-        <h1 className="relative mt-6 whitespace-nowrap text-sm font-black uppercase leading-tight text-brand-700 sm:mt-10 sm:text-4xl">
-          Independent Mold and Asbestos Testing
-        </h1>
-        <p className="relative mt-2 whitespace-nowrap text-sm font-black uppercase leading-tight text-brand-700 sm:mt-4 sm:text-4xl">
+        <p className="relative mt-6 whitespace-nowrap text-sm font-black uppercase leading-tight text-brand-700 sm:mt-10 sm:text-4xl">
           No Remediation. No Conflict of Interest.
         </p>
         <div className="relative mt-6 flex justify-center gap-3 sm:mt-10 sm:gap-4">

@@ -183,7 +183,19 @@ export async function checkForLabResultEmails(): Promise<LabEmailCheckResult> {
   const supabase = getSupabaseAdmin();
   const settings = await getSettings();
   const processedLabelId = await getOrCreateLabelId(accessToken, PROCESSED_LABEL);
-  const candidates = await listMessagesByQuery(accessToken, `has:attachment filename:pdf newer_than:14d -label:${PROCESSED_LABEL}`);
+  // -from:me — confirmed live 2026-08-25 as the real root cause behind
+  // repeated duplicate lab_report/lab_invoice documents: this app's own
+  // outgoing drafts (report, invoice, combined) carry a PDF attachment
+  // whose text embeds the job's own project number ("Invoice Project
+  // #26-0003...") — with nothing excluding the account's own mail, each
+  // new draft became a fresh, unlabeled "incoming" candidate on the very
+  // next cron tick, got matched back to the same job by its own project
+  // number, and got misfiled as a new lab_report (or, for the multi-job
+  // invoice path, credited to every job in the same batch) — a
+  // self-perpetuating loop: draft → false candidate → refiled → another
+  // draft → repeat. The PROCESSED_LABEL guard alone couldn't catch this
+  // since each new draft is a genuinely new, never-before-seen message.
+  const candidates = await listMessagesByQuery(accessToken, `has:attachment filename:pdf newer_than:14d -label:${PROCESSED_LABEL} -from:me`);
 
   const result: LabEmailCheckResult = { checked: 0, matched: [], cocUploaded: [], labInvoicesRecorded: [], unmatched: 0 };
 

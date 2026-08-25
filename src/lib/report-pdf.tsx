@@ -138,8 +138,11 @@ const styles = StyleSheet.create({
   summaryValue: { flex: 1 },
   blankLine: { flex: 0, minWidth: 130, borderBottomWidth: 1, borderBottomColor: "#94a3b8" },
   blankLineInline: { flex: 0, minWidth: 70, borderBottomWidth: 1, borderBottomColor: "#94a3b8" },
-  listBlock: { marginBottom: STANDARD_GAP - TIGHT_GAP },
-  listItem: { flexDirection: "row", marginBottom: TIGHT_GAP, paddingLeft: 4 },
+  listBlock: { marginBottom: STANDARD_GAP },
+  // Was TIGHT_GAP (3) — read as cramped for full-sentence bullets like
+  // Conclusions & Recommendations (confirmed live on 26-0002's mold
+  // report). Same STANDARD_GAP every paragraph already uses.
+  listItem: { flexDirection: "row", marginBottom: STANDARD_GAP, paddingLeft: 4 },
   // Full-inspection Remarks and Limitations only — a full paragraph-style
   // gap between each numbered remark instead of the tight list spacing
   // used for other templates' shorter lists.
@@ -380,7 +383,7 @@ function AsbestosReportDocument({ job, customer, settings }: ProjectReportData) 
 
         <Text style={styles.sectionTitleTight}>Sampling Summary:</Text>
         <View style={styles.summaryBlock}>
-          <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Date of Sampling:</Text><ValueOrBlank style={styles.summaryValue} value={formatDateMDY(job.requested_date)} /></View>
+          <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Date of Sampling:</Text><ValueOrBlank style={styles.summaryValue} value={formatDateMDY(job.lab_date_sampled ?? job.requested_date)} /></View>
           <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Total # of Samples:</Text><ValueOrBlank style={styles.summaryValue} value={totalSamples} /></View>
           <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Samples Analyzed At:</Text><ValueOrBlank style={styles.summaryValue} value={job.lab_name} /></View>
           <View style={styles.summaryRow}><Text style={styles.summaryLabel}>NIST/NVLAP Certification#:</Text><ValueOrBlank style={styles.summaryValue} value={job.lab_nist_cert} /></View>
@@ -513,7 +516,7 @@ function LeadReportDocument({ job, customer, settings }: ProjectReportData) {
 
         <Text style={styles.sectionTitleTight}>Sampling Summary:</Text>
         <View style={styles.summaryBlock}>
-          <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Date of Sampling:</Text><ValueOrBlank style={styles.summaryValue} value={formatDateMDY(job.requested_date)} /></View>
+          <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Date of Sampling:</Text><ValueOrBlank style={styles.summaryValue} value={formatDateMDY(job.lead_date_sampled ?? job.requested_date)} /></View>
           <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Total # of Samples:</Text><ValueOrBlank style={styles.summaryValue} value={totalSamples} /></View>
           <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Samples Analyzed At:</Text><ValueOrBlank style={styles.summaryValue} value={job.lead_lab_name} /></View>
           <View style={styles.summaryRow}><Text style={styles.summaryLabel}>AIHA Certification#:</Text><ValueOrBlank style={styles.summaryValue} value={job.lead_lab_cert} /></View>
@@ -638,7 +641,7 @@ function FullInspectionAsbestosReportDocument({ job, customer, settings }: Proje
         <View style={styles.summaryBlock}>
           <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Asbestos Inspector:</Text><ValueOrBlank style={styles.summaryValue} value={inspector.name} /></View>
           <View style={styles.summaryRow}><Text style={styles.summaryLabel}>License #:</Text><ValueOrBlank style={styles.summaryValue} value={inspector.license_number} /></View>
-          <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Date of Inspection:</Text><ValueOrBlank style={styles.summaryValue} value={formatDateMDY(job.requested_date)} /></View>
+          <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Date of Inspection:</Text><ValueOrBlank style={styles.summaryValue} value={formatDateMDY(job.lab_date_sampled ?? job.requested_date)} /></View>
           <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Total Materials Sampled:</Text><ValueOrBlank style={styles.summaryValue} value={materials.length} /></View>
           <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Samples Analyzed At:</Text><ValueOrBlank style={styles.summaryValue} value={job.lab_name} /></View>
           <View style={styles.summaryRow}><Text style={styles.summaryLabel}>NIST/NVLAP Certification#:</Text><ValueOrBlank style={styles.summaryValue} value={job.lab_nist_cert} /></View>
@@ -817,8 +820,9 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
     .filter(([label]) => label.toLowerCase().includes("air"))
     .reduce((sum, [, n]) => sum + (n || 0), 0);
   const indoorAirSampleCount = airSampleTotal > 0 ? airSampleTotal - 1 : 0;
-  const samplingDateText = job.requested_date
-    ? new Date(`${job.requested_date}T00:00:00`).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
+  const moldSampledDate = job.mold_date_sampled ?? job.requested_date;
+  const samplingDateText = moldSampledDate
+    ? new Date(`${moldSampledDate}T00:00:00`).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
     : null;
   const airSampleCountSentence =
     indoorAirSampleCount > 0 && samplingDateText

@@ -8,7 +8,7 @@ import pdfParse from "pdf-parse/lib/pdf-parse.js";
 import { requireAdminApi } from "@/lib/admin-api";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { withApiErrors } from "@/lib/api-handler";
-import { extractSampleCount, detectAsbestosResult, extractSampleResults, extractReportProjectNumber, detectLabInfo, extractMoldSampleCount, extractMoldSampleResults } from "@/lib/parse-lab-report";
+import { extractSampleCount, detectAsbestosResult, extractSampleResults, extractReportProjectNumber, detectLabInfo, extractMoldSampleCount, extractMoldSampleResults, extractSampledDate } from "@/lib/parse-lab-report";
 import { splitTrailingCocPages } from "@/lib/split-lab-report-coc";
 import { extractPositionOrderedText } from "@/lib/pdf-position-text";
 import { ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK } from "@/lib/report-findings";
@@ -69,18 +69,32 @@ export const POST = withApiErrors(async (
       const isMold = /mold/i.test(serviceType);
       const isLead = /lead/i.test(serviceType);
 
-      // See pdf-position-text.ts — Crystal Analytical's asbestos table only
-      // parses correctly from reading-order text, not the raw PDF stream.
-      // Computed once, up front, since both the sample count below and the
-      // sample-by-sample results/positive-negative call further down need
-      // it — using it for one but not the other let them disagree (26-0001,
-      // live: sample_counts said 2, sample_results correctly listed all 4
-      // of the same report's samples).
-      const positionOrderedText = !isMold && !isLead ? await extractPositionOrderedText(fileBuffer) : undefined;
+      // See pdf-position-text.ts — Crystal Analytical's tables (and its
+      // "Date(s) Sampled:"/"Collected:" line, see extractSampledDate) only
+      // parse correctly from reading-order text, not the raw PDF stream.
+      // Computed once, up front, since the sample count below, the
+      // sample-by-sample results/positive-negative call further down, and
+      // the sampled-date extraction all need it — using it for some but
+      // not others let them disagree (26-0001, live: sample_counts said 2,
+      // sample_results correctly listed all 4 of the same report's
+      // samples). Not needed for lead — not in scope yet.
+      const positionOrderedText = !isLead ? await extractPositionOrderedText(fileBuffer) : undefined;
 
       const count = isMold ? extractMoldSampleCount(text) : extractSampleCount(text, positionOrderedText);
       if (count != null) {
         update.sample_counts = { ...(jobRow.sample_counts ?? {}), [serviceType]: count };
+      }
+
+      // The report's own actual sample-collection date — see
+      // extractSampledDate's own comment for why this isn't requested_date
+      // (the scheduled/booked date, which can differ from when the tech
+      // actually collected samples). One field per domain, same as
+      // lab_name/mold_lab_name/lead_lab_name above.
+      const sampledDate = extractSampledDate(text, positionOrderedText);
+      if (sampledDate != null) {
+        if (isMold) update.mold_date_sampled = sampledDate;
+        else if (isLead) update.lead_date_sampled = sampledDate;
+        else update.lab_date_sampled = sampledDate;
       }
 
       // The lab's own identity/certs are constant per lab — no need to make

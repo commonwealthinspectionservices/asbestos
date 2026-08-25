@@ -28,6 +28,7 @@ import {
   extractSampleResults,
   extractMoldSampleCount,
   extractMoldSampleResults,
+  extractSampledDate,
 } from "@/lib/parse-lab-report";
 import { isLabInvoiceText, extractLabInvoiceTotalCents, extractInvoiceLineItems } from "@/lib/parse-lab-invoice";
 import { defaultInvoiceLineItems, invoiceLineItemsTotalCents } from "@/lib/invoice-defaults";
@@ -522,19 +523,31 @@ async function processMatchedLabEmail(params: {
   const isMold = /mold/i.test(primaryServiceType);
   const isAsbestos = primaryServiceType.toLowerCase().includes("asbestos");
 
-  // See pdf-position-text.ts — Crystal Analytical's asbestos table only
-  // parses correctly from reading-order text, not the raw PDF stream.
-  // Computed once, up front, since both the sample count below and the
-  // sample-by-sample results/positive-negative call further down need it —
-  // using it for one but not the other let them disagree (confirmed live
-  // on a manual upload for 26-0001: sample_counts said 2, sample_results
-  // correctly listed all 4 of the same report's samples).
-  const positionOrderedText = isAsbestos ? await extractPositionOrderedText(pdfBuffer) : undefined;
+  // See pdf-position-text.ts — Crystal Analytical's tables (and its
+  // "Date(s) Sampled:"/"Collected:" line, see extractSampledDate) only
+  // parse correctly from reading-order text, not the raw PDF stream.
+  // Computed once, up front, since the sample count below, the
+  // sample-by-sample results/positive-negative call further down, and the
+  // sampled-date extraction all need it — using it for some but not
+  // others let them disagree (confirmed live on a manual upload for
+  // 26-0001: sample_counts said 2, sample_results correctly listed all 4
+  // of the same report's samples).
+  const positionOrderedText = isMold || isAsbestos ? await extractPositionOrderedText(pdfBuffer) : undefined;
 
   const update: Record<string, unknown> = {};
   const count = isMold ? extractMoldSampleCount(pdfText) : extractSampleCount(pdfText, positionOrderedText);
   if (count != null && primaryServiceType) {
     update.sample_counts = { ...(job.sample_counts ?? {}), [primaryServiceType]: count };
+  }
+  // The report's own actual sample-collection date — see
+  // extractSampledDate's own comment for why this isn't requested_date
+  // (the scheduled/booked date, which can differ from when the tech
+  // actually collected samples). One field per domain, same as
+  // lab_name/mold_lab_name above.
+  const sampledDate = extractSampledDate(pdfText, positionOrderedText);
+  if (sampledDate != null) {
+    if (isMold) update.mold_date_sampled = sampledDate;
+    else if (isAsbestos) update.lab_date_sampled = sampledDate;
   }
   const labInfo = detectLabInfo(pdfText);
   if (labInfo) {

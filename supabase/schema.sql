@@ -972,3 +972,16 @@ alter table jobs add column if not exists subcontractor_preferred_window text;
 -- shown as an actual list instead of read out of a wall of prose. Empty
 -- array means no such line was present, not "no samples."
 alter table jobs add column if not exists subcontractor_sample_types jsonb not null default '[]'::jsonb;
+
+-- The report's own "Date of Sampling" line was pulling requested_date (the
+-- scheduled/booked date), not the date the tech actually collected samples
+-- — confirmed live wrong on 26-0002, where the report needed the real
+-- collection date the lab itself prints on its report (Crystal's own
+-- "Date(s) Sampled:"/"Collected:" line), not what was originally booked.
+-- One column per domain, same reasoning as mold_lab_name/lead_lab_name
+-- above — a mixed job's domains can be sampled on different dates (or one
+-- report parses cleanly and the other doesn't), so they can't share a
+-- single field without one overwriting the other.
+alter table jobs add column if not exists lab_date_sampled date;
+alter table jobs add column if not exists mold_date_sampled date;
+alter table jobs add column if not exists lead_date_sampled date;

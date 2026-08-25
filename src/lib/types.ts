@@ -266,6 +266,10 @@ export interface Job {
   /** Lead's own lab name/cert — separate from lab_name/lab_nist_cert (asbestos's). A single field, not split nist/massdls like asbestos's: lead labs carry an AIHA cert, not NIST, and MassDLS doesn't apply to lead at all. */
   lead_lab_name: string | null;
   lead_lab_cert: string | null;
+  /** The report's own "Date of Sampling" — the actual collection date the lab prints on its report (Crystal's "Date(s) Sampled:"/"Collected:" line), not requested_date (the scheduled/booked date, which can differ). One column per domain, same reasoning as mold_lab_name/lead_lab_name above. */
+  lab_date_sampled: string | null;
+  mold_date_sampled: string | null;
+  lead_date_sampled: string | null;
   /** Manual line-item invoicing (Quantity/Billing Unit/Description/Unit Cost), entered at "Enter lab results" time. */
   invoice_line_items: InvoiceLineItem[];
   /** True until the admin manually edits a line item — while true, invoice_line_items keeps recomputing fresh from current sample_counts/base fee on every save rather than freezing at whatever was last auto-generated. */

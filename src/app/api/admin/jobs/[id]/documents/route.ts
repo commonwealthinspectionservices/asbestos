@@ -10,6 +10,7 @@ import { getSupabaseAdmin } from "@/lib/supabase";
 import { withApiErrors } from "@/lib/api-handler";
 import { extractSampleCount, detectAsbestosResult, extractSampleResults, extractReportProjectNumber, detectLabInfo, extractMoldSampleCount, extractMoldSampleResults } from "@/lib/parse-lab-report";
 import { splitTrailingCocPages } from "@/lib/split-lab-report-coc";
+import { extractPositionOrderedText } from "@/lib/pdf-position-text";
 import type { Job, JobDocument } from "@/lib/types";
 
 const DOCUMENT_KINDS = new Set(["coc", "lab_report", "lab_invoice", "report", "other"]);
@@ -112,11 +113,15 @@ export const POST = withApiErrors(async (
       // other labs just leave this for the admin to set by hand on the
       // Final Report tab.
       if (/asbestos/i.test(serviceType)) {
-        const result = detectAsbestosResult(text);
+        // See pdf-position-text.ts — Crystal Analytical's asbestos table
+        // only parses correctly from reading-order text, not the raw PDF
+        // stream.
+        const positionOrderedText = await extractPositionOrderedText(fileBuffer);
+        const result = detectAsbestosResult(text, positionOrderedText);
         if (result != null) {
           update.asbestos_result = result;
         }
-        const sampleResults = extractSampleResults(text);
+        const sampleResults = extractSampleResults(text, positionOrderedText);
         if (sampleResults.length > 0) {
           update.sample_results = sampleResults;
         }

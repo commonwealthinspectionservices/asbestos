@@ -174,14 +174,20 @@ function bestReportSamplesCrystalAnalytical(pdfText: string): SampleResult[] {
 // than throwing when its format doesn't match, so this is a safe waterfall
 // rather than something that needs to know in advance which lab sent the
 // report.
-function bestReportSamplesAnyLab(pdfText: string): SampleResult[] {
+// positionOrderedText is pdf-position-text.ts's reading-order reconstruction
+// of the same PDF — only the Crystal Analytical branch needs it (see that
+// module's own comment for why); EMSL's extractor runs on the plain
+// stream-order text exactly as before. Optional so every caller that
+// predates this fix (or genuinely has no buffer to re-parse) still works,
+// just without the Crystal Analytical accuracy fix.
+function bestReportSamplesAnyLab(pdfText: string, positionOrderedText?: string): SampleResult[] {
   const emsl = bestReportSamples(pdfText);
   if (emsl.length > 0) return emsl;
-  return bestReportSamplesCrystalAnalytical(pdfText);
+  return bestReportSamplesCrystalAnalytical(positionOrderedText ?? pdfText);
 }
 
-export function extractSampleCount(pdfText: string): number | null {
-  const count = bestReportSamplesAnyLab(pdfText).length;
+export function extractSampleCount(pdfText: string, positionOrderedText?: string): number | null {
+  const count = bestReportSamplesAnyLab(pdfText, positionOrderedText).length;
   return count > 0 ? count : null;
 }
 
@@ -297,8 +303,8 @@ export function extractMoldSampleResults(pdfText: string): SampleResult[] {
 // came back "None Detected" is the report negative. Returns null when no
 // recognized sample results were found at all (not this report format, or
 // an unreadable PDF) — left for the admin to set by hand.
-export function detectAsbestosResult(pdfText: string): "positive" | "negative" | null {
-  const samples = bestReportSamplesAnyLab(pdfText);
+export function detectAsbestosResult(pdfText: string, positionOrderedText?: string): "positive" | "negative" | null {
+  const samples = bestReportSamplesAnyLab(pdfText, positionOrderedText);
   if (samples.length === 0) return null;
   return samples.some((s) => POSITIVE_PATTERN.test(s.result) || BARE_MINERAL_PATTERN.test(s.result))
     ? "positive"
@@ -309,8 +315,8 @@ export function detectAsbestosResult(pdfText: string): "positive" | "negative" |
 // admin the actual per-sample breakdown behind the auto-detected result —
 // same allow-list as extractSampleCount, so a row only shows up here once
 // it's actually been analyzed.
-export function extractSampleResults(pdfText: string): SampleResult[] {
-  return bestReportSamplesAnyLab(pdfText);
+export function extractSampleResults(pdfText: string, positionOrderedText?: string): SampleResult[] {
+  return bestReportSamplesAnyLab(pdfText, positionOrderedText);
 }
 
 // Each recognized lab's own identity and standing certification numbers

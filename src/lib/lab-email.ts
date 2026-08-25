@@ -8,14 +8,16 @@ import { withCompanyBillingAddress } from "@/lib/customer-billing";
 import { formatDateMDY } from "@/lib/date-format";
 import { threadSubject, threadHeaders } from "@/lib/email-thread";
 import {
+  addLabelToMessage,
   createDraft,
   deleteDraft,
   findPdfParts,
   getAttachmentData,
   getHeader,
   getMessage,
+  getOrCreateLabelId,
   getValidAccessToken,
-  listCandidateMessages,
+  listMessagesByQuery,
   markMessageRead,
 } from "@/lib/gmail";
 import {
@@ -32,6 +34,7 @@ import { defaultInvoiceLineItems, invoiceLineItemsTotalCents } from "@/lib/invoi
 import { formatCents } from "@/lib/pricing";
 import { createStripeInvoiceForJob } from "@/lib/stripe";
 import { splitTrailingCocPages } from "@/lib/split-lab-report-coc";
+import { extractPositionOrderedText } from "@/lib/pdf-position-text";
 import { sendEmail, emailShell } from "@/lib/email";
 import { getAppUrl } from "@/lib/app-url";
 import { escapeHtml } from "@/lib/html";
@@ -143,6 +146,19 @@ function combinedDraftBodyHtml(job: Job, settings: Settings, totalCents: number,
   ].join("<br>");
 }
 
+// A label this pipeline alone applies once a candidate is actually handled
+// — not is:unread, and not markMessageRead below (that still runs, for the
+// owner's own inbox hygiene, but is no longer what candidacy depends on).
+// Same fix, same root cause, as job-intake.ts's PROCESSED_LABEL: confirmed
+// live 2026-08-25 that two real Crystal Analytical lab-report emails
+// (jobs 26-0002, 26-0003) never got processed because they were marked
+// read — by the owner checking his own inbox — before the next cron poll
+// ever got to them, which silently and permanently dropped them out of an
+// is:unread search with no error, no retry, and no trace. A label only
+// this pipeline ever sets can't be defeated by the owner's own reading
+// habits the way is:unread can.
+const PROCESSED_LABEL = "cis-lab-email-processed";
+
 /** Checks the connected inbox for lab result emails, matches them to a project by the project number printed in the PDF, and drafts the final report + invoice. Also catches chain-of-custody receipt emails (matched by subject line), lab-bundled COC attachments, and EMSL's separate billing invoice emails (recorded as lab cost, not drafted). Draft only — never sent automatically. */
 export async function checkForLabResultEmails(): Promise<LabEmailCheckResult> {
   const accessToken = await getValidAccessToken();
@@ -150,7 +166,8 @@ export async function checkForLabResultEmails(): Promise<LabEmailCheckResult> {
 
   const supabase = getSupabaseAdmin();
   const settings = await getSettings();
-  const candidates = await listCandidateMessages(accessToken);
+  const processedLabelId = await getOrCreateLabelId(accessToken, PROCESSED_LABEL);
+  const candidates = await listMessagesByQuery(accessToken, `has:attachment filename:pdf newer_than:14d -label:${PROCESSED_LABEL}`);
 
   const result: LabEmailCheckResult = { checked: 0, matched: [], cocUploaded: [], labInvoicesRecorded: [], unmatched: 0 };
 
@@ -203,6 +220,7 @@ export async function checkForLabResultEmails(): Promise<LabEmailCheckResult> {
             pdfBuffer: matchedBuffer,
             pdfText: matchedText,
           });
+          await addLabelToMessage(accessToken, candidate.id, processedLabelId);
           result.labInvoicesRecorded.push({ projectNumber: matchedJob.project_number ?? "", jobId: matchedJob.id });
           continue;
         }
@@ -215,6 +233,7 @@ export async function checkForLabResultEmails(): Promise<LabEmailCheckResult> {
           pdfText: matchedText,
           settings,
         });
+        await addLabelToMessage(accessToken, candidate.id, processedLabelId);
         result.matched.push({ projectNumber: matchedJob.project_number ?? "", jobId: matchedJob.id });
         continue;
       }
@@ -235,6 +254,7 @@ export async function checkForLabResultEmails(): Promise<LabEmailCheckResult> {
           const cocBuffer = await getAttachmentData(accessToken, candidate.id, cocPart.attachmentId);
           await uploadCocDocument(job as unknown as Job, cocBuffer);
           await markMessageRead(accessToken, candidate.id);
+          await addLabelToMessage(accessToken, candidate.id, processedLabelId);
           result.cocUploaded.push({ projectNumber: job.project_number ?? "", jobId: job.id });
           continue;
         }
@@ -373,9 +393,12 @@ async function processMatchedLabEmail(params: {
     const sampleResults = extractMoldSampleResults(pdfText);
     if (sampleResults.length > 0) update.mold_sample_results = sampleResults;
   } else if (primaryServiceType.toLowerCase().includes("asbestos")) {
-    const asbestosResult = detectAsbestosResult(pdfText);
+    // See pdf-position-text.ts — Crystal Analytical's asbestos table only
+    // parses correctly from reading-order text, not the raw PDF stream.
+    const positionOrderedText = await extractPositionOrderedText(pdfBuffer);
+    const asbestosResult = detectAsbestosResult(pdfText, positionOrderedText);
     if (asbestosResult != null) update.asbestos_result = asbestosResult;
-    const sampleResults = extractSampleResults(pdfText);
+    const sampleResults = extractSampleResults(pdfText, positionOrderedText);
     if (sampleResults.length > 0) update.sample_results = sampleResults;
   }
 

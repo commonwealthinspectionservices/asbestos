@@ -236,26 +236,18 @@ async function gmailFetch(accessToken: string, path: string, init?: RequestInit)
   return res;
 }
 
-// Unread + has an attachment is a deliberately loose net — this app has no
-// reliable way to know a lab's sending address in advance, and the actual
-// match (does the PDF's own project number line up with a real job) is
-// what decides a hit, not this query. newer_than bounds how far back a
-// first run (or one after downtime) reaches, rather than scanning the
-// whole mailbox.
-const CANDIDATE_QUERY = "is:unread has:attachment filename:pdf newer_than:14d";
-
-// Shared by listCandidateMessages above (lab-report emails) and
-// listJobIntakeCandidates (lib/job-intake.ts, new-job-request emails from a
-// known repeat company) — same "search, let the caller's own content check
-// decide what's a real hit" shape, just a different query per use case.
+// Shared by lib/lab-email.ts (lab-report emails — has:attachment
+// filename:pdf, deliberately loose since there's no reliable way to know a
+// lab's sending address in advance, and the actual match is decided by
+// whether the PDF's own project number lines up with a real job) and
+// lib/job-intake.ts (new-job-request emails from a known repeat company) —
+// same "search, let the caller's own content check decide what's a real
+// hit" shape, just a different query per use case. Neither caller's query
+// uses is:unread — see PROCESSED_LABEL in each of those files for why.
 export async function listMessagesByQuery(accessToken: string, query: string): Promise<{ id: string; threadId: string }[]> {
   const res = await gmailFetch(accessToken, `/messages?q=${encodeURIComponent(query)}&maxResults=25`);
   const data = await res.json();
   return data.messages ?? [];
-}
-
-export async function listCandidateMessages(accessToken: string): Promise<{ id: string; threadId: string }[]> {
-  return listMessagesByQuery(accessToken, CANDIDATE_QUERY);
 }
 
 export async function getMessage(accessToken: string, id: string): Promise<GmailMessage> {

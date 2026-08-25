@@ -560,8 +560,14 @@ async function processMatchedLabEmail(params: {
     }
   }
   if (isMold) {
-    const sampleResults = extractMoldSampleResults(pdfText);
-    if (sampleResults.length > 0) update.mold_sample_results = sampleResults;
+    const sampleResults = extractMoldSampleResults(pdfText, primaryServiceType);
+    if (sampleResults.length > 0) {
+      // Tagged per-label, not overwritten wholesale — see the manual
+      // upload route's own comment on this for why (Crystal Analytical
+      // bundles every mold method into one PDF uploaded once per label).
+      const priorOtherLabels = (job.mold_sample_results ?? []).filter((r) => r.serviceType !== primaryServiceType);
+      update.mold_sample_results = [...priorOtherLabels, ...sampleResults];
+    }
   } else if (isAsbestos) {
     const asbestosResult = detectAsbestosResult(pdfText, positionOrderedText);
     if (asbestosResult != null) {

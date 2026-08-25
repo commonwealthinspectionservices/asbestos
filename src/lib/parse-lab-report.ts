@@ -45,6 +45,8 @@ export interface SampleResult {
   fieldCode: string;
   /** The result text, in whatever casing the report used, spaced for readability (e.g. "None Detected", "15% Chrysotile"). */
   result: string;
+  /** Mold only — which service type label (e.g. "Mold Air Sampling", "Mold Bulk Sampling") this sample belongs to, so the admin UI's per-label Sample Results box can show only that label's own samples instead of every mold sample on the job. Not used by asbestos/lead, which only ever have one set of results per job. Optional so older data (recorded before this field existed) still renders — those rows just show on every mold label's box, same as before. */
+  serviceType?: string;
 }
 
 // The real reports don't reliably put a space between a percentage and the
@@ -292,8 +294,8 @@ export function extractMoldSampleCount(pdfText: string): number | null {
 // above for why): "Analyzed" just confirms the lab received and processed
 // that sample, not what it found. The full genus-level breakdown is only
 // in the uploaded report itself, viewable from its own thumbnail.
-export function extractMoldSampleResults(pdfText: string): SampleResult[] {
-  return moldSampleFieldCodesAnyLab(pdfText).map((fieldCode) => ({ fieldCode, result: "Analyzed" }));
+export function extractMoldSampleResults(pdfText: string, serviceType?: string): SampleResult[] {
+  return moldSampleFieldCodesAnyLab(pdfText).map((fieldCode) => ({ fieldCode, result: "Analyzed", serviceType }));
 }
 
 // The lab itself makes the positive/negative call, not FLI — any sample

@@ -2403,10 +2403,20 @@ export function ProjectDetailDialog({
                                 </div>
                                 {(() => {
                                   // Mold's sample results live in their own
-                                  // field, separate from asbestos/lead's —
-                                  // each label shows the results that actually
-                                  // belong to it.
-                                  const results = group.domain === "mold" ? job.mold_sample_results : job.sample_results;
+                                  // field, separate from asbestos/lead's.
+                                  // Within mold, further filtered to this
+                                  // label's own serviceType tag — Crystal
+                                  // Analytical bundles every mold method
+                                  // (Air-O-Cell, Direct Analysis/bulk) into
+                                  // one PDF, so without this the Bulk
+                                  // Sampling box showed the Air Sampling
+                                  // box's own samples too (confirmed live on
+                                  // 26-0002). An untagged row (recorded
+                                  // before this field existed) still shows
+                                  // on every label's box, same as before.
+                                  const results = group.domain === "mold"
+                                    ? job.mold_sample_results?.filter((r) => !r.serviceType || r.serviceType === label)
+                                    : job.sample_results;
                                   return results && results.length > 0 ? (
                                     <div className="mt-1.5 h-40 w-full overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 p-2 font-mono text-xs">
                                       {results.map((s, i) => (

@@ -316,8 +316,8 @@ export interface Job {
   lead_result: "positive" | "negative" | null;
   /** Per-sample field code + result text, pulled from the same uploaded lab report — plain-text reference for the admin, not billing data. */
   sample_results: { fieldCode: string; result: string }[];
-  /** Mold's own version of sample_results, separate so an asbestos+mold job's two lab uploads don't clobber each other's per-sample list. */
-  mold_sample_results: { fieldCode: string; result: string }[];
+  /** Mold's own version of sample_results, separate so an asbestos+mold job's two lab uploads don't clobber each other's per-sample list. serviceType (e.g. "Mold Air Sampling") tags which label a row belongs to, so the admin UI can show each label only its own samples — optional since rows recorded before this field existed don't have it. */
+  mold_sample_results: { fieldCode: string; result: string; serviceType?: string }[];
   requested_time: string | null;
   window: JobWindow;
   status: JobStatus;

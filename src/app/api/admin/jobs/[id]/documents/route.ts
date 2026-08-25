@@ -126,9 +126,16 @@ export const POST = withApiErrors(async (
         // Mold's own field, separate from asbestos/lead's sample_results
         // below, so the two domains' per-sample lists never clobber
         // each other on a mixed job.
-        const sampleResults = extractMoldSampleResults(text);
+        const sampleResults = extractMoldSampleResults(text, serviceType);
         if (sampleResults.length > 0) {
-          update.mold_sample_results = sampleResults;
+          // Tagged per-label (serviceType above), not overwritten wholesale
+          // — Crystal Analytical bundles every mold method into one PDF
+          // that gets uploaded once per label (Air Sampling, then Bulk
+          // Sampling), so a second upload replacing the whole array would
+          // wipe out the first label's own results. Only this upload's own
+          // label's prior entries get replaced; every other label's stay.
+          const priorOtherLabels = (jobRow.mold_sample_results ?? []).filter((r) => r.serviceType !== serviceType);
+          update.mold_sample_results = [...priorOtherLabels, ...sampleResults];
         }
       }
 

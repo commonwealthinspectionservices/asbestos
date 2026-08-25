@@ -48,7 +48,7 @@ export default function MarketingNav() {
   // text) to mostly fill the width instead of sitting tight around its own
   // text with a big empty gap to the hamburger.
   const homeButtonClass =
-    "inline-flex h-[22px] items-center justify-center whitespace-nowrap border-[3px] border-brand-700 bg-brand-50 px-1.5 pt-0.5 text-[8px] font-extrabold uppercase leading-none text-brand-700 sm:px-2 sm:text-xs md:h-[29px] md:text-sm";
+    "inline-flex h-[22px] items-center justify-center whitespace-nowrap border-[3px] border-brand-700 bg-brand-50 px-1.5 pt-0.5 text-[13px] font-extrabold uppercase leading-none text-brand-700 sm:px-2 sm:text-xs md:h-[29px] md:text-sm";
 
   return (
     // The inner row is capped at max-w-4xl, same as the pricing estimator

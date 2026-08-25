@@ -194,6 +194,16 @@ export async function checkForLabResultEmails(): Promise<LabEmailCheckResult> {
     // other candidate still deserves a chance to match and get drafted.
     try {
       const message = await getMessage(accessToken, candidate.id);
+      // Belt-and-suspenders against the exact race that produced duplicate
+      // lab_report/lab_invoice documents on real jobs (26-0002, 26-0003)
+      // confirmed live 2026-08-25: a label just added by an in-flight run
+      // (this one's own manual test, an overlapping "Check Now" click, a
+      // prior cron tick) can take a beat to show up in the -label: search
+      // above, so the SAME message re-appears as a candidate before that
+      // search catches up. This message's own labelIds, fetched fresh right
+      // here, reflect the true current state immediately — no index lag —
+      // so re-checking it catches what the search alone can miss.
+      if (message.labelIds?.includes(processedLabelId)) continue;
       const pdfParts = findPdfParts(message.payload);
 
       let matchedJob: (Job & { customers: Customer & { companies: Company | null } }) | null = null;

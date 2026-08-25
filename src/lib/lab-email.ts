@@ -520,9 +520,19 @@ async function processMatchedLabEmail(params: {
   // never the shared asbestos/lead ones, so a mixed job's two domains can't
   // clobber each other.
   const isMold = /mold/i.test(primaryServiceType);
+  const isAsbestos = primaryServiceType.toLowerCase().includes("asbestos");
+
+  // See pdf-position-text.ts — Crystal Analytical's asbestos table only
+  // parses correctly from reading-order text, not the raw PDF stream.
+  // Computed once, up front, since both the sample count below and the
+  // sample-by-sample results/positive-negative call further down need it —
+  // using it for one but not the other let them disagree (confirmed live
+  // on a manual upload for 26-0001: sample_counts said 2, sample_results
+  // correctly listed all 4 of the same report's samples).
+  const positionOrderedText = isAsbestos ? await extractPositionOrderedText(pdfBuffer) : undefined;
 
   const update: Record<string, unknown> = {};
-  const count = isMold ? extractMoldSampleCount(pdfText) : extractSampleCount(pdfText);
+  const count = isMold ? extractMoldSampleCount(pdfText) : extractSampleCount(pdfText, positionOrderedText);
   if (count != null && primaryServiceType) {
     update.sample_counts = { ...(job.sample_counts ?? {}), [primaryServiceType]: count };
   }
@@ -539,10 +549,7 @@ async function processMatchedLabEmail(params: {
   if (isMold) {
     const sampleResults = extractMoldSampleResults(pdfText);
     if (sampleResults.length > 0) update.mold_sample_results = sampleResults;
-  } else if (primaryServiceType.toLowerCase().includes("asbestos")) {
-    // See pdf-position-text.ts — Crystal Analytical's asbestos table only
-    // parses correctly from reading-order text, not the raw PDF stream.
-    const positionOrderedText = await extractPositionOrderedText(pdfBuffer);
+  } else if (isAsbestos) {
     const asbestosResult = detectAsbestosResult(pdfText, positionOrderedText);
     if (asbestosResult != null) update.asbestos_result = asbestosResult;
     const sampleResults = extractSampleResults(pdfText, positionOrderedText);

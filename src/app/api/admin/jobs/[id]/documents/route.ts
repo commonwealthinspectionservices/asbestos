@@ -68,7 +68,16 @@ export const POST = withApiErrors(async (
       const isMold = /mold/i.test(serviceType);
       const isLead = /lead/i.test(serviceType);
 
-      const count = isMold ? extractMoldSampleCount(text) : extractSampleCount(text);
+      // See pdf-position-text.ts — Crystal Analytical's asbestos table only
+      // parses correctly from reading-order text, not the raw PDF stream.
+      // Computed once, up front, since both the sample count below and the
+      // sample-by-sample results/positive-negative call further down need
+      // it — using it for one but not the other let them disagree (26-0001,
+      // live: sample_counts said 2, sample_results correctly listed all 4
+      // of the same report's samples).
+      const positionOrderedText = !isMold && !isLead ? await extractPositionOrderedText(fileBuffer) : undefined;
+
+      const count = isMold ? extractMoldSampleCount(text) : extractSampleCount(text, positionOrderedText);
       if (count != null) {
         update.sample_counts = { ...(jobRow.sample_counts ?? {}), [serviceType]: count };
       }
@@ -113,10 +122,6 @@ export const POST = withApiErrors(async (
       // other labs just leave this for the admin to set by hand on the
       // Final Report tab.
       if (/asbestos/i.test(serviceType)) {
-        // See pdf-position-text.ts — Crystal Analytical's asbestos table
-        // only parses correctly from reading-order text, not the raw PDF
-        // stream.
-        const positionOrderedText = await extractPositionOrderedText(fileBuffer);
         const result = detectAsbestosResult(text, positionOrderedText);
         if (result != null) {
           update.asbestos_result = result;

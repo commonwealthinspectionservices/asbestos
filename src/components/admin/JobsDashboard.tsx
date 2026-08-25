@@ -2759,10 +2759,10 @@ export function ProjectDetailDialog({
                   )}
                   {jobReportDomains(job.service_type).includes("mold") &&
                     ([
-                      { type: "air_o_cell", label: "Mold COC — Air-O-Cell" },
-                      { type: "bulk", label: "Mold COC — Bulk" },
-                      { type: "swab", label: "Mold COC — Swab" },
-                    ] as const).map(({ type, label }) => {
+                      { type: "air_o_cell", label: "Mold COC — Air-O-Cell", show: moldServiceTypeFlags(job.service_type).hasAir },
+                      { type: "bulk", label: "Mold COC — Bulk", show: moldServiceTypeFlags(job.service_type).hasBulk },
+                      { type: "swab", label: "Mold COC — Swab", show: moldServiceTypeFlags(job.service_type).hasSwab },
+                    ] as const).filter(({ show }) => show).map(({ type, label }) => {
                       const url = `/api/admin/jobs/${job.id}/mold-coc?type=${type}`;
                       return (
                         <div key={type} className="w-full overflow-hidden rounded-lg border border-slate-200 sm:w-60">

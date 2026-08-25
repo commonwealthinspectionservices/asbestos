@@ -874,7 +874,7 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
         <Text style={styles.salutation}>Dear <ValueOrBlank style={styles.salutation} value={knownCustomerName} inline />:</Text>
 
         <Text style={styles.paragraph}>
-          On {dateText} {settings.business_name} conducted a limited mold assessment and baseline sampling in limited
+          On <ValueOrBlank style={styles.paragraph} value={samplingDateText} inline /> {settings.business_name} conducted a limited mold assessment and baseline sampling in limited
           areas within the above-mentioned address. The following letter summary represents the assessment including
           our scope of work, sampling methodology, discussion of results and conclusion.
         </Text>

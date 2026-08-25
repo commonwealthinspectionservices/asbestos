@@ -376,22 +376,32 @@ async function processMatchedLabInvoiceEmail(params: {
   const { accessToken, messageId, job, pdfBuffer, pdfText } = params;
   const supabase = getSupabaseAdmin();
 
+  // One Laboratory Invoice station per service type label, not per domain
+  // (see the Lab Paperwork loop in JobsDashboard.tsx) — a job combining
+  // asbestos and mold work billed on the same invoice needs it filed under
+  // every label so each domain's own Report tab actually shows it, not
+  // just whichever label happened to be first. Confirmed live 2026-08-25:
+  // 26-0002's invoice only populated under Limited Asbestos Inspection,
+  // leaving the Mold Report tab's own station empty even though the same
+  // invoice covers the mold work too. One storage upload, one JobDocument
+  // row per label (all pointing at the same file — no need to re-upload
+  // the same bytes once per label).
   const serviceTypeLabels = (job.service_type ?? "").split(",").map((s) => s.trim()).filter(Boolean);
-  const primaryServiceType = serviceTypeLabels[0] ?? "";
 
   const docId = randomUUID();
   const storagePath = `${job.id}/${docId}-lab-invoice.pdf`;
   await supabase.storage.from("job-documents").upload(storagePath, pdfBuffer, { contentType: "application/pdf" });
-  const document: JobDocument = {
-    id: docId,
+  const uploadedAt = new Date().toISOString();
+  const newDocuments: JobDocument[] = serviceTypeLabels.map((label) => ({
+    id: randomUUID(),
     kind: "lab_invoice",
-    service_type: primaryServiceType,
+    service_type: label,
     file_name: "lab-invoice.pdf",
     storage_path: storagePath,
-    uploaded_at: new Date().toISOString(),
+    uploaded_at: uploadedAt,
     project_number_mismatch: null,
-  };
-  const update: Record<string, unknown> = { documents: [...(job.documents ?? []), document] };
+  }));
+  const update: Record<string, unknown> = { documents: [...(job.documents ?? []), ...newDocuments] };
 
   const totalCents = extractLabInvoiceTotalCents(pdfText);
   if (totalCents != null) update.lab_cost_cents = totalCents;
@@ -444,23 +454,26 @@ async function processMultiJobLabInvoiceEmail(params: {
       continue;
     }
 
+    // Same one-station-per-label reasoning as processMatchedLabInvoiceEmail
+    // above — a job combining domains needs the invoice filed under every
+    // label, not just the first, so every domain's own Report tab shows it.
     const serviceTypeLabels = (job.service_type ?? "").split(",").map((s: string) => s.trim()).filter(Boolean);
-    const primaryServiceType = serviceTypeLabels[0] ?? "";
 
     const docId = randomUUID();
     const storagePath = `${job.id}/${docId}-lab-invoice.pdf`;
     await supabase.storage.from("job-documents").upload(storagePath, pdfBuffer, { contentType: "application/pdf" });
-    const document: JobDocument = {
-      id: docId,
+    const uploadedAt = new Date().toISOString();
+    const newDocuments: JobDocument[] = serviceTypeLabels.map((label: string) => ({
+      id: randomUUID(),
       kind: "lab_invoice",
-      service_type: primaryServiceType,
+      service_type: label,
       file_name: "lab-invoice.pdf",
       storage_path: storagePath,
-      uploaded_at: new Date().toISOString(),
+      uploaded_at: uploadedAt,
       project_number_mismatch: null,
-    };
+    }));
     const update: Record<string, unknown> = {
-      documents: [...(job.documents ?? []), document],
+      documents: [...(job.documents ?? []), ...newDocuments],
       lab_cost_cents: amountCents,
     };
     if (labInfo) {

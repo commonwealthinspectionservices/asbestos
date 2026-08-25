@@ -2613,12 +2613,14 @@ export function ProjectDetailDialog({
             </div>
             )}
 
-            {/* Final Report preview + blank CoC template(s) — Report tab
-                only, scoped to reportDomainTab same as the lab paperwork
-                above. */}
+            {/* Final Report preview — Report tab only, scoped to
+                reportDomainTab same as the lab paperwork above. The blank
+                CoC templates that used to sit here too (per Tim, they
+                don't belong on this tab) were removed 2026-08-25. */}
             {tab === "report" && (
             <div className="border-t-4 border-slate-300 pt-6">
-              <div className="flex flex-wrap gap-4 sm:flex-nowrap sm:gap-5 sm:overflow-x-auto sm:pb-1">
+              <h3 className="text-lg font-bold uppercase tracking-wide text-black underline">Final Report</h3>
+              <div className="mt-3 flex flex-wrap gap-4 sm:flex-nowrap sm:gap-5 sm:overflow-x-auto sm:pb-1">
                 {(() => {
                   const domain = reportDomainTab;
                   const domainReady = reportIsCompleteForDomain(job, domain);
@@ -2648,48 +2650,6 @@ export function ProjectDetailDialog({
                     </div>
                   );
                 })()}
-                {reportDomainTab === "asbestos" && (
-                  <div className="w-full overflow-hidden rounded-lg border border-slate-200 sm:w-60">
-                    <a href={`/api/admin/jobs/${job.id}/blank-coc`} target="_blank" rel="noreferrer" className="block">
-                      <PdfThumbnail url={`/api/admin/jobs/${job.id}/blank-coc`} alt="Chain of Custody preview" />
-                      <p className="border-t border-slate-200 bg-white px-2 py-1 text-center text-xs font-bold uppercase text-slate-700">Chain of Custody</p>
-                    </a>
-                    <div className="border-t border-slate-200 px-2 py-1 text-center text-xs">
-                      <a href={`/api/admin/jobs/${job.id}/blank-coc`} target="_blank" rel="noreferrer" className="text-brand-600 hover:underline">
-                        View
-                      </a>
-                      {" · "}
-                      <a href={`/api/admin/jobs/${job.id}/blank-coc?download=1`} download={`coc-${job.project_number ?? job.id}.pdf`} className="text-brand-600 hover:underline">
-                        Download
-                      </a>
-                    </div>
-                  </div>
-                )}
-                {reportDomainTab === "mold" &&
-                  ([
-                    { type: "air_o_cell", label: "Mold COC — Air-O-Cell", show: moldServiceTypeFlags(job.service_type).hasAir },
-                    { type: "bulk", label: "Mold COC — Bulk", show: moldServiceTypeFlags(job.service_type).hasBulk },
-                    { type: "swab", label: "Mold COC — Swab", show: moldServiceTypeFlags(job.service_type).hasSwab },
-                  ] as const).filter(({ show }) => show).map(({ type, label }) => {
-                    const url = `/api/admin/jobs/${job.id}/mold-coc?type=${type}`;
-                    return (
-                      <div key={type} className="w-full overflow-hidden rounded-lg border border-slate-200 sm:w-60">
-                        <a href={url} target="_blank" rel="noreferrer" className="block">
-                          <PdfThumbnail url={url} alt={`${label} preview`} />
-                          <p className="border-t border-slate-200 bg-white px-2 py-1 text-center text-xs font-bold uppercase text-slate-700">{label}</p>
-                        </a>
-                        <div className="border-t border-slate-200 px-2 py-1 text-center text-xs">
-                          <a href={url} target="_blank" rel="noreferrer" className="text-brand-600 hover:underline">
-                            View
-                          </a>
-                          {" · "}
-                          <a href={`${url}&download=1`} download={`mold-coc-${type}-${job.project_number ?? job.id}.pdf`} className="text-brand-600 hover:underline">
-                            Download
-                          </a>
-                        </div>
-                      </div>
-                    );
-                  })}
               </div>
             </div>
             )}

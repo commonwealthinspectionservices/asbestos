@@ -58,27 +58,26 @@ export default function HomePage() {
           alt=""
           className="absolute inset-0 h-full w-full object-cover opacity-15"
         />
-        <div className="relative mx-auto flex w-full max-w-4xl items-center justify-center gap-6 px-4 sm:gap-10">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/marketing/massachusetts-outline.png" alt="" className="h-16 w-auto shrink-0 sm:h-40" />
+        <div className="relative mx-auto flex w-full max-w-4xl items-center justify-center px-4">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo.png" alt="Commonwealth Inspection Services" className="h-32 w-32 max-w-none shrink-0 rounded-full sm:h-72 sm:w-72" />
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/marketing/massachusetts-outline.png" alt="" className="h-16 w-auto shrink-0 sm:h-40" />
         </div>
         <div className="relative mx-auto max-w-3xl px-4">
         {/* The core positioning, right in the hero — not buried in a
             section further down the page. Leads with mold (the service
             actually worth driving homeowner traffic to) and states the
-            independence angle immediately, before anything else. */}
-        <h1 className="relative mt-6 text-xl font-black uppercase leading-tight text-brand-700 sm:mt-10 sm:text-4xl">
-          Independent Mold Air Sampling &amp; Asbestos Testing
+            independence angle immediately, before anything else. Both
+            lines share one size (text-sm/sm:text-4xl) per Tim's explicit
+            call — no visual hierarchy between "what we do" and "why trust
+            us." Sizes were picked by measuring actual rendered width
+            against the viewport, not guessed — text-sm is the largest
+            that keeps the h1 on one line at 375px wide (16px already
+            overflows by a hair).  */}
+        <h1 className="relative mt-6 whitespace-nowrap text-sm font-black uppercase leading-tight text-brand-700 sm:mt-10 sm:text-4xl">
+          Independent Mold and Asbestos Testing
         </h1>
-        <p className="relative mt-2 text-sm font-bold uppercase text-brand-700 sm:mt-4 sm:text-xl">
+        <p className="relative mt-2 whitespace-nowrap text-sm font-black uppercase leading-tight text-brand-700 sm:mt-4 sm:text-4xl">
           No Remediation. No Conflict of Interest.
-        </p>
-        <p className="relative mt-2 whitespace-nowrap text-[11px] font-semibold uppercase text-slate-500 sm:mt-3 sm:text-base">
-          Serving Boston + all of Massachusetts
         </p>
         <div className="relative mt-6 flex justify-center gap-3 sm:mt-10 sm:gap-4">
           <Link

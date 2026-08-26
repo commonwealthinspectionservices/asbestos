@@ -2467,7 +2467,7 @@ export function ProjectDetailDialog({
                             {group.domain === "mold" && label.toLowerCase().includes("air") && (
                               <div className="mt-3 rounded-lg border border-slate-200 p-3">
                                 <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
-                                  Airborne Discussion of Results
+                                  {label} Discussion of Results
                                 </label>
                                 <textarea
                                   className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
@@ -2482,7 +2482,7 @@ export function ProjectDetailDialog({
                             {group.domain === "mold" && label.toLowerCase().includes("bulk") && (
                               <div className="mt-3 rounded-lg border border-slate-200 p-3">
                                 <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
-                                  Bulk Discussion of Results
+                                  {label} Discussion of Results
                                 </label>
                                 <textarea
                                   className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
@@ -2497,7 +2497,7 @@ export function ProjectDetailDialog({
                             {group.domain === "mold" && label.toLowerCase().includes("swab") && (
                               <div className="mt-3 rounded-lg border border-slate-200 p-3">
                                 <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
-                                  Swab Discussion of Results
+                                  {label} Discussion of Results
                                 </label>
                                 <textarea
                                   className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"

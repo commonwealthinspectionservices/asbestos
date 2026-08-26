@@ -1307,7 +1307,7 @@ function JobRow({
               status so the admin can always find this number on the card,
               not just while the job is still unscheduled. */}
           {(job.site_contact_name || job.site_contact_phone) && (
-            <span className="min-w-0 truncate whitespace-nowrap text-sm text-slate-500" onClick={(e) => e.stopPropagation()}>
+            <span className="min-w-0 truncate whitespace-nowrap text-sm text-slate-500 sm:w-60" onClick={(e) => e.stopPropagation()}>
               {job.site_contact_name ? toTitleCase(job.site_contact_name) : ""}
               {job.site_contact_phone ? (
                 <>

@@ -34,6 +34,38 @@ async function getOrCreateStripeCustomer(customer: Customer): Promise<string> {
   return created.id;
 }
 
+// Stripe requires an invoice's custom `number` to be unique across the
+// whole account FOREVER — confirmed live: voiding an invoice does not
+// release its number, a second create() with the same number fails with
+// "Invoice number is already set on another invoice" even though the
+// first one is dead. That collides directly with createStripeInvoiceForJob's
+// own void-and-recreate-when-stale behavior below: a job whose invoice
+// gets regenerated (a corrected sample count, a missing field backfilled,
+// etc. — not rare) can't just reuse its own project number a second time.
+// Retries with an incrementing suffix (26-0002-2, 26-0002-3, ...) so a
+// regenerated invoice still reads as "this job's invoice" instead of
+// falling back to Stripe's own unrelated auto-numbering. Gives up after a
+// handful of attempts and lets Stripe auto-number rather than ever
+// blocking invoice creation over what's ultimately a cosmetic field.
+async function createInvoiceWithProjectNumber(
+  stripe: Stripe,
+  params: Stripe.InvoiceCreateParams,
+  projectNumber: string | null
+): Promise<Stripe.Invoice> {
+  if (!projectNumber) return stripe.invoices.create(params);
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const number = attempt === 0 ? projectNumber : `${projectNumber}-${attempt + 1}`;
+    try {
+      return await stripe.invoices.create({ ...params, number });
+    } catch (err) {
+      const isNumberCollision = err instanceof Stripe.errors.StripeInvalidRequestError
+        && err.message.includes("Invoice number is already set");
+      if (!isNumberCollision) throw err;
+    }
+  }
+  return stripe.invoices.create(params);
+}
+
 /**
  * Creates (or reuses) a Stripe invoice for a job's already-computed
  * `invoice_line_items` — the same line items shown on our own generated
@@ -100,7 +132,7 @@ export async function createStripeInvoiceForJob(
 
   const stripeCustomerId = await getOrCreateStripeCustomer(customer);
 
-  const invoice = await stripe.invoices.create({
+  const invoice = await createInvoiceWithProjectNumber(stripe, {
     customer: stripeCustomerId,
     collection_method: "send_invoice",
     days_until_due: 30,
@@ -115,7 +147,7 @@ export async function createStripeInvoiceForJob(
     // still gets its own custom_field.
     ...(job.project_number ? { custom_fields: [{ name: "Project #", value: job.project_number }] } : {}),
     ...(job.service_address ? { description: job.service_address } : {}),
-  });
+  }, job.project_number);
 
   for (const item of job.invoice_line_items) {
     await stripe.invoiceItems.create({

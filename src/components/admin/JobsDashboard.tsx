@@ -309,24 +309,6 @@ function formatDateTime(iso: string | null | undefined): string {
   return `${datePart} ${timePart}`;
 }
 
-// Shared by the Final Report tab's invoice and report status lines (see
-// useDraftTracking) — rawDraftedAt/rawSentAt are the job's own stored
-// columns, `live` is the draft-status route's fresh Gmail check.
-function draftStatusText(
-  rawDraftedAt: string | null,
-  rawSentAt: string | null,
-  live: { status: "drafted" | "sent" | "none"; sentAt?: string } | null,
-  notCreatedLabel: string,
-  notInGmailLabel: string
-): string {
-  if (rawSentAt) return `Sent ${formatDateTime(rawSentAt)}`;
-  if (!rawDraftedAt) return notCreatedLabel;
-  if (live === null) return "Checking Gmail…";
-  if (live.status === "sent") return `Sent ${formatDateTime(live.sentAt ?? new Date().toISOString())}`;
-  if (live.status === "drafted") return `Draft created ${formatDateTime(rawDraftedAt)} — not yet sent`;
-  return notInGmailLabel;
-}
-
 // Deep-links straight to this exact draft/message in the Gmail web UI
 // instead of just the inbox — /u/0/ assumes the connected account is the
 // browser's first signed-in Google account, true for the common single-
@@ -363,20 +345,19 @@ function DraftLinkControl({
   if (!messageId) return <p className="text-xs text-slate-400">Creating draft…</p>;
   const isSent = Boolean(sentAt) || hook.status?.status === "sent";
   if (isSent) {
+    // Per Tim — the "Sent {date}" line used to sit right here, next to the
+    // header button; now that Project Info has its own dedicated "Report
+    // sent .../Invoice not yet sent" lines (see below), it's redundant
+    // clutter in the header specifically.
     return (
-      <>
-        <a
-          href={gmailMessageUrl(messageId, true)}
-          target="_blank"
-          rel="noreferrer"
-          className="rounded-lg border border-red-600 bg-white px-3 py-1 text-xs font-bold uppercase text-red-600 hover:underline"
-        >
-          {label ? `View sent ${label.toLowerCase()} ↗` : "View sent email in Gmail ↗"}
-        </a>
-        <p className="text-xs text-slate-500">
-          {draftStatusText(draftedAt, sentAt, hook.status, "Drafted", "Drafted")}
-        </p>
-      </>
+      <a
+        href={gmailMessageUrl(messageId, true)}
+        target="_blank"
+        rel="noreferrer"
+        className="rounded-lg border border-red-600 bg-white px-3 py-1 text-xs font-bold uppercase text-red-600 hover:underline"
+      >
+        {label ? `View sent ${label.toLowerCase()} ↗` : "View sent email in Gmail ↗"}
+      </a>
     );
   }
   return (
@@ -2386,9 +2367,12 @@ export function ProjectDetailDialog({
               })();
               return (
                 <>
-                  {/* Edit stays top-right next to Project # at every width; the portal badge (subcontractor jobs only) sits beside Edit on desktop, same as always. */}
+                  {/* Edit stays top-right next to Project # at every width; the portal badge (subcontractor jobs only) sits beside Edit on desktop, same as always. Project #'s own value is a lot bigger than every other DetailField here per Tim — it's the one thing on this whole tab worth spotting at a glance. */}
                   <div className="flex items-center justify-between gap-2">
-                    <DetailField label="Project #" value={job.project_number} />
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-black">Project #</span>
+                      <span className="text-3xl font-bold text-black">{job.project_number}</span>
+                    </div>
                     <div className="flex shrink-0 items-center gap-2">
                       <span className="hidden sm:inline-flex">{portalBadge}</span>
                       {/* Per Tim — a quick way to jump to this job's whole

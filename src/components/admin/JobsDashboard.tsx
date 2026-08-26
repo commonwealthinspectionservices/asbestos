@@ -1156,7 +1156,12 @@ function JobRow({
       onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onOpen()}
       className="flex w-full cursor-pointer flex-col gap-2 rounded-lg border border-slate-200 bg-white p-3 hover:border-brand-400 sm:gap-0"
     >
-      <div className="flex w-full items-center justify-between gap-2">
+      {/* items-start, not items-center — the status cell's own column can
+          run taller than this row now (the Report:/Invoice: sent-status
+          lines sit right underneath it), which used to pull Project #/
+          company down to the middle of that taller combined height instead
+          of lining up with the status pill's own top edge. */}
+      <div className="flex w-full items-start justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
           {job.project_number && (
             <span className="inline-flex h-7 shrink-0 items-center whitespace-nowrap rounded bg-slate-200 px-2 py-0.5 text-sm font-mono font-bold text-slate-800 hover:underline sm:inline sm:h-auto">{job.project_number}</span>

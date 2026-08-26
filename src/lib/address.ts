@@ -160,8 +160,16 @@ export function parseAddressToFields(address: string | null | undefined): Addres
   };
 }
 
+// A bare "Unit #" entry ("3") gets labeled "Unit 3" below; an entry that
+// already names its own type ("Suite 3", "Apt 2", "#4") is left as-is so it
+// never becomes "Unit Suite 3". Same label set splitAddress/parseAddressToFields
+// already recognize when parsing a unit back out of a full address.
+const UNIT_LABEL_RE = /^(Unit|Apt|Apartment|Suite|Ste|#)\b/i;
+
 export function buildBillingAddress({ street, unit, city, state, zip }: AddressFields): string {
-  const streetLine = [street.trim(), unit.trim()].filter(Boolean).join(" ");
+  const trimmedUnit = unit.trim();
+  const labeledUnit = trimmedUnit && !UNIT_LABEL_RE.test(trimmedUnit) ? `Unit ${trimmedUnit}` : trimmedUnit;
+  const streetLine = [street.trim(), labeledUnit].filter(Boolean).join(" ");
   const cityStateZip = [city.trim(), [state.trim(), zip.trim()].filter(Boolean).join(" ")]
     .filter(Boolean)
     .join(", ");

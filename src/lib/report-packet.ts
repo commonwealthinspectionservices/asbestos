@@ -6,14 +6,16 @@ import type { Customer, Job, Settings } from "@/lib/types";
 
 // The real deliverable is a packet, not just the cover letter: the letter,
 // then whatever lab_report/coc documents belong to this domain (uploaded
-// once the lab sends its own certified results and scanned COC back), then
-// the standing credentials document — merged into one PDF, matching the
-// real FLI report exactly (letter + lab's own report + COC + license
-// pages). One packet per domain — a job combining service types from more
-// than one domain (e.g. asbestos + mold) produces two separate final
-// reports, so a mold lab report must never end up glued behind the
-// asbestos letter or vice versa. Shared by the "Download Final Report"
-// route and the report email draft, so both ever only build this one way.
+// once the lab sends its own certified results and scanned COC back), and
+// — asbestos only — the owner's own standing credentials/license pages.
+// Confirmed live wrong on 26-0002: those license pages were getting
+// appended to the mold report too. Per Tim, his asbestos and consulting
+// licenses belong only on asbestos reports, never mold or lead. One
+// packet per domain — a job combining service types from more than one
+// domain (e.g. asbestos + mold) produces two separate final reports, so a
+// mold lab report must never end up glued behind the asbestos letter or
+// vice versa. Shared by the "Download Final Report" route and the report
+// email draft, so both ever only build this one way.
 export async function buildFinalReportPacket(job: Job, customer: Customer, settings: Settings, domain: ReportDomain): Promise<Buffer> {
   const supabase = getSupabaseAdmin();
   const letterPdf = await renderProjectReportPdfForDomain({ job, customer, settings }, domain);
@@ -22,9 +24,7 @@ export async function buildFinalReportPacket(job: Job, customer: Customer, setti
   const attachmentPaths = [
     ...documents.filter((d) => d.kind === "lab_report").map((d) => d.storage_path),
     ...documents.filter((d) => d.kind === "coc").map((d) => d.storage_path),
-    // The owner's own credentials belong on every domain's report, not just
-    // one — everyone gets the same license page.
-    ...(settings.credentials_document_path ? [settings.credentials_document_path] : []),
+    ...(domain === "asbestos" && settings.credentials_document_path ? [settings.credentials_document_path] : []),
   ];
 
   const attachmentBuffers: Buffer[] = [];

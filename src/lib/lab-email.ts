@@ -884,7 +884,7 @@ async function draftReportEmailForJob(params: {
   job: Job & { customers: Customer & { companies: Company | null } };
   settings: Settings;
   accessToken: string;
-}): Promise<void> {
+}): Promise<{ messageId: string }> {
   const { job, settings, accessToken } = params;
   assertMoldReportReady(job);
   const supabase = getSupabaseAdmin();
@@ -958,6 +958,8 @@ async function draftReportEmailForJob(params: {
       report_draft_gmail_message_id: draft.messageId,
     })
     .eq("id", job.id);
+
+  return { messageId: draft.messageId };
 }
 
 // The Email tab's one manual send — the final report packet and invoice
@@ -1123,9 +1125,9 @@ export async function createInvoiceDraftForJob(jobId: string): Promise<void> {
   await draftInvoiceEmailForJob(await loadJobForDraft(jobId));
 }
 
-/** Manual "Create Report Draft" button on the Email tab — same draft-creation path the automatic email check uses, callable on demand for any project. */
-export async function createReportDraftForJob(jobId: string): Promise<void> {
-  await draftReportEmailForJob(await loadJobForDraft(jobId));
+/** Manual "Create Report Draft" button on the Email tab — same draft-creation path the automatic email check uses, callable on demand for any project. Returns the new draft's own Gmail message id so a caller can jump straight to it. */
+export async function createReportDraftForJob(jobId: string): Promise<{ messageId: string }> {
+  return draftReportEmailForJob(await loadJobForDraft(jobId));
 }
 
 /** Manual re-send path for the individual-billed "your report is ready, pay to receive it" notice — same draft-creation code the automatic lab-results-landing path uses. */

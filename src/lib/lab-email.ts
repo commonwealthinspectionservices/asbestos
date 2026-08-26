@@ -961,7 +961,7 @@ async function draftCombinedEmailForJob(params: {
   job: Job & { customers: Customer & { companies: Company | null } };
   settings: Settings;
   accessToken: string;
-}): Promise<void> {
+}): Promise<{ messageId: string }> {
   const { job, settings, accessToken } = params;
   assertMoldReportReady(job);
   const supabase = getSupabaseAdmin();
@@ -1078,6 +1078,8 @@ async function draftCombinedEmailForJob(params: {
       report_draft_gmail_message_id: draft.messageId,
     })
     .eq("id", job.id);
+
+  return { messageId: draft.messageId };
 }
 
 async function loadJobForDraft(jobId: string): Promise<{
@@ -1120,9 +1122,9 @@ export async function createPaymentReminderDraftForJob(jobId: string): Promise<v
   await draftPaymentReminderForIndividual(await loadJobForDraft(jobId));
 }
 
-/** The Email tab's one "Create Draft" button — final report + invoice as two attachments on a single Gmail draft, with a payment link. */
-export async function createCombinedDraftForJob(jobId: string): Promise<void> {
-  await draftCombinedEmailForJob(await loadJobForDraft(jobId));
+/** The Email tab's one "View Draft" button — final report + invoice as two attachments on a single Gmail draft, with a payment link. Returns the new draft's own Gmail message id so the caller can jump straight to it. */
+export async function createCombinedDraftForJob(jobId: string): Promise<{ messageId: string }> {
+  return draftCombinedEmailForJob(await loadJobForDraft(jobId));
 }
 
 /**

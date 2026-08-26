@@ -1413,7 +1413,6 @@ function useDraftTracking(params: {
   const { kind, createKind = kind, active, jobId, draftedAt, sentAt, onChanged } = params;
   const [creating, setCreating] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const [confirmingRedraft, setConfirmingRedraft] = useState(false);
   // null = not checked yet / checking. draftedAt only means "a draft was
   // created at some point" — this is the live truth from Gmail itself of
   // whether it's still sitting in Drafts, was actually sent (SENT label on
@@ -1444,18 +1443,15 @@ function useDraftTracking(params: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, jobId, draftedAt, sentAt, kind]);
 
-  // A draft still actually sitting in Gmail is exactly the case this exists
-  // to avoid duplicating by accident, so that specific state gets a confirm
-  // step — gated on the live status check, not just the stored
-  // draftedAt/sentAt columns, since those only say a draft was created at
-  // some point, not whether it's still there (the owner may have deleted it
-  // from Gmail without sending, which the live check already caught).
-  async function create(skipConfirm = false) {
-    if (!skipConfirm && status?.status === "drafted") {
-      setConfirmingRedraft(true);
-      return;
-    }
-    setConfirmingRedraft(false);
+  // Always rebuilds from scratch with the current attachments and deletes
+  // whatever was there before (see draftCombinedEmailForJob's own
+  // stale-draft cleanup) — per Tim, viewing the draft should always mean
+  // the freshest one, not a possibly-stale copy from before a later edit,
+  // so there's no separate "regenerate" step or confirmation to skip past.
+  // Split from viewDraft below so the auto-fire-on-completion effect can
+  // create the first draft silently, without popping open a Gmail tab the
+  // admin never clicked for.
+  async function createDraft(): Promise<{ messageId?: string } | null> {
     setCreating(true);
     setMessage(null);
     try {
@@ -1465,16 +1461,37 @@ function useDraftTracking(params: {
       );
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to create draft");
-      setMessage("Draft created — check Gmail.");
       onChanged();
+      return data;
     } catch (e) {
       setMessage(e instanceof Error ? e.message : "Failed to create draft");
+      return null;
     } finally {
       setCreating(false);
     }
   }
 
-  return { creating, message, confirmingRedraft, setConfirmingRedraft, status, create };
+  // The "View Draft" button's own action — creates (or recreates) the
+  // draft, then jumps straight to it using the message id the create call
+  // itself returns, rather than waiting on a job refetch to pick it up.
+  // Opens the tab synchronously, in the same tick as the click, and only
+  // navigates it once the new draft exists — most browsers block a
+  // window.open() that happens after an intervening await, since by then
+  // it's no longer considered a direct result of the user's click.
+  async function viewDraft() {
+    // Deliberately no noopener here (unlike other external links in this
+    // file) — that flag makes window.open() return null, and this needs
+    // the handle back so it can navigate the tab once the draft exists.
+    const tab = window.open("", "_blank");
+    const data = await createDraft();
+    if (data?.messageId && tab) {
+      tab.location.href = gmailMessageUrl(data.messageId, false);
+    } else {
+      tab?.close();
+    }
+  }
+
+  return { creating, message, status, createDraft, viewDraft };
 }
 
 export function ProjectDetailDialog({
@@ -1977,7 +1994,7 @@ export function ProjectDetailDialog({
   // flips true via onChanged() and this condition goes false for good.
   useEffect(() => {
     if (reportComplete && job.invoice_total_cents != null && !job.invoice_draft_gmail_message_id && !combinedDraft.creating) {
-      combinedDraft.create();
+      combinedDraft.createDraft();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reportComplete, job.invoice_total_cents, job.invoice_draft_gmail_message_id]);
@@ -2804,59 +2821,41 @@ export function ProjectDetailDialog({
                     <div className="flex min-h-40 flex-1 items-center justify-center">
                       {job.invoice_draft_gmail_message_id ? (
                         <div className="text-center">
-                          <a
-                            href={gmailMessageUrl(job.invoice_draft_gmail_message_id, Boolean(job.invoice_sent_at))}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-block rounded-lg border border-red-600 bg-white px-3 py-1.5 text-sm font-bold uppercase text-red-600 hover:underline"
-                          >
-                            View draft in Gmail ↗
-                          </a>
-                          {(job.invoice_sent_at || combinedDraft.status?.status === "sent") && (
-                            <p className="mt-1.5 text-xs text-slate-500">
-                              {draftStatusText(job.invoice_drafted_at, job.invoice_sent_at, combinedDraft.status, "Drafted", "Drafted")}
-                            </p>
-                          )}
-                          {/* Regenerating only makes sense while it's still sitting
-                              unsent in Gmail — this rebuilds the report/invoice PDFs
-                              from whatever's on the job right now (e.g. after editing
-                              Discussion of Results/Conclusions) and replaces the
-                              existing draft, so an edit made after the draft was first
-                              created doesn't otherwise require deleting it by hand. */}
-                          {!job.invoice_sent_at && combinedDraft.status?.status !== "sent" && (
-                            <div className="mt-1.5">
-                              {combinedDraft.confirmingRedraft ? (
-                                <div className="flex items-center justify-center gap-2 text-xs">
-                                  <span className="text-slate-500">Replace the existing draft?</span>
-                                  <button
-                                    type="button"
-                                    onClick={() => combinedDraft.create(true)}
-                                    className="font-bold uppercase text-red-600 hover:underline"
-                                  >
-                                    Yes, regenerate
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => combinedDraft.setConfirmingRedraft(false)}
-                                    className="text-slate-500 hover:underline"
-                                  >
-                                    Cancel
-                                  </button>
-                                </div>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => combinedDraft.create()}
-                                  disabled={combinedDraft.creating}
-                                  className="text-xs font-medium text-slate-500 underline hover:text-slate-700 disabled:opacity-50"
-                                >
-                                  {combinedDraft.creating ? "Regenerating…" : "Regenerate draft"}
-                                </button>
-                              )}
+                          {job.invoice_sent_at || combinedDraft.status?.status === "sent" ? (
+                            <>
+                              <a
+                                href={gmailMessageUrl(job.invoice_draft_gmail_message_id, true)}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-block rounded-lg border border-red-600 bg-white px-3 py-1.5 text-sm font-bold uppercase text-red-600 hover:underline"
+                              >
+                                View sent email in Gmail ↗
+                              </a>
+                              <p className="mt-1.5 text-xs text-slate-500">
+                                {draftStatusText(job.invoice_drafted_at, job.invoice_sent_at, combinedDraft.status, "Drafted", "Drafted")}
+                              </p>
+                            </>
+                          ) : (
+                            <>
+                              {/* Always rebuilds the report/invoice PDFs from whatever's
+                                  on the job right now and replaces the existing draft
+                                  before opening it — per Tim, "View Draft" should always
+                                  mean the freshest one, not a possibly-stale copy from
+                                  before a later edit (e.g. to Discussion of Results/
+                                  Conclusions), so there's no separate "regenerate" step
+                                  or confirmation in front of it. */}
+                              <button
+                                type="button"
+                                onClick={() => combinedDraft.viewDraft()}
+                                disabled={combinedDraft.creating}
+                                className="inline-block rounded-lg border border-red-600 bg-white px-3 py-1.5 text-sm font-bold uppercase text-red-600 hover:underline disabled:opacity-50"
+                              >
+                                {combinedDraft.creating ? "Preparing draft…" : "View Draft ↗"}
+                              </button>
                               {combinedDraft.message && (
-                                <p className="mt-1 text-xs text-slate-500">{combinedDraft.message}</p>
+                                <p className="mt-1.5 text-xs text-slate-500">{combinedDraft.message}</p>
                               )}
-                            </div>
+                            </>
                           )}
                         </div>
                       ) : (

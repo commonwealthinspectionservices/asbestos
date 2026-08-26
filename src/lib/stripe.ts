@@ -51,17 +51,36 @@ export async function createStripeInvoiceForJob(
   const supabase = getSupabaseAdmin();
 
   // Reuse an existing invoice rather than creating a duplicate on every
-  // redraft — line items are frozen at whatever they were when the invoice
-  // was first created, matching how the Gmail invoice draft itself behaves
-  // (see invoice_auto on Job). But a voided/uncollectible invoice (e.g. the
-  // admin voided a mistaken one directly in Stripe) can never be paid again
-  // and Stripe won't un-void it — reusing its dead hosted_invoice_url would
-  // permanently break this job's payment link, so fall through and create
-  // a fresh one instead.
+  // redraft — matching how the Gmail invoice draft itself behaves (see
+  // invoice_auto on Job) — UNLESS it's gone stale:
+  //  - void/uncollectible (e.g. the admin voided a mistaken one directly in
+  //    Stripe): can never be paid again and Stripe won't un-void it, so
+  //    reusing its dead hosted_invoice_url would permanently break this
+  //    job's payment link.
+  //  - already paid: never touch it, regardless of total — a real payment
+  //    happened, and replacing it after the fact would be wrong.
+  //  - still open, but its total no longer matches job.invoice_total_cents:
+  //    confirmed live wrong on 26-0001 and 26-0002 — a sample count (or
+  //    other line item) corrected locally after the Stripe invoice was
+  //    first created left the customer's actual payment link showing the
+  //    old, wrong amount, with nothing to ever refresh it short of the
+  //    admin manually voiding it in the Stripe dashboard. Void it and fall
+  //    through to create a fresh one instead, so "Link to pay" always
+  //    reflects what the job is actually billed for right now.
   if (job.stripe_invoice_id) {
     const existing = await stripe.invoices.retrieve(job.stripe_invoice_id);
-    if (existing.status !== "void" && existing.status !== "uncollectible") {
+    if (existing.status === "paid") {
       return { stripeInvoiceId: existing.id, hostedInvoiceUrl: existing.hosted_invoice_url ?? null };
+    }
+    const isStale = existing.status === "void" || existing.status === "uncollectible"
+      || existing.total !== job.invoice_total_cents;
+    if (!isStale) {
+      return { stripeInvoiceId: existing.id, hostedInvoiceUrl: existing.hosted_invoice_url ?? null };
+    }
+    if (existing.status === "open") {
+      await stripe.invoices.voidInvoice(existing.id).catch((err) => {
+        console.error(`createStripeInvoiceForJob: failed to void stale invoice ${existing.id} for job ${job.id}:`, err);
+      });
     }
     await supabase.from("jobs").update({ stripe_invoice_id: null }).eq("id", job.id);
   }
@@ -77,6 +96,11 @@ export async function createStripeInvoiceForJob(
     collection_method: "send_invoice",
     days_until_due: 30,
     metadata: { job_id: job.id },
+    // metadata above is Stripe-dashboard-only — the customer's own hosted
+    // invoice page needs the project number as a visible custom_field to
+    // actually show it, per Tim: "every link to pay should just show the
+    // job number".
+    ...(job.project_number ? { custom_fields: [{ name: "Project #", value: job.project_number }] } : {}),
   });
 
   for (const item of job.invoice_line_items) {

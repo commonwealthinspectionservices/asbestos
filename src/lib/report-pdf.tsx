@@ -35,6 +35,12 @@ const SIGNATURE_PATH = path.join(process.cwd(), "public", "signature.png");
 // covers it; anything beyond just falls back to the digit alone.
 const NUMBER_WORDS = ["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen", "Twenty"];
 
+// "sample" vs "samples" for the count sentences below — confirmed live wrong
+// on 26-0002 (a single real bulk sample rendered as "One (1) bulk samples").
+function pluralizeSample(count: number): string {
+  return count === 1 ? "sample" : "samples";
+}
+
 // Standard size is Times New Roman 12 — used everywhere except asbestos's
 // own cover letter, which is the one document that must always fit one
 // page (mold, lead, and everything else is free to run longer). Asbestos
@@ -872,7 +878,7 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
   const indoorAirSampleCount = airSampleTotal > 0 ? airSampleTotal - 1 : 0;
   const airSampleCountSentence =
     indoorAirSampleCount > 0 && samplingDateText
-      ? `${NUMBER_WORDS[indoorAirSampleCount] ?? indoorAirSampleCount} (${indoorAirSampleCount}) samples were collected on ${samplingDateText} inside the building. An ambient sample was collected outside for comparison with the indoor sample.`
+      ? `${NUMBER_WORDS[indoorAirSampleCount] ?? indoorAirSampleCount} (${indoorAirSampleCount}) ${pluralizeSample(indoorAirSampleCount)} ${indoorAirSampleCount === 1 ? "was" : "were"} collected on ${samplingDateText} inside the building. An ambient sample was collected outside for comparison with the indoor sample.`
       : "[Number of samples] samples were collected on [Date of Sampling] inside the building. An ambient sample was collected outside for comparison with the indoor sample.";
 
   // Bulk's own standard count sentence — confirmed word-for-word per Tim —
@@ -885,7 +891,7 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
     .reduce((sum, [, n]) => sum + (n || 0), 0);
   const bulkSampleCountSentence =
     bulkSampleTotal > 0 && samplingDateText
-      ? `${NUMBER_WORDS[bulkSampleTotal] ?? bulkSampleTotal} (${bulkSampleTotal}) bulk samples of suspect microbial growth were collected on ${samplingDateText}.`
+      ? `${NUMBER_WORDS[bulkSampleTotal] ?? bulkSampleTotal} (${bulkSampleTotal}) bulk ${pluralizeSample(bulkSampleTotal)} of suspect microbial growth ${bulkSampleTotal === 1 ? "was" : "were"} collected on ${samplingDateText}.`
       : "[Number of samples] bulk samples of suspect microbial growth were collected on [Date of Sampling].";
 
   // Swab's own standard count sentence — same generic per-type pattern as
@@ -899,7 +905,7 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
     .reduce((sum, [, n]) => sum + (n || 0), 0);
   const swabSampleCountSentence =
     swabSampleTotal > 0 && samplingDateText
-      ? `${NUMBER_WORDS[swabSampleTotal] ?? swabSampleTotal} (${swabSampleTotal}) swab samples were collected on ${samplingDateText}.`
+      ? `${NUMBER_WORDS[swabSampleTotal] ?? swabSampleTotal} (${swabSampleTotal}) swab ${pluralizeSample(swabSampleTotal)} ${swabSampleTotal === 1 ? "was" : "were"} collected on ${samplingDateText}.`
       : "[Number of samples] swab samples were collected on [Date of Sampling].";
 
   // Discussion of Results subheadings are numbered in whichever order the

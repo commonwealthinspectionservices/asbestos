@@ -689,6 +689,66 @@ No discernable field blank was submitted with this group of samples.
 Page 2 of 2
 `;
 
+// Real Crystal Analytical mold report, trimmed — 26-0002, an air+bulk combo
+// where Crystal bundles both methods (BIO-SOP-001 spore-trap for the 4 air
+// samples, BIO-SOP-002 Direct Analysis for the 1 bulk sample) into a single
+// PDF. Confirmed live wrong: uploading this same file tagged "Mold Bulk
+// Sampling" reported 4 bulk samples (the spore-trap pattern's own air
+// count) when only 1 bulk sample ("1 - Insulation") was actually taken.
+const CRYSTAL_MOLD_AIR_BULK_COMBO_REPORT = `
+Tim Hall
+Commonwealth Inspection Services, LLC
+Boston
+MA
+0001000200030004
+Count
+Struct/m
+3
+% of Total   Count
+Struct/m
+3
+% of Total
+Eval
+Count
+Struct/m
+3
+% of Total  Count
+Struct/m
+3
+% of Total
+1872,707100%52705100%45626100%61828100%
+Collected:08/20/26
+Received:08/24/26
+Analyzed:08/25/26
+Reported:08/25/26
+Lab ID: 2601003618
+BIO-SOP-001
+Inertial Impactor (Spore Trap)
+Sample Name Outdoor Ambient
+Crystal Analytical, LLC.      •       55 Accord Park Dr., Ste. 2D; Rockland, MA 02370      •      (781) 347-3936     •      Page 2 of 3
+
+Tim Hall
+Commonwealth Inspection Services, LLC
+Boston
+MA
+0005Pollen
+Collected:08/20/26
+Received:08/24/26
+Analyzed:08/25/26
+Reported:08/25/26
+Trace
+Epithelial Cells
+Tape-Lift
+Fungal Structure IDSpore/Material LoadDebris
+1 - InsulationPenicillium/AspergillusTrace
+NoneNone
+BIO-SOP-002
+Lab ID: 2601003618
+Direct Analysis
+Very Heavy
+Crystal Analytical, LLC.      •       55 Accord Park Dr., Ste. 2D; Rockland, MA 02370      •      (781) 347-3936     •      Page 3 of 3
+`;
+
 describe("extractMoldSampleCount", () => {
   it("counts only the 2 real swab samples, excluding the 3 Dummy slots", () => {
     expect(extractMoldSampleCount(MOLD_SWAB_REPORT)).toBe(2);
@@ -705,6 +765,22 @@ describe("extractMoldSampleCount", () => {
   it("returns null when there's nothing recognizable", () => {
     expect(extractMoldSampleCount("not a lab report")).toBeNull();
   });
+
+  it("counts the 4 air samples on a Crystal air+bulk combo report", () => {
+    expect(extractMoldSampleCount(CRYSTAL_MOLD_AIR_BULK_COMBO_REPORT, "Mold Air Sampling")).toBe(4);
+  });
+
+  it("does NOT reuse the air spore-trap count for a bulk request on the same combo report", () => {
+    // The regression this guards: Crystal's Direct Analysis (bulk/swab)
+    // section has no confirmed multi-sample counting pattern yet, so a
+    // bulk/swab request must get null (left for the admin to enter by
+    // hand) rather than confidently reporting the wrong number.
+    expect(extractMoldSampleCount(CRYSTAL_MOLD_AIR_BULK_COMBO_REPORT, "Mold Bulk Sampling")).toBeNull();
+  });
+
+  it("still returns the spore-trap count when no serviceType is given at all", () => {
+    expect(extractMoldSampleCount(CRYSTAL_MOLD_AIR_BULK_COMBO_REPORT)).toBe(4);
+  });
 });
 
 describe("extractMoldSampleResults", () => {
@@ -719,5 +795,9 @@ describe("extractMoldSampleResults", () => {
     expect(extractMoldSampleResults(MOLD_AIR_O_CELL_REPORT).map((r) => r.fieldCode)).toEqual([
       "1", "2", "3", "4", "5", "6",
     ]);
+  });
+
+  it("returns nothing for a bulk request on a Crystal air+bulk combo report", () => {
+    expect(extractMoldSampleResults(CRYSTAL_MOLD_AIR_BULK_COMBO_REPORT, "Mold Bulk Sampling")).toEqual([]);
   });
 });

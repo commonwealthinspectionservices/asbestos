@@ -80,7 +80,7 @@ export const POST = withApiErrors(async (
       // samples). Not needed for lead — not in scope yet.
       const positionOrderedText = !isLead ? await extractPositionOrderedText(fileBuffer) : undefined;
 
-      const count = isMold ? extractMoldSampleCount(text) : extractSampleCount(text, positionOrderedText);
+      const count = isMold ? extractMoldSampleCount(text, serviceType) : extractSampleCount(text, positionOrderedText);
       if (count != null) {
         update.sample_counts = { ...(jobRow.sample_counts ?? {}), [serviceType]: count };
       }

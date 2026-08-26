@@ -535,7 +535,7 @@ async function processMatchedLabEmail(params: {
   const positionOrderedText = isMold || isAsbestos ? await extractPositionOrderedText(pdfBuffer) : undefined;
 
   const update: Record<string, unknown> = {};
-  const count = isMold ? extractMoldSampleCount(pdfText) : extractSampleCount(pdfText, positionOrderedText);
+  const count = isMold ? extractMoldSampleCount(pdfText, primaryServiceType) : extractSampleCount(pdfText, positionOrderedText);
   if (count != null && primaryServiceType) {
     update.sample_counts = { ...(job.sample_counts ?? {}), [primaryServiceType]: count };
   }

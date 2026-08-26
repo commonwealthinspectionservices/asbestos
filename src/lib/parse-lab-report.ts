@@ -255,10 +255,16 @@ function moldSampleFieldCodes(pdfText: string): string[] {
 // enough to confirm a count and mark each as collected; the real location
 // is only in the uploaded report itself, same as EMSL's mold format above.
 //
-// Crystal's other mold format ("BIO-SOP-002, Direct Analysis" — swab/tape)
-// isn't handled here yet: only one real example seen so far (a single-
-// sample report), not enough to confirm a pattern against the way this one
-// was confirmed against five. Revisit once more real examples come in.
+// Crystal's other mold format ("BIO-SOP-002, Direct Analysis" — bulk/swab
+// tape-lift) isn't handled here yet: only one real example seen so far (a
+// single-sample report, 26-0002), not enough to confirm a multi-sample
+// counting pattern against the way this one was confirmed against five.
+// Revisit once more real examples come in — until then, a bulk/swab
+// request must NOT fall through to this spore-trap count below: confirmed
+// live wrong on 26-0002, where a single combined air+bulk report tagged
+// "Mold Bulk Sampling" reported 4 bulk samples (this pattern's own air
+// count) when only 1 bulk sample (Direct Analysis, "1 - Insulation") was
+// actually taken.
 const CRYSTAL_SPORE_TRAP_COUNT_PATTERN = /(?<!\d)((?:\d{4}\s*){2,})Count\s*\n?\s*Struct\s*\/\s*m/;
 
 function crystalSporeTrapFieldCodes(pdfText: string): string[] {
@@ -276,15 +282,20 @@ function crystalSporeTrapFieldCodes(pdfText: string): string[] {
 // Tries EMSL's mold layout first, then Crystal's spore-trap layout — same
 // safe-waterfall shape as bestReportSamplesAnyLab for the asbestos formats
 // above, since each lab's own function returns empty rather than throwing
-// when its format doesn't match.
-function moldSampleFieldCodesAnyLab(pdfText: string): string[] {
+// when its format doesn't match. Crystal's spore-trap pattern is air-only
+// (see CRYSTAL_SPORE_TRAP_COUNT_PATTERN's own comment) — a bulk/swab
+// request gets nothing rather than that air count, leaving it for the
+// admin to enter by hand instead of confidently showing the wrong number.
+function moldSampleFieldCodesAnyLab(pdfText: string, serviceType?: string): string[] {
   const emsl = moldSampleFieldCodes(pdfText);
   if (emsl.length > 0) return emsl;
+  const isAirRequest = !serviceType || /air/i.test(serviceType);
+  if (!isAirRequest) return [];
   return crystalSporeTrapFieldCodes(pdfText);
 }
 
-export function extractMoldSampleCount(pdfText: string): number | null {
-  const count = moldSampleFieldCodesAnyLab(pdfText).length;
+export function extractMoldSampleCount(pdfText: string, serviceType?: string): number | null {
+  const count = moldSampleFieldCodesAnyLab(pdfText, serviceType).length;
   return count > 0 ? count : null;
 }
 
@@ -295,7 +306,7 @@ export function extractMoldSampleCount(pdfText: string): number | null {
 // that sample, not what it found. The full genus-level breakdown is only
 // in the uploaded report itself, viewable from its own thumbnail.
 export function extractMoldSampleResults(pdfText: string, serviceType?: string): SampleResult[] {
-  return moldSampleFieldCodesAnyLab(pdfText).map((fieldCode) => ({ fieldCode, result: "Analyzed", serviceType }));
+  return moldSampleFieldCodesAnyLab(pdfText, serviceType).map((fieldCode) => ({ fieldCode, result: "Analyzed", serviceType }));
 }
 
 // The lab itself makes the positive/negative call, not FLI — any sample

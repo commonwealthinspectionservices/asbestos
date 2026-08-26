@@ -2293,7 +2293,7 @@ export function ProjectDetailDialog({
                   {isSeparateDraftsCompany ? (
                     <>
                       <div className="flex items-center gap-2">
-                        <DraftLinkControl label="Report" hook={reportOnlyDraft} messageId={job.report_draft_gmail_message_id} draftedAt={job.report_drafted_at} sentAt={job.report_sent_at} />
+                        <DraftLinkControl label="Asbestos Inspection Report" hook={reportOnlyDraft} messageId={job.report_draft_gmail_message_id} draftedAt={job.report_drafted_at} sentAt={job.report_sent_at} />
                       </div>
                       <div className="flex items-center gap-2">
                         <DraftLinkControl label="Invoice" hook={invoiceOnlyDraft} messageId={job.invoice_draft_gmail_message_id} draftedAt={job.invoice_drafted_at} sentAt={job.invoice_sent_at} />
@@ -2301,7 +2301,7 @@ export function ProjectDetailDialog({
                     </>
                   ) : (
                     <DraftLinkControl
-                      label={job.customers?.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID ? "Report and Invoice" : undefined}
+                      label={job.customers?.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID ? "Final Report and Invoice" : undefined}
                       hook={combinedDraft}
                       messageId={job.invoice_draft_gmail_message_id}
                       draftedAt={job.invoice_drafted_at}
@@ -2339,7 +2339,7 @@ export function ProjectDetailDialog({
             {isSeparateDraftsCompany ? (
               <>
                 <div className="flex items-center gap-2">
-                  <DraftLinkControl label="Report" hook={reportOnlyDraft} messageId={job.report_draft_gmail_message_id} draftedAt={job.report_drafted_at} sentAt={job.report_sent_at} />
+                  <DraftLinkControl label="Asbestos Inspection Report" hook={reportOnlyDraft} messageId={job.report_draft_gmail_message_id} draftedAt={job.report_drafted_at} sentAt={job.report_sent_at} />
                 </div>
                 <div className="flex items-center gap-2">
                   <DraftLinkControl label="Invoice" hook={invoiceOnlyDraft} messageId={job.invoice_draft_gmail_message_id} draftedAt={job.invoice_drafted_at} sentAt={job.invoice_sent_at} />
@@ -2347,7 +2347,7 @@ export function ProjectDetailDialog({
               </>
             ) : (
               <DraftLinkControl
-                label={job.customers?.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID ? "Report and Invoice" : undefined}
+                label={job.customers?.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID ? "Final Report and Invoice" : undefined}
                 hook={combinedDraft}
                 messageId={job.invoice_draft_gmail_message_id}
                 draftedAt={job.invoice_drafted_at}

@@ -1,6 +1,13 @@
 import path from "path";
-import { Document, Page, Text, View, Image, StyleSheet, renderToBuffer } from "@react-pdf/renderer";
+import { Document, Page, Text, View, Image, StyleSheet, Font, renderToBuffer } from "@react-pdf/renderer";
 import type { Style } from "@react-pdf/types";
+
+// react-pdf hyphenates long words at line wraps by default (e.g.
+// "mate-rials" split across the line break) — per Tim, a wrapped word
+// should always move to the next line whole, never split with a hyphen.
+// Registering a callback that returns the word as its own single
+// "syllable" gives the layout engine no split point to hyphenate at.
+Font.registerHyphenationCallback((word) => [word]);
 import { splitAddress } from "@/lib/address";
 import { primaryInspector } from "@/lib/settings";
 import { formatDateMDY } from "@/lib/date-format";
@@ -255,7 +262,7 @@ function RenderTextBlocks({ blocks, emptyText }: { blocks: TextBlock[]; emptyTex
         ) : (
           <View style={styles.listBlock} key={i}>
             {block.items.map((item, j) => (
-              <View style={styles.listItem} key={j}>
+              <View style={styles.listItem} key={j} wrap={false}>
                 <Text style={styles.listIndex}>{block.ordered ? `${j + 1}.` : "•"}</Text>
                 <Text style={styles.listText}>{item}</Text>
               </View>
@@ -381,6 +388,7 @@ function AsbestosReportDocument({ job, customer, settings }: ProjectReportData) 
           transported under chain-of-custody protocol to an accredited laboratory for analysis.
         </Text>
 
+        <View wrap={false}>
         <Text style={styles.sectionTitleTight}>Sampling Summary:</Text>
         <View style={styles.summaryBlock}>
           <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Date of Sampling:</Text><ValueOrBlank style={styles.summaryValue} value={formatDateMDY(job.lab_date_sampled ?? job.requested_date)} /></View>
@@ -388,6 +396,7 @@ function AsbestosReportDocument({ job, customer, settings }: ProjectReportData) 
           <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Samples Analyzed At:</Text><ValueOrBlank style={styles.summaryValue} value={job.lab_name} /></View>
           <View style={styles.summaryRow}><Text style={styles.summaryLabel}>NIST/NVLAP Certification#:</Text><ValueOrBlank style={styles.summaryValue} value={job.lab_nist_cert} /></View>
           <View style={styles.summaryRow}><Text style={styles.summaryLabel}>MassDLS Lab Certification#:</Text><ValueOrBlank style={styles.summaryValue} value={job.lab_massdls_cert} /></View>
+        </View>
         </View>
 
         <Text style={styles.paragraph}>
@@ -403,7 +412,7 @@ function AsbestosReportDocument({ job, customer, settings }: ProjectReportData) 
         <Text style={styles.sectionTitle}>Remarks and Limitations:</Text>
         <View style={styles.listBlock}>
           {remarks.map((text, i) => (
-            <View style={styles.listItem} key={i}>
+            <View style={styles.listItem} key={i} wrap={false}>
               <Text style={styles.listIndex}>{i + 1}.</Text>
               <Text style={i === resultRemarkIndex ? styles.resultRemarkTextAsbestos : styles.listText}>{text}</Text>
             </View>
@@ -514,12 +523,14 @@ function LeadReportDocument({ job, customer, settings }: ProjectReportData) {
           transported under chain-of-custody protocol to an accredited laboratory for analysis.
         </Text>
 
+        <View wrap={false}>
         <Text style={styles.sectionTitleTight}>Sampling Summary:</Text>
         <View style={styles.summaryBlock}>
           <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Date of Sampling:</Text><ValueOrBlank style={styles.summaryValue} value={formatDateMDY(job.lead_date_sampled ?? job.requested_date)} /></View>
           <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Total # of Samples:</Text><ValueOrBlank style={styles.summaryValue} value={totalSamples} /></View>
           <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Samples Analyzed At:</Text><ValueOrBlank style={styles.summaryValue} value={job.lead_lab_name} /></View>
           <View style={styles.summaryRow}><Text style={styles.summaryLabel}>AIHA Certification#:</Text><ValueOrBlank style={styles.summaryValue} value={job.lead_lab_cert} /></View>
+        </View>
         </View>
 
         <Text style={styles.paragraph}>
@@ -534,7 +545,7 @@ function LeadReportDocument({ job, customer, settings }: ProjectReportData) {
         <Text style={styles.sectionTitle}>Remarks and Limitations:</Text>
         <View style={styles.listBlock}>
           {remarks.map((text, i) => (
-            <View style={styles.listItem} key={i}>
+            <View style={styles.listItem} key={i} wrap={false}>
               <Text style={styles.listIndex}>{i + 1}.</Text>
               <Text style={i === resultRemarkIndex ? styles.resultRemarkText : styles.listText}>{text}</Text>
             </View>
@@ -637,6 +648,7 @@ function FullInspectionAsbestosReportDocument({ job, customer, settings }: Proje
           summary of analytical results provided by {settings.business_name}.
         </Text>
 
+        <View wrap={false}>
         <Text style={styles.sectionTitleFullInspection}>Inspection Summary:</Text>
         <View style={styles.summaryBlock}>
           <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Asbestos Inspector:</Text><ValueOrBlank style={styles.summaryValue} value={inspector.name} /></View>
@@ -647,30 +659,53 @@ function FullInspectionAsbestosReportDocument({ job, customer, settings }: Proje
           <View style={styles.summaryRow}><Text style={styles.summaryLabel}>NIST/NVLAP Certification#:</Text><ValueOrBlank style={styles.summaryValue} value={job.lab_nist_cert} /></View>
           <View style={styles.summaryRow}><Text style={styles.summaryLabel}>MassDLS Lab Certification#:</Text><ValueOrBlank style={styles.summaryValue} value={job.lab_massdls_cert} /></View>
         </View>
+        </View>
 
-        <Text style={styles.sectionTitleFullInspection}>Scope and Approach:</Text>
-        <Text style={styles.paragraph}>{settings.business_name} {FULL_INSPECTION_SCOPE_PARAGRAPH}</Text>
+        <View wrap={false}>
+          <Text style={styles.sectionTitleFullInspection}>Scope and Approach:</Text>
+          <Text style={styles.paragraph}>{settings.business_name} {FULL_INSPECTION_SCOPE_PARAGRAPH}</Text>
+        </View>
         <Text style={styles.paragraph}>{FULL_INSPECTION_NON_SUSPECT_PARAGRAPH}</Text>
         <Text style={styles.paragraph}>{FULL_INSPECTION_WALLS_PARAGRAPH}</Text>
 
-        <Text style={styles.sectionTitleFullInspection}>Bulk Sampling:</Text>
-        <Text style={styles.paragraph}>{FULL_INSPECTION_BULK_SAMPLING_PARAGRAPH}</Text>
-
-        <Text style={styles.sectionTitleFullInspection}>Asbestos Containing Materials:</Text>
-        <Text style={styles.paragraph}>{FULL_INSPECTION_ACM_CATEGORY_PARAGRAPH}</Text>
-
-        <Text style={styles.sectionTitleFullInspection}>Non-Asbestos Containing Materials:</Text>
-        <Text style={styles.paragraph}>{FULL_INSPECTION_NON_ACM_CATEGORY_PARAGRAPH}</Text>
-
-        <Text style={styles.sectionTitleFullInspection}>Remarks and Limitations:</Text>
-        <View style={styles.listBlock}>
-          {remarks.map((text, i) => (
-            <View style={styles.listItemFullInspection} key={i}>
-              <Text style={styles.listIndex}>{i + 1}.</Text>
-              <Text style={styles.listText}>{text}</Text>
-            </View>
-          ))}
+        <View wrap={false}>
+          <Text style={styles.sectionTitleFullInspection}>Bulk Sampling:</Text>
+          <Text style={styles.paragraph}>{FULL_INSPECTION_BULK_SAMPLING_PARAGRAPH}</Text>
         </View>
+
+        <View wrap={false}>
+          <Text style={styles.sectionTitleFullInspection}>Asbestos Containing Materials:</Text>
+          <Text style={styles.paragraph}>{FULL_INSPECTION_ACM_CATEGORY_PARAGRAPH}</Text>
+        </View>
+
+        <View wrap={false}>
+          <Text style={styles.sectionTitleFullInspection}>Non-Asbestos Containing Materials:</Text>
+          <Text style={styles.paragraph}>{FULL_INSPECTION_NON_ACM_CATEGORY_PARAGRAPH}</Text>
+        </View>
+
+        {/* Title kept with just its first remark (wrap={false}) — the
+            whole list isn't forced to stay together too, since a full
+            inspection's remarks can run long and this domain is free to
+            run past one page (see the comment on STANDARD size above). */}
+        <View wrap={false}>
+          <Text style={styles.sectionTitleFullInspection}>Remarks and Limitations:</Text>
+          {remarks.length > 0 && (
+            <View style={styles.listItemFullInspection} wrap={false}>
+              <Text style={styles.listIndex}>1.</Text>
+              <Text style={styles.listText}>{remarks[0]}</Text>
+            </View>
+          )}
+        </View>
+        {remarks.length > 1 && (
+          <View style={styles.listBlock}>
+            {remarks.slice(1).map((text, i) => (
+              <View style={styles.listItemFullInspection} key={i + 1} wrap={false}>
+                <Text style={styles.listIndex}>{i + 2}.</Text>
+                <Text style={styles.listText}>{text}</Text>
+              </View>
+            ))}
+          </View>
+        )}
 
         <Text style={styles.paragraph}>
           Should you have any questions or need additional information, please contact our office at {settings.business_phone}. Thank you for the
@@ -879,19 +914,19 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
           our scope of work, sampling methodology, discussion of results and conclusion.
         </Text>
 
-        <Text style={styles.romanTitle} minPresenceAhead={30}>I.  SCOPE OF WORK</Text>
+        <Text style={styles.romanTitle} minPresenceAhead={80}>I.  SCOPE OF WORK</Text>
         <View style={styles.listBlock}>
           {scopeItems.map((text, i) => (
-            <View style={styles.listItem} key={i}>
+            <View style={styles.listItem} key={i} wrap={false}>
               <Text style={styles.listIndex}>{i + 1}.</Text>
               <Text style={styles.listText}>{text}</Text>
             </View>
           ))}
         </View>
 
-        <Text style={styles.romanTitle} minPresenceAhead={30}>II.  SAMPLING METHODOLOGY</Text>
+        <Text style={styles.romanTitle} minPresenceAhead={80}>II.  SAMPLING METHODOLOGY</Text>
         {methodologySections.map((section, i) => (
-          <View key={i}>
+          <View key={i} wrap={false}>
             <Text style={styles.subHeading}>{i + 1}. {section.title}</Text>
             {section.paragraphs.map((p, j) => (
               <Text style={styles.paragraph} key={j}>{p}</Text>
@@ -899,19 +934,19 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
           </View>
         ))}
 
-        <Text style={styles.romanTitle} minPresenceAhead={30}>III.  DISCUSSION OF RESULTS</Text>
+        <Text style={styles.romanTitle} minPresenceAhead={80}>III.  DISCUSSION OF RESULTS</Text>
         {hasAir && (
-          <>
+          <View wrap={false}>
             <Text style={styles.subHeading}>1. Airborne Sampling for Mold:</Text>
             <Text style={styles.paragraph}>{MOLD_ACGIH_PARAGRAPH}</Text>
             <Text style={styles.paragraph}>{airSampleCountSentence}</Text>
-          </>
+          </View>
         )}
         {discussionParagraphs.length > 0
           ? discussionParagraphs.map((p, i) => <Text style={styles.paragraph} key={i}>{p}</Text>)
           : !hasAir && <Text style={styles.paragraph}>NO RESULTS YET.</Text>}
 
-        <Text style={styles.romanTitle} minPresenceAhead={30}>IV.  CONCLUSIONS & RECOMMENDATIONS</Text>
+        <Text style={styles.romanTitle} minPresenceAhead={80}>IV.  CONCLUSIONS & RECOMMENDATIONS</Text>
         {hasAir && (
           <>
             <Text style={styles.paragraph}>{MOLD_INDOOR_AIR_QUALITY_PARAGRAPH}</Text>
@@ -923,7 +958,7 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
           ? <RenderTextBlocks blocks={conclusionBlocks} />
           : !hasAir && !isNewtonFireFlood && <Text style={styles.paragraph}>NO RECOMMENDATIONS YET.</Text>}
 
-        <Text style={styles.romanTitle} minPresenceAhead={30}>V.  LIMITATIONS AND CONDITIONS OF THIS REPORT</Text>
+        <Text style={styles.romanTitle} minPresenceAhead={80}>V.  LIMITATIONS AND CONDITIONS OF THIS REPORT</Text>
         <Text style={styles.paragraph}>
           The recommendations and conclusions discussed herein are based solely and in reliance upon information
           collected as a result of the activities delineated in the Proposal. {settings.business_name} neither attests
@@ -1059,9 +1094,13 @@ function SignatureBlock({ settings, showLicense }: { settings: Settings; showLic
       <Text style={styles.signatureName}>{settings.business_name}</Text>
       <Image src={SIGNATURE_PATH} style={styles.signatureImage} />
       <Text style={styles.signatureLine}>{inspector.name}</Text>
-      <Text style={styles.signatureLine}>
-        {inspector.title}{showLicense && inspector.license_number ? ` — Asbestos Inspector License #${inspector.license_number}` : ""}
-      </Text>
+      {/* No title (e.g. "Project Manager") under the name per Tim — just
+          the license line where one applies (asbestos only), and nothing
+          at all otherwise, rather than a title-less line with a stray
+          leading "—". */}
+      {showLicense && inspector.license_number && (
+        <Text style={styles.signatureLine}>Asbestos Inspector License #{inspector.license_number}</Text>
+      )}
     </View>
   );
 }

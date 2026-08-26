@@ -2766,6 +2766,47 @@ export function ProjectDetailDialog({
                               {draftStatusText(job.invoice_drafted_at, job.invoice_sent_at, combinedDraft.status, "Drafted", "Drafted")}
                             </p>
                           )}
+                          {/* Regenerating only makes sense while it's still sitting
+                              unsent in Gmail — this rebuilds the report/invoice PDFs
+                              from whatever's on the job right now (e.g. after editing
+                              Discussion of Results/Conclusions) and replaces the
+                              existing draft, so an edit made after the draft was first
+                              created doesn't otherwise require deleting it by hand. */}
+                          {!job.invoice_sent_at && combinedDraft.status?.status !== "sent" && (
+                            <div className="mt-1.5">
+                              {combinedDraft.confirmingRedraft ? (
+                                <div className="flex items-center justify-center gap-2 text-xs">
+                                  <span className="text-slate-500">Replace the existing draft?</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => combinedDraft.create(true)}
+                                    className="font-bold uppercase text-red-600 hover:underline"
+                                  >
+                                    Yes, regenerate
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => combinedDraft.setConfirmingRedraft(false)}
+                                    className="text-slate-500 hover:underline"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => combinedDraft.create()}
+                                  disabled={combinedDraft.creating}
+                                  className="text-xs font-medium text-slate-500 underline hover:text-slate-700 disabled:opacity-50"
+                                >
+                                  {combinedDraft.creating ? "Regenerating…" : "Regenerate draft"}
+                                </button>
+                              )}
+                              {combinedDraft.message && (
+                                <p className="mt-1 text-xs text-slate-500">{combinedDraft.message}</p>
+                              )}
+                            </div>
+                          )}
                         </div>
                       ) : (
                         <p className="text-sm text-slate-400">Creating draft…</p>

@@ -1007,11 +1007,18 @@ export default function JobsDashboard() {
               placeholder="Address"
               className="w-full min-w-0 rounded-lg border border-slate-300 px-2.5 py-1 text-sm sm:w-0 sm:flex-1"
             />
+            {/* Per Tim — the browser's own "mm/dd/yyyy" for an empty date
+                input isn't a real placeholder (date inputs don't support
+                :placeholder-shown the way text inputs do), so it renders in
+                the input's own text color by default — same dark color as
+                a real picked date, unlike the lighter placeholder gray the
+                three text inputs beside it show. dateQuery (already
+                tracked in state) stands in for "is it actually empty". */}
             <input
               type="date"
               value={dateQuery}
               onChange={(e) => setDateQuery(e.target.value)}
-              className="w-full shrink-0 rounded-lg border border-slate-300 px-2.5 py-1 text-sm sm:w-36"
+              className={`w-full shrink-0 rounded-lg border border-slate-300 px-2.5 py-1 text-sm sm:w-36 ${dateQuery ? "text-slate-900" : "text-slate-400"}`}
             />
             {dateQuery && (
               <button onClick={() => setDateQuery("")} className="shrink-0 text-xs text-brand-600 underline">

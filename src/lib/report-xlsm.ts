@@ -2,7 +2,10 @@ import path from "path";
 import ExcelJS from "exceljs";
 import type { Job, Customer } from "@/lib/types";
 import { splitAddress } from "@/lib/address";
-import { ASBESTOS_POSITIVE_REMARK, ASBESTOS_NEGATIVE_REMARK, domainForServiceTypeLabel } from "@/lib/report-findings";
+import {
+  ASBESTOS_POSITIVE_REMARK, ASBESTOS_NEGATIVE_REMARK, domainForServiceTypeLabel,
+  BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID, BOSTON_HARBOR_WATER_RESTORATION_REPORT_CONTACT_NAME,
+} from "@/lib/report-findings";
 
 const TEMPLATE_PATH = path.join(process.cwd(), "src", "lib", "templates", "asbestos-limited-template.xlsm");
 
@@ -13,14 +16,24 @@ const TEMPLATE_PATH = path.join(process.cwd(), "src", "lib", "templates", "asbes
 const POSITIVE_REMARK = ASBESTOS_POSITIVE_REMARK;
 const NEGATIVE_REMARK = ASBESTOS_NEGATIVE_REMARK;
 
+// Same override as report-pdf.tsx's commonLetterFields — Boston Harbor
+// Water Restoration's reports always go out to Joe Kline, regardless of
+// which contact the job is actually tied to.
+function reportRecipientName(customer: Customer): string {
+  return customer.company_id === BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID
+    ? BOSTON_HARBOR_WATER_RESTORATION_REPORT_CONTACT_NAME
+    : customer.name;
+}
+
 // The "RE:"/recipient block is a fixed 4-line grid (company, contact name,
 // street, city/state/zip) — when there's no company on file, the remaining
 // three lines shift up rather than leaving a blank line in the middle.
 function recipientLines(customer: Customer): [string, string, string, string] {
   const { street, cityStateZip } = splitAddress(customer.billing_address);
+  const name = reportRecipientName(customer);
   const lines = customer.company
-    ? [customer.company, customer.name, street, cityStateZip]
-    : [customer.name, street, cityStateZip, ""];
+    ? [customer.company, name, street, cityStateZip]
+    : [name, street, cityStateZip, ""];
   return [lines[0] ?? "", lines[1] ?? "", lines[2] ?? "", lines[3] ?? ""];
 }
 
@@ -50,7 +63,8 @@ export async function renderProjectXlsm({ job, customer }: ProjectXlsmData): Pro
   report.getCell("B4").value = line2;
   report.getCell("B5").value = line3;
   report.getCell("B6").value = line4;
-  report.getCell("C13").value = customer.name ? `${customer.name}:` : "";
+  const recipientName = reportRecipientName(customer);
+  report.getCell("C13").value = recipientName ? `${recipientName}:` : "";
 
   report.getCell("H21").value = job.lab_name ?? "";
   report.getCell("H22").value = job.lab_nist_cert ?? "";

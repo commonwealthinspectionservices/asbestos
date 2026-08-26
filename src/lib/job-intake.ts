@@ -31,6 +31,10 @@ import {
   type GmailMessage,
 } from "@/lib/gmail";
 import type { Settings } from "@/lib/types";
+import {
+  BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID,
+  BOSTON_HARBOR_WATER_RESTORATION_REPORT_CONTACT_ID,
+} from "@/lib/report-findings";
 
 // Applied to every message this pipeline actually processes (success or
 // alerted failure) — see getOrCreateLabelId's own comment for why this,
@@ -356,8 +360,17 @@ export async function createJobFromIntake(params: {
   // — the same mechanism lab-email.ts already resolves for invoices) if one's
   // set, else whichever contact has been on file longest — an explicit,
   // deterministic fallback rather than "whichever row Postgres returns
-  // first," which has no ordering guarantee at all.
-  const customer = contacts.find((c) => c.id === company.billing_contact_id) ?? contacts[0];
+  // first," which has no ordering guarantee at all. Boston Harbor Water
+  // Restoration overrides this: its billing contact (Nazli, who typically
+  // sends these intake emails) is a distinct role from who results go to
+  // (always Joe Kline, per Tim — see the constant's own comment), so this
+  // job's own contact is set directly to him rather than inheriting the
+  // billing default the report-rendering override elsewhere only patches
+  // at display time.
+  const defaultContactId = company.id === BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID
+    ? BOSTON_HARBOR_WATER_RESTORATION_REPORT_CONTACT_ID
+    : company.billing_contact_id;
+  const customer = contacts.find((c) => c.id === defaultContactId) ?? contacts[0];
 
   // An explicit out-of-state town (the town line carried a state code that
   // isn't MA) is rejected before even attempting to geocode — cheaper, and

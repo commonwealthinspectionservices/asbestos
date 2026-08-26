@@ -32,6 +32,17 @@ export const NEWTON_FIRE_FLOOD_STANDARD_MOLD_CONCLUSION = `• Based on visual i
 • Where porous items have sustained microbial growth or water intrusion, removal and disposal is advised.
 • Semi-porous and non-porous structural elements should be scrubbed and treated with an appropriate EPA registered antimicrobial agent after HEPA vacuuming to prevent further surface growth.`;
 
+// Per Tim, 2026-08-26: Boston Harbor Water Restoration's reports must
+// always be addressed to Joe Kline specifically — Nazli Toffie is the
+// company's billing contact (companies.billing_contact_id) and often the
+// one who actually emails jobs in, but that's a distinct role from who
+// results get written out to. Matched against company_id (like
+// NEWTON_FIRE_FLOOD_COMPANY_ID above) so it applies no matter which
+// contact at the company a given job happens to be tied to.
+export const BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID = "4a76d165-fc9d-4088-8b4e-b7094a8dcedc";
+export const BOSTON_HARBOR_WATER_RESTORATION_REPORT_CONTACT_ID = "6f702e5c-0ae4-41c5-b0d9-7264331c16a2";
+export const BOSTON_HARBOR_WATER_RESTORATION_REPORT_CONTACT_NAME = "Joe Kline";
+
 // Which final-report domain a single service-type label belongs to.
 // Defaults to "asbestos" for anything that doesn't clearly say "mold" or
 // "lead" (a custom/free-text type, or the common case where the label is

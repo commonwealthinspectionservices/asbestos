@@ -16,6 +16,7 @@ import {
   ASBESTOS_POSITIVE_REMARK, ASBESTOS_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK,
   moldScopeOfWorkItems, moldServiceTypeFlags, MOLD_SCOPE_CLOSING_LINE, MOLD_ACGIH_PARAGRAPH, MOLD_INDOOR_AIR_QUALITY_PARAGRAPH, MOLD_AIR_INVESTIGATION_GOAL_PARAGRAPH,
   NEWTON_FIRE_FLOOD_COMPANY_ID, NEWTON_FIRE_FLOOD_STANDARD_MOLD_CONCLUSION,
+  BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID, BOSTON_HARBOR_WATER_RESTORATION_REPORT_CONTACT_NAME,
   jobReportDomains, domainForServiceTypeLabel, type ReportDomain,
   isFullInspectionAsbestosJob, FULL_INSPECTION_SCOPE_PARAGRAPH, FULL_INSPECTION_NON_SUSPECT_PARAGRAPH,
   FULL_INSPECTION_WALLS_PARAGRAPH, FULL_INSPECTION_BULK_SAMPLING_PARAGRAPH, FULL_INSPECTION_ACM_CATEGORY_PARAGRAPH,
@@ -1193,7 +1194,14 @@ function SignatureBlock({ settings, showLicense }: { settings: Settings; showLic
 // back to today only when the job has no date recorded at all, so the
 // letterhead never renders truly blank.
 function commonLetterFields(job: Job, customer: Customer, settings: Settings, sampledDate: string | null) {
-  const knownCustomerName = customer.name === "Unknown contact" ? null : customer.name;
+  // Per Tim: every Boston Harbor Water Restoration report is addressed to
+  // Joe Kline specifically, regardless of which contact at the company
+  // this particular job is actually tied to (see the constant's own
+  // comment in report-findings.ts) — Nazli, who often submits the job,
+  // is the billing contact, a separate role.
+  const knownCustomerName = customer.company_id === BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID
+    ? BOSTON_HARBOR_WATER_RESTORATION_REPORT_CONTACT_NAME
+    : customer.name === "Unknown contact" ? null : customer.name;
 
   const dateText = formatDateLongOrdinal(sampledDate ? new Date(`${sampledDate}T00:00:00`) : new Date());
 

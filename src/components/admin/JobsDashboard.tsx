@@ -2365,14 +2365,33 @@ export function ProjectDetailDialog({
                   </a>
                 ) : null;
               })();
+              // Per Tim — the report/invoice sent-status lines. Two
+              // renderings below, not one responsive one: nested inside the
+              // Project #/Edit row as an absolute overlay on desktop (so it
+              // sits right under the mail icon/Edit without pushing Status
+              // down — no gap between Project # and Status), but as a plain
+              // block underneath on mobile instead — nesting it in that same
+              // flex row and just switching position:static there forced a
+              // third flex item into a row with no space for it, overflowing
+              // the modal horizontally. Both lines always show, sent-or-not,
+              // rather than only appearing once something's actually gone
+              // out.
+              const showSentStatus = job.source !== "subcontractor" && reportComplete && job.invoice_total_cents != null;
+              const sentStatusLines = (
+                <>
+                  <p className="text-sm text-slate-500">
+                    {job.report_sent_at ? `Report sent ${formatDateTime(job.report_sent_at)}` : "Report not yet sent"}
+                  </p>
+                  <p className="text-sm text-slate-500">
+                    {job.invoice_sent_at ? `Invoice sent ${formatDateTime(job.invoice_sent_at)}` : "Invoice not yet sent"}
+                  </p>
+                </>
+              );
               return (
                 <>
-                  {/* Edit stays top-right next to Project # at every width; the portal badge (subcontractor jobs only) sits beside Edit on desktop, same as always. Project #'s own value is a lot bigger than every other DetailField here per Tim — it's the one thing on this whole tab worth spotting at a glance. */}
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-3xl font-bold text-black">Project #</span>
-                      <span className="text-3xl font-bold text-black">{job.project_number}</span>
-                    </div>
+                  {/* Edit stays top-right next to Project # at every width; the portal badge (subcontractor jobs only) sits beside Edit on desktop, same as always. */}
+                  <div className="relative flex items-center justify-between gap-2">
+                    <DetailField label="Project #" value={job.project_number} />
                     <div className="flex shrink-0 items-center gap-2">
                       <span className="hidden sm:inline-flex">{portalBadge}</span>
                       {/* Per Tim — a quick way to jump to this job's whole
@@ -2400,20 +2419,12 @@ export function ProjectDetailDialog({
                         Edit
                       </button>
                     </div>
+                    {showSentStatus && (
+                      <div className="absolute right-0 top-full hidden flex-col items-end sm:flex">{sentStatusLines}</div>
+                    )}
                   </div>
-                  {/* Per Tim — sits directly under the mail icon/Edit
-                      button. Both lines always show, sent-or-not, rather
-                      than only appearing once something's actually gone
-                      out. */}
-                  {job.source !== "subcontractor" && reportComplete && job.invoice_total_cents != null && (
-                    <div className="flex flex-col items-end">
-                      <p className="text-sm text-slate-500">
-                        {job.report_sent_at ? `Report sent ${formatDateTime(job.report_sent_at)}` : "Report not yet sent"}
-                      </p>
-                      <p className="text-sm text-slate-500">
-                        {job.invoice_sent_at ? `Invoice sent ${formatDateTime(job.invoice_sent_at)}` : "Invoice not yet sent"}
-                      </p>
-                    </div>
+                  {showSentStatus && (
+                    <div className="flex flex-col items-end sm:hidden">{sentStatusLines}</div>
                   )}
                   <DetailField label="Status" value={statusLabelForJob(job, job.status)} />
                   <DetailField

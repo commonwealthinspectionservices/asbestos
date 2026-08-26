@@ -27,8 +27,7 @@ export const LEAD_POSITIVE_REMARK =
 // job's own customer_id, since a second contact at the same company gets
 // the same standing text.
 export const NEWTON_FIRE_FLOOD_COMPANY_ID = "6481c518-8a22-4c83-83a1-6341e66d1f62";
-export const NEWTON_FIRE_FLOOD_STANDARD_MOLD_CONCLUSION = `Based on visual inspection and moisture assessment, materials exhibiting mold growth, elevated moisture levels, or organic buildup should undergo targeted remediation and specialized cleaning to restore indoor environmental quality.
-
+export const NEWTON_FIRE_FLOOD_STANDARD_MOLD_CONCLUSION = `• Based on visual inspection and moisture assessment, materials exhibiting mold growth, elevated moisture levels, or organic buildup should undergo targeted remediation and specialized cleaning to restore indoor environmental quality.
 • It is recommended that all structural surfaces, building components and hard materials identified with mold or microbial accumulation undergo thorough HEPA-vacuuming to capture settled spores and particulate prior to and following treatment.
 • Where porous items have sustained microbial growth or water intrusion, removal and disposal is advised.
 • Semi-porous and non-porous structural elements should be scrubbed and treated with an appropriate EPA registered antimicrobial agent after HEPA vacuuming to prevent further surface growth.`;

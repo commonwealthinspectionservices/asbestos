@@ -67,13 +67,22 @@ export async function createStripeInvoiceForJob(
   //    admin manually voiding it in the Stripe dashboard. Void it and fall
   //    through to create a fresh one instead, so "Link to pay" always
   //    reflects what the job is actually billed for right now.
+  //  - still open, but missing the project-number custom_field or its
+  //    description no longer matches job.service_address: an invoice
+  //    created before those fields existed (or before the address
+  //    changed) would otherwise sit there forever without them, since
+  //    nothing else about it — status or total — ever goes stale.
   if (job.stripe_invoice_id) {
     const existing = await stripe.invoices.retrieve(job.stripe_invoice_id);
     if (existing.status === "paid") {
       return { stripeInvoiceId: existing.id, hostedInvoiceUrl: existing.hosted_invoice_url ?? null };
     }
+    const hasCurrentProjectNumber = !job.project_number
+      || existing.custom_fields?.some((f) => f.name === "Project #" && f.value === job.project_number);
+    const hasCurrentAddress = !job.service_address || existing.description === job.service_address;
     const isStale = existing.status === "void" || existing.status === "uncollectible"
-      || existing.total !== job.invoice_total_cents;
+      || existing.total !== job.invoice_total_cents
+      || !hasCurrentProjectNumber || !hasCurrentAddress;
     if (!isStale) {
       return { stripeInvoiceId: existing.id, hostedInvoiceUrl: existing.hosted_invoice_url ?? null };
     }

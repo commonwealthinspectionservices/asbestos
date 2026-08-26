@@ -97,10 +97,15 @@ export async function createStripeInvoiceForJob(
     days_until_due: 30,
     metadata: { job_id: job.id },
     // metadata above is Stripe-dashboard-only — the customer's own hosted
-    // invoice page needs the project number as a visible custom_field to
-    // actually show it, per Tim: "every link to pay should just show the
-    // job number".
+    // invoice page needs the project number and job site address visibly
+    // shown, per Tim. custom_fields values are capped at 30 chars by
+    // Stripe, too short for most real addresses ("690 Blue Hill Ave,
+    // Dorchester, MA 02121" alone is 37), so the address goes in
+    // `description` (shown right under the invoice header, no length
+    // limit that would realistically bite) while the short project number
+    // still gets its own custom_field.
     ...(job.project_number ? { custom_fields: [{ name: "Project #", value: job.project_number }] } : {}),
+    ...(job.service_address ? { description: job.service_address } : {}),
   });
 
   for (const item of job.invoice_line_items) {

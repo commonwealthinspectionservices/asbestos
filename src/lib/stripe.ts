@@ -99,11 +99,17 @@ export async function createStripeInvoiceForJob(
   //    admin manually voiding it in the Stripe dashboard. Void it and fall
   //    through to create a fresh one instead, so "Link to pay" always
   //    reflects what the job is actually billed for right now.
-  //  - still open, but missing the project-number custom_field or its
-  //    description no longer matches job.service_address: an invoice
-  //    created before those fields existed (or before the address
-  //    changed) would otherwise sit there forever without them, since
-  //    nothing else about it — status or total — ever goes stale.
+  //  - still open, but missing the project-number custom_field, its
+  //    description no longer matches job.service_address, or its own
+  //    `number` doesn't start with the job's project number: an invoice
+  //    created before any of these fields existed would otherwise sit
+  //    there forever without them, since nothing else about it — status
+  //    or total — ever goes stale. The `number` check uses startsWith
+  //    rather than equality since a job whose invoice gets regenerated
+  //    more than once picks up a "-2", "-3", ... suffix (see
+  //    createInvoiceWithProjectNumber below) to satisfy Stripe's
+  //    account-wide-unique, never-released-by-voiding constraint on
+  //    custom numbers — confirmed live.
   if (job.stripe_invoice_id) {
     const existing = await stripe.invoices.retrieve(job.stripe_invoice_id);
     if (existing.status === "paid") {
@@ -112,9 +118,11 @@ export async function createStripeInvoiceForJob(
     const hasCurrentProjectNumber = !job.project_number
       || existing.custom_fields?.some((f) => f.name === "Project #" && f.value === job.project_number);
     const hasCurrentAddress = !job.service_address || existing.description === job.service_address;
+    const hasCurrentNumber = !job.project_number
+      || (existing.number != null && existing.number.startsWith(job.project_number));
     const isStale = existing.status === "void" || existing.status === "uncollectible"
       || existing.total !== job.invoice_total_cents
-      || !hasCurrentProjectNumber || !hasCurrentAddress;
+      || !hasCurrentProjectNumber || !hasCurrentAddress || !hasCurrentNumber;
     if (!isStale) {
       return { stripeInvoiceId: existing.id, hostedInvoiceUrl: existing.hosted_invoice_url ?? null };
     }

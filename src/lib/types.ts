@@ -255,8 +255,11 @@ export interface Job {
   /** Asbestos's own Overall Findings sentence/additional remarks — lead has its own lead_report_summary/lead_report_notes below, mold its own mold_report_summary/mold_report_notes, so a job combining domains never shares this between their separate report PDFs. */
   report_summary: string | null;
   report_notes: string | null;
-  /** Mold's own Discussion of Results/Conclusions & Recommendations content, separate from asbestos's report_summary/report_notes and lead's lead_report_summary/lead_report_notes — a job combining mold with asbestos or lead produces two (or three) separate final reports, so they can't share one field. */
-  mold_report_summary: string | null;
+  /** Mold's own Discussion of Results findings, one field per sample type since each has its own numbered subsection and its own distinct findings (confirmed against a real air+bulk+swab combo report, "MOLD GOLD.pdf" — a single shared field misattributes one type's findings under another's heading on a combo job). Separate from asbestos's report_summary/report_notes and lead's lead_report_summary/lead_report_notes for the same cross-domain reason those are split out. */
+  mold_air_discussion: string | null;
+  mold_bulk_discussion: string | null;
+  mold_swab_discussion: string | null;
+  /** Mold's own Conclusions & Recommendations content — not split per sample type like the discussion fields above, since real reports give one shared conclusion/recommendation regardless of which sample types are on the job. */
   mold_report_notes: string | null;
   /** Mold's own lab name, separate from lab_name (asbestos's) and lead_lab_name (lead's) — a mixed job can use a different lab per service type. */
   mold_lab_name: string | null;

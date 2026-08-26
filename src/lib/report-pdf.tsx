@@ -758,16 +758,18 @@ function FullInspectionAsbestosReportDocument({ job, customer, settings }: Proje
   );
 }
 
-// Modeled directly on two real final mold reports (letterhead cover letter +
-// EMSL Air-O-Cell/bulk lab reports as an appendix) — see the "MOLD 26-2641"
-// and "FINAL MOLD REPORT 14 Rawson Road" letters. Scope of Work, Sampling
-// Methodology, and Limitations are fixed boilerplate matched to those
-// letters; Discussion of Results and Conclusions & Recommendations are
-// exactly what the admin enters in mold_report_summary/mold_report_notes
+// Modeled directly on real final mold reports — see the "MOLD 26-2641",
+// "FINAL MOLD REPORT 14 Rawson Road", and "MOLD GOLD" (air+bulk+swab combo,
+// FLI project 22-1885) letters. Scope of Work, Sampling Methodology, and
+// Limitations are fixed boilerplate matched to those letters. Discussion of
+// Results mixes standard per-type sentences (auto-generated, see
+// air/bulk/swabSampleCountSentence below) with the admin's own free-form
+// per-type findings (mold_air_discussion/mold_bulk_discussion/
+// mold_swab_discussion — split per type since MOLD GOLD confirms each type
+// has its own distinct findings, not one shared blob). Conclusions &
+// Recommendations is exactly what the admin enters in mold_report_notes
 // (separate from asbestos/lead's report_summary/report_notes, since a job
-// combining mold with either produces two separate final reports) — this
-// letter doesn't try to auto-structure that text,
-// since the real letters are themselves free-form prose written per job.
+// combining mold with either produces two separate final reports).
 function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
   const { knownCustomerName, dateText, billingStreet, billing, serviceStreet, service } = commonLetterFields(job, customer, settings, job.mold_date_sampled ?? job.requested_date);
 
@@ -842,7 +844,14 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
   ];
 
   const conclusionBlocks = blocksFromText(job.mold_report_notes);
-  const discussionParagraphs = paragraphsFromText(job.mold_report_summary);
+  // One Discussion of Results findings field per sample type — each type
+  // gets its own numbered subsection with its own distinct findings
+  // (confirmed against a real air+bulk+swab combo report, "MOLD GOLD.pdf");
+  // a single shared field would misattribute one type's findings under
+  // another's heading on a combo job.
+  const airDiscussionParagraphs = paragraphsFromText(job.mold_air_discussion);
+  const bulkDiscussionParagraphs = paragraphsFromText(job.mold_bulk_discussion);
+  const swabDiscussionParagraphs = paragraphsFromText(job.mold_swab_discussion);
   const isNewtonFireFlood = customer.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID;
   const standardConclusionBlocks = isNewtonFireFlood ? blocksFromText(NEWTON_FIRE_FLOOD_STANDARD_MOLD_CONCLUSION) : [];
 
@@ -869,7 +878,7 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
   // Bulk's own standard count sentence — confirmed word-for-word per Tim —
   // is always auto-generated from the lab's own sample count/date, the same
   // way air's is just above, and never retyped by hand into
-  // mold_report_summary (that admin cell is reserved for additional
+  // mold_bulk_discussion (that admin cell is reserved for bulk's own
   // notable findings beyond this sentence, not a restatement of it).
   const bulkSampleTotal = Object.entries(job.sample_counts ?? {})
     .filter(([label]) => label.toLowerCase().includes("bulk"))
@@ -972,35 +981,38 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
 
         <Text style={styles.romanTitle} minPresenceAhead={80}>III.  DISCUSSION OF RESULTS</Text>
         {hasAir && (
-          <View wrap={false}>
-            <Text style={styles.subHeading}>{airDiscussionNumber}. Airborne Sampling for Mold:</Text>
-            <Text style={styles.paragraph}>{MOLD_ACGIH_PARAGRAPH}</Text>
-            <Text style={styles.paragraph}>{airSampleCountSentence}</Text>
-          </View>
+          <>
+            <View wrap={false}>
+              <Text style={styles.subHeading}>{airDiscussionNumber}. Airborne Sampling for Mold:</Text>
+              <Text style={styles.paragraph}>{MOLD_ACGIH_PARAGRAPH}</Text>
+              <Text style={styles.paragraph}>{airSampleCountSentence}</Text>
+            </View>
+            {/* Air's own findings — separate from the heading+auto-sentence
+                block above so a long job-specific narrative can still wrap
+                across a page break normally, rather than being forced into
+                one unbreakable chunk alongside the fixed paragraphs. */}
+            {airDiscussionParagraphs.map((p, i) => <Text style={styles.paragraph} key={i}>{p}</Text>)}
+          </>
         )}
         {hasBulk && (
-          <View wrap={false}>
-            <Text style={styles.subHeading}>{bulkDiscussionNumber}. Bulk Sampling for Mold:</Text>
-            <Text style={styles.paragraph}>{bulkSampleCountSentence}</Text>
-          </View>
+          <>
+            <View wrap={false}>
+              <Text style={styles.subHeading}>{bulkDiscussionNumber}. Bulk Sampling for Mold:</Text>
+              <Text style={styles.paragraph}>{bulkSampleCountSentence}</Text>
+            </View>
+            {bulkDiscussionParagraphs.map((p, i) => <Text style={styles.paragraph} key={i}>{p}</Text>)}
+          </>
         )}
         {hasSwab && (
-          <View wrap={false}>
-            <Text style={styles.subHeading}>{swabDiscussionNumber}. Swab Sampling for Mold:</Text>
-            <Text style={styles.paragraph}>{swabSampleCountSentence}</Text>
-          </View>
+          <>
+            <View wrap={false}>
+              <Text style={styles.subHeading}>{swabDiscussionNumber}. Swab Sampling for Mold:</Text>
+              <Text style={styles.paragraph}>{swabSampleCountSentence}</Text>
+            </View>
+            {swabDiscussionParagraphs.map((p, i) => <Text style={styles.paragraph} key={i}>{p}</Text>)}
+          </>
         )}
-        {/* Additional notable findings — one shared admin cell, always
-            trailing and unlabeled rather than nested under any one type's
-            heading. It used to render under swab's heading specifically,
-            which meant findings about air or bulk typed into this same
-            cell rendered mislabeled as swab's own findings on an
-            air+bulk+swab job — now that every type has its own standard
-            sentence above, this cell is purely supplementary to all of
-            them, not owned by any single one. */}
-        {discussionParagraphs.length > 0
-          ? discussionParagraphs.map((p, i) => <Text style={styles.paragraph} key={i}>{p}</Text>)
-          : !hasAir && !hasBulk && !hasSwab && <Text style={styles.paragraph}>NO RESULTS YET.</Text>}
+        {!hasAir && !hasBulk && !hasSwab && <Text style={styles.paragraph}>NO RESULTS YET.</Text>}
 
         <Text style={styles.romanTitle} minPresenceAhead={80}>IV.  CONCLUSIONS & RECOMMENDATIONS</Text>
         {hasAir && (

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import type { Company, Customer, FullInspectionMaterial, InvoiceLineItem, JobDocument, JobWithCustomer, LabProfile, PricingZone, SampleItem, ServiceType } from "@/lib/types";
 import { defaultInvoiceLineItems, sampleDescriptionForServiceType } from "@/lib/invoice-defaults";
-import { ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK, jobReportDomains, domainForServiceTypeLabel, isFullInspectionAsbestosJob, NEWTON_FIRE_FLOOD_COMPANY_ID, type ReportDomain } from "@/lib/report-findings";
+import { ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK, moldServiceTypeFlags, jobReportDomains, domainForServiceTypeLabel, isFullInspectionAsbestosJob, NEWTON_FIRE_FLOOD_COMPANY_ID, type ReportDomain } from "@/lib/report-findings";
 import { splitAddress, parseAddressToFields, buildBillingAddress, googleMapsUrl, wazeUrl } from "@/lib/address";
 import { joinName, splitFullName, toTitleCase } from "@/lib/name";
 import { telHref } from "@/lib/phone";
@@ -454,8 +454,9 @@ function reportChecklist(job: JobWithCustomer, domain: ReportDomain): { label: s
       { label: "Sample count", done: totalSamples > 0 },
       { label: "Lab info", done: Boolean(job.mold_lab_name) },
       // Air, bulk, and swab each have their own fixed, auto-generated
-      // sample-count sentence for Discussion of Results — mold_report_summary
-      // is purely supplementary now, never required for any one of them.
+      // sample-count sentence for Discussion of Results — the admin's own
+      // per-type findings fields are optional additions on top of that, not
+      // required for this checklist item to be considered done.
       { label: "Results", done: totalSamples > 0 },
     ];
   }
@@ -1520,10 +1521,14 @@ export function ProjectDetailDialog({
   // report_summary above, since a job combining asbestos and lead produces
   // two separate final reports and can't share one field between them.
   const [leadReportSummaryInput, setLeadReportSummaryInput] = useState(job.lead_report_summary ?? "");
-  // Mold's own Discussion of Results/Conclusions & Recommendations —
-  // same reasoning, separate from asbestos's report_summary/report_notes
-  // and lead's lead_report_summary above.
-  const [moldReportSummaryInput, setMoldReportSummaryInput] = useState(job.mold_report_summary ?? "");
+  // Mold's own Discussion of Results/Conclusions & Recommendations — same
+  // reasoning, separate from asbestos's report_summary/report_notes and
+  // lead's lead_report_summary above. Discussion of Results is further
+  // split one field per sample type (see mold_air_discussion's own comment
+  // in types.ts for why), so this needs three inputs, not one.
+  const [moldAirDiscussionInput, setMoldAirDiscussionInput] = useState(job.mold_air_discussion ?? "");
+  const [moldBulkDiscussionInput, setMoldBulkDiscussionInput] = useState(job.mold_bulk_discussion ?? "");
+  const [moldSwabDiscussionInput, setMoldSwabDiscussionInput] = useState(job.mold_swab_discussion ?? "");
   const [moldReportNotesInput, setMoldReportNotesInput] = useState(job.mold_report_notes ?? "");
   const moldReportNotesRef = useRef<HTMLTextAreaElement>(null);
   // Which domain's report is showing on the Report tab — a job combining
@@ -1692,7 +1697,7 @@ export function ProjectDetailDialog({
     </div>
   );
   // report_summary is one shared field for the whole job's asbestos/lead
-  // report (mold has its own separate mold_report_summary now, so no more
+  // report (mold has its own separate discussion fields now, so no more
   // cross-domain field sharing) — the Result dropdown only ever needs to
   // render once, but has to anchor to whichever label is actually asbestos
   // or lead. A mixed job (e.g. asbestos + mold air sampling) can order its
@@ -1725,11 +1730,29 @@ export function ProjectDetailDialog({
     onChanged();
   }
 
-  async function saveMoldReportSummary(value: string) {
+  async function saveMoldAirDiscussion(value: string) {
     await fetch(`/api/admin/jobs/${job.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mold_report_summary: value.trim() || null }),
+      body: JSON.stringify({ mold_air_discussion: value.trim() || null }),
+    });
+    onChanged();
+  }
+
+  async function saveMoldBulkDiscussion(value: string) {
+    await fetch(`/api/admin/jobs/${job.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mold_bulk_discussion: value.trim() || null }),
+    });
+    onChanged();
+  }
+
+  async function saveMoldSwabDiscussion(value: string) {
+    await fetch(`/api/admin/jobs/${job.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mold_swab_discussion: value.trim() || null }),
     });
     onChanged();
   }
@@ -1940,7 +1963,9 @@ export function ProjectDetailDialog({
     project_number: job.project_number,
     report_summary: job.report_summary,
     report_notes: job.report_notes,
-    mold_report_summary: job.mold_report_summary,
+    mold_air_discussion: job.mold_air_discussion,
+    mold_bulk_discussion: job.mold_bulk_discussion,
+    mold_swab_discussion: job.mold_swab_discussion,
     mold_report_notes: job.mold_report_notes,
     mold_lab_name: job.mold_lab_name,
     lead_report_summary: job.lead_report_summary,
@@ -2490,30 +2515,58 @@ export function ProjectDetailDialog({
                         {/* Mold's Discussion of Results/Conclusions &
                             Recommendations live inside this same group —
                             they cover every mold label on the job, not just
-                            whichever one happened to render last. */}
+                            whichever one happened to render last. Discussion
+                            of Results is one cell per sample type actually on
+                            the job (not just isMoldJob(job)) — each type gets
+                            its own numbered subsection with its own distinct
+                            findings in the PDF (confirmed against a real
+                            air+bulk+swab combo report, "MOLD GOLD.pdf"), so a
+                            single shared cell would mislabel one type's
+                            findings under another's heading on a combo job. */}
                         {group.domain === "mold" && (
                           <>
-                            {isMoldJob(job) && (
+                            {isMoldJob(job) && moldServiceTypeFlags(job.service_type).hasAir && (
                               <div className="mt-5 rounded-lg border border-slate-200 p-3">
                                 <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
-                                  Discussion of Results
+                                  Airborne Discussion of Results
                                 </label>
-                                {/* Air, bulk, and swab each have their own fixed,
-                                    auto-generated sample-count sentence under their
-                                    own heading (see report-pdf.tsx) — this cell is
-                                    purely supplementary findings on top of those,
-                                    never the only home for any one type's discussion.
-                                    It used to render nested under whichever heading
-                                    happened to be last (swab's), which meant air/bulk
-                                    findings typed here showed up mislabeled as swab's
-                                    on a combo job — it's unlabeled and trailing now. */}
                                 <textarea
                                   className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
-                                  rows={6}
-                                  value={moldReportSummaryInput}
-                                  onChange={(e) => setMoldReportSummaryInput(e.target.value)}
-                                  onBlur={(e) => saveMoldReportSummary(e.target.value)}
-                                  placeholder="Any additional notable findings for this job — sample counts and dates are added automatically."
+                                  rows={4}
+                                  value={moldAirDiscussionInput}
+                                  onChange={(e) => setMoldAirDiscussionInput(e.target.value)}
+                                  onBlur={(e) => saveMoldAirDiscussion(e.target.value)}
+                                  placeholder="Notable air sampling findings for this job — sample count and date are added automatically."
+                                />
+                              </div>
+                            )}
+                            {isMoldJob(job) && moldServiceTypeFlags(job.service_type).hasBulk && (
+                              <div className="mt-5 rounded-lg border border-slate-200 p-3">
+                                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
+                                  Bulk Discussion of Results
+                                </label>
+                                <textarea
+                                  className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+                                  rows={4}
+                                  value={moldBulkDiscussionInput}
+                                  onChange={(e) => setMoldBulkDiscussionInput(e.target.value)}
+                                  onBlur={(e) => saveMoldBulkDiscussion(e.target.value)}
+                                  placeholder="Notable bulk sampling findings for this job — sample count and date are added automatically."
+                                />
+                              </div>
+                            )}
+                            {isMoldJob(job) && moldServiceTypeFlags(job.service_type).hasSwab && (
+                              <div className="mt-5 rounded-lg border border-slate-200 p-3">
+                                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
+                                  Swab Discussion of Results
+                                </label>
+                                <textarea
+                                  className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+                                  rows={4}
+                                  value={moldSwabDiscussionInput}
+                                  onChange={(e) => setMoldSwabDiscussionInput(e.target.value)}
+                                  onBlur={(e) => saveMoldSwabDiscussion(e.target.value)}
+                                  placeholder="Notable swab sampling findings for this job — sample count and date are added automatically."
                                 />
                               </div>
                             )}

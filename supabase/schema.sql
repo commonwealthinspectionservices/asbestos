@@ -985,3 +985,14 @@ alter table jobs add column if not exists subcontractor_sample_types jsonb not n
 alter table jobs add column if not exists lab_date_sampled date;
 alter table jobs add column if not exists mold_date_sampled date;
 alter table jobs add column if not exists lead_date_sampled date;
+
+-- Splitting mold_report_summary into one Discussion of Results field per
+-- sample type — confirmed against a real air+bulk+swab combo report
+-- ("MOLD GOLD.pdf") that each type (Airborne/Bulk/Swab) gets its own
+-- distinct findings under its own numbered subsection, not one shared
+-- blob. The old single field was never populated with real data on any
+-- live job, so this is a clean split rather than a data migration.
+alter table jobs drop column if exists mold_report_summary;
+alter table jobs add column if not exists mold_air_discussion text;
+alter table jobs add column if not exists mold_bulk_discussion text;
+alter table jobs add column if not exists mold_swab_discussion text;

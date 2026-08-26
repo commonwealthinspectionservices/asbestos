@@ -36,7 +36,7 @@ import { formatCents } from "@/lib/pricing";
 import { createStripeInvoiceForJob } from "@/lib/stripe";
 import { splitTrailingCocPages } from "@/lib/split-lab-report-coc";
 import { extractPositionOrderedText } from "@/lib/pdf-position-text";
-import { jobReportDomains, ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, NEWTON_FIRE_FLOOD_COMPANY_ID, type ReportDomain } from "@/lib/report-findings";
+import { jobReportDomains, ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, NEWTON_FIRE_FLOOD_COMPANY_ID, reportEmailAttachmentFilename, type ReportDomain } from "@/lib/report-findings";
 import { sendEmail, emailShell } from "@/lib/email";
 import { getAppUrl } from "@/lib/app-url";
 import { escapeHtml } from "@/lib/html";
@@ -946,9 +946,7 @@ async function draftReportEmailForJob(params: {
     threadId: job.email_gmail_thread_id ?? undefined,
     bodyHtml: reportDraftBodyHtml(job, settings),
     attachments: reportPackets.map(({ domain, buffer }) => ({
-      filename: reportPackets.length > 1
-        ? `Final-Report-${domain[0].toUpperCase()}${domain.slice(1)}-${job.project_number ?? job.id}.pdf`
-        : `Final-Report-${job.project_number ?? job.id}.pdf`,
+      filename: reportEmailAttachmentFilename(job.project_number, job.id, domain),
       mimeType: "application/pdf",
       content: buffer,
     })),
@@ -1075,9 +1073,7 @@ async function draftCombinedEmailForJob(params: {
     bodyHtml: combinedDraftBodyHtml(pricedJob, settings, totalCents, payNowUrl),
     attachments: [
       ...reportPackets.map(({ domain, buffer }) => ({
-        filename: reportPackets.length > 1
-          ? `Final-Report-${domain[0].toUpperCase()}${domain.slice(1)}-${pricedJob.project_number ?? job.id}.pdf`
-          : `Final-Report-${pricedJob.project_number ?? job.id}.pdf`,
+        filename: reportEmailAttachmentFilename(pricedJob.project_number, job.id, domain),
         mimeType: "application/pdf",
         content: buffer,
       })),

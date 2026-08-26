@@ -162,6 +162,19 @@ export function reportDownloadFilename(
   return raw.replace(/[\\/:*?"<>|]/g, "").replace(/\s+/g, " ").trim();
 }
 
+// The emailed report attachment's own filename — "26-0005 Asbestos
+// Inspection Report.pdf" — per Tim: project number, then which kind of
+// report it is, nothing else (distinct from reportDownloadFilename above,
+// which also carries the address for the admin/portal download links —
+// unchanged, not what Tim was asking about here). A job spanning more
+// than one domain still gets one PDF per domain (see
+// buildAllFinalReportPackets), so each file names only its own domain —
+// two attachments sharing one "Asbestos + Mold" name would be
+// indistinguishable in an inbox.
+export function reportEmailAttachmentFilename(projectNumber: string | null, fallbackId: string, domain: ReportDomain): string {
+  return `${projectNumber ?? fallbackId} ${REPORT_DOMAIN_FILENAME_LABEL[domain]} Inspection Report.pdf`;
+}
+
 // Which mold sample types are actually on a job — derived from
 // job.service_type (the comma-joined labels chosen at booking time, e.g.
 // "Mold Air Sampling, Mold Bulk Sampling"), known from the moment the job's

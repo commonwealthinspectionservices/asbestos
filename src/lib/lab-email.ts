@@ -3,7 +3,7 @@ import { randomUUID } from "crypto";
 // src/app/api/admin/jobs/[id]/documents/route.ts for why.
 import pdfParse from "pdf-parse/lib/pdf-parse.js";
 import { getSupabaseAdmin } from "@/lib/supabase";
-import { getSettings } from "@/lib/settings";
+import { getSettings, primaryInspector } from "@/lib/settings";
 import { withCompanyBillingAddress } from "@/lib/customer-billing";
 import { formatDateMDY } from "@/lib/date-format";
 import { threadSubject, threadHeaders } from "@/lib/email-thread";
@@ -173,23 +173,31 @@ function reportDomainListPhrase(domains: ReportDomain[]): string {
 // The Email tab's single manual send — attached report + invoice covering
 // both in one note rather than stitching the two standalone bodies above
 // together.
+// Same domain names the report PDFs themselves use ("Asbestos Inspection
+// Report", not the admin dashboard tab's shorter "Asbestos Report") — per
+// Tim, 2026-08-26.
+const COMBINED_DRAFT_DOMAIN_REPORT_LABEL: Record<ReportDomain, string> = {
+  asbestos: "Asbestos Inspection Report",
+  mold: "Mold Inspection Report",
+  lead: "Lead Inspection Report",
+};
+
 function combinedDraftBodyHtml(job: Job, settings: Settings, totalCents: number, payNowUrl: string | null): string {
   const domains = jobReportDomains(job.service_type);
-  const domainPhrase = reportDomainListPhrase(domains);
-  const reportNoun = domains.length > 1 ? "analytical reports" : "analytical report";
+  const inspector = primaryInspector(settings);
   return [
     "Hi,",
     "",
-    `Please find attached the ${domainPhrase} ${reportNoun} and invoice for:`,
+    "The following documents are attached:",
+    ...domains.map((d) => `-${COMBINED_DRAFT_DOMAIN_REPORT_LABEL[d]}`),
+    "-Invoice",
     "",
     `Site: ${escapeHtml(expandAddress(job.service_address))}`,
     "",
     `Date of Sampling: ${escapeHtml(formatDateMMDDYYYY(job.requested_date))}`,
-    "",
-    `Total due: ${escapeHtml(formatCents(totalCents))}`,
     ...(payNowUrl ? ["", `<a href="${escapeHtml(payNowUrl)}">LINK TO PAY</a>`] : []),
     "",
-    `Should you have any questions or need additional information, please contact our office at ${escapeHtml(settings.business_phone)}.`,
+    `Should you have any questions or need additional information, please contact ${escapeHtml(inspector.name)} at ${escapeHtml(settings.business_phone)}.`,
     "",
     "Thank you for the opportunity to provide you with our services and we look forward to working together in the future.",
     "",

@@ -1217,8 +1217,18 @@ function JobRow({
                   when they'd disagree — same show condition as the Project
                   Info tab's own copy of this. */}
               {job.source !== "subcontractor" && reportIsComplete(job) && job.invoice_total_cents != null && (
-                <div className="flex flex-col items-end text-sm text-slate-500">
-                  <span>Report: {job.report_sent_at ? "Sent" : "Not sent"}</span>
+                <div className="flex w-full flex-col items-start text-sm text-slate-500">
+                  {/* Per Tim — the hazard flag is specifically "the report
+                      is ready but I haven't sent it yet," not a general
+                      not-sent indicator — it doesn't apply to the invoice
+                      at all, and stays out even once the report itself is
+                      sent regardless of invoice status. After the text (not
+                      before) so Report/Invoice still start at the same left
+                      edge either way. */}
+                  <span className="flex items-center gap-1">
+                    Report: {job.report_sent_at ? "Sent" : "Not sent"}
+                    {!job.report_sent_at && <HazardIcon />}
+                  </span>
                   <span>Invoice: {job.invoice_sent_at ? "Sent" : "Not sent"}</span>
                 </div>
               )}
@@ -1403,8 +1413,8 @@ function JobRow({
             // way: "Requested date/time" while still unscheduled,
             // "Scheduled date/time" once it's not. Editing happens in the
             // Edit dialog now, not inline here.
-            <div className="flex w-full shrink-0 flex-col items-start gap-1.5 sm:w-auto sm:items-end" onClick={(e) => e.stopPropagation()}>
-              <div className="text-sm text-slate-500 sm:text-right">
+            <div className="flex w-full shrink-0 flex-col items-start gap-1.5 sm:w-60 sm:items-end" onClick={(e) => e.stopPropagation()}>
+              <div className="w-full text-sm text-slate-500">
                 {!isUnscheduled ? (
                   <>
                     <div>{hasCompletedFieldwork(job.status) ? "Completed" : "Scheduled"} date: {formatDate(job.confirmed_date ?? job.requested_date) || "—"}</div>
@@ -1446,6 +1456,19 @@ function JobRow({
         </div>
       </div>
     </div>
+  );
+}
+
+// Per Tim — flags the "report and invoice both still sitting unsent"
+// state next to the Report:/Invoice: sent-status lines (project card and
+// Project Info tab), small since it's a nudge, not an error.
+function HazardIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" className="shrink-0" aria-label="Neither has been sent yet">
+      <path d="M10 2.5L18.5 17H1.5L10 2.5Z" fill="#F59E0B" stroke="#F59E0B" strokeLinejoin="round" />
+      <rect x="9.25" y="8" width="1.5" height="4.5" rx="0.75" fill="white" />
+      <rect x="9.25" y="13.25" width="1.5" height="1.5" rx="0.75" fill="white" />
+    </svg>
   );
 }
 
@@ -2397,14 +2420,19 @@ export function ProjectDetailDialog({
               // out.
               const showSentStatus = job.source !== "subcontractor" && reportComplete && job.invoice_total_cents != null;
               const sentStatusLines = (
-                <>
-                  <p className="text-sm text-slate-500">
-                    {job.report_sent_at ? `Report sent ${formatDateTime(job.report_sent_at)}` : "Report not yet sent"}
-                  </p>
-                  <p className="text-sm text-slate-500">
-                    {job.invoice_sent_at ? `Invoice sent ${formatDateTime(job.invoice_sent_at)}` : "Invoice not yet sent"}
-                  </p>
-                </>
+                <div className="flex items-center gap-1">
+                  {/* Per Tim — small hazard flag specifically for "neither
+                      has gone out yet". */}
+                  {!job.report_sent_at && !job.invoice_sent_at && <HazardIcon />}
+                  <div className="flex flex-col items-end">
+                    <p className="text-sm text-slate-500">
+                      {job.report_sent_at ? `Report sent ${formatDateTime(job.report_sent_at)}` : "Report not yet sent"}
+                    </p>
+                    <p className="text-sm text-slate-500">
+                      {job.invoice_sent_at ? `Invoice sent ${formatDateTime(job.invoice_sent_at)}` : "Invoice not yet sent"}
+                    </p>
+                  </div>
+                </div>
               );
               return (
                 <>

@@ -10,7 +10,7 @@ import type { Style } from "@react-pdf/types";
 Font.registerHyphenationCallback((word) => [word]);
 import { splitAddress } from "@/lib/address";
 import { primaryInspector } from "@/lib/settings";
-import { formatDateMDY } from "@/lib/date-format";
+import { formatDateMDY, formatDateLongOrdinal } from "@/lib/date-format";
 import type { Job, Customer, Settings } from "@/lib/types";
 import {
   ASBESTOS_POSITIVE_REMARK, ASBESTOS_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK,
@@ -857,7 +857,7 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
 
   const moldSampledDate = job.mold_date_sampled ?? job.requested_date;
   const samplingDateText = moldSampledDate
-    ? new Date(`${moldSampledDate}T00:00:00`).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
+    ? formatDateLongOrdinal(new Date(`${moldSampledDate}T00:00:00`))
     : null;
 
   // "[N] samples were collected on [date] inside the building. An ambient
@@ -1189,8 +1189,7 @@ function SignatureBlock({ settings, showLicense }: { settings: Settings; showLic
 function commonLetterFields(job: Job, customer: Customer, settings: Settings, sampledDate: string | null) {
   const knownCustomerName = customer.name === "Unknown contact" ? null : customer.name;
 
-  const dateText = (sampledDate ? new Date(`${sampledDate}T00:00:00`) : new Date())
-    .toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+  const dateText = formatDateLongOrdinal(sampledDate ? new Date(`${sampledDate}T00:00:00`) : new Date());
 
   // Town/state/zip always gets its own line under the street, matching the
   // real FLI letter's recipient block and RE: block — both the customer's

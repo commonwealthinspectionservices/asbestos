@@ -17,6 +17,30 @@ export function formatDateMDY(dateStr: string | null | undefined): string | null
   return `${m}/${d}/${y}`;
 }
 
+// 1st/2nd/3rd/4th...11th/12th/13th (the teens are always "th", not "1th"
+// despite ending in 1/2/3) /21st/22nd/23rd/24th...
+function ordinalSuffix(day: number): string {
+  if (day % 100 >= 11 && day % 100 <= 13) return "th";
+  switch (day % 10) {
+    case 1: return "st";
+    case 2: return "nd";
+    case 3: return "rd";
+    default: return "th";
+  }
+}
+
+/** "August 20th, 2026" — the long spelled-out date format used in every
+ * report letter's prose (the intro sentence, letterhead/RE: date, sample
+ * count sentences), with the day's ordinal suffix per Tim (2026-08-25:
+ * "always do rd or th as needed"). Takes the same Date object callers
+ * already build for toLocaleDateString — just swap that call for this one. */
+export function formatDateLongOrdinal(date: Date): string {
+  const month = date.toLocaleDateString("en-US", { month: "long" });
+  const day = date.getDate();
+  const year = date.getFullYear();
+  return `${month} ${day}${ordinalSuffix(day)}, ${year}`;
+}
+
 function formatClockTime(totalMinutes: number): string {
   const normalized = ((totalMinutes % 1440) + 1440) % 1440;
   const h = Math.floor(normalized / 60);

@@ -331,6 +331,74 @@ function gmailMessageUrl(messageId: string, sent: boolean): string {
   return `https://mail.google.com/mail/u/0/#${sent ? "sent" : "drafts"}/${messageId}`;
 }
 
+// The combined report+invoice draft's own status/"View Draft" control —
+// shared by the Report tab (next to each domain's own Final Report tile)
+// and the Invoice tab (next to the Invoice tile), since it's the same one
+// Gmail draft either way, not a per-domain thing. Per Tim, this shouldn't
+// only live on the Invoice tab — someone reviewing a domain's report tab
+// wants the same one-click way to jump to (and refresh) the draft that
+// report is attached to.
+function DraftStatusWidget({
+  job, reportComplete, combinedDraft,
+}: {
+  job: JobWithCustomer;
+  reportComplete: boolean;
+  combinedDraft: {
+    creating: boolean;
+    message: string | null;
+    status: { status: "drafted" | "sent" | "none"; sentAt?: string } | null;
+    viewDraft: () => void;
+  };
+}) {
+  if (!reportComplete || job.invoice_total_cents == null) return null;
+  return (
+    <div className="flex min-h-40 flex-1 items-center justify-center">
+      {job.invoice_draft_gmail_message_id ? (
+        <div className="text-center">
+          {job.invoice_sent_at || combinedDraft.status?.status === "sent" ? (
+            <>
+              <a
+                href={gmailMessageUrl(job.invoice_draft_gmail_message_id, true)}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-block rounded-lg border border-red-600 bg-white px-3 py-1.5 text-sm font-bold uppercase text-red-600 hover:underline"
+              >
+                View sent email in Gmail ↗
+              </a>
+              <p className="mt-1.5 text-xs text-slate-500">
+                {draftStatusText(job.invoice_drafted_at, job.invoice_sent_at, combinedDraft.status, "Drafted", "Drafted")}
+              </p>
+            </>
+          ) : (
+            <>
+              {/* Always rebuilds the report/invoice PDFs from whatever's on
+                  the job right now and replaces the existing draft before
+                  opening it — per Tim, "View Draft" should always mean the
+                  freshest one, not a possibly-stale copy from before a
+                  later edit (e.g. to Discussion of Results/Conclusions),
+                  so there's no separate "regenerate" step or confirmation
+                  in front of it. */}
+              <button
+                type="button"
+                onClick={() => combinedDraft.viewDraft()}
+                disabled={combinedDraft.creating}
+                className="inline-block rounded-lg border border-red-600 bg-white px-3 py-1.5 text-sm font-bold uppercase text-red-600 hover:underline disabled:opacity-50"
+              >
+                {combinedDraft.creating ? "Preparing draft…" : "View Draft ↗"}
+              </button>
+              {combinedDraft.message && (
+                <p className="mt-1.5 text-xs text-slate-500">{combinedDraft.message}</p>
+              )}
+            </>
+          )}
+        </div>
+      ) : (
+        <p className="text-sm text-slate-400">Creating draft…</p>
+      )}
+    </div>
+  );
+}
+
 function formatTime(time: string | null | undefined): string {
   if (!time) return "";
   const [h, m] = time.split(":").map(Number);
@@ -2783,6 +2851,7 @@ export function ProjectDetailDialog({
                     </div>
                   );
                 })()}
+                <DraftStatusWidget job={job} reportComplete={reportComplete} combinedDraft={combinedDraft} />
               </div>
             </div>
             )}
@@ -2861,52 +2930,7 @@ export function ProjectDetailDialog({
                       <p className="border-t border-dashed border-slate-300 px-2 py-1 text-center text-xs font-bold uppercase text-slate-400">Invoice</p>
                     </div>
                   )}
-                  {reportComplete && job.invoice_total_cents != null && (
-                    <div className="flex min-h-40 flex-1 items-center justify-center">
-                      {job.invoice_draft_gmail_message_id ? (
-                        <div className="text-center">
-                          {job.invoice_sent_at || combinedDraft.status?.status === "sent" ? (
-                            <>
-                              <a
-                                href={gmailMessageUrl(job.invoice_draft_gmail_message_id, true)}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="inline-block rounded-lg border border-red-600 bg-white px-3 py-1.5 text-sm font-bold uppercase text-red-600 hover:underline"
-                              >
-                                View sent email in Gmail ↗
-                              </a>
-                              <p className="mt-1.5 text-xs text-slate-500">
-                                {draftStatusText(job.invoice_drafted_at, job.invoice_sent_at, combinedDraft.status, "Drafted", "Drafted")}
-                              </p>
-                            </>
-                          ) : (
-                            <>
-                              {/* Always rebuilds the report/invoice PDFs from whatever's
-                                  on the job right now and replaces the existing draft
-                                  before opening it — per Tim, "View Draft" should always
-                                  mean the freshest one, not a possibly-stale copy from
-                                  before a later edit (e.g. to Discussion of Results/
-                                  Conclusions), so there's no separate "regenerate" step
-                                  or confirmation in front of it. */}
-                              <button
-                                type="button"
-                                onClick={() => combinedDraft.viewDraft()}
-                                disabled={combinedDraft.creating}
-                                className="inline-block rounded-lg border border-red-600 bg-white px-3 py-1.5 text-sm font-bold uppercase text-red-600 hover:underline disabled:opacity-50"
-                              >
-                                {combinedDraft.creating ? "Preparing draft…" : "View Draft ↗"}
-                              </button>
-                              {combinedDraft.message && (
-                                <p className="mt-1.5 text-xs text-slate-500">{combinedDraft.message}</p>
-                              )}
-                            </>
-                          )}
-                        </div>
-                      ) : (
-                        <p className="text-sm text-slate-400">Creating draft…</p>
-                      )}
-                    </div>
-                  )}
+                  <DraftStatusWidget job={job} reportComplete={reportComplete} combinedDraft={combinedDraft} />
                 </div>
                 {job.is_individual && job.status !== "paid" && (
                   job.report_release_override ? (

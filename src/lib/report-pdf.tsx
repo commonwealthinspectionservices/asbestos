@@ -1163,7 +1163,7 @@ function RecipientBlock({
 function SignatureBlock({ settings, showLicense }: { settings: Settings; showLicense: boolean }) {
   const inspector = primaryInspector(settings);
   return (
-    <View style={styles.signatureBlock}>
+    <View style={styles.signatureBlock} wrap={false}>
       <Text style={styles.signatureLine}>Sincerely,</Text>
       <Text style={styles.signatureName}>{settings.business_name}</Text>
       <Image src={SIGNATURE_PATH} style={styles.signatureImage} />

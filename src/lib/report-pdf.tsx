@@ -428,8 +428,7 @@ function AsbestosReportDocument({ job, customer, settings }: ProjectReportData) 
         </View>
 
         <Text style={styles.paragraph}>
-          Should you have any questions or need additional information, please contact {inspector.name} at {settings.business_phone}. Thank you for the
-          opportunity to provide you with our services!
+          Should you have any questions or need additional information, please contact {inspector.name} at {settings.business_phone}.
         </Text>
 
         <SignatureBlock settings={settings} showLicense />
@@ -563,8 +562,7 @@ function LeadReportDocument({ job, customer, settings }: ProjectReportData) {
 
         <Text style={styles.paragraph}>
           Should you have any questions or need additional information, please contact {inspector.name}
-          {settings.business_phone ? ` at ${settings.business_phone}` : ""}. Thank you for the opportunity to provide
-          you with our services!
+          {settings.business_phone ? ` at ${settings.business_phone}` : ""}.
         </Text>
 
         <SignatureBlock settings={settings} showLicense={false} />
@@ -717,8 +715,7 @@ function FullInspectionAsbestosReportDocument({ job, customer, settings }: Proje
         )}
 
         <Text style={styles.paragraph}>
-          Should you have any questions or need additional information, please contact {inspector.name} at {settings.business_phone}. Thank you for the
-          opportunity to provide you with our services!
+          Should you have any questions or need additional information, please contact {inspector.name} at {settings.business_phone}.
         </Text>
 
         <SignatureBlock settings={settings} showLicense />

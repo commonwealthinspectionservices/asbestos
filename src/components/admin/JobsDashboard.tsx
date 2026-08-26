@@ -453,10 +453,14 @@ function reportChecklist(job: JobWithCustomer, domain: ReportDomain): { label: s
       ...commonReportChecklist(job),
       { label: "Sample count", done: totalSamples > 0 },
       { label: "Lab info", done: Boolean(job.mold_lab_name) },
-      // Only genuinely empty when the job has no air component and the
-      // admin hasn't added anything — an air job's fixed ACGIH paragraph
-      // renders regardless of what's in mold_report_summary.
-      { label: "Results", done: moldServiceTypeFlags(job.service_type).hasAir || Boolean(job.mold_report_summary) },
+      // Air and bulk each have their own fixed, auto-generated sample-count
+      // sentence for Discussion of Results, regardless of mold_report_summary.
+      // Swab has no auto-generated sentence — even on a combo job that also
+      // has air/bulk — so only swab requires the admin's own text.
+      { label: "Results", done: (() => {
+        const flags = moldServiceTypeFlags(job.service_type);
+        return !flags.hasSwab || Boolean(job.mold_report_summary);
+      })() },
     ];
   }
   if (domain === "lead") {
@@ -1132,7 +1136,7 @@ function JobRow({
             </span>
           )}
           {CLOSED_STATUSES.has(job.status) ? (
-            <span className="inline-flex h-7 w-48 shrink-0 items-center truncate rounded bg-slate-200 px-2 py-0.5 text-sm font-bold text-slate-700 sm:inline sm:h-auto">
+            <span className="inline-flex h-7 w-60 shrink-0 items-center whitespace-nowrap rounded bg-slate-200 px-2 py-0.5 text-sm font-bold text-slate-700 sm:inline sm:h-auto">
               {statusLabelForJob(job, job.status)}
             </span>
           ) : (
@@ -1157,7 +1161,7 @@ function JobRow({
                 }
               }}
               onClick={(e) => e.stopPropagation()}
-              className="inline-flex h-7 w-48 shrink-0 items-center truncate rounded border-0 bg-slate-200 px-2 py-0.5 text-sm font-bold text-slate-700 sm:inline-block sm:h-auto"
+              className="inline-flex h-7 w-60 shrink-0 items-center whitespace-nowrap rounded border-0 bg-slate-200 px-2 py-0.5 text-sm font-bold text-slate-700 sm:inline-block sm:h-auto"
             >
               {pipelineStatusesForJob(job).map((s) => (
                 <option key={s} value={s}>{statusLabelForJob(job, s)}</option>
@@ -2493,7 +2497,18 @@ export function ProjectDetailDialog({
                             whichever one happened to render last. */}
                         {group.domain === "mold" && (
                           <>
-                            {isMoldJob(job) && !moldServiceTypeFlags(job.service_type).hasAir && (
+                            {isMoldJob(job) && (() => {
+                              const flags = moldServiceTypeFlags(job.service_type);
+                              // Air and bulk each have their own fixed, auto-generated
+                              // sample-count sentence (see report-pdf.tsx) — so this
+                              // admin cell is only superfluous on an air-only or
+                              // air+bulk job with nothing further to add. Swab has no
+                              // auto-generated sentence, so this must always show
+                              // whenever swab is present (a combo job was rendering
+                              // NOTHING for its bulk discussion before bulk got its own
+                              // sentence — see 26-0002).
+                              return !flags.hasAir || flags.hasBulk || flags.hasSwab;
+                            })() && (
                               <div className="mt-5 rounded-lg border border-slate-200 p-3">
                                 <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
                                   Discussion of Results
@@ -2504,7 +2519,11 @@ export function ProjectDetailDialog({
                                   value={moldReportSummaryInput}
                                   onChange={(e) => setMoldReportSummaryInput(e.target.value)}
                                   onBlur={(e) => saveMoldReportSummary(e.target.value)}
-                                  placeholder="Sample counts, dates, and any notable findings for this job."
+                                  placeholder={
+                                    moldServiceTypeFlags(job.service_type).hasSwab
+                                      ? "Sample counts, dates, and any notable findings for this job."
+                                      : "Any additional notable findings for this job — sample counts and dates are added automatically."
+                                  }
                                 />
                               </div>
                             )}

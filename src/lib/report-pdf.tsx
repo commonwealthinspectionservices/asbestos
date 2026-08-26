@@ -845,6 +845,11 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
   const isNewtonFireFlood = customer.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID;
   const standardConclusionBlocks = isNewtonFireFlood ? blocksFromText(NEWTON_FIRE_FLOOD_STANDARD_MOLD_CONCLUSION) : [];
 
+  const moldSampledDate = job.mold_date_sampled ?? job.requested_date;
+  const samplingDateText = moldSampledDate
+    ? new Date(`${moldSampledDate}T00:00:00`).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
+    : null;
+
   // "[N] samples were collected on [date] inside the building. An ambient
   // sample was collected outside..." — the air total in sample_counts
   // includes the always-present, always-invoiced ambient sample, so
@@ -855,14 +860,34 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
     .filter(([label]) => label.toLowerCase().includes("air"))
     .reduce((sum, [, n]) => sum + (n || 0), 0);
   const indoorAirSampleCount = airSampleTotal > 0 ? airSampleTotal - 1 : 0;
-  const moldSampledDate = job.mold_date_sampled ?? job.requested_date;
-  const samplingDateText = moldSampledDate
-    ? new Date(`${moldSampledDate}T00:00:00`).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
-    : null;
   const airSampleCountSentence =
     indoorAirSampleCount > 0 && samplingDateText
       ? `${NUMBER_WORDS[indoorAirSampleCount] ?? indoorAirSampleCount} (${indoorAirSampleCount}) samples were collected on ${samplingDateText} inside the building. An ambient sample was collected outside for comparison with the indoor sample.`
       : "[Number of samples] samples were collected on [Date of Sampling] inside the building. An ambient sample was collected outside for comparison with the indoor sample.";
+
+  // Bulk's own standard count sentence — confirmed word-for-word per Tim —
+  // is always auto-generated from the lab's own sample count/date, the same
+  // way air's is just above, and never retyped by hand into
+  // mold_report_summary (that admin cell is reserved for additional
+  // notable findings beyond this sentence, not a restatement of it).
+  const bulkSampleTotal = Object.entries(job.sample_counts ?? {})
+    .filter(([label]) => label.toLowerCase().includes("bulk"))
+    .reduce((sum, [, n]) => sum + (n || 0), 0);
+  const bulkSampleCountSentence =
+    bulkSampleTotal > 0 && samplingDateText
+      ? `${NUMBER_WORDS[bulkSampleTotal] ?? bulkSampleTotal} (${bulkSampleTotal}) bulk samples of suspect microbial growth were collected on ${samplingDateText}.`
+      : "[Number of samples] bulk samples of suspect microbial growth were collected on [Date of Sampling].";
+
+  // Swab has no standard count sentence (confirmed against a real
+  // swab-only report, which states no such count) — unlike bulk above, its
+  // Discussion of Results is still the admin's own free text
+  // (mold_report_summary) under its own subheading.
+  // Discussion of Results subheadings are numbered in whichever order the
+  // modalities actually present themselves, rather than a hardcoded 1/2/3.
+  let discussionSectionIndex = 0;
+  const airDiscussionNumber = hasAir ? ++discussionSectionIndex : null;
+  const bulkDiscussionNumber = hasBulk ? ++discussionSectionIndex : null;
+  const swabDiscussionNumber = hasSwab ? ++discussionSectionIndex : null;
 
   return (
     <Document title={`Limited Mold Assessment & Sampling — ${job.service_address}`}>
@@ -937,14 +962,33 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
         <Text style={styles.romanTitle} minPresenceAhead={80}>III.  DISCUSSION OF RESULTS</Text>
         {hasAir && (
           <View wrap={false}>
-            <Text style={styles.subHeading}>1. Airborne Sampling for Mold:</Text>
+            <Text style={styles.subHeading}>{airDiscussionNumber}. Airborne Sampling for Mold:</Text>
             <Text style={styles.paragraph}>{MOLD_ACGIH_PARAGRAPH}</Text>
             <Text style={styles.paragraph}>{airSampleCountSentence}</Text>
           </View>
         )}
-        {discussionParagraphs.length > 0
-          ? discussionParagraphs.map((p, i) => <Text style={styles.paragraph} key={i}>{p}</Text>)
-          : !hasAir && <Text style={styles.paragraph}>NO RESULTS YET.</Text>}
+        {hasBulk && (
+          <View wrap={false}>
+            <Text style={styles.subHeading}>{bulkDiscussionNumber}. Bulk Sampling for Mold:</Text>
+            <Text style={styles.paragraph}>{bulkSampleCountSentence}</Text>
+          </View>
+        )}
+        {hasSwab && (
+          <View wrap={false}>
+            <Text style={styles.subHeading}>{swabDiscussionNumber}. Swab Sampling for Mold:</Text>
+            {discussionParagraphs.length > 0
+              ? discussionParagraphs.map((p, i) => <Text style={styles.paragraph} key={i}>{p}</Text>)
+              : <Text style={styles.paragraph}>NO RESULTS YET.</Text>}
+          </View>
+        )}
+        {/* Additional notable findings beyond the standard sentences above —
+            only lives here (unlabeled, trailing) when swab hasn't already
+            claimed this same admin cell for its own discussion above. */}
+        {!hasSwab && discussionParagraphs.length > 0 &&
+          discussionParagraphs.map((p, i) => <Text style={styles.paragraph} key={i}>{p}</Text>)}
+        {!hasAir && !hasBulk && !hasSwab && discussionParagraphs.length === 0 && (
+          <Text style={styles.paragraph}>NO RESULTS YET.</Text>
+        )}
 
         <Text style={styles.romanTitle} minPresenceAhead={80}>IV.  CONCLUSIONS & RECOMMENDATIONS</Text>
         {hasAir && (

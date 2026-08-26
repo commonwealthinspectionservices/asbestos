@@ -331,6 +331,62 @@ function gmailMessageUrl(messageId: string, sent: boolean): string {
   return `https://mail.google.com/mail/u/0/#${sent ? "sent" : "drafts"}/${messageId}`;
 }
 
+// The job-header draft control — one instance for the common case (a
+// single combined report+invoice draft, `label` omitted, "View Draft ↗"
+// same as it's always read) and two side by side for Boston Harbor's
+// separately-sent report and invoice (`label` set, "View Report Draft ↗"
+// / "View Invoice Draft ↗"). Always rebuilds from what's on the job right
+// now and replaces the existing draft before opening it — per Tim,
+// viewing a draft should always mean the freshest one, so there's no
+// separate "regenerate" step in front of it.
+function DraftLinkControl({
+  label, hook, messageId, draftedAt, sentAt,
+}: {
+  label?: string;
+  hook: {
+    creating: boolean;
+    message: string | null;
+    status: { status: "drafted" | "sent" | "none"; sentAt?: string } | null;
+    viewDraft: () => void;
+  };
+  messageId: string | null;
+  draftedAt: string | null;
+  sentAt: string | null;
+}) {
+  if (!messageId) return <p className="text-xs text-slate-400">Creating draft…</p>;
+  const isSent = Boolean(sentAt) || hook.status?.status === "sent";
+  if (isSent) {
+    return (
+      <>
+        <a
+          href={gmailMessageUrl(messageId, true)}
+          target="_blank"
+          rel="noreferrer"
+          className="rounded-lg border border-red-600 bg-white px-3 py-1 text-xs font-bold uppercase text-red-600 hover:underline"
+        >
+          {label ? `View sent ${label.toLowerCase()} ↗` : "View sent email in Gmail ↗"}
+        </a>
+        <p className="text-xs text-slate-500">
+          {draftStatusText(draftedAt, sentAt, hook.status, "Drafted", "Drafted")}
+        </p>
+      </>
+    );
+  }
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => hook.viewDraft()}
+        disabled={hook.creating}
+        className="rounded-lg border border-red-600 bg-white px-3 py-1 text-xs font-bold uppercase text-red-600 hover:underline disabled:opacity-50"
+      >
+        {hook.creating ? "Preparing draft…" : label ? `View ${label} Draft ↗` : "View Draft ↗"}
+      </button>
+      {hook.message && <p className="text-xs text-slate-500">{hook.message}</p>}
+    </>
+  );
+}
+
 function formatTime(time: string | null | undefined): string {
   if (!time) return "";
   const [h, m] = time.split(":").map(Number);
@@ -1553,10 +1609,47 @@ export function ProjectDetailDialog({
     if (!domains.includes(reportDomainTab)) setReportDomainTab(domains[0] ?? "asbestos");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [job.service_type]);
+  // Active whenever the header's own draft control (always visible now,
+  // not tied to which inner tab is open) would actually render — see its
+  // render site below. reportIsComplete(job) recomputed here rather than
+  // reusing the `reportComplete` local further down, since these hooks
+  // have to be declared before it (rules of hooks — no conditional/late
+  // declarations) and it's a cheap pure function of `job` either way.
+  const draftControlActive = reportIsComplete(job) && job.invoice_total_cents != null;
   const combinedDraft = useDraftTracking({
     kind: "invoice",
     createKind: "combined",
-    active: tab === "report" || tab === "invoice",
+    active: draftControlActive,
+    jobId: job.id,
+    draftedAt: job.invoice_drafted_at,
+    sentAt: job.invoice_sent_at,
+    onChanged,
+  });
+  // Boston Harbor Water Restoration's report and invoice are two
+  // genuinely separate Gmail drafts (see create-draft/route.ts's own
+  // BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID branch), each sent on its
+  // own schedule — job.report_draft_gmail_message_id and
+  // job.invoice_draft_gmail_message_id differ once that's happened. These
+  // two hooks track/create each independently (createKind matches kind,
+  // not "combined") so the header control below can show — and act on —
+  // each one on its own, rather than one "create" click risking a
+  // duplicate re-draft of whichever half was already sent. Unused (and
+  // harmless) for every other company, where the two message ids are
+  // always identical and the single combinedDraft control above still
+  // covers it exactly as before.
+  const reportOnlyDraft = useDraftTracking({
+    kind: "report",
+    createKind: "report",
+    active: draftControlActive,
+    jobId: job.id,
+    draftedAt: job.report_drafted_at,
+    sentAt: job.report_sent_at,
+    onChanged,
+  });
+  const invoiceOnlyDraft = useDraftTracking({
+    kind: "invoice",
+    createKind: "invoice",
+    active: draftControlActive,
     jobId: job.id,
     draftedAt: job.invoice_drafted_at,
     sentAt: job.invoice_sent_at,
@@ -2185,41 +2278,24 @@ export function ProjectDetailDialog({
             Gmail draft regardless of which tab is open, so it shouldn't
             require switching tabs (or scrolling) to reach. Just a direct
             link to Gmail, same as the button always did — doesn't touch
-            `tab` state at all. */}
+            `tab` state at all. Boston Harbor's report and invoice are two
+            separate drafts (differing message ids) sent on their own
+            schedules, so it splits into two independent controls here —
+            every other company still has one link, exactly as before. */}
         {job.source !== "subcontractor" && reportComplete && job.invoice_total_cents != null && (
-          <div className="flex shrink-0 flex-wrap items-center justify-end gap-x-2 gap-y-0.5 border-b border-slate-200 bg-white px-3 py-1.5 sm:px-5">
-            {job.invoice_draft_gmail_message_id ? (
-              job.invoice_sent_at || combinedDraft.status?.status === "sent" ? (
-                <>
-                  <a
-                    href={gmailMessageUrl(job.invoice_draft_gmail_message_id, true)}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="rounded-lg border border-red-600 bg-white px-3 py-1 text-xs font-bold uppercase text-red-600 hover:underline"
-                  >
-                    View sent email in Gmail ↗
-                  </a>
-                  <p className="text-xs text-slate-500">
-                    {draftStatusText(job.invoice_drafted_at, job.invoice_sent_at, combinedDraft.status, "Drafted", "Drafted")}
-                  </p>
-                </>
-              ) : (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => combinedDraft.viewDraft()}
-                    disabled={combinedDraft.creating}
-                    className="rounded-lg border border-red-600 bg-white px-3 py-1 text-xs font-bold uppercase text-red-600 hover:underline disabled:opacity-50"
-                  >
-                    {combinedDraft.creating ? "Preparing draft…" : "View Draft ↗"}
-                  </button>
-                  {combinedDraft.message && (
-                    <p className="text-xs text-slate-500">{combinedDraft.message}</p>
-                  )}
-                </>
-              )
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-x-4 gap-y-1 border-b border-slate-200 bg-white px-3 py-1.5 sm:px-5">
+            {job.report_draft_gmail_message_id && job.invoice_draft_gmail_message_id
+            && job.report_draft_gmail_message_id !== job.invoice_draft_gmail_message_id ? (
+              <>
+                <div className="flex items-center gap-2">
+                  <DraftLinkControl label="Report" hook={reportOnlyDraft} messageId={job.report_draft_gmail_message_id} draftedAt={job.report_drafted_at} sentAt={job.report_sent_at} />
+                </div>
+                <div className="flex items-center gap-2">
+                  <DraftLinkControl label="Invoice" hook={invoiceOnlyDraft} messageId={job.invoice_draft_gmail_message_id} draftedAt={job.invoice_drafted_at} sentAt={job.invoice_sent_at} />
+                </div>
+              </>
             ) : (
-              <p className="text-xs text-slate-400">Creating draft…</p>
+              <DraftLinkControl hook={combinedDraft} messageId={job.invoice_draft_gmail_message_id} draftedAt={job.invoice_drafted_at} sentAt={job.invoice_sent_at} />
             )}
           </div>
         )}

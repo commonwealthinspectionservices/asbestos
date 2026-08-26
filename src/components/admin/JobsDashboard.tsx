@@ -2370,7 +2370,7 @@ export function ProjectDetailDialog({
                   {/* Edit stays top-right next to Project # at every width; the portal badge (subcontractor jobs only) sits beside Edit on desktop, same as always. Project #'s own value is a lot bigger than every other DetailField here per Tim — it's the one thing on this whole tab worth spotting at a glance. */}
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-black">Project #</span>
+                      <span className="text-3xl font-bold text-black">Project #</span>
                       <span className="text-3xl font-bold text-black">{job.project_number}</span>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">

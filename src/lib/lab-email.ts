@@ -80,6 +80,13 @@ function formatDateMMDDYYYY(date: string | null): string {
   return formatDateMDY(date) ?? "__/__/____";
 }
 
+// Per Tim: every drafted email needs this plain-text sign-off at the
+// bottom, below the existing closing line — not replacing it. Shared here
+// since it's identical across the report/invoice/combined/payment-reminder
+// draft bodies below (both the "\n"-joined plain-text one and the
+// "<br>"-joined HTML ones — plain text renders fine either way).
+const SIGNATURE_LINES = ["Tim Hall", "Commonwealth Inspection Services", "617-390-4778"];
+
 // The owner's own real template (the one FLI Environmental has sent for
 // years) — reused verbatim rather than a generic message, just with the
 // blanks filled in and the phone number pulled from Settings instead of
@@ -97,6 +104,8 @@ function reportDraftBodyText(job: Job, settings: Settings): string {
     `Should you have any questions or need additional information, please contact our office at ${settings.business_phone}.`,
     "",
     "Thank you for the opportunity to provide you with our services and we look forward to working together in the future.",
+    "",
+    ...SIGNATURE_LINES,
   ].join("\n");
 }
 
@@ -119,6 +128,8 @@ function invoiceDraftBodyHtml(job: Job, settings: Settings, totalCents: number, 
     `Should you have any questions or need additional information, please contact our office at ${escapeHtml(settings.business_phone)}.`,
     "",
     "Thank you for the opportunity to provide you with our services.",
+    "",
+    ...SIGNATURE_LINES,
   ].join("<br>");
 }
 
@@ -156,6 +167,8 @@ function combinedDraftBodyHtml(job: Job, settings: Settings, totalCents: number,
     `Should you have any questions or need additional information, please contact our office at ${escapeHtml(settings.business_phone)}.`,
     "",
     "Thank you for the opportunity to provide you with our services and we look forward to working together in the future.",
+    "",
+    ...SIGNATURE_LINES,
   ].join("<br>");
 }
 
@@ -819,6 +832,8 @@ async function draftPaymentReminderForIndividual(params: {
       `Should you have any questions, please contact our office at ${escapeHtml(settings.business_phone)}.`,
       "",
       "Thank you for the opportunity to provide you with our services.",
+      "",
+      ...SIGNATURE_LINES,
     ].join("<br>"),
     attachments: [],
   });

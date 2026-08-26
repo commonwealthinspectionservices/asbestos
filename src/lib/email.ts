@@ -78,6 +78,9 @@ export function emailShell(bodyHtml: string): string {
       <tr>
         <td style="padding:24px;">
           ${bodyHtml}
+          <p style="font-size:13px; color:#64748b; margin-top:24px; padding-top:16px; border-top:1px solid #e2e8f0;">
+            Tim Hall<br>Commonwealth Inspection Services<br>617-390-4778
+          </p>
         </td>
       </tr>
     </table>

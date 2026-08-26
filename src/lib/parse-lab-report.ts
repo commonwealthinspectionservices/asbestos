@@ -134,7 +134,18 @@ function bestReportSamples(pdfText: string): SampleResult[] {
 // letter with no space at all), while an in-description reference always
 // has a plain space right before it (" 04B"). Excluding a space-preceded
 // match clears that up too.
-const FIELD_CODE_LINE_PATTERN = /(?<! )(\d{2}[A-Z](?:\.\d+)?)(?![a-z])/g;
+//
+// A third false positive confirmed live 2026-08-26 (job 26-0005, real
+// Crystal Analytical report): "Drywall Joint Compound (01A)" — a paired
+// sample's own field code cited in parentheses, naming which other sample
+// it's the joint compound *for*. "(01A)" isn't preceded by a space, so it
+// slipped past the exclusion above and got treated as a genuine row start
+// sitting inside 02A's own window — truncating 02A's window before it
+// ever reached its actual "None Detected" result, and silently dropping
+// both 02A and 02B (03A immediately following read as 02B's "next code"
+// boundary instead) from the report entirely. Same fix as the space case:
+// a genuine field code is never preceded by "(" either.
+const FIELD_CODE_LINE_PATTERN = /(?<![ (])(\d{2}[A-Z](?:\.\d+)?)(?![a-z])/g;
 const CRYSTAL_RESULT_PATTERN = new RegExp(`none detected|${POSITIVE_PATTERN.source}|${BARE_MINERAL_PATTERN.source}`, "i");
 
 function bestReportSamplesCrystalAnalytical(pdfText: string): SampleResult[] {

@@ -195,6 +195,47 @@ Project Address:221 Oak St., Brockton, MA
 Crystal Analytical, LLC.      •       55 Accord Park Dr., Ste. 2D; Rockland, MA 02370      •      (781) 347-3936
 `;
 
+// Real Crystal Analytical report (job 26-0005, confirmed live 2026-08-26)
+// where two rows' own material description cites a *different* sample's
+// field code in parentheses ("Drywall Joint Compound (01A)" — the joint
+// compound that goes with wall base 01A) rather than the plain-space
+// phrasing ("Assoc Adhesive 04B, Kitchen...") the fixture above already
+// covers. "(01A)" isn't preceded by a space, so it slipped past that
+// exclusion and got mistaken for 02A's own next-row boundary — truncating
+// 02A's window before it ever reached its actual result and silently
+// dropping both 02A and 02B from the report (6 samples counted, not 8).
+const CRYSTAL_ANALYTICAL_PARENTHETICAL_REFERENCE = `
+Physical Non-Asbestos
+Description & Location Asbestos %
+Client ID Item ID
+Attributes Fibrous Components
+3%
+01A 0001 Drywall Wall Base, Back Left Closet White Cellulose None Detected
+Semi-Fibrous
+Homogeneous
+01B 0002 Drywall Wall Base, Back Left Closet White 3% Cellulose None Detected
+Semi-Fibrous
+Homogeneous
+02A 0003 Drywall Joint Compound (01A), Back Left White None Detected
+Closet Non-Fibrous
+Homogeneous
+02B 0004 Drywall Joint Compound (01B), Back Left White None Detected
+Closet Non-Fibrous
+Homogeneous
+03A 0005 Sheet Rock Ceiling Base, Back Left Closet White 3% Cellulose None Detected
+Semi-Fibrous
+Homogeneous
+03B 0006 Sheet Rock Ceiling Base, Back Left Closet White 3% Cellulose None Detected
+Semi-Fibrous
+Homogeneous
+04A 0007 Sheet Rock Ceiling Skim Layer, Back Left White None Detected
+Closet Non-Fibrous
+Homogeneous
+04B 0008 Sheet Rock Ceiling Skim Layer, Back Left White None Detected
+Closet Non-Fibrous
+Homogeneous
+`;
+
 // Real report where 2 of the 16 rows are "Layer Not Present" — the layer
 // the field tech expected to sample wasn't actually there, so the lab never
 // reported a real result for it. Those two still get a field code and lab
@@ -583,6 +624,13 @@ describe("Crystal Analytical report format", () => {
       { fieldCode: "01A", result: "None Detected" },
       { fieldCode: "01B", result: "None Detected" },
     ]);
+  });
+
+  it("doesn't drop a sample whose own description cites another field code in parentheses", () => {
+    expect(extractSampleCount(CRYSTAL_ANALYTICAL_PARENTHETICAL_REFERENCE)).toBe(8);
+    const results = extractSampleResults(CRYSTAL_ANALYTICAL_PARENTHETICAL_REFERENCE);
+    expect(results.map((r) => r.fieldCode)).toEqual(["01A", "01B", "02A", "02B", "03A", "03B", "04A", "04B"]);
+    expect(results.every((r) => r.result === "None Detected")).toBe(true);
   });
 });
 

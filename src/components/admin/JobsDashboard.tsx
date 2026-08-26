@@ -1773,6 +1773,24 @@ export function ProjectDetailDialog({
       </select>
     </div>
   );
+  // Auto-extracted from the lab report's own "Date(s) Sampled:"/"Collected:"
+  // line (see documents/route.ts's extractSampledDate) — this is the only
+  // way to correct it when the lab itself gets that line wrong, confirmed
+  // live on 26-0002 (Crystal Analytical printed 08/24/26, the actual
+  // asbestos sampling date was 08/20/26). Every date in the final report
+  // reads from this field, so a wrong lab-entered date otherwise has no fix
+  // short of editing the database directly.
+  const dateSampledInput = (domain: ReportDomain) => (
+    <div className="flex w-full items-center gap-2 text-sm">
+      <span className="shrink-0 text-xs font-semibold uppercase text-slate-400">Date Sampled</span>
+      <input
+        type="date"
+        className="h-9 w-full min-w-0 flex-1 rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+        value={(domain === "mold" ? job.mold_date_sampled : domain === "lead" ? job.lead_date_sampled : job.lab_date_sampled) ?? ""}
+        onChange={(e) => saveDateSampled(e.target.value, domain)}
+      />
+    </div>
+  );
   // report_summary is one shared field for the whole job's asbestos/lead
   // report (mold has its own separate discussion fields now, so no more
   // cross-domain field sharing) — the Result dropdown only ever needs to
@@ -1910,6 +1928,24 @@ export function ProjectDetailDialog({
       : domain === "lead"
       ? { lead_lab_name: labName || null, lead_lab_cert: lab?.nist_cert || null }
       : { lab_name: labName || null, lab_nist_cert: lab?.nist_cert || null, lab_massdls_cert: lab?.massdls_cert || null };
+    await fetch(`/api/admin/jobs/${job.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    });
+    onChanged();
+  }
+
+  // Manual correction for whenever the lab's own "Date(s) Sampled:"/
+  // "Collected:" line is just wrong (confirmed live on 26-0002 — Crystal
+  // Analytical printed the wrong date) — every date on the final report
+  // reads from this field, so this is the only fix short of the database.
+  async function saveDateSampled(value: string, domain: ReportDomain) {
+    const patch = domain === "mold"
+      ? { mold_date_sampled: value || null }
+      : domain === "lead"
+      ? { lead_date_sampled: value || null }
+      : { lab_date_sampled: value || null };
     await fetch(`/api/admin/jobs/${job.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -2531,8 +2567,9 @@ export function ProjectDetailDialog({
                               {labelIdx === 0 && turnaroundControl}
                             </div>
                             {labelIdx === 0 && (
-                              <div className="mb-4">
+                              <div className="mb-4 space-y-2">
                                 {labDropdown(group.domain)}
+                                {dateSampledInput(group.domain)}
                               </div>
                             )}
                             <div className="grid grid-cols-2 gap-3">

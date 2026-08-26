@@ -3423,6 +3423,20 @@ function DocumentStation({
                 >
                   {deletingId === doc.id ? "…" : "✕"}
                 </button>
+                {/* Same View/Download row as the Invoice and Final Report
+                    cards, for the same reason — a right-click-to-save on
+                    the thumbnail isn't obvious, and the thumbnail's own
+                    click already opens the in-app preview modal instead of
+                    a new tab. */}
+                <div className="border-t border-slate-200 px-2 py-1 text-center text-xs">
+                  <a href={url} target="_blank" rel="noreferrer" className="text-brand-600 hover:underline">
+                    View
+                  </a>
+                  {" · "}
+                  <a href={`${url}?download=1`} download={doc.file_name} className="text-brand-600 hover:underline">
+                    Download
+                  </a>
+                </div>
                 {doc.project_number_mismatch && (
                   <p className="bg-red-600 px-2 py-1 text-xs font-bold text-white">
                     ⚠ Report says {doc.project_number_mismatch}. This job is {job.project_number}.

@@ -34,10 +34,16 @@ export const GET = withApiErrors(async (
     throw new Error(`Failed to download document: ${downloadError?.message}`);
   }
 
+  // Same reasoning as the invoice/report routes' own disposition switch —
+  // "attachment" is what actually forces a save-to-disk for the Download
+  // link, since some browsers ignore the <a download> attribute entirely
+  // and just follow Content-Disposition.
+  const disposition = req.nextUrl.searchParams.get("download") != null ? "attachment" : "inline";
+
   return new NextResponse(await blob.arrayBuffer(), {
     headers: {
       "Content-Type": blob.type || "application/octet-stream",
-      "Content-Disposition": `inline; filename="${doc.file_name}"`,
+      "Content-Disposition": `${disposition}; filename="${doc.file_name}"`,
     },
   });
 });

@@ -86,7 +86,17 @@ function formatDateMMDDYYYY(date: string | null): string {
 // since it's identical across the report/invoice/combined/payment-reminder
 // draft bodies below (both the "\n"-joined plain-text one and the
 // "<br>"-joined HTML ones — plain text renders fine either way).
-const SIGNATURE_LINES = ["Tim Hall", "Commonwealth Inspection Services", "617-390-4778"];
+//
+// No phone line (confirmed live 2026-08-26) — every body already states
+// the phone number in its own closing sentence just above this block, and
+// three short stacked lines (name/company/phone) is exactly the shape
+// Gmail's compose UI treats as a collapsible signature block, hiding it
+// behind a "..." toggle — which it still did even with a genuinely
+// different phone-line format than Tim's own saved Gmail signature, so
+// the trigger is the shape (several short lines in a row), not a literal
+// text match. Two lines side-steps that shape without dropping any info
+// the reader doesn't already have right above it.
+const SIGNATURE_LINES = ["Tim Hall", "Commonwealth Inspection Services"];
 
 // Per Tim, 2026-08-26 — replaces the old FLI-inherited template with his
 // own shorter wording: domain-labeled ("asbestos inspection report", not

@@ -87,23 +87,25 @@ function formatDateMMDDYYYY(date: string | null): string {
 // "<br>"-joined HTML ones — plain text renders fine either way).
 const SIGNATURE_LINES = ["Tim Hall", "Commonwealth Inspection Services", "617-390-4778"];
 
-// The owner's own real template (the one FLI Environmental has sent for
-// years) — reused verbatim rather than a generic message, just with the
-// blanks filled in and the phone number pulled from Settings instead of
-// hardcoded, so it stays correct once he's fully off the old FLI number.
+// Per Tim, 2026-08-26 — replaces the old FLI-inherited template with his
+// own shorter wording: domain-labeled ("asbestos inspection report", not
+// a generic "final report"), address and sampling date on one line
+// instead of two separately-labeled ones, and "call me" instead of
+// "contact our office." domainPhrase/reportNoun mirror
+// combinedDraftBodyHtml's own domain-labeling below, for a job whose
+// service_type spans more than one domain.
 function reportDraftBodyText(job: Job, settings: Settings): string {
+  const domains = jobReportDomains(job.service_type);
+  const domainPhrase = reportDomainListPhrase(domains);
+  const reportNoun = domains.length > 1 ? "inspection reports" : "inspection report";
   return [
     "Hi,",
     "",
-    "Please find attached the final report for:",
+    `Please find attached the ${domainPhrase} ${reportNoun} for:`,
     "",
-    `Site: ${job.service_address}`,
+    `${job.service_address} (Date of Sampling: ${formatDateMMDDYYYY(job.requested_date)})`,
     "",
-    `Date of Sampling: ${formatDateMMDDYYYY(job.requested_date)}`,
-    "",
-    `Should you have any questions or need additional information, please contact our office at ${settings.business_phone}.`,
-    "",
-    "Thank you for the opportunity to provide you with our services and we look forward to working together in the future.",
+    `If you have any questions, call me at ${settings.business_phone}.`,
     "",
     ...SIGNATURE_LINES,
   ].join("\n");

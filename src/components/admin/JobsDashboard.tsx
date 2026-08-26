@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import type { Company, Customer, FullInspectionMaterial, InvoiceLineItem, JobDocument, JobWithCustomer, LabProfile, PricingZone, SampleItem, ServiceType } from "@/lib/types";
 import { defaultInvoiceLineItems, sampleDescriptionForServiceType } from "@/lib/invoice-defaults";
-import { ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK, moldServiceTypeFlags, jobReportDomains, domainForServiceTypeLabel, isFullInspectionAsbestosJob, NEWTON_FIRE_FLOOD_COMPANY_ID, type ReportDomain } from "@/lib/report-findings";
+import { ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK, jobReportDomains, domainForServiceTypeLabel, isFullInspectionAsbestosJob, NEWTON_FIRE_FLOOD_COMPANY_ID, type ReportDomain } from "@/lib/report-findings";
 import { splitAddress, parseAddressToFields, buildBillingAddress, googleMapsUrl, wazeUrl } from "@/lib/address";
 import { joinName, splitFullName, toTitleCase } from "@/lib/name";
 import { telHref } from "@/lib/phone";
@@ -453,14 +453,10 @@ function reportChecklist(job: JobWithCustomer, domain: ReportDomain): { label: s
       ...commonReportChecklist(job),
       { label: "Sample count", done: totalSamples > 0 },
       { label: "Lab info", done: Boolean(job.mold_lab_name) },
-      // Air and bulk each have their own fixed, auto-generated sample-count
-      // sentence for Discussion of Results, regardless of mold_report_summary.
-      // Swab has no auto-generated sentence — even on a combo job that also
-      // has air/bulk — so only swab requires the admin's own text.
-      { label: "Results", done: (() => {
-        const flags = moldServiceTypeFlags(job.service_type);
-        return !flags.hasSwab || Boolean(job.mold_report_summary);
-      })() },
+      // Air, bulk, and swab each have their own fixed, auto-generated
+      // sample-count sentence for Discussion of Results — mold_report_summary
+      // is purely supplementary now, never required for any one of them.
+      { label: "Results", done: totalSamples > 0 },
     ];
   }
   if (domain === "lead") {
@@ -2497,33 +2493,27 @@ export function ProjectDetailDialog({
                             whichever one happened to render last. */}
                         {group.domain === "mold" && (
                           <>
-                            {isMoldJob(job) && (() => {
-                              const flags = moldServiceTypeFlags(job.service_type);
-                              // Air and bulk each have their own fixed, auto-generated
-                              // sample-count sentence (see report-pdf.tsx) — so this
-                              // admin cell is only superfluous on an air-only or
-                              // air+bulk job with nothing further to add. Swab has no
-                              // auto-generated sentence, so this must always show
-                              // whenever swab is present (a combo job was rendering
-                              // NOTHING for its bulk discussion before bulk got its own
-                              // sentence — see 26-0002).
-                              return !flags.hasAir || flags.hasBulk || flags.hasSwab;
-                            })() && (
+                            {isMoldJob(job) && (
                               <div className="mt-5 rounded-lg border border-slate-200 p-3">
                                 <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
                                   Discussion of Results
                                 </label>
+                                {/* Air, bulk, and swab each have their own fixed,
+                                    auto-generated sample-count sentence under their
+                                    own heading (see report-pdf.tsx) — this cell is
+                                    purely supplementary findings on top of those,
+                                    never the only home for any one type's discussion.
+                                    It used to render nested under whichever heading
+                                    happened to be last (swab's), which meant air/bulk
+                                    findings typed here showed up mislabeled as swab's
+                                    on a combo job — it's unlabeled and trailing now. */}
                                 <textarea
                                   className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
                                   rows={6}
                                   value={moldReportSummaryInput}
                                   onChange={(e) => setMoldReportSummaryInput(e.target.value)}
                                   onBlur={(e) => saveMoldReportSummary(e.target.value)}
-                                  placeholder={
-                                    moldServiceTypeFlags(job.service_type).hasSwab
-                                      ? "Sample counts, dates, and any notable findings for this job."
-                                      : "Any additional notable findings for this job — sample counts and dates are added automatically."
-                                  }
+                                  placeholder="Any additional notable findings for this job — sample counts and dates are added automatically."
                                 />
                               </div>
                             )}

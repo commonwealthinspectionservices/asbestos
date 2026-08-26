@@ -785,41 +785,30 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
   // natural punctuation kept (e.g. "EMSL Analytical, Inc. located in...",
   // not "...Inc located in...").
   const labNameWithCity = labCity ? `${rawLabName} located in ${labCity}` : rawLabName.replace(/\.+$/, "");
-  // Confirmed word-for-word identical across two independent real reports —
-  // one air+bulk combo, one bulk-only — so it's attached to both Air's and
-  // Bulk's own paragraphs below. A real swab-only report confirmed this
-  // caveat does NOT appear there, so swab's paragraph stays without it.
+  // Confirmed word-for-word identical across multiple independent real
+  // reports (air+bulk combo, bulk-only, and a full air+bulk+swab combo —
+  // "MOLD GOLD.pdf", FLI project 22-1885 — which settles that swab gets
+  // this caveat too; an earlier pass wrongly concluded otherwise from a
+  // single swab-only counterexample that just happened to omit it).
   const SPORE_ID_CAVEAT =
     "This method does not differentiate between viable and non-viable fungal spores. In addition, this technique does not allow for the differentiation between Aspergillus and Penicillium spores. Other non-distinctive spores are reported in categories such as Ascospores or Basidiospores.";
-  // Air and swab share one section when both are present — confirmed
-  // verbatim against real air+swab combo reports, which merge both
-  // collection tools into a single paragraph rather than giving swab its
-  // own sub-section. Bulk uses a physically different collection method
-  // (excising a material sample vs. an air pump or surface swab) so it
-  // keeps its own section. Each section's own heading names its type
-  // ("Airborne"/"Bulk"/"Swab") — confirmed against real air+bulk combo and
-  // bulk-only reports, which both use type-specific headings here (not the
-  // generic "Sampling for Mold:" an earlier pass wrongly assumed from a
-  // single swab-only counterexample).
+  // Air, bulk, and swab each ALWAYS get their own independent numbered
+  // section, never merged — confirmed against a real air+bulk+swab combo
+  // report ("MOLD GOLD.pdf") that gives swab its own full section 3 even
+  // though air is also present. (A prior pass merged air+swab into one
+  // section based on a different real report; that report is presumably
+  // its own inconsistent one-off, not the standard — the three-modality
+  // combo is the more authoritative reference since it's the only example
+  // that actually exercises all three sections side by side.) Each
+  // section's own heading names its type ("Airborne"/"Bulk"/"Swab").
   const methodologySections = [
     ...(hasAir
       ? [
           {
             title: "Airborne Sampling for Mold:",
             paragraphs: [
-              `The concentration and identification of the genera of airborne mold was performed through the use of Air-O-Cell cassettes${hasSwab ? " and swabs" : ""}. This method utilizes an air pump to draw air at a predetermined flow rate through a spore trap cassette containing a slide coated with an optically-transparent adhesive. Airborne particulate, including spores is impacted onto the slide, and then submitted to the laboratory where it is stained and analyzed by optical microscopy at magnifications between 200X and 1000X. Samples collected at the above referenced location were enumerated and speciated by ${labNameWithCity}.`,
+              `The concentration and identification of the genera of airborne mold was performed through the use of Air-O-Cell cassettes. This method utilizes an air pump to draw air at a predetermined flow rate through a spore trap cassette containing a slide coated with an optically-transparent adhesive. Airborne particulate, including spores is impacted onto the slide, and then submitted to the laboratory where it is stained and analyzed by optical microscopy at magnifications between 200X and 1000X. Samples collected at the above referenced location were enumerated and speciated by ${labNameWithCity}.`,
               SPORE_ID_CAVEAT,
-            ],
-          },
-        ]
-      : hasSwab
-      ? [
-          {
-            title: "Swab Sampling for Mold:",
-            paragraphs: [
-              // Confirmed against a real swab-only report: unlike air and
-              // bulk, swab's own paragraph does NOT get the spore-ID caveat.
-              `Swab samples of suspected mold growth were collected from the affected surfaces to identify the genera of mold, if present. Upon receipt at the laboratory, a sub-sample is prepared and applied directly to a microscopic slide, where it is stained and analyzed by optical microscopy at magnifications between 200X and 1000X. The swabs collected at the above referenced address were enumerated and speciated by ${labNameWithCity}.`,
             ],
           },
         ]
@@ -829,10 +818,22 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
           {
             title: "Bulk Sampling for Mold:",
             paragraphs: [
-              // Confirmed verbatim (aside from lab name/city) against two
-              // independent real reports — never assume the old, invented
-              // wording this replaced without a real example to check against.
+              // Confirmed verbatim (aside from lab name/city) against
+              // multiple independent real reports — never assume the old,
+              // invented wording this replaced without a real example to
+              // check against.
               `Bulk samples of building materials suspected mold growth were collected to identify the genera of mold, if present. Upon receipt at the laboratory, a sub-sample is prepared and applied directly to a microscopic slide, where it is stained and analyzed by optical microscopy at magnifications between 200X and 1000X. The bulk samples were enumerated and speciated by ${labNameWithCity}.`,
+              SPORE_ID_CAVEAT,
+            ],
+          },
+        ]
+      : []),
+    ...(hasSwab
+      ? [
+          {
+            title: "Swab Sampling for Mold:",
+            paragraphs: [
+              `Swab samples of suspected mold growth were collected from the affected surfaces to identify the genera of mold, if present. Upon receipt at the laboratory, a sub-sample is prepared and applied directly to a microscopic slide, where it is stained and analyzed by optical microscopy at magnifications between 200X and 1000X. The swabs collected at the above referenced address were enumerated and speciated by ${labNameWithCity}.`,
               SPORE_ID_CAVEAT,
             ],
           },
@@ -878,10 +879,20 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
       ? `${NUMBER_WORDS[bulkSampleTotal] ?? bulkSampleTotal} (${bulkSampleTotal}) bulk samples of suspect microbial growth were collected on ${samplingDateText}.`
       : "[Number of samples] bulk samples of suspect microbial growth were collected on [Date of Sampling].";
 
-  // Swab has no standard count sentence (confirmed against a real
-  // swab-only report, which states no such count) — unlike bulk above, its
-  // Discussion of Results is still the admin's own free text
-  // (mold_report_summary) under its own subheading.
+  // Swab's own standard count sentence — same generic per-type pattern as
+  // air and bulk above, so every sample type gets its standard sentence
+  // whenever it's included on a job, regardless of which other types are
+  // also on it (confirmed against "MOLD GOLD.pdf", a real air+bulk+swab
+  // combo report — swab's own line there is "Two (2) swab samples were
+  // collected on [date]").
+  const swabSampleTotal = Object.entries(job.sample_counts ?? {})
+    .filter(([label]) => label.toLowerCase().includes("swab"))
+    .reduce((sum, [, n]) => sum + (n || 0), 0);
+  const swabSampleCountSentence =
+    swabSampleTotal > 0 && samplingDateText
+      ? `${NUMBER_WORDS[swabSampleTotal] ?? swabSampleTotal} (${swabSampleTotal}) swab samples were collected on ${samplingDateText}.`
+      : "[Number of samples] swab samples were collected on [Date of Sampling].";
+
   // Discussion of Results subheadings are numbered in whichever order the
   // modalities actually present themselves, rather than a hardcoded 1/2/3.
   let discussionSectionIndex = 0;
@@ -976,19 +987,20 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
         {hasSwab && (
           <View wrap={false}>
             <Text style={styles.subHeading}>{swabDiscussionNumber}. Swab Sampling for Mold:</Text>
-            {discussionParagraphs.length > 0
-              ? discussionParagraphs.map((p, i) => <Text style={styles.paragraph} key={i}>{p}</Text>)
-              : <Text style={styles.paragraph}>NO RESULTS YET.</Text>}
+            <Text style={styles.paragraph}>{swabSampleCountSentence}</Text>
           </View>
         )}
-        {/* Additional notable findings beyond the standard sentences above —
-            only lives here (unlabeled, trailing) when swab hasn't already
-            claimed this same admin cell for its own discussion above. */}
-        {!hasSwab && discussionParagraphs.length > 0 &&
-          discussionParagraphs.map((p, i) => <Text style={styles.paragraph} key={i}>{p}</Text>)}
-        {!hasAir && !hasBulk && !hasSwab && discussionParagraphs.length === 0 && (
-          <Text style={styles.paragraph}>NO RESULTS YET.</Text>
-        )}
+        {/* Additional notable findings — one shared admin cell, always
+            trailing and unlabeled rather than nested under any one type's
+            heading. It used to render under swab's heading specifically,
+            which meant findings about air or bulk typed into this same
+            cell rendered mislabeled as swab's own findings on an
+            air+bulk+swab job — now that every type has its own standard
+            sentence above, this cell is purely supplementary to all of
+            them, not owned by any single one. */}
+        {discussionParagraphs.length > 0
+          ? discussionParagraphs.map((p, i) => <Text style={styles.paragraph} key={i}>{p}</Text>)
+          : !hasAir && !hasBulk && !hasSwab && <Text style={styles.paragraph}>NO RESULTS YET.</Text>}
 
         <Text style={styles.romanTitle} minPresenceAhead={80}>IV.  CONCLUSIONS & RECOMMENDATIONS</Text>
         {hasAir && (

@@ -2033,67 +2033,111 @@ export function ProjectDetailDialog({
           scroll on mobile Safari). This is the standard mobile-dialog
           shape now — see Add/Edit Project for the same pattern. */}
       <div className="flex h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl bg-white">
-        <div className="flex shrink-0 flex-nowrap items-center gap-0 border-b border-slate-200 bg-white px-3 pt-3 pb-1 sm:gap-1 sm:px-5 sm:pt-5">
-          <button
-            onClick={() => setTab("info")}
-            className={`flex-1 whitespace-nowrap px-0.5 py-1.5 text-center text-[11px] font-bold uppercase sm:flex-none sm:px-3 sm:text-sm ${tab === "info" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
-          >
-            Project Info
-          </button>
-          {job.source !== "subcontractor" && (
-            <>
-              {/* One tab per domain actually on the job (asbestos/mold/lead)
-                  — a job combining service types from more than one domain
-                  used to stack every domain's upload stations into one long
-                  Report & Invoice tab; each domain now gets its own tab,
-                  same at every screen width. */}
-              {jobReportDomains(job.service_type).map((domain) => (
+        {(() => {
+          // One dropdown option per tab the button row below would otherwise
+          // render — a report tab is keyed "report:<domain>" since a job
+          // combining domains has more than one, each needing its own
+          // selectable entry. Kept in sync with the button row by hand
+          // rather than generating the buttons from this list too, since
+          // the buttons' own layout/active-state styling per tab is already
+          // established and works fine on its own screen size (sm+).
+          const tabOptions = job.source === "subcontractor"
+            ? [
+                { value: "info", label: "Project Info", onSelect: () => setTab("info") },
+                { value: "shipping", label: "Shipping", onSelect: () => setTab("shipping") },
+                { value: "compensation", label: "Compensation", onSelect: () => setTab("compensation") },
+              ]
+            : [
+                { value: "info", label: "Project Info", onSelect: () => setTab("info") },
+                ...jobReportDomains(job.service_type).map((domain) => ({
+                  value: `report:${domain}`,
+                  label: `${REPORT_DOMAIN_LABEL[domain]} Report`,
+                  onSelect: () => { setTab("report"); setReportDomainTab(domain); },
+                })),
+                { value: "invoice", label: "Invoice", onSelect: () => setTab("invoice") },
+                { value: "chat", label: "Chat", onSelect: () => setTab("chat") },
+                { value: "photos", label: "Photos", onSelect: () => setTab("photos") },
+              ];
+          const selectedValue = tab === "report" ? `report:${reportDomainTab}` : tab;
+          return (
+            <div className="flex shrink-0 items-center gap-2 border-b border-slate-200 bg-white px-3 pt-3 pb-2 sm:gap-1 sm:px-5 sm:pt-5 sm:pb-1">
+              {/* Mobile: a single dropdown instead of the tab row below —
+                  the row wrapped/overflowed illegibly on a narrow screen
+                  (e.g. "Photos" clipped to "PHOT"), and a select is much
+                  easier to use one-handed than a cramped multi-row tab bar. */}
+              <select
+                value={selectedValue}
+                onChange={(e) => tabOptions.find((o) => o.value === e.target.value)?.onSelect()}
+                className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm font-bold uppercase text-slate-700 sm:hidden"
+              >
+                {tabOptions.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+              <div className="hidden flex-nowrap items-center gap-0 sm:flex sm:flex-1 sm:gap-1">
                 <button
-                  key={domain}
-                  onClick={() => { setTab("report"); setReportDomainTab(domain); }}
-                  className={`flex-1 whitespace-nowrap px-0.5 py-1.5 text-center text-[11px] font-bold uppercase sm:flex-none sm:px-3 sm:text-sm ${tab === "report" && reportDomainTab === domain ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
+                  onClick={() => setTab("info")}
+                  className={`flex-1 whitespace-nowrap px-0.5 py-1.5 text-center text-[11px] font-bold uppercase sm:flex-none sm:px-3 sm:text-sm ${tab === "info" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
                 >
-                  {REPORT_DOMAIN_LABEL[domain]} Report
+                  Project Info
                 </button>
-              ))}
-              <button
-                onClick={() => setTab("invoice")}
-                className={`flex-1 whitespace-nowrap px-0.5 py-1.5 text-center text-[11px] font-bold uppercase sm:flex-none sm:px-3 sm:text-sm ${tab === "invoice" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
-              >
-                Invoice
-              </button>
-              <button
-                onClick={() => setTab("chat")}
-                className={`flex-1 whitespace-nowrap px-0.5 py-1.5 text-center text-[11px] font-bold uppercase sm:flex-none sm:px-3 sm:text-sm ${tab === "chat" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
-              >
-                Chat
-              </button>
-              <button
-                onClick={() => setTab("photos")}
-                className={`flex-1 whitespace-nowrap px-0.5 py-1.5 text-center text-[11px] font-bold uppercase sm:flex-none sm:px-3 sm:text-sm ${tab === "photos" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
-              >
-                Photos
-              </button>
-            </>
-          )}
-          {job.source === "subcontractor" && (
-            <>
-              <button
-                onClick={() => setTab("shipping")}
-                className={`flex-1 whitespace-nowrap px-0.5 py-1.5 text-center text-[11px] font-bold uppercase sm:flex-none sm:px-3 sm:text-sm ${tab === "shipping" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
-              >
-                Shipping
-              </button>
-              <button
-                onClick={() => setTab("compensation")}
-                className={`flex-1 whitespace-nowrap px-0.5 py-1.5 text-center text-[11px] font-bold uppercase sm:flex-none sm:px-3 sm:text-sm ${tab === "compensation" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
-              >
-                Compensation
-              </button>
-            </>
-          )}
-          <button onClick={onClose} className="shrink-0 pl-1 text-2xl leading-none text-slate-400 hover:text-slate-600 sm:ml-auto sm:pl-2 sm:text-base">✕</button>
-        </div>
+                {job.source !== "subcontractor" && (
+                  <>
+                    {/* One tab per domain actually on the job (asbestos/mold/lead)
+                        — a job combining service types from more than one domain
+                        used to stack every domain's upload stations into one long
+                        Report & Invoice tab; each domain now gets its own tab,
+                        same at every screen width. */}
+                    {jobReportDomains(job.service_type).map((domain) => (
+                      <button
+                        key={domain}
+                        onClick={() => { setTab("report"); setReportDomainTab(domain); }}
+                        className={`flex-1 whitespace-nowrap px-0.5 py-1.5 text-center text-[11px] font-bold uppercase sm:flex-none sm:px-3 sm:text-sm ${tab === "report" && reportDomainTab === domain ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
+                      >
+                        {REPORT_DOMAIN_LABEL[domain]} Report
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => setTab("invoice")}
+                      className={`flex-1 whitespace-nowrap px-0.5 py-1.5 text-center text-[11px] font-bold uppercase sm:flex-none sm:px-3 sm:text-sm ${tab === "invoice" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
+                    >
+                      Invoice
+                    </button>
+                    <button
+                      onClick={() => setTab("chat")}
+                      className={`flex-1 whitespace-nowrap px-0.5 py-1.5 text-center text-[11px] font-bold uppercase sm:flex-none sm:px-3 sm:text-sm ${tab === "chat" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
+                    >
+                      Chat
+                    </button>
+                    <button
+                      onClick={() => setTab("photos")}
+                      className={`flex-1 whitespace-nowrap px-0.5 py-1.5 text-center text-[11px] font-bold uppercase sm:flex-none sm:px-3 sm:text-sm ${tab === "photos" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
+                    >
+                      Photos
+                    </button>
+                  </>
+                )}
+                {job.source === "subcontractor" && (
+                  <>
+                    <button
+                      onClick={() => setTab("shipping")}
+                      className={`flex-1 whitespace-nowrap px-0.5 py-1.5 text-center text-[11px] font-bold uppercase sm:flex-none sm:px-3 sm:text-sm ${tab === "shipping" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
+                    >
+                      Shipping
+                    </button>
+                    <button
+                      onClick={() => setTab("compensation")}
+                      className={`flex-1 whitespace-nowrap px-0.5 py-1.5 text-center text-[11px] font-bold uppercase sm:flex-none sm:px-3 sm:text-sm ${tab === "compensation" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
+                    >
+                      Compensation
+                    </button>
+                  </>
+                )}
+              </div>
+              <button onClick={onClose} className="shrink-0 text-2xl leading-none text-slate-400 hover:text-slate-600 sm:ml-auto sm:pl-2 sm:text-base">✕</button>
+            </div>
+          );
+        })()}
 
         <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3 sm:px-5 sm:pb-5">
 

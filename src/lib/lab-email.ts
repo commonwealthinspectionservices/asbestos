@@ -99,10 +99,10 @@ function formatDateMMDDYYYY(date: string | null): string {
 const SIGNATURE_LINES = ["Tim Hall", "Commonwealth Inspection Services"];
 
 // Per Tim, 2026-08-26 — replaces the old FLI-inherited template with his
-// own shorter wording: domain-labeled ("asbestos inspection report", not
-// a generic "final report"), address and sampling date on one line
-// instead of two separately-labeled ones, and "call me" instead of
-// "contact our office." domainPhrase/reportNoun mirror
+// own wording: domain-labeled ("final asbestos inspection report", not a
+// generic "final report"), address and sampling date labeled on their own
+// separate lines instead of one combined parenthetical line, and "call
+// me" instead of "contact our office." domainPhrase/reportNoun mirror
 // combinedDraftBodyHtml's own domain-labeling below, for a job whose
 // service_type spans more than one domain.
 //
@@ -116,13 +116,16 @@ const SIGNATURE_LINES = ["Tim Hall", "Commonwealth Inspection Services"];
 function reportDraftBodyHtml(job: Job, settings: Settings): string {
   const domains = jobReportDomains(job.service_type);
   const domainPhrase = reportDomainListPhrase(domains);
-  const reportNoun = domains.length > 1 ? "inspection reports" : "inspection report";
+  const isPlural = domains.length > 1;
+  const reportNoun = isPlural ? "inspection reports" : "inspection report";
+  const reportVerb = isPlural ? "are" : "is";
   return [
     "Hi,",
     "",
-    `Please find attached the ${domainPhrase} ${reportNoun} for:`,
+    `The final ${domainPhrase} ${reportNoun} ${reportVerb} attached here.`,
     "",
-    `${escapeHtml(expandAddress(job.service_address))} (Date of Sampling: ${escapeHtml(formatDateMMDDYYYY(job.requested_date))})`,
+    `Address: ${escapeHtml(expandAddress(job.service_address))}`,
+    `Date of Sampling: ${escapeHtml(formatDateMMDDYYYY(job.requested_date))}`,
     "",
     `If you have any questions, call me at ${escapeHtml(settings.business_phone)}.`,
     "",

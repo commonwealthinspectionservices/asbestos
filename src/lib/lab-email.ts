@@ -94,7 +94,15 @@ const SIGNATURE_LINES = ["Tim Hall", "Commonwealth Inspection Services", "617-39
 // "contact our office." domainPhrase/reportNoun mirror
 // combinedDraftBodyHtml's own domain-labeling below, for a job whose
 // service_type spans more than one domain.
-function reportDraftBodyText(job: Job, settings: Settings): string {
+//
+// HTML, not plain text (confirmed live 2026-08-26) — a plain-text
+// message left Gmail's own compose UI to auto-collapse the last two
+// signature lines under a "..." "show trimmed content" toggle, the same
+// treatment Gmail gives a quoted reply, since a name-then-short-lines
+// shape at the end of a text/plain body reads to Gmail as boilerplate to
+// hide. HTML content (like every other draft body in this file) doesn't
+// get that treatment.
+function reportDraftBodyHtml(job: Job, settings: Settings): string {
   const domains = jobReportDomains(job.service_type);
   const domainPhrase = reportDomainListPhrase(domains);
   const reportNoun = domains.length > 1 ? "inspection reports" : "inspection report";
@@ -103,12 +111,12 @@ function reportDraftBodyText(job: Job, settings: Settings): string {
     "",
     `Please find attached the ${domainPhrase} ${reportNoun} for:`,
     "",
-    `${job.service_address} (Date of Sampling: ${formatDateMMDDYYYY(job.requested_date)})`,
+    `${escapeHtml(job.service_address)} (Date of Sampling: ${escapeHtml(formatDateMMDDYYYY(job.requested_date))})`,
     "",
-    `If you have any questions, call me at ${settings.business_phone}.`,
+    `If you have any questions, call me at ${escapeHtml(settings.business_phone)}.`,
     "",
     ...SIGNATURE_LINES,
-  ].join("\n");
+  ].join("<br>");
 }
 
 // Drafted copy (not the owner's own verbatim wording, unlike the report
@@ -934,7 +942,7 @@ async function draftReportEmailForJob(params: {
     subject: threadSubject(job.service_address, job.service_type),
     headers: threadHeaders(existingThreadIds),
     threadId: job.email_gmail_thread_id ?? undefined,
-    bodyText: reportDraftBodyText(job, settings),
+    bodyHtml: reportDraftBodyHtml(job, settings),
     attachments: reportPackets.map(({ domain, buffer }) => ({
       filename: reportPackets.length > 1
         ? `Final-Report-${domain[0].toUpperCase()}${domain.slice(1)}-${job.project_number ?? job.id}.pdf`

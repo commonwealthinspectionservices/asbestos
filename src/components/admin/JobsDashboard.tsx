@@ -1177,33 +1177,47 @@ function JobRow({
               {statusLabelForJob(job, job.status)}
             </span>
           ) : (
-            <select
-              value={job.status}
-              onChange={(e) => {
-                const nextStatus = e.target.value;
-                if (isSubcontractor && job.status === "needs_scheduling" && nextStatus === "scheduled") {
-                  // Right 90% of the time, so it defaults straight to the
-                  // window's own date/start time (e.g. "1:00 PM" out of
-                  // "1:00 PM - 4:00 PM") the moment this flips to Scheduled
-                  // — the other 10%, it's still just a normal edit away via
-                  // the Edit tab's Scheduled date/time fields.
-                  onFieldChange({
-                    status: "scheduled",
-                    confirmed_date: job.requested_date,
-                    confirmed_time: parseWindowStartTime24h(job.subcontractor_preferred_window),
-                    schedule_visible_to_customer: false,
-                  });
-                } else {
-                  onFieldChange({ status: nextStatus });
-                }
-              }}
-              onClick={(e) => e.stopPropagation()}
-              className={`inline-flex h-7 w-60 shrink-0 items-center whitespace-nowrap rounded bg-slate-200 px-2 py-0.5 text-sm font-bold text-slate-700 sm:inline-block sm:h-auto ${job.status === "ready_to_send" ? "border-2 border-emerald-500" : "border-0"}`}
-            >
-              {pipelineStatusesForJob(job).map((s) => (
-                <option key={s} value={s}>{statusLabelForJob(job, s)}</option>
-              ))}
-            </select>
+            <div className="flex flex-col items-end gap-0.5">
+              <select
+                value={job.status}
+                onChange={(e) => {
+                  const nextStatus = e.target.value;
+                  if (isSubcontractor && job.status === "needs_scheduling" && nextStatus === "scheduled") {
+                    // Right 90% of the time, so it defaults straight to the
+                    // window's own date/start time (e.g. "1:00 PM" out of
+                    // "1:00 PM - 4:00 PM") the moment this flips to Scheduled
+                    // — the other 10%, it's still just a normal edit away via
+                    // the Edit tab's Scheduled date/time fields.
+                    onFieldChange({
+                      status: "scheduled",
+                      confirmed_date: job.requested_date,
+                      confirmed_time: parseWindowStartTime24h(job.subcontractor_preferred_window),
+                      schedule_visible_to_customer: false,
+                    });
+                  } else {
+                    onFieldChange({ status: nextStatus });
+                  }
+                }}
+                onClick={(e) => e.stopPropagation()}
+                className={`inline-flex h-7 w-60 shrink-0 items-center whitespace-nowrap rounded bg-slate-200 px-2 py-0.5 text-sm font-bold text-slate-700 sm:inline-block sm:h-auto ${job.status === "ready_to_send" ? "border-2 border-emerald-500" : "border-0"}`}
+              >
+                {pipelineStatusesForJob(job).map((s) => (
+                  <option key={s} value={s}>{statusLabelForJob(job, s)}</option>
+                ))}
+              </select>
+              {/* Per Tim — Ready to Send (and Report and Invoice Sent) both
+                  cover a report/invoice pair that could be sent, partially
+                  sent, or fully sent, which otherwise looks identical on
+                  this card regardless of which. Always both lines, not just
+                  when they'd disagree — same show condition as the Project
+                  Info tab's own copy of this. */}
+              {job.source !== "subcontractor" && reportIsComplete(job) && job.invoice_total_cents != null && (
+                <div className="flex flex-col items-end text-xs text-slate-500">
+                  <span>Report: {job.report_sent_at ? "Sent" : "Not sent"}</span>
+                  <span>Invoice: {job.invoice_sent_at ? "Sent" : "Not sent"}</span>
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>

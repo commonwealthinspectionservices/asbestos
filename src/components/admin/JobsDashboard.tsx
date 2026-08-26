@@ -2238,7 +2238,12 @@ export function ProjectDetailDialog({
                   </>
                 )}
               </div>
-              <button onClick={onClose} className="shrink-0 text-2xl leading-none text-slate-400 hover:text-slate-600 sm:ml-auto sm:pl-2 sm:text-base">✕</button>
+              {/* p-2 -m-2 (mobile only) grows the tap target without
+                  shifting the glyph, and ml-1 adds real visual separation
+                  from the tab dropdown right next to it — per Tim, this X
+                  sat close enough to the dropdown to catch accidental taps
+                  meant for it. */}
+              <button onClick={onClose} className="ml-1 shrink-0 -m-2 p-2 text-2xl leading-none text-slate-400 hover:text-slate-600 sm:m-0 sm:ml-auto sm:p-0 sm:pl-2 sm:text-base">✕</button>
             </div>
           );
         })()}
@@ -4611,7 +4616,10 @@ export function EditProjectDialog({
       <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl bg-white">
         <div className="flex shrink-0 items-start justify-between gap-2 px-5 pt-5">
           <h3 className="font-semibold text-slate-800">EDIT PROJECT</h3>
-          <button onClick={onClose} className="shrink-0 text-slate-400 hover:text-slate-600">✕</button>
+          {/* Bigger tap target on mobile, same reasoning as the job card's
+              own close button above it — p-2 -m-2 grows the hit area
+              without shifting the glyph. */}
+          <button onClick={onClose} className="shrink-0 -m-2 p-2 text-2xl leading-none text-slate-400 hover:text-slate-600 sm:m-0 sm:p-0 sm:text-base">✕</button>
         </div>
 
         <div className="min-h-0 overflow-y-auto px-5 pb-5">

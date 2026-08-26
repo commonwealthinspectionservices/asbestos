@@ -141,7 +141,7 @@ export async function sendCustomerBookingReceivedEmail(params: {
 
   const result = await sendThreadedEmail({
     to: params.customerEmail,
-    subject: threadSubject(params.address, params.projectNumber),
+    subject: threadSubject(params.address, params.serviceLabel),
     existingMessageIds: [],
     gmailThreadId: null,
     html: emailShell(`
@@ -238,7 +238,7 @@ export async function sendJobConfirmedEmailIfDue(jobId: string): Promise<void> {
   const existingIds: string[] = Array.isArray(job.email_thread_message_ids) ? job.email_thread_message_ids : [];
   const result = await sendThreadedEmail({
     to: customer.email,
-    subject: threadSubject(job.service_address, job.project_number),
+    subject: threadSubject(job.service_address, job.service_type),
     existingMessageIds: existingIds,
     gmailThreadId: job.email_gmail_thread_id,
     html: emailShell(`

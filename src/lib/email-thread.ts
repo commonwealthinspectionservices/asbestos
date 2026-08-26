@@ -20,11 +20,16 @@
 // without joining the thread that time.
 import { sendEmail } from "@/lib/email";
 import { getValidAccessToken, sendMessage, getMessageIdHeader } from "@/lib/gmail";
+import { inspectionReportSubjectPrefix } from "@/lib/report-findings";
 
-// Kept short and stable across the whole chain (address + project #) so
-// the conversation is identifiable even from just the subject line.
-export function threadSubject(address: string, projectNumber: string | null): string {
-  return projectNumber ? `${address} (${projectNumber})` : address;
+// "Asbestos + Mold Inspection Report 36 Drummer Rd, Acton, MA" — kept
+// stable across the whole chain (request received -> confirmed -> final
+// report draft) so every email in a job's thread shares one subject, per
+// Tim. serviceType drives the domain prefix; omitted (or empty) falls back
+// to the bare address rather than guessing a domain that isn't known yet.
+export function threadSubject(address: string, serviceType: string | null | undefined): string {
+  if (!serviceType) return address;
+  return `${inspectionReportSubjectPrefix(serviceType)} ${address}`;
 }
 
 // In-Reply-To is just the immediately previous message; References is the

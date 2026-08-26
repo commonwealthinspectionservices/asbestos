@@ -918,7 +918,7 @@ async function draftReportEmailForJob(params: {
   const existingThreadIds: string[] = Array.isArray(job.email_thread_message_ids) ? job.email_thread_message_ids : [];
   const draft = await createDraft(accessToken, {
     to: [...new Set(recipients)].join(", "),
-    subject: threadSubject(job.service_address, job.project_number),
+    subject: threadSubject(job.service_address, job.service_type),
     headers: threadHeaders(existingThreadIds),
     threadId: job.email_gmail_thread_id ?? undefined,
     bodyText: reportDraftBodyText(job, settings),
@@ -1044,7 +1044,7 @@ async function draftCombinedEmailForJob(params: {
   const draft = await createDraft(accessToken, {
     to: toCustomer.email,
     cc: [...new Set(ccRecipients)].join(", ") || undefined,
-    subject: threadSubject(pricedJob.service_address, pricedJob.project_number),
+    subject: threadSubject(pricedJob.service_address, pricedJob.service_type),
     headers: threadHeaders(existingThreadIds),
     threadId: pricedJob.email_gmail_thread_id ?? undefined,
     bodyHtml: combinedDraftBodyHtml(pricedJob, settings, totalCents, payNowUrl),

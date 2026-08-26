@@ -1,5 +1,23 @@
 import { describe, it, expect } from "vitest";
-import { domainForServiceTypeLabel, jobReportDomains, isFullInspectionAsbestosJob } from "@/lib/report-findings";
+import { domainForServiceTypeLabel, jobReportDomains, isFullInspectionAsbestosJob, inspectionReportSubjectPrefix } from "@/lib/report-findings";
+
+describe("inspectionReportSubjectPrefix", () => {
+  it("names a single domain", () => {
+    expect(inspectionReportSubjectPrefix("Limited Asbestos Inspection")).toBe("Asbestos Inspection Report");
+    expect(inspectionReportSubjectPrefix("Mold Air Sampling, Mold Bulk Sampling")).toBe("Mold Inspection Report");
+  });
+
+  it("orders a combo as Asbestos + Mold + Lead regardless of booking order", () => {
+    expect(inspectionReportSubjectPrefix("Limited Asbestos Inspection, Mold Air Sampling")).toBe("Asbestos + Mold Inspection Report");
+    // Mold booked first in service_type — prefix still reads Asbestos first.
+    expect(inspectionReportSubjectPrefix("Mold Air Sampling, Limited Asbestos Inspection")).toBe("Asbestos + Mold Inspection Report");
+  });
+
+  it("falls back to Asbestos for an empty/unknown service type", () => {
+    expect(inspectionReportSubjectPrefix(null)).toBe("Asbestos Inspection Report");
+    expect(inspectionReportSubjectPrefix("")).toBe("Asbestos Inspection Report");
+  });
+});
 
 describe("domainForServiceTypeLabel", () => {
   it("classifies mold labels", () => {

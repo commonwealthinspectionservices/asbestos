@@ -104,7 +104,7 @@ export async function sendJobReminders(): Promise<{ sent: number; failed: number
     // exists, just without needing Gmail's own send API for it.
     const ok = await sendEmail({
       to: customer.email,
-      subject: threadSubject(job.service_address, job.project_number),
+      subject: threadSubject(job.service_address, job.service_type),
       html,
       headers: threadHeaders(existingIds),
     });

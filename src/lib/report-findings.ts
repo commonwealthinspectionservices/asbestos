@@ -119,6 +119,23 @@ const REPORT_DOMAIN_FILENAME_LABEL: Record<ReportDomain, string> = {
   mold: "Mold",
 };
 
+// Fixed Asbestos/Mold/Lead order for the email subject prefix below,
+// regardless of which service type happens to be listed first in
+// job.service_type (jobReportDomains preserves booking order, which isn't
+// always Asbestos-first) — per Tim, "Asbestos + Mold Inspection Report",
+// never "Mold + Asbestos Inspection Report" for the same job.
+const SUBJECT_DOMAIN_ORDER: ReportDomain[] = ["asbestos", "mold", "lead"];
+
+// "Asbestos + Mold Inspection Report" / "Mold Inspection Report" / "Lead
+// Inspection Report" — the email subject prefix for a job's whole thread
+// (booking confirmation through the final report draft), naming every
+// domain actually on the job.
+export function inspectionReportSubjectPrefix(serviceType: string | null | undefined): string {
+  const present = new Set(jobReportDomains(serviceType));
+  const labels = SUBJECT_DOMAIN_ORDER.filter((d) => present.has(d)).map((d) => REPORT_DOMAIN_FILENAME_LABEL[d]);
+  return `${labels.join(" + ")} Inspection Report`;
+}
+
 // Downloaded report filename: "[job #] [service type] [address].pdf" —
 // same for every caller (admin and portal report routes) so a report saved
 // from either place is identifiable without opening it. Strips characters

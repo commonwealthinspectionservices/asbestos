@@ -2263,6 +2263,29 @@ export function ProjectDetailDialog({
                   </>
                 )}
               </div>
+              {/* Per Tim: belongs right here in the tab row, aligned with
+                  the other header buttons, not on a line of its own —
+                  desktop only, the tab row itself is select-dropdown-only
+                  on mobile (see above) with no room to also fit this
+                  inline, so mobile keeps the wrapped-row version below.
+                  Same control either way — see its own comment there. */}
+              {job.source !== "subcontractor" && reportComplete && job.invoice_total_cents != null && (
+                <div className="hidden shrink-0 items-center gap-3 sm:flex">
+                  {job.report_draft_gmail_message_id && job.invoice_draft_gmail_message_id
+                  && job.report_draft_gmail_message_id !== job.invoice_draft_gmail_message_id ? (
+                    <>
+                      <div className="flex items-center gap-2">
+                        <DraftLinkControl label="Report" hook={reportOnlyDraft} messageId={job.report_draft_gmail_message_id} draftedAt={job.report_drafted_at} sentAt={job.report_sent_at} />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <DraftLinkControl label="Invoice" hook={invoiceOnlyDraft} messageId={job.invoice_draft_gmail_message_id} draftedAt={job.invoice_drafted_at} sentAt={job.invoice_sent_at} />
+                      </div>
+                    </>
+                  ) : (
+                    <DraftLinkControl hook={combinedDraft} messageId={job.invoice_draft_gmail_message_id} draftedAt={job.invoice_drafted_at} sentAt={job.invoice_sent_at} />
+                  )}
+                </div>
+              )}
               {/* p-2 -m-2 (mobile only) grows the tap target without
                   shifting the glyph, and ml-1 adds real visual separation
                   from the tab dropdown right next to it — per Tim, this X
@@ -2273,17 +2296,19 @@ export function ProjectDetailDialog({
           );
         })()}
 
-        {/* Per Tim: "View Draft" belongs up here, next to the tabs, not
-            buried inside the Report/Invoice tab content — it's the same one
-            Gmail draft regardless of which tab is open, so it shouldn't
-            require switching tabs (or scrolling) to reach. Just a direct
-            link to Gmail, same as the button always did — doesn't touch
-            `tab` state at all. Boston Harbor's report and invoice are two
-            separate drafts (differing message ids) sent on their own
-            schedules, so it splits into two independent controls here —
-            every other company still has one link, exactly as before. */}
+        {/* Mobile-only duplicate of the header control above — the tab row
+            is a select dropdown on mobile with no room to fit this inline,
+            so it wraps to its own row here instead. Per Tim: "View Draft"
+            belongs up here, next to the tabs, not buried inside the
+            Report/Invoice tab content — it's the same one Gmail draft
+            regardless of which tab is open, so it shouldn't require
+            switching tabs (or scrolling) to reach. Boston Harbor's report
+            and invoice are two separate drafts (differing message ids)
+            sent on their own schedules, so it splits into two independent
+            controls here — every other company still has one link,
+            exactly as before. */}
         {job.source !== "subcontractor" && reportComplete && job.invoice_total_cents != null && (
-          <div className="flex shrink-0 flex-wrap items-center justify-end gap-x-4 gap-y-1 border-b border-slate-200 bg-white px-3 py-1.5 sm:px-5">
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-x-4 gap-y-1 border-b border-slate-200 bg-white px-3 py-1.5 sm:hidden">
             {job.report_draft_gmail_message_id && job.invoice_draft_gmail_message_id
             && job.report_draft_gmail_message_id !== job.invoice_draft_gmail_message_id ? (
               <>

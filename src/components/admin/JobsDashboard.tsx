@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import type { Company, Customer, FullInspectionMaterial, InvoiceLineItem, JobDocument, JobWithCustomer, LabProfile, PricingZone, SampleItem, ServiceType } from "@/lib/types";
 import { defaultInvoiceLineItems, sampleDescriptionForServiceType } from "@/lib/invoice-defaults";
-import { ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK, moldServiceTypeFlags, jobReportDomains, domainForServiceTypeLabel, isFullInspectionAsbestosJob, NEWTON_FIRE_FLOOD_COMPANY_ID, type ReportDomain } from "@/lib/report-findings";
+import { ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK, jobReportDomains, domainForServiceTypeLabel, isFullInspectionAsbestosJob, NEWTON_FIRE_FLOOD_COMPANY_ID, type ReportDomain } from "@/lib/report-findings";
 import { splitAddress, parseAddressToFields, buildBillingAddress, googleMapsUrl, wazeUrl } from "@/lib/address";
 import { joinName, splitFullName, toTitleCase } from "@/lib/name";
 import { telHref } from "@/lib/phone";
@@ -411,14 +411,6 @@ function daysOverdue(job: JobWithCustomer): number | null {
 // domain's report to distinguish (see jobReportDomains); a single-type job
 // still just sees the plain "Final Report" tile it always has.
 const REPORT_DOMAIN_LABEL: Record<ReportDomain, string> = { asbestos: "Asbestos", lead: "Lead", mold: "Mold" };
-
-// Mold labs (e.g. EMSL's AIHA LAP/EMLAP accreditation) don't carry a MassDLS
-// cert at all — that's asbestos/MA-DLS-specific — and mold results are a
-// pasted Discussion of Results (report_summary), not the asbestos_result
-// field. See MoldReportDocument in lib/report-pdf.tsx.
-function isMoldJob(job: JobWithCustomer): boolean {
-  return (job.service_type ?? "").toLowerCase().includes("mold");
-}
 
 // Once a job reaches Pending Lab Results or later, the confirmed date/time
 // describe a completed appointment, not a future one — label it that way
@@ -2461,6 +2453,62 @@ export function ProjectDetailDialog({
                               <DocumentStation job={job} onChanged={onChanged} kind="coc" label="Chain of Custody" serviceType={label} />
                               <DocumentStation job={job} onChanged={onChanged} kind="lab_invoice" label="Laboratory Invoice" serviceType={label} />
                             </div>
+                            {/* Discussion of Results lives right under this
+                                specific label's own upload station, not
+                                grouped separately at the bottom — each sample
+                                type's findings sit with that type's own lab
+                                results/CoC/invoice, matching the PDF where
+                                each type gets its own numbered subsection
+                                (confirmed against a real air+bulk+swab combo
+                                report, "MOLD GOLD.pdf"). Matched by substring
+                                the same way moldServiceTypeFlags parses
+                                service_type, since a label is always exactly
+                                one of "Mold Air/Bulk/Swab Sampling". */}
+                            {group.domain === "mold" && label.toLowerCase().includes("air") && (
+                              <div className="mt-3 rounded-lg border border-slate-200 p-3">
+                                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
+                                  Airborne Discussion of Results
+                                </label>
+                                <textarea
+                                  className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+                                  rows={4}
+                                  value={moldAirDiscussionInput}
+                                  onChange={(e) => setMoldAirDiscussionInput(e.target.value)}
+                                  onBlur={(e) => saveMoldAirDiscussion(e.target.value)}
+                                  placeholder="Notable air sampling findings for this job — sample count and date are added automatically."
+                                />
+                              </div>
+                            )}
+                            {group.domain === "mold" && label.toLowerCase().includes("bulk") && (
+                              <div className="mt-3 rounded-lg border border-slate-200 p-3">
+                                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
+                                  Bulk Discussion of Results
+                                </label>
+                                <textarea
+                                  className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+                                  rows={4}
+                                  value={moldBulkDiscussionInput}
+                                  onChange={(e) => setMoldBulkDiscussionInput(e.target.value)}
+                                  onBlur={(e) => saveMoldBulkDiscussion(e.target.value)}
+                                  placeholder="Notable bulk sampling findings for this job — sample count and date are added automatically."
+                                />
+                              </div>
+                            )}
+                            {group.domain === "mold" && label.toLowerCase().includes("swab") && (
+                              <div className="mt-3 rounded-lg border border-slate-200 p-3">
+                                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
+                                  Swab Discussion of Results
+                                </label>
+                                <textarea
+                                  className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+                                  rows={4}
+                                  value={moldSwabDiscussionInput}
+                                  onChange={(e) => setMoldSwabDiscussionInput(e.target.value)}
+                                  onBlur={(e) => saveMoldSwabDiscussion(e.target.value)}
+                                  placeholder="Notable swab sampling findings for this job — sample count and date are added automatically."
+                                />
+                              </div>
+                            )}
                             {/* Once per non-mold domain GROUP (first label
                                 within it), not once per job — a job
                                 combining asbestos and lead has two of these
@@ -2512,64 +2560,14 @@ export function ProjectDetailDialog({
                             )}
                           </div>
                         ))}
-                        {/* Mold's Discussion of Results/Conclusions &
-                            Recommendations live inside this same group —
-                            they cover every mold label on the job, not just
-                            whichever one happened to render last. Discussion
-                            of Results is one cell per sample type actually on
-                            the job (not just isMoldJob(job)) — each type gets
-                            its own numbered subsection with its own distinct
-                            findings in the PDF (confirmed against a real
-                            air+bulk+swab combo report, "MOLD GOLD.pdf"), so a
-                            single shared cell would mislabel one type's
-                            findings under another's heading on a combo job. */}
+                        {/* Mold's Conclusions & Recommendations lives inside
+                            this same group, once — it covers every mold
+                            label on the job as one shared conclusion, unlike
+                            Discussion of Results above which is now rendered
+                            per-label, right under each sample type's own
+                            upload station. */}
                         {group.domain === "mold" && (
                           <>
-                            {isMoldJob(job) && moldServiceTypeFlags(job.service_type).hasAir && (
-                              <div className="mt-5 rounded-lg border border-slate-200 p-3">
-                                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
-                                  Airborne Discussion of Results
-                                </label>
-                                <textarea
-                                  className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
-                                  rows={4}
-                                  value={moldAirDiscussionInput}
-                                  onChange={(e) => setMoldAirDiscussionInput(e.target.value)}
-                                  onBlur={(e) => saveMoldAirDiscussion(e.target.value)}
-                                  placeholder="Notable air sampling findings for this job — sample count and date are added automatically."
-                                />
-                              </div>
-                            )}
-                            {isMoldJob(job) && moldServiceTypeFlags(job.service_type).hasBulk && (
-                              <div className="mt-5 rounded-lg border border-slate-200 p-3">
-                                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
-                                  Bulk Discussion of Results
-                                </label>
-                                <textarea
-                                  className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
-                                  rows={4}
-                                  value={moldBulkDiscussionInput}
-                                  onChange={(e) => setMoldBulkDiscussionInput(e.target.value)}
-                                  onBlur={(e) => saveMoldBulkDiscussion(e.target.value)}
-                                  placeholder="Notable bulk sampling findings for this job — sample count and date are added automatically."
-                                />
-                              </div>
-                            )}
-                            {isMoldJob(job) && moldServiceTypeFlags(job.service_type).hasSwab && (
-                              <div className="mt-5 rounded-lg border border-slate-200 p-3">
-                                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
-                                  Swab Discussion of Results
-                                </label>
-                                <textarea
-                                  className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
-                                  rows={4}
-                                  value={moldSwabDiscussionInput}
-                                  onChange={(e) => setMoldSwabDiscussionInput(e.target.value)}
-                                  onBlur={(e) => saveMoldSwabDiscussion(e.target.value)}
-                                  placeholder="Notable swab sampling findings for this job — sample count and date are added automatically."
-                                />
-                              </div>
-                            )}
                             <div className="mt-5 rounded-lg border border-slate-200 p-3">
                               <div className="flex flex-wrap items-center justify-between gap-2">
                                 <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">

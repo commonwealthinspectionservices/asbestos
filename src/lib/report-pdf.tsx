@@ -303,6 +303,7 @@ function ReportDocumentForDomain({ job, customer, settings, domain }: ProjectRep
 }
 
 function AsbestosReportDocument({ job, customer, settings }: ProjectReportData) {
+  const inspector = primaryInspector(settings);
   // Lab report uploads populate sample_counts (one entry per service type on
   // the job), not the older single sample_count field — sum only this
   // report's own domain's entries for the letter's total, since a job
@@ -427,8 +428,8 @@ function AsbestosReportDocument({ job, customer, settings }: ProjectReportData) 
         </View>
 
         <Text style={styles.paragraph}>
-          Should you have any questions or need additional information, please contact our office at {settings.business_phone}. Thank you for the
-          opportunity to provide you with our services and we look forward to working together in the future.
+          Should you have any questions or need additional information, please contact {inspector.name} at {settings.business_phone}. Thank you for the
+          opportunity to provide you with our services!
         </Text>
 
         <SignatureBlock settings={settings} showLicense />
@@ -452,6 +453,7 @@ function AsbestosReportDocument({ job, customer, settings }: ProjectReportData) 
 // does. No "Field Technician" row — both real letters leave it blank and
 // nothing in this app tracks who was on site, so there's no value to show.
 function LeadReportDocument({ job, customer, settings }: ProjectReportData) {
+  const inspector = primaryInspector(settings);
   // See AsbestosReportDocument's identical comment — only this report's own
   // domain's sample_counts entries count toward its total.
   const sampleCountsTotal = Object.entries(job.sample_counts ?? {})
@@ -560,9 +562,9 @@ function LeadReportDocument({ job, customer, settings }: ProjectReportData) {
         </View>
 
         <Text style={styles.paragraph}>
-          Should you have any questions or need additional information, please contact our office
+          Should you have any questions or need additional information, please contact {inspector.name}
           {settings.business_phone ? ` at ${settings.business_phone}` : ""}. Thank you for the opportunity to provide
-          you with our services and we look forward to working together in the future.
+          you with our services!
         </Text>
 
         <SignatureBlock settings={settings} showLicense={false} />
@@ -715,8 +717,8 @@ function FullInspectionAsbestosReportDocument({ job, customer, settings }: Proje
         )}
 
         <Text style={styles.paragraph}>
-          Should you have any questions or need additional information, please contact our office at {settings.business_phone}. Thank you for the
-          opportunity to provide you with our services and we look forward to working together in the future.
+          Should you have any questions or need additional information, please contact {inspector.name} at {settings.business_phone}. Thank you for the
+          opportunity to provide you with our services!
         </Text>
 
         <SignatureBlock settings={settings} showLicense />

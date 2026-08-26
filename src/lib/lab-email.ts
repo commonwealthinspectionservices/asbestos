@@ -700,7 +700,7 @@ async function draftInvoiceEmailForJob(params: {
   job: Job & { customers: Customer & { companies: Company | null } };
   settings: Settings;
   accessToken: string;
-}): Promise<void> {
+}): Promise<{ messageId: string }> {
   const { job, settings, accessToken } = params;
   const supabase = getSupabaseAdmin();
 
@@ -786,6 +786,8 @@ async function draftInvoiceEmailForJob(params: {
       invoice_draft_gmail_message_id: draft.messageId,
     })
     .eq("id", job.id);
+
+  return { messageId: draft.messageId };
 }
 
 // What an individual-billed job gets instead of draftReportEmailForJob
@@ -1131,8 +1133,8 @@ async function loadJobForDraft(jobId: string): Promise<{
 }
 
 /** Manual "Create Invoice Draft" button on the Email tab — same draft-creation path the automatic email check uses, callable on demand for any project. */
-export async function createInvoiceDraftForJob(jobId: string): Promise<void> {
-  await draftInvoiceEmailForJob(await loadJobForDraft(jobId));
+export async function createInvoiceDraftForJob(jobId: string): Promise<{ messageId: string }> {
+  return draftInvoiceEmailForJob(await loadJobForDraft(jobId));
 }
 
 /** Manual "Create Report Draft" button on the Email tab — same draft-creation path the automatic email check uses, callable on demand for any project. Returns the new draft's own Gmail message id so a caller can jump straight to it. */

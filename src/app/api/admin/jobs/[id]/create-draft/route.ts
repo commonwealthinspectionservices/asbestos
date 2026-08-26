@@ -5,16 +5,19 @@ import { getSupabaseAdmin } from "@/lib/supabase";
 import { createCombinedDraftForJob, createInvoiceDraftForJob, createReportDraftForJob } from "@/lib/lab-email";
 import { BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID } from "@/lib/report-findings";
 
-// Backing the Email tab's one "View Draft" button — same draft-creation
+// Backing the Email tab's "View Draft" buttons — same draft-creation
 // path the automatic Gmail check and markJobPaid use, callable on demand
 // any time the admin wants the freshest attachments (this always replaces
 // whatever draft is already sitting there, deleting it first — see
 // draftCombinedEmailForJob's own stale-draft cleanup — rather than opening
-// a possibly-stale one). `kind=combined` is what the current UI sends
-// (report + invoice as one draft); "invoice"/"report" still work
-// standalone for any other caller, but nothing in the UI triggers them
-// anymore. Returns the new draft's Gmail message id (combined only) so the
-// button can jump straight to it without waiting for a job refetch.
+// a possibly-stale one). `kind=combined` is the common-case UI button
+// (report + invoice as one draft); Boston Harbor's two independent header
+// buttons use "invoice"/"report" directly (see JobsDashboard.tsx's
+// reportOnlyDraft/invoiceOnlyDraft hooks). Always returns the new draft's
+// Gmail message id — confirmed live 2026-08-26: the "invoice"/"report"
+// branches originally omitted it, so their buttons' window.open() call
+// always got closed with nothing to navigate to instead of landing on
+// the actual draft.
 export const POST = withApiErrors(async (
   req: NextRequest,
   { params }: { params: { id: string } }
@@ -24,12 +27,12 @@ export const POST = withApiErrors(async (
 
   const kind = req.nextUrl.searchParams.get("kind");
   if (kind === "invoice") {
-    await createInvoiceDraftForJob(params.id);
-    return NextResponse.json({ ok: true });
+    const { messageId } = await createInvoiceDraftForJob(params.id);
+    return NextResponse.json({ ok: true, messageId });
   }
   if (kind === "report") {
-    await createReportDraftForJob(params.id);
-    return NextResponse.json({ ok: true });
+    const { messageId } = await createReportDraftForJob(params.id);
+    return NextResponse.json({ ok: true, messageId });
   }
 
   // Boston Harbor Water Restoration: per Tim, the report draft that goes

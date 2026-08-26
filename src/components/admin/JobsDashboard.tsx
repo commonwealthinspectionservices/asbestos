@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import type { Company, Customer, FullInspectionMaterial, InvoiceLineItem, JobDocument, JobWithCustomer, LabProfile, PricingZone, SampleItem, ServiceType } from "@/lib/types";
 import { defaultInvoiceLineItems, sampleDescriptionForServiceType } from "@/lib/invoice-defaults";
-import { ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK, jobReportDomains, domainForServiceTypeLabel, isFullInspectionAsbestosJob, NEWTON_FIRE_FLOOD_COMPANY_ID, type ReportDomain } from "@/lib/report-findings";
+import { ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK, jobReportDomains, domainForServiceTypeLabel, isFullInspectionAsbestosJob, NEWTON_FIRE_FLOOD_COMPANY_ID, BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID, type ReportDomain } from "@/lib/report-findings";
 import { splitAddress, parseAddressToFields, buildBillingAddress, googleMapsUrl, wazeUrl } from "@/lib/address";
 import { joinName, splitFullName, toTitleCase } from "@/lib/name";
 import { telHref } from "@/lib/phone";
@@ -332,13 +332,15 @@ function gmailMessageUrl(messageId: string, sent: boolean): string {
 }
 
 // The job-header draft control — one instance for the common case (a
-// single combined report+invoice draft, `label` omitted, "View Draft ↗"
-// same as it's always read) and two side by side for Boston Harbor's
-// separately-sent report and invoice (`label` set, "View Report Draft ↗"
-// / "View Invoice Draft ↗"). Always rebuilds from what's on the job right
-// now and replaces the existing draft before opening it — per Tim,
-// viewing a draft should always mean the freshest one, so there's no
-// separate "regenerate" step in front of it.
+// single combined report+invoice draft, `label` omitted, "Create Draft ↗")
+// and two side by side for Boston Harbor's separately-sent report and
+// invoice (`label` set, "Create Report Draft ↗" / "Create Invoice Draft
+// ↗"). Says "Create," not "View" — per Tim, "View" undersold what this
+// actually does: every click rebuilds from what's on the job right now
+// and replaces whatever draft was already sitting there before opening
+// it, not a passive peek at an existing one. Once actually sent, the
+// label switches to "View sent ... ↗" — that one really is just a link,
+// nothing gets rebuilt once it's out the door.
 function DraftLinkControl({
   label, hook, messageId, draftedAt, sentAt,
 }: {
@@ -380,7 +382,7 @@ function DraftLinkControl({
         disabled={hook.creating}
         className="rounded-lg border border-red-600 bg-white px-3 py-1 text-xs font-bold uppercase text-red-600 hover:underline disabled:opacity-50"
       >
-        {hook.creating ? "Preparing draft…" : label ? `View ${label} Draft ↗` : "View Draft ↗"}
+        {hook.creating ? "Preparing draft…" : label ? `Create ${label} Draft ↗` : "Create Draft ↗"}
       </button>
       {hook.message && <p className="text-xs text-slate-500">{hook.message}</p>}
     </>
@@ -2121,12 +2123,26 @@ export function ProjectDetailDialog({
   // own. combinedDraft.creating guards against double-firing while the
   // request is in flight; once it lands, job.invoice_draft_gmail_message_id
   // flips true via onChanged() and this condition goes false for good.
+  // Boston Harbor gets its own branch here — confirmed live 2026-08-26:
+  // this used to always call combinedDraft.createDraft() (kind=combined),
+  // which create-draft/route.ts's own Boston Harbor branch turns into
+  // creating BOTH the report and invoice regardless of which one was
+  // actually missing, so clicking "Create Report Draft" a moment later
+  // looked like it had also created the invoice — it hadn't; this effect
+  // had already done it, silently, before the click. Each half now
+  // auto-creates independently and only when that specific half is
+  // actually missing, matching what the two header buttons themselves do.
+  const isSeparateDraftsCompany = job.customers?.company_id === BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID;
   useEffect(() => {
-    if (reportComplete && job.invoice_total_cents != null && !job.invoice_draft_gmail_message_id && !combinedDraft.creating) {
+    if (!reportComplete || job.invoice_total_cents == null) return;
+    if (isSeparateDraftsCompany) {
+      if (!job.report_draft_gmail_message_id && !reportOnlyDraft.creating) reportOnlyDraft.createDraft();
+      if (!job.invoice_draft_gmail_message_id && !invoiceOnlyDraft.creating) invoiceOnlyDraft.createDraft();
+    } else if (!job.invoice_draft_gmail_message_id && !combinedDraft.creating) {
       combinedDraft.createDraft();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reportComplete, job.invoice_total_cents, job.invoice_draft_gmail_message_id]);
+  }, [reportComplete, job.invoice_total_cents, job.invoice_draft_gmail_message_id, job.report_draft_gmail_message_id, isSeparateDraftsCompany]);
   // Same idea, one step earlier in the pipeline: once both are actually
   // ready, the status itself should already say so — only moves it forward
   // from one of the three earlier steps, never backward and never past
@@ -2271,8 +2287,7 @@ export function ProjectDetailDialog({
                   Same control either way — see its own comment there. */}
               {job.source !== "subcontractor" && reportComplete && job.invoice_total_cents != null && (
                 <div className="hidden shrink-0 items-center gap-3 sm:flex">
-                  {job.report_draft_gmail_message_id && job.invoice_draft_gmail_message_id
-                  && job.report_draft_gmail_message_id !== job.invoice_draft_gmail_message_id ? (
+                  {isSeparateDraftsCompany ? (
                     <>
                       <div className="flex items-center gap-2">
                         <DraftLinkControl label="Report" hook={reportOnlyDraft} messageId={job.report_draft_gmail_message_id} draftedAt={job.report_drafted_at} sentAt={job.report_sent_at} />
@@ -2303,14 +2318,16 @@ export function ProjectDetailDialog({
             Report/Invoice tab content — it's the same one Gmail draft
             regardless of which tab is open, so it shouldn't require
             switching tabs (or scrolling) to reach. Boston Harbor's report
-            and invoice are two separate drafts (differing message ids)
-            sent on their own schedules, so it splits into two independent
-            controls here — every other company still has one link,
-            exactly as before. */}
+            and invoice are two separate drafts sent on their own
+            schedules, so it splits into two independent controls here —
+            every other company still has one link, exactly as before.
+            isSeparateDraftsCompany (company-based, not "do the two
+            message ids happen to differ") so a brand-new job with
+            neither drafted yet still gets the right two-button layout
+            from the start, not just after one exists. */}
         {job.source !== "subcontractor" && reportComplete && job.invoice_total_cents != null && (
           <div className="flex shrink-0 flex-wrap items-center justify-end gap-x-4 gap-y-1 border-b border-slate-200 bg-white px-3 py-1.5 sm:hidden">
-            {job.report_draft_gmail_message_id && job.invoice_draft_gmail_message_id
-            && job.report_draft_gmail_message_id !== job.invoice_draft_gmail_message_id ? (
+            {isSeparateDraftsCompany ? (
               <>
                 <div className="flex items-center gap-2">
                   <DraftLinkControl label="Report" hook={reportOnlyDraft} messageId={job.report_draft_gmail_message_id} draftedAt={job.report_drafted_at} sentAt={job.report_sent_at} />

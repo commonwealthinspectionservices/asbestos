@@ -19,19 +19,31 @@ export const POST = withApiErrors(async (
   const supabase = getSupabaseAdmin();
   const { data: job, error } = await supabase
     .from("jobs")
-    .select("*, customers!customer_id(*)")
+    .select("*, customers!customer_id(*, companies!company_id(*))")
     .eq("id", params.id)
     .single();
   if (error || !job) {
     return NextResponse.json({ error: "Project not found" }, { status: 404 });
   }
 
-  const jobRow = job as unknown as Job & { customers: Customer };
+  const jobRow = job as unknown as Job & { customers: Customer & { companies: { billing_contact_id: string | null } | null } };
   if (jobRow.invoice_total_cents == null || !jobRow.invoice_line_items.length) {
     return NextResponse.json({ error: "Project has not been invoiced yet" }, { status: 400 });
   }
 
-  const { hostedInvoiceUrl } = await createStripeInvoiceForJob(jobRow, jobRow.customers);
+  // Same billing-contact resolution as the invoice draft email (see
+  // lab-email.ts) — confirmed live this was missing: regenerating a
+  // Boston Harbor job's payment link through this button would have
+  // billed Joe Kline directly instead of Nazli, the company's designated
+  // billing contact, producing a Stripe invoice inconsistent with the one
+  // actually emailed out for the same job.
+  const billingContactId = jobRow.billing_contact_id ?? jobRow.customers.companies?.billing_contact_id;
+  const billingContact = billingContactId
+    ? (await supabase.from("customers").select("*").eq("id", billingContactId).maybeSingle()).data
+    : null;
+  const toCustomer = billingContact ?? jobRow.customers;
+
+  const { hostedInvoiceUrl } = await createStripeInvoiceForJob(jobRow, toCustomer);
   if (!hostedInvoiceUrl) {
     return NextResponse.json({ error: "Stripe did not return a payment link" }, { status: 502 });
   }

@@ -13,9 +13,26 @@ function getStripe(): Stripe {
 }
 
 async function getOrCreateStripeCustomer(customer: Customer): Promise<string> {
-  if (customer.stripe_customer_id) return customer.stripe_customer_id;
-
   const stripe = getStripe();
+
+  // Verified, not just trusted — confirmed live: Joe Kline's stored
+  // stripe_customer_id pointed at a customer no longer in Stripe ("No such
+  // customer"), which surfaced as a hard failure on every invoice attempt
+  // for his jobs with no way to recover short of an admin manually
+  // clearing the column. A stale reference here is exactly the same shape
+  // of problem createStripeInvoiceForJob already handles for the invoice
+  // itself (void/uncollectible/deleted-out-from-under-us) — same fix:
+  // detect it's gone and fall through to creating a fresh one instead of
+  // ever hard-failing on it.
+  if (customer.stripe_customer_id) {
+    try {
+      const existing = await stripe.customers.retrieve(customer.stripe_customer_id);
+      if (!existing.deleted) return customer.stripe_customer_id;
+    } catch (err) {
+      console.error(`getOrCreateStripeCustomer: stored stripe_customer_id ${customer.stripe_customer_id} for customer ${customer.id} is invalid, creating a new one:`, err);
+    }
+  }
+
   const created = await stripe.customers.create({
     name: customer.company ? `${customer.name} (${customer.company})` : customer.name,
     email: customer.email,

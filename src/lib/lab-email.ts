@@ -23,6 +23,7 @@ import {
 import {
   detectAsbestosResult,
   detectLabInfo,
+  extractReportProjectAddress,
   extractReportProjectNumber,
   extractSampleCount,
   extractSampleResults,
@@ -209,7 +210,47 @@ function combinedDraftBodyHtml(job: Job, settings: Settings, totalCents: number,
 // habits the way is:unread can.
 const PROCESSED_LABEL = "cis-lab-email-processed";
 
-/** Checks the connected inbox for lab result emails, matches them to a project by the project number printed in the PDF, and drafts the final report + invoice. Also catches chain-of-custody receipt emails (matched by subject line), lab-bundled COC attachments, and EMSL's separate billing invoice emails (recorded as lab cost, not drafted). Draft only — never sent automatically. */
+// Collapses an address down to just its letters/digits (drops punctuation,
+// spacing, and street-suffix abbreviation differences via expandAddress
+// first) so "690 Blue Hill Ave, Dorchester, MA" from a lab report and
+// "690 Blue Hill Ave, Dorchester, MA 02121" from job.service_address compare
+// equal up to the point the shorter one ends, regardless of a missing zip
+// or a "St"/"Street" mismatch.
+export function normalizeAddressForMatch(address: string): string {
+  return expandAddress(address).toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+// Fallback for a report whose own project number was never typed anywhere
+// as machine-readable text (see extractReportProjectAddress's own comment)
+// — matches by the address the lab printed instead, against every job still
+// actually waiting on lab results. Scoped to that one status specifically:
+// a lab report always targets a job at exactly this stage, and narrowing to
+// it keeps an address that happens to recur (a repeat client, a multi-unit
+// building) from matching some unrelated older or newer job at the same
+// street. Logs (never throws) and returns null on anything but exactly one
+// match — zero is a genuine "not found," and more than one is a real
+// ambiguity neither this function nor its caller should silently guess
+// through.
+async function findJobByReportAddress(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  reportAddress: string
+): Promise<(Job & { customers: Customer & { companies: Company | null } }) | null> {
+  const normalizedReportAddress = normalizeAddressForMatch(reportAddress);
+  const { data: candidates } = await supabase
+    .from("jobs")
+    .select("*, customers!customer_id(*, companies!company_id(*))")
+    .eq("status", "pending_lab_results");
+  const matches = (candidates ?? []).filter((j) =>
+    normalizeAddressForMatch(j.service_address ?? "").startsWith(normalizedReportAddress)
+  );
+  if (matches.length === 1) return matches[0] as unknown as Job & { customers: Customer & { companies: Company | null } };
+  if (matches.length > 1) {
+    console.error(`lab-email: report address "${reportAddress}" matched more than one job awaiting lab results (${matches.map((j) => j.project_number).join(", ")}) — needs a human to sort out, not guessing.`);
+  }
+  return null;
+}
+
+/** Checks the connected inbox for lab result emails, matches them to a project by the project number printed in the PDF (falling back to the report's own printed address when the project number was only ever handwritten on a scanned, non-machine-readable chain-of-custody page — see extractReportProjectAddress/findJobByReportAddress), and drafts the final report + invoice. Also catches chain-of-custody receipt emails (matched by subject line), lab-bundled COC attachments, and EMSL's separate billing invoice emails (recorded as lab cost, not drafted). Draft only — never sent automatically. */
 export async function checkForLabResultEmails(): Promise<LabEmailCheckResult> {
   const accessToken = await getValidAccessToken();
   if (!accessToken) throw new Error("Gmail is not connected");
@@ -286,15 +327,20 @@ export async function checkForLabResultEmails(): Promise<LabEmailCheckResult> {
           }
 
           const projectNumber = extractReportProjectNumber(text);
-          if (!projectNumber) continue;
-
-          const { data: job } = await supabase
-            .from("jobs")
-            .select("*, customers!customer_id(*, companies!company_id(*))")
-            .ilike("project_number", projectNumber)
-            .maybeSingle();
+          let job: (Job & { customers: Customer & { companies: Company | null } }) | null = null;
+          if (projectNumber) {
+            const { data } = await supabase
+              .from("jobs")
+              .select("*, customers!customer_id(*, companies!company_id(*))")
+              .ilike("project_number", projectNumber)
+              .maybeSingle();
+            job = data as unknown as (Job & { customers: Customer & { companies: Company | null } }) | null;
+          } else {
+            const reportAddress = extractReportProjectAddress(text);
+            if (reportAddress) job = await findJobByReportAddress(supabase, reportAddress);
+          }
           if (job) {
-            matchedJob = job as unknown as Job & { customers: Customer & { companies: Company | null } };
+            matchedJob = job;
             matchedBuffer = data;
             matchedText = text;
             break;

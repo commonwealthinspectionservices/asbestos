@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { extractSampleCount, detectAsbestosResult, extractSampleResults, extractReportProjectNumber, detectLabInfo, extractMoldSampleCount, extractMoldSampleResults } from "../parse-lab-report";
+import { extractSampleCount, detectAsbestosResult, extractSampleResults, extractReportProjectNumber, extractReportProjectAddress, detectLabInfo, extractMoldSampleCount, extractMoldSampleResults } from "../parse-lab-report";
 
 // Excerpts of real EMSL bulk asbestos PLM report text, exactly as pdf-parse
 // extracts it (value-before-label ordering and all — PDF text extraction
@@ -509,6 +509,22 @@ describe("extractReportProjectNumber", () => {
     // "EPA 600/M4-82-020" contains "82-020", which fits \d{2}-\d{3,6} —
     // must not be picked up as the project number.
     expect(extractReportProjectNumber("Method (EPA 600/M4-82-020) as found in 40 CFR")).toBeNull();
+  });
+});
+
+// Confirmed live 2026-08-26, job 26-0004 ("690 Blue Hill Ave") — Crystal
+// Analytical's own cover-letter sentence is the fallback source for a
+// report whose project number was only ever handwritten on the scanned
+// chain-of-custody page (not machine-readable text at all), so
+// extractReportProjectNumber found nothing to match on.
+describe("extractReportProjectAddress", () => {
+  it("pulls the address out of Crystal Analytical's cover-letter sentence", () => {
+    const text = "To Tim Hall\nEnclosed are the results for your project at 690 Blue Hill Ave, Dorchester, MA.\nThese samples were analyzed";
+    expect(extractReportProjectAddress(text)).toBe("690 Blue Hill Ave, Dorchester, MA");
+  });
+
+  it("returns null when that sentence isn't present at all", () => {
+    expect(extractReportProjectAddress("Some other lab's report with no matching sentence")).toBeNull();
   });
 });
 

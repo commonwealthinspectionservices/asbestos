@@ -382,6 +382,22 @@ export function extractReportProjectNumber(pdfText: string): string | null {
   return genericMatch ? genericMatch[1] : null;
 }
 
+// Fallback for a Crystal Analytical report whose project number was never
+// typed anywhere in the report itself — only handwritten on the scanned
+// chain-of-custody page, which isn't machine-readable text at all — so
+// extractReportProjectNumber has nothing to find. Confirmed live 2026-08-26
+// (job 26-0004, "690 Blue Hill Ave"): the lab's own cover-letter sentence
+// ("Enclosed are the results for your project at <address>.") is reliably
+// present and correctly ordered even in raw, non-position-ordered pdfParse
+// text — unlike "Project Address:" itself, whose own value sits elsewhere
+// in the raw PDF stream and needs position-ordered text to read correctly.
+// Matching against this address is the caller's job (see
+// findJobByReportAddress in lab-email.ts); this only extracts the string.
+export function extractReportProjectAddress(pdfText: string): string | null {
+  const match = pdfText.match(/Enclosed are the results for your project at\s+([^.\n]+)\./i);
+  return match ? match[1].trim() : null;
+}
+
 // The lab's own "date samples were physically collected" line — Crystal
 // Analytical's asbestos PLM reports label it "Date(s) Sampled:", its mold
 // reports label the same thing "Collected:" instead (both confirmed

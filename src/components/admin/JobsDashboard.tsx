@@ -2300,7 +2300,13 @@ export function ProjectDetailDialog({
                       </div>
                     </>
                   ) : (
-                    <DraftLinkControl hook={combinedDraft} messageId={job.invoice_draft_gmail_message_id} draftedAt={job.invoice_drafted_at} sentAt={job.invoice_sent_at} />
+                    <DraftLinkControl
+                      label={job.customers?.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID ? "Report and Invoice" : undefined}
+                      hook={combinedDraft}
+                      messageId={job.invoice_draft_gmail_message_id}
+                      draftedAt={job.invoice_drafted_at}
+                      sentAt={job.invoice_sent_at}
+                    />
                   )}
                 </div>
               )}
@@ -2340,7 +2346,13 @@ export function ProjectDetailDialog({
                 </div>
               </>
             ) : (
-              <DraftLinkControl hook={combinedDraft} messageId={job.invoice_draft_gmail_message_id} draftedAt={job.invoice_drafted_at} sentAt={job.invoice_sent_at} />
+              <DraftLinkControl
+                label={job.customers?.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID ? "Report and Invoice" : undefined}
+                hook={combinedDraft}
+                messageId={job.invoice_draft_gmail_message_id}
+                draftedAt={job.invoice_drafted_at}
+                sentAt={job.invoice_sent_at}
+              />
             )}
           </div>
         )}

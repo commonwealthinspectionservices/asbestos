@@ -8,6 +8,7 @@ import { buildMapsWaypointsUrl } from "@/lib/maps-link";
 import { sendEmail, emailShell } from "@/lib/email";
 import { maybeSendImmediateAreaAlert } from "@/lib/area-health";
 import { escapeHtml } from "@/lib/html";
+import { expandAddress } from "@/lib/address";
 import { getAppUrl } from "@/lib/app-url";
 import { estimateDurationMinutes } from "@/lib/pricing";
 import { formatDateMDY } from "@/lib/date-format";
@@ -133,7 +134,7 @@ export async function runMorningRoute(dateIso: string): Promise<RunMorningRouteR
         <tr>
           <td style="padding:10px 0; border-top:1px solid #e2e8f0; vertical-align:top; font-size:14px;">
             <div style="font-weight:600;">#${i + 1} · ${eta} · ${escapeHtml(customer?.name ?? "")}${companyLabel} · ${escapeHtml(job.service_type ?? "")}</div>
-            <div style="color:#475569;">${escapeHtml(job.service_address)}</div>
+            <div style="color:#475569;">${escapeHtml(expandAddress(job.service_address))}</div>
             <div style="color:#475569;">
               ${customer?.phone ? `<a href="tel:${escapeHtml(customer.phone)}" style="color:#1f3f80;">${escapeHtml(customer.phone)}</a>` : ""}
               ${job.notes ? ` · ${escapeHtml(job.notes)}` : ""}

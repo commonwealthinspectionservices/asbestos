@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { Job } from "@/lib/types";
-import { splitAddress } from "@/lib/address";
+import { splitAddress, expandAddress } from "@/lib/address";
 import JobChat from "@/components/shared/JobChat";
 
 // Mirrors ProjectsList.tsx's own copy — a job stops needing an active chat
@@ -62,8 +62,8 @@ export default function PortalChatHub() {
                   {p.service_type && (
                     <div className="text-xs font-semibold">{p.service_type}</div>
                   )}
-                  <div>{street}</div>
-                  {cityStateZip && <div>{cityStateZip}</div>}
+                  <div>{expandAddress(street)}</div>
+                  {cityStateZip && <div>{expandAddress(cityStateZip)}</div>}
                 </button>
               );
             })}

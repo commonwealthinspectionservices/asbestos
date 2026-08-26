@@ -94,6 +94,36 @@ export function splitAddress(address: string | null | undefined): { locationName
   return { ...splitLocationName(street), cityStateZip };
 }
 
+// Same abbreviation set STREET_SUFFIX_RE already recognizes for parsing,
+// reversed — per Tim: no abbreviation ("St", "Dr", "Rd", ...) should show
+// up anywhere on the system, always fully spelled out ("36 Finnell
+// Drive," not "36 Finnell Dr"), even though the raw address on file (from
+// Google Places, or typed by an admin) is usually abbreviated. Display-
+// only: every call site wraps an address only at the point it's actually
+// shown to someone — the stored address itself is never rewritten, so
+// nothing that depends on the raw string (geocoding, pricing-zone
+// matching, editing a saved address back into its form fields) is
+// affected.
+const STREET_SUFFIX_EXPANSION: Record<string, string> = {
+  st: "Street", rd: "Road", ave: "Avenue", ln: "Lane", dr: "Drive",
+  cir: "Circle", ter: "Terrace", pl: "Place", ct: "Court",
+  blvd: "Boulevard", pkwy: "Parkway", hwy: "Highway", sq: "Square",
+};
+
+// Expands every abbreviated street-type word anywhere in a full address
+// string ("36 Finnell Dr Suite 1, Weymouth, MA" -> "36 Finnell Drive
+// Suite 1, Weymouth, MA") — safe to run on an already-fully-spelled-out
+// address (STREET_SUFFIX_EXPANSION has no entry for "Street" itself, so
+// full-word matches just pass through unchanged) or on a bare street
+// fragment with no city/state at all.
+export function expandAddress(address: string | null | undefined): string {
+  if (!address) return "";
+  return address.replace(STREET_SUFFIX_RE, (match) => {
+    const full = STREET_SUFFIX_EXPANSION[match.replace(/\.$/, "").toLowerCase()];
+    return full ?? match;
+  });
+}
+
 export interface AddressFields {
   street: string;
   unit: string;

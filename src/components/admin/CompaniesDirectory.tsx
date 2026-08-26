@@ -6,7 +6,7 @@ import { ContactDetailDialog, JobList, formatPhoneInput, type JobSummary } from 
 import { ComboboxInput } from "@/components/admin/JobsDashboard";
 import AddressAutocompleteInput from "@/components/shared/AddressAutocompleteInput";
 import ZipInput, { useAutoZip } from "@/components/shared/ZipInput";
-import { buildBillingAddress, parseAddressToFields, US_STATES } from "@/lib/address";
+import { buildBillingAddress, parseAddressToFields, US_STATES, expandAddress } from "@/lib/address";
 import { toTitleCase } from "@/lib/name";
 import { telHref } from "@/lib/phone";
 
@@ -89,7 +89,7 @@ export default function CompaniesDirectory({
               className="w-full rounded-lg border border-slate-200 bg-white p-3 text-left hover:border-brand-400"
             >
               <div className="font-medium text-slate-800">{c.name}</div>
-              {c.billing_address && <div className="text-sm text-slate-500">{c.billing_address}</div>}
+              {c.billing_address && <div className="text-sm text-slate-500">{expandAddress(c.billing_address)}</div>}
             </button>
           ))}
         </div>
@@ -645,7 +645,7 @@ export function CompanyDetailDialog({
             </div>
 
             <div className="mt-3 space-y-1 text-sm">
-              {company.billing_address && <div><span className="text-slate-500">Billing address </span>{company.billing_address}</div>}
+              {company.billing_address && <div><span className="text-slate-500">Billing address </span>{expandAddress(company.billing_address)}</div>}
               <div className="flex items-center gap-2">
                 <span className="text-slate-500">Phone </span>
                 <input

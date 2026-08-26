@@ -5,6 +5,7 @@ import Link from "next/link";
 import { formatDate, STATUS_LABEL } from "@/components/admin/JobsDashboard";
 import { toTitleCase } from "@/lib/name";
 import { telHref, formatPhoneNumber } from "@/lib/phone";
+import { expandAddress } from "@/lib/address";
 
 interface HomeownerJob {
   id: string;
@@ -94,7 +95,7 @@ export default function HomeownersDirectory({
                 {/* Most recent job's address — the newest entry in each
                     group, since /api/admin/homeowners already orders
                     jobs newest-first before grouping. */}
-                <div className="truncate text-sm text-slate-500">{h.jobs[0]?.service_address}</div>
+                <div className="truncate text-sm text-slate-500">{expandAddress(h.jobs[0]?.service_address)}</div>
               </button>
             );
           })}
@@ -139,7 +140,7 @@ function HomeownerDetailDialog({ homeowner, onClose }: { homeowner: Homeowner | 
                 <span className="font-mono font-medium text-slate-700">{j.project_number ?? "—"}</span>
                 <span className="text-xs uppercase text-slate-500">{STATUS_LABEL[j.status] ?? j.status}</span>
               </div>
-              <div className="text-slate-600">{j.service_address}</div>
+              <div className="text-slate-600">{expandAddress(j.service_address)}</div>
               <div className="text-xs text-slate-400">
                 {formatDate(j.confirmed_date ?? j.requested_date) || "No date"}
               </div>

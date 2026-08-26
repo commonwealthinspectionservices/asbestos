@@ -8,7 +8,7 @@ import type { Style } from "@react-pdf/types";
 // Registering a callback that returns the word as its own single
 // "syllable" gives the layout engine no split point to hyphenate at.
 Font.registerHyphenationCallback((word) => [word]);
-import { splitAddress } from "@/lib/address";
+import { splitAddress, expandAddress } from "@/lib/address";
 import { primaryInspector } from "@/lib/settings";
 import { formatDateMDY, formatDateLongOrdinal } from "@/lib/date-format";
 import type { Job, Customer, Settings } from "@/lib/types";
@@ -347,13 +347,13 @@ function AsbestosReportDocument({ job, customer, settings }: ProjectReportData) 
   const { knownCustomerName, dateText, billingStreet, billing, serviceStreet, service } = commonLetterFields(job, customer, settings, job.lab_date_sampled ?? job.requested_date);
 
   return (
-    <Document title={`Bulk Sample Analytical Results — ${job.service_address}`}>
+    <Document title={`Bulk Sample Analytical Results — ${expandAddress(job.service_address)}`}>
       <Page size="LETTER" style={[styles.page, styles.pageAsbestos]}>
         <LetterHeader
           settings={settings}
           reTitle="Bulk Sample Analytical Results"
           knownCustomerName={knownCustomerName}
-          serviceAddress={job.service_address}
+          serviceAddress={expandAddress(job.service_address)}
           projectNumber={job.project_number}
           dateText={dateText}
         />
@@ -482,13 +482,13 @@ function LeadReportDocument({ job, customer, settings }: ProjectReportData) {
   const { knownCustomerName, dateText, billingStreet, billing, serviceStreet, service } = commonLetterFields(job, customer, settings, job.lead_date_sampled ?? job.requested_date);
 
   return (
-    <Document title={`Bulk Paint Chip Sample Analytical Results — ${job.service_address}`}>
+    <Document title={`Bulk Paint Chip Sample Analytical Results — ${expandAddress(job.service_address)}`}>
       <Page size="LETTER" style={styles.page}>
         <LetterHeader
           settings={settings}
           reTitle="Bulk Paint Chip Sample Analytical Results"
           knownCustomerName={knownCustomerName}
-          serviceAddress={job.service_address}
+          serviceAddress={expandAddress(job.service_address)}
           projectNumber={job.project_number}
           dateText={dateText}
         />
@@ -603,13 +603,13 @@ function FullInspectionAsbestosReportDocument({ job, customer, settings }: Proje
   const { knownCustomerName, dateText, billingStreet, billing, serviceStreet, service } = commonLetterFields(job, customer, settings, job.lab_date_sampled ?? job.requested_date);
 
   return (
-    <Document title={`Inspection for Asbestos Containing Materials — ${job.service_address}`}>
+    <Document title={`Inspection for Asbestos Containing Materials — ${expandAddress(job.service_address)}`}>
       <Page size="LETTER" style={[styles.page, styles.pageFullInspection]}>
         <LetterHeader
           settings={settings}
           reTitle="Inspection for Asbestos Containing Materials"
           knownCustomerName={knownCustomerName}
-          serviceAddress={job.service_address}
+          serviceAddress={expandAddress(job.service_address)}
           projectNumber={job.project_number}
           dateText={dateText}
         />
@@ -917,13 +917,13 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
   const swabDiscussionNumber = hasSwab ? ++discussionSectionIndex : null;
 
   return (
-    <Document title={`Limited Mold Assessment & Sampling — ${job.service_address}`}>
+    <Document title={`Limited Mold Assessment & Sampling — ${expandAddress(job.service_address)}`}>
       <Page size="LETTER" style={styles.page}>
         <LetterHeader
           settings={settings}
           reTitle="Limited Mold Assessment & Sampling"
           knownCustomerName={knownCustomerName}
-          serviceAddress={job.service_address}
+          serviceAddress={expandAddress(job.service_address)}
           projectNumber={job.project_number}
           dateText={dateText}
         />
@@ -1208,10 +1208,14 @@ function commonLetterFields(job: Job, customer: Customer, settings: Settings, sa
   // Town/state/zip always gets its own line under the street, matching the
   // real FLI letter's recipient block and RE: block — both the customer's
   // billing address and the job site address get the same treatment.
-  const billing = splitAddress(customer.billing_address);
-  const billingStreet = billing.locationName ? `${billing.locationName} ${billing.street}` : billing.street;
-  const service = splitAddress(job.service_address);
-  const serviceStreet = service.locationName ? `${service.locationName} ${service.street}` : service.street;
+  // expandAddress on every piece — per Tim, no abbreviation ("St", "Dr",
+  // "Rd", ...) anywhere on the system, always fully spelled out.
+  const billingRaw = splitAddress(customer.billing_address);
+  const billing = { ...billingRaw, cityStateZip: expandAddress(billingRaw.cityStateZip) };
+  const billingStreet = expandAddress(billingRaw.locationName ? `${billingRaw.locationName} ${billingRaw.street}` : billingRaw.street);
+  const serviceRaw = splitAddress(job.service_address);
+  const service = { ...serviceRaw, cityStateZip: expandAddress(serviceRaw.cityStateZip) };
+  const serviceStreet = expandAddress(serviceRaw.locationName ? `${serviceRaw.locationName} ${serviceRaw.street}` : serviceRaw.street);
 
   return { knownCustomerName, dateText, billingStreet, billing, serviceStreet, service };
 }

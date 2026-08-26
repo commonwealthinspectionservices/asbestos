@@ -1,6 +1,7 @@
 import { sendEmail, emailShell } from "@/lib/email";
 import { getAppUrl } from "@/lib/app-url";
 import { escapeHtml } from "@/lib/html";
+import { expandAddress } from "@/lib/address";
 import { formatDateMDY, formatRequestedTime, formatRequestedTimeWindow } from "@/lib/date-format";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { threadSubject, sendThreadedEmail } from "@/lib/email-thread";
@@ -38,7 +39,7 @@ export async function sendNewBookingRequestEmail(params: {
     ["Customer", params.company ? `${params.customerName} (${params.company})` : params.customerName],
     ["Service", params.serviceLabel],
     ["Requested", whenLine],
-    ["Address", params.address],
+    ["Address", expandAddress(params.address)],
   ];
   if (params.siteContactName || params.siteContactPhone) {
     rows.push(["Site contact", [params.siteContactName, params.siteContactPhone].filter(Boolean).join(" — ")]);
@@ -105,7 +106,7 @@ export async function sendCustomerBookingReceivedEmail(params: {
   // table after Scope of work/Notes.
   const topRows: [string, string][] = [
     ["Service", params.serviceLabel],
-    ["Address", params.address],
+    ["Address", expandAddress(params.address)],
   ];
   if (params.scheduleViaContact) {
     topRows.push(["Requested", "We'll reach out to your job site contact to schedule"]);
@@ -223,7 +224,7 @@ export async function sendJobConfirmedEmailIfDue(jobId: string): Promise<void> {
 
   const rows = [
     ["Service", job.service_type ?? ""],
-    ["Address", job.service_address],
+    ["Address", expandAddress(job.service_address)],
     ["Confirmed", whenLine],
   ];
   if (job.project_number) rows.unshift(["Project #", job.project_number]);

@@ -4,6 +4,7 @@ import { getSupabaseAdmin } from "@/lib/supabase";
 import { renderProjectXlsm } from "@/lib/report-xlsm";
 import { withApiErrors } from "@/lib/api-handler";
 import { withCompanyBillingAddress } from "@/lib/customer-billing";
+import { expandAddress } from "@/lib/address";
 import type { Company, Customer, Job } from "@/lib/types";
 
 // The manually-editable companion to the PDF report — the same "Asbestos
@@ -32,7 +33,7 @@ export const GET = withApiErrors(async (
   const customer = withCompanyBillingAddress(jobRow.customers, jobRow.customers.companies);
   const xlsm = await renderProjectXlsm({ job: jobRow, customer });
 
-  const fileName = [jobRow.project_number, jobRow.service_address].filter(Boolean).join(" ") || `project-${params.id}`;
+  const fileName = [jobRow.project_number, expandAddress(jobRow.service_address)].filter(Boolean).join(" ") || `project-${params.id}`;
   const safeFileName = fileName.replace(/[^a-zA-Z0-9 .,#'-]/g, "_");
 
   return new NextResponse(new Uint8Array(xlsm), {

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { Customer, Job } from "@/lib/types";
-import { googleMapsUrl } from "@/lib/address";
+import { googleMapsUrl, expandAddress } from "@/lib/address";
 import PdfPreview from "@/components/shared/PdfPreview";
 import JobRecipients from "@/components/portal/JobRecipients";
 import JobChat from "@/components/shared/JobChat";
@@ -240,7 +240,7 @@ export default function ProjectDetailModal({
                       label="Job site address"
                       value={job.service_address ? (
                         <a href={googleMapsUrl(job.service_address)} target="_blank" rel="noreferrer" className="hover:underline">
-                          {job.service_address}
+                          {expandAddress(job.service_address)}
                         </a>
                       ) : null}
                       nowrap
@@ -289,7 +289,7 @@ export default function ProjectDetailModal({
                     </span>
                   </div>
                 )}
-                <DetailField label="Billing address" value={customer.billing_address} nowrap />
+                <DetailField label="Billing address" value={expandAddress(customer.billing_address)} nowrap />
               </div>
 
               <JobRecipients job={job} onChanged={onChanged} />

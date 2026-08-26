@@ -1,5 +1,6 @@
 import Stripe from "stripe";
 import { getSupabaseAdmin } from "@/lib/supabase";
+import { expandAddress } from "@/lib/address";
 import type { Customer, Job } from "@/lib/types";
 
 let stripeClient: Stripe | null = null;
@@ -38,7 +39,7 @@ async function getOrCreateStripeCustomer(customer: Customer): Promise<string> {
     email: customer.email,
     phone: customer.phone,
     address: customer.billing_address
-      ? { line1: customer.billing_address }
+      ? { line1: expandAddress(customer.billing_address) }
       : undefined,
   });
 
@@ -134,7 +135,7 @@ export async function createStripeInvoiceForJob(
     }
     const hasCurrentProjectNumber = !job.project_number
       || existing.custom_fields?.some((f) => f.name === "Project #" && f.value === job.project_number);
-    const hasCurrentAddress = !job.service_address || existing.description === job.service_address;
+    const hasCurrentAddress = !job.service_address || existing.description === expandAddress(job.service_address);
     const hasCurrentNumber = !job.project_number
       || (existing.number != null && existing.number.startsWith(job.project_number));
     const isStale = existing.status === "void" || existing.status === "uncollectible"
@@ -171,7 +172,7 @@ export async function createStripeInvoiceForJob(
     // limit that would realistically bite) while the short project number
     // still gets its own custom_field.
     ...(job.project_number ? { custom_fields: [{ name: "Project #", value: job.project_number }] } : {}),
-    ...(job.service_address ? { description: job.service_address } : {}),
+    ...(job.service_address ? { description: expandAddress(job.service_address) } : {}),
   }, job.project_number);
 
   for (const item of job.invoice_line_items) {

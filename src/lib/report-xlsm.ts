@@ -1,7 +1,7 @@
 import path from "path";
 import ExcelJS from "exceljs";
 import type { Job, Customer } from "@/lib/types";
-import { splitAddress } from "@/lib/address";
+import { splitAddress, expandAddress } from "@/lib/address";
 import {
   ASBESTOS_POSITIVE_REMARK, ASBESTOS_NEGATIVE_REMARK, domainForServiceTypeLabel,
   BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID, BOSTON_HARBOR_WATER_RESTORATION_REPORT_CONTACT_NAME,
@@ -32,8 +32,8 @@ function recipientLines(customer: Customer): [string, string, string, string] {
   const { street, cityStateZip } = splitAddress(customer.billing_address);
   const name = reportRecipientName(customer);
   const lines = customer.company
-    ? [customer.company, name, street, cityStateZip]
-    : [name, street, cityStateZip, ""];
+    ? [customer.company, name, expandAddress(street), expandAddress(cityStateZip)]
+    : [name, expandAddress(street), expandAddress(cityStateZip), ""];
   return [lines[0] ?? "", lines[1] ?? "", lines[2] ?? "", lines[3] ?? ""];
 }
 
@@ -82,8 +82,8 @@ export async function renderProjectXlsm({ job, customer }: ProjectXlsmData): Pro
     coc.getCell("F5").value = new Date(`${job.requested_date}T00:00:00`);
   }
   const site = splitAddress(job.service_address);
-  coc.getCell("B6").value = site.locationName ? `${site.locationName} ${site.street}` : site.street;
-  coc.getCell("B7").value = site.cityStateZip;
+  coc.getCell("B6").value = expandAddress(site.locationName ? `${site.locationName} ${site.street}` : site.street);
+  coc.getCell("B7").value = expandAddress(site.cityStateZip);
 
   // One "x" placeholder per sample, same as the admin's own real completed
   // COC sheets — the Report sheet's Total # of Samples is a COUNTA over

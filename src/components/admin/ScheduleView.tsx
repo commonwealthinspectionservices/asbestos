@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { JobWithCustomer } from "@/lib/types";
 import { ProjectDetailDialog, EditProjectDialog } from "@/components/admin/JobsDashboard";
 import { extractTimeRange, parseWindowStartTime24h } from "@/components/admin/AcceptScheduleControl";
-import { googleMapsUrl } from "@/lib/address";
+import { googleMapsUrl, expandAddress } from "@/lib/address";
 import { formatDateMDY } from "@/lib/date-format";
 import { formatPhoneNumber, telHref } from "@/lib/phone";
 import { toTitleCase } from "@/lib/name";
@@ -148,7 +148,7 @@ function JobCard({
               onClick={(e) => e.stopPropagation()}
               className="block truncate whitespace-nowrap text-sm text-slate-700 hover:underline"
             >
-              {[locationName, street, cityStateZip].filter(Boolean).join(", ")}
+              {[locationName, expandAddress(street), expandAddress(cityStateZip)].filter(Boolean).join(", ")}
             </a>
           )}
           {(job.site_contact_name || job.site_contact_phone) && (

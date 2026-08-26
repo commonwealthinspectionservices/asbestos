@@ -2,6 +2,7 @@ import path from "path";
 import { Document, Page, Text, View, Image, StyleSheet, renderToBuffer } from "@react-pdf/renderer";
 import { primaryInspector } from "@/lib/settings";
 import { formatDateMDY } from "@/lib/date-format";
+import { expandAddress } from "@/lib/address";
 import type { Job, Customer, Settings } from "@/lib/types";
 
 // The owner's own real asbestos bulk sample form, deliberately kept as an
@@ -144,7 +145,7 @@ function BlankCocDocument({ job, customer, settings }: BlankCocData) {
   // everywhere else it's used.
   const licenseDisplay = inspector.license_number.replace(/^([A-Za-z]+)(\d+)$/, "$1 $2");
   return (
-    <Document title={job ? `Chain of Custody — ${job.service_address}` : "Chain of Custody — Blank"}>
+    <Document title={job ? `Chain of Custody — ${expandAddress(job.service_address)}` : "Chain of Custody — Blank"}>
       <Page size="LETTER" style={styles.page}>
         <View style={styles.header}>
           <View style={styles.headerLeft}>
@@ -167,7 +168,7 @@ function BlankCocDocument({ job, customer, settings }: BlankCocData) {
           <View style={styles.metaBottomRow}>
             <View style={styles.metaLeftField}>
               <Text style={styles.metaLabel}>SITE</Text>
-              <Text style={styles.metaLeftValue}>{job?.service_address ?? ""}</Text>
+              <Text style={styles.metaLeftValue}>{expandAddress(job?.service_address)}</Text>
             </View>
             <View style={styles.metaRightField}>
               <Text style={styles.metaLabelRight}>PROJECT #</Text>

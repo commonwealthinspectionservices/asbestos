@@ -1,5 +1,6 @@
 import { sendEmail, emailShell } from "@/lib/email";
 import { escapeHtml } from "@/lib/html";
+import { expandAddress } from "@/lib/address";
 import { formatDateMDY } from "@/lib/date-format";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { getSettings } from "@/lib/settings";
@@ -44,7 +45,7 @@ export function buildReminderEmailHtml(params: {
     : datePart || timePart || "tomorrow";
   return emailShell(`
     <p style="font-size:15px;">Hi ${escapeHtml(firstName)},</p>
-    <p style="font-size:15px;">Just a reminder — your inspection with ${escapeHtml(params.businessName)} is coming up ${escapeHtml(whenLine)} at ${escapeHtml(params.serviceAddress)}.</p>
+    <p style="font-size:15px;">Just a reminder — your inspection with ${escapeHtml(params.businessName)} is coming up ${escapeHtml(whenLine)} at ${escapeHtml(expandAddress(params.serviceAddress))}.</p>
     <p style="font-size:15px;">Questions or need to reschedule? Call us at ${escapeHtml(params.businessPhone)}.</p>
   `);
 }

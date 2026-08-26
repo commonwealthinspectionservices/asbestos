@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { Customer, Job } from "@/lib/types";
-import { splitAddress, googleMapsUrl } from "@/lib/address";
+import { splitAddress, googleMapsUrl, expandAddress } from "@/lib/address";
 import { formatDateMDY } from "@/lib/date-format";
 import ProjectDetailModal from "@/components/portal/ProjectDetailModal";
 
@@ -434,8 +434,8 @@ export default function ProjectsList() {
                     className="min-w-0 flex-[0.9] hover:underline"
                   >
                     {locationName && <div className="truncate whitespace-nowrap text-sm text-slate-500">{locationName}</div>}
-                    <div className="truncate whitespace-nowrap text-sm text-slate-500">{street}</div>
-                    {cityStateZip && <div className="truncate whitespace-nowrap text-sm text-slate-500">{cityStateZip}</div>}
+                    <div className="truncate whitespace-nowrap text-sm text-slate-500">{expandAddress(street)}</div>
+                    {cityStateZip && <div className="truncate whitespace-nowrap text-sm text-slate-500">{expandAddress(cityStateZip)}</div>}
                   </a>
 
                   <div className="min-w-0 flex-[1.2]">

@@ -40,6 +40,7 @@ import { jobReportDomains, ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, N
 import { sendEmail, emailShell } from "@/lib/email";
 import { getAppUrl } from "@/lib/app-url";
 import { escapeHtml } from "@/lib/html";
+import { expandAddress } from "@/lib/address";
 import type { Company, Customer, Job, JobDocument, JobWithCustomer, Settings } from "@/lib/types";
 
 // @react-pdf/renderer (report-pdf.tsx / invoice-pdf.ts) is imported
@@ -111,7 +112,7 @@ function reportDraftBodyHtml(job: Job, settings: Settings): string {
     "",
     `Please find attached the ${domainPhrase} ${reportNoun} for:`,
     "",
-    `${escapeHtml(job.service_address)} (Date of Sampling: ${escapeHtml(formatDateMMDDYYYY(job.requested_date))})`,
+    `${escapeHtml(expandAddress(job.service_address))} (Date of Sampling: ${escapeHtml(formatDateMMDDYYYY(job.requested_date))})`,
     "",
     `If you have any questions, call me at ${escapeHtml(settings.business_phone)}.`,
     "",
@@ -130,7 +131,7 @@ function invoiceDraftBodyHtml(job: Job, settings: Settings, totalCents: number, 
     "",
     "Please find attached the invoice for the asbestos inspection completed at:",
     "",
-    `Site: ${escapeHtml(job.service_address)}`,
+    `Site: ${escapeHtml(expandAddress(job.service_address))}`,
     "",
     `Total due: ${escapeHtml(formatCents(totalCents))}`,
     ...(payNowUrl ? ["", `<a href="${escapeHtml(payNowUrl)}">LINK TO PAY</a>`] : []),
@@ -167,7 +168,7 @@ function combinedDraftBodyHtml(job: Job, settings: Settings, totalCents: number,
     "",
     `Please find attached the ${domainPhrase} ${reportNoun} and invoice for:`,
     "",
-    `Site: ${escapeHtml(job.service_address)}`,
+    `Site: ${escapeHtml(expandAddress(job.service_address))}`,
     "",
     `Date of Sampling: ${escapeHtml(formatDateMMDDYYYY(job.requested_date))}`,
     "",
@@ -771,7 +772,7 @@ async function draftInvoiceEmailForJob(params: {
   const draft = await createDraft(accessToken, {
     to: toCustomer.email,
     cc: [...new Set(ccRecipients)].join(", ") || undefined,
-    subject: `Invoice - ${pricedJob.service_address}`,
+    subject: `Invoice - ${expandAddress(pricedJob.service_address)}`,
     bodyHtml: invoiceDraftBodyHtml(pricedJob, settings, totalCents, payNowUrl),
     attachments: [
       { filename: `Invoice-${pricedJob.project_number ?? job.id}.pdf`, mimeType: "application/pdf", content: invoicePdf },
@@ -832,13 +833,13 @@ async function draftPaymentReminderForIndividual(params: {
 
   const draft = await createDraft(accessToken, {
     to: customer.email,
-    subject: `Your report is ready - ${job.service_address}`,
+    subject: `Your report is ready - ${expandAddress(job.service_address)}`,
     bodyHtml: [
       "Hi,",
       "",
       "Your final report is ready. As soon as payment is received, we'll send it right over.",
       "",
-      `Site: ${escapeHtml(job.service_address)}`,
+      `Site: ${escapeHtml(expandAddress(job.service_address))}`,
       ...(payNowUrl ? ["", `<a href="${escapeHtml(payNowUrl)}">LINK TO PAY</a>`] : []),
       "",
       `Should you have any questions, please contact our office at ${escapeHtml(settings.business_phone)}.`,
@@ -1248,7 +1249,7 @@ export async function markJobPaymentReversed(jobId: string, reason: string): Pro
       <table style="width:100%; font-size:14px; color:#16213a;">
         <tr><td style="padding:4px 8px 4px 0; color:#64748b; white-space:nowrap;">Project</td><td>${escapeHtml(job.project_number ?? jobId)}</td></tr>
         <tr><td style="padding:4px 8px 4px 0; color:#64748b; white-space:nowrap;">Customer</td><td>${escapeHtml(customer?.name ?? "—")}</td></tr>
-        <tr><td style="padding:4px 8px 4px 0; color:#64748b; white-space:nowrap;">Address</td><td>${escapeHtml(job.service_address ?? "—")}</td></tr>
+        <tr><td style="padding:4px 8px 4px 0; color:#64748b; white-space:nowrap;">Address</td><td>${escapeHtml(job.service_address ? expandAddress(job.service_address) : "—")}</td></tr>
         <tr><td style="padding:4px 8px 4px 0; color:#64748b; white-space:nowrap;">Report already drafted</td><td>${job.report_drafted_at ? "Yes" : "No"}</td></tr>
       </table>
       <p style="margin-top:12px;">Status was left as-is — this is just a flag. Worth deciding whether to follow up with the client and/or adjust the job's status yourself.</p>

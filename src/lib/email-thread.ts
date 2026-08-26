@@ -21,15 +21,19 @@
 import { sendEmail } from "@/lib/email";
 import { getValidAccessToken, sendMessage, getMessageIdHeader } from "@/lib/gmail";
 import { inspectionReportSubjectPrefix } from "@/lib/report-findings";
+import { expandAddress } from "@/lib/address";
 
 // "Asbestos + Mold Inspection Report 36 Drummer Rd, Acton, MA" — kept
 // stable across the whole chain (request received -> confirmed -> final
 // report draft) so every email in a job's thread shares one subject, per
 // Tim. serviceType drives the domain prefix; omitted (or empty) falls back
 // to the bare address rather than guessing a domain that isn't known yet.
+// expandAddress — per Tim, no abbreviation ("St", "Dr", "Rd", ...)
+// anywhere on the system.
 export function threadSubject(address: string, serviceType: string | null | undefined): string {
-  if (!serviceType) return address;
-  return `${inspectionReportSubjectPrefix(serviceType)} ${address}`;
+  const fullAddress = expandAddress(address);
+  if (!serviceType) return fullAddress;
+  return `${inspectionReportSubjectPrefix(serviceType)} ${fullAddress}`;
 }
 
 // In-Reply-To is just the immediately previous message; References is the

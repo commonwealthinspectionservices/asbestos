@@ -5,7 +5,7 @@ import type { Dispatch, ReactNode, SetStateAction } from "react";
 import type { Company, Customer, FullInspectionMaterial, InvoiceLineItem, JobDocument, JobWithCustomer, LabProfile, PricingZone, SampleItem, ServiceType } from "@/lib/types";
 import { defaultInvoiceLineItems, sampleDescriptionForServiceType } from "@/lib/invoice-defaults";
 import { ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK, jobReportDomains, domainForServiceTypeLabel, isFullInspectionAsbestosJob, NEWTON_FIRE_FLOOD_COMPANY_ID, BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID, type ReportDomain } from "@/lib/report-findings";
-import { splitAddress, parseAddressToFields, buildBillingAddress, googleMapsUrl, wazeUrl } from "@/lib/address";
+import { splitAddress, parseAddressToFields, buildBillingAddress, googleMapsUrl, wazeUrl, expandAddress } from "@/lib/address";
 import { joinName, splitFullName, toTitleCase } from "@/lib/name";
 import { telHref } from "@/lib/phone";
 import type { AddressFields } from "@/lib/address";
@@ -1111,7 +1111,10 @@ function JobRow({
   onEdit: () => void;
   onFieldChange: (patch: Record<string, unknown>) => void;
 }) {
-  const { locationName, street, cityStateZip } = splitAddress(job.service_address);
+  const addressParts = splitAddress(job.service_address);
+  const locationName = addressParts.locationName;
+  const street = expandAddress(addressParts.street);
+  const cityStateZip = expandAddress(addressParts.cityStateZip);
   // Mobile only — see the address block below. Desktop already opens
   // straight to Google Maps in the detail dialog, and a driver picking a
   // nav app is a phone-in-hand, on-the-way-there thing, not a desktop one.
@@ -2414,11 +2417,11 @@ export function ProjectDetailDialog({
                 return (
                   <a href={googleMapsUrl(job.service_address)} target="_blank" rel="noreferrer" className="hover:underline">
                     {/* Desktop: unchanged single-line address. */}
-                    <span className="hidden sm:inline">{job.service_address}</span>
+                    <span className="hidden sm:inline">{expandAddress(job.service_address)}</span>
                     {/* Mobile: street, then town/state/zip on its own line — matching the project list card. */}
                     <span className="sm:hidden">
-                      <span className="block">{street}</span>
-                      {cityStateZip && <span className="block">{cityStateZip}</span>}
+                      <span className="block">{expandAddress(street)}</span>
+                      {cityStateZip && <span className="block">{expandAddress(cityStateZip)}</span>}
                     </span>
                   </a>
                 );
@@ -2598,7 +2601,7 @@ export function ProjectDetailDialog({
                   label="Phone"
                   value={job.customers.companies.phone ? <a href={telHref(job.customers.companies.phone)} className="text-brand-700 hover:underline">{formatPhoneInput(job.customers.companies.phone)}</a> : undefined}
                 />
-                <DetailField label="Billing address" value={job.customers.companies.billing_address} nowrap />
+                <DetailField label="Billing address" value={expandAddress(job.customers.companies.billing_address)} nowrap />
               </div>
             )}
           </div>

@@ -1,3 +1,5 @@
+import { expandAddress } from "@/lib/address";
+
 // Canned Remarks-and-Limitations sentences, shared by the PDF report
 // (report-pdf.tsx), the .xlsm template (report-xlsm.ts, asbestos only),
 // and the "Overall findings" dropdown in the admin UI — one source of
@@ -158,7 +160,7 @@ export function reportDownloadFilename(
   fallbackId: string
 ): string {
   const projectNumber = job.project_number ?? fallbackId;
-  const raw = `${projectNumber} ${REPORT_DOMAIN_FILENAME_LABEL[domain]} ${job.service_address}`;
+  const raw = `${projectNumber} ${REPORT_DOMAIN_FILENAME_LABEL[domain]} ${expandAddress(job.service_address)}`;
   return raw.replace(/[\\/:*?"<>|]/g, "").replace(/\s+/g, " ").trim();
 }
 

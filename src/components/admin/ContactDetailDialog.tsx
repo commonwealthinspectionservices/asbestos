@@ -7,7 +7,7 @@ import { joinName, splitFullName, toTitleCase } from "@/lib/name";
 import { telHref } from "@/lib/phone";
 import AddressAutocompleteInput from "@/components/shared/AddressAutocompleteInput";
 import ZipInput, { useAutoZip } from "@/components/shared/ZipInput";
-import { buildBillingAddress, parseAddressToFields, US_STATES } from "@/lib/address";
+import { buildBillingAddress, parseAddressToFields, US_STATES, expandAddress } from "@/lib/address";
 
 export interface JobSummary {
   id: string;
@@ -42,7 +42,7 @@ export function JobList({ jobs }: { jobs: JobSummary[] }) {
           className="block overflow-x-auto whitespace-nowrap rounded-lg border border-slate-100 px-2 py-1.5 text-sm hover:border-brand-400"
         >
           <span className="font-mono text-xs text-slate-500">{j.project_number ?? "—"}</span>{" "}
-          {j.service_address} <span className="text-slate-400">· {j.requested_date ? formatDate(j.requested_date) : "unscheduled"}</span>
+          {expandAddress(j.service_address)} <span className="text-slate-400">· {j.requested_date ? formatDate(j.requested_date) : "unscheduled"}</span>
         </a>
       ))}
     </div>
@@ -429,7 +429,7 @@ export function ContactDetailDialog({
                   not repeated on every employee's card. Only a standalone
                   contact (no company) shows their own billing address here. */}
               {!customer.company && customer.billing_address && (
-                <div><span className="text-slate-500">Billing address </span>{customer.billing_address}</div>
+                <div><span className="text-slate-500">Billing address </span>{expandAddress(customer.billing_address)}</div>
               )}
             </div>
 

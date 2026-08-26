@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import type { SavedAddress } from "@/lib/types";
 import AddressAutocompleteInput from "@/components/shared/AddressAutocompleteInput";
 import ZipInput, { useAutoZip } from "@/components/shared/ZipInput";
-import { buildBillingAddress, US_STATES } from "@/lib/address";
+import { buildBillingAddress, US_STATES, expandAddress } from "@/lib/address";
 
 export default function AddressBook() {
   const [addresses, setAddresses] = useState<SavedAddress[]>([]);
@@ -143,7 +143,7 @@ export default function AddressBook() {
             <div key={a.id} className="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-3">
               <div>
                 {a.label && <div className="text-sm font-medium text-slate-800">{a.label}</div>}
-                <div className="text-sm text-slate-600">{a.address}</div>
+                <div className="text-sm text-slate-600">{expandAddress(a.address)}</div>
               </div>
               <button onClick={() => removeAddress(a.id)} className="text-sm text-red-600 hover:underline">
                 Remove

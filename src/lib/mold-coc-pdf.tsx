@@ -1,6 +1,7 @@
 import path from "path";
 import { Document, Page, Text, View, Image, StyleSheet, renderToBuffer } from "@react-pdf/renderer";
 import { formatDateMDY } from "@/lib/date-format";
+import { expandAddress } from "@/lib/address";
 import type { Job, Customer, Settings } from "@/lib/types";
 
 // Same exact template as blank-coc-pdf.tsx's asbestos form — own blue
@@ -177,7 +178,7 @@ function MoldCocDocument({ job, customer, sampleType }: MoldCocData) {
   const config = SAMPLE_TYPE_CONFIG[sampleType];
   const clientLabel = customer ? customer.company || customer.name : "";
   return (
-    <Document title={job ? `${config.title} — ${job.service_address}` : `${config.title} — Blank`}>
+    <Document title={job ? `${config.title} — ${expandAddress(job.service_address)}` : `${config.title} — Blank`}>
       <Page size="LETTER" style={styles.page}>
         <View style={styles.header}>
           <View style={styles.headerLeft}>
@@ -200,7 +201,7 @@ function MoldCocDocument({ job, customer, sampleType }: MoldCocData) {
           <View style={styles.metaBottomRow}>
             <View style={styles.metaLeftField}>
               <Text style={styles.metaLabel}>SITE</Text>
-              <Text style={styles.metaLeftValue}>{job?.service_address ?? ""}</Text>
+              <Text style={styles.metaLeftValue}>{expandAddress(job?.service_address)}</Text>
             </View>
             <View style={styles.metaRightField}>
               <Text style={styles.metaLabelRight}>PROJECT #</Text>

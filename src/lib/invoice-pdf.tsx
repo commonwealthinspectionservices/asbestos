@@ -2,7 +2,6 @@ import path from "path";
 import { Document, Page, Text, View, Image, StyleSheet, renderToBuffer } from "@react-pdf/renderer";
 import { formatCents } from "@/lib/pricing";
 import { lineItemsTotalCents } from "@/lib/invoice-line-items";
-import { primaryInspector } from "@/lib/settings";
 import type { Job, Customer, Company, Settings, InvoiceLineItem } from "@/lib/types";
 import { formatDateMDY } from "@/lib/date-format";
 import { formatPhoneNumber } from "@/lib/phone";
@@ -50,7 +49,6 @@ export interface InvoiceData {
 }
 
 function InvoiceDocument({ job, customer, company, settings }: InvoiceData) {
-  const inspector = primaryInspector(settings);
   const serviceLabel =
     settings.service_types.find((s) => s.key === job.service_type)?.label ?? job.service_type ?? "Inspection";
 
@@ -81,13 +79,12 @@ function InvoiceDocument({ job, customer, company, settings }: InvoiceData) {
         {/* The company is who's actually being billed — a contractor job's
             invoice goes to the business, not the individual contact who
             happens to be on the job (e.g. "Boston Harbor Water Restoration",
-            not "Joe Kline"). The contact still shows as an Attn: line for
-            reference. Falls back to the contact's own name/phone only when
-            there's no company on file at all. */}
+            not "Joe Kline"). Per Tim: no Attn: line, ever — falls back to
+            the contact's own name/phone only when there's no company on
+            file at all. */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Bill to</Text>
           <Text style={styles.meta}>{company?.name || customer.company || customer.name}</Text>
-          {(company?.name || customer.company) && customer.name && <Text style={styles.meta}>Attn: {customer.name}</Text>}
           {customer.billing_address && <Text style={styles.meta}>{expandAddress(customer.billing_address)}</Text>}
           {(company?.phone || customer.phone) && <Text style={styles.meta}>{formatPhoneNumber(company?.phone || customer.phone || "")}</Text>}
         </View>
@@ -141,7 +138,7 @@ function InvoiceDocument({ job, customer, company, settings }: InvoiceData) {
         </Text>
 
         <View style={styles.footer}>
-          <Text>{settings.business_name} · {inspector.name}, {inspector.title}</Text>
+          <Text>{settings.business_name}</Text>
         </View>
       </Page>
     </Document>

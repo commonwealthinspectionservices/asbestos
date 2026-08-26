@@ -19,6 +19,7 @@ const STATUS_LABEL: Record<string, string> = {
   completed: "Report Ready",
   invoiced: "Invoiced",
   ready_to_send: "Report and Invoice Ready",
+  report_invoice_sent: "Report and Invoice Sent",
   paid: "Paid",
   cancelled: "Cancelled",
 };
@@ -33,6 +34,7 @@ const STATUS_COLOR: Record<string, string> = {
   completed: "bg-teal-100 text-teal-700",
   invoiced: "bg-amber-100 text-amber-700",
   ready_to_send: "bg-amber-100 text-amber-700",
+  report_invoice_sent: "bg-cyan-100 text-cyan-700",
   paid: "bg-emerald-100 text-emerald-700",
   cancelled: "bg-red-100 text-red-700",
 };

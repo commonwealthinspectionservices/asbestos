@@ -10,6 +10,7 @@ export type JobStatus =
   | "completed"
   | "invoiced"
   | "ready_to_send"
+  | "report_invoice_sent"
   | "paid"
   | "cancelled"
   | "waitlist_out_of_area";

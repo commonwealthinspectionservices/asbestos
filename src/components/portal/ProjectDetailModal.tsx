@@ -18,7 +18,7 @@ type Tab = "info" | "report" | "invoice" | "chat";
 const PORTAL_ACTION_BUTTON =
   "inline-flex h-[22px] items-center border-[3px] border-brand-700 bg-brand-50 px-4 pt-0.5 text-sm font-extrabold uppercase leading-none text-brand-700 hover:bg-yellow-100 disabled:opacity-50 sm:h-[29px]";
 
-const REPORT_READY_STATUSES = new Set(["completed", "invoiced", "ready_to_send", "paid"]);
+const REPORT_READY_STATUSES = new Set(["completed", "invoiced", "ready_to_send", "report_invoice_sent", "paid"]);
 
 // Mirrors the admin dashboard's tracker (JobsDashboard.tsx's TRACKER_STATUSES/
 // TRACKER_SEGMENTS) — same steps and labels, kept as a separate read-only
@@ -28,10 +28,13 @@ const REPORT_READY_STATUSES = new Set(["completed", "invoiced", "ready_to_send",
 // omitted — it means the report/invoice are drafted but still awaiting the
 // admin's own approval to actually send, which isn't something a client
 // needs (or should) see as a distinct step. A job at that status reads as
-// still "Pending Lab Results" until it's actually sent.
+// still "Pending Lab Results" until it's actually sent. "report_invoice_sent"
+// maps the same way — the "sent" segment below already shows that step as
+// done once report_sent_at/invoice_sent_at land, independent of job.status,
+// so this index is only about the earlier steps.
 const TRACKER_STATUSES = ["needs_scheduling", "scheduled", "pending_lab_results", "paid"] as const;
 function clientTrackerStatus(status: string): string {
-  return status === "ready_to_send" ? "pending_lab_results" : status;
+  return status === "ready_to_send" || status === "report_invoice_sent" ? "pending_lab_results" : status;
 }
 type TrackerSegment = {
   key: string;
@@ -80,7 +83,7 @@ function trackerSegmentsFor(isIndividual: boolean, source: Job["source"]): Track
 // an unreviewed draft — the admin dashboard's own "Ready to Send" station is
 // the actual signal that both the report and invoice are done and confirmed,
 // so that's the earliest point the client is shown a total cost at all.
-const INVOICE_FINALIZED_STATUSES = new Set(["ready_to_send", "paid"]);
+const INVOICE_FINALIZED_STATUSES = new Set(["ready_to_send", "report_invoice_sent", "paid"]);
 
 function formatCents(cents: number): string {
   return (cents / 100).toLocaleString("en-US", { style: "currency", currency: "USD" });

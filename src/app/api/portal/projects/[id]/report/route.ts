@@ -8,7 +8,7 @@ import { withCompanyBillingAddress } from "@/lib/customer-billing";
 import { jobReportDomains, reportDownloadFilename, type ReportDomain } from "@/lib/report-findings";
 import type { Company, Customer, Job } from "@/lib/types";
 
-const REPORT_READY_STATUSES = new Set(["completed", "invoiced", "ready_to_send", "paid"]);
+const REPORT_READY_STATUSES = new Set(["completed", "invoiced", "ready_to_send", "report_invoice_sent", "paid"]);
 const REPORT_DOMAINS: ReportDomain[] = ["asbestos", "lead", "mold"];
 
 export const GET = withApiErrors(async (

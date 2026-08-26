@@ -41,7 +41,7 @@ export const GET = withApiErrors(async (
   const supabase = getSupabaseAdmin();
   const { data: job } = await supabase
     .from("jobs")
-    .select(`${gmailIdCol}, ${gmailMessageIdCol}, ${sentAtCol}, ${otherGmailIdCol}, ${otherSentAtCol}`)
+    .select(`${gmailIdCol}, ${gmailMessageIdCol}, ${sentAtCol}, ${otherGmailIdCol}, ${otherSentAtCol}, status`)
     .eq("id", params.id)
     .maybeSingle<Record<string, string | null>>();
 
@@ -73,6 +73,17 @@ export const GET = withApiErrors(async (
       const update: Record<string, string> = { [sentAtCol]: finalSentAt };
       const isCombinedDraft = gmailId && job?.[otherGmailIdCol] === gmailId && !job?.[otherSentAtCol];
       if (isCombinedDraft) update[otherSentAtCol] = finalSentAt;
+      // Per Tim, 2026-08-26 — the moment both the report and invoice are
+      // actually confirmed sent, advance out of "ready_to_send" (drafted,
+      // not yet sent) into "report_invoice_sent" automatically. Only from
+      // ready_to_send specifically — an individual-billed job is already
+      // "paid" by the time its report/invoice go out (payment happens
+      // before release for those), so this never regresses a paid job
+      // backward.
+      const otherAlreadySent = Boolean(job?.[otherSentAtCol]) || isCombinedDraft;
+      if (otherAlreadySent && job?.status === "ready_to_send") {
+        update.status = "report_invoice_sent";
+      }
       await supabase.from("jobs").update(update).eq("id", params.id);
       // Best-effort — a labeling hiccup must never block the sent-status
       // check itself, which the Final Report tab depends on to update the

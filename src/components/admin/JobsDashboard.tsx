@@ -55,6 +55,7 @@ const PIPELINE_STATUSES = [
   "scheduled",
   "pending_lab_results",
   "ready_to_send",
+  "report_invoice_sent",
   "paid",
   "cancelled",
 ] as const;
@@ -81,15 +82,17 @@ function statusLabelForJob(job: JobWithCustomer, status: string): string {
 
 // The linear progression shown as a horizontal tracker on a project's detail
 // dialog — "cancelled" is excluded since it's an exception path, not a step.
-const TRACKER_STATUSES = ["needs_scheduling", "scheduled", "pending_lab_results", "ready_to_send", "paid"] as const;
+const TRACKER_STATUSES = ["needs_scheduling", "scheduled", "pending_lab_results", "ready_to_send", "report_invoice_sent", "paid"] as const;
 const SUBCONTRACTOR_TRACKER_STATUSES = ["needs_scheduling", "scheduled", "paid"] as const;
 
 // The tracker's own segment list — same real, clickable job.status steps as
-// TRACKER_STATUSES, with one extra "sent" segment spliced in between
-// ready_to_send and paid. "Sent" isn't a real job.status (there's no manual
-// "mark as sent" — invoice_sent_at is only ever set automatically, inferred
-// from Gmail itself, see draft-status/route.ts), so it's rendered as a
-// non-clickable, informational segment rather than a status button.
+// TRACKER_STATUSES. "report_invoice_sent" used to be a synthetic,
+// non-clickable segment inferred purely from invoice_sent_at/report_sent_at
+// (no manual "mark as sent" existed) — per Tim, 2026-08-26, it's now a real
+// status of its own so it's distinguishable from "ready_to_send" (drafted,
+// not yet sent) in the status field itself, not just in this tracker.
+// draft-status/route.ts auto-advances a job here the moment both timestamps
+// land; nothing sets it by hand in the normal flow.
 type TrackerSegment = {
   key: string;
   label: React.ReactNode;
@@ -106,8 +109,8 @@ const TRACKER_SEGMENTS: TrackerSegment[] = [
   { key: "scheduled", label: "Scheduled", plainLabel: "Scheduled", status: "scheduled", done: (_job, i) => i >= 1 },
   { key: "pending_lab_results", label: <>Pending<br />Lab Results</>, plainLabel: "Pending Lab Results", status: "pending_lab_results", done: (_job, i) => i >= 2 },
   { key: "ready_to_send", label: <>Report and<br />Invoice Ready</>, plainLabel: "Report and Invoice Ready", status: "ready_to_send", done: (_job, i) => i >= 3 },
-  { key: "sent", label: <>Report and<br />Invoice Sent</>, plainLabel: "Report and Invoice Sent", done: (job, i) => (Boolean(job.invoice_sent_at) && Boolean(job.report_sent_at)) || i >= 4 },
-  { key: "paid", label: "Paid", plainLabel: "Paid", status: "paid", done: (_job, i) => i >= 4 },
+  { key: "report_invoice_sent", label: <>Report and<br />Invoice Sent</>, plainLabel: "Report and Invoice Sent", status: "report_invoice_sent", done: (_job, i) => i >= 4 },
+  { key: "paid", label: "Paid", plainLabel: "Paid", status: "paid", done: (_job, i) => i >= 5 },
 ];
 
 // Subcontracted jobs skip straight from Scheduled to Done — see
@@ -129,6 +132,7 @@ export const STATUS_LABEL: Record<string, string> = {
   completed: "Report Ready",
   invoiced: "Invoiced",
   ready_to_send: "Report and Invoice Ready",
+  report_invoice_sent: "Report and Invoice Sent",
   paid: "Paid",
   cancelled: "Cancelled",
 };
@@ -144,6 +148,7 @@ const STATUS_DOT_COLOR: Record<string, string> = {
   completed: "bg-teal-500",
   invoiced: "bg-amber-500",
   ready_to_send: "bg-amber-500",
+  report_invoice_sent: "bg-cyan-500",
   paid: "bg-emerald-500",
   cancelled: "bg-red-500",
 };
@@ -420,8 +425,9 @@ const SORT_FIELDS: { key: SortField; label: string }[] = [
 ];
 
 // "What needs attention" — open until paid (or cancelled). A job sitting at
-// "ready_to_send" still needs attention (chasing payment), so it counts as open.
-const OPEN_STATUSES = new Set(["needs_scheduling", "scheduled", "fieldwork_in_progress", "awaiting_lab_results", "needs_report", "pending_lab_results", "completed", "invoiced", "ready_to_send"]);
+// "ready_to_send" or "report_invoice_sent" still needs attention (chasing
+// payment), so both count as open.
+const OPEN_STATUSES = new Set(["needs_scheduling", "scheduled", "fieldwork_in_progress", "awaiting_lab_results", "needs_report", "pending_lab_results", "completed", "invoiced", "ready_to_send", "report_invoice_sent"]);
 const CLOSED_STATUSES = new Set(["paid", "cancelled"]);
 // Schedule/notes stay editable for any job that isn't closed out yet.
 const EDITABLE_STATUSES = OPEN_STATUSES;
@@ -442,11 +448,11 @@ function paymentDueDate(projectDate: string): string | null {
 }
 
 // Positive only once money is actually owed and sitting past its due date —
-// "ready_to_send" is the one status that means "billed, not yet paid" (paid/
-// cancelled/anything earlier in the pipeline never counts, no matter how old
-// the due date is).
+// "ready_to_send" and "report_invoice_sent" are the two statuses that mean
+// "billed, not yet paid" (paid/cancelled/anything earlier in the pipeline
+// never counts, no matter how old the due date is).
 function daysOverdue(job: JobWithCustomer): number | null {
-  if (job.status !== "ready_to_send") return null;
+  if (job.status !== "ready_to_send" && job.status !== "report_invoice_sent") return null;
   const due = job.payment_due_date || paymentDueDate(job.requested_date ?? "");
   if (!due) return null;
   const dueDate = new Date(`${due}T00:00:00`);
@@ -474,7 +480,7 @@ const REPORT_DOMAIN_LABEL: Record<ReportDomain, string> = { asbestos: "Asbestos"
 // describe a completed appointment, not a future one — label it that way
 // instead of "Scheduled".
 function hasCompletedFieldwork(status: string): boolean {
-  return status === "pending_lab_results" || status === "ready_to_send" || status === "paid";
+  return status === "pending_lab_results" || status === "ready_to_send" || status === "report_invoice_sent" || status === "paid";
 }
 
 // Fields shared by every domain's own report — same job, so these don't
@@ -2413,10 +2419,17 @@ export function ProjectDetailDialog({
                   </div>
                   {/* Per Tim — sits right under the mail icon/Edit button,
                       with real breathing room (not hugging the row above)
-                      so it doesn't read as attached to either control. */}
-                  {job.report_sent_at && (
-                    <div className="flex justify-end">
-                      <p className="mt-[1in] text-xs text-slate-500">Report sent {formatDateTime(job.report_sent_at)}</p>
+                      so it doesn't read as attached to either control. Both
+                      lines always show, sent-or-not, rather than only
+                      appearing once something's actually gone out. */}
+                  {job.source !== "subcontractor" && reportComplete && job.invoice_total_cents != null && (
+                    <div className="flex flex-col items-end">
+                      <p className="mt-[1in] text-xs text-slate-500">
+                        {job.report_sent_at ? `Report sent ${formatDateTime(job.report_sent_at)}` : "Report not yet sent"}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {job.invoice_sent_at ? `Invoice sent ${formatDateTime(job.invoice_sent_at)}` : "Invoice not yet sent"}
+                      </p>
                     </div>
                   )}
                   <DetailField label="Status" value={statusLabelForJob(job, job.status)} />

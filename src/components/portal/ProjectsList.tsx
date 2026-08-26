@@ -7,7 +7,7 @@ import { splitAddress, googleMapsUrl, expandAddress } from "@/lib/address";
 import { formatDateMDY } from "@/lib/date-format";
 import ProjectDetailModal from "@/components/portal/ProjectDetailModal";
 
-const OPEN_STATUSES = new Set(["needs_scheduling", "scheduled", "fieldwork_in_progress", "awaiting_lab_results", "needs_report", "pending_lab_results", "completed", "invoiced", "ready_to_send"]);
+const OPEN_STATUSES = new Set(["needs_scheduling", "scheduled", "fieldwork_in_progress", "awaiting_lab_results", "needs_report", "pending_lab_results", "completed", "invoiced", "ready_to_send", "report_invoice_sent"]);
 const CLOSED_STATUSES = new Set(["paid", "cancelled"]);
 
 // Matches if the target contains every word of the query as a substring, in
@@ -29,10 +29,14 @@ const SORT_FIELDS: { key: SortField; label: string }[] = [
 // actually sees distinct labels for — ready_to_send reads identically to
 // pending_lab_results here (see STATUS_LABEL's own comment above), so
 // selecting either one filters for both underlying keys at once.
+// report_invoice_sent gets its own bucket rather than folding into that
+// same one — once it's actually been sent the client already has it in
+// their inbox, so "Pending Lab Results" would read as flatly wrong.
 const PIPELINE_STATUSES: { key: string; matches: string[] }[] = [
   { key: "needs_scheduling", matches: ["needs_scheduling"] },
   { key: "scheduled", matches: ["scheduled"] },
   { key: "pending_lab_results", matches: ["pending_lab_results", "ready_to_send"] },
+  { key: "report_invoice_sent", matches: ["report_invoice_sent"] },
   { key: "paid", matches: ["paid"] },
   { key: "cancelled", matches: ["cancelled"] },
 ];
@@ -92,6 +96,7 @@ export const STATUS_LABEL: Record<string, string> = {
   completed: "Report Ready",
   invoiced: "Invoiced",
   ready_to_send: "Pending Lab Results",
+  report_invoice_sent: "Report and Invoice Sent",
   paid: "Paid",
   cancelled: "Cancelled",
 };
@@ -106,6 +111,7 @@ export const STATUS_COLOR: Record<string, string> = {
   completed: "bg-teal-100 text-teal-700",
   invoiced: "bg-amber-100 text-amber-700",
   ready_to_send: "bg-purple-100 text-purple-700",
+  report_invoice_sent: "bg-cyan-100 text-cyan-700",
   paid: "bg-emerald-100 text-emerald-700",
   cancelled: "bg-red-100 text-red-700",
 };

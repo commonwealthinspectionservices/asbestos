@@ -996,3 +996,14 @@ alter table jobs drop column if exists mold_report_summary;
 alter table jobs add column if not exists mold_air_discussion text;
 alter table jobs add column if not exists mold_bulk_discussion text;
 alter table jobs add column if not exists mold_swab_discussion text;
+
+-- New pipeline step between 'ready_to_send' and 'paid' — the report and
+-- invoice have both actually gone out to the client (report_sent_at and
+-- invoice_sent_at both set, inferred from Gmail by
+-- .../jobs/[id]/draft-status/route.ts the same way those two columns
+-- already are), still awaiting payment. Per Tim, 2026-08-26: distinct from
+-- 'ready_to_send' (drafted, not yet sent) so the two are no longer
+-- indistinguishable in the status field itself — draft-status/route.ts
+-- auto-advances a job here the moment both timestamps land; nothing sets
+-- it by hand.
+alter type job_status add value if not exists 'report_invoice_sent' after 'ready_to_send';

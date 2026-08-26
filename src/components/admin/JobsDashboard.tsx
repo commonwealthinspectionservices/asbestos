@@ -2411,6 +2411,14 @@ export function ProjectDetailDialog({
                       </button>
                     </div>
                   </div>
+                  {/* Per Tim — sits right under the mail icon/Edit button,
+                      with real breathing room (not hugging the row above)
+                      so it doesn't read as attached to either control. */}
+                  {job.report_sent_at && (
+                    <div className="flex justify-end">
+                      <p className="mt-[1in] text-xs text-slate-500">Report sent {formatDateTime(job.report_sent_at)}</p>
+                    </div>
+                  )}
                   <DetailField label="Status" value={statusLabelForJob(job, job.status)} />
                   <DetailField
                     label="Company"

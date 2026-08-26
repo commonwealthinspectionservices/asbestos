@@ -1177,7 +1177,7 @@ function JobRow({
               {statusLabelForJob(job, job.status)}
             </span>
           ) : (
-            <div className="flex flex-col items-end gap-0.5">
+            <div className="flex flex-col items-end gap-4">
               <select
                 value={job.status}
                 onChange={(e) => {
@@ -1212,7 +1212,7 @@ function JobRow({
                   when they'd disagree — same show condition as the Project
                   Info tab's own copy of this. */}
               {job.source !== "subcontractor" && reportIsComplete(job) && job.invoice_total_cents != null && (
-                <div className="flex flex-col items-end text-xs text-slate-500">
+                <div className="flex flex-col items-end text-sm text-slate-500">
                   <span>Report: {job.report_sent_at ? "Sent" : "Not sent"}</span>
                   <span>Invoice: {job.invoice_sent_at ? "Sent" : "Not sent"}</span>
                 </div>

@@ -2417,17 +2417,16 @@ export function ProjectDetailDialog({
                       </button>
                     </div>
                   </div>
-                  {/* Per Tim — sits right under the mail icon/Edit button,
-                      with real breathing room (not hugging the row above)
-                      so it doesn't read as attached to either control. Both
-                      lines always show, sent-or-not, rather than only
-                      appearing once something's actually gone out. */}
+                  {/* Per Tim — sits directly under the mail icon/Edit
+                      button. Both lines always show, sent-or-not, rather
+                      than only appearing once something's actually gone
+                      out. */}
                   {job.source !== "subcontractor" && reportComplete && job.invoice_total_cents != null && (
                     <div className="flex flex-col items-end">
-                      <p className="mt-[1in] text-xs text-slate-500">
+                      <p className="text-sm text-slate-500">
                         {job.report_sent_at ? `Report sent ${formatDateTime(job.report_sent_at)}` : "Report not yet sent"}
                       </p>
-                      <p className="text-xs text-slate-500">
+                      <p className="text-sm text-slate-500">
                         {job.invoice_sent_at ? `Invoice sent ${formatDateTime(job.invoice_sent_at)}` : "Invoice not yet sent"}
                       </p>
                     </div>

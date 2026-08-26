@@ -71,7 +71,7 @@ export function emailShell(bodyHtml: string): string {
         <td style="background:#193466; padding:20px 24px;">
           <table role="presentation"><tr>
             ${logoImg ? `<td style="padding-right:10px;">${logoImg}</td>` : ""}
-            <td><span style="color:#ffffff; font-size:16px; font-weight:600;">Commonwealth Inspection Services, LLC.</span></td>
+            <td><span style="color:#ffffff; font-size:16px; font-weight:600;">Commonwealth Inspection Services, LLC</span></td>
           </tr></table>
         </td>
       </tr>

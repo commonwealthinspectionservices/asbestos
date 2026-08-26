@@ -99,7 +99,7 @@ export default function AdminNav() {
 export function AdminFooter() {
   return (
     <footer className="border-t border-slate-200 bg-white px-4 py-3 text-right text-sm text-slate-500">
-      Commonwealth Inspection Services, LLC.
+      Commonwealth Inspection Services, LLC
     </footer>
   );
 }

@@ -2385,6 +2385,27 @@ export function ProjectDetailDialog({
                     <DetailField label="Project #" value={job.project_number} />
                     <div className="flex shrink-0 items-center gap-2">
                       <span className="hidden sm:inline-flex">{portalBadge}</span>
+                      {/* Per Tim — a quick way to jump to this job's whole
+                          email conversation in Gmail (the same thread every
+                          automated + drafted email for this job lands in,
+                          see lib/email-thread.ts) without digging through
+                          the Chat tab or searching Gmail by hand. Only shown
+                          once a thread actually exists — a brand-new job
+                          with no emails yet has nothing to link to. */}
+                      {job.email_gmail_thread_id && (
+                        <a
+                          href={`https://mail.google.com/mail/u/0/#all/${job.email_gmail_thread_id}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          title="Open this job's email conversation in Gmail"
+                          className="shrink-0 rounded-lg border border-slate-300 p-2 text-slate-600 hover:bg-slate-50"
+                        >
+                          <svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="2" y="4" width="16" height="12" rx="2" stroke="currentColor" strokeWidth="1.5" />
+                            <path d="M3 5.5L10 11L17 5.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        </a>
+                      )}
                       <button onClick={onEdit} className="shrink-0 rounded-lg border border-slate-300 px-3.5 py-1.5 text-sm font-bold uppercase hover:underline">
                         Edit
                       </button>

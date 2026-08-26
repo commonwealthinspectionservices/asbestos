@@ -2,7 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { requireAdminApi } from "@/lib/admin-api";
 import { withApiErrors } from "@/lib/api-handler";
-import { draftExists, getSentMessageInfo, getValidAccessToken } from "@/lib/gmail";
+import { addLabelToMessage, draftExists, getOrCreateLabelId, getSentMessageInfo, getValidAccessToken } from "@/lib/gmail";
+
+// Per Tim — every report/invoice this app detects as sent also gets his
+// own "Sent Reports" Gmail label applied, so they're easy to find/filter
+// in his inbox alongside whatever he sends by hand. getOrCreateLabelId
+// finds his existing label by name rather than making a new one.
+const SENT_REPORTS_LABEL = "Sent Reports";
 
 // Live check for the Final Report tab's invoice and report rows. There is
 // no manual "mark as sent" — this is the only place *_sent_at ever gets
@@ -68,6 +74,15 @@ export const GET = withApiErrors(async (
       const isCombinedDraft = gmailId && job?.[otherGmailIdCol] === gmailId && !job?.[otherSentAtCol];
       if (isCombinedDraft) update[otherSentAtCol] = finalSentAt;
       await supabase.from("jobs").update(update).eq("id", params.id);
+      // Best-effort — a labeling hiccup must never block the sent-status
+      // check itself, which the Final Report tab depends on to update the
+      // draft button.
+      try {
+        const labelId = await getOrCreateLabelId(accessToken, SENT_REPORTS_LABEL);
+        await addLabelToMessage(accessToken, gmailMessageId, labelId);
+      } catch (e) {
+        console.error(`Failed to apply "${SENT_REPORTS_LABEL}" label to message ${gmailMessageId}:`, e);
+      }
       return NextResponse.json({ status: "sent", sentAt: finalSentAt });
     }
   }

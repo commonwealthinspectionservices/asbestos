@@ -329,7 +329,7 @@ function gmailMessageUrl(messageId: string, sent: boolean): string {
 // label switches to "View sent ... ↗" — that one really is just a link,
 // nothing gets rebuilt once it's out the door.
 function DraftLinkControl({
-  label, hook, messageId, draftedAt, sentAt,
+  label, hook, messageId, draftedAt, sentAt, fullWidth,
 }: {
   label?: string;
   hook: {
@@ -341,9 +341,17 @@ function DraftLinkControl({
   messageId: string | null;
   draftedAt: string | null;
   sentAt: string | null;
+  /** Per Tim, 2026-08-27 — the mobile-only header row (below the tab
+      dropdown) wants this button the exact same size as that dropdown
+      above it: full width, same height/padding, instead of the compact
+      pill this control renders everywhere else (inline with the desktop
+      tab row, or the mobile row's other slot when Boston Harbor's two
+      side by side don't need the full width each). */
+  fullWidth?: boolean;
 }) {
   if (!messageId) return <p className="text-xs text-slate-400">Creating draft…</p>;
   const isSent = Boolean(sentAt) || hook.status?.status === "sent";
+  const sizeClasses = fullWidth ? "block w-full px-2 py-1.5 text-center text-sm" : "px-3 py-1 text-xs";
   if (isSent) {
     // Per Tim — the "Sent {date}" line used to sit right here, next to the
     // header button; now that Project Info has its own dedicated "Report
@@ -354,7 +362,7 @@ function DraftLinkControl({
         href={gmailMessageUrl(messageId, true)}
         target="_blank"
         rel="noreferrer"
-        className="rounded-lg border border-red-600 bg-white px-3 py-1 text-xs font-bold uppercase text-red-600 hover:underline"
+        className={`rounded-lg border border-red-600 bg-white font-bold uppercase text-red-600 hover:underline ${sizeClasses}`}
       >
         {label ? `View sent ${label.toLowerCase()} ↗` : "View sent email in Gmail ↗"}
       </a>
@@ -366,7 +374,7 @@ function DraftLinkControl({
         type="button"
         onClick={() => hook.viewDraft()}
         disabled={hook.creating}
-        className="rounded-lg border border-red-600 bg-white px-3 py-1 text-xs font-bold uppercase text-red-600 hover:underline disabled:opacity-50"
+        className={`rounded-lg border border-red-600 bg-white font-bold uppercase text-red-600 hover:underline disabled:opacity-50 ${sizeClasses}`}
       >
         {hook.creating ? "Preparing draft…" : label ? `Create ${label} Draft ↗` : "Create Draft ↗"}
       </button>
@@ -2351,8 +2359,15 @@ export function ProjectDetailDialog({
                 { value: "photos", label: "Photos", onSelect: () => setTab("photos") },
               ];
           const selectedValue = tab === "report" ? `report:${reportDomainTab}` : tab;
+          // Per Tim, 2026-08-27 — no border-b here on mobile when the
+          // "Create Final Report and Invoice Draft" row follows right
+          // below (same condition that row itself renders under) — its
+          // own border-b takes over instead, so the two read as one
+          // continuous block with no line between them. Desktop is
+          // unaffected (sm:border-b always applies there — that button
+          // sits inline in the tab row on desktop, not its own row).
           return (
-            <div className="flex shrink-0 items-center gap-2 border-b border-slate-200 bg-white px-3 pt-3 pb-2 sm:gap-1 sm:px-5 sm:pt-5 sm:pb-1">
+            <div className={`flex shrink-0 items-center gap-2 bg-white px-3 pt-3 pb-2 sm:gap-1 sm:border-b sm:border-slate-200 sm:px-5 sm:pt-5 sm:pb-1 ${job.source !== "subcontractor" && reportComplete && job.invoice_total_cents != null ? "" : "border-b border-slate-200"}`}>
               {/* Mobile: a single dropdown instead of the tab row below —
                   the row wrapped/overflowed illegibly on a narrow screen
                   (e.g. "Photos" clipped to "PHOT"), and a select is much
@@ -2478,16 +2493,19 @@ export function ProjectDetailDialog({
             message ids happen to differ") so a brand-new job with
             neither drafted yet still gets the right two-button layout
             from the start, not just after one exists. */}
+        {/* Per Tim, 2026-08-27 — no divider between the tab dropdown above
+            and this button: same border-b border-slate-200 bg-white px-3
+            styling as that header row, just without its own pb/pt, so the
+            two visually read as one continuous block instead of two boxes
+            stacked with a line between them. Boston Harbor's two separate
+            controls stack full-width too, each the same size as the
+            dropdown, rather than sitting side by side at half width. */}
         {job.source !== "subcontractor" && reportComplete && job.invoice_total_cents != null && (
-          <div className="flex shrink-0 flex-wrap items-center justify-start gap-x-4 gap-y-1 border-b border-slate-200 bg-white px-3 py-1.5 sm:hidden">
+          <div className="flex shrink-0 flex-col gap-1.5 border-b border-slate-200 bg-white px-3 pb-2 sm:hidden">
             {isSeparateDraftsCompany ? (
               <>
-                <div className="flex items-center gap-2">
-                  <DraftLinkControl label="Asbestos Inspection Report" hook={reportOnlyDraft} messageId={job.report_draft_gmail_message_id} draftedAt={job.report_drafted_at} sentAt={job.report_sent_at} />
-                </div>
-                <div className="flex items-center gap-2">
-                  <DraftLinkControl label="Invoice" hook={invoiceOnlyDraft} messageId={job.invoice_draft_gmail_message_id} draftedAt={job.invoice_drafted_at} sentAt={job.invoice_sent_at} />
-                </div>
+                <DraftLinkControl label="Asbestos Inspection Report" hook={reportOnlyDraft} messageId={job.report_draft_gmail_message_id} draftedAt={job.report_drafted_at} sentAt={job.report_sent_at} fullWidth />
+                <DraftLinkControl label="Invoice" hook={invoiceOnlyDraft} messageId={job.invoice_draft_gmail_message_id} draftedAt={job.invoice_drafted_at} sentAt={job.invoice_sent_at} fullWidth />
               </>
             ) : (
               <DraftLinkControl
@@ -2496,6 +2514,7 @@ export function ProjectDetailDialog({
                 messageId={job.invoice_draft_gmail_message_id}
                 draftedAt={job.invoice_drafted_at}
                 sentAt={job.invoice_sent_at}
+                fullWidth
               />
             )}
           </div>

@@ -19,6 +19,7 @@ const customer: Customer = {
 };
 
 const job: Job = {
+  is_revisit: false,
   report_drafted_at: null,
   report_draft_gmail_id: null,
   report_draft_gmail_message_id: null,

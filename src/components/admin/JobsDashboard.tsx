@@ -343,15 +343,21 @@ function DraftLinkControl({
   sentAt: string | null;
   /** Per Tim, 2026-08-27 — the mobile-only header row (below the tab
       dropdown) wants this button the exact same size as that dropdown
-      above it: full width, same height/padding, instead of the compact
-      pill this control renders everywhere else (inline with the desktop
-      tab row, or the mobile row's other slot when Boston Harbor's two
-      side by side don't need the full width each). */
+      above it: full width, same height, instead of the compact pill this
+      control renders everywhere else (inline with the desktop tab row, or
+      the mobile row's other slot when Boston Harbor's two side by side
+      don't need the full width each). An explicit h-9 on both (rather than
+      matching padding and hoping) — confirmed live 2026-08-27, a <button>
+      and the dropdown's <select> render 5px apart at identical padding/
+      font-size, same native-UA-metrics quirk as input[type=date] vs
+      <select> documented elsewhere in this file. flex/items-center/
+      justify-center (not block+text-center) centers the label within that
+      fixed height instead of relying on padding to do it. */
   fullWidth?: boolean;
 }) {
   if (!messageId) return <p className="text-xs text-slate-400">Creating draft…</p>;
   const isSent = Boolean(sentAt) || hook.status?.status === "sent";
-  const sizeClasses = fullWidth ? "block w-full px-2 py-1.5 text-center text-sm" : "px-3 py-1 text-xs";
+  const sizeClasses = fullWidth ? "flex h-9 w-full items-center justify-center px-2 text-center text-sm" : "px-3 py-1 text-xs";
   if (isSent) {
     // Per Tim — the "Sent {date}" line used to sit right here, next to the
     // header button; now that Project Info has its own dedicated "Report
@@ -1320,17 +1326,21 @@ function JobRow({
       <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-start">
         <div className="min-w-0 w-full sm:w-auto sm:flex-[0.9]">
           {locationName && <div className="truncate whitespace-nowrap text-sm text-slate-500">{locationName}</div>}
-          {/* Mobile: tapping anywhere in the address (street through zip)
+          {/* Mobile: tapping the address text itself (street through zip)
               opens a Google Maps/Waze picker instead of the job detail
               dialog — a driver on the way there wants directions, not to
-              reopen the card they just tapped from. Desktop: unchanged
-              plain text (no picker; the detail dialog's own address link
-              already goes to Maps). */}
+              reopen the card they just tapped from. inline-block (not
+              block w-full) so the tappable area hugs the text itself
+              instead of spanning the whole row — confirmed live 2026-08-27,
+              a full-width button meant tapping empty space well to the
+              right of a short address still opened the map picker instead
+              of the card. Desktop: unchanged plain text (no picker; the
+              detail dialog's own address link already goes to Maps). */}
           <div className="relative">
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); setShowMapMenu((v) => !v); }}
-              className={`block w-full text-left sm:hidden ${showMapMenu ? "underline" : ""}`}
+              className={`inline-block max-w-full text-left sm:hidden ${showMapMenu ? "underline" : ""}`}
             >
               <span className="block truncate whitespace-nowrap text-sm text-slate-500">{street}</span>
               {cityStateZip && <span className="block truncate whitespace-nowrap text-sm text-slate-500">{cityStateZip}</span>}
@@ -1499,20 +1509,23 @@ function JobRow({
             // "Scheduled date/time" once it's not. Editing happens in the
             // Edit dialog now, not inline here.
             <div className="flex w-full shrink-0 flex-col items-start gap-1.5 sm:w-60 sm:items-end" onClick={(e) => e.stopPropagation()}>
-              {/* Per Tim, 2026-08-27 — desktop had no equivalent of mobile's
-                  own Invoice:/Report: status lines (those sit next to the
-                  address, mobile-only), so this column always showed
+              {/* Per Tim, 2026-08-27 — this column always showed
                   Completed/Scheduled date instead — stale info once the
-                  job's actually at the report/invoice stage. Desktop only:
-                  once both matter, show sent-status here instead of the
-                  date, same lines mobile already shows elsewhere. */}
+                  job's actually at the report/invoice stage. Once both
+                  matter, show sent-status here instead of the date: on
+                  desktop that's this same column (invoiceStatus/
+                  reportStatus below); on mobile it's the Invoice:/Report:
+                  lines shown next to the address, so the date block below
+                  must disappear entirely there too — confirmed live
+                  2026-08-27, sm:hidden only hid it on desktop, leaving it
+                  redundantly visible on mobile alongside those lines. */}
               {showReportInvoice && (
                 <div className="hidden w-full flex-col items-end gap-0.5 text-sm text-slate-500 sm:flex">
                   {invoiceStatus}
                   {reportStatus}
                 </div>
               )}
-              <div className={`w-full text-sm text-slate-500 ${showReportInvoice ? "sm:hidden" : ""}`}>
+              <div className={`w-full text-sm text-slate-500 ${showReportInvoice ? "hidden" : ""}`}>
                 {!isUnscheduled ? (
                   <>
                     <div>{hasCompletedFieldwork(job.status) ? "Completed" : "Scheduled"} date: {formatDate(job.confirmed_date ?? job.requested_date) || "—"}</div>
@@ -2406,7 +2419,7 @@ export function ProjectDetailDialog({
               <select
                 value={selectedValue}
                 onChange={(e) => tabOptions.find((o) => o.value === e.target.value)?.onSelect()}
-                className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm font-bold uppercase text-slate-700 sm:hidden"
+                className="h-9 min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm font-bold uppercase text-slate-700 sm:hidden"
               >
                 {tabOptions.map((o) => (
                   <option key={o.value} value={o.value}>{o.label}</option>

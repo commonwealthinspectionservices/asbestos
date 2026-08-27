@@ -109,7 +109,7 @@ const TRACKER_SEGMENTS: TrackerSegment[] = [
   { key: "scheduled", label: "Scheduled", plainLabel: "Scheduled", status: "scheduled", done: (_job, i) => i >= 1 },
   { key: "pending_lab_results", label: <>Pending<br />Lab Results</>, plainLabel: "Pending Lab Results", status: "pending_lab_results", done: (_job, i) => i >= 2 },
   { key: "ready_to_send", label: <>Report and<br />Invoice Ready</>, plainLabel: "Report and Invoice Ready", status: "ready_to_send", done: (_job, i) => i >= 3 },
-  { key: "report_invoice_sent", label: <>Report and<br />Invoice Sent</>, plainLabel: "Report and Invoice Sent", status: "report_invoice_sent", done: (_job, i) => i >= 4 },
+  { key: "report_invoice_sent", label: <>Payment<br />Pending</>, plainLabel: "Payment Pending", status: "report_invoice_sent", done: (_job, i) => i >= 4 },
   { key: "paid", label: "Paid", plainLabel: "Paid", status: "paid", done: (_job, i) => i >= 5 },
 ];
 
@@ -132,7 +132,7 @@ export const STATUS_LABEL: Record<string, string> = {
   completed: "Report Ready",
   invoiced: "Invoiced",
   ready_to_send: "Report and Invoice Ready",
-  report_invoice_sent: "Report and Invoice Sent",
+  report_invoice_sent: "Payment Pending",
   paid: "Paid",
   cancelled: "Cancelled",
 };
@@ -798,11 +798,16 @@ export default function JobsDashboard() {
       <div className="flex items-center gap-2 border-b border-slate-200 pb-4 sm:hidden">
         <div className="relative min-w-0 flex-1">
           <select
-            value={statusFilter.size === 0 ? statusView : ""}
-            onChange={(e) => selectStatusView(e.target.value as "open" | "closed" | "all")}
+            value={statusFilter.has("report_invoice_sent") ? "payment_pending" : statusFilter.size === 0 ? statusView : ""}
+            onChange={(e) => {
+              const v = e.target.value;
+              if (v === "payment_pending") selectStatusFilter("report_invoice_sent");
+              else selectStatusView(v as "open" | "closed" | "all");
+            }}
             className="w-full appearance-none rounded-lg border border-slate-300 bg-white py-2 pl-3 pr-10 text-sm font-bold text-slate-700"
           >
             <option value="open">Open Projects</option>
+            <option value="payment_pending">Payment Pending</option>
             <option value="closed">Closed Projects</option>
             <option value="all">All Projects</option>
           </select>
@@ -822,6 +827,15 @@ export default function JobsDashboard() {
           className={`whitespace-nowrap rounded-lg px-2.5 py-1 text-sm font-bold shrink-0 ${statusFilter.size === 0 && statusView === "open" ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
         >
           Open Projects
+        </button>
+        {/* Per Tim, 2026-08-27 — quick filter straight to the one specific
+            status, same mechanism the Status ▾ menu's own radio options
+            use (selectStatusFilter), not a fourth statusView. */}
+        <button
+          onClick={() => selectStatusFilter("report_invoice_sent")}
+          className={`whitespace-nowrap rounded-lg px-2.5 py-1 text-sm font-bold shrink-0 ${statusFilter.has("report_invoice_sent") ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
+        >
+          Payment Pending
         </button>
         <button
           onClick={() => selectStatusView("closed")}
@@ -1109,6 +1123,28 @@ function JobRow({
   const locationName = addressParts.locationName;
   const street = expandAddress(addressParts.street);
   const cityStateZip = expandAddress(addressParts.cityStateZip);
+  // Per Tim, 2026-08-27 — Invoice status sits on the street line, Report
+  // status on the town/state/zip line right below it (mobile only), both
+  // pushed to that line's own far right. Ready to Send (and Report and
+  // Invoice Sent) both cover a report/invoice pair that could be sent,
+  // partially sent, or fully sent, which otherwise looks identical on this
+  // card regardless of which — always both, not just when they'd disagree.
+  // The warning icon shows for either field, not just Report — an unsent
+  // invoice is just as much "not actually out the door yet" as an unsent
+  // report.
+  const showReportInvoice = job.source !== "subcontractor" && reportIsComplete(job) && job.invoice_total_cents != null;
+  const invoiceStatus = showReportInvoice && (
+    <span className="flex shrink-0 items-center gap-1 text-sm text-slate-500">
+      {job.invoice_sent_at ? `Invoice: Sent ${formatDateTime(job.invoice_sent_at)}` : "Invoice: Not sent"}
+      {!job.invoice_sent_at && <HazardIcon />}
+    </span>
+  );
+  const reportStatus = showReportInvoice && (
+    <span className="flex shrink-0 items-center gap-1 text-sm text-slate-500">
+      {job.report_sent_at ? `Report: Sent ${formatDateTime(job.report_sent_at)}` : "Report: Not sent"}
+      {!job.report_sent_at && <HazardIcon />}
+    </span>
+  );
   // Mobile only — see the address block below. Desktop already opens
   // straight to Google Maps in the detail dialog, and a driver picking a
   // nav app is a phone-in-hand, on-the-way-there thing, not a desktop one.
@@ -1185,7 +1221,12 @@ function JobRow({
             </span>
           )}
           {CLOSED_STATUSES.has(job.status) ? (
-            <span className="inline-flex h-7 w-60 shrink-0 items-center whitespace-nowrap rounded bg-slate-200 px-2 py-0.5 text-sm font-bold text-slate-700 sm:inline sm:h-auto">
+            // Per Tim, 2026-08-27 — min-w-0 so this actually holds w-60
+            // regardless of label length: inline-flex items default to
+            // min-width:auto, which otherwise lets a long label ("Report
+            // and Invoice Ready") force the box wider than a short one
+            // ("Payment Pending") despite both specifying the same w-60.
+            <span className="inline-flex h-7 w-60 min-w-0 shrink-0 items-center overflow-hidden text-ellipsis whitespace-nowrap rounded bg-slate-200 px-2 py-0.5 text-sm font-bold text-slate-700 sm:inline sm:h-auto">
               {statusLabelForJob(job, job.status)}
             </span>
           ) : (
@@ -1211,34 +1252,12 @@ function JobRow({
                   }
                 }}
                 onClick={(e) => e.stopPropagation()}
-                className={`inline-flex h-7 w-60 shrink-0 items-center whitespace-nowrap rounded bg-slate-200 px-2 py-0.5 text-sm font-bold text-slate-700 sm:inline-block sm:h-auto ${job.status === "ready_to_send" ? "border-2 border-amber-500" : "border-0"}`}
+                className={`inline-flex h-7 w-60 min-w-0 shrink-0 items-center overflow-hidden text-ellipsis whitespace-nowrap rounded bg-slate-200 px-2 py-0.5 text-sm font-bold text-slate-700 sm:inline-block sm:h-auto ${job.status === "ready_to_send" ? "border-2 border-amber-500" : "border-0"}`}
               >
                 {pipelineStatusesForJob(job).map((s) => (
                   <option key={s} value={s}>{statusLabelForJob(job, s)}</option>
                 ))}
               </select>
-              {/* Per Tim — Ready to Send (and Report and Invoice Sent) both
-                  cover a report/invoice pair that could be sent, partially
-                  sent, or fully sent, which otherwise looks identical on
-                  this card regardless of which. Always both lines, not just
-                  when they'd disagree — same show condition as the Project
-                  Info tab's own copy of this. */}
-              {job.source !== "subcontractor" && reportIsComplete(job) && job.invoice_total_cents != null && (
-                <div className="flex w-full flex-col items-start text-sm text-slate-500">
-                  {/* Per Tim — the hazard flag is specifically "the report
-                      is ready but I haven't sent it yet," not a general
-                      not-sent indicator — it doesn't apply to the invoice
-                      at all, and stays out even once the report itself is
-                      sent regardless of invoice status. After the text (not
-                      before) so Report/Invoice still start at the same left
-                      edge either way. */}
-                  <span className="flex items-center gap-1">
-                    Report: {job.report_sent_at ? `Sent ${formatDateTime(job.report_sent_at)}` : "Not sent"}
-                    {!job.report_sent_at && <HazardIcon />}
-                  </span>
-                  <span>Invoice: {job.invoice_sent_at ? `Sent ${formatDateTime(job.invoice_sent_at)}` : "Not sent"}</span>
-                </div>
-              )}
             </div>
           )}
         </div>
@@ -1248,6 +1267,17 @@ function JobRow({
 
       <div className="hidden text-sm text-slate-500 sm:block">&nbsp;</div>
 
+      {/* Per Tim, 2026-08-27 — Invoice sits on the street line, Report on
+          the town/state/zip line right below it, both pushed to the row's
+          own far right (mobile only — desktop shows the company name
+          inline with Project # up in the top row, with no equivalent
+          per-line spot for these). Ready to Send (and Report and Invoice
+          Sent) both cover a report/invoice pair that could be sent,
+          partially sent, or fully sent, which otherwise looks identical on
+          this card regardless of which — always both lines, not just when
+          they'd disagree. The warning icon shows for either field, not
+          just Report — an unsent invoice is just as much "not actually out
+          the door yet" as an unsent report. */}
       <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-start">
         <div className="min-w-0 w-full sm:w-auto sm:flex-[0.9]">
           {locationName && <div className="truncate whitespace-nowrap text-sm text-slate-500">{locationName}</div>}
@@ -1266,6 +1296,15 @@ function JobRow({
               <span className="block truncate whitespace-nowrap text-sm text-slate-500">{street}</span>
               {cityStateZip && <span className="block truncate whitespace-nowrap text-sm text-slate-500">{cityStateZip}</span>}
             </button>
+            {/* Per Tim, 2026-08-27 — Invoice directly above Report, both
+                left-aligned, sitting right after the address block instead
+                of interrupting it. */}
+            {showReportInvoice && (
+              <div className="mt-1 flex flex-col items-start sm:hidden">
+                {invoiceStatus}
+                {reportStatus}
+              </div>
+            )}
             <div className="hidden sm:block">
               <div className="truncate whitespace-nowrap text-sm text-slate-500">{street}</div>
               {cityStateZip && <div className="truncate whitespace-nowrap text-sm text-slate-500">{cityStateZip}</div>}
@@ -2177,14 +2216,32 @@ export function ProjectDetailDialog({
   // earlier longer-sentence version: "Report: Sent/Not sent" with the
   // hazard flag specifically for "the report is ready but hasn't gone out,"
   // never the invoice.
+  // Per Tim, 2026-08-27 — the warning icon sits directly next to "Not
+  // sent" itself (inline with the value), not off at the row's far right
+  // edge via DetailField's own trailing slot — and shows for either field,
+  // not just Report.
   const sentStatusLines = (
     <>
       <DetailField
         label="Report"
-        value={job.report_sent_at ? `Sent ${formatDateTime(job.report_sent_at)}` : "Not sent"}
-        trailing={!job.report_sent_at && <HazardIcon />}
+        value={
+          job.report_sent_at ? (
+            `Sent ${formatDateTime(job.report_sent_at)}`
+          ) : (
+            <span className="inline-flex items-center gap-1">Not sent <HazardIcon /></span>
+          )
+        }
       />
-      <DetailField label="Invoice" value={job.invoice_sent_at ? `Sent ${formatDateTime(job.invoice_sent_at)}` : "Not sent"} />
+      <DetailField
+        label="Invoice"
+        value={
+          job.invoice_sent_at ? (
+            `Sent ${formatDateTime(job.invoice_sent_at)}`
+          ) : (
+            <span className="inline-flex items-center gap-1">Not sent <HazardIcon /></span>
+          )
+        }
+      />
     </>
   );
   // No manual "Create Draft" step — the moment both the report and invoice
@@ -2477,13 +2534,13 @@ export function ProjectDetailDialog({
                       </button>
                     </div>
                   </div>
-                  {job.source !== "subcontractor" && (
-                    <div className="mt-3 flex justify-start sm:hidden">{turnaroundControl}</div>
-                  )}
-                  {showSentStatus && (
-                    <div className="mt-3 flex flex-col items-start sm:hidden">{sentStatusLines}</div>
-                  )}
                   <DetailField label="Status" value={statusLabelForJob(job, job.status)} />
+                  {/* Per Tim, 2026-08-27 — listed as plain fields here,
+                      between Status and Company, left-aligned like
+                      everything else on this tab — not floated in a
+                      corner (desktop) or split into its own separate
+                      mobile-only block (mobile) like before. */}
+                  {showSentStatus && sentStatusLines}
                   <DetailField
                     label="Company"
                     nowrap
@@ -2515,34 +2572,24 @@ export function ProjectDetailDialog({
                 )}
               </div>
             )}
-            {/* Per Tim — the Report/Invoice sent-status lines moved down
-                from the header to sit here instead, right-aligned on
-                desktop: two lines tall, so they line up against this row
-                and Requested date right below it. Mobile keeps its own
-                separate left-aligned block above (sm:hidden there). */}
-            <div className="relative">
-              <DetailField
-                label="Job site address"
-                value={job.service_address ? (() => {
-                  const { street, cityStateZip } = splitAddress(job.service_address);
-                  return (
-                    <a href={googleMapsUrl(job.service_address)} target="_blank" rel="noreferrer" className="hover:underline">
-                      {/* Desktop: unchanged single-line address. */}
-                      <span className="hidden sm:inline">{expandAddress(job.service_address)}</span>
-                      {/* Mobile: street, then town/state/zip on its own line — matching the project list card. */}
-                      <span className="sm:hidden">
-                        <span className="block">{expandAddress(street)}</span>
-                        {cityStateZip && <span className="block">{expandAddress(cityStateZip)}</span>}
-                      </span>
-                    </a>
-                  );
-                })() : null}
-                nowrap
-              />
-              {showSentStatus && (
-                <div className="absolute right-0 top-0 hidden flex-col items-end sm:flex">{sentStatusLines}</div>
-              )}
-            </div>
+            <DetailField
+              label="Job site address"
+              value={job.service_address ? (() => {
+                const { street, cityStateZip } = splitAddress(job.service_address);
+                return (
+                  <a href={googleMapsUrl(job.service_address)} target="_blank" rel="noreferrer" className="hover:underline">
+                    {/* Desktop: unchanged single-line address. */}
+                    <span className="hidden sm:inline">{expandAddress(job.service_address)}</span>
+                    {/* Mobile: street, then town/state/zip on its own line — matching the project list card. */}
+                    <span className="sm:hidden">
+                      <span className="block">{expandAddress(street)}</span>
+                      {cityStateZip && <span className="block">{expandAddress(cityStateZip)}</span>}
+                    </span>
+                  </a>
+                );
+              })() : null}
+              nowrap
+            />
             {job.source === "subcontractor" ? (
               job.status === "needs_scheduling" ? (
                 <>

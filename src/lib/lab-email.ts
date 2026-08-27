@@ -311,15 +311,18 @@ export async function checkDraftSentStatus(
     const update: Record<string, string> = { [sentAtCol]: finalSentAt };
     const isCombinedDraft = gmailId && job?.[otherGmailIdCol] === gmailId && !job?.[otherSentAtCol];
     if (isCombinedDraft) update[otherSentAtCol] = finalSentAt;
-    // Per Tim, 2026-08-26 — the moment both the report and invoice are
-    // actually confirmed sent, advance out of "ready_to_send" (drafted,
-    // not yet sent) into "report_invoice_sent" automatically. Only from
-    // ready_to_send specifically — an individual-billed job is already
-    // "paid" by the time its report/invoice go out (payment happens
-    // before release for those), so this never regresses a paid job
-    // backward.
-    const otherAlreadySent = Boolean(job?.[otherSentAtCol]) || isCombinedDraft;
-    if (otherAlreadySent && job?.status === "ready_to_send") {
+    // Per Tim, 2026-08-27 — advance out of "ready_to_send" (drafted, not
+    // yet sent) into "report_invoice_sent" ("Payment Pending") the moment
+    // the invoice specifically is confirmed sent, regardless of the
+    // report's own status — waiting on payment doesn't wait on the report
+    // going out too. True whenever this call is itself confirming the
+    // invoice sent (kind === "invoice") or a combined draft, where one
+    // Gmail send event covers both at once. Only from ready_to_send
+    // specifically — an individual-billed job is already "paid" by the
+    // time its report/invoice go out (payment happens before release for
+    // those), so this never regresses a paid job backward.
+    const invoiceJustSent = kind === "invoice" || isCombinedDraft;
+    if (invoiceJustSent && job?.status === "ready_to_send") {
       update.status = "report_invoice_sent";
     }
     await supabase.from("jobs").update(update).eq("id", jobId);

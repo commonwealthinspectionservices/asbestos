@@ -19,7 +19,7 @@ const STATUS_LABEL: Record<string, string> = {
   completed: "Report Ready",
   invoiced: "Invoiced",
   ready_to_send: "Report and Invoice Ready",
-  report_invoice_sent: "Report and Invoice Sent",
+  report_invoice_sent: "Payment Pending",
   paid: "Paid",
   cancelled: "Cancelled",
 };

@@ -204,6 +204,35 @@ export async function createStripeInvoiceForJob(
 
   const finalized = await stripe.invoices.finalizeInvoice(invoice.id);
 
+  // Belt-and-suspenders against ending up with more than one open invoice
+  // for the same job — confirmed live 2026-08-27: several jobs had two
+  // simultaneously-open Stripe invoices even though this function only
+  // ever *tries* to void the one it knows about (job.stripe_invoice_id)
+  // before creating a new one. Any path that loses that single pointer —
+  // a stale/corrupted id that 404s on retrieve() above (nothing to void,
+  // since we never learn what the old invoice even was), or a
+  // voidInvoice() call that itself fails and got swallowed by its own
+  // .catch() — leaves the real old invoice open and orphaned forever,
+  // silently. Searching Stripe directly by the job_id metadata every
+  // invoice already carries (set below at creation) finds any such stray
+  // regardless of why the DB's own pointer went bad, so "at most one open
+  // invoice per job" holds even when the single-pointer dance above
+  // doesn't. Best-effort — must never block handing back the invoice that
+  // *did* just get created successfully.
+  try {
+    const strays = await stripe.invoices.search({
+      query: `metadata['job_id']:'${job.id}' AND status:'open'`,
+    });
+    for (const stray of strays.data) {
+      if (stray.id === finalized.id) continue;
+      await stripe.invoices.voidInvoice(stray.id).catch((err) => {
+        console.error(`createStripeInvoiceForJob: failed to void stray duplicate invoice ${stray.id} for job ${job.id}:`, err);
+      });
+    }
+  } catch (err) {
+    console.error(`createStripeInvoiceForJob: failed to search for stray duplicate invoices for job ${job.id}:`, err);
+  }
+
   // Optimistic-concurrency guard against two concurrent callers (e.g. the
   // lab-results auto-invoice pipeline and an admin/portal "pay now" click
   // landing at the same moment) each finalizing their own live, payable

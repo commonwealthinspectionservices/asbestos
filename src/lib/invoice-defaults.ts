@@ -1,4 +1,5 @@
 import { resolveZoneBaseFeeCents } from "@/lib/pricing-zones";
+import { NEWTON_FIRE_FLOOD_COMPANY_ID } from "@/lib/report-findings";
 import type { InvoiceLineItem, JobWithCustomer, PricingZone, ServiceType } from "@/lib/types";
 
 // Single source of truth for "what should this invoice look like before
@@ -162,6 +163,26 @@ export function defaultInvoiceLineItems(
       billing_unit: "Sample",
       unit_cost_cents: isRush ? job.per_sample_cents * 2 : job.per_sample_cents,
     });
+  }
+
+  // Newton Fire & Flood's own standing rush fee — per Tim, 2026-08-27, every
+  // job for this company runs on same-day service and results, so a 20%
+  // surcharge on top of everything above applies automatically rather than
+  // needing to be added by hand on every invoice. Matched against
+  // company_id, same as this company's other standing rules (report
+  // conclusion text, "Final Report and Invoice" label) — see
+  // NEWTON_FIRE_FLOOD_COMPANY_ID's own comment. Skipped on a $0 invoice
+  // (nothing priced yet) rather than adding a $0 rush fee line.
+  if (job.customers?.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID) {
+    const subtotalCents = invoiceLineItemsTotalCents(rows);
+    if (subtotalCents > 0) {
+      rows.push({
+        description: "Rush Fee (Same Day Service and Results)",
+        quantity: 1,
+        billing_unit: "Fee",
+        unit_cost_cents: Math.round(subtotalCents * 0.2),
+      });
+    }
   }
 
   return rows;

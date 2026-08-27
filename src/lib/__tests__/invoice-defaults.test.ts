@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { defaultInvoiceLineItems, resolveBaseFeeCents } from "@/lib/invoice-defaults";
-import type { JobWithCustomer, ServiceType } from "@/lib/types";
+import { NEWTON_FIRE_FLOOD_COMPANY_ID } from "@/lib/report-findings";
+import type { Customer, JobWithCustomer, ServiceType } from "@/lib/types";
 
 const asbestosBulk: ServiceType = {
   key: "asbestos_bulk",
@@ -120,6 +121,21 @@ function baseJob(overrides: Partial<JobWithCustomer> = {}): JobWithCustomer {
   };
 }
 
+const newtonCustomer: Customer = {
+  id: "cust-newton",
+  name: "Phil Straghalis",
+  company: "Newton Fire & Flood",
+  company_id: NEWTON_FIRE_FLOOD_COMPANY_ID,
+  email: "phil@newtonfireandflood.com",
+  phone: "617-817-1701",
+  billing_address: null,
+  stripe_customer_id: null,
+  auth_user_id: null,
+  is_individual: false,
+  created_at: new Date().toISOString(),
+  onboarding_completed_at: null,
+};
+
 describe("defaultInvoiceLineItems", () => {
   it("itemizes a base fee line plus a sample line, priced from sample_counts", () => {
     const job = baseJob({
@@ -179,6 +195,45 @@ describe("defaultInvoiceLineItems", () => {
 
     expect(items).toHaveLength(1);
     expect(items[0].billing_unit).toBe("Base Fee");
+  });
+
+  it("adds a 20% rush fee for Newton Fire & Flood, computed off everything else", () => {
+    const job = baseJob({
+      service_type: "Limited Asbestos Inspection",
+      sample_counts: { "Limited Asbestos Inspection": 6 },
+      customers: newtonCustomer,
+    });
+    const items = defaultInvoiceLineItems(job, [asbestosBulk], []);
+
+    // Base fee 45000 + 6 * 2500 = 60000 subtotal -> 20% = 12000
+    expect(items).toHaveLength(3);
+    expect(items[2]).toMatchObject({
+      description: "Rush Fee (Same Day Service and Results)",
+      quantity: 1,
+      billing_unit: "Fee",
+      unit_cost_cents: 12000,
+    });
+  });
+
+  it("does not add a rush fee for any other company", () => {
+    const job = baseJob({
+      service_type: "Limited Asbestos Inspection",
+      sample_counts: { "Limited Asbestos Inspection": 6 },
+      customers: { ...newtonCustomer, id: "cust-other", company_id: "some-other-company-id" },
+    });
+    const items = defaultInvoiceLineItems(job, [asbestosBulk], []);
+
+    expect(items.some((i) => i.description.includes("Rush Fee"))).toBe(false);
+  });
+
+  it("skips the rush fee on a Newton job with nothing priced yet", () => {
+    const job = baseJob({ service_type: "Limited Asbestos Inspection", customers: newtonCustomer });
+    // No service type settings and no stored base_fee_cents -> resolveBaseFeeCents
+    // returns null, so there's no base fee row, no sample rows, and a $0
+    // subtotal — nothing for 20% of nothing to attach to.
+    const items = defaultInvoiceLineItems(job, [], []);
+
+    expect(items).toHaveLength(0);
   });
 });
 

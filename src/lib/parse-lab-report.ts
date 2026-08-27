@@ -266,17 +266,27 @@ function moldSampleFieldCodes(pdfText: string): string[] {
 // enough to confirm a count and mark each as collected; the real location
 // is only in the uploaded report itself, same as EMSL's mold format above.
 //
-// Crystal's other mold format ("BIO-SOP-002, Direct Analysis" — bulk/swab
-// tape-lift) isn't handled here yet: only one real example seen so far (a
-// single-sample report, 26-0002), not enough to confirm a multi-sample
-// counting pattern against the way this one was confirmed against five.
-// Revisit once more real examples come in — until then, a bulk/swab
-// request must NOT fall through to this spore-trap count below: confirmed
-// live wrong on 26-0002, where a single combined air+bulk report tagged
-// "Mold Bulk Sampling" reported 4 bulk samples (this pattern's own air
-// count) when only 1 bulk sample (Direct Analysis, "1 - Insulation") was
-// actually taken.
 const CRYSTAL_SPORE_TRAP_COUNT_PATTERN = /(?<!\d)((?:\d{4}\s*){2,})Count\s*\n?\s*Struct\s*\/\s*m/;
+
+// Crystal's other mold format ("BIO-SOP-002, Direct Analysis" — bulk/swab
+// tape-lift) lists each physical sample as "N - <location>" at the start of
+// its row (e.g. "1 - Insulation", confirmed against 26-0002; "1 - Wall -
+// Right of washer unit", confirmed against 26-0008) — with pdf-parse's text
+// extraction running the location straight into the next cell's fungal
+// structure name with zero space ("...unitCladosporium"), so this only
+// pulls out the leading sample number, the same "count + stand-in label"
+// approach as crystalSporeTrapFieldCodes above, not the full location text.
+// The space-padded dash (" - ") is the load-bearing part of the pattern —
+// checked against every other page of both real reports on file and it
+// never appears anywhere else: the debris/spore-load scale's own dash
+// ranges ("0-5%", "25-75%", "1000-9999") never have surrounding spaces, so
+// they can't false-positive into this.
+const CRYSTAL_DIRECT_ANALYSIS_SAMPLE_PATTERN = /(?<!\d)(\d{1,2}) - [A-Z]/g;
+
+function crystalDirectAnalysisFieldCodes(pdfText: string): string[] {
+  const matches = [...pdfText.matchAll(CRYSTAL_DIRECT_ANALYSIS_SAMPLE_PATTERN)];
+  return [...new Set(matches.map((m) => m[1]))].sort((a, b) => Number(a) - Number(b));
+}
 
 function crystalSporeTrapFieldCodes(pdfText: string): string[] {
   const match = pdfText.match(CRYSTAL_SPORE_TRAP_COUNT_PATTERN);
@@ -290,19 +300,20 @@ function crystalSporeTrapFieldCodes(pdfText: string): string[] {
   return [...new Set(codes)].sort((a, b) => Number(a) - Number(b));
 }
 
-// Tries EMSL's mold layout first, then Crystal's spore-trap layout — same
-// safe-waterfall shape as bestReportSamplesAnyLab for the asbestos formats
-// above, since each lab's own function returns empty rather than throwing
-// when its format doesn't match. Crystal's spore-trap pattern is air-only
-// (see CRYSTAL_SPORE_TRAP_COUNT_PATTERN's own comment) — a bulk/swab
-// request gets nothing rather than that air count, leaving it for the
-// admin to enter by hand instead of confidently showing the wrong number.
+// Tries EMSL's mold layout first, then whichever Crystal Analytical layout
+// matches serviceType — same safe-waterfall shape as bestReportSamplesAnyLab
+// for the asbestos formats above, since each lab's own function returns
+// empty rather than throwing when its format doesn't match. Crystal bundles
+// every mold method (spore-trap air, direct-analysis bulk/swab) into one PDF
+// — see processMatchedLabEmail's own comment on why it now calls this once
+// per mold label the job actually has, not just once for the report as a
+// whole — so serviceType decides which of that PDF's own sections this call
+// is asking about.
 function moldSampleFieldCodesAnyLab(pdfText: string, serviceType?: string): string[] {
   const emsl = moldSampleFieldCodes(pdfText);
   if (emsl.length > 0) return emsl;
   const isAirRequest = !serviceType || /air/i.test(serviceType);
-  if (!isAirRequest) return [];
-  return crystalSporeTrapFieldCodes(pdfText);
+  return isAirRequest ? crystalSporeTrapFieldCodes(pdfText) : crystalDirectAnalysisFieldCodes(pdfText);
 }
 
 export function extractMoldSampleCount(pdfText: string, serviceType?: string): number | null {

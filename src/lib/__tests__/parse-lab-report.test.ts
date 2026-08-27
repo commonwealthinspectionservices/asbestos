@@ -756,9 +756,13 @@ Page 2 of 2
 // Real Crystal Analytical mold report, trimmed — 26-0002, an air+bulk combo
 // where Crystal bundles both methods (BIO-SOP-001 spore-trap for the 4 air
 // samples, BIO-SOP-002 Direct Analysis for the 1 bulk sample) into a single
-// PDF. Confirmed live wrong: uploading this same file tagged "Mold Bulk
-// Sampling" reported 4 bulk samples (the spore-trap pattern's own air
-// count) when only 1 bulk sample ("1 - Insulation") was actually taken.
+// PDF. Confirmed live wrong twice: uploading this same file tagged "Mold
+// Bulk Sampling" originally reported 4 bulk samples (the spore-trap
+// pattern's own air count) when only 1 bulk sample ("1 - Insulation") was
+// actually taken; a later fix stopped the wrong number but then reported
+// none at all until crystalDirectAnalysisFieldCodes (26-0008, "1 - Wall -
+// Right of washer unit") was added to actually read the Direct Analysis
+// section instead of leaving it unhandled.
 const CRYSTAL_MOLD_AIR_BULK_COMBO_REPORT = `
 Tim Hall
 Commonwealth Inspection Services, LLC
@@ -834,12 +838,8 @@ describe("extractMoldSampleCount", () => {
     expect(extractMoldSampleCount(CRYSTAL_MOLD_AIR_BULK_COMBO_REPORT, "Mold Air Sampling")).toBe(4);
   });
 
-  it("does NOT reuse the air spore-trap count for a bulk request on the same combo report", () => {
-    // The regression this guards: Crystal's Direct Analysis (bulk/swab)
-    // section has no confirmed multi-sample counting pattern yet, so a
-    // bulk/swab request must get null (left for the admin to enter by
-    // hand) rather than confidently reporting the wrong number.
-    expect(extractMoldSampleCount(CRYSTAL_MOLD_AIR_BULK_COMBO_REPORT, "Mold Bulk Sampling")).toBeNull();
+  it("counts the 1 real bulk sample on the same combo report, not the air count", () => {
+    expect(extractMoldSampleCount(CRYSTAL_MOLD_AIR_BULK_COMBO_REPORT, "Mold Bulk Sampling")).toBe(1);
   });
 
   it("still returns the spore-trap count when no serviceType is given at all", () => {
@@ -861,7 +861,20 @@ describe("extractMoldSampleResults", () => {
     ]);
   });
 
-  it("returns nothing for a bulk request on a Crystal air+bulk combo report", () => {
-    expect(extractMoldSampleResults(CRYSTAL_MOLD_AIR_BULK_COMBO_REPORT, "Mold Bulk Sampling")).toEqual([]);
+  it("lists the 1 real bulk sample for a bulk request on a Crystal air+bulk combo report", () => {
+    expect(extractMoldSampleResults(CRYSTAL_MOLD_AIR_BULK_COMBO_REPORT, "Mold Bulk Sampling")).toEqual([
+      { fieldCode: "1", result: "Analyzed", serviceType: "Mold Bulk Sampling" },
+    ]);
+  });
+
+  it("adds a second real example (26-0008) confirming the pattern generalizes past a single fixture", () => {
+    const REPORT = `
+1 - Wall - Right of washer unitCladosporiumLight
+NoneNone
+BIO-SOP-002
+`;
+    expect(extractMoldSampleResults(REPORT, "Mold Bulk Sampling")).toEqual([
+      { fieldCode: "1", result: "Analyzed", serviceType: "Mold Bulk Sampling" },
+    ]);
   });
 });

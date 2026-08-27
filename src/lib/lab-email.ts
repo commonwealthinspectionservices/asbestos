@@ -187,8 +187,8 @@ const COMBINED_DRAFT_DOMAIN_REPORT_LABEL: Record<ReportDomain, string> = {
 function combinedDraftBodyHtml(job: Job, settings: Settings, totalCents: number, payNowUrl: string | null): string {
   const domains = jobReportDomains(job.service_type);
   return [
-    `<strong>Site: ${escapeHtml(expandAddress(job.service_address))}</strong>`,
-    `<strong>Date of Sampling: ${escapeHtml(formatDateMMDDYYYY(job.requested_date))}</strong>`,
+    `<strong>Site:</strong> ${escapeHtml(expandAddress(job.service_address))}`,
+    `<strong>Date of Sampling:</strong> ${escapeHtml(formatDateMMDDYYYY(job.requested_date))}`,
     "",
     "Hi,",
     "",
@@ -762,13 +762,15 @@ async function processMatchedLabEmail(params: {
   const isMold = isMoldLabReport(subject, pdfText);
   const isAsbestos = !isMold;
 
-  // Same extraction the manual "Laboratory Results" upload uses (see
-  // src/app/api/admin/jobs/[id]/documents/route.ts) — a job's service_type
-  // can carry multiple labels of the *same* domain (e.g. both "Mold Air
-  // Sampling" and "Mold Bulk Sampling"), but one lab report only ever
-  // covers one of them per upload, so the first label of the domain this
-  // report actually is (not just the first label overall) is the same
-  // best-effort assumption that route makes today.
+  // A job's service_type can carry multiple labels of the *same* domain
+  // (e.g. both "Mold Air Sampling" and "Mold Bulk Sampling"), and Crystal
+  // Analytical bundles every mold sub-method the job ordered into one PDF/
+  // one email — confirmed live 2026-08-26/27 on 26-0002 and 26-0008, where
+  // a combined air+bulk report's bulk (Direct Analysis) samples were
+  // silently dropped because only the domain's first label ever got
+  // extracted. primaryServiceType still stands in for "the domain" wherever
+  // only one value makes sense (mold_lab_name, the CoC's own label below);
+  // domainServiceTypeLabels is what the per-label loops below actually walk.
   const serviceTypeLabels = (job.service_type ?? "").split(",").map((s) => s.trim()).filter(Boolean);
   const domainServiceTypeLabels = serviceTypeLabels.filter((label) => (isMold ? /mold/i.test(label) : !/mold/i.test(label)));
   const primaryServiceType = domainServiceTypeLabels[0] ?? serviceTypeLabels[0] ?? "";
@@ -785,9 +787,35 @@ async function processMatchedLabEmail(params: {
   const positionOrderedText = isMold || isAsbestos ? await extractPositionOrderedText(pdfBuffer) : undefined;
 
   const update: Record<string, unknown> = {};
-  const count = isMold ? extractMoldSampleCount(pdfText, primaryServiceType) : extractSampleCount(pdfText, positionOrderedText);
-  if (count != null && primaryServiceType) {
-    update.sample_counts = { ...(job.sample_counts ?? {}), [primaryServiceType]: count };
+  if (isMold) {
+    // One extraction pass per mold label the job actually has, not just
+    // primaryServiceType — see the comment above on why a single combined
+    // report can carry more than one label's own samples.
+    const newCounts: Record<string, number> = {};
+    const newResultsByLabel = new Map<string, ReturnType<typeof extractMoldSampleResults>>();
+    for (const label of domainServiceTypeLabels) {
+      const labelCount = extractMoldSampleCount(pdfText, label);
+      if (labelCount != null) newCounts[label] = labelCount;
+      const labelResults = extractMoldSampleResults(pdfText, label);
+      if (labelResults.length > 0) newResultsByLabel.set(label, labelResults);
+    }
+    if (Object.keys(newCounts).length > 0) {
+      update.sample_counts = { ...(job.sample_counts ?? {}), ...newCounts };
+    }
+    if (newResultsByLabel.size > 0) {
+      // Replaces only the labels this pass actually found new samples for —
+      // an untagged legacy row or a label this report doesn't cover at all
+      // (e.g. a swab label with no swab data in this particular email)
+      // stays exactly as it was.
+      const touchedLabels = new Set(newResultsByLabel.keys());
+      const priorOtherLabels = (job.mold_sample_results ?? []).filter((r) => !r.serviceType || !touchedLabels.has(r.serviceType));
+      update.mold_sample_results = [...priorOtherLabels, ...[...newResultsByLabel.values()].flat()];
+    }
+  } else {
+    const count = extractSampleCount(pdfText, positionOrderedText);
+    if (count != null && primaryServiceType) {
+      update.sample_counts = { ...(job.sample_counts ?? {}), [primaryServiceType]: count };
+    }
   }
   // The report's own actual sample-collection date — see
   // extractSampledDate's own comment for why this isn't requested_date
@@ -809,16 +837,7 @@ async function processMatchedLabEmail(params: {
       update.lab_massdls_cert = labInfo.massdlsCert;
     }
   }
-  if (isMold) {
-    const sampleResults = extractMoldSampleResults(pdfText, primaryServiceType);
-    if (sampleResults.length > 0) {
-      // Tagged per-label, not overwritten wholesale — see the manual
-      // upload route's own comment on this for why (Crystal Analytical
-      // bundles every mold method into one PDF uploaded once per label).
-      const priorOtherLabels = (job.mold_sample_results ?? []).filter((r) => r.serviceType !== primaryServiceType);
-      update.mold_sample_results = [...priorOtherLabels, ...sampleResults];
-    }
-  } else if (isAsbestos) {
+  if (isAsbestos) {
     const asbestosResult = detectAsbestosResult(pdfText, positionOrderedText);
     if (asbestosResult != null) {
       update.asbestos_result = asbestosResult;
@@ -844,22 +863,27 @@ async function processMatchedLabEmail(params: {
   // it already includes both kinds of documents in order).
   const { reportBuffer, cocBuffer } = await splitTrailingCocPages(pdfBuffer);
 
-  // File the lab's own PDF on the job the same way a manual upload does,
-  // so it shows up on the Laboratory Paperwork tab and gets merged into
-  // the downloadable report packet — not just used to extract numbers.
+  // File the lab's own PDF on the job the same way a manual upload does, so
+  // it shows up on the Laboratory Paperwork tab and gets merged into the
+  // downloadable report packet — not just used to extract numbers. One row
+  // per mold label the job has (same one-copy-per-label approach
+  // processMatchedLabInvoiceEmail already uses), not just primaryServiceType
+  // — a combined air+bulk report belongs on both labels' own tabs, not just
+  // whichever one happens to be domainServiceTypeLabels[0].
   const docId = randomUUID();
   const storagePath = `${job.id}/${docId}-lab-report.pdf`;
   await supabase.storage.from("job-documents").upload(storagePath, reportBuffer, { contentType: "application/pdf" });
-  const document: JobDocument = {
-    id: docId,
+  const reportUploadedAt = new Date().toISOString();
+  const reportDocuments: JobDocument[] = (isMold ? domainServiceTypeLabels : [primaryServiceType]).map((label) => ({
+    id: randomUUID(),
     kind: "lab_report",
-    service_type: primaryServiceType,
+    service_type: label,
     file_name: "lab-report.pdf",
     storage_path: storagePath,
-    uploaded_at: new Date().toISOString(),
+    uploaded_at: reportUploadedAt,
     project_number_mismatch: null,
-  };
-  update.documents = await replaceDocumentsByKindAndServiceType(supabase, job.documents ?? [], [document]);
+  }));
+  update.documents = await replaceDocumentsByKindAndServiceType(supabase, job.documents ?? [], reportDocuments);
 
   const { data: updatedRow, error: updateError } = await supabase
     .from("jobs")

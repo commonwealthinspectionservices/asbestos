@@ -407,6 +407,17 @@ export default function InvoicesView() {
                     <span className="whitespace-nowrap">Due {formatDate(dueDateFor(job))}</span>
                   </div>
                 )}
+                {/* Per Tim, 2026-08-27 — a Ready to Send row otherwise had
+                    no second line at all, reading as visually shorter/
+                    different from a Sent row right above/below it. Same
+                    row shape as Sent's own line, just with nothing to show
+                    on the left yet. */}
+                {status === "ready_to_send" && (
+                  <div className="mt-0.5 flex items-center justify-between gap-2 text-xs text-slate-500 sm:text-sm">
+                    <span />
+                    <span className="whitespace-nowrap">Due {formatDate(dueDateFor(job))}</span>
+                  </div>
+                )}
               </div>
               <div className="flex shrink-0 items-center gap-3">
                 <span className="text-sm font-semibold text-slate-800">{formatCents(job.invoice_total_cents ?? 0)}</span>

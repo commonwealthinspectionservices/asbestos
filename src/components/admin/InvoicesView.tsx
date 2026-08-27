@@ -66,6 +66,23 @@ const FILTERS: { key: FilterKey; label: string }[] = [
   { key: "paid", label: "Paid" },
 ];
 
+// Same field/word-matching pattern as the Projects tab's own Search by row
+// (JobsDashboard.tsx) — kept duplicated rather than shared, matching this
+// file's existing convention of owning its own small helpers (see
+// paymentDueDate above).
+function matchesAnyWord(target: string, query: string): boolean {
+  const words = query.toLowerCase().trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return true;
+  const t = target.toLowerCase();
+  return words.every((w) => t.includes(w));
+}
+
+type SortField = "project_number" | "due_date";
+const SORT_FIELDS: { key: SortField; label: string }[] = [
+  { key: "project_number", label: "Project #" },
+  { key: "due_date", label: "Due date" },
+];
+
 export default function InvoicesView() {
   const [jobs, setJobs] = useState<JobWithCustomer[]>([]);
   const [loading, setLoading] = useState(true);
@@ -73,6 +90,26 @@ export default function InvoicesView() {
   const [filter, setFilter] = useState<FilterKey>("all");
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [editingJobId, setEditingJobId] = useState<string | null>(null);
+  // Per Tim, 2026-08-27 — same Sort by/Search by row as the Projects tab.
+  // Default: newest project number first, same reasoning as Projects' own
+  // default (a job just billed shows up at the top with no extra clicks).
+  const [sortBy, setSortBy] = useState<SortField>("project_number");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [projectNumberQuery, setProjectNumberQuery] = useState("");
+  const [companyQuery, setCompanyQuery] = useState("");
+  const [addressQuery, setAddressQuery] = useState("");
+  // Mobile only — one search box standing in for the desktop's three
+  // separate fields, matched with OR against all three (see filteredRows).
+  const [mobileSearch, setMobileSearch] = useState("");
+
+  function toggleSort(field: SortField) {
+    if (sortBy === field) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+      return;
+    }
+    setSortBy(field);
+    setSortDir("asc");
+  }
 
   function loadJobs() {
     setLoading(true);
@@ -142,35 +179,60 @@ export default function InvoicesView() {
   }, [jobs.length]);
 
   const rows = useMemo(() => {
-    return invoicedJobs
-      .map((job) => ({ job, status: invoiceStatus(job) }))
-      .filter(({ status }) => filter === "all" || status === filter)
-      .sort((a, b) => {
-        if (a.status === "paid" && b.status !== "paid") return 1;
-        if (b.status === "paid" && a.status !== "paid") return -1;
-        if (a.status === "paid" && b.status === "paid") {
-          return (b.job.paid_date ?? "").localeCompare(a.job.paid_date ?? "");
-        }
-        const aDue = dueDateFor(a.job) ?? "9999-99-99";
-        const bDue = dueDateFor(b.job) ?? "9999-99-99";
-        return aDue.localeCompare(bDue);
-      });
-  }, [invoicedJobs, filter]);
+    let result = invoicedJobs.map((job) => ({ job, status: invoiceStatus(job) }));
+    if (filter !== "all") result = result.filter(({ status }) => status === filter);
+
+    if (projectNumberQuery.trim()) {
+      result = result.filter(({ job }) => matchesAnyWord(job.project_number ?? "", projectNumberQuery));
+    }
+    if (companyQuery.trim()) {
+      result = result.filter(({ job }) => matchesAnyWord(job.customers?.company || job.customers?.name || "", companyQuery));
+    }
+    if (addressQuery.trim()) {
+      result = result.filter(({ job }) => matchesAnyWord(job.service_address ?? "", addressQuery));
+    }
+    if (mobileSearch.trim()) {
+      result = result.filter(
+        ({ job }) =>
+          matchesAnyWord(job.project_number ?? "", mobileSearch) ||
+          matchesAnyWord(job.customers?.company || job.customers?.name || "", mobileSearch) ||
+          matchesAnyWord(job.service_address ?? "", mobileSearch)
+      );
+    }
+
+    const dir = sortDir === "asc" ? 1 : -1;
+    return result.sort((a, b) => {
+      if (sortBy === "project_number") {
+        return dir * (a.job.project_number ?? "").localeCompare(b.job.project_number ?? "");
+      }
+      const aDue = dueDateFor(a.job) ?? "9999-99-99";
+      const bDue = dueDateFor(b.job) ?? "9999-99-99";
+      return dir * aDue.localeCompare(bDue);
+    });
+  }, [invoicedJobs, filter, projectNumberQuery, companyQuery, addressQuery, mobileSearch, sortBy, sortDir]);
 
   const summary = useMemo(() => {
     let outstandingCents = 0;
     let overdueCents = 0;
     let overdueCount = 0;
+    // Per Tim, 2026-08-27 — distinct from Outstanding (which also counts
+    // invoices still sitting at Ready to Send, never emailed yet): this is
+    // specifically money that's actually gone out to a customer and hasn't
+    // come back yet, sent or overdue either one.
+    let awaitingPaymentCents = 0;
     for (const job of invoicedJobs) {
       const status = invoiceStatus(job);
       if (status === "paid") continue;
       outstandingCents += job.invoice_total_cents ?? 0;
+      if (status === "sent" || status === "overdue") {
+        awaitingPaymentCents += job.invoice_total_cents ?? 0;
+      }
       if (status === "overdue") {
         overdueCents += job.invoice_total_cents ?? 0;
         overdueCount++;
       }
     }
-    return { outstandingCents, overdueCents, overdueCount };
+    return { outstandingCents, overdueCents, overdueCount, awaitingPaymentCents };
   }, [invoicedJobs]);
 
   async function patchJob(job: JobWithCustomer, patch: Record<string, unknown>) {
@@ -210,6 +272,13 @@ export default function InvoicesView() {
           <div className="text-base font-semibold text-slate-800">{formatCents(summary.outstandingCents)}</div>
         </div>
         <div>
+          {/* Per Tim, 2026-08-27 — distinct from Outstanding: only invoices
+              actually emailed to the customer already (sent or overdue),
+              not ones still sitting at Ready to Send. */}
+          <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Awaiting Payment</div>
+          <div className="text-base font-semibold text-slate-800">{formatCents(summary.awaitingPaymentCents)}</div>
+        </div>
+        <div>
           <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Overdue</div>
           <div className="text-base font-semibold text-red-600">
             {formatCents(summary.overdueCents)}
@@ -230,6 +299,73 @@ export default function InvoicesView() {
             {f.label}
           </button>
         ))}
+      </div>
+
+      {/* Per Tim, 2026-08-27 — same Sort by/Search by row the Projects tab
+          has. Mobile: one sort dropdown + one search box standing in for
+          the desktop's three separate search fields, same pattern as
+          Projects' own mobile row. */}
+      <div className="mt-3 flex gap-2 sm:hidden">
+        <div className="relative min-w-0 flex-1">
+          <select
+            value={`${sortBy}:${sortDir}`}
+            onChange={(e) => {
+              const [field, dir] = e.target.value.split(":");
+              setSortBy(field as SortField);
+              setSortDir(dir as "asc" | "desc");
+            }}
+            className="w-full appearance-none rounded-lg border border-slate-300 bg-white py-2 pl-3 pr-8 text-sm text-slate-700"
+          >
+            {SORT_FIELDS.map((f) => (
+              <optgroup key={f.key} label={f.label}>
+                <option value={`${f.key}:asc`}>{f.label} ↑</option>
+                <option value={`${f.key}:desc`}>{f.label} ↓</option>
+              </optgroup>
+            ))}
+          </select>
+          <span className="pointer-events-none absolute inset-y-0 right-0 flex w-7 items-center justify-center text-slate-500">▾</span>
+        </div>
+        <input
+          value={mobileSearch}
+          onChange={(e) => setMobileSearch(e.target.value)}
+          placeholder="Search…"
+          className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm"
+        />
+      </div>
+
+      <div className="mt-3 hidden flex-wrap items-center gap-2 sm:flex">
+        <span className="shrink-0 text-sm font-medium text-gray-400">Sort by:</span>
+        {SORT_FIELDS.map((f) => (
+          <button
+            key={f.key}
+            onClick={() => toggleSort(f.key)}
+            className={`shrink-0 rounded-lg px-2.5 py-1 text-sm font-medium ${sortBy === f.key ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
+          >
+            {f.label}{sortBy === f.key ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-3 hidden gap-2 sm:flex sm:flex-row sm:flex-nowrap sm:items-center">
+        <span className="shrink-0 text-sm font-medium text-slate-500">Search by:</span>
+        <input
+          value={projectNumberQuery}
+          onChange={(e) => setProjectNumberQuery(e.target.value)}
+          placeholder="Project #"
+          className="w-full min-w-0 rounded-lg border border-slate-300 px-2.5 py-1 text-sm sm:w-0 sm:flex-1"
+        />
+        <input
+          value={companyQuery}
+          onChange={(e) => setCompanyQuery(e.target.value)}
+          placeholder="Company"
+          className="w-full min-w-0 rounded-lg border border-slate-300 px-2.5 py-1 text-sm sm:w-0 sm:flex-1"
+        />
+        <input
+          value={addressQuery}
+          onChange={(e) => setAddressQuery(e.target.value)}
+          placeholder="Address"
+          className="w-full min-w-0 rounded-lg border border-slate-300 px-2.5 py-1 text-sm sm:w-0 sm:flex-1"
+        />
       </div>
 
       {error && <div className="mt-3 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>}

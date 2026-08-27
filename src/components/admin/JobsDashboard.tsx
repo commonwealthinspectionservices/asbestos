@@ -1489,7 +1489,20 @@ function JobRow({
             // "Scheduled date/time" once it's not. Editing happens in the
             // Edit dialog now, not inline here.
             <div className="flex w-full shrink-0 flex-col items-start gap-1.5 sm:w-60 sm:items-end" onClick={(e) => e.stopPropagation()}>
-              <div className="w-full text-sm text-slate-500">
+              {/* Per Tim, 2026-08-27 — desktop had no equivalent of mobile's
+                  own Invoice:/Report: status lines (those sit next to the
+                  address, mobile-only), so this column always showed
+                  Completed/Scheduled date instead — stale info once the
+                  job's actually at the report/invoice stage. Desktop only:
+                  once both matter, show sent-status here instead of the
+                  date, same lines mobile already shows elsewhere. */}
+              {showReportInvoice && (
+                <div className="hidden w-full flex-col items-end gap-0.5 text-sm text-slate-500 sm:flex">
+                  {invoiceStatus}
+                  {reportStatus}
+                </div>
+              )}
+              <div className={`w-full text-sm text-slate-500 ${showReportInvoice ? "sm:hidden" : ""}`}>
                 {!isUnscheduled ? (
                   <>
                     <div>{hasCompletedFieldwork(job.status) ? "Completed" : "Scheduled"} date: {formatDate(job.confirmed_date ?? job.requested_date) || "—"}</div>

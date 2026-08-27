@@ -219,6 +219,38 @@ function ValueOrBlank({ value, style, inline }: { value: string | number | null 
   return <Text style={style}>{value}</Text>;
 }
 
+// This template's body font ("Times-Roman") is one of the 14 PDF base
+// fonts — no glyph data is embedded, so the reader falls back to its own
+// built-in WinAnsi-encoded font, which only covers ASCII plus the Latin-1/
+// CP1252 supplement. A character outside that set (e.g. "≥", pasted from a
+// lab report or an EPA guidance doc) isn't rejected or shown as a visible
+// placeholder — @react-pdf/renderer silently maps it to an unrelated glyph
+// from a totally different symbol, invisible in the admin's plain textarea
+// and only visible once the PDF is generated. Known offenders get a plain-
+// ASCII equivalent; anything else outside the safe range is dropped rather
+// than left to render as a random wrong character.
+const PDF_UNSAFE_CHAR_REPLACEMENTS: [RegExp, string][] = [
+  [/≥/g, ">="], // ≥
+  [/≤/g, "<="], // ≤
+  [/≠/g, "!="], // ≠
+  [/≈/g, "~"], // ≈
+  [/→/g, "->"], // →
+  [/←/g, "<-"], // ←
+  [/↔/g, "<->"], // ↔
+  [/✓/g, ""], // ✓
+  [/✗/g, ""], // ✗
+  [/∞/g, "infinity"], // ∞
+];
+
+function sanitizeForPdf(text: string): string {
+  let result = text;
+  for (const [pattern, replacement] of PDF_UNSAFE_CHAR_REPLACEMENTS) {
+    result = result.replace(pattern, replacement);
+  }
+  // eslint-disable-next-line no-control-regex -- deliberately matching the WinAnsi-safe range
+  return result.replace(/[^\x20-\x7E\xA0-\xFF‘’“”–—…•™]/g, "");
+}
+
 // Splits admin-pasted free text into paragraphs — one per line, so a
 // discussion written as several short paragraphs or bullet points (one per
 // line, as the owner actually writes them) renders as separate justified
@@ -226,7 +258,7 @@ function ValueOrBlank({ value, style, inline }: { value: string | number | null 
 // letters this template is modeled on.
 function paragraphsFromText(text: string | null | undefined): string[] {
   if (!text) return [];
-  return text.split(/\n+/).map((p) => p.trim()).filter(Boolean);
+  return sanitizeForPdf(text).split(/\n+/).map((p) => p.trim()).filter(Boolean);
 }
 
 type TextBlock = { type: "paragraph"; text: string } | { type: "list"; ordered: boolean; items: string[] };

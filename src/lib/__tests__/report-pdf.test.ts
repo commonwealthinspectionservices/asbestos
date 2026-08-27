@@ -338,6 +338,23 @@ describe("renderProjectReportPdf", () => {
     expect(text).toContain("No further mold-specific remediation is recommended at this time.");
   });
 
+  it("swaps math symbols that Times-Roman can't render into plain-ASCII equivalents, rather than garbling", async () => {
+    const pdf = await renderProjectReportPdfForDomain({
+      job: {
+        ...job,
+        service_type: "Mold Air Sampling",
+        mold_air_discussion: "A shift in composition (≈25% or more) can indicate amplification. Levels ≥100 spores/m³ or ≤5 spores/m³ are notable.",
+      },
+      customer,
+      settings,
+    }, "mold");
+    const { text } = await pdfParse(pdf);
+    expect(text).toContain("(~25% or more)");
+    expect(text).toContain(">=100 spores/m");
+    expect(text).toContain("<=5 spores/m");
+    expect(text).not.toMatch(/[≈≥≤]/);
+  });
+
   describe("full-inspection asbestos report (Pre-Renovation/Pre-Demolition)", () => {
     const fullInspectionJob: Job = {
       ...job,

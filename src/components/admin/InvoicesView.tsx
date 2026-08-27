@@ -386,13 +386,12 @@ export default function InvoicesView() {
                     <span className="shrink-0 whitespace-nowrap rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-mono text-slate-600 sm:text-xs">{job.project_number}</span>
                   )}
                   {/* Per Tim, 2026-08-27 — company, price, and status all
-                      stay on one line together (this used to wrap company
-                      onto its own line below the project #). Truncates
-                      only as a last resort for a name too long to fit
-                      alongside everything else — a normal-length one now
-                      has real room instead of being squeezed against the
-                      price/pill column. */}
-                  <span className="min-w-0 truncate text-sm font-medium text-slate-800 sm:text-base">
+                      stay on one line together. No ellipsis or hyphen cut-
+                      off ever — text-xs is small enough that a realistic
+                      company name fits whole; a pathologically long one
+                      wraps onto a second line (row height just grows)
+                      rather than ever getting truncated. */}
+                  <span className="min-w-0 whitespace-normal break-words text-xs font-medium text-slate-800 sm:truncate sm:text-base">
                     {job.customers?.company || job.customers?.name}
                   </span>
                 </div>

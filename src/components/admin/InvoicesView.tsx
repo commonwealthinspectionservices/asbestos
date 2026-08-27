@@ -275,7 +275,7 @@ export default function InvoicesView() {
           {/* Per Tim, 2026-08-27 — distinct from Outstanding: only invoices
               actually emailed to the customer already (sent or overdue),
               not ones still sitting at Ready to Send. */}
-          <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Awaiting Payment</div>
+          <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Pending Payment</div>
           <div className="text-base font-semibold text-slate-800">{formatCents(summary.awaitingPaymentCents)}</div>
         </div>
         <div>
@@ -407,14 +407,16 @@ export default function InvoicesView() {
               {status === "paid" && (
                 <div className="text-xs text-slate-500 sm:text-sm">Paid {formatDate(job.paid_date)}</div>
               )}
-              {/* Per Tim, 2026-08-27 — Due pushed all the way to the card's
-                  own right edge (matching the price/pill column above it),
-                  not just the right edge of the company/project column —
-                  spans the full row instead of nesting inside that column. */}
+              {/* Per Tim, 2026-08-27 — Due centered directly under the
+                  status pill above it: same fixed width (w-24/sm:w-28) and
+                  centered text, positioned at the row's right edge the
+                  same way the pill is, rather than just right-aligned to
+                  the card's own edge (which lined up with the pill's own
+                  right edge, not its center). */}
               {status !== "paid" && (
                 <div className="flex w-full items-center justify-between gap-2 text-xs text-slate-500 sm:text-sm">
                   <span className="whitespace-nowrap">{job.invoice_sent_at ? `Sent ${formatDate(job.invoice_sent_at.slice(0, 10))}` : ""}</span>
-                  <span className="whitespace-nowrap">Due {formatDate(dueDateFor(job))}</span>
+                  <span className="w-24 shrink-0 whitespace-nowrap text-center sm:w-28">Due {formatDate(dueDateFor(job))}</span>
                 </div>
               )}
             </button>

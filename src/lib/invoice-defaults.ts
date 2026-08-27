@@ -166,8 +166,8 @@ export function defaultInvoiceLineItems(
   }
 
   // Newton Fire & Flood's own standing rush fee — per Tim, 2026-08-27, every
-  // job for this company runs on same-day service and results, so a 20%
-  // surcharge on top of everything above applies automatically rather than
+  // job for this company runs on same-day service, so a 20% surcharge on
+  // top of everything above applies automatically rather than
   // needing to be added by hand on every invoice. Matched against
   // company_id, same as this company's other standing rules (report
   // conclusion text, "Final Report and Invoice" label) — see
@@ -177,7 +177,7 @@ export function defaultInvoiceLineItems(
     const subtotalCents = invoiceLineItemsTotalCents(rows);
     if (subtotalCents > 0) {
       rows.push({
-        description: "Rush Fee (Same Day Service and Results)",
+        description: "Rush Fee (Same Day Service)",
         quantity: 1,
         billing_unit: "Fee",
         unit_cost_cents: Math.round(subtotalCents * 0.2),

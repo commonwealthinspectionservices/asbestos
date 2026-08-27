@@ -150,15 +150,15 @@ describe("defaultInvoiceLineItems", () => {
     expect(items[1]).toMatchObject({ billing_unit: "Sample", quantity: 6, unit_cost_cents: 2500 });
   });
 
-  it("puts each service type on its own line in the base fee description, parens directly around them", () => {
+  it("puts each service type on its own bulleted line in the base fee description", () => {
     const single = baseJob({ service_type: "Limited Asbestos Inspection" });
     expect(defaultInvoiceLineItems(single, [asbestosBulk], [])[0].description).toBe(
-      "Licensed Asbestos Inspector\n(Limited Asbestos Inspection)"
+      "Licensed Asbestos Inspector\n• Limited Asbestos Inspection"
     );
 
     const multi = baseJob({ service_type: "Limited Asbestos Inspection, Mold Air Sampling, Mold Bulk Sampling" });
     expect(defaultInvoiceLineItems(multi, [asbestosBulk, moldAir], [])[0].description).toBe(
-      "Licensed Asbestos Inspector\n(Limited Asbestos Inspection,\nMold Air Sampling,\nMold Bulk Sampling)"
+      "Licensed Asbestos Inspector\n• Limited Asbestos Inspection\n• Mold Air Sampling\n• Mold Bulk Sampling"
     );
   });
 

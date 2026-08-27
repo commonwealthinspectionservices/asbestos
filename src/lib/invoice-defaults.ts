@@ -124,12 +124,23 @@ export function defaultInvoiceLineItems(
   const serviceTypeLabels = (job.service_type ?? "").split(",").map((s) => s.trim()).filter(Boolean);
   if (baseFeeCents != null) {
     const hasAsbestos = serviceTypeLabels.some((l) => l.toLowerCase().includes("asbestos"));
+    // Per Tim, 2026-08-27 — every service type gets its own line instead of
+    // being comma-joined onto one (which, for a job with several labels,
+    // wrapped mid-phrase in both the invoice PDF and the admin textarea).
+    // The PDF's own Charges table already splits a description on "\n" into
+    // a main line plus indented sub-lines (invoice-pdf.tsx); a plain
+    // <textarea> renders embedded newlines as real line breaks too, so this
+    // one shared description string (job.invoice_line_items is the single
+    // source of truth for both) covers every place an invoice shows it.
     const baseFeeDescription =
       serviceTypeLabels.length === 0
         ? "Licensed Asbestos Inspector"
         : hasAsbestos
-          ? `Licensed Asbestos Inspector (${serviceTypeLabels.join(", ")})`
-          : serviceTypeLabels.join(", ");
+          ? [
+              "Licensed Asbestos Inspector (",
+              ...serviceTypeLabels.map((l, i) => (i === serviceTypeLabels.length - 1 ? `${l})` : `${l},`)),
+            ].join("\n")
+          : serviceTypeLabels.join("\n");
     rows.push({
       description: baseFeeDescription,
       quantity: 1,

@@ -141,16 +141,17 @@ function reportDraftBodyHtml(job: Job, settings: Settings): string {
 // before the report is released, so it needs its own standalone note
 // rather than reusing report-focused phrasing ("analytical report",
 // "laboratory results") that wouldn't make sense on its own.
-function invoiceDraftBodyHtml(job: Job, settings: Settings, totalCents: number, payNowUrl: string | null): string {
+function invoiceDraftBodyHtml(job: Job, settings: Settings, payNowUrl: string | null): string {
   return [
     "Hi,",
     "",
     "Please find attached the invoice for the asbestos inspection completed at:",
     "",
     `Site: ${escapeHtml(expandAddress(job.service_address))}`,
-    "",
-    `Total due: ${escapeHtml(formatCents(totalCents))}`,
-    ...(payNowUrl ? ["", `<a href="${escapeHtml(payNowUrl)}">LINK TO PAY</a>`] : []),
+    // Per Tim, 2026-08-27 — no "Total due" dollar figure in the email body
+    // itself (the attached PDF and the pay link both already show it);
+    // "Link to pay", not all-caps.
+    ...(payNowUrl ? ["", `<a href="${escapeHtml(payNowUrl)}">Link to pay</a>`] : []),
     "",
     `Should you have any questions or need additional information, please contact our office at ${escapeHtml(settings.business_phone)}.`,
     "",
@@ -1074,7 +1075,7 @@ async function draftInvoiceEmailForJob(params: {
     // Per Tim, 2026-08-27 — always exactly this, regardless of service
     // type(s) on the job.
     subject: `Inspection Invoice - ${expandAddress(pricedJob.service_address)}`,
-    bodyHtml: invoiceDraftBodyHtml(pricedJob, settings, totalCents, payNowUrl),
+    bodyHtml: invoiceDraftBodyHtml(pricedJob, settings, payNowUrl),
     attachments: [
       { filename: `Invoice-${pricedJob.project_number ?? job.id}.pdf`, mimeType: "application/pdf", content: invoicePdf },
     ],

@@ -380,42 +380,30 @@ export default function InvoicesView() {
               onClick={() => setSelectedJobId(job.id)}
               className="flex w-full flex-col gap-0.5 rounded-lg border border-slate-200 bg-white p-3 text-left hover:border-brand-400"
             >
+              {/* Per Tim, 2026-08-27 — company gets its own full-width line
+                  (a long name like "Boston Harbor Water Restoration" can't
+                  share a line with price+pill at a legible size without
+                  either wrapping or truncating, and Tim wants neither,
+                  ever, on this card). Every piece of text on the card is
+                  the same size, and the status pill is as tight/compact as
+                  the project # pill — no more blank padding than that. */}
               <div className="flex w-full items-center justify-between gap-2">
-                <div className="flex min-w-0 flex-nowrap items-center gap-1.5">
-                  {job.project_number && (
-                    <span className="shrink-0 whitespace-nowrap rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-mono text-slate-600 sm:text-xs">{job.project_number}</span>
-                  )}
-                  {/* Per Tim, 2026-08-27 — company, price, and status all
-                      stay on one line together. No ellipsis or hyphen cut-
-                      off ever — text-xs is small enough that a realistic
-                      company name fits whole; a pathologically long one
-                      wraps onto a second line (row height just grows)
-                      rather than ever getting truncated. */}
-                  <span className="min-w-0 whitespace-normal break-words text-xs font-medium text-slate-800 sm:truncate sm:text-base">
-                    {job.customers?.company || job.customers?.name}
-                  </span>
-                </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  <span className="whitespace-nowrap text-sm font-semibold text-slate-800">{formatCents(job.invoice_total_cents ?? 0)}</span>
-                  {/* Per Tim, 2026-08-27 — fixed width so every status pill
-                      lines up the same regardless of label length ("Ready
-                      to Send" vs "Sent"). */}
-                  <span className={`w-24 shrink-0 whitespace-nowrap rounded-lg px-1.5 py-1 text-center text-[11px] font-medium sm:w-28 sm:px-2 sm:text-xs ${STATUS_COLOR[status]}`}>{STATUS_LABEL[status]}</span>
-                </div>
+                {job.project_number && (
+                  <span className="shrink-0 whitespace-nowrap rounded bg-slate-100 px-1.5 py-0.5 text-xs font-mono text-slate-600">{job.project_number}</span>
+                )}
+                <span className="whitespace-nowrap text-xs font-semibold text-slate-800">{formatCents(job.invoice_total_cents ?? 0)}</span>
+                <span className={`shrink-0 whitespace-nowrap rounded px-1.5 py-0.5 text-xs font-medium ${STATUS_COLOR[status]}`}>{STATUS_LABEL[status]}</span>
+              </div>
+              <div className="whitespace-normal break-words text-xs font-medium text-slate-800">
+                {job.customers?.company || job.customers?.name}
               </div>
               {status === "paid" && (
-                <div className="text-xs text-slate-500 sm:text-sm">Paid {formatDate(job.paid_date)}</div>
+                <div className="text-xs text-slate-500">Paid {formatDate(job.paid_date)}</div>
               )}
-              {/* Per Tim, 2026-08-27 — Due centered directly under the
-                  status pill above it: same fixed width (w-24/sm:w-28) and
-                  centered text, positioned at the row's right edge the
-                  same way the pill is, rather than just right-aligned to
-                  the card's own edge (which lined up with the pill's own
-                  right edge, not its center). */}
               {status !== "paid" && (
-                <div className="flex w-full items-center justify-between gap-2 text-xs text-slate-500 sm:text-sm">
+                <div className="flex w-full items-center justify-between gap-2 text-xs text-slate-500">
                   <span className="whitespace-nowrap">{job.invoice_sent_at ? `Sent ${formatDate(job.invoice_sent_at.slice(0, 10))}` : ""}</span>
-                  <span className="w-24 shrink-0 whitespace-nowrap text-center sm:w-28">Due {formatDate(dueDateFor(job))}</span>
+                  <span className="whitespace-nowrap">Due {formatDate(dueDateFor(job))}</span>
                 </div>
               )}
             </button>

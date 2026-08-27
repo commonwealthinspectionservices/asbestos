@@ -781,6 +781,15 @@ async function processMatchedLabEmail(params: {
   const positionOrderedText = isMold || isAsbestos ? await extractPositionOrderedText(pdfBuffer) : undefined;
 
   const update: Record<string, unknown> = {};
+  // Which of this job's own mold labels THIS report actually covers — not
+  // necessarily all of them. Crystal Analytical usually bundles every mold
+  // sub-method into one combined PDF (26-0008's own air+bulk report), but
+  // confirmed live 2026-08-27 (26-0007) it can just as easily send air and
+  // bulk as two entirely separate emails with their own Lab IDs. Reused
+  // below for which label(s) to file the lab_report document under — filing
+  // it under every mold label unconditionally overwrote 26-0007's real air
+  // spore-trap report with this bulk-only PDF once both labels existed.
+  const reportedMoldLabels = new Set<string>();
   if (isMold) {
     // One extraction pass per mold label the job actually has, not just
     // primaryServiceType — see the comment above on why a single combined
@@ -789,9 +798,9 @@ async function processMatchedLabEmail(params: {
     const newResultsByLabel = new Map<string, ReturnType<typeof extractMoldSampleResults>>();
     for (const label of domainServiceTypeLabels) {
       const labelCount = extractMoldSampleCount(pdfText, label);
-      if (labelCount != null) newCounts[label] = labelCount;
+      if (labelCount != null) { newCounts[label] = labelCount; reportedMoldLabels.add(label); }
       const labelResults = extractMoldSampleResults(pdfText, label);
-      if (labelResults.length > 0) newResultsByLabel.set(label, labelResults);
+      if (labelResults.length > 0) { newResultsByLabel.set(label, labelResults); reportedMoldLabels.add(label); }
     }
     if (Object.keys(newCounts).length > 0) {
       update.sample_counts = { ...(job.sample_counts ?? {}), ...newCounts };
@@ -860,15 +869,24 @@ async function processMatchedLabEmail(params: {
   // File the lab's own PDF on the job the same way a manual upload does, so
   // it shows up on the Laboratory Paperwork tab and gets merged into the
   // downloadable report packet — not just used to extract numbers. One row
-  // per mold label the job has (same one-copy-per-label approach
-  // processMatchedLabInvoiceEmail already uses), not just primaryServiceType
-  // — a combined air+bulk report belongs on both labels' own tabs, not just
-  // whichever one happens to be domainServiceTypeLabels[0].
+  // per mold label THIS report actually reported data for (same
+  // one-copy-per-label approach processMatchedLabInvoiceEmail already
+  // uses) — not every mold label the job has: confirmed live wrong on
+  // 26-0007, where filing an air+bulk *combo* report under every mold label
+  // was right (26-0008), but filing a bulk-*only* report under "Mold Air
+  // Sampling" too overwrote that label's real air spore-trap report with
+  // the bulk-only PDF. Falls back to primaryServiceType alone in the
+  // unexpected case where isMoldLabReport said yes but neither extractor
+  // found anything on any label — still files the report somewhere rather
+  // than silently dropping it.
+  const reportLabels = isMold
+    ? (reportedMoldLabels.size > 0 ? [...reportedMoldLabels] : [primaryServiceType])
+    : [primaryServiceType];
   const docId = randomUUID();
   const storagePath = `${job.id}/${docId}-lab-report.pdf`;
   await supabase.storage.from("job-documents").upload(storagePath, reportBuffer, { contentType: "application/pdf" });
   const reportUploadedAt = new Date().toISOString();
-  const reportDocuments: JobDocument[] = (isMold ? domainServiceTypeLabels : [primaryServiceType]).map((label) => ({
+  const reportDocuments: JobDocument[] = reportLabels.map((label) => ({
     id: randomUUID(),
     kind: "lab_report",
     service_type: label,
@@ -907,9 +925,25 @@ async function processMatchedLabEmail(params: {
   try {
     // updatedJob (not job) so this doesn't race the lab_report document
     // just added above — uploadCocDocument reads the job's current
-    // documents array fresh and appends to it.
+    // documents array fresh and appends to it. Same reportLabels as the
+    // report PDF itself, not just primaryServiceType — the trailing CoC
+    // page(s) split off this same report cover whichever label(s) the
+    // report data above actually covers (confirmed live 2026-08-27,
+    // 26-0007: filing a bulk-only report's own CoC page under "Mold Air
+    // Sampling" overwrote that label's real air-o-cell CoC with it).
+    // Sequential, not Promise.all — each call reads job.documents, then
+    // writes a replacement array back, so two calls sharing one stale
+    // `updatedJob.documents` snapshot would race and the second write
+    // would drop the first's new row. Re-reading between calls (rather
+    // than restructuring uploadCocDocument itself, which the standalone
+    // single-label EMSL COC path below also calls) keeps each call seeing
+    // the previous one's result.
     if (cocBuffer) {
-      await uploadCocDocument(updatedJob, cocBuffer, primaryServiceType);
+      for (const label of reportLabels) {
+        await uploadCocDocument(updatedJob, cocBuffer, label);
+        const { data: freshDocuments } = await supabase.from("jobs").select("documents").eq("id", job.id).single();
+        if (freshDocuments) updatedJob.documents = freshDocuments.documents;
+      }
     }
 
     // Invoice always goes out the moment lab results land. Invoice pricing

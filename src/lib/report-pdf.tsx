@@ -261,8 +261,10 @@ function sanitizeForPdf(text: string): string {
       return `${spaceBefore}${word}${spaceAfter}`;
     });
   }
+  // "\n" itself is below \x20 and must survive this strip — paragraphsFromText
+  // still needs it below to split this text back into separate lines/bullets.
   // eslint-disable-next-line no-control-regex -- deliberately matching the WinAnsi-safe range
-  return result.replace(/[^\x20-\x7E\xA0-\xFF‘’“”–—…•™]/g, "");
+  return result.replace(/[^\x20-\x7E\xA0-\xFF‘’“”–—…•™\n]/g, "");
 }
 
 // Splits admin-pasted free text into paragraphs — one per line, so a

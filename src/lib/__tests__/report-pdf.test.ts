@@ -355,6 +355,24 @@ describe("renderProjectReportPdf", () => {
     expect(text).not.toMatch(/[≈≥≤~]/);
   });
 
+  it("still splits bullet-marked lines into separate list items after symbol sanitization", async () => {
+    const pdf = await renderProjectReportPdfForDomain({
+      job: {
+        ...job,
+        service_type: "Mold Air Sampling",
+        mold_report_notes: "• First recommendation (≈25% threshold)\n• Second recommendation",
+      },
+      customer,
+      settings,
+    }, "mold");
+    const { text } = await pdfParse(pdf);
+    expect(text).toContain("First recommendation (about 25% threshold)");
+    expect(text).toContain("Second recommendation");
+    // A regression here would collapse the newline and glue both bullets
+    // into one paragraph/list item instead of two.
+    expect(text).not.toContain("threshold)• Second recommendation");
+  });
+
   describe("full-inspection asbestos report (Pre-Renovation/Pre-Demolition)", () => {
     const fullInspectionJob: Job = {
       ...job,

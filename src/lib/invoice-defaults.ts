@@ -21,6 +21,12 @@ export function resolveBaseFeeCents(
   serviceTypeSettings: ServiceType[],
   pricingZones: PricingZone[]
 ): number | null {
+  // Per Tim, 2026-08-27 — a revisit (going back to sample more at a site
+  // already inspected) never carries its own base fee, checked ahead of
+  // everything else below so a real matched service type's own configured
+  // fee can never override it.
+  if (job.is_revisit) return 0;
+
   if (!job.service_address) return job.base_fee_cents ?? null;
 
   const serviceTypeLabels = (job.service_type ?? "").split(",").map((s) => s.trim()).filter(Boolean);

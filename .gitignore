@@ -20,3 +20,4 @@ scripts/*
 !scripts/sync-final-invoices.mts
 !scripts/sync-final-invoices.sh
 !scripts/tsconfig.sync.json
+supabase/.temp/

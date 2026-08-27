@@ -1007,3 +1007,12 @@ alter table jobs add column if not exists mold_swab_discussion text;
 -- auto-advances a job here the moment both timestamps land; nothing sets
 -- it by hand.
 alter type job_status add value if not exists 'report_invoice_sent' after 'ready_to_send';
+
+-- Per Tim, 2026-08-27 — a revisit: going back to a site he's already
+-- inspected to sample more, not a fresh inspection with its own base fee.
+-- His own convention is naming it "<original project #>.1" (e.g. "26-0002"
+-- -> "26-0002.1"). resolveBaseFeeCents (src/lib/invoice-defaults.ts) checks
+-- this first and returns $0 immediately, ahead of the usual pricing-zone/
+-- service-type lookup — otherwise a real matched service type's own
+-- configured base fee would win once one gets picked on the Invoice tab.
+alter table jobs add column if not exists is_revisit boolean not null default false;

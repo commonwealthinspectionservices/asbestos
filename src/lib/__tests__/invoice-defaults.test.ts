@@ -114,6 +114,7 @@ function baseJob(overrides: Partial<JobWithCustomer> = {}): JobWithCustomer {
     payment_reminder_sent_at: null,
     is_individual: false,
     report_release_override: false,
+    is_revisit: false,
     source: "portal_booking",
     payment_type: "online",
     created_at: new Date().toISOString(),
@@ -287,5 +288,19 @@ describe("resolveBaseFeeCents", () => {
       [{ name: "Newton premium", base_fee_cents: 60000, towns: ["Newton"] }]
     );
     expect(zoned).toBe(60000);
+  });
+
+  it("charges $0 for a revisit, even with a matched service type and a zone override", () => {
+    const job = baseJob({
+      service_type: "Limited Asbestos Inspection",
+      service_address: "1 Main St, Newton, MA",
+      is_revisit: true,
+    });
+    const fee = resolveBaseFeeCents(
+      job,
+      [asbestosBulk],
+      [{ name: "Newton premium", base_fee_cents: 60000, towns: ["Newton"] }]
+    );
+    expect(fee).toBe(0);
   });
 });

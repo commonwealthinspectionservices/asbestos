@@ -4654,6 +4654,7 @@ export function EditProjectDialog({
   }, [confirmedDate]);
   const [notes, setNotes] = useState(job.notes ?? "");
   const [paymentType, setPaymentType] = useState<"online" | "check">(job.payment_type ?? "online");
+  const [isRevisit, setIsRevisit] = useState(job.is_revisit ?? false);
   const [submitting, setSubmitting] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -4823,6 +4824,7 @@ export function EditProjectDialog({
             customer_id: targetCustomerId,
             report_emails: reportEmails || null,
             payment_type: paymentType,
+            is_revisit: isRevisit,
           }),
         }),
         customerOk && targetCustomerId !== customerId
@@ -4871,7 +4873,7 @@ export function EditProjectDialog({
     additionalReportEmails,
     serviceStreet, serviceUnit, serviceCity, serviceState, serviceZip,
     siteContactName, siteContactPhone, selectedServiceTypeKeys, customServiceType, scopeOfWork,
-    confirmedDate, confirmedTime, paidDate, dueDate, notes, paymentType,
+    confirmedDate, confirmedTime, paidDate, dueDate, notes, paymentType, isRevisit,
   ]);
 
   useEffect(() => {
@@ -5195,6 +5197,14 @@ export function EditProjectDialog({
         {paymentType === "check" && (
           <p className="mt-1 text-xs text-slate-500">No Stripe invoice or pay-now link will be created automatically for this project.</p>
         )}
+
+        {/* Per Tim, 2026-08-27 — going back to sample more at a site
+            already inspected (his own "26-0002.1" numbering for a revisit
+            to 26-0002) never carries its own base fee. */}
+        <label className="mt-3 flex items-center gap-2 text-sm font-medium text-slate-700">
+          <input type="checkbox" checked={isRevisit} onChange={(e) => setIsRevisit(e.target.checked)} className="h-4 w-4 rounded border-slate-300" />
+          Revisit — no base fee
+        </label>
 
         <div className="mt-4 flex items-center justify-between gap-2">
           <div className="flex items-center gap-3">

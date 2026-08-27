@@ -57,6 +57,7 @@ const EDITABLE_FIELDS = [
   "lead_lab_cert",
   "is_individual",
   "report_release_override",
+  "is_revisit",
 ] as const;
 
 export const PATCH = withApiErrors(async (

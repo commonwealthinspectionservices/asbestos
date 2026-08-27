@@ -147,6 +147,7 @@ const job: Job = {
   payment_reminder_sent_at: null,
   is_individual: false,
   report_release_override: false,
+  is_revisit: false,
   source: "portal_booking",
   payment_type: "online",
   created_at: new Date().toISOString(),

@@ -1211,7 +1211,7 @@ function JobRow({
                   }
                 }}
                 onClick={(e) => e.stopPropagation()}
-                className={`inline-flex h-7 w-60 shrink-0 items-center whitespace-nowrap rounded bg-slate-200 px-2 py-0.5 text-sm font-bold text-slate-700 sm:inline-block sm:h-auto ${job.status === "ready_to_send" ? "border-2 border-emerald-500" : "border-0"}`}
+                className={`inline-flex h-7 w-60 shrink-0 items-center whitespace-nowrap rounded bg-slate-200 px-2 py-0.5 text-sm font-bold text-slate-700 sm:inline-block sm:h-auto ${job.status === "ready_to_send" ? "border-2 border-amber-500" : "border-0"}`}
               >
                 {pipelineStatusesForJob(job).map((s) => (
                   <option key={s} value={s}>{statusLabelForJob(job, s)}</option>

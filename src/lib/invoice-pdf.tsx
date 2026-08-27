@@ -95,7 +95,7 @@ function InvoiceDocument({ job, customer, company, settings }: InvoiceData) {
             <View style={styles.row}><Text style={styles.label}>Project #</Text><Text style={styles.value}>{job.project_number}</Text></View>
           )}
           <View style={styles.row}><Text style={styles.label}>Service address</Text><Text style={styles.value}>{expandAddress(job.service_address)}</Text></View>
-          <View style={styles.row}><Text style={styles.label}>Service</Text><Text style={styles.value}>{serviceLabel}</Text></View>
+          <View style={styles.row}><Text style={styles.label}>Service type(s)</Text><Text style={styles.value}>{serviceLabel}</Text></View>
           <View style={styles.row}><Text style={styles.label}>Date of service</Text><Text style={styles.value}>{formatDateMDY(job.requested_date) ?? "—"}</Text></View>
         </View>
 

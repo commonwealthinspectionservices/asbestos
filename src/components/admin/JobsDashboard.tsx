@@ -2584,6 +2584,16 @@ export function ProjectDetailDialog({
         {tab === "info" && (
         <>
         <div className="mt-6 grid grid-cols-1 gap-y-6 sm:gap-y-8">
+          {/* Per Tim, 2026-08-27 — desktop only: identity/status fields
+              (Project #, Status, Report/Invoice, Company, address) stay in
+              their own left column; scheduling/service fields (Requested/
+              Completed date & time, Turnaround, Service type, Scope of
+              Work) move into a second column starting at that same top
+              row, roughly under the header's draft button, instead of
+              running on below the address as one long column. Mobile is
+              unaffected — grid-cols-1 stacks these two divs in the same
+              document order the fields were already in. */}
+          <div className="grid grid-cols-1 gap-y-6 sm:grid-cols-[7fr_3fr] sm:gap-x-6 sm:gap-y-2">
           <div className="space-y-3 sm:space-y-2">
             {(() => {
               const portalBadge = job.source === "subcontractor" && (() => {
@@ -2689,6 +2699,8 @@ export function ProjectDetailDialog({
               })() : null}
               nowrap
             />
+          </div>
+          <div className="space-y-3 sm:space-y-2">
             {job.source === "subcontractor" ? (
               job.status === "needs_scheduling" ? (
                 <>
@@ -2788,6 +2800,7 @@ export function ProjectDetailDialog({
                 </ul>
               </div>
             )}
+          </div>
           </div>
           <div className="grid grid-cols-1 gap-y-6 sm:grid-cols-2 sm:gap-x-4 sm:gap-y-4">
             <div className="space-y-3 sm:space-y-2">

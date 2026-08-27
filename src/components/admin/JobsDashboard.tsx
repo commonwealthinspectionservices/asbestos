@@ -1233,7 +1233,7 @@ function JobRow({
                       before) so Report/Invoice still start at the same left
                       edge either way. */}
                   <span className="flex items-center gap-1">
-                    Final Report: {job.report_sent_at ? `Sent ${formatDateTime(job.report_sent_at)}` : "Not sent"}
+                    Report: {job.report_sent_at ? `Sent ${formatDateTime(job.report_sent_at)}` : "Not sent"}
                     {!job.report_sent_at && <HazardIcon />}
                   </span>
                   <span>Invoice: {job.invoice_sent_at ? `Sent ${formatDateTime(job.invoice_sent_at)}` : "Not sent"}</span>
@@ -2433,7 +2433,7 @@ export function ProjectDetailDialog({
               const sentStatusLines = (
                 <div className="flex flex-col items-start text-sm text-slate-500">
                   <span className="flex items-center gap-1">
-                    Final Report: {job.report_sent_at ? `Sent ${formatDateTime(job.report_sent_at)}` : "Not sent"}
+                    Report: {job.report_sent_at ? `Sent ${formatDateTime(job.report_sent_at)}` : "Not sent"}
                     {!job.report_sent_at && <HazardIcon />}
                   </span>
                   <span>Invoice: {job.invoice_sent_at ? `Sent ${formatDateTime(job.invoice_sent_at)}` : "Not sent"}</span>

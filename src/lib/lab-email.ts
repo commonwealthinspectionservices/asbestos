@@ -11,9 +11,9 @@ import {
   addLabelToMessage,
   createDraft,
   deleteDraft,
-  draftExists,
   findPdfParts,
   getAttachmentData,
+  getDraftStatus,
   getHeader,
   getMessage,
   getOrCreateLabelId,
@@ -276,43 +276,52 @@ export async function checkDraftSentStatus(
     return { status: "none" };
   }
 
-  const stillDrafted = await draftExists(accessToken, gmailId);
-  if (stillDrafted) {
+  const draftStatus = await getDraftStatus(accessToken, gmailId);
+  if (draftStatus.status === "drafted") {
     return { status: "drafted" };
   }
 
-  // The draft is gone — figure out whether that's because it was sent.
-  const gmailMessageId = job?.[gmailMessageIdCol];
-  if (gmailMessageId) {
-    const { sent, sentAt: resolvedSentAt } = await getSentMessageInfo(accessToken, gmailMessageId);
-    if (sent) {
-      const finalSentAt = resolvedSentAt ?? new Date().toISOString();
-      const update: Record<string, string> = { [sentAtCol]: finalSentAt };
-      const isCombinedDraft = gmailId && job?.[otherGmailIdCol] === gmailId && !job?.[otherSentAtCol];
-      if (isCombinedDraft) update[otherSentAtCol] = finalSentAt;
-      // Per Tim, 2026-08-26 — the moment both the report and invoice are
-      // actually confirmed sent, advance out of "ready_to_send" (drafted,
-      // not yet sent) into "report_invoice_sent" automatically. Only from
-      // ready_to_send specifically — an individual-billed job is already
-      // "paid" by the time its report/invoice go out (payment happens
-      // before release for those), so this never regresses a paid job
-      // backward.
-      const otherAlreadySent = Boolean(job?.[otherSentAtCol]) || isCombinedDraft;
-      if (otherAlreadySent && job?.status === "ready_to_send") {
-        update.status = "report_invoice_sent";
-      }
-      await supabase.from("jobs").update(update).eq("id", jobId);
-      // Best-effort — a labeling hiccup must never block the sent-status
-      // check itself, which the Final Report tab depends on to update the
-      // draft button.
-      try {
-        const labelId = await getOrCreateLabelId(accessToken, SENT_REPORTS_LABEL);
-        await addLabelToMessage(accessToken, gmailMessageId, labelId);
-      } catch (e) {
-        console.error(`Failed to apply "${SENT_REPORTS_LABEL}" label to message ${gmailMessageId}:`, e);
-      }
-      return { status: "sent", sentAt: finalSentAt };
+  // draftStatus.status is "sent" (the common case — Gmail still resolves
+  // the draft id, just with its message now SENT) or "gone" (the draft id
+  // itself 404s, so fall back to whatever message id this app stored when
+  // the draft was created — see getSentMessageInfo's own comment on why
+  // that stored id can itself be stale).
+  const resolved = draftStatus.status === "sent"
+    ? draftStatus
+    : await (async () => {
+      const gmailMessageId = job?.[gmailMessageIdCol];
+      if (!gmailMessageId) return null;
+      const { sent, sentAt } = await getSentMessageInfo(accessToken, gmailMessageId);
+      return sent ? { messageId: gmailMessageId, sentAt: sentAt ?? new Date().toISOString() } : null;
+    })();
+
+  if (resolved) {
+    const finalSentAt = resolved.sentAt;
+    const update: Record<string, string> = { [sentAtCol]: finalSentAt };
+    const isCombinedDraft = gmailId && job?.[otherGmailIdCol] === gmailId && !job?.[otherSentAtCol];
+    if (isCombinedDraft) update[otherSentAtCol] = finalSentAt;
+    // Per Tim, 2026-08-26 — the moment both the report and invoice are
+    // actually confirmed sent, advance out of "ready_to_send" (drafted,
+    // not yet sent) into "report_invoice_sent" automatically. Only from
+    // ready_to_send specifically — an individual-billed job is already
+    // "paid" by the time its report/invoice go out (payment happens
+    // before release for those), so this never regresses a paid job
+    // backward.
+    const otherAlreadySent = Boolean(job?.[otherSentAtCol]) || isCombinedDraft;
+    if (otherAlreadySent && job?.status === "ready_to_send") {
+      update.status = "report_invoice_sent";
     }
+    await supabase.from("jobs").update(update).eq("id", jobId);
+    // Best-effort — a labeling hiccup must never block the sent-status
+    // check itself, which the Final Report tab depends on to update the
+    // draft button.
+    try {
+      const labelId = await getOrCreateLabelId(accessToken, SENT_REPORTS_LABEL);
+      await addLabelToMessage(accessToken, resolved.messageId, labelId);
+    } catch (e) {
+      console.error(`Failed to apply "${SENT_REPORTS_LABEL}" label to message ${resolved.messageId}:`, e);
+    }
+    return { status: "sent", sentAt: finalSentAt };
   }
 
   return { status: "none" };

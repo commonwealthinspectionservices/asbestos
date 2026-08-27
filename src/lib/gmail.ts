@@ -469,17 +469,45 @@ export async function deleteDraft(accessToken: string, draftId: string): Promise
 }
 
 // A draft the owner has since sent or deleted from Gmail no longer exists
-// there — this is checked live (not inferred from our own stored
-// timestamp) so the Final Report tab never claims a draft is waiting when
-// it isn't. A 404 here is the expected "gone" case, not a real error.
-export async function draftExists(accessToken: string, draftId: string): Promise<boolean> {
-  const res = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/drafts/${draftId}`, {
+// there — checked live (not inferred from our own stored timestamp) so the
+// Final Report tab never claims a draft is waiting when it isn't. A 404 is
+// the expected "gone" case, not a real error.
+//
+// Confirmed live 2026-08-26 (job 26-0006): GET /drafts/{id} can still return
+// 200 for a draft the owner already sent — Gmail keeps the draft resource
+// resolvable with its underlying `message` now carrying the SENT label
+// instead of DRAFT, rather than 404ing it outright. A version of this
+// function that only checked "did the request 404" (as this one used to)
+// reports a genuinely-sent report as still "drafted" forever. This returns
+// the sent message's own current id/timestamp straight from the same
+// response instead, since the id/timestamp this app stored when the draft
+// was first created can itself go stale (see getSentMessageInfo's own
+// comment on draft message-id instability) — no separate, possibly-404ing
+// lookup needed for the common case.
+export async function getDraftStatus(
+  accessToken: string,
+  draftId: string
+): Promise<
+  | { status: "gone" }
+  | { status: "drafted" }
+  | { status: "sent"; messageId: string; sentAt: string }
+> {
+  const res = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/drafts/${draftId}?format=metadata`, {
     headers: { Authorization: `Bearer ${accessToken}` },
     cache: "no-store",
   });
-  if (res.status === 404) return false;
+  if (res.status === 404) return { status: "gone" };
   if (!res.ok) throw new Error(`Gmail API /drafts/${draftId} failed (${res.status}): ${await res.text()}`);
-  return true;
+  const data = await res.json();
+  const labelIds: string[] = data.message?.labelIds ?? [];
+  if (labelIds.includes("SENT")) {
+    return {
+      status: "sent",
+      messageId: data.message.id,
+      sentAt: data.message.internalDate ? new Date(Number(data.message.internalDate)).toISOString() : new Date().toISOString(),
+    };
+  }
+  return { status: "drafted" };
 }
 
 // There's no "sent" webhook and this app deliberately never has

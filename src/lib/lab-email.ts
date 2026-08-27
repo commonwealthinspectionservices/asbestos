@@ -289,6 +289,7 @@ export async function checkForLabResultEmails(): Promise<LabEmailCheckResult> {
     // other candidate still deserves a chance to match and get drafted.
     try {
       const message = await getMessage(accessToken, candidate.id);
+      const subject = getHeader(message, "Subject") ?? "";
       // Belt-and-suspenders against the exact race that produced duplicate
       // lab_report/lab_invoice documents on real jobs (26-0002, 26-0003)
       // confirmed live 2026-08-25: a label just added by an in-flight run
@@ -382,6 +383,7 @@ export async function checkForLabResultEmails(): Promise<LabEmailCheckResult> {
           job: matchedJob,
           pdfBuffer: matchedBuffer,
           pdfText: matchedText,
+          subject,
           settings,
         });
         await addLabelToMessage(accessToken, candidate.id, processedLabelId);
@@ -392,7 +394,6 @@ export async function checkForLabResultEmails(): Promise<LabEmailCheckResult> {
       // Not a lab-report email — check whether it's EMSL's separate,
       // earlier "receipt confirmation" for a chain-of-custody form instead
       // (see extractProjectNumberFromCocSubject above).
-      const subject = getHeader(message, "Subject") ?? "";
       const cocProjectNumber = extractProjectNumberFromCocSubject(subject);
       const cocPart = pdfParts.find((p) => /coc/i.test(p.filename));
       if (cocProjectNumber && cocPart) {
@@ -578,37 +579,48 @@ async function processMultiJobLabInvoiceEmail(params: {
   return { recorded, unmatchedProjectNumbers };
 }
 
+// Confirmed live 2026-08-26 (jobs 26-0007/26-0008, "Final Fungal Report
+// for ..."): processMatchedLabEmail used to assume whichever service type
+// was listed *first* on the job always matched whatever report just came
+// in — true only when a mixed job's asbestos and mold results happen to
+// arrive in that same order. When mold results land on a job listing
+// asbestos first, they got silently run through the asbestos-only
+// extractors (which naturally find nothing in a fungal report), leaving
+// mold_sample_results empty forever with no error anywhere — the job just
+// sits at "Pending Lab Results" permanently since it can never become
+// complete. Crystal Analytical's own subject line reliably says "Fungal
+// Report" for mold and never for asbestos (confirmed against every real
+// example on file); that, not the job's own field order, is what actually
+// says which domain this specific report is.
+export function isMoldLabReport(subject: string, pdfText: string): boolean {
+  return /fungal/i.test(subject) || /fungal/i.test(pdfText);
+}
+
 async function processMatchedLabEmail(params: {
   accessToken: string;
   messageId: string;
   job: Job & { customers: Customer & { companies: Company | null } };
   pdfBuffer: Buffer;
   pdfText: string;
+  subject: string;
   settings: Settings;
 }): Promise<void> {
-  const { accessToken, messageId, job, pdfBuffer, pdfText, settings } = params;
+  const { accessToken, messageId, job, pdfBuffer, pdfText, subject, settings } = params;
   const supabase = getSupabaseAdmin();
+
+  const isMold = isMoldLabReport(subject, pdfText);
+  const isAsbestos = !isMold;
 
   // Same extraction the manual "Laboratory Results" upload uses (see
   // src/app/api/admin/jobs/[id]/documents/route.ts) — a job's service_type
-  // can carry multiple labels (e.g. "Limited Asbestos Inspection, Mold Bulk
-  // Sampling"), but one lab report only ever covers one of them per
-  // upload, so the first label is the same best-effort assumption that
-  // route makes today.
+  // can carry multiple labels of the *same* domain (e.g. both "Mold Air
+  // Sampling" and "Mold Bulk Sampling"), but one lab report only ever
+  // covers one of them per upload, so the first label of the domain this
+  // report actually is (not just the first label overall) is the same
+  // best-effort assumption that route makes today.
   const serviceTypeLabels = (job.service_type ?? "").split(",").map((s) => s.trim()).filter(Boolean);
-  const primaryServiceType = serviceTypeLabels[0] ?? "";
-
-  // Mirrors the manual "Laboratory Results" upload route's own isMold
-  // branching (api/admin/jobs/[id]/documents/route.ts) — this automated
-  // path used to always call the asbestos-only extractors regardless of
-  // service type, so a mold job's report landing via the Gmail scanner
-  // (rather than a manual upload) never got its sample count/results
-  // auto-filled at all, silently, for any lab. Same mold/asbestos field
-  // split as the manual route: mold's own mold_lab_name/mold_sample_results,
-  // never the shared asbestos/lead ones, so a mixed job's two domains can't
-  // clobber each other.
-  const isMold = /mold/i.test(primaryServiceType);
-  const isAsbestos = primaryServiceType.toLowerCase().includes("asbestos");
+  const domainServiceTypeLabels = serviceTypeLabels.filter((label) => (isMold ? /mold/i.test(label) : !/mold/i.test(label)));
+  const primaryServiceType = domainServiceTypeLabels[0] ?? serviceTypeLabels[0] ?? "";
 
   // See pdf-position-text.ts — Crystal Analytical's tables (and its
   // "Date(s) Sampled:"/"Collected:" line, see extractSampledDate) only

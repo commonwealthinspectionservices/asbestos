@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { extractProjectNumberFromCocSubject, normalizeAddressForMatch } from "@/lib/lab-email";
+import { extractProjectNumberFromCocSubject, normalizeAddressForMatch, isMoldLabReport } from "@/lib/lab-email";
 
 describe("extractProjectNumberFromCocSubject", () => {
   it("extracts the project number from a real EMSL receipt-confirmation subject", () => {
@@ -45,5 +45,24 @@ describe("normalizeAddressForMatch", () => {
     const reportAddress = normalizeAddressForMatch("692 Blue Hill Ave, Dorchester, MA");
     const storedAddress = normalizeAddressForMatch("690 Blue Hill Ave, Dorchester, MA 02121");
     expect(storedAddress.startsWith(reportAddress)).toBe(false);
+  });
+});
+
+// Confirmed live 2026-08-26 (jobs 26-0007/26-0008) — a mixed asbestos+mold
+// job listing asbestos first used to assume every incoming report was
+// asbestos, silently dropping mold results that arrived on their own
+// "Final Fungal Report" email. These lock in detecting the report's own
+// domain from its subject/content instead of the job's field order.
+describe("isMoldLabReport", () => {
+  it("recognizes a real Fungal Report subject as mold", () => {
+    expect(isMoldLabReport("Final Fungal Report for 11 James Way, Cambridge, MA", "")).toBe(true);
+  });
+
+  it("recognizes 'Fungal' inside the PDF text even if the subject doesn't have it", () => {
+    expect(isMoldLabReport("Re: your samples", "This Fungal Analysis Report covers...")).toBe(true);
+  });
+
+  it("treats a real asbestos PLM report subject as not mold", () => {
+    expect(isMoldLabReport("Final Analysis Report for 2601003647 - 690 Blue Hill Ave, Dorchester, MA", "")).toBe(false);
   });
 });

@@ -8,6 +8,7 @@ import { resolveZoneBaseFeeCents } from "@/lib/pricing-zones";
 import { upsertCompany } from "@/lib/companies";
 import { withApiErrors } from "@/lib/api-handler";
 import { withCompanyBillingAddress } from "@/lib/customer-billing";
+import { NEWTON_FIRE_FLOOD_COMPANY_ID } from "@/lib/report-findings";
 import type { Company, Customer, ServiceType } from "@/lib/types";
 
 export const GET = withApiErrors(async (req: NextRequest) => {
@@ -179,6 +180,13 @@ export const POST = withApiErrors(async (req: NextRequest) => {
     // customers.is_individual); the Invoice tab checkbox still lets the
     // admin override per job for customers without an account of their own.
     is_individual: customer.is_individual,
+    // Per Tim, 2026-08-27 — every Newton Fire & Flood job runs same-day, so
+    // its Turnaround toggle starts on Rush instead of the usual Standard
+    // default. Still just the normal toggle after creation, not locked —
+    // the rush fee itself is also applied independently by company_id (see
+    // defaultInvoiceLineItems), so this is about the Report tab reflecting
+    // reality from the start, not a second place the fee could be missed.
+    lab_turnaround: company?.id === NEWTON_FIRE_FLOOD_COMPANY_ID ? "Rush" : null,
   };
 
   // These columns predate this route being written — tolerate a migration

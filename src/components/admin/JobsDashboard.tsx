@@ -2178,13 +2178,14 @@ export function ProjectDetailDialog({
   // hazard flag specifically for "the report is ready but hasn't gone out,"
   // never the invoice.
   const sentStatusLines = (
-    <div className="flex flex-col items-start text-sm text-slate-500">
-      <span className="flex items-center gap-1">
-        Report: {job.report_sent_at ? `Sent ${formatDateTime(job.report_sent_at)}` : "Not sent"}
-        {!job.report_sent_at && <HazardIcon />}
-      </span>
-      <span>Invoice: {job.invoice_sent_at ? `Sent ${formatDateTime(job.invoice_sent_at)}` : "Not sent"}</span>
-    </div>
+    <>
+      <DetailField
+        label="Report"
+        value={job.report_sent_at ? `Sent ${formatDateTime(job.report_sent_at)}` : "Not sent"}
+        trailing={!job.report_sent_at && <HazardIcon />}
+      />
+      <DetailField label="Invoice" value={job.invoice_sent_at ? `Sent ${formatDateTime(job.invoice_sent_at)}` : "Not sent"} />
+    </>
   );
   // No manual "Create Draft" step — the moment both the report and invoice
   // are actually ready (and nothing's been drafted yet), fire it off on its
@@ -2588,21 +2589,18 @@ export function ProjectDetailDialog({
                       : formatDate(job.confirmed_date ?? job.requested_date) || "—"
                   }
                 />
-                {/* Per Tim — the Turnaround toggle moved down from the
-                    header to sit here instead, right-aligned on desktop
-                    across from Completed/Scheduled time. Mobile keeps its
-                    own separate left-aligned line above (sm:hidden there). */}
-                <div className="relative">
-                  <DetailField
-                    label={hasCompletedFieldwork(job.status) ? "Completed time" : "Scheduled time"}
-                    value={
-                      job.status === "needs_scheduling"
-                        ? formatTime(job.confirmed_time) || "—"
-                        : formatTime(job.confirmed_time ?? job.requested_time) || "—"
-                    }
-                  />
-                  <div className="absolute right-0 top-0 hidden sm:flex">{turnaroundControl}</div>
-                </div>
+                <DetailField
+                  label={hasCompletedFieldwork(job.status) ? "Completed time" : "Scheduled time"}
+                  value={
+                    job.status === "needs_scheduling"
+                      ? formatTime(job.confirmed_time) || "—"
+                      : formatTime(job.confirmed_time ?? job.requested_time) || "—"
+                  }
+                />
+                {/* Per Tim, 2026-08-27 — listed as a plain field here like
+                    everything else on this tab, not the Standard/Rush
+                    button pair (still used as-is on the Invoice tab). */}
+                <DetailField label="Turnaround" value={job.lab_turnaround === "Rush" ? "Rush" : "Standard"} />
               </>
             )}
             {job.confirmation_sent_at && (
@@ -3139,6 +3137,7 @@ export function ProjectDetailDialog({
                   serviceTypeSettings={serviceTypeSettings}
                   paymentDueDate={job.payment_due_date || paymentDueDate(job.requested_date ?? "") || ""}
                   onPaymentDueDateChange={(v) => saveJobField({ payment_due_date: v || null })}
+                  labCostCents={job.lab_cost_cents}
                 />
                 {savingInvoice && <p className="mt-1 text-xs text-slate-400">Saving…</p>}
               </div>
@@ -5357,7 +5356,7 @@ function MaterialsEditor({
 }
 
 function LineItemsEditor({
-  items, setItems, serviceTypeSettings, paymentDueDate, onPaymentDueDateChange,
+  items, setItems, serviceTypeSettings, paymentDueDate, onPaymentDueDateChange, labCostCents,
 }: {
   items: LineItemRowState[];
   setItems: Dispatch<SetStateAction<LineItemRowState[]>>;
@@ -5365,6 +5364,11 @@ function LineItemsEditor({
   /** Rendered inline on the same row as the total and the +Custom Line Item/+Samples links, rather than its own separate row — the admin wanted it directly in line with those, not stacked below. */
   paymentDueDate: string;
   onPaymentDueDateChange: (value: string) => void;
+  /** Per Tim, 2026-08-27 — what the lab actually billed this job (extracted
+      from the lab's own invoice, see lab_cost_cents on Job), shown right
+      under the invoice total so the margin (what's charged minus what the
+      lab charges) is visible at a glance without doing the math by hand. */
+  labCostCents: number | null;
 }) {
   function update(i: number, patch: Partial<LineItemRowState>) {
     setItems((rows) =>
@@ -5627,7 +5631,12 @@ function LineItemsEditor({
       </div>
 
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-        <p className="text-base font-bold uppercase text-emerald-600">Invoice total: {currency(total)}</p>
+        <div>
+          <p className="text-base font-bold uppercase text-emerald-600">Invoice total: {currency(total)}</p>
+          <p className="text-base font-bold uppercase text-red-600">
+            Lab fees: {labCostCents != null ? currency(labCostCents / 100) : "Not yet billed"}
+          </p>
+        </div>
         <div className="flex items-center gap-2">
           <label className="whitespace-nowrap text-xs font-semibold uppercase tracking-wide text-slate-400">Payment due date</label>
           <input

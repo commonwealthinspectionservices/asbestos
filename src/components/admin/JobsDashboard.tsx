@@ -405,10 +405,12 @@ const SORT_FIELDS: { key: SortField; label: string }[] = [
   { key: "project_number", label: "Project #" },
 ];
 
-// "What needs attention" — open until paid (or cancelled). A job sitting at
-// "ready_to_send" or "report_invoice_sent" still needs attention (chasing
-// payment), so both count as open.
-const OPEN_STATUSES = new Set(["needs_scheduling", "scheduled", "fieldwork_in_progress", "awaiting_lab_results", "needs_report", "pending_lab_results", "completed", "invoiced", "ready_to_send", "report_invoice_sent"]);
+// "What needs attention" — open until paid (or cancelled). Per Tim,
+// 2026-08-27 — "report_invoice_sent" (Payment Pending) has its own
+// dedicated filter now and no longer shows under Open Projects too; it's
+// not in CLOSED_STATUSES either, so it only surfaces via that dedicated
+// filter or All Projects, not Open or Closed.
+const OPEN_STATUSES = new Set(["needs_scheduling", "scheduled", "fieldwork_in_progress", "awaiting_lab_results", "needs_report", "pending_lab_results", "completed", "invoiced", "ready_to_send"]);
 const CLOSED_STATUSES = new Set(["paid", "cancelled"]);
 // Schedule/notes stay editable for any job that isn't closed out yet.
 const EDITABLE_STATUSES = OPEN_STATUSES;

@@ -1809,9 +1809,10 @@ export function ProjectDetailDialog({
   }, [serviceTypeLabels]);
   const turnaroundControl = (
     <div className="flex items-center gap-2 text-sm">
-      {/* Per Tim — matches Standard/Rush's own text-xs/font-bold/text-slate-600
-          exactly (their inactive-state color), not a separate dimmer label style. */}
-      <span className="text-xs font-bold uppercase text-slate-600">Turnaround</span>
+      {/* Per Tim — matches Standard/Rush's own inactive-state pill exactly
+          (rounded/px-2/py-0.5/text-xs/font-bold/text-slate-600/bg-slate-100),
+          not plain unboxed text. */}
+      <span className="rounded bg-slate-100 px-2 py-0.5 text-xs font-bold uppercase text-slate-600">Turnaround</span>
       <button
         onClick={() => setRush(false)}
         className={`rounded px-2 py-0.5 text-xs font-bold uppercase ${job.lab_turnaround !== "Rush" ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
@@ -2377,7 +2378,7 @@ export function ProjectDetailDialog({
             neither drafted yet still gets the right two-button layout
             from the start, not just after one exists. */}
         {job.source !== "subcontractor" && reportComplete && job.invoice_total_cents != null && (
-          <div className="flex shrink-0 flex-wrap items-center justify-end gap-x-4 gap-y-1 border-b border-slate-200 bg-white px-3 py-1.5 sm:hidden">
+          <div className="flex shrink-0 flex-wrap items-center justify-start gap-x-4 gap-y-1 border-b border-slate-200 bg-white px-3 py-1.5 sm:hidden">
             {isSeparateDraftsCompany ? (
               <>
                 <div className="flex items-center gap-2">
@@ -2495,7 +2496,7 @@ export function ProjectDetailDialog({
                     <div className="mt-3 flex justify-start sm:hidden">{turnaroundControl}</div>
                   )}
                   {showSentStatus && (
-                    <div className="mt-3 flex flex-col items-end sm:hidden">{sentStatusLines}</div>
+                    <div className="mt-3 flex flex-col items-start sm:hidden">{sentStatusLines}</div>
                   )}
                   <DetailField label="Status" value={statusLabelForJob(job, job.status)} />
                   <DetailField

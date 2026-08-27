@@ -137,8 +137,11 @@ export function defaultInvoiceLineItems(
         ? "Licensed Asbestos Inspector"
         : hasAsbestos
           ? [
-              "Licensed Asbestos Inspector (",
-              ...serviceTypeLabels.map((l, i) => (i === serviceTypeLabels.length - 1 ? `${l})` : `${l},`)),
+              "Licensed Asbestos Inspector",
+              ...serviceTypeLabels.map((l, i) => {
+                const withOpenParen = i === 0 ? `(${l}` : l;
+                return i === serviceTypeLabels.length - 1 ? `${withOpenParen})` : `${withOpenParen},`;
+              }),
             ].join("\n")
           : serviceTypeLabels.join("\n");
     rows.push({

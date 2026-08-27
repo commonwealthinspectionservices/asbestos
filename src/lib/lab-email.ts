@@ -43,7 +43,7 @@ import { jobReportDomains, ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, N
 import { sendEmail, emailShell } from "@/lib/email";
 import { getAppUrl } from "@/lib/app-url";
 import { escapeHtml } from "@/lib/html";
-import { expandAddress } from "@/lib/address";
+import { expandAddress, splitAddress } from "@/lib/address";
 import type { Company, Customer, Job, JobDocument, JobWithCustomer, Settings } from "@/lib/types";
 
 // @react-pdf/renderer (report-pdf.tsx / invoice-pdf.ts) is imported
@@ -150,17 +150,23 @@ function reportDraftBodyHtml(job: Job, settings: Settings): string {
 // BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID) — everyone else's invoice
 // goes out folded into combinedDraftBodyHtml instead.
 function invoiceDraftBodyHtml(job: Job, settings: Settings, payNowUrl: string | null): string {
+  // Street on its own line, city/state/zip on the next — same split
+  // JobsDashboard.tsx's own mobile address rendering uses.
+  const { street, cityStateZip } = splitAddress(job.service_address);
   return [
     "Hi,",
     "",
-    `Please find attached the invoice for the asbestos inspection completed at ${escapeHtml(expandAddress(job.service_address))}.`,
+    "Please find attached the invoice for the asbestos inspection completed at:",
+    "",
+    escapeHtml(expandAddress(street)),
+    escapeHtml(expandAddress(cityStateZip)),
     // No "Total due" dollar figure in the email body itself (the attached
     // PDF and the pay link both already show it); "Link to pay", not
     // all-caps.
     ...(payNowUrl ? ["", `<a href="${escapeHtml(payNowUrl)}">Link to pay</a>`] : []),
     "",
     // The phone number itself never wraps mid-digit — see reportDraftBodyHtml's own comment on this.
-    `If you have any questions, please call me at <span style="white-space:nowrap;">${escapeHtml(settings.business_phone)}</span>.`,
+    `If you have any questions, please call me at <span style="white-space:nowrap;">${escapeHtml(settings.business_phone)}</span>`,
     "",
     ...SIGNATURE_LINES,
   ].join("<br>");

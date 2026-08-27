@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireContractorApi, getCompanyCustomerIds } from "@/lib/contractor-api";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { getSettings } from "@/lib/settings";
-import { buildFinalReportPacket } from "@/lib/report-packet";
+import { buildFinalReportPacket, DomainMismatchError } from "@/lib/report-packet";
 import { withApiErrors } from "@/lib/api-handler";
 import { withCompanyBillingAddress } from "@/lib/customer-billing";
 import { jobReportDomains, reportDownloadFilename, type ReportDomain } from "@/lib/report-findings";
@@ -74,7 +74,20 @@ export const GET = withApiErrors(async (
   // so without falling back to the company's, the letter's billing address
   // would render blank for exactly the accounts this session added.
   const customer = withCompanyBillingAddress(jobRow.customers, jobRow.customers.companies);
-  const pdf = await buildFinalReportPacket(jobRow, customer, settings, domain);
+  let pdf: Buffer;
+  try {
+    pdf = await buildFinalReportPacket(jobRow, customer, settings, domain);
+  } catch (err) {
+    // Never let a viewer here see why — this is the one path an external
+    // customer/contractor can hit directly, so a flagged document just
+    // looks like the report isn't ready yet, same message as the
+    // not-completed case above. The owner already got a separate alert
+    // (see lab-email.ts) and can see the real reason on the job itself.
+    if (err instanceof DomainMismatchError) {
+      return NextResponse.json({ error: "Report isn't available until the project is complete" }, { status: 400 });
+    }
+    throw err;
+  }
 
   return new NextResponse(new Uint8Array(pdf), {
     headers: {

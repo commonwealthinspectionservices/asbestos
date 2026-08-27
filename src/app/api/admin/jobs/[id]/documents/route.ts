@@ -255,7 +255,21 @@ export const POST = withApiErrors(async (
     }
   }
 
-  update.documents = [...(jobRow.documents ?? []), ...documents];
+  // Per Tim, 2026-08-27 — a prior lab_report upload for this exact same
+  // service type gets superseded (removed), not just appended alongside,
+  // when this new one is also a lab_report. Without this, replacing a
+  // document that got flagged domain_mismatch (see the check above and
+  // report-packet.ts's DomainMismatchError) could never actually clear
+  // that flag — the old flagged row would just keep sitting in the array
+  // forever, permanently blocking this domain's report even after the
+  // admin fixed it. Scoped to lab_report only (not coc/lab_invoice/other)
+  // to match exactly what the gate checks, minimizing behavior change
+  // elsewhere on this route.
+  const priorDocuments =
+    kind === "lab_report"
+      ? (jobRow.documents ?? []).filter((d) => !(d.kind === "lab_report" && d.service_type === serviceType))
+      : (jobRow.documents ?? []);
+  update.documents = [...priorDocuments, ...documents];
 
   // asbestos_result/sample_results may not exist yet if these migrations
   // haven't been run — tolerate that rather than losing the document

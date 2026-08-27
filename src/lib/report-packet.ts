@@ -4,6 +4,20 @@ import { mergePdfBuffers } from "@/lib/pdf-merge";
 import { jobReportDomains, domainForServiceTypeLabel, type ReportDomain } from "@/lib/report-findings";
 import type { Customer, Job, Settings } from "@/lib/types";
 
+// Per Tim, 2026-08-27 — a daily audit isn't fast enough (reports go out
+// the moment lab results land, not on a schedule), so this is a hard stop
+// instead of a next-day alert: every path that can ever produce a
+// customer-facing report — the admin's own download button, the portal
+// download a homeowner can hit directly, and both automated draft
+// builders — all funnel through buildFinalReportPacket below, so gating
+// there closes all four at once instead of needing four separate checks.
+export class DomainMismatchError extends Error {
+  constructor(public readonly domain: ReportDomain, public readonly flaggedDocIds: string[]) {
+    super(`Refusing to build the ${domain} report packet — ${flaggedDocIds.length} filed document(s) don't look like they match this domain and haven't been cleared for review.`);
+    this.name = "DomainMismatchError";
+  }
+}
+
 // The real deliverable is a packet, not just the cover letter: the letter,
 // then whatever lab_report/coc documents belong to this domain (uploaded
 // once the lab sends its own certified results and scanned COC back), and
@@ -21,6 +35,17 @@ export async function buildFinalReportPacket(job: Job, customer: Customer, setti
   const letterPdf = await renderProjectReportPdfForDomain({ job, customer, settings }, domain);
 
   const documents = (job.documents ?? []).filter((d) => domainForServiceTypeLabel(d.service_type) === domain);
+  // Hard stop, not just a warning — a document only ever carries
+  // domain_mismatch when either the automated classifier (lab-email.ts)
+  // or a manual upload (documents/route.ts) already flagged its own
+  // content as not matching the domain it's filed under. Never silently
+  // ship that; the admin has to actually open the job and resolve it
+  // (replace the document, which clears the flag) before any packet for
+  // this domain can be built again.
+  const flaggedDocs = documents.filter((d) => d.kind === "lab_report" && d.domain_mismatch);
+  if (flaggedDocs.length > 0) {
+    throw new DomainMismatchError(domain, flaggedDocs.map((d) => d.id));
+  }
   // Deduped by storage_path (first occurrence wins order) — a combined
   // air+bulk (or air+bulk+swab) mold report is deliberately filed as one
   // lab_report row per label it covers, all three pointing at the same

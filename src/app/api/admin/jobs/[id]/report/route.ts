@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApi } from "@/lib/admin-api";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { getSettings } from "@/lib/settings";
-import { buildFinalReportPacket } from "@/lib/report-packet";
+import { buildFinalReportPacket, DomainMismatchError } from "@/lib/report-packet";
 import { withApiErrors } from "@/lib/api-handler";
 import { withCompanyBillingAddress } from "@/lib/customer-billing";
 import { jobReportDomains, reportDownloadFilename, type ReportDomain } from "@/lib/report-findings";
@@ -51,7 +51,15 @@ export const GET = withApiErrors(async (
     return NextResponse.json({ error: "This job has multiple report types — specify ?type=" }, { status: 400 });
   }
 
-  const pdf = await buildFinalReportPacket(jobRow, customer, settings, domain);
+  let pdf: Buffer;
+  try {
+    pdf = await buildFinalReportPacket(jobRow, customer, settings, domain);
+  } catch (err) {
+    if (err instanceof DomainMismatchError) {
+      return NextResponse.json({ error: `${err.message} Open this job's Laboratory Paperwork to review and replace it.` }, { status: 409 });
+    }
+    throw err;
+  }
 
   // Same reasoning as the invoice route: "attachment" is what actually
   // forces a save-to-disk for the Download link — some browsers ignore the

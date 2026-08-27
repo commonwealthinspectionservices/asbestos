@@ -932,7 +932,7 @@ async function processMatchedLabEmail(params: {
       subject: `Lab report may be filed under the wrong domain — ${job.project_number ?? job.id}`,
       html: emailShell(`
         <p style="font-size:15px;">This report was just filed on ${escapeHtml(job.project_number ?? job.id)} as <strong>${isMold ? "mold" : "asbestos"}</strong> (subject: "${escapeHtml(subject)}"), but no ${isMold ? "mold" : "asbestos"}-shaped results could actually be read out of it.</p>
-        <p>That's exactly how the mold/asbestos mislabeling bug showed up before — please open the job's Laboratory Paperwork and double-check this document is the right one before the report goes out.</p>
+        <p>That's exactly how the mold/asbestos mislabeling bug showed up before — this report is now held (the ${isMold ? "mold" : "asbestos"} report/invoice draft for this job won't build until it's resolved). Open the job's Laboratory Paperwork, replace this document with the right file, and it'll draft normally again.</p>
       `),
     }).catch(() => {});
   }
@@ -974,6 +974,11 @@ async function processMatchedLabEmail(params: {
     storage_path: storagePath,
     uploaded_at: reportUploadedAt,
     project_number_mismatch: null,
+    // Not just the alert email above — this is what actually stops
+    // buildFinalReportPacket (report-packet.ts) from including this
+    // document in a customer-facing report until someone clears it by
+    // replacing it with the right file. See DomainMismatchError there.
+    domain_mismatch: !domainDataFound,
   }));
   update.documents = await replaceDocumentsByKindAndServiceType(supabase, job.documents ?? [], reportDocuments);
 

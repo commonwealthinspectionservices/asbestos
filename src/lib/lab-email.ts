@@ -130,7 +130,10 @@ function reportDraftBodyHtml(job: Job, settings: Settings): string {
     `Address: ${escapeHtml(expandAddress(job.service_address))}`,
     `Date of Sampling: ${escapeHtml(formatDateMMDDYYYY(job.requested_date))}`,
     "",
-    `If you have any questions, call me at ${escapeHtml(settings.business_phone)}.`,
+    // Per Tim, 2026-08-27 — the phone number itself never wraps mid-digit;
+    // if the sentence needs to break, the whole number moves to its own
+    // line instead.
+    `If you have any questions, call me at <span style="white-space:nowrap;">${escapeHtml(settings.business_phone)}</span>.`,
     "",
     ...SIGNATURE_LINES,
   ].join("<br>");
@@ -140,22 +143,24 @@ function reportDraftBodyHtml(job: Job, settings: Settings): string {
 // template above) — invoice goes out the moment lab results land, well
 // before the report is released, so it needs its own standalone note
 // rather than reusing report-focused phrasing ("analytical report",
-// "laboratory results") that wouldn't make sense on its own.
+// "laboratory results") that wouldn't make sense on its own. Per Tim,
+// 2026-08-27 — this is the app's one shared/standard invoice message; the
+// only company that actually gets it as its own separate email is Boston
+// Harbor Water Restoration (see isSeparateDraftsCompany/
+// BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID) — everyone else's invoice
+// goes out folded into combinedDraftBodyHtml instead.
 function invoiceDraftBodyHtml(job: Job, settings: Settings, payNowUrl: string | null): string {
   return [
     "Hi,",
     "",
-    "Please find attached the invoice for the asbestos inspection completed at:",
-    "",
-    `Site: ${escapeHtml(expandAddress(job.service_address))}`,
-    // Per Tim, 2026-08-27 — no "Total due" dollar figure in the email body
-    // itself (the attached PDF and the pay link both already show it);
-    // "Link to pay", not all-caps.
+    `Please find attached the invoice for the asbestos inspection completed at ${escapeHtml(expandAddress(job.service_address))}.`,
+    // No "Total due" dollar figure in the email body itself (the attached
+    // PDF and the pay link both already show it); "Link to pay", not
+    // all-caps.
     ...(payNowUrl ? ["", `<a href="${escapeHtml(payNowUrl)}">Link to pay</a>`] : []),
     "",
-    `Should you have any questions or need additional information, please contact our office at ${escapeHtml(settings.business_phone)}.`,
-    "",
-    "Thank you for the opportunity to provide you with our services.",
+    // The phone number itself never wraps mid-digit — see reportDraftBodyHtml's own comment on this.
+    `If you have any questions, please call me at <span style="white-space:nowrap;">${escapeHtml(settings.business_phone)}</span>.`,
     "",
     ...SIGNATURE_LINES,
   ].join("<br>");
@@ -199,7 +204,7 @@ function combinedDraftBodyHtml(job: Job, settings: Settings, totalCents: number,
     "&bull; Invoice",
     ...(payNowUrl ? ["", `<a href="${escapeHtml(payNowUrl)}">Link to pay</a>`] : []),
     "",
-    `Should you have any questions or need additional information, please contact me at ${escapeHtml(settings.business_phone)}.`,
+    `Should you have any questions or need additional information, please contact me at <span style="white-space:nowrap;">${escapeHtml(settings.business_phone)}</span>.`,
     "",
     ...SIGNATURE_LINES,
   ].join("<br>");
@@ -1142,9 +1147,9 @@ async function draftPaymentReminderForIndividual(params: {
       "Your final report is ready. As soon as payment is received, we'll send it right over.",
       "",
       `Site: ${escapeHtml(expandAddress(job.service_address))}`,
-      ...(payNowUrl ? ["", `<a href="${escapeHtml(payNowUrl)}">LINK TO PAY</a>`] : []),
+      ...(payNowUrl ? ["", `<a href="${escapeHtml(payNowUrl)}">Link to pay</a>`] : []),
       "",
-      `Should you have any questions, please contact our office at ${escapeHtml(settings.business_phone)}.`,
+      `Should you have any questions, please contact our office at <span style="white-space:nowrap;">${escapeHtml(settings.business_phone)}</span>.`,
       "",
       "Thank you for the opportunity to provide you with our services.",
       "",

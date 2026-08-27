@@ -384,7 +384,19 @@ export async function checkForLabResultEmails(): Promise<LabEmailCheckResult> {
   // self-perpetuating loop: draft → false candidate → refiled → another
   // draft → repeat. The PROCESSED_LABEL guard alone couldn't catch this
   // since each new draft is a genuinely new, never-before-seen message.
-  const candidates = await listMessagesByQuery(accessToken, `has:attachment filename:pdf newer_than:14d -label:${PROCESSED_LABEL} -from:me`);
+  //
+  // No -label:${PROCESSED_LABEL} here (deliberately) — confirmed live
+  // 2026-08-27 (invoices #6497/#6498, QuickBooks payment-request emails
+  // from Crystal Analytical): Gmail's search index can flag a message as
+  // matching `label:cis-lab-email-processed` — and so get silently
+  // excluded by the negation here — even though a direct messages.get on
+  // that exact message shows the label was never actually applied to it.
+  // Both invoices sat excluded from every candidate list for 12+ hours
+  // this way, never even reaching the per-message check below. That check
+  // (message.labelIds, fetched fresh per message, no index involved) is
+  // the only place PROCESSED_LABEL needs to be checked — it's authoritative
+  // where this search-time negation isn't.
+  const candidates = await listMessagesByQuery(accessToken, `has:attachment filename:pdf newer_than:14d -from:me`);
 
   const result: LabEmailCheckResult = { checked: 0, matched: [], cocUploaded: [], labInvoicesRecorded: [], unmatched: 0 };
 
@@ -396,15 +408,12 @@ export async function checkForLabResultEmails(): Promise<LabEmailCheckResult> {
     try {
       const message = await getMessage(accessToken, candidate.id);
       const subject = getHeader(message, "Subject") ?? "";
-      // Belt-and-suspenders against the exact race that produced duplicate
-      // lab_report/lab_invoice documents on real jobs (26-0002, 26-0003)
-      // confirmed live 2026-08-25: a label just added by an in-flight run
-      // (this one's own manual test, an overlapping "Check Now" click, a
-      // prior cron tick) can take a beat to show up in the -label: search
-      // above, so the SAME message re-appears as a candidate before that
-      // search catches up. This message's own labelIds, fetched fresh right
-      // here, reflect the true current state immediately — no index lag —
-      // so re-checking it catches what the search alone can miss.
+      // The only place PROCESSED_LABEL is actually checked (the candidate
+      // query above deliberately doesn't try to exclude by it — see that
+      // comment). This message's own labelIds, fetched fresh right here,
+      // are authoritative — no search index involved, so no lag and no
+      // risk of the index wrongly flagging an unlabeled message as a match
+      // the way it did for #6497/#6498.
       if (message.labelIds?.includes(processedLabelId)) continue;
       const pdfParts = findPdfParts(message.payload);
 

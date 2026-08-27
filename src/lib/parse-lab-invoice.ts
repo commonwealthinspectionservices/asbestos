@@ -52,8 +52,18 @@ export function extractInvoiceLineItems(pdfText: string): LabInvoiceLineItem[] {
 // anchor. "Sub Total" appears exactly once and always equals the real
 // total in every sample seen (no separate tax/adjustment line ever splits
 // them).
+//
+// Confirmed live 2026-08-27 (invoices #6497/#6498) — Crystal Analytical's
+// invoices aren't all the same template: some come through QuickBooks'
+// own payment-request emails instead, which have no "Sub Total" line at
+// all, just a plain "Total" with the figure on its own line right after
+// ("...Ways to pay\nView and pay\nTotal\n$120.00"). Falls back to that
+// once "Sub Total" comes up empty — required literal "$" so this can't
+// match the "Amount"/"Total" column header alone with no figure behind it.
 export function extractLabInvoiceTotalCents(pdfText: string): number | null {
-  const match = pdfText.match(/Sub\s*Total\s*\$?\s*([\d,]+\.\d{2})/i);
-  if (!match) return null;
-  return Math.round(parseFloat(match[1].replace(/,/g, "")) * 100);
+  const subTotalMatch = pdfText.match(/Sub\s*Total\s*\$?\s*([\d,]+\.\d{2})/i);
+  if (subTotalMatch) return Math.round(parseFloat(subTotalMatch[1].replace(/,/g, "")) * 100);
+  const totalMatch = pdfText.match(/\bTotal\s*\n?\s*\$\s*([\d,]+\.\d{2})/i);
+  if (totalMatch) return Math.round(parseFloat(totalMatch[1].replace(/,/g, "")) * 100);
+  return null;
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isLabInvoiceText, extractLabInvoiceTotalCents } from "../parse-lab-invoice";
+import { isLabInvoiceText, extractLabInvoiceTotalCents, extractInvoiceLineItems } from "../parse-lab-invoice";
 import { extractReportProjectNumber, detectLabInfo } from "../parse-lab-report";
 
 // Excerpt of a real EMSL billing invoice's extracted text (not a results
@@ -45,6 +45,40 @@ Total
 Invoice Date $42.40
 `;
 
+// Real QuickBooks-generated payment-request invoice (Crystal Analytical's
+// own invoice #6497) — confirmed live 2026-08-27: a completely different
+// template from the two EMSL ones above, no "Sub Total" line at all.
+const QUICKBOOKS_INVOICE = `
+INVOICE
+Crystal Analytical LLC
+55 Accord Park Dr Ste 2D
+Rockland, MA 02370-1070
+ccleveland@crystalanalytical.com
++1 (781) 347-3936
+www.crystalanalytical.com
+Bill to
+Tim Hall
+Commonwealth Inspection Services, LLC
+118 Greenacre Rd.
+Westwood, MA 02090
+Invoice details
+Invoice no.: 6497
+Terms: Net 30
+Invoice date: 08/26/2026
+Due date: 09/25/2026
+#
+DateProduct or serviceDescriptionQtyRateAmount
+1.08/26/2026PLM - Bulk CVE, Per-Layer - 24 Hr
+TAT
+2601003647 - 690 Blue Hill Ave,
+Dorchester, MA - 26-0004
+10$12.00$120.00
+Ways to pay
+View and pay
+Total
+$120.00
+`;
+
 // A real results report excerpt (from parse-lab-report.test.ts) — used
 // here only to confirm invoice detection doesn't false-positive on it.
 const REPORT_8_SAMPLES = `
@@ -82,6 +116,22 @@ describe("extractLabInvoiceTotalCents", () => {
 
   it("returns null when there's no Sub Total line at all", () => {
     expect(extractLabInvoiceTotalCents(REPORT_8_SAMPLES)).toBeNull();
+  });
+
+  it("falls back to a plain Total line for a QuickBooks-generated invoice", () => {
+    expect(extractLabInvoiceTotalCents(QUICKBOOKS_INVOICE)).toBe(12000);
+  });
+});
+
+describe("isLabInvoiceText / extractInvoiceLineItems on a QuickBooks invoice", () => {
+  it("still recognizes it as an invoice via its own Invoice no.: line", () => {
+    expect(isLabInvoiceText(QUICKBOOKS_INVOICE)).toBe(true);
+  });
+
+  it("still extracts the project number and amount off its own line item", () => {
+    expect(extractInvoiceLineItems(QUICKBOOKS_INVOICE)).toEqual([
+      { projectNumber: "26-0004", amountCents: 12000 },
+    ]);
   });
 });
 

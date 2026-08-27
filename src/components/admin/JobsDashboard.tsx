@@ -1142,7 +1142,17 @@ function JobRow({
   // The warning icon shows for either field, not just Report — an unsent
   // invoice is just as much "not actually out the door yet" as an unsent
   // report.
-  const showReportInvoice = job.source !== "subcontractor" && reportIsComplete(job) && job.invoice_total_cents != null;
+  // Per Tim, 2026-08-27 — status is the authoritative signal for "this job
+  // is at the report/invoice stage," not just a same-instant side effect of
+  // reportIsComplete/invoice_total_cents. Those two are still checked too
+  // (a job can reach this point before its status label formally catches
+  // up), but "ready_to_send" or later on its own must always be enough —
+  // confirmed live: a job manually set to Report and Invoice Ready didn't
+  // reliably show these lines when only the older two-flag check ran.
+  const showReportInvoice = job.source !== "subcontractor" && (
+    job.status === "ready_to_send" || job.status === "report_invoice_sent"
+    || (reportIsComplete(job) && job.invoice_total_cents != null)
+  );
   const invoiceStatus = showReportInvoice && (
     <span className="flex shrink-0 items-center gap-1 text-sm text-slate-500">
       {job.invoice_sent_at ? `Invoice: Sent ${formatDateTime(job.invoice_sent_at)}` : "Invoice: Not sent"}
@@ -2253,7 +2263,15 @@ export function ProjectDetailDialog({
   // item into a row with no space for it, overflowing the modal
   // horizontally. Both lines always show, sent-or-not, rather than only
   // appearing once something's actually gone out.
-  const showSentStatus = job.source !== "subcontractor" && reportComplete && job.invoice_total_cents != null;
+  // Per Tim, 2026-08-27 — same reasoning as JobRow's own showReportInvoice:
+  // status is the authoritative signal for "this job is at the report/
+  // invoice stage," not just a same-instant side effect of reportComplete/
+  // invoice_total_cents — those can lag behind a status the admin already
+  // set to Report and Invoice Ready by hand.
+  const showSentStatus = job.source !== "subcontractor" && (
+    job.status === "ready_to_send" || job.status === "report_invoice_sent"
+    || (reportComplete && job.invoice_total_cents != null)
+  );
   // Per Tim — exactly the project card's own format (see JobRow), not the
   // earlier longer-sentence version: "Report: Sent/Not sent" with the
   // hazard flag specifically for "the report is ready but hasn't gone out,"

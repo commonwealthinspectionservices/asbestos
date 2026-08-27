@@ -230,10 +230,12 @@ function combinedDraftBodyHtml(job: Job, settings: Settings, totalCents: number,
 const PROCESSED_LABEL = "cis-lab-email-processed";
 
 // Per Tim — every report/invoice this app detects as sent also gets his
-// own "Sent Reports" Gmail label applied, so they're easy to find/filter
-// in his inbox alongside whatever he sends by hand. getOrCreateLabelId
-// finds his existing label by name rather than making a new one.
+// own "Sent Reports"/"Sent Invoices" Gmail label applied, so they're easy
+// to find/filter in his inbox alongside whatever he sends by hand.
+// getOrCreateLabelId finds his existing label by name rather than making a
+// new one.
 const SENT_REPORTS_LABEL = "Sent Reports";
+const SENT_INVOICES_LABEL = "Sent Invoices";
 
 /**
  * Live check for whether a job's drafted report/invoice has actually been
@@ -323,12 +325,22 @@ export async function checkDraftSentStatus(
     await supabase.from("jobs").update(update).eq("id", jobId);
     // Best-effort — a labeling hiccup must never block the sent-status
     // check itself, which the Final Report tab depends on to update the
-    // draft button.
-    try {
-      const labelId = await getOrCreateLabelId(accessToken, SENT_REPORTS_LABEL);
-      await addLabelToMessage(accessToken, resolved.messageId, labelId);
-    } catch (e) {
-      console.error(`Failed to apply "${SENT_REPORTS_LABEL}" label to message ${resolved.messageId}:`, e);
+    // draft button. A combined draft's one message covers both, and its
+    // *other* kind's check would otherwise never run this block at all —
+    // sentAtCol is already set from this same update by the time the other
+    // kind's check comes around, so it short-circuits at the early return
+    // above and never reaches here. Apply both labels now instead of
+    // relying on that second check to add its own.
+    const labelsToApply = isCombinedDraft
+      ? [SENT_REPORTS_LABEL, SENT_INVOICES_LABEL]
+      : [kind === "invoice" ? SENT_INVOICES_LABEL : SENT_REPORTS_LABEL];
+    for (const labelName of labelsToApply) {
+      try {
+        const labelId = await getOrCreateLabelId(accessToken, labelName);
+        await addLabelToMessage(accessToken, resolved.messageId, labelId);
+      } catch (e) {
+        console.error(`Failed to apply "${labelName}" label to message ${resolved.messageId}:`, e);
+      }
     }
     return { status: "sent", sentAt: finalSentAt };
   }

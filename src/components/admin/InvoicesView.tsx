@@ -394,11 +394,17 @@ export default function InvoicesView() {
                     {job.customers?.company || job.customers?.name}
                   </span>
                 </div>
-                {(status === "paid" || job.invoice_sent_at) && (
-                  <div className="mt-0.5 whitespace-normal break-words text-xs text-slate-500 sm:truncate sm:text-sm">
-                    {status === "paid"
-                      ? `Paid ${formatDate(job.paid_date)}`
-                      : `Sent ${formatDate(job.invoice_sent_at!.slice(0, 10))} · Due ${formatDate(dueDateFor(job))}`}
+                {status === "paid" && (
+                  <div className="mt-0.5 text-xs text-slate-500 sm:text-sm">Paid {formatDate(job.paid_date)}</div>
+                )}
+                {/* Per Tim, 2026-08-27 — Sent and Due share one line, Due
+                    pushed to the right edge of this column instead of
+                    trailing inline after Sent (where it could wrap
+                    awkwardly on narrow screens). */}
+                {status !== "paid" && job.invoice_sent_at && (
+                  <div className="mt-0.5 flex items-center justify-between gap-2 text-xs text-slate-500 sm:text-sm">
+                    <span className="whitespace-nowrap">Sent {formatDate(job.invoice_sent_at.slice(0, 10))}</span>
+                    <span className="whitespace-nowrap">Due {formatDate(dueDateFor(job))}</span>
                   </div>
                 )}
               </div>

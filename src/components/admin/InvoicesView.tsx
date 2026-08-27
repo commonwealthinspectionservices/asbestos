@@ -378,51 +378,45 @@ export default function InvoicesView() {
             <button
               key={job.id}
               onClick={() => setSelectedJobId(job.id)}
-              className="flex w-full items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3 text-left hover:border-brand-400"
+              className="flex w-full flex-col gap-0.5 rounded-lg border border-slate-200 bg-white p-3 text-left hover:border-brand-400"
             >
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+              <div className="flex w-full items-center justify-between gap-2">
+                <div className="flex min-w-0 flex-nowrap items-center gap-1.5">
                   {job.project_number && (
-                    <span className="shrink-0 whitespace-nowrap rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-mono text-slate-600 sm:text-xs">{job.project_number}</span>
+                    <span className="shrink-0 whitespace-nowrap rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-mono text-slate-600 sm:text-xs">{job.project_number}</span>
                   )}
-                  {/* Per Tim, 2026-08-27 — mobile shrinks the text and wraps
-                      instead of truncating, so a long company name is
-                      readable in full rather than cut off with "…".
-                      Desktop keeps its original size and single-line
-                      truncation, unchanged. */}
-                  <span className="min-w-0 whitespace-normal break-words text-sm font-medium text-slate-800 sm:truncate sm:text-base">
+                  {/* Per Tim, 2026-08-27 — company, price, and status all
+                      stay on one line together (this used to wrap company
+                      onto its own line below the project #). Truncates
+                      only as a last resort for a name too long to fit
+                      alongside everything else — a normal-length one now
+                      has real room instead of being squeezed against the
+                      price/pill column. */}
+                  <span className="min-w-0 truncate text-sm font-medium text-slate-800 sm:text-base">
                     {job.customers?.company || job.customers?.name}
                   </span>
                 </div>
-                {status === "paid" && (
-                  <div className="mt-0.5 text-xs text-slate-500 sm:text-sm">Paid {formatDate(job.paid_date)}</div>
-                )}
-                {/* Per Tim, 2026-08-27 — Sent and Due share one line, Due
-                    pushed to the right edge of this column instead of
-                    trailing inline after Sent (where it could wrap
-                    awkwardly on narrow screens). */}
-                {status !== "paid" && job.invoice_sent_at && (
-                  <div className="mt-0.5 flex items-center justify-between gap-2 text-xs text-slate-500 sm:text-sm">
-                    <span className="whitespace-nowrap">Sent {formatDate(job.invoice_sent_at.slice(0, 10))}</span>
-                    <span className="whitespace-nowrap">Due {formatDate(dueDateFor(job))}</span>
-                  </div>
-                )}
-                {/* Per Tim, 2026-08-27 — a Ready to Send row otherwise had
-                    no second line at all, reading as visually shorter/
-                    different from a Sent row right above/below it. Same
-                    row shape as Sent's own line, just with nothing to show
-                    on the left yet. */}
-                {status === "ready_to_send" && (
-                  <div className="mt-0.5 flex items-center justify-between gap-2 text-xs text-slate-500 sm:text-sm">
-                    <span />
-                    <span className="whitespace-nowrap">Due {formatDate(dueDateFor(job))}</span>
-                  </div>
-                )}
+                <div className="flex shrink-0 items-center gap-2">
+                  <span className="whitespace-nowrap text-sm font-semibold text-slate-800">{formatCents(job.invoice_total_cents ?? 0)}</span>
+                  {/* Per Tim, 2026-08-27 — fixed width so every status pill
+                      lines up the same regardless of label length ("Ready
+                      to Send" vs "Sent"). */}
+                  <span className={`w-24 shrink-0 whitespace-nowrap rounded-lg px-1.5 py-1 text-center text-[11px] font-medium sm:w-28 sm:px-2 sm:text-xs ${STATUS_COLOR[status]}`}>{STATUS_LABEL[status]}</span>
+                </div>
               </div>
-              <div className="flex shrink-0 items-center gap-3">
-                <span className="text-sm font-semibold text-slate-800">{formatCents(job.invoice_total_cents ?? 0)}</span>
-                <span className={`rounded-lg px-2 py-1 text-xs font-medium ${STATUS_COLOR[status]}`}>{STATUS_LABEL[status]}</span>
-              </div>
+              {status === "paid" && (
+                <div className="text-xs text-slate-500 sm:text-sm">Paid {formatDate(job.paid_date)}</div>
+              )}
+              {/* Per Tim, 2026-08-27 — Due pushed all the way to the card's
+                  own right edge (matching the price/pill column above it),
+                  not just the right edge of the company/project column —
+                  spans the full row instead of nesting inside that column. */}
+              {status !== "paid" && (
+                <div className="flex w-full items-center justify-between gap-2 text-xs text-slate-500 sm:text-sm">
+                  <span className="whitespace-nowrap">{job.invoice_sent_at ? `Sent ${formatDate(job.invoice_sent_at.slice(0, 10))}` : ""}</span>
+                  <span className="whitespace-nowrap">Due {formatDate(dueDateFor(job))}</span>
+                </div>
+              )}
             </button>
           ))}
         </div>

@@ -1071,7 +1071,9 @@ async function draftInvoiceEmailForJob(params: {
   const draft = await createDraft(accessToken, {
     to: toCustomer.email,
     cc: [...new Set(ccRecipients)].join(", ") || undefined,
-    subject: `Invoice - ${expandAddress(pricedJob.service_address)}`,
+    // Per Tim, 2026-08-27 — always exactly this, regardless of service
+    // type(s) on the job.
+    subject: `Inspection Invoice - ${expandAddress(pricedJob.service_address)}`,
     bodyHtml: invoiceDraftBodyHtml(pricedJob, settings, totalCents, payNowUrl),
     attachments: [
       { filename: `Invoice-${pricedJob.project_number ?? job.id}.pdf`, mimeType: "application/pdf", content: invoicePdf },

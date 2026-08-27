@@ -1088,7 +1088,9 @@ async function draftInvoiceEmailForJob(params: {
     subject: `Inspection Invoice - ${expandAddress(pricedJob.service_address)}`,
     bodyHtml: invoiceDraftBodyHtml(pricedJob, settings, payNowUrl),
     attachments: [
-      { filename: `Invoice-${pricedJob.project_number ?? job.id}.pdf`, mimeType: "application/pdf", content: invoicePdf },
+      // Per Tim, 2026-08-27 — every PDF filename starts with the job
+      // number, not the document type.
+      { filename: `${pricedJob.project_number ?? job.id}-Invoice.pdf`, mimeType: "application/pdf", content: invoicePdf },
     ],
   });
 
@@ -1391,7 +1393,7 @@ async function draftCombinedEmailForJob(params: {
         mimeType: "application/pdf",
         content: buffer,
       })),
-      { filename: `Invoice-${pricedJob.project_number ?? job.id}.pdf`, mimeType: "application/pdf", content: invoicePdf },
+      { filename: `${pricedJob.project_number ?? job.id}-Invoice.pdf`, mimeType: "application/pdf", content: invoicePdf },
     ],
   });
 

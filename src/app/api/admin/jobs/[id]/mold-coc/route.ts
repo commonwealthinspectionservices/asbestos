@@ -42,7 +42,7 @@ export const GET = withApiErrors(async (
   return new NextResponse(new Uint8Array(pdf), {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `${disposition}; filename="mold-coc-${sampleType}-${jobRow.project_number ?? params.id}.pdf"`,
+      "Content-Disposition": `${disposition}; filename="${jobRow.project_number ?? params.id}-mold-coc-${sampleType}.pdf"`,
     },
   });
 });

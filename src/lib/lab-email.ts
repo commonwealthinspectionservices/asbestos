@@ -548,10 +548,18 @@ async function replaceDocumentsByKindAndServiceType(
   const superseded = existing.filter((d) =>
     incoming.some((n) => n.kind === d.kind && n.service_type === d.service_type)
   );
-  if (superseded.length > 0) {
-    await supabase.storage.from("job-documents").remove(superseded.map((d) => d.storage_path));
-  }
   const kept = existing.filter((d) => !superseded.includes(d));
+  // Confirmed live 2026-08-27 (26-0007) — a combined report's one PDF can
+  // legitimately be filed under more than one label (see reportDocuments'
+  // own comment), meaning two different kept/superseded rows can share the
+  // same storage_path. Deleting a superseded row's file unconditionally
+  // broke the OTHER row still pointing at it. Only delete a path nothing in
+  // the final result (kept or incoming) still references.
+  const stillReferenced = new Set([...kept, ...incoming].map((d) => d.storage_path));
+  const pathsToDelete = superseded.map((d) => d.storage_path).filter((p) => !stillReferenced.has(p));
+  if (pathsToDelete.length > 0) {
+    await supabase.storage.from("job-documents").remove(pathsToDelete);
+  }
   return [...kept, ...incoming];
 }
 

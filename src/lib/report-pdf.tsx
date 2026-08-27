@@ -903,9 +903,14 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
   // (confirmed against a real air+bulk+swab combo report, "MOLD GOLD.pdf");
   // a single shared field would misattribute one type's findings under
   // another's heading on a combo job.
-  const airDiscussionParagraphs = paragraphsFromText(job.mold_air_discussion);
-  const bulkDiscussionParagraphs = paragraphsFromText(job.mold_bulk_discussion);
-  const swabDiscussionParagraphs = paragraphsFromText(job.mold_swab_discussion);
+  // blocksFromText (not paragraphsFromText) — Per Tim, 2026-08-27, the
+  // same bullet/numbered-list toolbar buttons on Conclusions &
+  // Recommendations now also sit on each of these three Discussion of
+  // Results cells, so their "• "/"1. " markers need the same list
+  // rendering, not a literal bullet character inside a plain paragraph.
+  const airDiscussionBlocks = blocksFromText(job.mold_air_discussion);
+  const bulkDiscussionBlocks = blocksFromText(job.mold_bulk_discussion);
+  const swabDiscussionBlocks = blocksFromText(job.mold_swab_discussion);
   const isNewtonFireFlood = customer.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID;
   const standardConclusionBlocks = isNewtonFireFlood ? blocksFromText(NEWTON_FIRE_FLOOD_STANDARD_MOLD_CONCLUSION) : [];
 
@@ -1045,7 +1050,7 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
                 block above so a long job-specific narrative can still wrap
                 across a page break normally, rather than being forced into
                 one unbreakable chunk alongside the fixed paragraphs. */}
-            {airDiscussionParagraphs.map((p, i) => <Text style={styles.paragraph} key={i}>{p}</Text>)}
+            <RenderTextBlocks blocks={airDiscussionBlocks} />
           </>
         )}
         {hasBulk && (
@@ -1054,7 +1059,7 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
               <Text style={styles.subHeading}>{bulkDiscussionNumber}. Bulk Sampling for Mold:</Text>
               <Text style={styles.paragraph}>{bulkSampleCountSentence}</Text>
             </View>
-            {bulkDiscussionParagraphs.map((p, i) => <Text style={styles.paragraph} key={i}>{p}</Text>)}
+            <RenderTextBlocks blocks={bulkDiscussionBlocks} />
           </>
         )}
         {hasSwab && (
@@ -1063,7 +1068,7 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
               <Text style={styles.subHeading}>{swabDiscussionNumber}. Swab Sampling for Mold:</Text>
               <Text style={styles.paragraph}>{swabSampleCountSentence}</Text>
             </View>
-            {swabDiscussionParagraphs.map((p, i) => <Text style={styles.paragraph} key={i}>{p}</Text>)}
+            <RenderTextBlocks blocks={swabDiscussionBlocks} />
           </>
         )}
         {!hasAir && !hasBulk && !hasSwab && <Text style={styles.paragraph}>NO RESULTS YET.</Text>}

@@ -191,6 +191,8 @@ export interface JobDocument {
   uploaded_at: string;
   /** Set when this lab report's own project number (read off its "Project:" line) doesn't match the job it was uploaded to — likely uploaded to the wrong project by mistake. Holds the report's actual project number for display; null/absent when it matched or couldn't be determined. */
   project_number_mismatch?: string | null;
+  /** Set true when this lab_report's own content doesn't look like the domain (mold vs. asbestos/lead) implied by service_type — e.g. a mold report's "fungal" language showing up on a document filed as asbestos, or vice versa. Same mislabeling class that hit 26-0007/26-0008; null/absent when they agreed or it couldn't be determined. */
+  domain_mismatch?: boolean | null;
 }
 
 /** A photo uploaded to a project's Photos tab (job-photos storage bucket) — either side can add these, unlike `documents` which is admin-only lab paperwork. */

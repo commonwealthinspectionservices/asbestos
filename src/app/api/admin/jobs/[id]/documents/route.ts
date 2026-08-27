@@ -57,6 +57,7 @@ export const POST = withApiErrors(async (
 
   const update: Record<string, unknown> = {};
   let projectNumberMismatch: string | null = null;
+  let domainMismatch = false;
 
   // Lab results PDFs list one row (asbestos) or one column (mold's
   // Air-O-Cell/Swab genus tables) per physical sample — pull the count
@@ -68,6 +69,15 @@ export const POST = withApiErrors(async (
       const { text } = await pdfParse(fileBuffer);
       const isMold = /mold/i.test(serviceType);
       const isLead = /lead/i.test(serviceType);
+      // Per Tim, 2026-08-27 — same "fungal" signal the automated lab-email
+      // path uses to tell mold and asbestos reports apart (see
+      // isMoldLabReport in lib/lab-email.ts), checked here too: a manual
+      // upload is picked by hand, so this catches the admin choosing the
+      // wrong service type from the dropdown, not just an automated
+      // misclassification. Only flags mold vs. not-mold — lead reports
+      // don't have their own equivalent keyword yet.
+      const looksLikeFungalReport = /fungal/i.test(text);
+      if (!isLead && isMold !== looksLikeFungalReport) domainMismatch = true;
 
       // See pdf-position-text.ts — Crystal Analytical's tables (and its
       // "Date(s) Sampled:"/"Collected:" line, see extractSampledDate) only
@@ -222,6 +232,7 @@ export const POST = withApiErrors(async (
       storage_path: storagePath,
       uploaded_at: new Date().toISOString(),
       project_number_mismatch: projectNumberMismatch,
+      domain_mismatch: domainMismatch || null,
     },
   ];
 

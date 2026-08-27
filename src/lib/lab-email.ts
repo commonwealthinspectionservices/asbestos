@@ -897,10 +897,12 @@ async function processMatchedLabEmail(params: {
       update.lab_massdls_cert = labInfo.massdlsCert;
     }
   }
+  let asbestosDataFound = false;
   if (isAsbestos) {
     const asbestosResult = detectAsbestosResult(pdfText, positionOrderedText);
     if (asbestosResult != null) {
       update.asbestos_result = asbestosResult;
+      asbestosDataFound = true;
       // Same fix as the manual upload route — the positive/negative flag
       // alone doesn't fill in the letter's findings sentence
       // (report_summary), which otherwise only ever got set by an admin
@@ -911,7 +913,28 @@ async function processMatchedLabEmail(params: {
       }
     }
     const sampleResults = extractSampleResults(pdfText, positionOrderedText);
-    if (sampleResults.length > 0) update.sample_results = sampleResults;
+    if (sampleResults.length > 0) { update.sample_results = sampleResults; asbestosDataFound = true; }
+  }
+  // Per Tim, 2026-08-27 — isMoldLabReport's own "fungal" keyword is the
+  // only thing standing between a report landing on the right domain or
+  // the wrong one (this exact mistake — a mold report's content filed
+  // under the asbestos label — has now happened twice, 26-0007/26-0008).
+  // Independent of that keyword: whichever domain this report was just
+  // classified into should also have actually produced real, parseable
+  // data for that domain. When it didn't, isMoldLabReport's verdict is
+  // likely wrong for this specific email — rather than silently filing a
+  // report that doesn't match its own label, alert immediately so this
+  // gets caught before a customer ever sees it, not after.
+  const domainDataFound = isMold ? reportedMoldLabels.size > 0 : asbestosDataFound;
+  if (!domainDataFound) {
+    await sendEmail({
+      to: process.env.OWNER_EMAIL!,
+      subject: `Lab report may be filed under the wrong domain — ${job.project_number ?? job.id}`,
+      html: emailShell(`
+        <p style="font-size:15px;">This report was just filed on ${escapeHtml(job.project_number ?? job.id)} as <strong>${isMold ? "mold" : "asbestos"}</strong> (subject: "${escapeHtml(subject)}"), but no ${isMold ? "mold" : "asbestos"}-shaped results could actually be read out of it.</p>
+        <p>That's exactly how the mold/asbestos mislabeling bug showed up before — please open the job's Laboratory Paperwork and double-check this document is the right one before the report goes out.</p>
+      `),
+    }).catch(() => {});
   }
 
   // Crystal Analytical (and similarly-shaped labs) email back one PDF with

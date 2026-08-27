@@ -389,6 +389,46 @@ function DraftLinkControl({
   );
 }
 
+// Shared by Conclusions & Recommendations and every Discussion of Results
+// cell (air/bulk/swab) — Per Tim, 2026-08-27, these two buttons belong on
+// all of them, not just Conclusions & Recommendations.
+function ListFormatButtons({ onBullet, onNumbered }: { onBullet: () => void; onNumbered: () => void }) {
+  return (
+    <div className="flex items-center gap-1">
+      <button
+        type="button"
+        onClick={onBullet}
+        title="Bullet list"
+        className="rounded border border-slate-300 p-1.5 text-slate-600 hover:bg-slate-50"
+      >
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="2" cy="3.5" r="1.25" fill="currentColor" />
+          <circle cx="2" cy="8" r="1.25" fill="currentColor" />
+          <circle cx="2" cy="12.5" r="1.25" fill="currentColor" />
+          <rect x="5.5" y="2.75" width="9" height="1.5" rx="0.5" fill="currentColor" />
+          <rect x="5.5" y="7.25" width="9" height="1.5" rx="0.5" fill="currentColor" />
+          <rect x="5.5" y="11.75" width="9" height="1.5" rx="0.5" fill="currentColor" />
+        </svg>
+      </button>
+      <button
+        type="button"
+        onClick={onNumbered}
+        title="Numbered list"
+        className="rounded border border-slate-300 p-1.5 text-slate-600 hover:bg-slate-50"
+      >
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <text x="0.5" y="4.6" fontSize="4" fontWeight="700" fill="currentColor">1</text>
+          <text x="0.5" y="9.1" fontSize="4" fontWeight="700" fill="currentColor">2</text>
+          <text x="0.5" y="13.6" fontSize="4" fontWeight="700" fill="currentColor">3</text>
+          <rect x="5.5" y="2.75" width="9" height="1.5" rx="0.5" fill="currentColor" />
+          <rect x="5.5" y="7.25" width="9" height="1.5" rx="0.5" fill="currentColor" />
+          <rect x="5.5" y="11.75" width="9" height="1.5" rx="0.5" fill="currentColor" />
+        </svg>
+      </button>
+    </div>
+  );
+}
+
 function formatTime(time: string | null | undefined): string {
   if (!time) return "";
   const [h, m] = time.split(":").map(Number);
@@ -1755,6 +1795,9 @@ export function ProjectDetailDialog({
   const [moldBulkDiscussionInput, setMoldBulkDiscussionInput] = useState(job.mold_bulk_discussion ?? "");
   const [moldSwabDiscussionInput, setMoldSwabDiscussionInput] = useState(job.mold_swab_discussion ?? "");
   const [moldReportNotesInput, setMoldReportNotesInput] = useState(job.mold_report_notes ?? "");
+  const moldAirDiscussionRef = useRef<HTMLTextAreaElement>(null);
+  const moldBulkDiscussionRef = useRef<HTMLTextAreaElement>(null);
+  const moldSwabDiscussionRef = useRef<HTMLTextAreaElement>(null);
   const moldReportNotesRef = useRef<HTMLTextAreaElement>(null);
   // Which domain's report is showing on the Report tab — a job combining
   // service types from more than one domain (e.g. asbestos + mold) gets
@@ -2070,9 +2113,16 @@ export function ProjectDetailDialog({
   // other button swaps the style instead of stacking markers. The PDF
   // renderer (report-pdf.tsx's blocksFromText) recognizes these same
   // markers and renders them as an actual bulleted/numbered list, not a
-  // literal "•"/digit in the paragraph text.
-  function applyMoldNotesListFormat(ordered: boolean) {
-    const textarea = moldReportNotesRef.current;
+  // literal "•"/digit in the paragraph text. Generic over which textarea —
+  // Per Tim, 2026-08-27, the same two buttons belong on every Discussion
+  // of Results cell (air/bulk/swab), not just Conclusions & Recommendations.
+  function applyListFormat(
+    textareaRef: React.RefObject<HTMLTextAreaElement | null>,
+    setValue: (v: string) => void,
+    saveValue: (v: string) => void,
+    ordered: boolean,
+  ) {
+    const textarea = textareaRef.current;
     if (!textarea) return;
     const { selectionStart, selectionEnd, value } = textarea;
     const lineStart = value.lastIndexOf("\n", selectionStart - 1) + 1;
@@ -2086,8 +2136,8 @@ export function ProjectDetailDialog({
       })
       .join("\n");
     const newValue = value.slice(0, lineStart) + formatted + value.slice(lineEnd);
-    setMoldReportNotesInput(newValue);
-    saveMoldReportNotes(newValue);
+    setValue(newValue);
+    saveValue(newValue);
     requestAnimationFrame(() => {
       textarea.focus();
       textarea.setSelectionRange(lineStart + formatted.length, lineStart + formatted.length);
@@ -3012,10 +3062,17 @@ export function ProjectDetailDialog({
                                 one of "Mold Air/Bulk/Swab Sampling". */}
                             {group.domain === "mold" && label.toLowerCase().includes("air") && (
                               <div className="mt-3 rounded-lg border border-slate-200 p-3">
-                                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
-                                  {label} Discussion of Results
-                                </label>
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
+                                    {label} Discussion of Results
+                                  </label>
+                                  <ListFormatButtons
+                                    onBullet={() => applyListFormat(moldAirDiscussionRef, setMoldAirDiscussionInput, saveMoldAirDiscussion, false)}
+                                    onNumbered={() => applyListFormat(moldAirDiscussionRef, setMoldAirDiscussionInput, saveMoldAirDiscussion, true)}
+                                  />
+                                </div>
                                 <textarea
+                                  ref={moldAirDiscussionRef}
                                   className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
                                   rows={4}
                                   value={moldAirDiscussionInput}
@@ -3027,10 +3084,17 @@ export function ProjectDetailDialog({
                             )}
                             {group.domain === "mold" && label.toLowerCase().includes("bulk") && (
                               <div className="mt-3 rounded-lg border border-slate-200 p-3">
-                                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
-                                  {label} Discussion of Results
-                                </label>
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
+                                    {label} Discussion of Results
+                                  </label>
+                                  <ListFormatButtons
+                                    onBullet={() => applyListFormat(moldBulkDiscussionRef, setMoldBulkDiscussionInput, saveMoldBulkDiscussion, false)}
+                                    onNumbered={() => applyListFormat(moldBulkDiscussionRef, setMoldBulkDiscussionInput, saveMoldBulkDiscussion, true)}
+                                  />
+                                </div>
                                 <textarea
+                                  ref={moldBulkDiscussionRef}
                                   className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
                                   rows={4}
                                   value={moldBulkDiscussionInput}
@@ -3042,10 +3106,17 @@ export function ProjectDetailDialog({
                             )}
                             {group.domain === "mold" && label.toLowerCase().includes("swab") && (
                               <div className="mt-3 rounded-lg border border-slate-200 p-3">
-                                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
-                                  {label} Discussion of Results
-                                </label>
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
+                                    {label} Discussion of Results
+                                  </label>
+                                  <ListFormatButtons
+                                    onBullet={() => applyListFormat(moldSwabDiscussionRef, setMoldSwabDiscussionInput, saveMoldSwabDiscussion, false)}
+                                    onNumbered={() => applyListFormat(moldSwabDiscussionRef, setMoldSwabDiscussionInput, saveMoldSwabDiscussion, true)}
+                                  />
+                                </div>
                                 <textarea
+                                  ref={moldSwabDiscussionRef}
                                   className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
                                   rows={4}
                                   value={moldSwabDiscussionInput}
@@ -3121,38 +3192,10 @@ export function ProjectDetailDialog({
                                     ? "Additional Conclusions & Recommendations"
                                     : "Conclusions & Recommendations"}
                                 </label>
-                                <div className="flex items-center gap-1">
-                                  <button
-                                    type="button"
-                                    onClick={() => applyMoldNotesListFormat(false)}
-                                    title="Bullet list"
-                                    className="rounded border border-slate-300 p-1.5 text-slate-600 hover:bg-slate-50"
-                                  >
-                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                      <circle cx="2" cy="3.5" r="1.25" fill="currentColor" />
-                                      <circle cx="2" cy="8" r="1.25" fill="currentColor" />
-                                      <circle cx="2" cy="12.5" r="1.25" fill="currentColor" />
-                                      <rect x="5.5" y="2.75" width="9" height="1.5" rx="0.5" fill="currentColor" />
-                                      <rect x="5.5" y="7.25" width="9" height="1.5" rx="0.5" fill="currentColor" />
-                                      <rect x="5.5" y="11.75" width="9" height="1.5" rx="0.5" fill="currentColor" />
-                                    </svg>
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => applyMoldNotesListFormat(true)}
-                                    title="Numbered list"
-                                    className="rounded border border-slate-300 p-1.5 text-slate-600 hover:bg-slate-50"
-                                  >
-                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                      <text x="0.5" y="4.6" fontSize="4" fontWeight="700" fill="currentColor">1</text>
-                                      <text x="0.5" y="9.1" fontSize="4" fontWeight="700" fill="currentColor">2</text>
-                                      <text x="0.5" y="13.6" fontSize="4" fontWeight="700" fill="currentColor">3</text>
-                                      <rect x="5.5" y="2.75" width="9" height="1.5" rx="0.5" fill="currentColor" />
-                                      <rect x="5.5" y="7.25" width="9" height="1.5" rx="0.5" fill="currentColor" />
-                                      <rect x="5.5" y="11.75" width="9" height="1.5" rx="0.5" fill="currentColor" />
-                                    </svg>
-                                  </button>
-                                </div>
+                                <ListFormatButtons
+                                  onBullet={() => applyListFormat(moldReportNotesRef, setMoldReportNotesInput, saveMoldReportNotes, false)}
+                                  onNumbered={() => applyListFormat(moldReportNotesRef, setMoldReportNotesInput, saveMoldReportNotes, true)}
+                                />
                               </div>
                               {/* The two fixed generic-IAQ paragraphs (air-inclusive
                                   jobs only) render unconditionally in the PDF — see
@@ -3887,6 +3930,11 @@ function DocumentStation({
                 {doc.project_number_mismatch && (
                   <p className="bg-red-600 px-2 py-1 text-xs font-bold text-white">
                     ⚠ Report says {doc.project_number_mismatch}. This job is {job.project_number}.
+                  </p>
+                )}
+                {doc.domain_mismatch && (
+                  <p className="bg-red-600 px-2 py-1 text-xs font-bold text-white">
+                    ⚠ This report's content doesn't look like {serviceTypeLabel(doc.service_type)} — double-check it's the right file before this goes out.
                   </p>
                 )}
               </div>

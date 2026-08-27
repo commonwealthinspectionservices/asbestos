@@ -2164,6 +2164,28 @@ export function ProjectDetailDialog({
   // Simpler to just not render a report preview at all until every field
   // it needs is actually filled in, rather than showing a part-blank letter.
   const reportComplete = reportIsComplete(job);
+  // Per Tim — the report/invoice sent-status lines. Two renderings, not one
+  // responsive one: on desktop an absolute overlay across from Job site
+  // address (see the Project Info tab body below), on mobile a plain block
+  // right under the Project #/Edit row instead — nesting it in that same
+  // flex row and just switching position:static there forced a third flex
+  // item into a row with no space for it, overflowing the modal
+  // horizontally. Both lines always show, sent-or-not, rather than only
+  // appearing once something's actually gone out.
+  const showSentStatus = job.source !== "subcontractor" && reportComplete && job.invoice_total_cents != null;
+  // Per Tim — exactly the project card's own format (see JobRow), not the
+  // earlier longer-sentence version: "Report: Sent/Not sent" with the
+  // hazard flag specifically for "the report is ready but hasn't gone out,"
+  // never the invoice.
+  const sentStatusLines = (
+    <div className="flex flex-col items-start text-sm text-slate-500">
+      <span className="flex items-center gap-1">
+        Report: {job.report_sent_at ? `Sent ${formatDateTime(job.report_sent_at)}` : "Not sent"}
+        {!job.report_sent_at && <HazardIcon />}
+      </span>
+      <span>Invoice: {job.invoice_sent_at ? `Sent ${formatDateTime(job.invoice_sent_at)}` : "Not sent"}</span>
+    </div>
+  );
   // No manual "Create Draft" step — the moment both the report and invoice
   // are actually ready (and nothing's been drafted yet), fire it off on its
   // own. combinedDraft.creating guards against double-firing while the
@@ -2421,46 +2443,11 @@ export function ProjectDetailDialog({
                   </a>
                 ) : null;
               })();
-              // Per Tim — the report/invoice sent-status lines. Two
-              // renderings below, not one responsive one: nested inside the
-              // Project #/Edit row as an absolute overlay on desktop (so it
-              // sits right under the mail icon/Edit without pushing Status
-              // down — no gap between Project # and Status), but as a plain
-              // block underneath on mobile instead — nesting it in that same
-              // flex row and just switching position:static there forced a
-              // third flex item into a row with no space for it, overflowing
-              // the modal horizontally. Both lines always show, sent-or-not,
-              // rather than only appearing once something's actually gone
-              // out.
-              const showSentStatus = job.source !== "subcontractor" && reportComplete && job.invoice_total_cents != null;
-              // Per Tim — exactly the project card's own format (see
-              // JobRow), not the earlier longer-sentence version: "Report:
-              // Sent/Not sent" with the hazard flag specifically for "the
-              // report is ready but hasn't gone out," never the invoice.
-              const sentStatusLines = (
-                <div className="flex flex-col items-start text-sm text-slate-500">
-                  <span className="flex items-center gap-1">
-                    Report: {job.report_sent_at ? `Sent ${formatDateTime(job.report_sent_at)}` : "Not sent"}
-                    {!job.report_sent_at && <HazardIcon />}
-                  </span>
-                  <span>Invoice: {job.invoice_sent_at ? `Sent ${formatDateTime(job.invoice_sent_at)}` : "Not sent"}</span>
-                </div>
-              );
               return (
                 <>
                   {/* Edit stays top-right next to Project # at every width; the portal badge (subcontractor jobs only) sits beside Edit on desktop, same as always. */}
                   <div className="relative flex items-center justify-between gap-2">
                     <DetailField label="Project #" value={job.project_number} />
-                    {/* Per Tim — pulled out of the Edit cluster and given its
-                        own centered slot in the row instead of sitting flush
-                        against Edit. Desktop only (hidden sm:flex) — at
-                        mobile widths this row has no room left for a third
-                        item alongside Project # and Edit, so it drops to its
-                        own centered line below instead (same sm:hidden
-                        split sentStatusLines already uses just below). */}
-                    {job.source !== "subcontractor" && (
-                      <div className="hidden flex-1 justify-center sm:flex">{turnaroundControl}</div>
-                    )}
                     <div className="flex shrink-0 items-center gap-2">
                       <span className="hidden sm:inline-flex">{portalBadge}</span>
                       {/* Per Tim — a quick way to jump to this job's whole
@@ -2488,9 +2475,6 @@ export function ProjectDetailDialog({
                         Edit
                       </button>
                     </div>
-                    {showSentStatus && (
-                      <div className="absolute right-0 top-full mt-3 hidden flex-col items-end sm:flex">{sentStatusLines}</div>
-                    )}
                   </div>
                   {job.source !== "subcontractor" && (
                     <div className="mt-3 flex justify-start sm:hidden">{turnaroundControl}</div>
@@ -2530,24 +2514,34 @@ export function ProjectDetailDialog({
                 )}
               </div>
             )}
-            <DetailField
-              label="Job site address"
-              value={job.service_address ? (() => {
-                const { street, cityStateZip } = splitAddress(job.service_address);
-                return (
-                  <a href={googleMapsUrl(job.service_address)} target="_blank" rel="noreferrer" className="hover:underline">
-                    {/* Desktop: unchanged single-line address. */}
-                    <span className="hidden sm:inline">{expandAddress(job.service_address)}</span>
-                    {/* Mobile: street, then town/state/zip on its own line — matching the project list card. */}
-                    <span className="sm:hidden">
-                      <span className="block">{expandAddress(street)}</span>
-                      {cityStateZip && <span className="block">{expandAddress(cityStateZip)}</span>}
-                    </span>
-                  </a>
-                );
-              })() : null}
-              nowrap
-            />
+            {/* Per Tim — the Report/Invoice sent-status lines moved down
+                from the header to sit here instead, right-aligned on
+                desktop: two lines tall, so they line up against this row
+                and Requested date right below it. Mobile keeps its own
+                separate left-aligned block above (sm:hidden there). */}
+            <div className="relative">
+              <DetailField
+                label="Job site address"
+                value={job.service_address ? (() => {
+                  const { street, cityStateZip } = splitAddress(job.service_address);
+                  return (
+                    <a href={googleMapsUrl(job.service_address)} target="_blank" rel="noreferrer" className="hover:underline">
+                      {/* Desktop: unchanged single-line address. */}
+                      <span className="hidden sm:inline">{expandAddress(job.service_address)}</span>
+                      {/* Mobile: street, then town/state/zip on its own line — matching the project list card. */}
+                      <span className="sm:hidden">
+                        <span className="block">{expandAddress(street)}</span>
+                        {cityStateZip && <span className="block">{expandAddress(cityStateZip)}</span>}
+                      </span>
+                    </a>
+                  );
+                })() : null}
+                nowrap
+              />
+              {showSentStatus && (
+                <div className="absolute right-0 top-0 hidden flex-col items-end sm:flex">{sentStatusLines}</div>
+              )}
+            </div>
             {job.source === "subcontractor" ? (
               job.status === "needs_scheduling" ? (
                 <>
@@ -2594,14 +2588,21 @@ export function ProjectDetailDialog({
                       : formatDate(job.confirmed_date ?? job.requested_date) || "—"
                   }
                 />
-                <DetailField
-                  label={hasCompletedFieldwork(job.status) ? "Completed time" : "Scheduled time"}
-                  value={
-                    job.status === "needs_scheduling"
-                      ? formatTime(job.confirmed_time) || "—"
-                      : formatTime(job.confirmed_time ?? job.requested_time) || "—"
-                  }
-                />
+                {/* Per Tim — the Turnaround toggle moved down from the
+                    header to sit here instead, right-aligned on desktop
+                    across from Completed/Scheduled time. Mobile keeps its
+                    own separate left-aligned line above (sm:hidden there). */}
+                <div className="relative">
+                  <DetailField
+                    label={hasCompletedFieldwork(job.status) ? "Completed time" : "Scheduled time"}
+                    value={
+                      job.status === "needs_scheduling"
+                        ? formatTime(job.confirmed_time) || "—"
+                        : formatTime(job.confirmed_time ?? job.requested_time) || "—"
+                    }
+                  />
+                  <div className="absolute right-0 top-0 hidden sm:flex">{turnaroundControl}</div>
+                </div>
               </>
             )}
             {job.confirmation_sent_at && (

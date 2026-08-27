@@ -186,10 +186,9 @@ const COMBINED_DRAFT_DOMAIN_REPORT_LABEL: Record<ReportDomain, string> = {
 
 function combinedDraftBodyHtml(job: Job, settings: Settings, totalCents: number, payNowUrl: string | null): string {
   const domains = jobReportDomains(job.service_type);
-  const inspector = primaryInspector(settings);
   return [
-    `Site: ${escapeHtml(expandAddress(job.service_address))}`,
-    `Date of Sampling: ${escapeHtml(formatDateMMDDYYYY(job.requested_date))}`,
+    `<strong>Site: ${escapeHtml(expandAddress(job.service_address))}</strong>`,
+    `<strong>Date of Sampling: ${escapeHtml(formatDateMMDDYYYY(job.requested_date))}</strong>`,
     "",
     "Hi,",
     "",
@@ -197,9 +196,13 @@ function combinedDraftBodyHtml(job: Job, settings: Settings, totalCents: number,
     "",
     ...domains.map((d) => `&bull; ${COMBINED_DRAFT_DOMAIN_REPORT_LABEL[d]}`),
     "&bull; Invoice",
-    ...(payNowUrl ? ["", `<a href="${escapeHtml(payNowUrl)}">LINK TO PAY</a>`] : []),
+    ...(payNowUrl ? ["", `<a href="${escapeHtml(payNowUrl)}">Link to pay</a>`] : []),
     "",
-    `Should you have any questions or need additional information, please contact ${escapeHtml(inspector.name)} at ${escapeHtml(settings.business_phone)}.`,
+    // Per Tim, 2026-08-26 — hardcoded rather than primaryInspector(settings).name
+    // (which is "Timothy Hall," the formal name the report/invoice PDFs'
+    // signature blocks use) so this casual line matches the sign-off below
+    // (SIGNATURE_LINES), which has always said "Tim Hall."
+    `Should you have any questions or need additional information, please contact Tim Hall at ${escapeHtml(settings.business_phone)}.`,
     "",
     "Thank you for the opportunity to provide you with our services and we look forward to working together in the future.",
     "",

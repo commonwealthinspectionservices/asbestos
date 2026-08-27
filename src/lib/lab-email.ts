@@ -522,15 +522,51 @@ export async function checkForLabResultEmails(): Promise<LabEmailCheckResult> {
   return result;
 }
 
+// Every lab-email document append is one PDF per kind+service_type (one
+// chain of custody, one lab report, one lab invoice, per service type) —
+// but a message can legitimately get reprocessed (a "processed" Gmail label
+// removed to fix a misfiled report, a drafting failure that leaves the
+// message unread, a retried cron run), and every append site used to just
+// push another row onto job.documents with no check for one already there.
+// Confirmed live 2026-08-26 on 26-0007/26-0008 — reconciling the mold vs.
+// asbestos misfile (see isMoldLabReport above) by clearing the processed
+// label and rerunning checkForLabResultEmails duplicated the CoC and lab
+// report documents on both jobs. This replaces any existing document(s) of
+// the same kind+service_type instead of piling on a duplicate, and cleans
+// up the superseded document's storage object so it doesn't just orphan.
+async function replaceDocumentsByKindAndServiceType(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  existing: JobDocument[],
+  incoming: JobDocument[]
+): Promise<JobDocument[]> {
+  const superseded = existing.filter((d) =>
+    incoming.some((n) => n.kind === d.kind && n.service_type === d.service_type)
+  );
+  if (superseded.length > 0) {
+    await supabase.storage.from("job-documents").remove(superseded.map((d) => d.storage_path));
+  }
+  const kept = existing.filter((d) => !superseded.includes(d));
+  return [...kept, ...incoming];
+}
+
 // Shared by the lab-bundled path (processMatchedLabEmail, below) and the
 // standalone EMSL receipt-confirmation path above — files a chain-of-
 // custody PDF on the job the same way the manual "Chain of Custody" upload
 // station does, so it shows up there without the admin re-uploading
-// something that already landed in their inbox.
-async function uploadCocDocument(job: Job, pdfBuffer: Buffer): Promise<void> {
+// something that already landed in their inbox. `serviceType` lets a caller
+// that already knows which domain this CoC belongs to (processMatchedLabEmail,
+// which works it out from the report itself via isMoldLabReport) say so
+// explicitly — without it, every CoC on a mixed asbestos+mold job silently
+// landed under whichever label happened to be listed first on the job
+// (confirmed live 2026-08-26/27, 26-0007/26-0008: every mold report's own
+// trailing CoC page got filed as "Limited Asbestos Inspection"), leaving
+// the Mold Report tab's own CoC station permanently empty. The standalone
+// EMSL receipt-confirmation path (no report to detect a domain from) keeps
+// the old first-label fallback.
+async function uploadCocDocument(job: Job, pdfBuffer: Buffer, serviceType?: string): Promise<void> {
   const supabase = getSupabaseAdmin();
   const serviceTypeLabels = (job.service_type ?? "").split(",").map((s) => s.trim()).filter(Boolean);
-  const primaryServiceType = serviceTypeLabels[0] ?? "";
+  const primaryServiceType = serviceType ?? serviceTypeLabels[0] ?? "";
 
   const docId = randomUUID();
   const storagePath = `${job.id}/${docId}-coc.pdf`;
@@ -544,7 +580,8 @@ async function uploadCocDocument(job: Job, pdfBuffer: Buffer): Promise<void> {
     uploaded_at: new Date().toISOString(),
     project_number_mismatch: null,
   };
-  await supabase.from("jobs").update({ documents: [...(job.documents ?? []), document] }).eq("id", job.id);
+  const documents = await replaceDocumentsByKindAndServiceType(supabase, job.documents ?? [], [document]);
+  await supabase.from("jobs").update({ documents }).eq("id", job.id);
 }
 
 // EMSL's billing invoice for the job, caught by the same project-number
@@ -590,7 +627,9 @@ async function processMatchedLabInvoiceEmail(params: {
     uploaded_at: uploadedAt,
     project_number_mismatch: null,
   }));
-  const update: Record<string, unknown> = { documents: [...(job.documents ?? []), ...newDocuments] };
+  const update: Record<string, unknown> = {
+    documents: await replaceDocumentsByKindAndServiceType(supabase, job.documents ?? [], newDocuments),
+  };
 
   const totalCents = extractLabInvoiceTotalCents(pdfText);
   if (totalCents != null) update.lab_cost_cents = totalCents;
@@ -662,7 +701,7 @@ async function processMultiJobLabInvoiceEmail(params: {
       project_number_mismatch: null,
     }));
     const update: Record<string, unknown> = {
-      documents: [...(job.documents ?? []), ...newDocuments],
+      documents: await replaceDocumentsByKindAndServiceType(supabase, job.documents ?? [], newDocuments),
       lab_cost_cents: amountCents,
     };
     if (labInfo) {
@@ -808,7 +847,7 @@ async function processMatchedLabEmail(params: {
     uploaded_at: new Date().toISOString(),
     project_number_mismatch: null,
   };
-  update.documents = [...(job.documents ?? []), document];
+  update.documents = await replaceDocumentsByKindAndServiceType(supabase, job.documents ?? [], [document]);
 
   const { data: updatedRow, error: updateError } = await supabase
     .from("jobs")
@@ -840,7 +879,7 @@ async function processMatchedLabEmail(params: {
     // just added above — uploadCocDocument reads the job's current
     // documents array fresh and appends to it.
     if (cocBuffer) {
-      await uploadCocDocument(updatedJob, cocBuffer);
+      await uploadCocDocument(updatedJob, cocBuffer, primaryServiceType);
     }
 
     // Invoice always goes out the moment lab results land. Invoice pricing

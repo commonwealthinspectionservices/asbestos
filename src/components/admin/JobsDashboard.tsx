@@ -1809,16 +1809,22 @@ export function ProjectDetailDialog({
   }, [serviceTypeLabels]);
   const turnaroundControl = (
     <div className="flex items-center gap-2 text-sm">
-      <span className="text-xs font-semibold uppercase text-slate-400">Turnaround</span>
+      {/* Per Tim — matches Standard/Rush's own text-xs/font-bold/text-slate-600
+          exactly (their inactive-state color), not a separate dimmer label style. */}
+      <span className="text-xs font-bold uppercase text-slate-600">Turnaround</span>
       <button
         onClick={() => setRush(false)}
         className={`rounded px-2 py-0.5 text-xs font-bold uppercase ${job.lab_turnaround !== "Rush" ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
       >
         Standard
       </button>
+      {/* Per Tim — light yellow highlight (bg-yellow-100, the same shade
+          used elsewhere in the app) instead of solid amber, with text
+          staying the same slate-600 as Standard/Turnaround in both states
+          rather than switching to white when active. */}
       <button
         onClick={() => setRush(true)}
-        className={`rounded px-2 py-0.5 text-xs font-bold uppercase ${job.lab_turnaround === "Rush" ? "bg-amber-500 text-white" : "bg-slate-100 text-slate-600"}`}
+        className={`rounded px-2 py-0.5 text-xs font-bold uppercase text-slate-600 ${job.lab_turnaround === "Rush" ? "bg-yellow-100" : "bg-slate-100"}`}
       >
         Rush
       </button>
@@ -2444,6 +2450,16 @@ export function ProjectDetailDialog({
                   {/* Edit stays top-right next to Project # at every width; the portal badge (subcontractor jobs only) sits beside Edit on desktop, same as always. */}
                   <div className="relative flex items-center justify-between gap-2">
                     <DetailField label="Project #" value={job.project_number} />
+                    {/* Per Tim — pulled out of the Edit cluster and given its
+                        own centered slot in the row instead of sitting flush
+                        against Edit. Desktop only (hidden sm:flex) — at
+                        mobile widths this row has no room left for a third
+                        item alongside Project # and Edit, so it drops to its
+                        own centered line below instead (same sm:hidden
+                        split sentStatusLines already uses just below). */}
+                    {job.source !== "subcontractor" && (
+                      <div className="hidden flex-1 justify-center sm:flex">{turnaroundControl}</div>
+                    )}
                     <div className="flex shrink-0 items-center gap-2">
                       <span className="hidden sm:inline-flex">{portalBadge}</span>
                       {/* Per Tim — a quick way to jump to this job's whole
@@ -2467,11 +2483,6 @@ export function ProjectDetailDialog({
                           </svg>
                         </a>
                       )}
-                      {/* Per Tim — same Turnaround toggle as the Asbestos/Mold
-                          Report tabs (turnaroundControl, defined above),
-                          added here too so it's visible without switching
-                          tabs. Left of Edit, not a separate row. */}
-                      {job.source !== "subcontractor" && turnaroundControl}
                       <button onClick={onEdit} className="shrink-0 rounded-lg border border-slate-300 px-3.5 py-1.5 text-sm font-bold uppercase hover:underline">
                         Edit
                       </button>
@@ -2480,6 +2491,9 @@ export function ProjectDetailDialog({
                       <div className="absolute right-0 top-full mt-3 hidden flex-col items-end sm:flex">{sentStatusLines}</div>
                     )}
                   </div>
+                  {job.source !== "subcontractor" && (
+                    <div className="mt-3 flex justify-start sm:hidden">{turnaroundControl}</div>
+                  )}
                   {showSentStatus && (
                     <div className="mt-3 flex flex-col items-end sm:hidden">{sentStatusLines}</div>
                   )}

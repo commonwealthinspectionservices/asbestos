@@ -338,7 +338,7 @@ describe("renderProjectReportPdf", () => {
     expect(text).toContain("No further mold-specific remediation is recommended at this time.");
   });
 
-  it("swaps math symbols that Times-Roman can't render into plain-ASCII equivalents, rather than garbling", async () => {
+  it("spells out math symbols that Times-Roman can't render as plain words, rather than garbling", async () => {
     const pdf = await renderProjectReportPdfForDomain({
       job: {
         ...job,
@@ -349,10 +349,10 @@ describe("renderProjectReportPdf", () => {
       settings,
     }, "mold");
     const { text } = await pdfParse(pdf);
-    expect(text).toContain("(~25% or more)");
-    expect(text).toContain(">=100 spores/m");
-    expect(text).toContain("<=5 spores/m");
-    expect(text).not.toMatch(/[≈≥≤]/);
+    expect(text).toContain("(about 25% or more)");
+    expect(text).toContain("at least 100 spores/m");
+    expect(text).toContain("at most 5 spores/m");
+    expect(text).not.toMatch(/[≈≥≤~]/);
   });
 
   describe("full-inspection asbestos report (Pre-Renovation/Pre-Demolition)", () => {

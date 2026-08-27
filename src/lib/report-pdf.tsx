@@ -228,15 +228,18 @@ function ValueOrBlank({ value, style, inline }: { value: string | number | null 
 // from a totally different symbol, invisible in the admin's plain textarea
 // and only visible once the PDF is generated. Known offenders get a plain-
 // ASCII equivalent; anything else outside the safe range is dropped rather
-// than left to render as a random wrong character.
+// than left to render as a random wrong character. Per Tim, 2026-08-27 —
+// spelled-out words ("about"), not another symbol (e.g. "~") standing in
+// for the one that broke — a substitute symbol can hit the same missing-
+// glyph problem depending on the font/reader.
 const PDF_UNSAFE_CHAR_REPLACEMENTS: [RegExp, string][] = [
-  [/≥/g, ">="], // ≥
-  [/≤/g, "<="], // ≤
-  [/≠/g, "!="], // ≠
-  [/≈/g, "~"], // ≈
-  [/→/g, "->"], // →
-  [/←/g, "<-"], // ←
-  [/↔/g, "<->"], // ↔
+  [/≥/g, "at least"], // ≥
+  [/≤/g, "at most"], // ≤
+  [/≠/g, "not equal to"], // ≠
+  [/≈/g, "about"], // ≈
+  [/→/g, "to"], // →
+  [/←/g, "from"], // ←
+  [/↔/g, "between"], // ↔
   [/✓/g, ""], // ✓
   [/✗/g, ""], // ✗
   [/∞/g, "infinity"], // ∞
@@ -244,8 +247,19 @@ const PDF_UNSAFE_CHAR_REPLACEMENTS: [RegExp, string][] = [
 
 function sanitizeForPdf(text: string): string {
   let result = text;
-  for (const [pattern, replacement] of PDF_UNSAFE_CHAR_REPLACEMENTS) {
-    result = result.replace(pattern, replacement);
+  for (const [pattern, word] of PDF_UNSAFE_CHAR_REPLACEMENTS) {
+    // A word substituted for a symbol only needs a space added on a side
+    // that's butted directly against a letter/digit with nothing already
+    // separating them (so "≈25%" reads as "about 25%") — a side that's
+    // already spaced, or borders punctuation like the "(" in "(≈25%",
+    // needs no padding of its own.
+    result = result.replace(pattern, (match, offset: number, str: string) => {
+      const before = str[offset - 1];
+      const after = str[offset + match.length];
+      const spaceBefore = before && /[A-Za-z0-9]/.test(before) ? " " : "";
+      const spaceAfter = after && /[A-Za-z0-9]/.test(after) ? " " : "";
+      return `${spaceBefore}${word}${spaceAfter}`;
+    });
   }
   // eslint-disable-next-line no-control-regex -- deliberately matching the WinAnsi-safe range
   return result.replace(/[^\x20-\x7E\xA0-\xFF‘’“”–—…•™]/g, "");

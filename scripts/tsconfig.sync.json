@@ -1,0 +1,10 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "noEmit": false,
+    "jsx": "react-jsx",
+    "outDir": "/tmp/sync-final-reports-out"
+  }
+}

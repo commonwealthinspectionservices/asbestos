@@ -8,4 +8,15 @@ node_modules
 tsconfig.tsbuildinfo
 .claude/settings.local.json
 .env*
-scripts/
+scripts/*
+# Persistent, LaunchAgent-scheduled sync scripts — everything else in
+# scripts/ is scratch/throwaway and stays ignored, but these two keep a
+# local Desktop copy of every sent report/invoice current and must
+# survive being treated as disposable (confirmed live 2026-08-27: the
+# report sync silently broke for ~18h after its script got deleted as
+# if it were scratch work).
+!scripts/sync-final-reports.mts
+!scripts/sync-final-reports.sh
+!scripts/sync-final-invoices.mts
+!scripts/sync-final-invoices.sh
+!scripts/tsconfig.sync.json

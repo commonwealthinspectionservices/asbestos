@@ -5200,11 +5200,16 @@ export function EditProjectDialog({
 
         {/* Per Tim, 2026-08-27 — going back to sample more at a site
             already inspected (his own "26-0002.1" numbering for a revisit
-            to 26-0002) never carries its own base fee. */}
-        <label className="mt-3 flex items-center gap-2 text-sm font-medium text-slate-700">
-          <input type="checkbox" checked={isRevisit} onChange={(e) => setIsRevisit(e.target.checked)} className="h-4 w-4 rounded border-slate-300" />
-          Revisit — no base fee
-        </label>
+            to 26-0002) never carries its own base fee. Only shown for a
+            project number that's actually using that ".1" convention — a
+            regular job's own Edit dialog stays exactly the size/layout it
+            always was, this row never appears there at all. */}
+        {projectNumber.includes(".") && (
+          <label className="mt-3 flex items-center gap-2 text-sm font-medium text-slate-700">
+            <input type="checkbox" checked={isRevisit} onChange={(e) => setIsRevisit(e.target.checked)} className="h-4 w-4 rounded border-slate-300" />
+            Revisit — no base fee
+          </label>
+        )}
 
         <div className="mt-4 flex items-center justify-between gap-2">
           <div className="flex items-center gap-3">

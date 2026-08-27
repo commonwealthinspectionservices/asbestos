@@ -208,7 +208,7 @@ describe("defaultInvoiceLineItems", () => {
     // Base fee 45000 + 6 * 2500 = 60000 subtotal -> 20% = 12000
     expect(items).toHaveLength(3);
     expect(items[2]).toMatchObject({
-      description: "Rush Fee (Same Day Service)",
+      description: "Rush Fee (Same Day Service) - 20%",
       quantity: 1,
       billing_unit: "Fee",
       unit_cost_cents: 12000,

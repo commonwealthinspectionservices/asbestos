@@ -177,7 +177,7 @@ export function defaultInvoiceLineItems(
     const subtotalCents = invoiceLineItemsTotalCents(rows);
     if (subtotalCents > 0) {
       rows.push({
-        description: "Rush Fee (Same Day Service)",
+        description: "Rush Fee (Same Day Service) - 20%",
         quantity: 1,
         billing_unit: "Fee",
         unit_cost_cents: Math.round(subtotalCents * 0.2),

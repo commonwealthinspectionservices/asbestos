@@ -129,27 +129,44 @@ export async function createStripeInvoiceForJob(
   //    account-wide-unique, never-released-by-voiding constraint on
   //    custom numbers — confirmed live.
   if (job.stripe_invoice_id) {
-    const existing = await stripe.invoices.retrieve(job.stripe_invoice_id);
-    if (existing.status === "paid") {
-      return { stripeInvoiceId: existing.id, hostedInvoiceUrl: existing.hosted_invoice_url ?? null };
+    // Confirmed live 2026-08-27 (26-0007/26-0008): a stripe_invoice_id can
+    // point at an invoice that's gone entirely from Stripe (test-mode data
+    // reset, manually deleted rather than voided) — retrieve() 404s with no
+    // fallback, throwing out of this whole function. The caller treats
+    // Stripe failures as best-effort and swallows it (a Gmail draft must
+    // never be blocked by a Stripe hiccup), so the practical effect was a
+    // real draft going out with no "Link to Pay" at all. Treated the same
+    // as "no stripe_invoice_id on record" — clear the dead reference and
+    // fall through to create a fresh one.
+    let existing: Stripe.Invoice | null = null;
+    try {
+      existing = await stripe.invoices.retrieve(job.stripe_invoice_id);
+    } catch (e) {
+      if (!(e instanceof Stripe.errors.StripeInvalidRequestError && e.code === "resource_missing")) throw e;
+      await supabase.from("jobs").update({ stripe_invoice_id: null }).eq("id", job.id);
     }
-    const hasCurrentProjectNumber = !job.project_number
-      || existing.custom_fields?.some((f) => f.name === "Project #" && f.value === job.project_number);
-    const hasCurrentAddress = !job.service_address || existing.description === expandAddress(job.service_address);
-    const hasCurrentNumber = !job.project_number
-      || (existing.number != null && existing.number.startsWith(job.project_number));
-    const isStale = existing.status === "void" || existing.status === "uncollectible"
-      || existing.total !== job.invoice_total_cents
-      || !hasCurrentProjectNumber || !hasCurrentAddress || !hasCurrentNumber;
-    if (!isStale) {
-      return { stripeInvoiceId: existing.id, hostedInvoiceUrl: existing.hosted_invoice_url ?? null };
+    if (existing) {
+      if (existing.status === "paid") {
+        return { stripeInvoiceId: existing.id, hostedInvoiceUrl: existing.hosted_invoice_url ?? null };
+      }
+      const hasCurrentProjectNumber = !job.project_number
+        || existing.custom_fields?.some((f) => f.name === "Project #" && f.value === job.project_number);
+      const hasCurrentAddress = !job.service_address || existing.description === expandAddress(job.service_address);
+      const hasCurrentNumber = !job.project_number
+        || (existing.number != null && existing.number.startsWith(job.project_number));
+      const isStale = existing.status === "void" || existing.status === "uncollectible"
+        || existing.total !== job.invoice_total_cents
+        || !hasCurrentProjectNumber || !hasCurrentAddress || !hasCurrentNumber;
+      if (!isStale) {
+        return { stripeInvoiceId: existing.id, hostedInvoiceUrl: existing.hosted_invoice_url ?? null };
+      }
+      if (existing.status === "open") {
+        await stripe.invoices.voidInvoice(existing.id).catch((err) => {
+          console.error(`createStripeInvoiceForJob: failed to void stale invoice ${existing.id} for job ${job.id}:`, err);
+        });
+      }
+      await supabase.from("jobs").update({ stripe_invoice_id: null }).eq("id", job.id);
     }
-    if (existing.status === "open") {
-      await stripe.invoices.voidInvoice(existing.id).catch((err) => {
-        console.error(`createStripeInvoiceForJob: failed to void stale invoice ${existing.id} for job ${job.id}:`, err);
-      });
-    }
-    await supabase.from("jobs").update({ stripe_invoice_id: null }).eq("id", job.id);
   }
 
   if (!job.invoice_line_items.length) {

@@ -198,13 +198,7 @@ function combinedDraftBodyHtml(job: Job, settings: Settings, totalCents: number,
     "&bull; Invoice",
     ...(payNowUrl ? ["", `<a href="${escapeHtml(payNowUrl)}">Link to pay</a>`] : []),
     "",
-    // Per Tim, 2026-08-26 — hardcoded rather than primaryInspector(settings).name
-    // (which is "Timothy Hall," the formal name the report/invoice PDFs'
-    // signature blocks use) so this casual line matches the sign-off below
-    // (SIGNATURE_LINES), which has always said "Tim Hall."
-    `Should you have any questions or need additional information, please contact Tim Hall at ${escapeHtml(settings.business_phone)}.`,
-    "",
-    "Thank you for the opportunity to provide you with our services and we look forward to working together in the future.",
+    `Should you have any questions or need additional information, please contact me at ${escapeHtml(settings.business_phone)}.`,
     "",
     ...SIGNATURE_LINES,
   ].join("<br>");

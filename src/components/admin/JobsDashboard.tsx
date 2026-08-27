@@ -1209,14 +1209,28 @@ function JobRow({
       <div className="flex w-full items-start justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
           {job.project_number && (
-            <span className="inline-flex h-7 shrink-0 items-center whitespace-nowrap rounded bg-slate-200 px-2 py-0.5 text-sm font-mono font-bold text-slate-800 hover:underline sm:inline sm:h-auto">{job.project_number}</span>
+            // Per Tim, 2026-08-27 — fixed width so every project # badge is
+            // the exact same size regardless of digit count, instead of a
+            // longer number (e.g. a ".1" revisit) growing wide enough to
+            // overlap the status pill next to it. justify-center so a
+            // shorter number still centers instead of hugging the left edge
+            // of a now-wider-than-it-needs box. Same text-xs as the status
+            // pill beside it on mobile — every piece of text on this row
+            // matches, not just the pill. Desktop keeps its original auto
+            // width and text-sm, unchanged.
+            <span className="inline-flex h-7 w-24 shrink-0 items-center justify-center whitespace-nowrap rounded bg-slate-200 px-2 py-0.5 text-xs font-mono font-bold text-slate-800 hover:underline sm:inline sm:h-auto sm:w-auto sm:justify-start sm:text-sm">{job.project_number}</span>
           )}
           <div className="hidden truncate whitespace-nowrap font-medium text-slate-800 sm:block">
             {customerLabelNode}
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-1.5">
+        {/* min-w-0 + flex-1 (mobile only) — stretches to fill whatever
+            width the fixed-size badge on the left didn't use, so the
+            status pill's own smaller mobile text (below) has the most
+            room possible to fit the longest label ("Report and Invoice
+            Ready") on one line without truncating. */}
+        <div className="flex min-w-0 flex-1 items-center justify-end gap-1.5 sm:w-auto sm:flex-none sm:shrink-0">
           {overdueDays !== null && (
             <span className="shrink-0 whitespace-nowrap rounded-full bg-red-600 px-2 py-1 text-xs font-bold text-white">
               {overdueDays} day{overdueDays === 1 ? "" : "s"} overdue
@@ -1228,11 +1242,16 @@ function JobRow({
             // min-width:auto, which otherwise lets a long label ("Report
             // and Invoice Ready") force the box wider than a short one
             // ("Payment Pending") despite both specifying the same w-60.
-            <span className="inline-flex h-7 w-60 min-w-0 shrink-0 items-center overflow-hidden text-ellipsis whitespace-nowrap rounded bg-slate-200 px-2 py-0.5 text-sm font-bold text-slate-700 sm:inline sm:h-auto">
+            // Smaller text on mobile (text-xs, sm:text-sm restores the
+            // original size) is what actually makes the longest label fit
+            // the remaining space next to the fixed-width badge on one
+            // line — overflow-hidden/text-ellipsis stay only as an inert
+            // safety net, never actually meant to trigger.
+            <span className="inline-flex h-7 w-full min-w-0 shrink-0 items-center overflow-hidden text-ellipsis whitespace-nowrap rounded bg-slate-200 px-2 py-0.5 text-xs font-bold text-slate-700 sm:inline sm:h-auto sm:w-60 sm:text-sm">
               {statusLabelForJob(job, job.status)}
             </span>
           ) : (
-            <div className="flex flex-col items-end gap-4">
+            <div className="flex w-full flex-col items-end gap-4 sm:w-auto">
               <select
                 value={job.status}
                 onChange={(e) => {
@@ -1254,7 +1273,7 @@ function JobRow({
                   }
                 }}
                 onClick={(e) => e.stopPropagation()}
-                className={`inline-flex h-7 w-60 min-w-0 shrink-0 items-center overflow-hidden text-ellipsis whitespace-nowrap rounded bg-slate-200 px-2 py-0.5 text-sm font-bold text-slate-700 sm:inline-block sm:h-auto ${job.status === "ready_to_send" ? "border-2 border-amber-500" : "border-0"}`}
+                className={`inline-flex h-7 w-full min-w-0 shrink-0 items-center overflow-hidden text-ellipsis whitespace-nowrap rounded bg-slate-200 px-2 py-0.5 text-xs font-bold text-slate-700 sm:inline-block sm:h-auto sm:w-60 sm:text-sm ${job.status === "ready_to_send" ? "border-2 border-amber-500" : "border-0"}`}
               >
                 {pipelineStatusesForJob(job).map((s) => (
                   <option key={s} value={s}>{statusLabelForJob(job, s)}</option>
@@ -4899,8 +4918,11 @@ export function EditProjectDialog({
 
         {error && <div className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
 
-        <div className="mt-4 flex gap-4">
-          <div className="w-28 shrink-0">
+        {/* Per Tim, 2026-08-27 — Project # and Company each get their own
+            full-width line on mobile instead of squeezing side by side;
+            desktop keeps the original row layout, unchanged. */}
+        <div className="mt-4 flex flex-col gap-4 sm:flex-row">
+          <div className="w-full sm:w-28 sm:shrink-0">
             <label className="block text-sm font-medium text-slate-700">Project #</label>
             <input className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-2 text-sm" value={projectNumber} onChange={(e) => setProjectNumber(e.target.value)} />
           </div>
@@ -4980,11 +5002,16 @@ export function EditProjectDialog({
         <div className="mt-3 flex flex-col gap-2 sm:flex-row">
           <div className="sm:flex-1">
             <label className="block text-sm font-medium text-slate-700">Scheduled date</label>
-            <input type="date" className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value={confirmedDate} onChange={(e) => setConfirmedDate(e.target.value)} />
+            {/* Per Tim, 2026-08-27 — explicit h-10 on both: a native
+                input[type=date] renders a few px taller than a <select>
+                even with identical padding/font-size classes (browser UA
+                styling, not this app's CSS), so without it the two boxes
+                looked mismatched despite sharing every other class. */}
+            <input type="date" className="mt-1 h-10 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value={confirmedDate} onChange={(e) => setConfirmedDate(e.target.value)} />
           </div>
           <div className="sm:flex-1">
             <label className="block text-sm font-medium text-slate-700">Scheduled time</label>
-            <select className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value={confirmedTime} onChange={(e) => setConfirmedTime(e.target.value)}>
+            <select className="mt-1 h-10 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value={confirmedTime} onChange={(e) => setConfirmedTime(e.target.value)}>
               <option value="">No time</option>
               {timeSelectOptions(confirmedTime).map((t) => (
                 <option key={t} value={t}>{formatTime(t)}</option>

@@ -2426,19 +2426,17 @@ export function ProjectDetailDialog({
               // rather than only appearing once something's actually gone
               // out.
               const showSentStatus = job.source !== "subcontractor" && reportComplete && job.invoice_total_cents != null;
+              // Per Tim — exactly the project card's own format (see
+              // JobRow), not the earlier longer-sentence version: "Report:
+              // Sent/Not sent" with the hazard flag specifically for "the
+              // report is ready but hasn't gone out," never the invoice.
               const sentStatusLines = (
-                <div className="flex items-center gap-1">
-                  {/* Per Tim — small hazard flag specifically for "neither
-                      has gone out yet". */}
-                  {!job.report_sent_at && !job.invoice_sent_at && <HazardIcon />}
-                  <div className="flex flex-col items-end">
-                    <p className="text-sm text-slate-500">
-                      {job.report_sent_at ? `Report sent ${formatDateTime(job.report_sent_at)}` : "Report not yet sent"}
-                    </p>
-                    <p className="text-sm text-slate-500">
-                      {job.invoice_sent_at ? `Invoice sent ${formatDateTime(job.invoice_sent_at)}` : "Invoice not yet sent"}
-                    </p>
-                  </div>
+                <div className="flex flex-col items-start text-sm text-slate-500">
+                  <span className="flex items-center gap-1">
+                    Report: {job.report_sent_at ? `Sent ${formatDateTime(job.report_sent_at)}` : "Not sent"}
+                    {!job.report_sent_at && <HazardIcon />}
+                  </span>
+                  <span>Invoice: {job.invoice_sent_at ? `Sent ${formatDateTime(job.invoice_sent_at)}` : "Not sent"}</span>
                 </div>
               );
               return (
@@ -2474,11 +2472,11 @@ export function ProjectDetailDialog({
                       </button>
                     </div>
                     {showSentStatus && (
-                      <div className="absolute right-0 top-full hidden flex-col items-end sm:flex">{sentStatusLines}</div>
+                      <div className="absolute right-0 top-full mt-3 hidden flex-col items-end sm:flex">{sentStatusLines}</div>
                     )}
                   </div>
                   {showSentStatus && (
-                    <div className="flex flex-col items-end sm:hidden">{sentStatusLines}</div>
+                    <div className="mt-3 flex flex-col items-end sm:hidden">{sentStatusLines}</div>
                   )}
                   <DetailField label="Status" value={statusLabelForJob(job, job.status)} />
                   <DetailField

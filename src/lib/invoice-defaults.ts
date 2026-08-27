@@ -146,10 +146,10 @@ export function defaultInvoiceLineItems(
     const perSampleCents = resolvePerSampleCentsForLabel(label, serviceTypeSettings, job.per_sample_cents);
     if (perSampleCents == null) continue;
     rows.push({
-      description: sampleDescriptionForServiceType(label) + (isRush ? " (Rush)" : ""),
+      description: sampleDescriptionForServiceType(label),
       quantity: count,
       billing_unit: "Sample",
-      unit_cost_cents: isRush ? perSampleCents * 2 : perSampleCents,
+      unit_cost_cents: perSampleCents,
     });
   }
 
@@ -158,22 +158,21 @@ export function defaultInvoiceLineItems(
   // job was created with, same as before.
   if (rows.length === (baseFeeCents != null ? 1 : 0) && job.sample_count && job.per_sample_cents != null) {
     rows.push({
-      description: "Bulk Samples for Asbestos Analysis by PLM" + (isRush ? " (Rush)" : ""),
+      description: "Bulk Samples for Asbestos Analysis by PLM",
       quantity: job.sample_count,
       billing_unit: "Sample",
-      unit_cost_cents: isRush ? job.per_sample_cents * 2 : job.per_sample_cents,
+      unit_cost_cents: job.per_sample_cents,
     });
   }
 
-  // Newton Fire & Flood's own standing rush fee — per Tim, 2026-08-27, every
-  // job for this company runs on same-day service, so a 20% surcharge on
-  // top of everything above applies automatically rather than
-  // needing to be added by hand on every invoice. Matched against
-  // company_id, same as this company's other standing rules (report
-  // conclusion text, "Final Report and Invoice" label) — see
-  // NEWTON_FIRE_FLOOD_COMPANY_ID's own comment. Skipped on a $0 invoice
-  // (nothing priced yet) rather than adding a $0 rush fee line.
-  if (job.customers?.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID) {
+  // Per Tim, 2026-08-27 — Rush turnaround used to double the per-sample
+  // rate; it now works the same way Newton Fire & Flood's own standing rush
+  // fee already does (see NEWTON_FIRE_FLOOD_COMPANY_ID's own comment): a
+  // flat 20% surcharge on top of everything above, instead of touching any
+  // individual line's rate. Either trigger adds the fee once, not twice, for
+  // a Newton job that also happens to be marked Rush. Skipped on a $0
+  // invoice (nothing priced yet) rather than adding a $0 rush fee line.
+  if (isRush || job.customers?.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID) {
     const subtotalCents = invoiceLineItemsTotalCents(rows);
     if (subtotalCents > 0) {
       rows.push({

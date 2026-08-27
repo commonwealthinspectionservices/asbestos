@@ -177,7 +177,7 @@ describe("defaultInvoiceLineItems", () => {
     expect(sampleRows.find((r) => r.quantity === 3)?.unit_cost_cents).toBe(8500);
   });
 
-  it("doubles the per-sample rate for Rush turnaround but never the base fee", () => {
+  it("adds a 20% rush fee for Rush turnaround instead of doubling the per-sample rate", () => {
     const job = baseJob({
       service_type: "Limited Asbestos Inspection",
       sample_counts: { "Limited Asbestos Inspection": 4 },
@@ -185,8 +185,27 @@ describe("defaultInvoiceLineItems", () => {
     });
     const items = defaultInvoiceLineItems(job, [asbestosBulk], []);
 
+    // Base fee 45000 + 4 * 2500 = 55000 subtotal -> 20% = 11000
     expect(items.find((i) => i.billing_unit === "Base Fee")?.unit_cost_cents).toBe(45000);
-    expect(items.find((i) => i.billing_unit === "Sample")?.unit_cost_cents).toBe(5000);
+    expect(items.find((i) => i.billing_unit === "Sample")?.unit_cost_cents).toBe(2500);
+    expect(items.find((i) => i.description.includes("Rush Fee"))).toMatchObject({
+      description: "Rush Fee (Same Day Service) - 20%",
+      quantity: 1,
+      billing_unit: "Fee",
+      unit_cost_cents: 11000,
+    });
+  });
+
+  it("adds the rush fee only once for a Newton job that's also marked Rush turnaround", () => {
+    const job = baseJob({
+      service_type: "Limited Asbestos Inspection",
+      sample_counts: { "Limited Asbestos Inspection": 6 },
+      lab_turnaround: "Rush",
+      customers: newtonCustomer,
+    });
+    const items = defaultInvoiceLineItems(job, [asbestosBulk], []);
+
+    expect(items.filter((i) => i.description.includes("Rush Fee"))).toHaveLength(1);
   });
 
   it("never invents a sample line when no sample data exists at all", () => {

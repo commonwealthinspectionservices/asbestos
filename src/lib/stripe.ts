@@ -261,3 +261,20 @@ export async function createStripeInvoiceForJob(
 
   return { stripeInvoiceId: finalized.id, hostedInvoiceUrl: finalized.hosted_invoice_url ?? null };
 }
+
+// Stripe has no idea an invoice was ever actually emailed — this app
+// deliberately never calls stripe.invoices.sendInvoice() (see this
+// file's own module comment), so from Stripe's side a drafted-but-never-
+// sent invoice and a genuinely-emailed one look identical. Per Tim,
+// 2026-08-27: called from checkDraftSentStatus the moment it confirms
+// (via Gmail, not Stripe) that the draft carrying this invoice actually
+// went out, so at least the invoice's own Stripe page carries that fact
+// for anyone troubleshooting from the Stripe side alone. Metadata
+// updates merge by key rather than replacing the object wholesale, so
+// this can't clobber the job_id key set at creation. Best-effort by
+// design — the caller must never let a Stripe hiccup block recording the
+// send in this app's own database, which is the real source of truth.
+export async function tagInvoiceEmailed(stripeInvoiceId: string, emailedAt: string): Promise<void> {
+  const stripe = getStripe();
+  await stripe.invoices.update(stripeInvoiceId, { metadata: { emailed_at: emailedAt } });
+}

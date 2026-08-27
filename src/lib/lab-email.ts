@@ -36,7 +36,7 @@ import {
 import { isLabInvoiceText, extractLabInvoiceTotalCents, extractInvoiceLineItems } from "@/lib/parse-lab-invoice";
 import { defaultInvoiceLineItems, invoiceLineItemsTotalCents } from "@/lib/invoice-defaults";
 import { formatCents } from "@/lib/pricing";
-import { createStripeInvoiceForJob } from "@/lib/stripe";
+import { createStripeInvoiceForJob, tagInvoiceEmailed } from "@/lib/stripe";
 import { splitTrailingCocPages } from "@/lib/split-lab-report-coc";
 import { extractPositionOrderedText } from "@/lib/pdf-position-text";
 import { jobReportDomains, ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, NEWTON_FIRE_FLOOD_COMPANY_ID, reportEmailAttachmentFilename, type ReportDomain } from "@/lib/report-findings";
@@ -269,7 +269,7 @@ export async function checkDraftSentStatus(
   const supabase = getSupabaseAdmin();
   const { data: job } = await supabase
     .from("jobs")
-    .select(`${gmailIdCol}, ${gmailMessageIdCol}, ${sentAtCol}, ${otherGmailIdCol}, ${otherSentAtCol}, status`)
+    .select(`${gmailIdCol}, ${gmailMessageIdCol}, ${sentAtCol}, ${otherGmailIdCol}, ${otherSentAtCol}, status, stripe_invoice_id`)
     .eq("id", jobId)
     .maybeSingle<Record<string, string | null>>();
 
@@ -340,6 +340,19 @@ export async function checkDraftSentStatus(
         await addLabelToMessage(accessToken, resolved.messageId, labelId);
       } catch (e) {
         console.error(`Failed to apply "${labelName}" label to message ${resolved.messageId}:`, e);
+      }
+    }
+    // Same "is the invoice's own sentAt column being newly set right here"
+    // condition as the labeling above — invoice_sent_at either is sentAtCol
+    // (kind === "invoice") or otherSentAtCol on a combined draft. Per Tim,
+    // 2026-08-27 — best-effort, since Stripe has no idea an invoice was
+    // ever actually emailed otherwise (see tagInvoiceEmailed's own
+    // comment).
+    if ((kind === "invoice" || isCombinedDraft) && job?.stripe_invoice_id) {
+      try {
+        await tagInvoiceEmailed(job.stripe_invoice_id, finalSentAt);
+      } catch (e) {
+        console.error(`Failed to tag Stripe invoice ${job.stripe_invoice_id} as emailed:`, e);
       }
     }
     return { status: "sent", sentAt: finalSentAt };

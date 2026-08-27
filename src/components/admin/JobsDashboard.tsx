@@ -2467,6 +2467,11 @@ export function ProjectDetailDialog({
                           </svg>
                         </a>
                       )}
+                      {/* Per Tim — same Turnaround toggle as the Asbestos/Mold
+                          Report tabs (turnaroundControl, defined above),
+                          added here too so it's visible without switching
+                          tabs. Left of Edit, not a separate row. */}
+                      {job.source !== "subcontractor" && turnaroundControl}
                       <button onClick={onEdit} className="shrink-0 rounded-lg border border-slate-300 px-3.5 py-1.5 text-sm font-bold uppercase hover:underline">
                         Edit
                       </button>
@@ -3098,7 +3103,14 @@ export function ProjectDetailDialog({
             {tab === "invoice" && (
             <>
             <div className="pt-6">
-              <h3 className="text-lg font-bold uppercase tracking-wide text-black underline">Invoice</h3>
+              {/* Per Tim — same Turnaround toggle as Project Info and the
+                  Report tabs, top-right under the header's "Create Final
+                  Report and Invoice Draft" button (which lives in the modal
+                  header, not this scrollable body). */}
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <h3 className="text-lg font-bold uppercase tracking-wide text-black underline">Invoice</h3>
+                {turnaroundControl}
+              </div>
               <div className="mt-3">
                 <div className="mb-4 space-y-1">
                   {job.po_number && <DetailField label="PO #" value={job.po_number} />}

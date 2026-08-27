@@ -1090,7 +1090,7 @@ async function draftInvoiceEmailForJob(params: {
     attachments: [
       // Per Tim, 2026-08-27 — every PDF filename starts with the job
       // number, not the document type.
-      { filename: `${pricedJob.project_number ?? job.id}-Invoice.pdf`, mimeType: "application/pdf", content: invoicePdf },
+      { filename: `${pricedJob.project_number ?? job.id} Invoice.pdf`, mimeType: "application/pdf", content: invoicePdf },
     ],
   });
 
@@ -1393,7 +1393,7 @@ async function draftCombinedEmailForJob(params: {
         mimeType: "application/pdf",
         content: buffer,
       })),
-      { filename: `${pricedJob.project_number ?? job.id}-Invoice.pdf`, mimeType: "application/pdf", content: invoicePdf },
+      { filename: `${pricedJob.project_number ?? job.id} Invoice.pdf`, mimeType: "application/pdf", content: invoicePdf },
     ],
   });
 

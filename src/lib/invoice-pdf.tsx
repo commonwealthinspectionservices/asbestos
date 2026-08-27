@@ -1,5 +1,13 @@
 import path from "path";
-import { Document, Page, Text, View, Image, StyleSheet, renderToBuffer } from "@react-pdf/renderer";
+import { Document, Page, Text, View, Image, StyleSheet, Font, renderToBuffer } from "@react-pdf/renderer";
+// react-pdf hyphenates long words at line wraps by default (e.g.
+// "As-bestos" split across the line break) — per Tim, a wrapped word should
+// always move to the next line whole, never split with a hyphen. Same fix
+// as report-pdf.tsx's own copy of this — registerHyphenationCallback is a
+// process-wide singleton on Font, but each PDF-generating module registers
+// its own copy rather than relying on another module having already run
+// first (not guaranteed across separate serverless invocations/cold starts).
+Font.registerHyphenationCallback((word) => [word]);
 import { formatCents } from "@/lib/pricing";
 import { lineItemsTotalCents } from "@/lib/invoice-line-items";
 import type { Job, Customer, Company, Settings, InvoiceLineItem } from "@/lib/types";

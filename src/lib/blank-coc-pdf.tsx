@@ -1,5 +1,9 @@
 import path from "path";
-import { Document, Page, Text, View, Image, StyleSheet, renderToBuffer } from "@react-pdf/renderer";
+import { Document, Page, Text, View, Image, StyleSheet, Font, renderToBuffer } from "@react-pdf/renderer";
+// react-pdf hyphenates long words at line wraps by default — per Tim, a
+// wrapped word should always move to the next line whole, never split with
+// a hyphen. Same fix as report-pdf.tsx/invoice-pdf.tsx's own copies of this.
+Font.registerHyphenationCallback((word) => [word]);
 import { primaryInspector } from "@/lib/settings";
 import { formatDateMDY } from "@/lib/date-format";
 import { expandAddress } from "@/lib/address";

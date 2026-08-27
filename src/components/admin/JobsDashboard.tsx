@@ -1270,8 +1270,14 @@ function JobRow({
             // original size) is what actually makes the longest label fit
             // the remaining space next to the fixed-width badge on one
             // line — overflow-hidden/text-ellipsis stay only as an inert
-            // safety net, never actually meant to trigger.
-            <span className="inline-flex h-7 w-full min-w-0 shrink-0 items-center overflow-hidden text-ellipsis whitespace-nowrap rounded bg-slate-200 px-2 py-0.5 text-xs font-bold text-slate-700 sm:inline sm:h-auto sm:w-60 sm:text-sm">
+            // safety net, never actually meant to trigger. h-7/sm:h-9 and
+            // border-2 border-transparent (not h-auto/border-0) match the
+            // open-status <select> below exactly — Per Tim, 2026-08-27,
+            // this cell must render the same size no matter which status
+            // it's showing; h-auto let a <span> and a <select> (and a
+            // bordered vs. unbordered select) each compute a slightly
+            // different height at the same font-size/padding.
+            <span className="inline-flex h-7 w-full min-w-0 shrink-0 items-center overflow-hidden text-ellipsis whitespace-nowrap rounded border-2 border-transparent bg-slate-200 px-2 py-0.5 text-xs font-bold text-slate-700 sm:inline sm:h-9 sm:w-60 sm:text-sm">
               {statusLabelForJob(job, job.status)}
             </span>
           ) : (
@@ -1297,7 +1303,16 @@ function JobRow({
                   }
                 }}
                 onClick={(e) => e.stopPropagation()}
-                className={`inline-flex h-7 w-full min-w-0 shrink-0 items-center overflow-hidden text-ellipsis whitespace-nowrap rounded bg-slate-200 px-2 py-0.5 text-xs font-bold text-slate-700 sm:inline-block sm:h-auto sm:w-60 sm:text-sm ${job.status === "ready_to_send" ? "border-2 border-amber-500" : "border-0"}`}
+                // border-2 always (only the color toggles) — Per Tim,
+                // 2026-08-27: this cell must be the exact same size
+                // regardless of status, and a border that appears only for
+                // ready_to_send while every other status has none changes
+                // the box's rendered height at h-auto (2px border vs 0).
+                // h-7/sm:h-9 (not h-auto) locks the height outright, same
+                // fixed height as the closed-status <span> above so every
+                // status — open, ready-to-send, or closed — renders pixel
+                // identical.
+                className={`inline-flex h-7 w-full min-w-0 shrink-0 items-center overflow-hidden text-ellipsis whitespace-nowrap rounded border-2 bg-slate-200 px-2 py-0.5 text-xs font-bold text-slate-700 sm:inline-block sm:h-9 sm:w-60 sm:text-sm ${job.status === "ready_to_send" ? "border-amber-500" : "border-transparent"}`}
               >
                 {pipelineStatusesForJob(job).map((s) => (
                   <option key={s} value={s}>{statusLabelForJob(job, s)}</option>

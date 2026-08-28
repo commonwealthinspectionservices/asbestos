@@ -35,6 +35,19 @@ function formatDate(date: string | null | undefined): string {
   return formatDateMDY(date) ?? "—";
 }
 
+// Per Tim, 2026-08-28 — invoice_sent_at is a full UTC timestamp, not a
+// plain date. Naively slicing its first 10 characters grabs the UTC
+// calendar date, which disagrees with local (Eastern) time once a send
+// happens late evening — a report actually sent Tuesday night showed as
+// Wednesday here. new Date(iso)'s local getters (same approach
+// JobsDashboard.tsx's formatDateTime already uses for the Project Info
+// tab's own "Sent" line) give the calendar date this browser's timezone
+// actually saw it sent on.
+function localDateOnly(iso: string): string {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 // Every repeat customer/contractor invoice is due 30 days after the project
 // date, no exceptions — same fixed rule as JobsDashboard.tsx's own copy of
 // this (kept duplicated rather than shared, matching this codebase's
@@ -55,7 +68,7 @@ function paymentDueDate(projectDate: string): string | null {
 // tagInvoiceEmailed. requested_date+30 stays only as a rough pre-send
 // estimate, before invoice_sent_at exists yet.
 function dueDateFor(job: JobWithCustomer): string | null {
-  if (job.invoice_sent_at) return paymentDueDate(job.invoice_sent_at.slice(0, 10));
+  if (job.invoice_sent_at) return paymentDueDate(localDateOnly(job.invoice_sent_at));
   return paymentDueDate(job.requested_date ?? "");
 }
 
@@ -460,7 +473,7 @@ export default function InvoicesView() {
                       </span>
                       <div className="flex flex-col items-center sm:items-start">
                         {job.invoice_sent_at && (
-                          <span className="whitespace-nowrap text-xs text-slate-500">Report sent {formatDate(job.invoice_sent_at.slice(0, 10))}</span>
+                          <span className="whitespace-nowrap text-xs text-slate-500">Report sent {formatDate(localDateOnly(job.invoice_sent_at))}</span>
                         )}
                         {/* Per Tim, 2026-08-28 — plain text (not its own
                             pill) directly right of "Payment Pending" for
@@ -476,7 +489,7 @@ export default function InvoicesView() {
                   ) : (
                     <>
                       {job.invoice_sent_at && (
-                        <span className="whitespace-nowrap text-xs text-slate-500">Report sent {formatDate(job.invoice_sent_at.slice(0, 10))}</span>
+                        <span className="whitespace-nowrap text-xs text-slate-500">Report sent {formatDate(localDateOnly(job.invoice_sent_at))}</span>
                       )}
                       <span className={`shrink-0 whitespace-nowrap rounded px-1.5 py-0.5 text-xs font-medium ${STATUS_COLOR[status]}`}>{STATUS_LABEL[status]}</span>
                       <span className="whitespace-nowrap text-xs text-slate-500">Due {formatDate(dueDateFor(job))}</span>

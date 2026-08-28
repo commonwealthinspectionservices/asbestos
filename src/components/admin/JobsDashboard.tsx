@@ -484,6 +484,19 @@ function paymentDueDate(projectDate: string): string | null {
   return d.toISOString().slice(0, 10);
 }
 
+// Per Tim, 2026-08-28 — invoice_sent_at is a full UTC timestamp, not a
+// plain date. Naively slicing its first 10 characters grabs the UTC
+// calendar date, which disagrees with local (Eastern) time once a send
+// happens late evening — a report actually sent Tuesday night showed as
+// Wednesday here. new Date(iso)'s local getters (same approach
+// formatDateTime above already uses) give the calendar date this
+// browser's timezone actually saw it sent on. Same helper as
+// InvoicesView.tsx's own copy.
+function localDateOnly(iso: string): string {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 // Per Tim, 2026-08-28 — always exactly 30 days after the invoice was
 // actually emailed (not requested_date, which can differ from when the
 // report really went out, and no longer a manually-set payment_due_date
@@ -493,7 +506,7 @@ function paymentDueDate(projectDate: string): string | null {
 // estimate, before invoice_sent_at exists yet. Same precedence as
 // InvoicesView.tsx's own copy of this.
 function dueDateFor(job: JobWithCustomer): string | null {
-  if (job.invoice_sent_at) return paymentDueDate(job.invoice_sent_at.slice(0, 10));
+  if (job.invoice_sent_at) return paymentDueDate(localDateOnly(job.invoice_sent_at));
   return paymentDueDate(job.requested_date ?? "");
 }
 

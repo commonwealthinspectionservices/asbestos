@@ -104,7 +104,13 @@ function InvoiceDocument({ job, customer, company, settings }: InvoiceData) {
           )}
           <View style={styles.row}><Text style={styles.label}>Service address</Text><Text style={styles.value}>{expandAddress(job.service_address)}</Text></View>
           <View style={styles.row}><Text style={styles.label}>Service type(s)</Text><Text style={styles.value}>{serviceLabel}</Text></View>
-          <View style={styles.row}><Text style={styles.label}>Date of service</Text><Text style={styles.value}>{formatDateMDY(job.requested_date) ?? "—"}</Text></View>
+          {/* Per Tim, 2026-08-28 — confirmed_date first: a company like
+              Boston Harbor Water Restoration never carries a real
+              requested_date at all (see JobsDashboard.tsx's own
+              reportChecklist comment), so this line would otherwise print
+              blank on every one of their invoices even though the actual
+              service date is known once the job's scheduled/completed. */}
+          <View style={styles.row}><Text style={styles.label}>Date of service</Text><Text style={styles.value}>{formatDateMDY(job.confirmed_date ?? job.requested_date) ?? "—"}</Text></View>
         </View>
 
         <View style={styles.section}>

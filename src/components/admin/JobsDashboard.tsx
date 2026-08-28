@@ -507,7 +507,7 @@ function localDateOnly(iso: string): string {
 // InvoicesView.tsx's own copy of this.
 function dueDateFor(job: JobWithCustomer): string | null {
   if (job.invoice_sent_at) return paymentDueDate(localDateOnly(job.invoice_sent_at));
-  return paymentDueDate(job.requested_date ?? "");
+  return paymentDueDate(job.confirmed_date ?? job.requested_date ?? "");
 }
 
 // Positive only once money is actually owed and sitting past its due date —
@@ -554,7 +554,13 @@ function commonReportChecklist(job: JobWithCustomer): { label: string; done: boo
     { label: "Billing address", done: Boolean(job.customers?.billing_address) },
     { label: "Job site address", done: Boolean(job.service_address) },
     { label: "Project #", done: Boolean(job.project_number) },
-    { label: "Date", done: Boolean(job.requested_date) },
+    // confirmed_date too — Boston Harbor Water Restoration never carries a
+    // real requested_date at all (per Tim, 2026-08-28), so this used to
+    // silently fail "done" on every one of their jobs once that field
+    // stopped being populated, hiding the report/invoice draft buttons
+    // entirely even for an otherwise fully-ready job (confirmed live,
+    // 26-0009).
+    { label: "Date", done: Boolean(job.requested_date || job.confirmed_date) },
   ];
 }
 

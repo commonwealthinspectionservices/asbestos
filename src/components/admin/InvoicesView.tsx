@@ -69,7 +69,7 @@ function paymentDueDate(projectDate: string): string | null {
 // estimate, before invoice_sent_at exists yet.
 function dueDateFor(job: JobWithCustomer): string | null {
   if (job.invoice_sent_at) return paymentDueDate(localDateOnly(job.invoice_sent_at));
-  return paymentDueDate(job.requested_date ?? "");
+  return paymentDueDate(job.confirmed_date ?? job.requested_date ?? "");
 }
 
 function isPastDue(dueIso: string | null): boolean {

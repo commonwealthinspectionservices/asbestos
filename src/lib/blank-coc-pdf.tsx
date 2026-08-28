@@ -166,7 +166,10 @@ function BlankCocDocument({ job, customer, settings }: BlankCocData) {
             </View>
             <View style={styles.metaRightField}>
               <Text style={styles.metaLabelRight}>DATE</Text>
-              <Text style={styles.metaValueRight}>{formatDateMDY(job?.requested_date) ?? ""}</Text>
+              {/* confirmed_date first — Boston Harbor Water Restoration
+                  never carries a real requested_date at all (see
+                  JobsDashboard.tsx's own reportChecklist comment). */}
+              <Text style={styles.metaValueRight}>{formatDateMDY(job?.confirmed_date ?? job?.requested_date) ?? ""}</Text>
             </View>
           </View>
           <View style={styles.metaBottomRow}>

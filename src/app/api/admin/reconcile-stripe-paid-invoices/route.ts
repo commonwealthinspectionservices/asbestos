@@ -19,10 +19,24 @@ type JobRow = Pick<Job, "id" | "project_number" | "stripe_invoice_id" | "paid_da
 // the normal just-got-paid follow-through (auto-drafting the report if it
 // hasn't gone out yet — see autoDraftReportIfJustPaid).
 //
+// Per Tim, 2026-08-28 (round two) — this endpoint originally only checked
+// the Stripe invoice's own status field, exactly the same blind spot
+// audit-stripe-invoices had: a Stripe invoice stays "status: paid" forever
+// even after the underlying charge is refunded. That meant this endpoint
+// would happily re-mark 26-0007/26-0008 paid *again* the moment their
+// payment_reversed_at flag was cleared (e.g. dismissing the "Payment
+// reversed — review needed" banner in the Project Info tab) — completely
+// undoing revert-refunded-payments' own fix, since nothing here knew the
+// money had actually gone back. markJobPaid itself now independently
+// verifies the underlying charge before ever marking a job paid (see its
+// own comment in lib/lab-email.ts) — this endpoint just calls it and reads
+// back what actually happened, rather than duplicating that check here
+// where it could drift out of sync again.
+//
 // Safe to run repeatedly / GET rather than POST: every step here is
 // already idempotent by the design of the functions it calls
-// (markJobPaid only sets paid_date if it isn't already set and refuses to
-// touch a job already flagged payment_reversed_at; autoDraftReportIfJustPaid
+// (markJobPaid only sets paid_date if it isn't already set, and never
+// marks a refunded or already-reversed job paid; autoDraftReportIfJustPaid
 // only drafts once, checking report_drafted_at first) — the same
 // at-least-once-delivery assumption the real webhook is already built to
 // tolerate. Only ever acts on a job whose Stripe invoice is independently
@@ -45,6 +59,7 @@ export const GET = withApiErrors(async (req: NextRequest) => {
   const jobs = (data ?? []) as unknown as JobRow[];
 
   const fixed: { project_number: string | null; stripe_invoice_id: string }[] = [];
+  const skippedRefunded: { project_number: string | null }[] = [];
   const errors: { project_number: string | null; error: string }[] = [];
 
   for (const job of jobs) {
@@ -56,6 +71,17 @@ export const GET = withApiErrors(async (req: NextRequest) => {
 
       const { markJobPaid } = await import("@/lib/lab-email");
       await markJobPaid(job.id);
+
+      const { data: after } = await supabase.from("jobs").select("paid_date, payment_reversed_at").eq("id", job.id).single();
+      if (!after?.paid_date) {
+        // markJobPaid found the underlying charge refunded (or already
+        // flagged reversed) and set payment_reversed_at instead of paying —
+        // nothing more to do here, and definitely no fee to capture for a
+        // payment that isn't actually standing.
+        skippedRefunded.push({ project_number: label });
+        continue;
+      }
+
       const feeCents = await captureStripeFee(stripe, invoice);
       if (feeCents != null) {
         await supabase.from("jobs").update({ stripe_fee_cents: feeCents }).eq("id", job.id);
@@ -66,5 +92,5 @@ export const GET = withApiErrors(async (req: NextRequest) => {
     }
   }
 
-  return NextResponse.json({ scanned: jobs.length, fixed, errors });
+  return NextResponse.json({ scanned: jobs.length, fixed, skippedRefunded, errors });
 });

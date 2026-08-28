@@ -68,9 +68,18 @@ export async function POST(req: NextRequest) {
     if (jobId) {
       const { markJobPaid } = await import("@/lib/lab-email");
       await markJobPaid(jobId);
-      const feeCents = await captureStripeFee(stripe, invoice);
-      if (feeCents != null) {
-        await supabase.from("jobs").update({ stripe_fee_cents: feeCents }).eq("id", jobId);
+      // markJobPaid independently verifies the underlying charge before
+      // ever marking a job paid (see its own comment) — a refunded charge
+      // gets flagged payment_reversed_at instead, with paid_date left
+      // untouched. Only capture/record a processing fee when the job
+      // actually ended up paid; a job that was just correctly flagged as
+      // reversed has no standing payment to attach a fee to.
+      const { data: after } = await supabase.from("jobs").select("paid_date").eq("id", jobId).maybeSingle();
+      if (after?.paid_date) {
+        const feeCents = await captureStripeFee(stripe, invoice);
+        if (feeCents != null) {
+          await supabase.from("jobs").update({ stripe_fee_cents: feeCents }).eq("id", jobId);
+        }
       }
     } else {
       await alertUnmatchedEvent(event.type, invoice.id);

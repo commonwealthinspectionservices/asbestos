@@ -78,8 +78,14 @@ export async function renderProjectXlsm({ job, customer }: ProjectXlsmData): Pro
 
   coc.getCell("F4").value = job.project_number ?? "";
   coc.getCell("B5").value = customer.company || customer.name;
-  if (job.requested_date) {
-    coc.getCell("F5").value = new Date(`${job.requested_date}T00:00:00`);
+  // Per Tim, 2026-08-28 — confirmed_date first: a company like Boston
+  // Harbor Water Restoration never carries a real requested_date at all
+  // (see JobsDashboard.tsx's own reportChecklist comment), so this cell
+  // would otherwise sit blank on every one of their COC sheets even though
+  // the actual sampling date is known once the job's scheduled/completed.
+  const cocDate = job.confirmed_date ?? job.requested_date;
+  if (cocDate) {
+    coc.getCell("F5").value = new Date(`${cocDate}T00:00:00`);
   }
   const site = splitAddress(job.service_address);
   coc.getCell("B6").value = expandAddress(site.locationName ? `${site.locationName} ${site.street}` : site.street);

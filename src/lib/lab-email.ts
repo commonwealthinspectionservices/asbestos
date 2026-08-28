@@ -36,7 +36,7 @@ import {
 import { isLabInvoiceText, extractLabInvoiceTotalCents, extractInvoiceLineItems, extractInvoiceNumber } from "@/lib/parse-lab-invoice";
 import { defaultInvoiceLineItems, invoiceLineItemsTotalCents } from "@/lib/invoice-defaults";
 import { formatCents } from "@/lib/pricing";
-import { createStripeInvoiceForJob, tagInvoiceEmailed } from "@/lib/stripe";
+import { createStripeInvoiceForJob, tagInvoiceEmailed, getStripe } from "@/lib/stripe";
 import { splitTrailingCocPages } from "@/lib/split-lab-report-coc";
 import { extractPositionOrderedText } from "@/lib/pdf-position-text";
 import { jobReportDomains, ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, NEWTON_FIRE_FLOOD_COMPANY_ID, BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID, reportEmailAttachmentFilename, type ReportDomain } from "@/lib/report-findings";
@@ -1600,10 +1600,28 @@ export async function autoDraftReportIfJustPaid(jobId: string): Promise<void> {
  * refund on this same payment. Blindly re-running would silently revert
  * whatever manual correction the admin made — treat that as a signal this
  * needs human eyes, not an automatic re-confirmation.
+ *
+ * Per Tim, 2026-08-28 (26-0007/26-0008) — that payment_reversed_at guard
+ * alone isn't enough on its own: it only protects a job *while* the flag
+ * stays set, and dismissing the "Payment reversed — review needed" banner
+ * (a completely normal thing to do once it's been reviewed) clears exactly
+ * that flag, which used to leave the job wide open to a *later* redelivery
+ * of the same original invoice.paid event re-marking it paid — Stripe
+ * invoices stay "status: paid" forever even after the underlying charge is
+ * refunded, so nothing here ever independently re-checked. Now this
+ * verifies the underlying charge itself, every single call, regardless of
+ * payment_reversed_at's current state: a refunded charge sets
+ * payment_reversed_at (again, if needed) and stops here instead of ever
+ * marking the job paid — so no caller of this function, present or future,
+ * can reintroduce this class of bug by forgetting to check.
  */
 export async function markJobPaid(jobId: string): Promise<void> {
   const supabase = getSupabaseAdmin();
-  const { data: current } = await supabase.from("jobs").select("paid_date, payment_reversed_at, project_number").eq("id", jobId).maybeSingle();
+  const { data: current } = await supabase
+    .from("jobs")
+    .select("paid_date, payment_reversed_at, project_number, stripe_invoice_id")
+    .eq("id", jobId)
+    .maybeSingle();
 
   if (current?.payment_reversed_at) {
     console.error(`markJobPaid: ignoring invoice.paid for job ${jobId} — payment was already flagged reversed at ${current.payment_reversed_at}. Needs manual review.`);
@@ -1616,6 +1634,27 @@ export async function markJobPaid(jobId: string): Promise<void> {
       `),
     });
     return;
+  }
+
+  if (current?.stripe_invoice_id) {
+    try {
+      const stripe = getStripe();
+      const invoice = await stripe.invoices.retrieve(current.stripe_invoice_id);
+      const chargeId = typeof invoice.charge === "string" ? invoice.charge : invoice.charge?.id ?? null;
+      if (chargeId) {
+        const charge = await stripe.charges.retrieve(chargeId);
+        if (charge.refunded || charge.amount_refunded > 0) {
+          console.error(`markJobPaid: invoice.paid for job ${jobId} but its underlying charge is refunded ($${(charge.amount_refunded / 100).toFixed(2)}) — flagging instead of marking paid.`);
+          await supabase.from("jobs").update({ payment_reversed_at: new Date().toISOString() }).eq("id", jobId).is("payment_reversed_at", null);
+          return;
+        }
+      }
+    } catch (e) {
+      // Best-effort — a Stripe hiccup here must never block a genuinely
+      // paid job from being recorded as paid; it just means this specific
+      // safety check couldn't run this time.
+      console.error(`markJobPaid: failed to verify refund status for job ${jobId}:`, e);
+    }
   }
 
   const update: Record<string, unknown> = { status: "paid" };

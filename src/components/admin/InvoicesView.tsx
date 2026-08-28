@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { JobWithCustomer } from "@/lib/types";
 import { formatCents } from "@/lib/pricing";
-import { ProjectDetailDialog, EditProjectDialog, reportIsComplete } from "@/components/admin/JobsDashboard";
+import { ProjectDetailDialog, EditProjectDialog } from "@/components/admin/JobsDashboard";
 import { formatDateMDY } from "@/lib/date-format";
 import { NEWTON_FIRE_FLOOD_COMPANY_ID } from "@/lib/report-findings";
 
@@ -74,10 +74,13 @@ function invoiceStatus(job: JobWithCustomer): InvoiceStatus {
   return "ready_to_send";
 }
 
-type FilterKey = "all" | "ready_to_send" | "sent" | "overdue" | "paid";
+// Per Tim, 2026-08-28 — no "Report and Invoice Ready" filter here — this
+// page is only for invoices that have actually been sent or paid (see
+// invoicedJobs above), so a job in that earlier state can never match it
+// anyway.
+type FilterKey = "all" | "sent" | "overdue" | "paid";
 const FILTERS: { key: FilterKey; label: string }[] = [
   { key: "all", label: "All" },
-  { key: "ready_to_send", label: "Report and Invoice Ready" },
   { key: "sent", label: "Payment Pending" },
   { key: "overdue", label: "Overdue" },
   { key: "paid", label: "Paid" },
@@ -145,17 +148,17 @@ export default function InvoicesView() {
     loadJobs();
   }, []);
 
-  // A job isn't a real invoice yet until its report is actually done — the
-  // total often gets set automatically well before that (see invoice_auto).
-  // Once sent or paid, though, the report being "complete" no longer
-  // matters — this is history at that point, not a thing to hide.
+  // Per Tim, 2026-08-28 — this page is only for invoices that have actually
+  // gone out (or been paid), not ones merely ready to send — a job whose
+  // report just finished, sitting in Report and Invoice Ready, doesn't
+  // belong here yet.
   const invoicedJobs = useMemo(
     () =>
       jobs.filter(
         // A subcontracted job has no invoice of its own — the company that
         // sent it handles billing on their end — so it never belongs here
         // even if it somehow picked up an invoice_total_cents value.
-        (j) => j.source !== "subcontractor" && j.invoice_total_cents != null && (j.invoice_sent_at || j.paid_date || reportIsComplete(j))
+        (j) => j.source !== "subcontractor" && j.invoice_total_cents != null && (j.invoice_sent_at || j.paid_date)
       ),
     [jobs]
   );
@@ -500,6 +503,7 @@ export default function InvoicesView() {
             onChanged={() => loadJobs()}
             onEdit={() => setEditingJobId(detailJob.id)}
             onStatusChange={(status) => patchJob(detailJob, { status })}
+            initialTab="invoice"
           />
         );
       })()}

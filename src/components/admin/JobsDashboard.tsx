@@ -1705,7 +1705,7 @@ function DetailField({ label, value, nowrap, trailing }: { label: string; value:
   if (value == null || value === "" || (typeof value === "string" && !value.trim())) return null;
   return (
     <div className="flex items-start gap-2 text-sm">
-      <span className="w-32 shrink-0 whitespace-nowrap font-bold text-black">{label}</span>
+      <span className="w-48 shrink-0 whitespace-nowrap font-bold text-black">{label}</span>
       <span className={`min-w-0 flex-1 text-black ${nowrap ? "sm:whitespace-nowrap" : ""}`}>{value}</span>
       {trailing}
     </div>
@@ -1821,7 +1821,7 @@ export function ProjectDetailDialog({
   onChanged: () => void;
   onEdit: () => void;
   onStatusChange: (status: string) => void;
-  initialTab?: "info" | "report" | "chat" | "photos";
+  initialTab?: "info" | "report" | "invoice" | "chat" | "photos";
 }) {
   const [tab, setTab] = useState<"info" | "report" | "invoice" | "chat" | "photos" | "shipping" | "compensation">(initialTab ?? "info");
   // Just for labeling "Email results to" below — report_emails is only ever

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import type { JobDocument, JobWithCustomer } from "@/lib/types";
 import { formatCents } from "@/lib/pricing";
 import { formatDateMDY } from "@/lib/date-format";
@@ -357,11 +358,21 @@ export default function LabInvoicesView() {
                         </a>
                         <span className="whitespace-nowrap text-xs text-slate-500">Received {formatDate(localDateOnly(entry.receivedAt))}</span>
                       </div>
-                      <ul className="list-disc pl-4 text-xs text-slate-500">
-                        {entry.rows.map((r) => (
-                          <li key={r.job.id} className="font-mono">{r.job.project_number}</li>
+                      {/* Per Tim, 2026-08-28 — comma-separated inline links
+                          instead of a stacked bullet list, so a cell's
+                          height doesn't grow with how many jobs one
+                          invoice covers. Each project number links to
+                          that job in the admin dashboard. */}
+                      <div className="flex flex-wrap text-xs text-slate-500">
+                        {entry.rows.map((r, i) => (
+                          <span key={r.job.id} className="whitespace-nowrap">
+                            <Link href={`/admin/dashboard?jobId=${r.job.id}`} className="font-mono text-brand-600 hover:underline">
+                              {r.job.project_number}
+                            </Link>
+                            {i < entry.rows.length - 1 && <span className="mr-1">,</span>}
+                          </span>
                         ))}
-                      </ul>
+                      </div>
                       <div className="flex justify-end">
                         <span className="whitespace-nowrap text-xs text-slate-500">
                           {entry.covers ? `${formatDate(entry.covers.weekStartStr)} – ${formatDate(entry.covers.weekEndStr)}` : "—"}

@@ -1238,6 +1238,25 @@ function JobRow({
   // nothing's booked yet. Editing these just updates what was requested;
   // AcceptScheduleControl (below) is the only thing that promotes status.
   const isUnscheduled = job.status === "needs_scheduling";
+  // Per Tim, 2026-08-28 — while a job is still To Be Scheduled, this moves
+  // out of its usual spot (the right-hand schedule column, right-aligned)
+  // and up onto the address column's own first line instead, left-aligned,
+  // pushing street/cityStateZip down one line each — the homeowner's own
+  // name/number is the thing the admin needs front and center to actually
+  // get the job scheduled.
+  const siteContactNode = (job.site_contact_name || job.site_contact_phone) ? (
+    <span className="block min-w-0 truncate whitespace-nowrap text-sm text-slate-500" onClick={(e) => e.stopPropagation()}>
+      {job.site_contact_name ? toTitleCase(job.site_contact_name) : ""}
+      {job.site_contact_phone ? (
+        <>
+          {" "}
+          <a href={telHref(job.site_contact_phone)} className="text-brand-700 hover:underline">
+            {formatPhoneInput(job.site_contact_phone)}
+          </a>
+        </>
+      ) : ""}
+    </span>
+  ) : null;
   const overdueDays = daysOverdue(job);
   const isEmailIntake = job.source === "email_intake";
   const isSubcontractor = job.source === "subcontractor";
@@ -1412,6 +1431,7 @@ function JobRow({
       <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-start">
         <div className="min-w-0 w-full sm:w-auto sm:flex-[0.9]">
           {locationName && <div className="truncate whitespace-nowrap text-sm text-slate-500">{locationName}</div>}
+          {isUnscheduled && siteContactNode}
           {/* Mobile: tapping the address text itself (street through zip)
               opens a Google Maps/Waze picker instead of the job detail
               dialog — a driver on the way there wants directions, not to
@@ -1483,7 +1503,11 @@ function JobRow({
           })()}
         </div>
 
-        <div className="flex min-w-0 w-full flex-col items-start gap-1.5 sm:w-auto sm:flex-[0.9] sm:items-end">
+        <div
+          className={`flex min-w-0 w-full flex-col items-start gap-1.5 sm:w-auto sm:flex-[0.9] sm:items-end${
+            isEmailIntake && isUnscheduled ? " sm:self-stretch sm:justify-end" : ""
+          }`}
+        >
           {/* Site contact (usually the homeowner) — shown regardless of
               status so the admin can always find this number on the card,
               not just while the job is still unscheduled. Per Tim,
@@ -1491,21 +1515,11 @@ function JobRow({
               Pending — the homeowner's long done with fieldwork by then,
               not worth the space next to the payment due date instead —
               or Pending Lab Results, same reasoning: fieldwork's already
-              done, nothing left to call the homeowner about. */}
-          {(job.site_contact_name || job.site_contact_phone)
-            && job.status !== "report_invoice_sent" && job.status !== "pending_lab_results" && (
-            <span className="min-w-0 truncate whitespace-nowrap text-sm text-slate-500 sm:w-60" onClick={(e) => e.stopPropagation()}>
-              {job.site_contact_name ? toTitleCase(job.site_contact_name) : ""}
-              {job.site_contact_phone ? (
-                <>
-                  {" "}
-                  <a href={telHref(job.site_contact_phone)} className="text-brand-700 hover:underline">
-                    {formatPhoneInput(job.site_contact_phone)}
-                  </a>
-                </>
-              ) : ""}
-            </span>
-          )}
+              done, nothing left to call the homeowner about. Also skipped
+              here while To Be Scheduled — that status shows it up on the
+              address column's own first line instead (see isUnscheduled
+              above), not duplicated here too. */}
+          {!isUnscheduled && job.status !== "report_invoice_sent" && job.status !== "pending_lab_results" && siteContactNode}
           {CLOSED_STATUSES.has(job.status) ? (
             <div className="flex flex-col items-start gap-0.5 px-1.5 py-1 text-xs text-slate-500 sm:items-end">
               <span>Date of Project: {formatDate(job.requested_date) || "—"}</span>

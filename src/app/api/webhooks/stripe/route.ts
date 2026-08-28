@@ -42,7 +42,26 @@ export async function POST(req: NextRequest) {
   // lab-email.ts: it statically imports pdf-parse, which corrupts state
   // @react-pdf/renderer depends on if the two ever load in the same module
   // graph before pdf-parse is used.
-  if (event.type === "invoice.paid") {
+  // Per Tim, 2026-08-27 — the other half of the card-on-file setup flow
+  // (see customers/[id]/payment-method-link/route.ts, which creates the
+  // Checkout Session this event fires for once the contact finishes it).
+  // Only ever a "setup" mode session — this app never sells anything
+  // through Checkout itself, so no other mode reaches this branch.
+  if (event.type === "checkout.session.completed") {
+    const session = event.data.object as Stripe.Checkout.Session;
+    if (session.mode === "setup" && session.setup_intent && session.customer) {
+      const stripe = new Stripe(stripeKey);
+      const setupIntentId = typeof session.setup_intent === "string" ? session.setup_intent : session.setup_intent.id;
+      const setupIntent = await stripe.setupIntents.retrieve(setupIntentId);
+      const paymentMethodId = typeof setupIntent.payment_method === "string" ? setupIntent.payment_method : setupIntent.payment_method?.id;
+      const customerId = typeof session.customer === "string" ? session.customer : session.customer.id;
+      if (paymentMethodId) {
+        await stripe.customers.update(customerId, {
+          invoice_settings: { default_payment_method: paymentMethodId },
+        });
+      }
+    }
+  } else if (event.type === "invoice.paid") {
     const invoice = event.data.object as Stripe.Invoice;
     const jobId = await resolveJobIdFromInvoiceId(supabase, invoice.id, invoice.metadata?.job_id);
     if (jobId) {

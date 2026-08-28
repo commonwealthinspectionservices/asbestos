@@ -8,6 +8,7 @@ import { telHref } from "@/lib/phone";
 import AddressAutocompleteInput from "@/components/shared/AddressAutocompleteInput";
 import ZipInput, { useAutoZip } from "@/components/shared/ZipInput";
 import { buildBillingAddress, parseAddressToFields, US_STATES, expandAddress } from "@/lib/address";
+import { NEWTON_FIRE_FLOOD_COMPANY_ID } from "@/lib/report-findings";
 
 export interface JobSummary {
   id: string;
@@ -289,6 +290,9 @@ export function ContactDetailDialog({
   const [inviting, setInviting] = useState(false);
   const [inviteDrafted, setInviteDrafted] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
+  const [sendingCardLink, setSendingCardLink] = useState(false);
+  const [cardLinkDrafted, setCardLinkDrafted] = useState(false);
+  const [cardLinkError, setCardLinkError] = useState<string | null>(null);
   const [hasUnlinkedAuthAccount, setHasUnlinkedAuthAccount] = useState(false);
   const [linking, setLinking] = useState(false);
   const [linkError, setLinkError] = useState<string | null>(null);
@@ -362,6 +366,21 @@ export function ContactDetailDialog({
       setInviteError(e instanceof Error ? e.message : "Failed to create invite draft");
     } finally {
       setInviting(false);
+    }
+  }
+
+  async function sendCardOnFileLink() {
+    setSendingCardLink(true);
+    setCardLinkError(null);
+    try {
+      const res = await fetch(`/api/admin/customers/${customerId}/payment-method-link`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to create card setup draft");
+      setCardLinkDrafted(true);
+    } catch (e) {
+      setCardLinkError(e instanceof Error ? e.message : "Failed to create card setup draft");
+    } finally {
+      setSendingCardLink(false);
     }
   }
 
@@ -506,6 +525,34 @@ export function ContactDetailDialog({
                   {inviting ? "Drafting…" : "Draft invite link"}
                 </button>
                 {inviteDrafted && (
+                  <p className="mt-1.5 text-xs text-slate-400">
+                    Drafted in Gmail — review it in your Drafts folder and hit send yourself.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Per Tim, 2026-08-27 — Newton Fire & Flood only, for now: a
+                card on file that gets charged automatically 30 days after
+                each invoice goes out, instead of a manual "Pay" click
+                every time. See payment-method-link/route.ts and the
+                net-30 cron (net30-autocharge.ts) for the other two
+                pieces — this button is just what starts it. */}
+            {customer.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID && (
+              <div className="mt-4 border-t border-slate-100 pt-4">
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Automatic Payment</h4>
+                <p className="mt-1 text-sm text-slate-500">
+                  Once a card is on file, invoices are charged automatically 30 days after they go out.
+                </p>
+                {cardLinkError && <p className="mt-2 text-sm text-red-600">{cardLinkError}</p>}
+                <button
+                  onClick={sendCardOnFileLink}
+                  disabled={sendingCardLink || !customer.email}
+                  className="mt-2 rounded-lg border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-50"
+                >
+                  {sendingCardLink ? "Drafting…" : "Draft card-on-file setup link"}
+                </button>
+                {cardLinkDrafted && (
                   <p className="mt-1.5 text-xs text-slate-400">
                     Drafted in Gmail — review it in your Drafts folder and hit send yourself.
                   </p>

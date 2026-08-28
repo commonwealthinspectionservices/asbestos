@@ -5,7 +5,7 @@ import type { Customer, Job } from "@/lib/types";
 
 let stripeClient: Stripe | null = null;
 
-function getStripe(): Stripe {
+export function getStripe(): Stripe {
   if (stripeClient) return stripeClient;
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key) throw new Error("Missing STRIPE_SECRET_KEY env var");
@@ -13,7 +13,7 @@ function getStripe(): Stripe {
   return stripeClient;
 }
 
-async function getOrCreateStripeCustomer(customer: Customer): Promise<string> {
+export async function getOrCreateStripeCustomer(customer: Customer): Promise<string> {
   const stripe = getStripe();
 
   // Verified, not just trusted — confirmed live: Joe Kline's stored
@@ -277,4 +277,39 @@ export async function createStripeInvoiceForJob(
 export async function tagInvoiceEmailed(stripeInvoiceId: string, emailedAt: string): Promise<void> {
   const stripe = getStripe();
   await stripe.invoices.update(stripeInvoiceId, { metadata: { emailed_at: emailedAt } });
+}
+
+// Per Tim, 2026-08-27 — Newton Fire & Flood (only, for now) wants a card
+// left on file that gets charged automatically instead of him waiting on
+// a manual "Pay" click. A hosted Checkout Session in `setup` mode is the
+// only correct way to collect that card: the customer types it into
+// Stripe's own page, we never see or handle the number ourselves — same
+// boundary this app already respects everywhere else real payment
+// credentials are involved. The webhook (checkout.session.completed)
+// picks up the resulting payment method and sets it as the customer's
+// default once they finish.
+export async function createPaymentMethodSetupLink(stripeCustomerId: string, returnUrl: string): Promise<string> {
+  const stripe = getStripe();
+  const session = await stripe.checkout.sessions.create({
+    mode: "setup",
+    customer: stripeCustomerId,
+    payment_method_types: ["card"],
+    success_url: returnUrl,
+    cancel_url: returnUrl,
+  });
+  if (!session.url) throw new Error("Stripe did not return a Checkout Session URL");
+  return session.url;
+}
+
+// Attempts to charge an already-finalized, still-open invoice against
+// whatever payment method Stripe has on file for its customer — off_session
+// tells Stripe this isn't happening in front of the customer (no 3DS
+// challenge redirect possible), which is exactly the case for an automated
+// net-30 charge attempt run from a cron with nobody watching. Declines
+// (expired card, insufficient funds, no card on file at all) throw the same
+// as any other failed charge; the caller (the net-30 cron) is what decides
+// what to do about that, not this function.
+export async function chargeInvoiceOffSession(stripeInvoiceId: string): Promise<Stripe.Invoice> {
+  const stripe = getStripe();
+  return stripe.invoices.pay(stripeInvoiceId, { off_session: true });
 }

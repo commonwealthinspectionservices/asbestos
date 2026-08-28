@@ -9,9 +9,17 @@ import { NEWTON_FIRE_FLOOD_COMPANY_ID } from "@/lib/report-findings";
 
 type InvoiceStatus = "ready_to_send" | "sent" | "overdue" | "paid";
 
+// Per Tim, 2026-08-28 — ready_to_send/sent match the exact same wording as
+// the real job.status pipeline's own labels (JobsDashboard.tsx's
+// STATUS_LABEL: ready_to_send → "Report and Invoice Ready", report_invoice_sent
+// → "Payment Pending") rather than this view's own separate phrasing, so a
+// job reads the same status whichever page you're looking at it from.
+// Overdue/Paid have no real equivalent status of their own to match against
+// (overdue is a derived urgency flag on top of report_invoice_sent, and
+// "Paid" already matched), so those stay as-is.
 const STATUS_LABEL: Record<InvoiceStatus, string> = {
-  ready_to_send: "Ready to Send",
-  sent: "Sent",
+  ready_to_send: "Report and Invoice Ready",
+  sent: "Payment Pending",
   overdue: "Overdue",
   paid: "Paid",
 };
@@ -69,8 +77,8 @@ function invoiceStatus(job: JobWithCustomer): InvoiceStatus {
 type FilterKey = "all" | "ready_to_send" | "sent" | "overdue" | "paid";
 const FILTERS: { key: FilterKey; label: string }[] = [
   { key: "all", label: "All" },
-  { key: "ready_to_send", label: "Ready to Send" },
-  { key: "sent", label: "Sent (Unpaid)" },
+  { key: "ready_to_send", label: "Report and Invoice Ready" },
+  { key: "sent", label: "Payment Pending" },
   { key: "overdue", label: "Overdue" },
   { key: "paid", label: "Paid" },
 ];
@@ -406,12 +414,17 @@ export default function InvoicesView() {
                   items-start) vertically centers the left column's single
                   line against the center column's taller two-line stack. */}
               <div className="grid w-full grid-cols-[1fr_auto_1fr] items-center gap-3">
-                <div className="min-w-0">
-                  <div className="flex min-w-0 items-center gap-2">
+                <div>
+                  {/* Per Tim, 2026-08-28 — company names must never
+                      truncate with an ellipsis. No min-w-0/truncate here —
+                      this column's own grid track (see grid-cols-[1fr_auto_1fr]
+                      below) grows to fit the full name instead, pushing the
+                      center/right columns right as needed. */}
+                  <div className="flex items-center gap-2">
                     {job.project_number && (
                       <span className="shrink-0 whitespace-nowrap rounded bg-slate-100 px-1.5 py-0.5 text-xs font-mono text-slate-600">{job.project_number}</span>
                     )}
-                    <span className="min-w-0 truncate whitespace-nowrap text-xs font-medium text-slate-800">
+                    <span className="whitespace-nowrap text-xs font-medium text-slate-800">
                       {job.customers?.company || job.customers?.name}
                     </span>
                   </div>
@@ -441,8 +454,14 @@ export default function InvoicesView() {
                           <span className="whitespace-nowrap text-xs text-slate-500">Report sent {formatDate(job.invoice_sent_at.slice(0, 10))}</span>
                         )}
                         {/* Per Tim, 2026-08-28 — redundant once the pill to
-                            the left already says "To be charged <date>". */}
-                        {!isNewtonAutoCharge && <span className="whitespace-nowrap text-xs text-slate-500">Due {formatDate(dueDateFor(job))}</span>}
+                            the left already says "To be charged <date>", so
+                            no text here — but still an (invisible) second
+                            line, so every row renders the same height and
+                            every pill lands at the exact same vertical spot
+                            regardless of which kind of row it's in. */}
+                        <span className={`whitespace-nowrap text-xs text-slate-500 ${isNewtonAutoCharge ? "invisible" : ""}`}>
+                          Due {formatDate(dueDateFor(job))}
+                        </span>
                       </div>
                     </>
                   ) : (
@@ -456,10 +475,7 @@ export default function InvoicesView() {
                   )}
                 </div>
                 <div className="text-right">
-                  {/* Per Tim, 2026-08-28 — larger than the surrounding
-                      text-xs labels, the price is the thing that should
-                      actually stand out on this row. */}
-                  <span className="whitespace-nowrap text-lg font-bold text-slate-800">{formatCents(job.invoice_total_cents ?? 0)}</span>
+                  <span className="whitespace-nowrap text-xs font-semibold text-slate-800">{formatCents(job.invoice_total_cents ?? 0)}</span>
                 </div>
               </div>
             </button>

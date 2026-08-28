@@ -2889,8 +2889,19 @@ export function ProjectDetailDialog({
               </>
             ) : (
               <>
-                <DetailField label="Requested date" value={job.requested_date ? formatDate(job.requested_date) : "—"} />
-                <DetailField label="Requested time" value={job.requested_date ? formatTime(job.requested_time) || "—" : "—"} />
+                {/* Per Tim, 2026-08-28 — Boston Harbor Water Restoration
+                    never actually requests a specific date/time (they just
+                    send a request and Tim schedules it — see
+                    buildEmailIntakeNote's own comment in job-intake.ts),
+                    so these fields have nothing real to show once a job
+                    moves past needs_scheduling either — the earlier branch
+                    above already hides them while needs_scheduling. */}
+                {job.customers?.company_id !== BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID && (
+                  <>
+                    <DetailField label="Requested date" value={job.requested_date ? formatDate(job.requested_date) : "—"} />
+                    <DetailField label="Requested time" value={job.requested_date ? formatTime(job.requested_time) || "—" : "—"} />
+                  </>
+                )}
                 <DetailField
                   label={hasCompletedFieldwork(job.status) ? "Completed date" : "Scheduled date"}
                   value={

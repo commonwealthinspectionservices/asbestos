@@ -422,22 +422,25 @@ export async function createJobFromIntake(params: {
   // Boston Harbor sends no acknowledgment (by design — see the comment in
   // checkForJobIntakeEmails), so from their side a real order that failed
   // to process looks identical to one that succeeded, and they have every
-  // reason to resend "just in case." Same address + same requested date
-  // for this company within the last few days is treated as a likely
-  // duplicate rather than silently creating a second identical job.
+  // reason to resend "just in case." Same address for this company within
+  // the last few days is treated as a likely duplicate rather than
+  // silently creating a second identical job. Used to also require a
+  // matching requested_date, but that column is no longer populated for
+  // this company at all (see the insert below, requested_date) — address +
+  // recency alone is still a strong signal on its own for a company whose
+  // jobs never repeat the same address within days under normal use.
   const contactIds = contacts.map((c) => c.id);
   const { data: possibleDuplicate } = await supabase
     .from("jobs")
     .select("project_number")
     .in("customer_id", contactIds)
-    .eq("requested_date", parsed.requestedDate)
     .eq("service_address", formattedAddress)
     .gte("created_at", new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString())
     .limit(1)
     .maybeSingle();
   if (possibleDuplicate) {
     throw new Error(
-      `Looks like a duplicate of ${possibleDuplicate.project_number} — same address and requested date, created in the last 3 days.`
+      `Looks like a duplicate of ${possibleDuplicate.project_number} — same address, created in the last 3 days.`
     );
   }
 
@@ -455,7 +458,13 @@ export async function createJobFromIntake(params: {
       service_type: serviceTypeLabel,
       base_fee_cents: baseFeeCents,
       per_sample_cents: perSampleCents,
-      requested_date: parsed.requestedDate,
+      // Per Tim, 2026-08-28 — Boston Harbor never actually requests a
+      // specific date/time, they just send a request and Tim schedules it
+      // himself; the date this email named is already the only thing
+      // buildEmailIntakeNote records it for (see that function's own
+      // comment) — it was never meant to land on the job's own
+      // requested_date column too. left null rather than parsed.requestedDate.
+      requested_date: company.id === BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID ? null : parsed.requestedDate,
       window: "ANY",
       status: "needs_scheduling",
       source: "email_intake",

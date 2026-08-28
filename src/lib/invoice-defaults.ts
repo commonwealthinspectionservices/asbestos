@@ -155,11 +155,30 @@ export function defaultInvoiceLineItems(
   }
 
   const isRush = job.lab_turnaround === "Rush";
+  const isNewton = job.customers?.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID;
+
+  // Per Tim, 2026-08-28 (confirmed against a real Boston Harbor Water
+  // Restoration invoice, 26-0009) — "when it's a rush job, you just charge
+  // fifty dollars per sample for asbestos": a flat $50/sample rate on the
+  // bulk-asbestos line itself, not a multiplier of whatever the standard
+  // rate happens to be configured as, and not a separate rush-fee line on
+  // top of the normal sample line (an earlier version of this code added
+  // exactly that — $100 for the samples plus a further $200 "Rush Fee"
+  // line — which double-charged the rush premium). Newton Fire & Flood is
+  // the one exception: their own standing arrangement is a flat 20%
+  // surcharge on the whole invoice (below), not a per-sample rate change,
+  // so this $50 rate never applies to them.
+  const RUSH_ASBESTOS_SAMPLE_CENTS = 5000;
+  const rushRateApplies = isRush && !isNewton;
 
   for (const label of serviceTypeLabels) {
     const count = job.sample_counts?.[label];
     if (!count) continue;
-    const perSampleCents = resolvePerSampleCentsForLabel(label, serviceTypeSettings, job.per_sample_cents);
+    const isAsbestosBulk = sampleDescriptionForServiceType(label) === "Bulk Samples for Asbestos Analysis by PLM";
+    const perSampleCents =
+      rushRateApplies && isAsbestosBulk
+        ? RUSH_ASBESTOS_SAMPLE_CENTS
+        : resolvePerSampleCentsForLabel(label, serviceTypeSettings, job.per_sample_cents);
     if (perSampleCents == null) continue;
     rows.push({
       description: sampleDescriptionForServiceType(label),
@@ -171,13 +190,15 @@ export function defaultInvoiceLineItems(
 
   // No per-service-type counts yet (e.g. before that migration is run, or
   // none logged) — fall back to the single overall sample_count/rate the
-  // job was created with, same as before.
+  // job was created with, same as before. This fallback is always the
+  // asbestos bulk-sample line (its own description is hardcoded below), so
+  // the same rush rate applies.
   if (rows.length === (baseFeeCents != null ? 1 : 0) && job.sample_count && job.per_sample_cents != null) {
     rows.push({
       description: "Bulk Samples for Asbestos Analysis by PLM",
       quantity: job.sample_count,
       billing_unit: "Sample",
-      unit_cost_cents: job.per_sample_cents,
+      unit_cost_cents: rushRateApplies ? RUSH_ASBESTOS_SAMPLE_CENTS : job.per_sample_cents,
     });
   }
 
@@ -186,7 +207,7 @@ export function defaultInvoiceLineItems(
   // regardless of this job's own turnaround (see
   // NEWTON_FIRE_FLOOD_COMPANY_ID's own comment). Skipped on a $0 invoice
   // (nothing priced yet) rather than adding a $0 rush fee line.
-  if (job.customers?.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID) {
+  if (isNewton) {
     const subtotalCents = invoiceLineItemsTotalCents(rows);
     if (subtotalCents > 0) {
       rows.push({
@@ -194,28 +215,6 @@ export function defaultInvoiceLineItems(
         quantity: 1,
         billing_unit: "Fee",
         unit_cost_cents: Math.round(subtotalCents * 0.2),
-      });
-    }
-  } else if (isRush) {
-    // Per Tim, 2026-08-28 (confirmed against a real Boston Harbor Water
-    // Restoration invoice, 26-0009) — the 20%-of-subtotal rule is Newton's
-    // own standing arrangement, not a general rush policy. Every other
-    // company's rush fee is a flat $50 per bulk asbestos sample instead —
-    // reads off whatever "Bulk Samples for Asbestos Analysis by PLM" rows
-    // already ended up in the invoice above (both the per-service-type loop
-    // and the legacy job.sample_count fallback push that exact same
-    // description), rather than recomputing the count separately. Zero
-    // asbestos bulk samples (e.g. a mold-only rush job) means no rush fee
-    // line at all — this rate is specifically for bulk asbestos samples.
-    const bulkAsbestosSampleCount = rows
-      .filter((r) => r.description === "Bulk Samples for Asbestos Analysis by PLM")
-      .reduce((sum, r) => sum + r.quantity, 0);
-    if (bulkAsbestosSampleCount > 0) {
-      rows.push({
-        description: "Rush Fee (Same Day Service)",
-        quantity: bulkAsbestosSampleCount,
-        billing_unit: "Sample",
-        unit_cost_cents: 5000,
       });
     }
   }

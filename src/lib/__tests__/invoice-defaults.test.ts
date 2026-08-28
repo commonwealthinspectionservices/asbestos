@@ -191,7 +191,7 @@ describe("defaultInvoiceLineItems", () => {
     expect(sampleRows.find((r) => r.quantity === 3)?.unit_cost_cents).toBe(8500);
   });
 
-  it("adds a flat $50-per-bulk-asbestos-sample rush fee for Rush turnaround (non-Newton)", () => {
+  it("charges a flat $50/sample for bulk asbestos on a Rush job (non-Newton) — not a separate fee line", () => {
     const job = baseJob({
       service_type: "Limited Asbestos Inspection",
       sample_counts: { "Limited Asbestos Inspection": 4 },
@@ -200,16 +200,28 @@ describe("defaultInvoiceLineItems", () => {
     const items = defaultInvoiceLineItems(job, [asbestosBulk], []);
 
     expect(items.find((i) => i.billing_unit === "Base Fee")?.unit_cost_cents).toBe(45000);
-    expect(items.find((i) => i.billing_unit === "Sample")?.unit_cost_cents).toBe(2500);
-    expect(items.find((i) => i.description.includes("Rush Fee"))).toMatchObject({
-      description: "Rush Fee (Same Day Service)",
+    // One sample line at the $50 rush rate, not $25 standard + a separate
+    // rush-fee line (that would double-charge the rush premium).
+    expect(items).toHaveLength(2);
+    expect(items.find((i) => i.billing_unit === "Sample")).toMatchObject({
+      description: "Bulk Samples for Asbestos Analysis by PLM",
       quantity: 4,
-      billing_unit: "Sample",
       unit_cost_cents: 5000,
     });
+    expect(items.some((i) => i.description.includes("Rush Fee"))).toBe(false);
   });
 
-  it("skips the flat rush fee for a Rush mold-only job — the $50 rate is per bulk asbestos sample", () => {
+  it("charges the standard $25/sample rate for bulk asbestos when not Rush", () => {
+    const job = baseJob({
+      service_type: "Limited Asbestos Inspection",
+      sample_counts: { "Limited Asbestos Inspection": 4 },
+    });
+    const items = defaultInvoiceLineItems(job, [asbestosBulk], []);
+
+    expect(items.find((i) => i.billing_unit === "Sample")?.unit_cost_cents).toBe(2500);
+  });
+
+  it("leaves a Rush mold-only job's sample rate untouched — the $50 rush rate is asbestos-only", () => {
     const job = baseJob({
       service_type: "Mold Air Sampling",
       sample_counts: { "Mold Air Sampling": 4 },
@@ -217,6 +229,7 @@ describe("defaultInvoiceLineItems", () => {
     });
     const items = defaultInvoiceLineItems(job, [moldAir], []);
 
+    expect(items.find((i) => i.billing_unit === "Sample")?.unit_cost_cents).toBe(8500);
     expect(items.some((i) => i.description.includes("Rush Fee"))).toBe(false);
   });
 

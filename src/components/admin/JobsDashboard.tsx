@@ -1456,10 +1456,18 @@ function JobRow({
           {/* Site contact (usually the homeowner) — shown regardless of
               status so the admin can always find this number on the card,
               not just while the job is still unscheduled. */}
-          {(job.site_contact_name || job.site_contact_phone) && (
+          {(job.site_contact_name || job.site_contact_phone
+            || (job.customers?.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID && job.status === "report_invoice_sent")) && (
             <span className="min-w-0 truncate whitespace-nowrap text-sm text-slate-500 sm:w-60" onClick={(e) => e.stopPropagation()}>
               {job.site_contact_name ? toTitleCase(job.site_contact_name) : ""}
-              {job.site_contact_phone ? (
+              {/* Per Tim, 2026-08-28 — Newton Fire & Flood only, once a job
+                  is actually in Payment Pending: phone number (the
+                  homeowner, long done with fieldwork) swaps for the
+                  payment due date instead — name stays, never deleted,
+                  both pieces of info still shown, just phone → due date. */}
+              {job.customers?.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID && job.status === "report_invoice_sent" ? (
+                <>{job.site_contact_name ? " — " : ""}Due {formatDate(job.payment_due_date || paymentDueDate(job.requested_date ?? "") || null)}</>
+              ) : job.site_contact_phone ? (
                 <>
                   {" "}
                   <a href={telHref(job.site_contact_phone)} className="text-brand-700 hover:underline">
@@ -2865,30 +2873,17 @@ export function ProjectDetailDialog({
           </div>
             <div className="space-y-3 sm:space-y-2">
               <h4 className="text-sm font-bold tracking-wide text-black underline">Job site contact</h4>
-              {/* Per Tim, 2026-08-28 — Newton Fire & Flood only, once a job
-                  is actually sitting in Payment Pending: the homeowner's
-                  own name/phone stop being the useful thing to see here
-                  (fieldwork's long done, nobody's calling them again) —
-                  the payment due date is. Email stays either way, still
-                  useful as a way to reach the site regardless of billing
-                  status. */}
-              {job.customers?.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID && job.status === "report_invoice_sent" ? (
-                <DetailField label="Payment due date" value={formatDate(job.payment_due_date || paymentDueDate(job.requested_date ?? "") || null)} />
-              ) : (
-                <>
-                  <DetailField label="Name" value={job.site_contact_name ? toTitleCase(job.site_contact_name) : "—"} />
-                  <DetailField
-                    label="Phone"
-                    value={
-                      job.site_contact_phone ? (
-                        <a href={telHref(job.site_contact_phone)} className="text-brand-700 hover:underline">
-                          {formatPhoneInput(job.site_contact_phone)}
-                        </a>
-                      ) : "—"
-                    }
-                  />
-                </>
-              )}
+              <DetailField label="Name" value={job.site_contact_name ? toTitleCase(job.site_contact_name) : "—"} />
+              <DetailField
+                label="Phone"
+                value={
+                  job.site_contact_phone ? (
+                    <a href={telHref(job.site_contact_phone)} className="text-brand-700 hover:underline">
+                      {formatPhoneInput(job.site_contact_phone)}
+                    </a>
+                  ) : "—"
+                }
+              />
               <DetailField label="Email" value={job.site_contact_email} nowrap />
             </div>
             {job.report_emails && job.report_emails.trim() && (

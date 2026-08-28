@@ -116,6 +116,21 @@ const SIGNATURE_LINES = ["Tim Hall", "Commonwealth Inspection Services"];
 // shape at the end of a text/plain body reads to Gmail as boilerplate to
 // hide. HTML content (like every other draft body in this file) doesn't
 // get that treatment.
+// Per Tim, 2026-08-28 (job 26-0009, Boston Harbor Water Restoration) —
+// same fix as report-pdf.tsx's own sampledDate fallback: requested_date is
+// just whatever date happened to be in the intake email, not a real target
+// date for a company like Boston Harbor that never requests a specific
+// date/time at all (Tim schedules those himself once the request comes
+// in). The report PDF attached to this same email already got fixed to
+// prefer confirmed_date over requested_date — this draft body's own
+// separate "Date of Sampling" line hadn't, so the two disagreed on the
+// same email. Domain-specific sampled dates (extracted from the actual lab
+// report, whichever domain succeeded) still come first when known; a job
+// spanning more than one domain just uses whichever one's set.
+function bestSampledDate(job: Job): string | null {
+  return job.lab_date_sampled ?? job.mold_date_sampled ?? job.lead_date_sampled ?? job.confirmed_date ?? job.requested_date;
+}
+
 function reportDraftBodyHtml(job: Job, settings: Settings): string {
   const domains = jobReportDomains(job.service_type);
   const domainPhrase = reportDomainListPhrase(domains);
@@ -128,7 +143,7 @@ function reportDraftBodyHtml(job: Job, settings: Settings): string {
     `The final ${domainPhrase} ${reportNoun} ${reportVerb} attached here.`,
     "",
     `Address: ${escapeHtml(expandAddress(job.service_address))}`,
-    `Date of Sampling: ${escapeHtml(formatDateMMDDYYYY(job.requested_date))}`,
+    `Date of Sampling: ${escapeHtml(formatDateMMDDYYYY(bestSampledDate(job)))}`,
     "",
     // Per Tim, 2026-08-27 — the phone number itself never wraps mid-digit;
     // if the sentence needs to break, the whole number moves to its own
@@ -200,7 +215,7 @@ function combinedDraftBodyHtml(job: Job, settings: Settings, totalCents: number,
   const domains = jobReportDomains(job.service_type);
   return [
     `<strong>Site:</strong> ${escapeHtml(expandAddress(job.service_address))}`,
-    `<strong>Date of Sampling:</strong> ${escapeHtml(formatDateMMDDYYYY(job.requested_date))}`,
+    `<strong>Date of Sampling:</strong> ${escapeHtml(formatDateMMDDYYYY(bestSampledDate(job)))}`,
     "",
     "Hi,",
     "",

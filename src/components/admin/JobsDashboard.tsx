@@ -2497,14 +2497,18 @@ export function ProjectDetailDialog({
 
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black/40 px-4">
-      {/* Fixed-height flex column, clipped (not scrolling) at this level —
-          the header below never scrolls, since it lives outside the
-          scrollable body entirely rather than relying on `sticky` (which,
-          combined with padding + rounded corners on the same scrolling
-          element, let content bleed above the header during momentum
-          scroll on mobile Safari). This is the standard mobile-dialog
-          shape now — see Add/Edit Project for the same pattern. */}
-      <div className="flex h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl bg-white">
+      {/* max-h (not a fixed h-[90vh]) — per Tim, 2026-08-28: a short job's
+          Project Info tab (desktop's now-two-column layout, see below)
+          left a slab of dead white space at the bottom when the dialog
+          was always exactly 90vh tall regardless of content. Shrinks to
+          fit shorter content, still caps at 90vh and scrolls past that —
+          same pattern Add/Edit Project already use. The header still
+          never scrolls either way, since it lives outside the scrollable
+          body entirely rather than relying on `sticky` (which, combined
+          with padding + rounded corners on the same scrolling element,
+          let content bleed above the header during momentum scroll on
+          mobile Safari). */}
+      <div className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl bg-white">
         {(() => {
           // One dropdown option per tab the button row below would otherwise
           // render — a report tab is keyed "report:<domain>" since a job

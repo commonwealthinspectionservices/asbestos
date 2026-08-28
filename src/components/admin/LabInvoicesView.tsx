@@ -282,7 +282,6 @@ export default function LabInvoicesView() {
                         return (
                           <div key={job.id} className="flex items-center gap-1.5 text-xs">
                             <span className="font-mono text-slate-500">{job.project_number}</span>
-                            <span className="text-slate-500">{job.customers?.company || job.customers?.name}</span>
                             {doc ? (
                               <a
                                 href={`/api/admin/jobs/${job.id}/documents/${doc.id}`}
@@ -314,7 +313,6 @@ export default function LabInvoicesView() {
                 {allLabInvoices.map((entry) => {
                   const first = entry.rows[0];
                   const projectNumbers = entry.rows.map((r) => r.job.project_number).join(", ");
-                  const companies = [...new Set(entry.rows.map((r) => r.job.customers?.company || r.job.customers?.name))].join(", ");
                   return (
                     <div
                       key={first.doc.content_hash ?? `${first.job.id}:${first.doc.id}`}
@@ -322,7 +320,6 @@ export default function LabInvoicesView() {
                     >
                       <div className="flex flex-wrap items-center gap-1.5 text-xs">
                         <span className="font-mono text-slate-500">{projectNumbers}</span>
-                        <span className="text-slate-500">{companies}</span>
                         <a
                           href={`/api/admin/jobs/${first.job.id}/documents/${first.doc.id}`}
                           target="_blank"

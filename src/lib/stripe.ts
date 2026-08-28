@@ -293,9 +293,22 @@ export async function createStripeInvoiceForJob(
 // this can't clobber the job_id key set at creation. Best-effort by
 // design — the caller must never let a Stripe hiccup block recording the
 // send in this app's own database, which is the real source of truth.
+//
+// Per Tim, 2026-08-28 — also pushes the invoice's own due_date out to
+// exactly 30 days from this real send date. Left alone, due_date sits at
+// whatever finalizeInvoice's days_until_due:30 computed back at
+// draft-creation time (createStripeInvoiceForJob, above) — often well
+// before the report/invoice actually went out, since a draft can sit
+// unsent for a while. net30-autocharge.ts charges off this exact field,
+// and it's also what Stripe's own hosted invoice page shows the customer,
+// so both the real charge timing and what Newton sees need to agree with
+// "30 days after the report was sent," not 30 days after the draft was
+// made.
 export async function tagInvoiceEmailed(stripeInvoiceId: string, emailedAt: string): Promise<void> {
   const stripe = getStripe();
-  await stripe.invoices.update(stripeInvoiceId, { metadata: { emailed_at: emailedAt } });
+  const sentAtMs = new Date(emailedAt).getTime();
+  const dueDate = Math.floor(sentAtMs / 1000) + 30 * 24 * 60 * 60;
+  await stripe.invoices.update(stripeInvoiceId, { metadata: { emailed_at: emailedAt }, due_date: dueDate });
 }
 
 // Per Tim, 2026-08-27 — Newton Fire & Flood (only, for now) wants a card

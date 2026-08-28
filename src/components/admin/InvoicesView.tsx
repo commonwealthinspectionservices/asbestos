@@ -39,8 +39,16 @@ function paymentDueDate(projectDate: string): string | null {
   return d.toISOString().slice(0, 10);
 }
 
+// Per Tim, 2026-08-28 — once the invoice's actually been emailed, 30 days
+// after that (not requested_date, which can differ from when the report
+// really went out) is the real due date — this is what Stripe's own
+// auto-charge (lib/net30-autocharge.ts) goes by too, see stripe.ts's
+// tagInvoiceEmailed. A manually-set payment_due_date still wins outright;
+// requested_date+30 stays only as a rough pre-send estimate.
 function dueDateFor(job: JobWithCustomer): string | null {
-  return job.payment_due_date || paymentDueDate(job.requested_date ?? "");
+  if (job.payment_due_date) return job.payment_due_date;
+  if (job.invoice_sent_at) return paymentDueDate(job.invoice_sent_at.slice(0, 10));
+  return paymentDueDate(job.requested_date ?? "");
 }
 
 function isPastDue(dueIso: string | null): boolean {
@@ -383,13 +391,14 @@ export default function InvoicesView() {
               onClick={() => setSelectedJobId(job.id)}
               className="flex w-full flex-col gap-0.5 rounded-lg border border-slate-200 bg-white p-3 text-left hover:border-brand-400"
             >
-              {/* Per Tim, 2026-08-28 — two columns filling the row's full
-                  width instead of three sparse lines: left is identity
-                  (project #, company, then the sent/due dates stacked
-                  directly under those, "Report sent" directly above "Due"),
-                  right is money (amount, status pill stacked under it). */}
+              {/* Per Tim, 2026-08-28 — three columns filling the row's full
+                  width: left is identity (project #, company), center is
+                  status (Report sent directly above the status pill —
+                  "To be charged <date>" for Newton, Sent/Overdue/Paid for
+                  everyone else — centered), right is just the total price,
+                  alone, right-aligned. */}
               <div className="flex w-full items-start justify-between gap-3">
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <div className="flex min-w-0 items-center gap-2">
                     {job.project_number && (
                       <span className="shrink-0 whitespace-nowrap rounded bg-slate-100 px-1.5 py-0.5 text-xs font-mono text-slate-600">{job.project_number}</span>
@@ -398,32 +407,36 @@ export default function InvoicesView() {
                       {job.customers?.company || job.customers?.name}
                     </span>
                   </div>
+                </div>
+                <div className="flex shrink-0 flex-col items-center gap-0.5 text-center">
                   {status === "paid" ? (
-                    <div className="mt-0.5 text-xs text-slate-500">Paid {formatDate(job.paid_date)}</div>
+                    <span className="whitespace-nowrap text-xs text-slate-500">Paid {formatDate(job.paid_date)}</span>
                   ) : (
-                    <div className="mt-0.5 text-xs text-slate-500">
-                      {job.invoice_sent_at && <div className="whitespace-nowrap">Report sent {formatDate(job.invoice_sent_at.slice(0, 10))}</div>}
-                      {/* Per Tim, 2026-08-28 — redundant once the pill to
-                          the right already says "To be charged <date>". */}
-                      {!isNewtonAutoCharge && <div className="whitespace-nowrap">Due {formatDate(dueDateFor(job))}</div>}
-                    </div>
+                    <>
+                      {job.invoice_sent_at && (
+                        <span className="whitespace-nowrap text-xs text-slate-500">Report sent {formatDate(job.invoice_sent_at.slice(0, 10))}</span>
+                      )}
+                      {/* Per Tim, 2026-08-28 — Newton Fire & Flood's card is
+                          charged automatically on the due date (see
+                          lib/net30-autocharge.ts), so "Sent" doesn't tell the
+                          admin anything actionable there — the due date is
+                          the thing that actually matters for this company.
+                          Overdue/Paid/Ready to Send stay as-is even for
+                          Newton: those are still meaningfully different
+                          states worth flagging on their own. */}
+                      {isNewtonAutoCharge ? (
+                        <span className={`shrink-0 whitespace-nowrap rounded px-1.5 py-0.5 text-xs font-medium ${STATUS_COLOR.sent}`}>To be charged {formatDate(dueDateFor(job))}</span>
+                      ) : (
+                        <span className={`shrink-0 whitespace-nowrap rounded px-1.5 py-0.5 text-xs font-medium ${STATUS_COLOR[status]}`}>{STATUS_LABEL[status]}</span>
+                      )}
+                      {/* Redundant once the pill above already says
+                          "To be charged <date>". */}
+                      {!isNewtonAutoCharge && <span className="whitespace-nowrap text-xs text-slate-500">Due {formatDate(dueDateFor(job))}</span>}
+                    </>
                   )}
                 </div>
-                <div className="flex shrink-0 flex-col items-end gap-0.5">
+                <div className="shrink-0 text-right">
                   <span className="whitespace-nowrap text-xs font-semibold text-slate-800">{formatCents(job.invoice_total_cents ?? 0)}</span>
-                  {/* Per Tim, 2026-08-28 — Newton Fire & Flood's card is
-                      charged automatically on the due date (see
-                      lib/net30-autocharge.ts), so "Sent" doesn't tell the
-                      admin anything actionable there — the due date is the
-                      thing that actually matters for this company. Overdue/
-                      Paid/Ready to Send stay as-is even for Newton: those are
-                      still meaningfully different states worth flagging on
-                      their own. */}
-                  {isNewtonAutoCharge ? (
-                    <span className={`shrink-0 whitespace-nowrap rounded px-1.5 py-0.5 text-xs font-medium ${STATUS_COLOR.sent}`}>To be charged {formatDate(dueDateFor(job))}</span>
-                  ) : (
-                    <span className={`shrink-0 whitespace-nowrap rounded px-1.5 py-0.5 text-xs font-medium ${STATUS_COLOR[status]}`}>{STATUS_LABEL[status]}</span>
-                  )}
                 </div>
               </div>
             </button>

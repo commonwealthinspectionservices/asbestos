@@ -484,13 +484,26 @@ function paymentDueDate(projectDate: string): string | null {
   return d.toISOString().slice(0, 10);
 }
 
+// Per Tim, 2026-08-28 — once the invoice's actually been emailed, 30 days
+// after that (not requested_date, which can differ from when the report
+// really went out) is the real due date — this is what Stripe's own
+// auto-charge (lib/net30-autocharge.ts) goes by too, see stripe.ts's
+// tagInvoiceEmailed. A manually-set payment_due_date still wins outright;
+// requested_date+30 stays only as a rough pre-send estimate. Same
+// precedence as InvoicesView.tsx's own copy of this.
+function dueDateFor(job: JobWithCustomer): string | null {
+  if (job.payment_due_date) return job.payment_due_date;
+  if (job.invoice_sent_at) return paymentDueDate(job.invoice_sent_at.slice(0, 10));
+  return paymentDueDate(job.requested_date ?? "");
+}
+
 // Positive only once money is actually owed and sitting past its due date —
 // "ready_to_send" and "report_invoice_sent" are the two statuses that mean
 // "billed, not yet paid" (paid/cancelled/anything earlier in the pipeline
 // never counts, no matter how old the due date is).
 function daysOverdue(job: JobWithCustomer): number | null {
   if (job.status !== "ready_to_send" && job.status !== "report_invoice_sent") return null;
-  const due = job.payment_due_date || paymentDueDate(job.requested_date ?? "");
+  const due = dueDateFor(job);
   if (!due) return null;
   const dueDate = new Date(`${due}T00:00:00`);
   if (Number.isNaN(dueDate.getTime())) return null;
@@ -1413,7 +1426,7 @@ function JobRow({
         <div className="min-w-0 truncate whitespace-nowrap text-sm font-medium text-slate-800">{customerLabelNode}</div>
         {job.status === "report_invoice_sent" && (
           <span className="shrink-0 whitespace-nowrap text-sm text-slate-500">
-            Due {formatDate(job.payment_due_date || paymentDueDate(job.requested_date ?? "") || null)}
+            Due {formatDate(dueDateFor(job))}
           </span>
         )}
       </div>
@@ -3410,7 +3423,7 @@ export function ProjectDetailDialog({
                   items={invoiceLineItems}
                   setItems={setInvoiceLineItemsFromUser}
                   serviceTypeSettings={serviceTypeSettings}
-                  paymentDueDate={job.payment_due_date || paymentDueDate(job.requested_date ?? "") || ""}
+                  paymentDueDate={dueDateFor(job) || ""}
                   onPaymentDueDateChange={(v) => saveJobField({ payment_due_date: v || null })}
                   labCostCents={job.lab_cost_cents}
                   stripeFeeCents={job.stripe_fee_cents}
@@ -3454,7 +3467,7 @@ export function ProjectDetailDialog({
                   {job.customers?.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID && job.status !== "paid" && (
                     <div className="mb-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
                       <span className="font-bold uppercase">Automatic payment on file</span> — Stripe will charge Newton Fire &amp; Flood&apos;s card on file on{" "}
-                      {formatDate(job.payment_due_date || paymentDueDate(job.requested_date ?? "") || null) || "the invoice due date"} if this isn&apos;t paid before then.
+                      {formatDate(dueDateFor(job)) || "the invoice due date"} (30 days after the report was sent) if this isn&apos;t paid before then.
                     </div>
                   )}
                   {payLinkError && <p className="mt-2 text-sm text-red-600">{payLinkError}</p>}

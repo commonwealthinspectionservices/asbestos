@@ -3460,17 +3460,26 @@ export function ProjectDetailDialog({
                   )}
                   {/* Per Tim, 2026-08-27 — the lab's own invoice for the job
                       belongs here next to the invoice we send, not back on
-                      the Report tab with the lab results/CoC paperwork. One
-                      station per service type, same as the Report tab had.
-                      shrink-0 (matching the Invoice card above) — without it
+                      the Report tab with the lab results/CoC paperwork.
+                      Per Tim, 2026-08-28 — one station for the whole job,
+                      not one per service type: there's usually just a
+                      single invoice from the lab covering everything.
+                      Filed under the job's first service-type label — the
+                      lab-email auto-filing (see processMatchedLabInvoiceEmail
+                      in lib/lab-email.ts) always writes a copy under every
+                      label, so the first one always has it. shrink-0
+                      (matching the Invoice card above) — without it
                       DocumentStation's own nowrap label forces the browser
                       to crush the Invoice card down to a sliver instead of
                       just letting this row scroll horizontally. */}
-                  {serviceTypeGroups.flatMap((group) => group.labels).map((label) => (
-                    <div key={label} className="w-full shrink-0 sm:w-60">
-                      <DocumentStation job={job} onChanged={onChanged} kind="lab_invoice" label={`Lab Invoice — ${label}`} serviceType={label} titlePosition="bottom" />
-                    </div>
-                  ))}
+                  {(() => {
+                    const firstLabel = serviceTypeGroups.flatMap((group) => group.labels)[0];
+                    return firstLabel ? (
+                      <div className="w-full shrink-0 sm:w-60">
+                        <DocumentStation job={job} onChanged={onChanged} kind="lab_invoice" label="Lab Invoice" serviceType={firstLabel} titlePosition="bottom" />
+                      </div>
+                    ) : null;
+                  })()}
                 </div>
                 {job.is_individual && job.status !== "paid" && (
                   job.report_release_override ? (

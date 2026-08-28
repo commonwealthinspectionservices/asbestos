@@ -201,24 +201,27 @@ describe("defaultInvoiceLineItems", () => {
 
     expect(items.find((i) => i.billing_unit === "Base Fee")?.unit_cost_cents).toBe(45000);
     // One sample line at the $50 rush rate, not $25 standard + a separate
-    // rush-fee line (that would double-charge the rush premium).
+    // rush-fee line (that would double-charge the rush premium) — and its
+    // own description says "(Rush)" so the customer can see why.
     expect(items).toHaveLength(2);
     expect(items.find((i) => i.billing_unit === "Sample")).toMatchObject({
-      description: "Bulk Samples for Asbestos Analysis by PLM",
+      description: "Bulk Samples for Asbestos Analysis by PLM (Rush)",
       quantity: 4,
       unit_cost_cents: 5000,
     });
     expect(items.some((i) => i.description.includes("Rush Fee"))).toBe(false);
   });
 
-  it("charges the standard $25/sample rate for bulk asbestos when not Rush", () => {
+  it("charges the standard $25/sample rate for bulk asbestos when not Rush, no (Rush) suffix", () => {
     const job = baseJob({
       service_type: "Limited Asbestos Inspection",
       sample_counts: { "Limited Asbestos Inspection": 4 },
     });
     const items = defaultInvoiceLineItems(job, [asbestosBulk], []);
 
-    expect(items.find((i) => i.billing_unit === "Sample")?.unit_cost_cents).toBe(2500);
+    const sampleRow = items.find((i) => i.billing_unit === "Sample");
+    expect(sampleRow?.unit_cost_cents).toBe(2500);
+    expect(sampleRow?.description).toBe("Bulk Samples for Asbestos Analysis by PLM");
   });
 
   it("leaves a Rush mold-only job's sample rate untouched — the $50 rush rate is asbestos-only", () => {

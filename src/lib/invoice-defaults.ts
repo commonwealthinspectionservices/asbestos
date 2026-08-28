@@ -175,13 +175,17 @@ export function defaultInvoiceLineItems(
     const count = job.sample_counts?.[label];
     if (!count) continue;
     const isAsbestosBulk = sampleDescriptionForServiceType(label) === "Bulk Samples for Asbestos Analysis by PLM";
-    const perSampleCents =
-      rushRateApplies && isAsbestosBulk
-        ? RUSH_ASBESTOS_SAMPLE_CENTS
-        : resolvePerSampleCentsForLabel(label, serviceTypeSettings, job.per_sample_cents);
+    const isRushAsbestosBulk = rushRateApplies && isAsbestosBulk;
+    const perSampleCents = isRushAsbestosBulk
+      ? RUSH_ASBESTOS_SAMPLE_CENTS
+      : resolvePerSampleCentsForLabel(label, serviceTypeSettings, job.per_sample_cents);
     if (perSampleCents == null) continue;
     rows.push({
-      description: sampleDescriptionForServiceType(label),
+      // Per Tim, 2026-08-28 — the line item itself has to say "Rush" so a
+      // customer looking at the invoice can see why this sample is $50
+      // instead of the usual $25, not just a bare price with no
+      // explanation for the difference.
+      description: isRushAsbestosBulk ? `${sampleDescriptionForServiceType(label)} (Rush)` : sampleDescriptionForServiceType(label),
       quantity: count,
       billing_unit: "Sample",
       unit_cost_cents: perSampleCents,
@@ -195,7 +199,7 @@ export function defaultInvoiceLineItems(
   // the same rush rate applies.
   if (rows.length === (baseFeeCents != null ? 1 : 0) && job.sample_count && job.per_sample_cents != null) {
     rows.push({
-      description: "Bulk Samples for Asbestos Analysis by PLM",
+      description: rushRateApplies ? "Bulk Samples for Asbestos Analysis by PLM (Rush)" : "Bulk Samples for Asbestos Analysis by PLM",
       quantity: job.sample_count,
       billing_unit: "Sample",
       unit_cost_cents: rushRateApplies ? RUSH_ASBESTOS_SAMPLE_CENTS : job.per_sample_cents,

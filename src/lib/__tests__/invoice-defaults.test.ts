@@ -191,7 +191,7 @@ describe("defaultInvoiceLineItems", () => {
     expect(sampleRows.find((r) => r.quantity === 3)?.unit_cost_cents).toBe(8500);
   });
 
-  it("adds a 20% rush fee for Rush turnaround instead of doubling the per-sample rate", () => {
+  it("adds a flat $50-per-bulk-asbestos-sample rush fee for Rush turnaround (non-Newton)", () => {
     const job = baseJob({
       service_type: "Limited Asbestos Inspection",
       sample_counts: { "Limited Asbestos Inspection": 4 },
@@ -199,15 +199,25 @@ describe("defaultInvoiceLineItems", () => {
     });
     const items = defaultInvoiceLineItems(job, [asbestosBulk], []);
 
-    // Base fee 45000 + 4 * 2500 = 55000 subtotal -> 20% = 11000
     expect(items.find((i) => i.billing_unit === "Base Fee")?.unit_cost_cents).toBe(45000);
     expect(items.find((i) => i.billing_unit === "Sample")?.unit_cost_cents).toBe(2500);
     expect(items.find((i) => i.description.includes("Rush Fee"))).toMatchObject({
-      description: "Rush Fee (Same Day Service) - 20%",
-      quantity: 1,
-      billing_unit: "Fee",
-      unit_cost_cents: 11000,
+      description: "Rush Fee (Same Day Service)",
+      quantity: 4,
+      billing_unit: "Sample",
+      unit_cost_cents: 5000,
     });
+  });
+
+  it("skips the flat rush fee for a Rush mold-only job — the $50 rate is per bulk asbestos sample", () => {
+    const job = baseJob({
+      service_type: "Mold Air Sampling",
+      sample_counts: { "Mold Air Sampling": 4 },
+      lab_turnaround: "Rush",
+    });
+    const items = defaultInvoiceLineItems(job, [moldAir], []);
+
+    expect(items.some((i) => i.description.includes("Rush Fee"))).toBe(false);
   });
 
   it("adds the rush fee only once for a Newton job that's also marked Rush turnaround", () => {

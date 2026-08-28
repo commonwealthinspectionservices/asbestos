@@ -181,14 +181,12 @@ export function defaultInvoiceLineItems(
     });
   }
 
-  // Per Tim, 2026-08-27 — Rush turnaround used to double the per-sample
-  // rate; it now works the same way Newton Fire & Flood's own standing rush
-  // fee already does (see NEWTON_FIRE_FLOOD_COMPANY_ID's own comment): a
-  // flat 20% surcharge on top of everything above, instead of touching any
-  // individual line's rate. Either trigger adds the fee once, not twice, for
-  // a Newton job that also happens to be marked Rush. Skipped on a $0
-  // invoice (nothing priced yet) rather than adding a $0 rush fee line.
-  if (isRush || job.customers?.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID) {
+  // Per Tim, 2026-08-27 — Newton Fire & Flood has its own standing rush fee
+  // arrangement: a flat 20% surcharge on top of everything above, applied
+  // regardless of this job's own turnaround (see
+  // NEWTON_FIRE_FLOOD_COMPANY_ID's own comment). Skipped on a $0 invoice
+  // (nothing priced yet) rather than adding a $0 rush fee line.
+  if (job.customers?.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID) {
     const subtotalCents = invoiceLineItemsTotalCents(rows);
     if (subtotalCents > 0) {
       rows.push({
@@ -196,6 +194,28 @@ export function defaultInvoiceLineItems(
         quantity: 1,
         billing_unit: "Fee",
         unit_cost_cents: Math.round(subtotalCents * 0.2),
+      });
+    }
+  } else if (isRush) {
+    // Per Tim, 2026-08-28 (confirmed against a real Boston Harbor Water
+    // Restoration invoice, 26-0009) — the 20%-of-subtotal rule is Newton's
+    // own standing arrangement, not a general rush policy. Every other
+    // company's rush fee is a flat $50 per bulk asbestos sample instead —
+    // reads off whatever "Bulk Samples for Asbestos Analysis by PLM" rows
+    // already ended up in the invoice above (both the per-service-type loop
+    // and the legacy job.sample_count fallback push that exact same
+    // description), rather than recomputing the count separately. Zero
+    // asbestos bulk samples (e.g. a mold-only rush job) means no rush fee
+    // line at all — this rate is specifically for bulk asbestos samples.
+    const bulkAsbestosSampleCount = rows
+      .filter((r) => r.description === "Bulk Samples for Asbestos Analysis by PLM")
+      .reduce((sum, r) => sum + r.quantity, 0);
+    if (bulkAsbestosSampleCount > 0) {
+      rows.push({
+        description: "Rush Fee (Same Day Service)",
+        quantity: bulkAsbestosSampleCount,
+        billing_unit: "Sample",
+        unit_cost_cents: 5000,
       });
     }
   }

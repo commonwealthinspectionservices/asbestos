@@ -2633,17 +2633,29 @@ export function ProjectDetailDialog({
 
         {tab === "info" && (
         <>
-        <div className="mt-6 grid grid-cols-1 gap-y-6 sm:gap-y-8">
-          {/* Per Tim, 2026-08-27 — desktop only: identity/status fields
-              (Project #, Status, Report/Invoice, Company, address) stay in
-              their own left column; scheduling/service fields (Requested/
-              Completed date & time, Turnaround, Service type, Scope of
-              Work) move into a second column starting at that same top
-              row, roughly under the header's draft button, instead of
-              running on below the address as one long column. Mobile is
-              unaffected — grid-cols-1 stacks these two divs in the same
-              document order the fields were already in. */}
-          <div className="grid grid-cols-1 gap-y-6 sm:grid-cols-[7fr_3fr] sm:gap-x-6 sm:gap-y-2">
+        <div className="mt-6 grid grid-cols-1 gap-y-6 sm:relative sm:gap-y-8">
+          {/* Per Tim, 2026-08-28 — Edit moved back out of the Project #
+              row: on desktop it now sits pinned to the very top-right
+              corner of this whole tab (anchored to this sm:relative
+              wrapper), not inline with any particular field. Mobile is
+              unaffected — its own copy stays inline with Project #, same
+              as before. */}
+          <button
+            onClick={onEdit}
+            className="hidden shrink-0 rounded-lg border border-slate-300 px-3.5 py-1.5 text-sm font-bold uppercase hover:underline sm:absolute sm:right-0 sm:top-0 sm:block"
+          >
+            Edit
+          </button>
+          {/* Per Tim, 2026-08-28 — one unified grid (not two separate
+              ones) for identity/address, scheduling/service, Job site
+              contact, and Email results to: on desktop (2 cols) grid
+              auto-placement fills it row by row — [identity/address |
+              scheduling/service] then [Job site contact | Email results
+              to] — so scheduling/service ends up directly above Email
+              results to, same column. Mobile (1 col) just stacks all four
+              in that same DOM order, which is exactly the order they were
+              already in, so mobile's own layout is unaffected. */}
+          <div className="grid grid-cols-1 gap-y-6 sm:grid-cols-[7fr_3fr] sm:gap-x-6 sm:gap-y-4">
           <div className="space-y-3 sm:space-y-2">
             {(() => {
               const portalBadge = job.source === "subcontractor" && (() => {
@@ -2662,7 +2674,7 @@ export function ProjectDetailDialog({
               })();
               return (
                 <>
-                  {/* Edit stays top-right next to Project # at every width; the portal badge (subcontractor jobs only) sits beside Edit on desktop, same as always. */}
+                  {/* Edit stays inline next to Project # on mobile only now (see the absolutely-positioned desktop copy above); the portal badge (subcontractor jobs only) sits beside it there too, same as always. */}
                   <div className="relative flex items-center justify-between gap-2">
                     <DetailField label="Project #" value={job.project_number} />
                     <div className="flex shrink-0 items-center gap-2">
@@ -2688,7 +2700,7 @@ export function ProjectDetailDialog({
                           </svg>
                         </a>
                       )}
-                      <button onClick={onEdit} className="shrink-0 rounded-lg border border-slate-300 px-3.5 py-1.5 text-sm font-bold uppercase hover:underline">
+                      <button onClick={onEdit} className="shrink-0 rounded-lg border border-slate-300 px-3.5 py-1.5 text-sm font-bold uppercase hover:underline sm:hidden">
                         Edit
                       </button>
                     </div>
@@ -2851,21 +2863,32 @@ export function ProjectDetailDialog({
               </div>
             )}
           </div>
-          </div>
-          <div className="grid grid-cols-1 gap-y-6 sm:grid-cols-2 sm:gap-x-4 sm:gap-y-4">
             <div className="space-y-3 sm:space-y-2">
               <h4 className="text-sm font-bold tracking-wide text-black underline">Job site contact</h4>
-              <DetailField label="Name" value={job.site_contact_name ? toTitleCase(job.site_contact_name) : "—"} />
-              <DetailField
-                label="Phone"
-                value={
-                  job.site_contact_phone ? (
-                    <a href={telHref(job.site_contact_phone)} className="text-brand-700 hover:underline">
-                      {formatPhoneInput(job.site_contact_phone)}
-                    </a>
-                  ) : "—"
-                }
-              />
+              {/* Per Tim, 2026-08-28 — Newton Fire & Flood only, once a job
+                  is actually sitting in Payment Pending: the homeowner's
+                  own name/phone stop being the useful thing to see here
+                  (fieldwork's long done, nobody's calling them again) —
+                  the payment due date is. Email stays either way, still
+                  useful as a way to reach the site regardless of billing
+                  status. */}
+              {job.customers?.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID && job.status === "report_invoice_sent" ? (
+                <DetailField label="Payment due date" value={formatDate(job.payment_due_date || paymentDueDate(job.requested_date ?? "") || null)} />
+              ) : (
+                <>
+                  <DetailField label="Name" value={job.site_contact_name ? toTitleCase(job.site_contact_name) : "—"} />
+                  <DetailField
+                    label="Phone"
+                    value={
+                      job.site_contact_phone ? (
+                        <a href={telHref(job.site_contact_phone)} className="text-brand-700 hover:underline">
+                          {formatPhoneInput(job.site_contact_phone)}
+                        </a>
+                      ) : "—"
+                    }
+                  />
+                </>
+              )}
               <DetailField label="Email" value={job.site_contact_email} nowrap />
             </div>
             {job.report_emails && job.report_emails.trim() && (

@@ -197,6 +197,8 @@ export interface JobDocument {
   invoice_mismatch?: boolean | null;
   /** SHA-256 of the file's own bytes, lab_invoice only. Crystal Analytical bills per lab order, one PDF often covering several jobs at once (see processMultiJobLabInvoiceEmail in lib/lab-email.ts) — that same PDF gets uploaded as its own copy under every job it covers (a different storage_path each time) plus once per service-type label on a mixed job, so without this a single real invoice email shows up as several unrelated-looking documents. Two documents sharing this hash are byte-identical copies of the same source file, however many jobs/labels they're filed under. Absent on documents uploaded before this field existed — see /api/admin/backfill-lab-invoice-hashes for retroactively filling it in. */
   content_hash?: string | null;
+  /** Crystal Analytical's own invoice number ("Invoice no.: 6491" on the PDF itself — see extractInvoiceNumber in lib/parse-lab-invoice.ts), lab_invoice only. Shown as the invoice's title in LabInvoicesView instead of a generic "Lab invoice" label. Absent on documents uploaded before this field existed — see /api/admin/backfill-lab-invoice-numbers for retroactively filling it in. */
+  lab_invoice_number?: string | null;
 }
 
 /** A photo uploaded to a project's Photos tab (job-photos storage bucket) — either side can add these, unlike `documents` which is admin-only lab paperwork. */

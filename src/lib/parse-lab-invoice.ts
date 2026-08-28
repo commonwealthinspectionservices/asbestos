@@ -20,6 +20,18 @@ export function isLabInvoiceText(pdfText: string): boolean {
   return /Federal Tax ID/i.test(pdfText) || /Invoice no\.\s*:/i.test(pdfText);
 }
 
+// Crystal Analytical's own invoice number ("Invoice no.: 6491") — confirmed
+// present on both their native template and the QuickBooks payment-request
+// template (#6497/#6498, see extractLabInvoiceTotalCents's own comment on
+// the two templates). Used so admin views can show the same number Tim
+// already sees on Crystal's own invoice/email rather than a generic "Lab
+// invoice" label. \s already matches a line break, same as the other
+// extractors here tolerating a label split across lines in extracted text.
+export function extractInvoiceNumber(pdfText: string): string | null {
+  const match = pdfText.match(/Invoice no\.\s*:\s*(\S+)/i);
+  return match ? match[1] : null;
+}
+
 export interface LabInvoiceLineItem {
   projectNumber: string;
   amountCents: number;

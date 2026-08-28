@@ -203,15 +203,28 @@ export default function LabInvoicesView() {
       }
     }
 
+    // Group key preference: lab_invoice_number (Crystal's own printed
+    // number, e.g. "6491") over content_hash. Crystal's own number is what
+    // actually identifies "the same real invoice," independent of exactly
+    // how each copy got into this system — content_hash only catches
+    // byte-identical copies (the automated multi-job path re-uploads the
+    // exact same buffer per job), but the same real invoice manually
+    // uploaded separately per job (a different export/scan each time) can
+    // still print the identical invoice number while never hashing the
+    // same. Confirmed live 2026-08-28 — Tim: "I thought that I've only got
+    // three invoices from the lab so far," but content_hash alone was
+    // still showing more than three, because several of Boston Harbor's
+    // copies weren't byte-identical even though they're the same invoice.
     const groups = new Map<string, { job: JobWithCustomer; doc: JobDocument }[]>();
     const ungrouped: { job: JobWithCustomer; doc: JobDocument }[][] = [];
     for (const row of flat) {
-      if (!row.doc.content_hash) {
+      const key = row.doc.lab_invoice_number ? `n:${row.doc.lab_invoice_number}` : row.doc.content_hash ? `h:${row.doc.content_hash}` : null;
+      if (!key) {
         ungrouped.push([row]);
         continue;
       }
-      if (!groups.has(row.doc.content_hash)) groups.set(row.doc.content_hash, []);
-      groups.get(row.doc.content_hash)!.push(row);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(row);
     }
 
     return [...groups.values(), ...ungrouped]
@@ -304,35 +317,54 @@ export default function LabInvoicesView() {
             )}
           </div>
 
-          <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3 text-sm">
+          <div className="mt-3">
             <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">All Lab Invoices</div>
             {allLabInvoices.length === 0 ? (
-              <p className="mt-2 text-sm text-slate-500">No lab invoices uploaded yet.</p>
+              <p className="mt-2 rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-500">No lab invoices uploaded yet.</p>
             ) : (
-              <div className="mt-2 divide-y divide-slate-100">
+              // Per Tim, 2026-08-28 — its own bordered cell per invoice,
+              // same card pattern as the mobile Invoices-list cards
+              // (InvoicesView.tsx), not one shared card with thin dividers
+              // between rows.
+              <div className="mt-2 flex flex-col gap-2">
                 {allLabInvoices.map((entry) => {
                   const first = entry.rows[0];
-                  const projectNumbers = entry.rows.map((r) => r.job.project_number).join(", ");
                   return (
                     <div
-                      key={first.doc.content_hash ?? `${first.job.id}:${first.doc.id}`}
-                      className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-2 first:pt-0 last:pb-0"
+                      key={first.doc.lab_invoice_number ?? first.doc.content_hash ?? `${first.job.id}:${first.doc.id}`}
+                      className="flex flex-col gap-1 rounded-lg border border-slate-200 bg-white p-3 text-sm"
                     >
-                      <div className="flex flex-wrap items-center gap-1.5 text-xs">
-                        <span className="font-mono text-slate-500">{projectNumbers}</span>
+                      {/* Per Tim, 2026-08-28 — corners anchored, same "fill
+                          the cell" pattern as the mobile Invoices-list cards:
+                          title top-left, Received top-right, job numbers
+                          middle-left, date range bottom-right. Title is
+                          Crystal's own printed invoice number ("Invoice no.:
+                          6491" on the PDF itself — see extractInvoiceNumber
+                          in lib/parse-lab-invoice.ts) when known, since
+                          that's what Tim actually sees on their invoice/
+                          email; falls back to a generic "Lab invoice" label
+                          for a document uploaded before that field existed
+                          and not yet backfilled (see
+                          /api/admin/backfill-lab-invoice-numbers). */}
+                      <div className="flex flex-wrap items-start justify-between gap-x-4">
                         <a
                           href={`/api/admin/jobs/${first.job.id}/documents/${first.doc.id}`}
                           target="_blank"
                           rel="noreferrer"
-                          className="text-brand-600 hover:underline"
+                          className="text-xs font-medium text-brand-600 hover:underline"
                         >
-                          Lab invoice ↗
+                          {first.doc.lab_invoice_number ? `Invoice #${first.doc.lab_invoice_number}` : "Lab invoice"} ↗
                         </a>
+                        <span className="whitespace-nowrap text-xs text-slate-500">Received {formatDate(localDateOnly(entry.receivedAt))}</span>
                       </div>
-                      <div className="flex gap-4 whitespace-nowrap text-xs text-slate-500">
-                        <span>Received {formatDate(localDateOnly(entry.receivedAt))}</span>
-                        <span>
-                          Covers {entry.covers ? `${formatDate(entry.covers.weekStartStr)} – ${formatDate(entry.covers.weekEndStr)}` : "—"}
+                      <ul className="list-disc pl-4 text-xs text-slate-500">
+                        {entry.rows.map((r) => (
+                          <li key={r.job.id} className="font-mono">{r.job.project_number}</li>
+                        ))}
+                      </ul>
+                      <div className="flex justify-end">
+                        <span className="whitespace-nowrap text-xs text-slate-500">
+                          {entry.covers ? `${formatDate(entry.covers.weekStartStr)} – ${formatDate(entry.covers.weekEndStr)}` : "—"}
                         </span>
                       </div>
                     </div>

@@ -33,7 +33,7 @@ import {
   extractMoldSampleResults,
   extractSampledDate,
 } from "@/lib/parse-lab-report";
-import { isLabInvoiceText, extractLabInvoiceTotalCents, extractInvoiceLineItems } from "@/lib/parse-lab-invoice";
+import { isLabInvoiceText, extractLabInvoiceTotalCents, extractInvoiceLineItems, extractInvoiceNumber } from "@/lib/parse-lab-invoice";
 import { defaultInvoiceLineItems, invoiceLineItemsTotalCents } from "@/lib/invoice-defaults";
 import { formatCents } from "@/lib/pricing";
 import { createStripeInvoiceForJob, tagInvoiceEmailed } from "@/lib/stripe";
@@ -688,6 +688,7 @@ async function processMatchedLabInvoiceEmail(params: {
   // whatever matched as if it were a normal invoice.
   const totalCents = extractLabInvoiceTotalCents(pdfText);
   const contentHash = createHash("sha256").update(pdfBuffer).digest("hex");
+  const invoiceNumber = extractInvoiceNumber(pdfText);
   const newDocuments: JobDocument[] = serviceTypeLabels.map((label) => ({
     id: randomUUID(),
     kind: "lab_invoice",
@@ -698,6 +699,7 @@ async function processMatchedLabInvoiceEmail(params: {
     project_number_mismatch: null,
     invoice_mismatch: totalCents == null ? true : null,
     content_hash: contentHash,
+    lab_invoice_number: invoiceNumber,
   }));
   const update: Record<string, unknown> = {
     documents: await replaceDocumentsByKindAndServiceType(supabase, job.documents ?? [], newDocuments),
@@ -751,6 +753,7 @@ async function processMultiJobLabInvoiceEmail(params: {
   // JobDocument) recognize them as the same real invoice email again
   // afterward.
   const contentHash = createHash("sha256").update(pdfBuffer).digest("hex");
+  const invoiceNumber = extractInvoiceNumber(pdfText);
 
   for (const [projectNumber, amountCents] of amountCentsByProject) {
     const { data: job } = await supabase.from("jobs").select("*").ilike("project_number", projectNumber).maybeSingle();
@@ -777,6 +780,7 @@ async function processMultiJobLabInvoiceEmail(params: {
       uploaded_at: uploadedAt,
       project_number_mismatch: null,
       content_hash: contentHash,
+      lab_invoice_number: invoiceNumber,
     }));
     const update: Record<string, unknown> = {
       documents: await replaceDocumentsByKindAndServiceType(supabase, job.documents ?? [], newDocuments),

@@ -393,7 +393,7 @@ function AsbestosReportDocument({ job, customer, settings }: ProjectReportData) 
   // any 3rd/4th remark it would add could only ever come from something
   // set directly in the database — never a real admin edit.
 
-  const { knownCustomerName, dateText, billingStreet, billing, serviceStreet, service } = commonLetterFields(job, customer, settings, job.lab_date_sampled ?? job.requested_date);
+  const { knownCustomerName, dateText, billingStreet, billing, serviceStreet, service } = commonLetterFields(job, customer, settings, job.lab_date_sampled ?? job.confirmed_date ?? job.requested_date);
 
   return (
     <Document title={`Bulk Sample Analytical Results — ${expandAddress(job.service_address)}`}>
@@ -447,7 +447,7 @@ function AsbestosReportDocument({ job, customer, settings }: ProjectReportData) 
         <View wrap={false}>
         <Text style={styles.sectionTitleTight}>Sampling Summary:</Text>
         <View style={styles.summaryBlock}>
-          <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Date of Sampling:</Text><ValueOrBlank style={styles.summaryValue} value={formatDateMDY(job.lab_date_sampled ?? job.requested_date)} /></View>
+          <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Date of Sampling:</Text><ValueOrBlank style={styles.summaryValue} value={formatDateMDY(job.lab_date_sampled ?? job.confirmed_date ?? job.requested_date)} /></View>
           <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Total # of Samples:</Text><ValueOrBlank style={styles.summaryValue} value={totalSamples} /></View>
           <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Samples Analyzed At:</Text><ValueOrBlank style={styles.summaryValue} value={job.lab_name} /></View>
           <View style={styles.summaryRow}><Text style={styles.summaryLabel}>NIST/NVLAP Certification#:</Text><ValueOrBlank style={styles.summaryValue} value={job.lab_nist_cert} /></View>
@@ -528,7 +528,7 @@ function LeadReportDocument({ job, customer, settings }: ProjectReportData) {
   }
   if (job.lead_report_notes) remarks.push(job.lead_report_notes);
 
-  const { knownCustomerName, dateText, billingStreet, billing, serviceStreet, service } = commonLetterFields(job, customer, settings, job.lead_date_sampled ?? job.requested_date);
+  const { knownCustomerName, dateText, billingStreet, billing, serviceStreet, service } = commonLetterFields(job, customer, settings, job.lead_date_sampled ?? job.confirmed_date ?? job.requested_date);
 
   return (
     <Document title={`Bulk Paint Chip Sample Analytical Results — ${expandAddress(job.service_address)}`}>
@@ -582,7 +582,7 @@ function LeadReportDocument({ job, customer, settings }: ProjectReportData) {
         <View wrap={false}>
         <Text style={styles.sectionTitleTight}>Sampling Summary:</Text>
         <View style={styles.summaryBlock}>
-          <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Date of Sampling:</Text><ValueOrBlank style={styles.summaryValue} value={formatDateMDY(job.lead_date_sampled ?? job.requested_date)} /></View>
+          <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Date of Sampling:</Text><ValueOrBlank style={styles.summaryValue} value={formatDateMDY(job.lead_date_sampled ?? job.confirmed_date ?? job.requested_date)} /></View>
           <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Total # of Samples:</Text><ValueOrBlank style={styles.summaryValue} value={totalSamples} /></View>
           <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Samples Analyzed At:</Text><ValueOrBlank style={styles.summaryValue} value={job.lead_lab_name} /></View>
           <View style={styles.summaryRow}><Text style={styles.summaryLabel}>AIHA Certification#:</Text><ValueOrBlank style={styles.summaryValue} value={job.lead_lab_cert} /></View>
@@ -648,7 +648,7 @@ function FullInspectionAsbestosReportDocument({ job, customer, settings }: Proje
   // existing specifically for this and never having a UI to reach it.
   remarks.push(...paragraphsFromText(job.report_notes));
 
-  const { knownCustomerName, dateText, billingStreet, billing, serviceStreet, service } = commonLetterFields(job, customer, settings, job.lab_date_sampled ?? job.requested_date);
+  const { knownCustomerName, dateText, billingStreet, billing, serviceStreet, service } = commonLetterFields(job, customer, settings, job.lab_date_sampled ?? job.confirmed_date ?? job.requested_date);
 
   return (
     <Document title={`Inspection for Asbestos Containing Materials — ${expandAddress(job.service_address)}`}>
@@ -708,7 +708,7 @@ function FullInspectionAsbestosReportDocument({ job, customer, settings }: Proje
         <View style={styles.summaryBlock}>
           <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Asbestos Inspector:</Text><ValueOrBlank style={styles.summaryValue} value={inspector.name} /></View>
           <View style={styles.summaryRow}><Text style={styles.summaryLabel}>License #:</Text><ValueOrBlank style={styles.summaryValue} value={inspector.license_number} /></View>
-          <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Date of Inspection:</Text><ValueOrBlank style={styles.summaryValue} value={formatDateMDY(job.lab_date_sampled ?? job.requested_date)} /></View>
+          <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Date of Inspection:</Text><ValueOrBlank style={styles.summaryValue} value={formatDateMDY(job.lab_date_sampled ?? job.confirmed_date ?? job.requested_date)} /></View>
           <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Total Materials Sampled:</Text><ValueOrBlank style={styles.summaryValue} value={materials.length} /></View>
           <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Samples Analyzed At:</Text><ValueOrBlank style={styles.summaryValue} value={job.lab_name} /></View>
           <View style={styles.summaryRow}><Text style={styles.summaryLabel}>NIST/NVLAP Certification#:</Text><ValueOrBlank style={styles.summaryValue} value={job.lab_nist_cert} /></View>
@@ -825,7 +825,7 @@ function FullInspectionAsbestosReportDocument({ job, customer, settings }: Proje
 // (separate from asbestos/lead's report_summary/report_notes, since a job
 // combining mold with either produces two separate final reports).
 function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
-  const { knownCustomerName, dateText, billingStreet, billing, serviceStreet, service } = commonLetterFields(job, customer, settings, job.mold_date_sampled ?? job.requested_date);
+  const { knownCustomerName, dateText, billingStreet, billing, serviceStreet, service } = commonLetterFields(job, customer, settings, job.mold_date_sampled ?? job.confirmed_date ?? job.requested_date);
 
   // Which methodology sections apply — driven by job.service_type (known
   // from booking, see moldServiceTypeFlags), same source as Scope of Work,
@@ -914,7 +914,7 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
   const isNewtonFireFlood = customer.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID;
   const standardConclusionBlocks = isNewtonFireFlood ? blocksFromText(NEWTON_FIRE_FLOOD_STANDARD_MOLD_CONCLUSION) : [];
 
-  const moldSampledDate = job.mold_date_sampled ?? job.requested_date;
+  const moldSampledDate = job.mold_date_sampled ?? job.confirmed_date ?? job.requested_date;
   const samplingDateText = moldSampledDate
     ? formatDateLongOrdinal(new Date(`${moldSampledDate}T00:00:00`))
     : null;
@@ -1239,11 +1239,20 @@ function SignatureBlock({ settings, showLicense }: { settings: Settings; showLic
 // placeholder verbatim ("Dear Unknown contact:"). Shared between both
 // letter templates since the recipient/address block is identical.
 // sampledDate is the domain's own actual collection date (lab_date_sampled/
-// mold_date_sampled/lead_date_sampled, falling back to requested_date) —
-// every date on the report is the sampling date, not when the letter was
-// generated, confirmed live 2026-08-25 (the RE: block used to show
-// today's date even though sampling had happened days earlier). Falls
-// back to today only when the job has no date recorded at all, so the
+// mold_date_sampled/lead_date_sampled, falling back to confirmed_date, then
+// requested_date) — every date on the report is the sampling date, not when
+// the letter was generated, confirmed live 2026-08-25 (the RE: block used to
+// show today's date even though sampling had happened days earlier).
+// confirmed_date (when the visit was actually completed) sits ahead of
+// requested_date in that fallback chain — confirmed live 2026-08-28
+// (26-0009, Boston Harbor Water Restoration): requested_date is just
+// whatever date happened to be in the intake email, not a real target date
+// for companies like Boston Harbor that don't request a specific date/time
+// at all (Tim schedules those himself once the request comes in), so a job
+// whose lab report never got its own date_sampled extracted was showing
+// "Date of Sampling" as the day the email arrived rather than the day
+// sampling actually happened. Falls back to requested_date, then today,
+// only when the job has no confirmed_date recorded at all, so the
 // letterhead never renders truly blank.
 function commonLetterFields(job: Job, customer: Customer, settings: Settings, sampledDate: string | null) {
   // Per Tim: every Boston Harbor Water Restoration report is addressed to

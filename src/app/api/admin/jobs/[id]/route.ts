@@ -219,7 +219,44 @@ export const PATCH = withApiErrors(async (
   // paid_date itself is being explicitly backfilled in the same request.
   let justBecamePaid = false;
   if (patch.status === "paid") {
-    const { data: current, error: selectError } = await supabase.from("jobs").select("status, paid_date, source").eq("id", params.id).single();
+    const { data: current, error: selectError } = await supabase
+      .from("jobs")
+      .select("status, paid_date, source, stripe_invoice_id")
+      .eq("id", params.id)
+      .single();
+    // Per Tim, 2026-08-28 (26-0007/26-0008) — this manual status-change
+    // path is completely separate from markJobPaid (see its own comment in
+    // lib/lab-email.ts) and was never covered by that function's refund
+    // check: clicking "Set status to Paid" on a job whose Stripe charge
+    // had actually been refunded kept silently marking it paid again, no
+    // matter how many times the webhook/reconcile path got hardened. If
+    // this job has a Stripe invoice on record, verify the underlying
+    // charge isn't refunded before ever allowing this — same check, same
+    // reasoning, just covering the one path that still bypassed it.
+    if (current?.stripe_invoice_id) {
+      try {
+        const { getStripe } = await import("@/lib/stripe");
+        const stripe = getStripe();
+        const invoice = await stripe.invoices.retrieve(current.stripe_invoice_id);
+        const chargeId = typeof invoice.charge === "string" ? invoice.charge : invoice.charge?.id ?? null;
+        if (chargeId) {
+          const charge = await stripe.charges.retrieve(chargeId);
+          if (charge.refunded || charge.amount_refunded > 0) {
+            return NextResponse.json(
+              {
+                error: `This job's Stripe charge was refunded ($${(charge.amount_refunded / 100).toFixed(2)}) — it can't be marked Paid this way. If it was genuinely paid by another means, clear the linked Stripe invoice first.`,
+              },
+              { status: 409 }
+            );
+          }
+        }
+      } catch (e) {
+        // Best-effort — a Stripe hiccup here must never permanently block
+        // a manual paid marking; it just means this specific check
+        // couldn't run this time.
+        console.error(`PATCH /api/admin/jobs/${params.id}: failed to verify refund status before marking paid:`, e);
+      }
+    }
     // A subcontracted job reuses "paid" as its terminal "Done" status (see
     // SUBCONTRACTOR_PIPELINE_STATUSES in JobsDashboard.tsx) — that's the
     // site visit being complete, not an invoice being paid. Skipped here so

@@ -58,6 +58,7 @@ const EDITABLE_FIELDS = [
   "is_individual",
   "report_release_override",
   "is_revisit",
+  "payment_reversed_at",
 ] as const;
 
 export const PATCH = withApiErrors(async (

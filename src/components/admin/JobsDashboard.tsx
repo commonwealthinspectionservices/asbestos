@@ -1363,7 +1363,18 @@ function JobRow({
         </div>
       </div>
 
-      <div className="truncate whitespace-nowrap text-sm font-medium text-slate-800 sm:hidden">{customerLabelNode}</div>
+      {/* Per Tim, 2026-08-28 — payment due date on the same line as the
+          company name, right-aligned opposite it — applies once a job is
+          actually in Payment Pending, any company, not just Newton Fire &
+          Flood. */}
+      <div className="flex items-center justify-between gap-2 sm:hidden">
+        <div className="min-w-0 truncate whitespace-nowrap text-sm font-medium text-slate-800">{customerLabelNode}</div>
+        {job.status === "report_invoice_sent" && (
+          <span className="shrink-0 whitespace-nowrap text-sm text-slate-500">
+            Due {formatDate(job.payment_due_date || paymentDueDate(job.requested_date ?? "") || null)}
+          </span>
+        )}
+      </div>
 
       <div className="hidden text-sm text-slate-500 sm:block">&nbsp;</div>
 
@@ -1455,19 +1466,14 @@ function JobRow({
         <div className="flex min-w-0 w-full flex-col items-start gap-1.5 sm:w-auto sm:flex-[0.9] sm:items-end">
           {/* Site contact (usually the homeowner) — shown regardless of
               status so the admin can always find this number on the card,
-              not just while the job is still unscheduled. */}
-          {(job.site_contact_name || job.site_contact_phone
-            || (job.customers?.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID && job.status === "report_invoice_sent")) && (
+              not just while the job is still unscheduled. Per Tim,
+              2026-08-28: except once a job is actually in Payment
+              Pending — the homeowner's long done with fieldwork by then,
+              not worth the space next to the payment due date instead. */}
+          {(job.site_contact_name || job.site_contact_phone) && job.status !== "report_invoice_sent" && (
             <span className="min-w-0 truncate whitespace-nowrap text-sm text-slate-500 sm:w-60" onClick={(e) => e.stopPropagation()}>
               {job.site_contact_name ? toTitleCase(job.site_contact_name) : ""}
-              {/* Per Tim, 2026-08-28 — Newton Fire & Flood only, once a job
-                  is actually in Payment Pending: phone number (the
-                  homeowner, long done with fieldwork) swaps for the
-                  payment due date instead — name stays, never deleted,
-                  both pieces of info still shown, just phone → due date. */}
-              {job.customers?.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID && job.status === "report_invoice_sent" ? (
-                <>{job.site_contact_name ? " — " : ""}Due {formatDate(job.payment_due_date || paymentDueDate(job.requested_date ?? "") || null)}</>
-              ) : job.site_contact_phone ? (
+              {job.site_contact_phone ? (
                 <>
                   {" "}
                   <a href={telHref(job.site_contact_phone)} className="text-brand-700 hover:underline">
@@ -2745,8 +2751,18 @@ export function ProjectDetailDialog({
                   </span>
                 )}
                 {job.payment_reversed_at && (
-                  <span className="shrink-0 whitespace-nowrap rounded-full bg-amber-500 px-2 py-1 text-xs font-bold text-white">
+                  <span className="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full bg-amber-500 px-2 py-1 text-xs font-bold text-white">
                     Payment reversed {formatDateTime(job.payment_reversed_at)} — review needed
+                    {/* Per Tim, 2026-08-28 — once reviewed, this needs a way
+                        to actually go away; there was none before this. */}
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); saveJobField({ payment_reversed_at: null }); }}
+                      title="Dismiss — I've reviewed this"
+                      className="shrink-0 text-white hover:text-amber-100"
+                    >
+                      ✕
+                    </button>
                   </span>
                 )}
               </div>
@@ -2900,7 +2916,12 @@ export function ProjectDetailDialog({
               </div>
             )}
           </div>
-          <div className="grid grid-cols-1 gap-y-6 sm:grid-cols-2 sm:gap-x-4 sm:gap-y-4">
+          {/* Per Tim, 2026-08-28 — sm:grid-cols-[7fr_3fr] (not the plain
+              50/50 sm:grid-cols-2 every other 2-up section on this tab
+              uses) so Company info's own column lines up exactly with
+              Requested date/Email results to's column above it, instead
+              of starting further right at the true midpoint. */}
+          <div className="grid grid-cols-1 gap-y-6 sm:grid-cols-[7fr_3fr] sm:gap-x-6 sm:gap-y-4">
             <div className="space-y-3 sm:space-y-2">
               <h4 className="text-sm font-bold tracking-wide text-black underline">Customer contact</h4>
               <DetailField

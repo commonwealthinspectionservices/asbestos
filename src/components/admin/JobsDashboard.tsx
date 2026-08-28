@@ -2660,16 +2660,11 @@ export function ProjectDetailDialog({
           >
             Edit
           </button>
-          {/* Per Tim, 2026-08-28 — one unified grid (not two separate
-              ones) for identity/address, scheduling/service, Job site
-              contact, and Email results to: on desktop (2 cols) grid
-              auto-placement fills it row by row — [identity/address |
-              scheduling/service] then [Job site contact | Email results
-              to] — so scheduling/service ends up directly above Email
-              results to, same column. Mobile (1 col) just stacks all four
-              in that same DOM order, which is exactly the order they were
-              already in, so mobile's own layout is unaffected. */}
-          <div className="grid grid-cols-1 gap-y-6 sm:grid-cols-[7fr_3fr] sm:gap-x-6 sm:gap-y-4">
+          {/* Per Tim, 2026-08-28 — reverted the narrow right-column
+              placement: at in-between (tablet-ish) widths the 3fr column
+              was too cramped (Service type/Turnaround wrapping badly, the
+              pinned Edit button overlapping Requested date). Back to a
+              single full-width column for identity/address. */}
           <div className="space-y-3 sm:space-y-2">
             {(() => {
               const portalBadge = job.source === "subcontractor" && (() => {
@@ -2773,18 +2768,52 @@ export function ProjectDetailDialog({
                 const { street, cityStateZip } = splitAddress(job.service_address);
                 return (
                   <a href={googleMapsUrl(job.service_address)} target="_blank" rel="noreferrer" className="hover:underline">
-                    {/* Desktop: unchanged single-line address. */}
-                    <span className="hidden sm:inline">{expandAddress(job.service_address)}</span>
-                    {/* Mobile: street, then town/state/zip on its own line — matching the project list card. */}
-                    <span className="sm:hidden">
-                      <span className="block">{expandAddress(street)}</span>
-                      {cityStateZip && <span className="block">{expandAddress(cityStateZip)}</span>}
-                    </span>
+                    {/* Per Tim, 2026-08-28 — street, then town/state/zip on
+                        its own line below it, same on desktop as mobile
+                        now (used to be one line on desktop). */}
+                    <span className="block">{expandAddress(street)}</span>
+                    {cityStateZip && <span className="block">{expandAddress(cityStateZip)}</span>}
                   </a>
                 );
               })() : null}
               nowrap
             />
+          </div>
+          {/* Per Tim, 2026-08-28 — Job site contact / Email results to
+              moved back up here, right after identity/address and before
+              the Requested/Scheduled/Service type block below — that
+              block now sits full-width between this row and Customer
+              contact/Company info instead of squeezed into a narrow
+              column beside identity. */}
+          <div className="grid grid-cols-1 gap-y-6 sm:grid-cols-[7fr_3fr] sm:gap-x-6 sm:gap-y-4">
+            <div className="space-y-3 sm:space-y-2">
+              <h4 className="text-sm font-bold tracking-wide text-black underline">Job site contact</h4>
+              <DetailField label="Name" value={job.site_contact_name ? toTitleCase(job.site_contact_name) : "—"} />
+              <DetailField
+                label="Phone"
+                value={
+                  job.site_contact_phone ? (
+                    <a href={telHref(job.site_contact_phone)} className="text-brand-700 hover:underline">
+                      {formatPhoneInput(job.site_contact_phone)}
+                    </a>
+                  ) : "—"
+                }
+              />
+              <DetailField label="Email" value={job.site_contact_email} nowrap />
+            </div>
+            {job.report_emails && job.report_emails.trim() && (
+              <div className="space-y-3 sm:space-y-2">
+                <h4 className="text-sm font-bold tracking-wide text-black underline">Email results to</h4>
+                {job.report_emails.split(",").map((e) => e.trim()).filter(Boolean).map((addr, i) => {
+                  const contact = companyContactsForDisplay.find((c) => c.email?.toLowerCase() === addr.toLowerCase());
+                  return (
+                    <div key={i} className="text-sm text-black">
+                      {contact ? `${contact.name} — ${addr}` : addr}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
           <div className="space-y-3 sm:space-y-2">
             {job.source === "subcontractor" ? (
@@ -2884,35 +2913,6 @@ export function ProjectDetailDialog({
                 <ul className="min-w-0 flex-1 list-disc space-y-0.5 pl-4 text-black">
                   {job.subcontractor_sample_types.map((s, i) => <li key={i}>{s}</li>)}
                 </ul>
-              </div>
-            )}
-          </div>
-            <div className="space-y-3 sm:space-y-2">
-              <h4 className="text-sm font-bold tracking-wide text-black underline">Job site contact</h4>
-              <DetailField label="Name" value={job.site_contact_name ? toTitleCase(job.site_contact_name) : "—"} />
-              <DetailField
-                label="Phone"
-                value={
-                  job.site_contact_phone ? (
-                    <a href={telHref(job.site_contact_phone)} className="text-brand-700 hover:underline">
-                      {formatPhoneInput(job.site_contact_phone)}
-                    </a>
-                  ) : "—"
-                }
-              />
-              <DetailField label="Email" value={job.site_contact_email} nowrap />
-            </div>
-            {job.report_emails && job.report_emails.trim() && (
-              <div className="space-y-3 sm:space-y-2">
-                <h4 className="text-sm font-bold tracking-wide text-black underline">Email results to</h4>
-                {job.report_emails.split(",").map((e) => e.trim()).filter(Boolean).map((addr, i) => {
-                  const contact = companyContactsForDisplay.find((c) => c.email?.toLowerCase() === addr.toLowerCase());
-                  return (
-                    <div key={i} className="text-sm text-black">
-                      {contact ? `${contact.name} — ${addr}` : addr}
-                    </div>
-                  );
-                })}
               </div>
             )}
           </div>

@@ -86,6 +86,7 @@ const baseJob: Job = {
   full_inspection_materials: [],
   lab_name: "Crystal Analytical, LLC.",
   lab_cost_cents: 12000,
+  stripe_fee_cents: null,
   lab_nist_cert: "600387-0",
   lab_massdls_cert: "AA000259",
   lab_turnaround: "24-Hr",

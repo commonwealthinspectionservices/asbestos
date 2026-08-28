@@ -67,6 +67,10 @@ export async function POST(req: NextRequest) {
     if (jobId) {
       const { markJobPaid } = await import("@/lib/lab-email");
       await markJobPaid(jobId);
+      const feeCents = await captureStripeFee(stripe, invoice);
+      if (feeCents != null) {
+        await supabase.from("jobs").update({ stripe_fee_cents: feeCents }).eq("id", jobId);
+      }
     } else {
       await alertUnmatchedEvent(event.type, invoice.id);
     }
@@ -99,6 +103,28 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({ received: true });
+}
+
+// Pulls the actual processing fee Stripe took for a paid invoice, straight
+// from the underlying charge's balance transaction — not an estimate. Used
+// so the admin dashboard's Profit line only ever deducts a real, known fee
+// (near-zero for a bank-debit invoice, ~2.9%+30¢ for a card) rather than a
+// flat guess, and stays untouched for jobs marked paid by hand outside
+// Stripe entirely. Best-effort: any failure here shouldn't block markJobPaid
+// or fail the webhook, since the fee is a nice-to-have on top of the
+// already-recorded payment, not something Stripe will retry for us.
+async function captureStripeFee(stripe: Stripe, invoice: Stripe.Invoice): Promise<number | null> {
+  try {
+    const chargeId = typeof invoice.charge === "string" ? invoice.charge : invoice.charge?.id ?? null;
+    if (!chargeId) return null;
+    const charge = await stripe.charges.retrieve(chargeId, { expand: ["balance_transaction"] });
+    const balanceTransaction = charge.balance_transaction;
+    if (!balanceTransaction || typeof balanceTransaction === "string") return null;
+    return balanceTransaction.fee;
+  } catch (e) {
+    console.error("Failed to capture Stripe fee for invoice", invoice.id, e);
+    return null;
+  }
 }
 
 // An event this route is meant to handle but can't match to any job — e.g.

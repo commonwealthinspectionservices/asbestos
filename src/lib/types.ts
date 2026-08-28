@@ -281,6 +281,8 @@ export interface Job {
   /** True until the admin manually edits a line item — while true, invoice_line_items keeps recomputing fresh from current sample_counts/base fee on every save rather than freezing at whatever was last auto-generated. */
   invoice_auto: boolean;
   invoice_total_cents: number | null;
+  /** The actual card-processing fee Stripe charged, pulled from the paid invoice's own balance transaction (see the stripe webhook's invoice.paid handler) — not an estimate. Null until the invoice is actually paid through Stripe; stays null forever for a job marked paid by hand (check/cash), which is what keeps the Profit calculation from deducting a fee that was never charged. */
+  stripe_fee_cents: number | null;
   /** Purchase order / invoice numbers some referring companies require for their own AP tracking. */
   po_number: string | null;
   invoice_number: string | null;

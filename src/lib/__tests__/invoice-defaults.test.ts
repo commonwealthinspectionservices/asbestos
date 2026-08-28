@@ -43,6 +43,7 @@ function baseJob(overrides: Partial<JobWithCustomer> = {}): JobWithCustomer {
     full_inspection_materials: [],
     lab_name: null,
     lab_cost_cents: null,
+    stripe_fee_cents: null,
     lab_nist_cert: null,
     lab_massdls_cert: null,
     lab_turnaround: null,

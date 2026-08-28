@@ -3400,6 +3400,7 @@ export function ProjectDetailDialog({
                   paymentDueDate={job.payment_due_date || paymentDueDate(job.requested_date ?? "") || ""}
                   onPaymentDueDateChange={(v) => saveJobField({ payment_due_date: v || null })}
                   labCostCents={job.lab_cost_cents}
+                  stripeFeeCents={job.stripe_fee_cents}
                 />
                 {savingInvoice && <p className="mt-1 text-xs text-slate-400">Saving…</p>}
               </div>
@@ -5681,7 +5682,7 @@ function MaterialsEditor({
 }
 
 function LineItemsEditor({
-  items, setItems, serviceTypeSettings, paymentDueDate, onPaymentDueDateChange, labCostCents,
+  items, setItems, serviceTypeSettings, paymentDueDate, onPaymentDueDateChange, labCostCents, stripeFeeCents,
 }: {
   items: LineItemRowState[];
   setItems: Dispatch<SetStateAction<LineItemRowState[]>>;
@@ -5694,6 +5695,11 @@ function LineItemsEditor({
       under the invoice total so the margin (what's charged minus what the
       lab charges) is visible at a glance without doing the math by hand. */
   labCostCents: number | null;
+  /** Per Tim, 2026-08-28 — the real Stripe processing fee (see stripe_fee_cents
+      on Job), factored into Profit below once the invoice is actually paid
+      through Stripe. Null for a job paid by hand or not yet paid, in which
+      case Profit just doesn't deduct a fee that was never charged. */
+  stripeFeeCents: number | null;
 }) {
   function update(i: number, patch: Partial<LineItemRowState>) {
     setItems((rows) =>
@@ -5962,7 +5968,7 @@ function LineItemsEditor({
             Lab fees: {labCostCents != null ? currency(labCostCents / 100) : "Not yet billed"}
           </p>
           <p className="text-base font-bold uppercase text-slate-400">
-            Profit: {labCostCents != null ? currency(total - labCostCents / 100) : "—"}
+            Profit: {labCostCents != null ? currency(total - labCostCents / 100 - (stripeFeeCents ?? 0) / 100) : "—"}
           </p>
         </div>
         <div className="flex items-center gap-2">

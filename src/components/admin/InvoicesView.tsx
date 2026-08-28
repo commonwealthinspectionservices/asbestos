@@ -482,7 +482,7 @@ export default function InvoicesView() {
                             lib/net30-autocharge.ts) instead of waiting on a
                             manual payment like everyone else's "Due" here. */}
                         <span className="whitespace-nowrap text-xs text-slate-500">
-                          {isNewtonAutoCharge ? "To be charged " : "Due "}{formatDate(dueDateFor(job))}
+                          {isNewtonAutoCharge ? "To be charged " : "Due by "}{formatDate(dueDateFor(job))}
                         </span>
                       </div>
                     </>
@@ -492,7 +492,7 @@ export default function InvoicesView() {
                         <span className="whitespace-nowrap text-xs text-slate-500">Report sent {formatDate(localDateOnly(job.invoice_sent_at))}</span>
                       )}
                       <span className={`shrink-0 whitespace-nowrap rounded px-1.5 py-0.5 text-xs font-medium ${STATUS_COLOR[status]}`}>{STATUS_LABEL[status]}</span>
-                      <span className="whitespace-nowrap text-xs text-slate-500">Due {formatDate(dueDateFor(job))}</span>
+                      <span className="whitespace-nowrap text-xs text-slate-500">Due by {formatDate(dueDateFor(job))}</span>
                     </>
                   )}
                 </div>

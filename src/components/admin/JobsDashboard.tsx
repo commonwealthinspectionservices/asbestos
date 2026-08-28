@@ -1439,7 +1439,7 @@ function JobRow({
         <div className="min-w-0 truncate whitespace-nowrap text-sm font-medium text-slate-800">{customerLabelNode}</div>
         {job.status === "report_invoice_sent" && (
           <span className="shrink-0 whitespace-nowrap text-sm text-slate-500">
-            Due {formatDate(dueDateFor(job))}
+            Due by {formatDate(dueDateFor(job))}
           </span>
         )}
       </div>

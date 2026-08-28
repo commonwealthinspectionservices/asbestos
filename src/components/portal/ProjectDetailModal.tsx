@@ -278,7 +278,12 @@ export default function ProjectDetailModal({
               )}
 
               <div className="space-y-1">
-                <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Customer contact</h4>
+                {/* Per Tim, 2026-08-28 — "Company contact" once this job's
+                    customer actually belongs to a company, matching the
+                    naming style used in the admin dashboard. */}
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  {job.is_individual ? "Customer contact" : "Company contact"}
+                </h4>
                 <DetailField label="Name" value={customer.name} nowrap />
                 <DetailField label="Phone" value={customer.phone} />
                 <DetailField label="Email" value={customer.email} nowrap />

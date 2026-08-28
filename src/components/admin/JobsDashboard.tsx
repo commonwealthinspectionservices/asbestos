@@ -2914,7 +2914,15 @@ export function ProjectDetailDialog({
               single evenly-spaced left-aligned list at every width. */}
           <div className="space-y-6">
             <div className="space-y-3 sm:space-y-2">
-              <h4 className="text-sm font-bold tracking-wide text-black underline">Customer contact</h4>
+              {/* Per Tim, 2026-08-28 — "Company contact" once this job's
+                  customer actually belongs to a company, matching the
+                  naming style everywhere else on this tab (Job site
+                  contact, Company info) — an individual homeowner has no
+                  company to be a contact for, so that case keeps the
+                  generic "Customer contact" label. */}
+              <h4 className="text-sm font-bold tracking-wide text-black underline">
+                {job.customers?.is_individual ? "Customer contact" : "Company contact"}
+              </h4>
               <DetailField
                 label="Name"
                 value={job.customer_id && job.customers?.name ? (
@@ -5310,10 +5318,10 @@ export function EditProjectDialog({
               }
             }}
           />
-          Customer contact is also job site contact
+          {companyName.trim() ? "Company contact" : "Customer contact"} is also job site contact
         </label>
 
-        <label className="mt-3 block text-sm font-medium text-slate-700">Customer contact</label>
+        <label className="mt-3 block text-sm font-medium text-slate-700">{companyName.trim() ? "Company contact" : "Customer contact"}</label>
         <div className="mt-1 flex gap-2">
           <div className="w-0 flex-1">
             <ComboboxInput

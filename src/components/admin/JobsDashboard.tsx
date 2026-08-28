@@ -1244,19 +1244,24 @@ function JobRow({
   // pushing street/cityStateZip down one line each — the homeowner's own
   // name/number is the thing the admin needs front and center to actually
   // get the job scheduled.
-  const siteContactNode = (job.site_contact_name || job.site_contact_phone) ? (
+  // Per Tim, 2026-08-28 — name and phone fall back independently to "No
+  // name"/"No phone number" rather than the whole line just disappearing
+  // when a job (commonly a subcontractor referral, like PuroClean of
+  // Wakefield) never had a homeowner/site contact entered at all — a
+  // blank card gave no hint anything was missing.
+  const siteContactNode = (
     <span className="block min-w-0 truncate whitespace-nowrap text-sm text-slate-500" onClick={(e) => e.stopPropagation()}>
-      {job.site_contact_name ? toTitleCase(job.site_contact_name) : ""}
+      {job.site_contact_name ? toTitleCase(job.site_contact_name) : <span className="italic text-slate-400">no name</span>}
+      {/* Comma only between the two placeholders — per Tim, a real name
+          next to a real (or missing) phone reads fine with just a space. */}
+      {!job.site_contact_name && !job.site_contact_phone ? ", " : " "}
       {job.site_contact_phone ? (
-        <>
-          {" "}
-          <a href={telHref(job.site_contact_phone)} className="text-brand-700 hover:underline">
-            {formatPhoneInput(job.site_contact_phone)}
-          </a>
-        </>
-      ) : ""}
+        <a href={telHref(job.site_contact_phone)} className="text-brand-700 hover:underline">
+          {formatPhoneInput(job.site_contact_phone)}
+        </a>
+      ) : <span className="italic text-slate-400">no phone number</span>}
     </span>
-  ) : null;
+  );
   const overdueDays = daysOverdue(job);
   const isEmailIntake = job.source === "email_intake";
   const isSubcontractor = job.source === "subcontractor";
@@ -1431,7 +1436,6 @@ function JobRow({
       <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-start">
         <div className="min-w-0 w-full sm:w-auto sm:flex-[0.9]">
           {locationName && <div className="truncate whitespace-nowrap text-sm text-slate-500">{locationName}</div>}
-          {isUnscheduled && siteContactNode}
           {/* Mobile: tapping the address text itself (street through zip)
               opens a Google Maps/Waze picker instead of the job detail
               dialog — a driver on the way there wants directions, not to
@@ -1509,17 +1513,14 @@ function JobRow({
           }`}
         >
           {/* Site contact (usually the homeowner) — shown regardless of
-              status so the admin can always find this number on the card,
-              not just while the job is still unscheduled. Per Tim,
+              status, including To Be Scheduled, so the admin can always
+              find this number in the same spot on the card. Per Tim,
               2026-08-28: except once a job is actually in Payment
               Pending — the homeowner's long done with fieldwork by then,
               not worth the space next to the payment due date instead —
               or Pending Lab Results, same reasoning: fieldwork's already
-              done, nothing left to call the homeowner about. Also skipped
-              here while To Be Scheduled — that status shows it up on the
-              address column's own first line instead (see isUnscheduled
-              above), not duplicated here too. */}
-          {!isUnscheduled && job.status !== "report_invoice_sent" && job.status !== "pending_lab_results" && siteContactNode}
+              done, nothing left to call the homeowner about. */}
+          {job.status !== "report_invoice_sent" && job.status !== "pending_lab_results" && siteContactNode}
           {CLOSED_STATUSES.has(job.status) ? (
             <div className="flex flex-col items-start gap-0.5 px-1.5 py-1 text-xs text-slate-500 sm:items-end">
               <span>Date of Project: {formatDate(job.requested_date) || "—"}</span>

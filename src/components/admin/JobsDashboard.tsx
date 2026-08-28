@@ -2784,8 +2784,12 @@ export function ProjectDetailDialog({
               the Requested/Scheduled/Service type block below — that
               block now sits full-width between this row and Customer
               contact/Company info instead of squeezed into a narrow
-              column beside identity. */}
-          <div className="grid grid-cols-1 gap-y-6 sm:grid-cols-[7fr_3fr] sm:gap-x-6 sm:gap-y-4">
+              column beside identity. Per Tim, 2026-08-28 — dropped the
+              2-column grid entirely (not just at this row, everywhere on
+              this tab): same single evenly-spaced left-aligned list at
+              every width, same as mobile already was, instead of chasing
+              more breakpoint-specific column layouts. */}
+          <div className="space-y-6">
             <div className="space-y-3 sm:space-y-2">
               <h4 className="text-sm font-bold tracking-wide text-black underline">Job site contact</h4>
               <DetailField label="Name" value={job.site_contact_name ? toTitleCase(job.site_contact_name) : "—"} />
@@ -2916,12 +2920,9 @@ export function ProjectDetailDialog({
               </div>
             )}
           </div>
-          {/* Per Tim, 2026-08-28 — sm:grid-cols-[7fr_3fr] (not the plain
-              50/50 sm:grid-cols-2 every other 2-up section on this tab
-              uses) so Company info's own column lines up exactly with
-              Requested date/Email results to's column above it, instead
-              of starting further right at the true midpoint. */}
-          <div className="grid grid-cols-1 gap-y-6 sm:grid-cols-[7fr_3fr] sm:gap-x-6 sm:gap-y-4">
+          {/* Per Tim, 2026-08-28 — dropped the 2-column grid here too, same
+              single evenly-spaced left-aligned list at every width. */}
+          <div className="space-y-6">
             <div className="space-y-3 sm:space-y-2">
               <h4 className="text-sm font-bold tracking-wide text-black underline">Customer contact</h4>
               <DetailField

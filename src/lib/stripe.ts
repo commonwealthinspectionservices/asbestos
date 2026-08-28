@@ -128,6 +128,11 @@ export async function createStripeInvoiceForJob(
   //    createInvoiceWithProjectNumber below) to satisfy Stripe's
   //    account-wide-unique, never-released-by-voiding constraint on
   //    custom numbers — confirmed live.
+  // Resolved up front (not after the staleness check below) so a stale
+  // invoice's own `customer` can be compared against it — see that check's
+  // own comment for why this matters.
+  const stripeCustomerId = await getOrCreateStripeCustomer(customer);
+
   if (job.stripe_invoice_id) {
     // Confirmed live 2026-08-27 (26-0007/26-0008): a stripe_invoice_id can
     // point at an invoice that's gone entirely from Stripe (test-mode data
@@ -154,12 +159,28 @@ export async function createStripeInvoiceForJob(
       const hasCurrentAddress = !job.service_address || existing.description === expandAddress(job.service_address);
       const hasCurrentNumber = !job.project_number
         || (existing.number != null && existing.number.startsWith(job.project_number));
+      // Confirmed live 2026-08-27 (26-0002): the admin deleted a duplicate
+      // Stripe customer directly in the Dashboard while cleaning up real
+      // dupes — the survivor got a new stripe_customer_id on `customers`,
+      // but this job's own already-created invoice stayed permanently
+      // attached to the now-deleted one (Stripe invoices don't move
+      // between customers). None of the checks above catch that — status
+      // stays "open", the total/number/address all still match — so this
+      // invoice would otherwise sit there forever looking perfectly fine
+      // while being unpayable (no valid customer, no payment method to
+      // charge automatically) and invisible from the surviving customer's
+      // own Stripe page.
+      const existingCustomerId = typeof existing.customer === "string" ? existing.customer : existing.customer?.id;
+      const belongsToCurrentCustomer = existingCustomerId === stripeCustomerId;
       const isStale = existing.status === "void" || existing.status === "uncollectible"
         || existing.total !== job.invoice_total_cents
-        || !hasCurrentProjectNumber || !hasCurrentAddress || !hasCurrentNumber;
+        || !hasCurrentProjectNumber || !hasCurrentAddress || !hasCurrentNumber || !belongsToCurrentCustomer;
       if (!isStale) {
         return { stripeInvoiceId: existing.id, hostedInvoiceUrl: existing.hosted_invoice_url ?? null };
       }
+      // A void attempt against an invoice on a deleted customer 400s
+      // ("customer deleted") — best-effort, same as every other void call
+      // in this function; the DB reference gets cleared regardless.
       if (existing.status === "open") {
         await stripe.invoices.voidInvoice(existing.id).catch((err) => {
           console.error(`createStripeInvoiceForJob: failed to void stale invoice ${existing.id} for job ${job.id}:`, err);
@@ -172,8 +193,6 @@ export async function createStripeInvoiceForJob(
   if (!job.invoice_line_items.length) {
     throw new Error("Job has no invoice line items — cannot create a Stripe invoice");
   }
-
-  const stripeCustomerId = await getOrCreateStripeCustomer(customer);
 
   const invoice = await createInvoiceWithProjectNumber(stripe, {
     customer: stripeCustomerId,

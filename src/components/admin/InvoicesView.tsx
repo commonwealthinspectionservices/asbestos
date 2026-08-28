@@ -383,46 +383,49 @@ export default function InvoicesView() {
               onClick={() => setSelectedJobId(job.id)}
               className="flex w-full flex-col gap-0.5 rounded-lg border border-slate-200 bg-white p-3 text-left hover:border-brand-400"
             >
-              {/* Per Tim, 2026-08-27 — company gets its own full-width line
-                  (a long name like "Boston Harbor Water Restoration" can't
-                  share a line with price+pill at a legible size without
-                  either wrapping or truncating, and Tim wants neither,
-                  ever, on this card). Every piece of text on the card is
-                  the same size, and the status pill is as tight/compact as
-                  the project # pill — no more blank padding than that. */}
-              <div className="flex w-full items-center justify-between gap-2">
-                {job.project_number && (
-                  <span className="shrink-0 whitespace-nowrap rounded bg-slate-100 px-1.5 py-0.5 text-xs font-mono text-slate-600">{job.project_number}</span>
-                )}
-                <span className="whitespace-nowrap text-xs font-semibold text-slate-800">{formatCents(job.invoice_total_cents ?? 0)}</span>
-                {/* Per Tim, 2026-08-28 — Newton Fire & Flood's card is
-                    charged automatically on the due date (see
-                    lib/net30-autocharge.ts), so "Sent" doesn't tell the
-                    admin anything actionable there — the due date is the
-                    thing that actually matters for this company. Overdue/
-                    Paid/Ready to Send stay as-is even for Newton: those are
-                    still meaningfully different states worth flagging on
-                    their own. */}
-                {isNewtonAutoCharge ? (
-                  <span className={`shrink-0 whitespace-nowrap rounded px-1.5 py-0.5 text-xs font-medium ${STATUS_COLOR.sent}`}>To be charged {formatDate(dueDateFor(job))}</span>
-                ) : (
-                  <span className={`shrink-0 whitespace-nowrap rounded px-1.5 py-0.5 text-xs font-medium ${STATUS_COLOR[status]}`}>{STATUS_LABEL[status]}</span>
-                )}
-              </div>
-              <div className="whitespace-normal break-words text-xs font-medium text-slate-800">
-                {job.customers?.company || job.customers?.name}
-              </div>
-              {status === "paid" && (
-                <div className="text-xs text-slate-500">Paid {formatDate(job.paid_date)}</div>
-              )}
-              {status !== "paid" && (
-                <div className="flex w-full items-center justify-between gap-2 text-xs text-slate-500">
-                  <span className="whitespace-nowrap">{job.invoice_sent_at ? `Report sent ${formatDate(job.invoice_sent_at.slice(0, 10))}` : ""}</span>
-                  {/* Per Tim, 2026-08-28 — redundant once the pill above
-                      already says "To be charged <date>". */}
-                  {!isNewtonAutoCharge && <span className="whitespace-nowrap">Due {formatDate(dueDateFor(job))}</span>}
+              {/* Per Tim, 2026-08-28 — two columns filling the row's full
+                  width instead of three sparse lines: left is identity
+                  (project #, company, then the sent/due dates stacked
+                  directly under those, "Report sent" directly above "Due"),
+                  right is money (amount, status pill stacked under it). */}
+              <div className="flex w-full items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex min-w-0 items-center gap-2">
+                    {job.project_number && (
+                      <span className="shrink-0 whitespace-nowrap rounded bg-slate-100 px-1.5 py-0.5 text-xs font-mono text-slate-600">{job.project_number}</span>
+                    )}
+                    <span className="min-w-0 truncate whitespace-nowrap text-xs font-medium text-slate-800">
+                      {job.customers?.company || job.customers?.name}
+                    </span>
+                  </div>
+                  {status === "paid" ? (
+                    <div className="mt-0.5 text-xs text-slate-500">Paid {formatDate(job.paid_date)}</div>
+                  ) : (
+                    <div className="mt-0.5 text-xs text-slate-500">
+                      {job.invoice_sent_at && <div className="whitespace-nowrap">Report sent {formatDate(job.invoice_sent_at.slice(0, 10))}</div>}
+                      {/* Per Tim, 2026-08-28 — redundant once the pill to
+                          the right already says "To be charged <date>". */}
+                      {!isNewtonAutoCharge && <div className="whitespace-nowrap">Due {formatDate(dueDateFor(job))}</div>}
+                    </div>
+                  )}
                 </div>
-              )}
+                <div className="flex shrink-0 flex-col items-end gap-0.5">
+                  <span className="whitespace-nowrap text-xs font-semibold text-slate-800">{formatCents(job.invoice_total_cents ?? 0)}</span>
+                  {/* Per Tim, 2026-08-28 — Newton Fire & Flood's card is
+                      charged automatically on the due date (see
+                      lib/net30-autocharge.ts), so "Sent" doesn't tell the
+                      admin anything actionable there — the due date is the
+                      thing that actually matters for this company. Overdue/
+                      Paid/Ready to Send stay as-is even for Newton: those are
+                      still meaningfully different states worth flagging on
+                      their own. */}
+                  {isNewtonAutoCharge ? (
+                    <span className={`shrink-0 whitespace-nowrap rounded px-1.5 py-0.5 text-xs font-medium ${STATUS_COLOR.sent}`}>To be charged {formatDate(dueDateFor(job))}</span>
+                  ) : (
+                    <span className={`shrink-0 whitespace-nowrap rounded px-1.5 py-0.5 text-xs font-medium ${STATUS_COLOR[status]}`}>{STATUS_LABEL[status]}</span>
+                  )}
+                </div>
+              </div>
             </button>
             );
           })}

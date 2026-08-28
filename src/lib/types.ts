@@ -195,6 +195,8 @@ export interface JobDocument {
   domain_mismatch?: boolean | null;
   /** Set true when a document filed as kind "lab_invoice" doesn't actually look like an invoice (see isLabInvoiceText/extractLabInvoiceTotalCents in lib/parse-lab-invoice.ts) — e.g. a finished report dragged into the wrong upload station by mistake, or an automated match that found a project number but no real invoice signal. Null/absent when it looked right or couldn't be determined. */
   invoice_mismatch?: boolean | null;
+  /** SHA-256 of the file's own bytes, lab_invoice only. Crystal Analytical bills per lab order, one PDF often covering several jobs at once (see processMultiJobLabInvoiceEmail in lib/lab-email.ts) — that same PDF gets uploaded as its own copy under every job it covers (a different storage_path each time) plus once per service-type label on a mixed job, so without this a single real invoice email shows up as several unrelated-looking documents. Two documents sharing this hash are byte-identical copies of the same source file, however many jobs/labels they're filed under. Absent on documents uploaded before this field existed — see /api/admin/backfill-lab-invoice-hashes for retroactively filling it in. */
+  content_hash?: string | null;
 }
 
 /** A photo uploaded to a project's Photos tab (job-photos storage bucket) — either side can add these, unlike `documents` which is admin-only lab paperwork. */

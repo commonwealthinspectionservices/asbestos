@@ -163,24 +163,74 @@ export default function LabInvoicesView() {
 
   // Per Tim, 2026-08-28 — "a list of every single pdf invoice that gets
   // sent to me by the lab and when it was sent to me and which dates it
-  // covers": a flat, unbounded, chronological (most recently received
-  // first) log of every lab_invoice document that actually exists —
-  // unlike pastWeeklyLabInvoices above, this has no completed-weeks-only
-  // restriction and no placeholder rows for jobs missing an invoice, since
-  // this is a receipt log, not a filing checklist. "Received" is the
-  // document's own uploaded_at (when it landed in our system, whether via
-  // the automated Gmail match or a manual upload); "Covers" is the
-  // Monday–Friday week containing the job's confirmed_date, the same
-  // week-inference the rest of this page uses, since the invoice itself
-  // doesn't carry a machine-readable billing-period field.
+  // covers": literally one row per real email Crystal Analytical actually
+  // sent (confirmed against his real inbox: 3 emails on file, invoices
+  // #6491/#6497/#6498), not one row per (job, document) pair. Two
+  // dedup/group passes get there:
+  //
+  // 1. Same job, same file — a mixed job (asbestos + mold) gets one
+  //    lab_invoice document PER SERVICE-TYPE LABEL, all pointing at the
+  //    same storage_path (see the "one station per label" comment in
+  //    lib/lab-email.ts's processMatchedLabInvoiceEmail) — collapse those
+  //    to one row per (job, storage_path) first.
+  // 2. Different jobs, same real invoice — Crystal Analytical bills
+  //    several jobs on one shared PDF (see processMultiJobLabInvoiceEmail),
+  //    which gets uploaded as its own byte-identical copy under every job
+  //    it covers. content_hash (see its own comment on JobDocument) is
+  //    what recognizes those copies as one real invoice again — grouped
+  //    into a single row listing every job it covers. A document without a
+  //    hash yet (predates that field, not yet backfilled — see
+  //    /api/admin/backfill-lab-invoice-hashes) stays its own standalone
+  //    row rather than silently vanishing from the list.
+  //
+  // "Received" is the earliest uploaded_at across the group (when it
+  // actually landed in our system); "Covers" is the Monday–Friday week
+  // containing each covered job's confirmed_date, widened to the full
+  // min–max span across the group (normally identical for every job on one
+  // real invoice, since Crystal Analytical bills everything analyzed that
+  // week together) — the invoice itself doesn't carry a machine-readable
+  // billing-period field.
   const allLabInvoices = useMemo(() => {
-    const rows: { job: JobWithCustomer; doc: JobDocument }[] = [];
+    const seenPerJobPath = new Set<string>();
+    const flat: { job: JobWithCustomer; doc: JobDocument }[] = [];
     for (const job of jobs) {
       for (const doc of job.documents ?? []) {
-        if (doc.kind === "lab_invoice") rows.push({ job, doc });
+        if (doc.kind !== "lab_invoice") continue;
+        const key = `${job.id}:${doc.storage_path}`;
+        if (seenPerJobPath.has(key)) continue;
+        seenPerJobPath.add(key);
+        flat.push({ job, doc });
       }
     }
-    return rows.sort((a, b) => (a.doc.uploaded_at < b.doc.uploaded_at ? 1 : -1));
+
+    const groups = new Map<string, { job: JobWithCustomer; doc: JobDocument }[]>();
+    const ungrouped: { job: JobWithCustomer; doc: JobDocument }[][] = [];
+    for (const row of flat) {
+      if (!row.doc.content_hash) {
+        ungrouped.push([row]);
+        continue;
+      }
+      if (!groups.has(row.doc.content_hash)) groups.set(row.doc.content_hash, []);
+      groups.get(row.doc.content_hash)!.push(row);
+    }
+
+    return [...groups.values(), ...ungrouped]
+      .map((rows) => {
+        const sorted = [...rows].sort((a, b) => (a.job.project_number ?? "").localeCompare(b.job.project_number ?? ""));
+        const receivedAt = sorted.reduce((min, r) => (r.doc.uploaded_at < min ? r.doc.uploaded_at : min), sorted[0].doc.uploaded_at);
+        const weeks = sorted
+          .map((r) => (r.job.confirmed_date ? mondayFridayOfWeek(r.job.confirmed_date) : null))
+          .filter((w): w is { weekStartStr: string; weekEndStr: string } => w != null);
+        const covers =
+          weeks.length > 0
+            ? {
+                weekStartStr: weeks.reduce((min, w) => (w.weekStartStr < min ? w.weekStartStr : min), weeks[0].weekStartStr),
+                weekEndStr: weeks.reduce((max, w) => (w.weekEndStr > max ? w.weekEndStr : max), weeks[0].weekEndStr),
+              }
+            : null;
+        return { rows: sorted, receivedAt, covers };
+      })
+      .sort((a, b) => (a.receivedAt < b.receivedAt ? 1 : -1));
   }, [jobs]);
 
   return (
@@ -261,15 +311,20 @@ export default function LabInvoicesView() {
               <p className="mt-2 text-sm text-slate-500">No lab invoices uploaded yet.</p>
             ) : (
               <div className="mt-2 divide-y divide-slate-100">
-                {allLabInvoices.map(({ job, doc }) => {
-                  const covers = job.confirmed_date ? mondayFridayOfWeek(job.confirmed_date) : null;
+                {allLabInvoices.map((entry) => {
+                  const first = entry.rows[0];
+                  const projectNumbers = entry.rows.map((r) => r.job.project_number).join(", ");
+                  const companies = [...new Set(entry.rows.map((r) => r.job.customers?.company || r.job.customers?.name))].join(", ");
                   return (
-                    <div key={doc.id} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-2 first:pt-0 last:pb-0">
+                    <div
+                      key={first.doc.content_hash ?? `${first.job.id}:${first.doc.id}`}
+                      className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-2 first:pt-0 last:pb-0"
+                    >
                       <div className="flex flex-wrap items-center gap-1.5 text-xs">
-                        <span className="font-mono text-slate-500">{job.project_number}</span>
-                        <span className="text-slate-500">{job.customers?.company || job.customers?.name}</span>
+                        <span className="font-mono text-slate-500">{projectNumbers}</span>
+                        <span className="text-slate-500">{companies}</span>
                         <a
-                          href={`/api/admin/jobs/${job.id}/documents/${doc.id}`}
+                          href={`/api/admin/jobs/${first.job.id}/documents/${first.doc.id}`}
                           target="_blank"
                           rel="noreferrer"
                           className="text-brand-600 hover:underline"
@@ -278,8 +333,10 @@ export default function LabInvoicesView() {
                         </a>
                       </div>
                       <div className="flex gap-4 whitespace-nowrap text-xs text-slate-500">
-                        <span>Received {formatDate(localDateOnly(doc.uploaded_at))}</span>
-                        <span>Covers {covers ? `${formatDate(covers.weekStartStr)} – ${formatDate(covers.weekEndStr)}` : "—"}</span>
+                        <span>Received {formatDate(localDateOnly(entry.receivedAt))}</span>
+                        <span>
+                          Covers {entry.covers ? `${formatDate(entry.covers.weekStartStr)} – ${formatDate(entry.covers.weekEndStr)}` : "—"}
+                        </span>
                       </div>
                     </div>
                   );

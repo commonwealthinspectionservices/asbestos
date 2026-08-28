@@ -1,4 +1,4 @@
-import { randomUUID } from "crypto";
+import { randomUUID, createHash } from "crypto";
 // Imports the implementation directly rather than the package root — see
 // src/app/api/admin/jobs/[id]/documents/route.ts for why.
 import pdfParse from "pdf-parse/lib/pdf-parse.js";
@@ -39,7 +39,7 @@ import { formatCents } from "@/lib/pricing";
 import { createStripeInvoiceForJob, tagInvoiceEmailed } from "@/lib/stripe";
 import { splitTrailingCocPages } from "@/lib/split-lab-report-coc";
 import { extractPositionOrderedText } from "@/lib/pdf-position-text";
-import { jobReportDomains, ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, NEWTON_FIRE_FLOOD_COMPANY_ID, reportEmailAttachmentFilename, type ReportDomain } from "@/lib/report-findings";
+import { jobReportDomains, ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, NEWTON_FIRE_FLOOD_COMPANY_ID, BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID, reportEmailAttachmentFilename, type ReportDomain } from "@/lib/report-findings";
 import { sendEmail, emailShell } from "@/lib/email";
 import { getAppUrl } from "@/lib/app-url";
 import { escapeHtml } from "@/lib/html";
@@ -687,6 +687,7 @@ async function processMatchedLabInvoiceEmail(params: {
   // real, independent red flag worth surfacing rather than silently filing
   // whatever matched as if it were a normal invoice.
   const totalCents = extractLabInvoiceTotalCents(pdfText);
+  const contentHash = createHash("sha256").update(pdfBuffer).digest("hex");
   const newDocuments: JobDocument[] = serviceTypeLabels.map((label) => ({
     id: randomUUID(),
     kind: "lab_invoice",
@@ -696,6 +697,7 @@ async function processMatchedLabInvoiceEmail(params: {
     uploaded_at: uploadedAt,
     project_number_mismatch: null,
     invoice_mismatch: totalCents == null ? true : null,
+    content_hash: contentHash,
   }));
   const update: Record<string, unknown> = {
     documents: await replaceDocumentsByKindAndServiceType(supabase, job.documents ?? [], newDocuments),
@@ -743,6 +745,12 @@ async function processMultiJobLabInvoiceEmail(params: {
   const labInfo = detectLabInfo(pdfText);
   const recorded: { projectNumber: string; jobId: string }[] = [];
   const unmatchedProjectNumbers: string[] = [];
+  // One hash for the whole batch — every job below gets its own uploaded
+  // copy of these exact same bytes (own storage_path, own document id), so
+  // this is what lets a reader (see content_hash's own comment on
+  // JobDocument) recognize them as the same real invoice email again
+  // afterward.
+  const contentHash = createHash("sha256").update(pdfBuffer).digest("hex");
 
   for (const [projectNumber, amountCents] of amountCentsByProject) {
     const { data: job } = await supabase.from("jobs").select("*").ilike("project_number", projectNumber).maybeSingle();
@@ -768,6 +776,7 @@ async function processMultiJobLabInvoiceEmail(params: {
       storage_path: storagePath,
       uploaded_at: uploadedAt,
       project_number_mismatch: null,
+      content_hash: contentHash,
     }));
     const update: Record<string, unknown> = {
       documents: await replaceDocumentsByKindAndServiceType(supabase, job.documents ?? [], newDocuments),
@@ -1112,6 +1121,14 @@ async function draftInvoiceEmailForJob(params: {
   const ccRecipients = [
     ...(billingContact ? [customer.email] : []),
     ...(pricedJob.invoice_emails?.split(",") ?? []),
+    // Per Tim, 2026-08-28 — every Boston Harbor Water Restoration invoice
+    // must also reach Jake, alongside whichever billing contact/job contact
+    // already land above — not a per-job invoice_emails entry, since it
+    // should apply company-wide without relying on it being typed in each
+    // time.
+    ...(pricedJob.customers.companies?.id === BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID
+      ? ["jake@bostonharborwater.com"]
+      : []),
   ]
     .map((e) => e.trim())
     .filter((e) => e && e !== toCustomer.email);

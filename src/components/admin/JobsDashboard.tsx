@@ -2779,46 +2779,6 @@ export function ProjectDetailDialog({
               nowrap
             />
           </div>
-          {/* Per Tim, 2026-08-28 — Job site contact / Email results to
-              moved back up here, right after identity/address and before
-              the Requested/Scheduled/Service type block below — that
-              block now sits full-width between this row and Customer
-              contact/Company info instead of squeezed into a narrow
-              column beside identity. Per Tim, 2026-08-28 — dropped the
-              2-column grid entirely (not just at this row, everywhere on
-              this tab): same single evenly-spaced left-aligned list at
-              every width, same as mobile already was, instead of chasing
-              more breakpoint-specific column layouts. */}
-          <div className="space-y-6">
-            <div className="space-y-3 sm:space-y-2">
-              <h4 className="text-sm font-bold tracking-wide text-black underline">Job site contact</h4>
-              <DetailField label="Name" value={job.site_contact_name ? toTitleCase(job.site_contact_name) : "—"} />
-              <DetailField
-                label="Phone"
-                value={
-                  job.site_contact_phone ? (
-                    <a href={telHref(job.site_contact_phone)} className="text-brand-700 hover:underline">
-                      {formatPhoneInput(job.site_contact_phone)}
-                    </a>
-                  ) : "—"
-                }
-              />
-              <DetailField label="Email" value={job.site_contact_email} nowrap />
-            </div>
-            {job.report_emails && job.report_emails.trim() && (
-              <div className="space-y-3 sm:space-y-2">
-                <h4 className="text-sm font-bold tracking-wide text-black underline">Email results to</h4>
-                {job.report_emails.split(",").map((e) => e.trim()).filter(Boolean).map((addr, i) => {
-                  const contact = companyContactsForDisplay.find((c) => c.email?.toLowerCase() === addr.toLowerCase());
-                  return (
-                    <div key={i} className="text-sm text-black">
-                      {contact ? `${contact.name} — ${addr}` : addr}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
           <div className="space-y-3 sm:space-y-2">
             {job.source === "subcontractor" ? (
               job.status === "needs_scheduling" ? (
@@ -2920,6 +2880,36 @@ export function ProjectDetailDialog({
               </div>
             )}
           </div>
+          {/* Per Tim, 2026-08-28 — Job site contact / Email results to
+              moved here, right above Customer contact. */}
+          <div className="space-y-3 sm:space-y-2">
+            <h4 className="text-sm font-bold tracking-wide text-black underline">Job site contact</h4>
+            <DetailField label="Name" value={job.site_contact_name ? toTitleCase(job.site_contact_name) : "—"} />
+            <DetailField
+              label="Phone"
+              value={
+                job.site_contact_phone ? (
+                  <a href={telHref(job.site_contact_phone)} className="text-brand-700 hover:underline">
+                    {formatPhoneInput(job.site_contact_phone)}
+                  </a>
+                ) : "—"
+              }
+            />
+            <DetailField label="Email" value={job.site_contact_email} nowrap />
+          </div>
+          {job.report_emails && job.report_emails.trim() && (
+            <div className="space-y-3 sm:space-y-2">
+              <h4 className="text-sm font-bold tracking-wide text-black underline">Email results to</h4>
+              {job.report_emails.split(",").map((e) => e.trim()).filter(Boolean).map((addr, i) => {
+                const contact = companyContactsForDisplay.find((c) => c.email?.toLowerCase() === addr.toLowerCase());
+                return (
+                  <div key={i} className="text-sm text-black">
+                    {contact ? `${contact.name} — ${addr}` : addr}
+                  </div>
+                );
+              })}
+            </div>
+          )}
           {/* Per Tim, 2026-08-28 — dropped the 2-column grid here too, same
               single evenly-spaced left-aligned list at every width. */}
           <div className="space-y-6">

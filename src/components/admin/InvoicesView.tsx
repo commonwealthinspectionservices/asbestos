@@ -415,43 +415,47 @@ export default function InvoicesView() {
               onClick={() => setSelectedJobId(job.id)}
               className="flex w-full flex-col gap-0.5 rounded-lg border border-slate-200 bg-white p-3 text-left hover:border-brand-400"
             >
-              {/* Per Tim, 2026-08-28 — three columns: left is identity
-                  (project #, company), center is status (Report sent
-                  directly above the status pill), right is just the total
-                  price, alone, right-aligned. grid-cols-[minmax(280px,max-content)_auto_1fr]
-                  (not 1fr_auto_1fr) — equal 1fr tracks only stay equal
-                  when their content is roughly balanced; once company
-                  names stopped truncating (they can be almost any length
-                  now — no ellipsis, ever), a short name vs. a long one
-                  made the two 1fr tracks size differently after all,
-                  visibly dragging the center pill column left or right
-                  depending on company-name length, which is exactly what
-                  Tim didn't want. A fixed-minimum left column (280px,
+              {/* Per Tim, 2026-08-28 — three columns on desktop: left is
+                  identity (project #, company), center is status (Report
+                  sent directly above the status pill), right is just the
+                  total price, alone, right-aligned. Mobile (below sm)
+                  drops the grid entirely for a plain stacked column — the
+                  fixed-minimum-280px left column that keeps desktop's
+                  pill aligned regardless of company-name length would, at
+                  a 375px viewport, leave the center/right columns no room
+                  at all and push the price off-screen. Every line here
+                  gets its own full-width row on mobile instead, each one
+                  free to wrap (no whitespace-nowrap) rather than truncate
+                  or overflow — Tim: company names must never get cut off
+                  with an ellipsis, on any screen size.
+                  grid-cols-[minmax(280px,max-content)_auto_1fr] (not
+                  1fr_auto_1fr) on desktop — equal 1fr tracks only stay
+                  equal when their content is roughly balanced; once
+                  company names stopped truncating, a short name vs. a
+                  long one made the two 1fr tracks size differently after
+                  all, visibly dragging the center pill column left or
+                  right depending on company-name length, which is exactly
+                  what Tim didn't want. A fixed-minimum left column (280px,
                   comfortably fits every company name currently in the
                   system) keeps the pill's own position identical
                   regardless of name length; max-content still lets it grow
                   further right for a hypothetical longer one instead of
-                  ever truncating. items-center (not items-start)
+                  ever truncating. sm:items-center (not items-start)
                   vertically centers the left column's single line against
                   the center column's taller two-line stack. */}
-              <div className="grid w-full grid-cols-[minmax(280px,max-content)_auto_1fr] items-center gap-3">
+              <div className="flex w-full flex-col gap-1.5 sm:grid sm:grid-cols-[minmax(280px,max-content)_auto_1fr] sm:items-center sm:gap-3">
                 <div>
-                  {/* Per Tim, 2026-08-28 — company names must never
-                      truncate with an ellipsis. No min-w-0/truncate here —
-                      this column's own grid track (see grid-cols above)
-                      grows to fit the full name instead, pushing the
-                      center/right columns right as needed. */}
                   <div className="flex items-center gap-2">
                     {job.project_number && (
                       <span className="shrink-0 whitespace-nowrap rounded bg-slate-100 px-1.5 py-0.5 text-xs font-mono text-slate-600">{job.project_number}</span>
                     )}
-                    <span className="whitespace-nowrap text-xs font-medium text-slate-800">
+                    <span className="min-w-0 whitespace-normal break-words text-xs font-medium text-slate-800 sm:whitespace-nowrap">
                       {job.customers?.company || job.customers?.name}
                     </span>
                   </div>
                 </div>
                 <div
-                  className={`flex flex-col items-center gap-0.5 text-center ${
+                  className={`flex flex-col items-start gap-0.5 text-left sm:items-center sm:text-center ${
                     status === "sent" ? "sm:flex-row sm:items-center sm:gap-2 sm:text-left" : ""
                   }`}
                 >
@@ -496,7 +500,7 @@ export default function InvoicesView() {
                     </>
                   )}
                 </div>
-                <div className="text-right">
+                <div className="text-left sm:text-right">
                   <span className="whitespace-nowrap text-xs font-semibold text-slate-800">{formatCents(job.invoice_total_cents ?? 0)}</span>
                 </div>
               </div>

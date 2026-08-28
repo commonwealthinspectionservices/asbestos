@@ -415,67 +415,96 @@ export default function InvoicesView() {
               onClick={() => setSelectedJobId(job.id)}
               className="flex w-full flex-col gap-0.5 rounded-lg border border-slate-200 bg-white p-3 text-left hover:border-brand-400"
             >
-              {/* Per Tim, 2026-08-28 — three columns on desktop: left is
-                  identity (project #, company), center is status (Report
-                  sent directly above the status pill), right is just the
-                  total price, alone, right-aligned. Mobile (below sm)
-                  drops the grid entirely for a plain stacked column — the
-                  fixed-minimum-280px left column that keeps desktop's
-                  pill aligned regardless of company-name length would, at
-                  a 375px viewport, leave the center/right columns no room
-                  at all and push the price off-screen. Every line here
-                  gets its own full-width row on mobile instead, each one
-                  free to wrap (no whitespace-nowrap) rather than truncate
-                  or overflow — Tim: company names must never get cut off
-                  with an ellipsis, on any screen size.
+              {/* Per Tim, 2026-08-28 — mobile-only layout, corners anchored
+                  instead of one plain top-to-bottom stack: identity top-
+                  left, status pill top-right, Report sent/Due (or To be
+                  charged) left-aligned in the middle, price bottom-right —
+                  "fill out the cell," not just list everything down the
+                  left edge. gap-3 spaces the three row-groups evenly.
+                  Company name still wraps rather than truncates (no
+                  whitespace-nowrap) — never an ellipsis, any screen size. */}
+              <div className="flex w-full flex-col gap-3 sm:hidden">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex min-w-0 items-center gap-2">
+                    {job.project_number && (
+                      <span className="shrink-0 whitespace-nowrap rounded bg-slate-100 px-1.5 py-0.5 text-xs font-mono text-slate-600">{job.project_number}</span>
+                    )}
+                    <span className="min-w-0 whitespace-normal break-words text-xs font-medium text-slate-800">
+                      {job.customers?.company || job.customers?.name}
+                    </span>
+                  </div>
+                  <span className={`shrink-0 whitespace-nowrap rounded px-1.5 py-0.5 text-xs font-medium ${STATUS_COLOR[status]}`}>
+                    {STATUS_LABEL[status]}
+                  </span>
+                </div>
+                <div className="flex flex-col items-start gap-0.5 text-left">
+                  {status === "paid" ? (
+                    <span className="whitespace-nowrap text-xs text-slate-500">Paid {formatDate(job.paid_date)}</span>
+                  ) : (
+                    <>
+                      {job.invoice_sent_at && (
+                        <span className="whitespace-nowrap text-xs text-slate-500">Report sent {formatDate(localDateOnly(job.invoice_sent_at))}</span>
+                      )}
+                      <span className="whitespace-nowrap text-xs text-slate-500">
+                        {isNewtonAutoCharge ? "To be charged " : "Due by "}{formatDate(dueDateFor(job))}
+                      </span>
+                    </>
+                  )}
+                </div>
+                <div className="flex justify-end">
+                  <span className="whitespace-nowrap text-xs font-semibold text-slate-800">{formatCents(job.invoice_total_cents ?? 0)}</span>
+                </div>
+              </div>
+
+              {/* Per Tim, 2026-08-28 — desktop only (hidden below sm): three
+                  columns — left is identity (project #, company), center is
+                  status (Report sent directly above the status pill), right
+                  is just the total price, alone, right-aligned.
                   grid-cols-[minmax(280px,max-content)_auto_1fr] (not
-                  1fr_auto_1fr) on desktop — equal 1fr tracks only stay
-                  equal when their content is roughly balanced; once
-                  company names stopped truncating, a short name vs. a
-                  long one made the two 1fr tracks size differently after
-                  all, visibly dragging the center pill column left or
-                  right depending on company-name length, which is exactly
-                  what Tim didn't want. A fixed-minimum left column (280px,
-                  comfortably fits every company name currently in the
-                  system) keeps the pill's own position identical
-                  regardless of name length; max-content still lets it grow
-                  further right for a hypothetical longer one instead of
-                  ever truncating. sm:items-center (not items-start)
-                  vertically centers the left column's single line against
-                  the center column's taller two-line stack. */}
-              <div className="flex w-full flex-col gap-1.5 sm:grid sm:grid-cols-[minmax(280px,max-content)_auto_1fr] sm:items-center sm:gap-3">
+                  1fr_auto_1fr) — equal 1fr tracks only stay equal when
+                  their content is roughly balanced; once company names
+                  stopped truncating, a short name vs. a long one made the
+                  two 1fr tracks size differently after all, visibly
+                  dragging the center pill column left or right depending
+                  on company-name length, which is exactly what Tim didn't
+                  want. A fixed-minimum left column (280px, comfortably fits
+                  every company name currently in the system) keeps the
+                  pill's own position identical regardless of name length;
+                  max-content still lets it grow further right for a
+                  hypothetical longer one instead of ever truncating.
+                  items-center vertically centers the left column's single
+                  line against the center column's taller two-line stack. */}
+              <div className="hidden w-full sm:grid sm:grid-cols-[minmax(280px,max-content)_auto_1fr] sm:items-center sm:gap-3">
                 <div>
                   <div className="flex items-center gap-2">
                     {job.project_number && (
                       <span className="shrink-0 whitespace-nowrap rounded bg-slate-100 px-1.5 py-0.5 text-xs font-mono text-slate-600">{job.project_number}</span>
                     )}
-                    <span className="min-w-0 whitespace-normal break-words text-xs font-medium text-slate-800 sm:whitespace-nowrap">
+                    <span className="whitespace-nowrap text-xs font-medium text-slate-800">
                       {job.customers?.company || job.customers?.name}
                     </span>
                   </div>
                 </div>
                 <div
-                  className={`flex flex-col items-start gap-0.5 text-left sm:items-center sm:text-center ${
-                    status === "sent" ? "sm:flex-row sm:items-center sm:gap-2 sm:text-left" : ""
+                  className={`flex items-center text-center ${
+                    status === "sent" ? "flex-row gap-2 text-left" : "flex-col gap-0.5"
                   }`}
                 >
                   {status === "paid" ? (
                     <span className="whitespace-nowrap text-xs text-slate-500">Paid {formatDate(job.paid_date)}</span>
                   ) : status === "sent" ? (
-                    // Per Tim, 2026-08-28 — desktop only: the pill sits to
-                    // the left with a fixed width (sm:w-40) so every pill
-                    // lines up at the same spot, always reading "Payment
-                    // Pending" (no more special Newton wording baked into
-                    // the pill itself — see below). Report sent stacked
-                    // directly above the due/charge line to its right, on
-                    // the same line as the pill. Mobile keeps the original
-                    // vertical stack for now (see the flex-col default
-                    // above).
+                    // Per Tim, 2026-08-28 — the pill sits to the left with
+                    // a fixed width (w-40) so every pill lines up at the
+                    // same spot, always reading "Payment Pending" (no more
+                    // special Newton wording baked into the pill itself —
+                    // see below). Report sent stacked directly above the
+                    // due/charge line to its right, on the same line as
+                    // the pill.
                     <>
-                      <span className={`inline-flex shrink-0 items-center justify-center whitespace-nowrap rounded px-1.5 py-0.5 text-xs font-medium sm:w-40 ${STATUS_COLOR.sent}`}>
+                      <span className={`inline-flex w-40 shrink-0 items-center justify-center whitespace-nowrap rounded px-1.5 py-0.5 text-xs font-medium ${STATUS_COLOR.sent}`}>
                         {STATUS_LABEL.sent}
                       </span>
-                      <div className="flex flex-col items-center sm:items-start">
+                      <div className="flex flex-col items-start">
                         {job.invoice_sent_at && (
                           <span className="whitespace-nowrap text-xs text-slate-500">Report sent {formatDate(localDateOnly(job.invoice_sent_at))}</span>
                         )}
@@ -500,7 +529,7 @@ export default function InvoicesView() {
                     </>
                   )}
                 </div>
-                <div className="text-left sm:text-right">
+                <div className="text-right">
                   <span className="whitespace-nowrap text-xs font-semibold text-slate-800">{formatCents(job.invoice_total_cents ?? 0)}</span>
                 </div>
               </div>

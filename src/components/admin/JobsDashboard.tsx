@@ -1282,7 +1282,14 @@ function JobRow({
             // pill beside it on mobile — every piece of text on this row
             // matches, not just the pill. Desktop keeps its original auto
             // width and text-sm, unchanged.
-            <span className="inline-flex h-7 w-24 shrink-0 items-center justify-center whitespace-nowrap rounded bg-slate-200 px-2 py-0.5 text-xs font-mono font-bold text-slate-800 hover:underline sm:inline sm:h-auto sm:w-auto sm:justify-start sm:text-sm">{job.project_number}</span>
+            // border-2 border-transparent (not borderless) — Per Tim,
+            // 2026-08-28: the status pill beside this on desktop needs a
+            // real border for its own ready-to-send highlight, and at
+            // h-auto a bordered box computes a few px taller than a
+            // borderless one at the same padding — reserving the same
+            // invisible border here keeps both boxes' text sitting at the
+            // exact same height instead of just their tops lining up.
+            <span className="inline-flex h-7 w-24 shrink-0 items-center justify-center whitespace-nowrap rounded border-2 border-transparent bg-slate-200 px-2 py-0.5 text-xs font-mono font-bold text-slate-800 hover:underline sm:inline sm:h-auto sm:w-auto sm:justify-start sm:text-sm">{job.project_number}</span>
           )}
           <div className="hidden truncate whitespace-nowrap font-medium text-slate-800 sm:block">
             {customerLabelNode}
@@ -1310,14 +1317,19 @@ function JobRow({
             // original size) is what actually makes the longest label fit
             // the remaining space next to the fixed-width badge on one
             // line — overflow-hidden/text-ellipsis stay only as an inert
-            // safety net, never actually meant to trigger. h-7/sm:h-9 and
-            // border-2 border-transparent (not h-auto/border-0) match the
-            // open-status <select> below exactly — Per Tim, 2026-08-27,
-            // this cell must render the same size no matter which status
-            // it's showing; h-auto let a <span> and a <select> (and a
-            // bordered vs. unbordered select) each compute a slightly
-            // different height at the same font-size/padding.
-            <span className="inline-flex h-7 w-full min-w-0 shrink-0 items-center justify-center overflow-hidden text-ellipsis whitespace-nowrap rounded border-2 border-transparent bg-slate-200 px-2 py-0.5 text-center text-xs font-bold text-slate-700 sm:inline sm:h-9 sm:w-60 sm:text-left sm:text-sm">
+            // safety net, never actually meant to trigger. h-7 on mobile
+            // and border-2 border-transparent (not h-auto/border-0) match
+            // the open-status <select> below exactly — Per Tim,
+            // 2026-08-27, this cell must render the same size no matter
+            // which status it's showing; h-auto let a <span> and a
+            // <select> (and a bordered vs. unbordered select) each
+            // compute a slightly different height at the same font-size/
+            // padding. Desktop per Tim, 2026-08-28: sm:h-auto/sm:w-auto
+            // (not a forced sm:h-9/fixed sm:w-60) so this matches the
+            // project # badge's own box exactly — same height and style,
+            // free to run wider for a longer status instead of being
+            // padded out to a fixed width regardless of status.
+            <span className="inline-flex h-7 w-full min-w-0 shrink-0 items-center justify-center overflow-hidden text-ellipsis whitespace-nowrap rounded border-2 border-transparent bg-slate-200 px-2 py-0.5 text-center text-xs font-bold text-slate-700 sm:inline sm:h-auto sm:w-auto sm:justify-start sm:text-left sm:text-sm">
               {statusLabelForJob(job, job.status)}
             </span>
           ) : (
@@ -1348,11 +1360,19 @@ function JobRow({
                 // regardless of status, and a border that appears only for
                 // ready_to_send while every other status has none changes
                 // the box's rendered height at h-auto (2px border vs 0).
-                // h-7/sm:h-9 (not h-auto) locks the height outright, same
-                // fixed height as the closed-status <span> above so every
-                // status — open, ready-to-send, or closed — renders pixel
-                // identical.
-                className={`inline-flex h-7 w-full min-w-0 shrink-0 items-center justify-center overflow-hidden text-ellipsis whitespace-nowrap rounded border-2 bg-slate-200 px-2 py-0.5 text-center text-xs font-bold text-slate-700 sm:inline-block sm:h-9 sm:w-60 sm:text-left sm:text-sm ${job.status === "ready_to_send" ? "border-amber-500" : "border-transparent"}`}
+                // h-7 on mobile locks the height outright, same fixed
+                // height as the closed-status <span> above so every status
+                // — open, ready-to-send, or closed — renders pixel
+                // identical. Desktop per Tim, 2026-08-28: sm:h-7 (not
+                // sm:h-auto) — confirmed live a <select> still renders a
+                // few px shorter than the project # <span> badge even at
+                // identical padding/border/font (same native-UA-metrics
+                // quirk as input[type=date] vs select elsewhere in this
+                // file), so h-auto alone wasn't actually enough; pinning
+                // to the badge's own measured 28px (h-7) is. sm:w-auto
+                // (not a fixed sm:w-60) still lets it run wider for a
+                // longer status label instead of padding to a fixed width.
+                className={`inline-flex h-7 w-full min-w-0 shrink-0 items-center justify-center overflow-hidden text-ellipsis whitespace-nowrap rounded border-2 bg-slate-200 px-2 py-0.5 text-center text-xs font-bold text-slate-700 sm:inline-block sm:h-7 sm:w-auto sm:text-left sm:text-sm ${job.status === "ready_to_send" ? "border-amber-500" : "border-transparent"}`}
               >
                 {pipelineStatusesForJob(job).map((s) => (
                   <option key={s} value={s}>{statusLabelForJob(job, s)}</option>
@@ -1469,8 +1489,11 @@ function JobRow({
               not just while the job is still unscheduled. Per Tim,
               2026-08-28: except once a job is actually in Payment
               Pending — the homeowner's long done with fieldwork by then,
-              not worth the space next to the payment due date instead. */}
-          {(job.site_contact_name || job.site_contact_phone) && job.status !== "report_invoice_sent" && (
+              not worth the space next to the payment due date instead —
+              or Pending Lab Results, same reasoning: fieldwork's already
+              done, nothing left to call the homeowner about. */}
+          {(job.site_contact_name || job.site_contact_phone)
+            && job.status !== "report_invoice_sent" && job.status !== "pending_lab_results" && (
             <span className="min-w-0 truncate whitespace-nowrap text-sm text-slate-500 sm:w-60" onClick={(e) => e.stopPropagation()}>
               {job.site_contact_name ? toTitleCase(job.site_contact_name) : ""}
               {job.site_contact_phone ? (

@@ -375,7 +375,9 @@ export default function InvoicesView() {
         <p className="mt-6 text-sm text-slate-500">Loading…</p>
       ) : rows.length === 0 ? null : (
         <div className="mt-4 space-y-2">
-          {rows.map(({ job, status }) => (
+          {rows.map(({ job, status }) => {
+            const isNewtonAutoCharge = status === "sent" && job.customers?.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID;
+            return (
             <button
               key={job.id}
               onClick={() => setSelectedJobId(job.id)}
@@ -401,7 +403,7 @@ export default function InvoicesView() {
                     Paid/Ready to Send stay as-is even for Newton: those are
                     still meaningfully different states worth flagging on
                     their own. */}
-                {status === "sent" && job.customers?.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID ? (
+                {isNewtonAutoCharge ? (
                   <span className={`shrink-0 whitespace-nowrap rounded px-1.5 py-0.5 text-xs font-medium ${STATUS_COLOR.sent}`}>To be charged {formatDate(dueDateFor(job))}</span>
                 ) : (
                   <span className={`shrink-0 whitespace-nowrap rounded px-1.5 py-0.5 text-xs font-medium ${STATUS_COLOR[status]}`}>{STATUS_LABEL[status]}</span>
@@ -416,11 +418,14 @@ export default function InvoicesView() {
               {status !== "paid" && (
                 <div className="flex w-full items-center justify-between gap-2 text-xs text-slate-500">
                   <span className="whitespace-nowrap">{job.invoice_sent_at ? `Report sent ${formatDate(job.invoice_sent_at.slice(0, 10))}` : ""}</span>
-                  <span className="whitespace-nowrap">Due {formatDate(dueDateFor(job))}</span>
+                  {/* Per Tim, 2026-08-28 — redundant once the pill above
+                      already says "To be charged <date>". */}
+                  {!isNewtonAutoCharge && <span className="whitespace-nowrap">Due {formatDate(dueDateFor(job))}</span>}
                 </div>
               )}
             </button>
-          ))}
+            );
+          })}
         </div>
       )}
 

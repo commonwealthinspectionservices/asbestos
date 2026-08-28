@@ -6,7 +6,6 @@ import { formatCents } from "@/lib/pricing";
 import { ProjectDetailDialog, EditProjectDialog } from "@/components/admin/JobsDashboard";
 import { formatDateMDY } from "@/lib/date-format";
 import { NEWTON_FIRE_FLOOD_COMPANY_ID } from "@/lib/report-findings";
-import { estimatedLabCostCents } from "@/lib/lab-rate-estimate";
 
 type InvoiceStatus = "ready_to_send" | "sent" | "overdue" | "paid";
 
@@ -270,127 +269,6 @@ export default function InvoicesView() {
     return { overdueCents, overdueCount, awaitingPaymentCents };
   }, [invoicedJobs]);
 
-  // Per Tim, 2026-08-28 — lab fees actually paid out, bucketed by the same
-  // date every other total on this page already goes by (invoice_sent_at,
-  // converted to local time via localDateOnly — see that function's own
-  // comment on why a raw UTC slice would put some late-evening sends in
-  // the wrong bucket). This Week is always Monday through Friday of the
-  // current week specifically (not a rolling 7 days, and not
-  // Sunday-anchored) — a weekend send belongs to neither the week before
-  // nor after. Month/Year to Date are the standard cumulative reading (1st
-  // of the month/year through today). Each of Week/Month/Year carries its
-  // own actual date range for the subtext under it, since "this
-  // week"/"month to date"/"year to date" alone don't say which days that
-  // actually covers right now.
-  const labFeesSummary = useMemo(() => {
-    const now = new Date();
-    const pad = (n: number) => String(n).padStart(2, "0");
-    const ymd = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-    const todayStr = ymd(now);
-
-    // getDay(): 0=Sun..6=Sat. Days since this week's own Monday — Sunday
-    // (0) is 6 days after the prior Monday, everything else is dayOfWeek-1.
-    const daysSinceMonday = (now.getDay() + 6) % 7;
-    const monday = new Date(now);
-    monday.setDate(now.getDate() - daysSinceMonday);
-    const friday = new Date(monday);
-    friday.setDate(monday.getDate() + 4);
-    const weekStartStr = ymd(monday);
-    const weekEndStr = ymd(friday);
-
-    const monthStartStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-01`;
-    const yearStartStr = `${now.getFullYear()}-01-01`;
-
-    let weekCents = 0;
-    let monthCents = 0;
-    let yearCents = 0;
-    for (const job of invoicedJobs) {
-      if (!job.invoice_sent_at || !job.lab_cost_cents) continue;
-      const sentDateStr = localDateOnly(job.invoice_sent_at);
-      if (sentDateStr >= weekStartStr && sentDateStr <= weekEndStr) weekCents += job.lab_cost_cents;
-      if (sentDateStr >= monthStartStr) monthCents += job.lab_cost_cents;
-      if (sentDateStr >= yearStartStr) yearCents += job.lab_cost_cents;
-    }
-    return {
-      weekCents,
-      monthCents,
-      yearCents,
-      weekStartStr,
-      weekEndStr,
-      weekRangeLabel: `${formatDate(weekStartStr)} – ${formatDate(weekEndStr)}`,
-      monthRangeLabel: `${formatDate(monthStartStr)} – ${formatDate(todayStr)}`,
-      yearRangeLabel: `${formatDate(yearStartStr)} – ${formatDate(todayStr)}`,
-    };
-  }, [invoicedJobs]);
-
-  // Per Tim, 2026-08-28 — Crystal Analytical is moving to billing once a
-  // week (Fridays) for everything analyzed that week, and he wants to see
-  // a running estimate of what that invoice will total *before* it
-  // arrives (see lib/lab-rate-estimate.ts for the rates this is based on).
-  // Bucketed by confirmed_date — when the actual fieldwork/sampling
-  // happened, the thing that determines which week's lab invoice a job's
-  // samples land on — not invoice_sent_at (that's when *our* invoice to
-  // the customer goes out, a completely separate, often much later,
-  // event). Runs over every job, not just invoicedJobs — a job whose
-  // samples were done this week may not have our own invoice sent yet at
-  // all. Estimate only, never an "actual" figure — the real invoice for
-  // an in-progress week doesn't exist until Friday, so there's nothing
-  // real to show yet (see pastWeeklyLabInvoices below for completed weeks,
-  // once the actual number is known).
-  const weeklyLabEstimate = useMemo(() => {
-    let estimatedCents = 0;
-    for (const job of jobs) {
-      if (!job.confirmed_date) continue;
-      if (job.confirmed_date < labFeesSummary.weekStartStr || job.confirmed_date > labFeesSummary.weekEndStr) continue;
-      estimatedCents += estimatedLabCostCents(job);
-    }
-    return { estimatedCents };
-  }, [jobs, labFeesSummary.weekStartStr, labFeesSummary.weekEndStr]);
-
-  // Per Tim, 2026-08-28 — "once a week is done, we need to put all those
-  // invoices together and file [them] away together": Crystal Analytical
-  // bills weekly, so once a week has actually finished (its Friday is in
-  // the past — the in-progress week stays on the This Week estimate card
-  // above, not here) every job whose fieldwork fell in that week should be
-  // filed together in one place, with a link straight to each one's Lab
-  // Invoice document. Grouped by confirmed_date for the same reason
-  // weeklyLabEstimate above uses it, not invoice_sent_at. Capped to the
-  // 10 most recent completed weeks — this is a filing aid for reconciling
-  // recent invoices, not an unbounded archive.
-  const pastWeeklyLabInvoices = useMemo(() => {
-    const pad = (n: number) => String(n).padStart(2, "0");
-    const ymd = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-    const todayStr = ymd(new Date());
-
-    function mondayFridayOfWeek(dateStr: string): { weekStartStr: string; weekEndStr: string } {
-      const [y, m, d] = dateStr.split("-").map(Number);
-      const date = new Date(y, m - 1, d);
-      const daysSinceMonday = (date.getDay() + 6) % 7;
-      const monday = new Date(date);
-      monday.setDate(date.getDate() - daysSinceMonday);
-      const friday = new Date(monday);
-      friday.setDate(monday.getDate() + 4);
-      return { weekStartStr: ymd(monday), weekEndStr: ymd(friday) };
-    }
-
-    const weeks = new Map<string, { weekStartStr: string; weekEndStr: string; jobs: JobWithCustomer[] }>();
-    for (const job of jobs) {
-      if (!job.confirmed_date) continue;
-      const { weekStartStr, weekEndStr } = mondayFridayOfWeek(job.confirmed_date);
-      if (weekEndStr >= todayStr) continue;
-      if (!weeks.has(weekStartStr)) weeks.set(weekStartStr, { weekStartStr, weekEndStr, jobs: [] });
-      weeks.get(weekStartStr)!.jobs.push(job);
-    }
-    return Array.from(weeks.values())
-      .sort((a, b) => (a.weekStartStr < b.weekStartStr ? 1 : -1))
-      .slice(0, 10)
-      .map((week) => ({
-        ...week,
-        actualCents: week.jobs.reduce((sum, j) => sum + (j.lab_cost_cents ?? 0), 0),
-        jobs: [...week.jobs].sort((a, b) => (a.project_number ?? "").localeCompare(b.project_number ?? "")),
-      }));
-  }, [jobs]);
-
   async function patchJob(job: JobWithCustomer, patch: Record<string, unknown>) {
     const res = await fetch(`/api/admin/jobs/${job.id}`, {
       method: "PATCH",
@@ -435,72 +313,6 @@ export default function InvoicesView() {
           </div>
         </div>
       </div>
-
-      {/* Per Tim, 2026-08-28 — lab fees: This Week (always Monday–Friday of
-          the current week, estimate only — see weeklyLabEstimate above for
-          why there's no "actual" figure here), Month to Date, and Year to
-          Date — the latter two show their own actual date range as
-          subtext, since the label alone doesn't say which days that
-          currently covers. */}
-      <div className="mt-3 flex flex-wrap gap-4 rounded-lg border border-slate-200 bg-white p-3 text-sm">
-        <div>
-          <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">This Week</div>
-          <div className="text-base font-semibold text-slate-800">
-            Est. {formatCents(weeklyLabEstimate.estimatedCents)}
-          </div>
-          <div className="text-xs text-slate-400">{labFeesSummary.weekRangeLabel}</div>
-        </div>
-        <div>
-          <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Month to Date</div>
-          <div className="text-base font-semibold text-slate-800">{formatCents(labFeesSummary.monthCents)}</div>
-          <div className="text-xs text-slate-400">{labFeesSummary.monthRangeLabel}</div>
-        </div>
-        <div>
-          <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Year to Date</div>
-          <div className="text-base font-semibold text-slate-800">{formatCents(labFeesSummary.yearCents)}</div>
-          <div className="text-xs text-slate-400">{labFeesSummary.yearRangeLabel}</div>
-        </div>
-      </div>
-
-      {pastWeeklyLabInvoices.length > 0 && (
-        <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3 text-sm">
-          <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Weekly Lab Invoice Filing</div>
-          <div className="mt-2 space-y-3">
-            {pastWeeklyLabInvoices.map((week) => (
-              <div key={week.weekStartStr} className="border-t border-slate-100 pt-2 first:border-t-0 first:pt-0">
-                <div className="flex items-baseline justify-between">
-                  <span className="text-xs font-medium text-slate-600">
-                    {formatDate(week.weekStartStr)} – {formatDate(week.weekEndStr)}
-                  </span>
-                  <span className="text-xs font-semibold text-slate-800">{formatCents(week.actualCents)}</span>
-                </div>
-                <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
-                  {week.jobs.map((job) => {
-                    const doc = (job.documents ?? []).find((d) => d.kind === "lab_invoice");
-                    return (
-                      <div key={job.id} className="flex items-center gap-1.5 text-xs">
-                        <span className="font-mono text-slate-500">{job.project_number}</span>
-                        {doc ? (
-                          <a
-                            href={`/api/admin/jobs/${job.id}/documents/${doc.id}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-brand-600 hover:underline"
-                          >
-                            Lab invoice ↗
-                          </a>
-                        ) : (
-                          <span className="text-slate-400">No lab invoice</span>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       <div className="mt-3 hidden gap-1.5 sm:flex sm:flex-wrap">
         {FILTERS.map((f) => (

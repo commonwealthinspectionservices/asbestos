@@ -395,10 +395,18 @@ export default function InvoicesView() {
                   width: left is identity (project #, company), center is
                   status (Report sent directly above the status pill —
                   "To be charged <date>" for Newton, Sent/Overdue/Paid for
-                  everyone else — centered), right is just the total price,
-                  alone, right-aligned. */}
-              <div className="flex w-full items-start justify-between gap-3">
-                <div className="min-w-0 flex-1">
+                  everyone else), right is just the total price, alone,
+                  right-aligned. grid-cols-[1fr_auto_1fr] (not flex) — with
+                  flex, the center column's actual position drifted with
+                  however much space the left/right content happened to
+                  take, instead of sitting at the row's true horizontal
+                  center; two equal 1fr tracks flanking the auto-sized
+                  center column is what forces it dead center regardless of
+                  company-name or price length. items-center (not
+                  items-start) vertically centers the left column's single
+                  line against the center column's taller two-line stack. */}
+              <div className="grid w-full grid-cols-[1fr_auto_1fr] items-center gap-3">
+                <div className="min-w-0">
                   <div className="flex min-w-0 items-center gap-2">
                     {job.project_number && (
                       <span className="shrink-0 whitespace-nowrap rounded bg-slate-100 px-1.5 py-0.5 text-xs font-mono text-slate-600">{job.project_number}</span>
@@ -408,35 +416,50 @@ export default function InvoicesView() {
                     </span>
                   </div>
                 </div>
-                <div className="flex shrink-0 flex-col items-center gap-0.5 text-center">
+                <div
+                  className={`flex flex-col items-center gap-0.5 text-center ${
+                    status === "sent" ? "sm:flex-row sm:items-center sm:gap-2 sm:text-left" : ""
+                  }`}
+                >
                   {status === "paid" ? (
                     <span className="whitespace-nowrap text-xs text-slate-500">Paid {formatDate(job.paid_date)}</span>
+                  ) : status === "sent" ? (
+                    // Per Tim, 2026-08-28 — desktop only: the pill sits to
+                    // the left with a fixed width (sm:w-40) so every pill
+                    // in the list — "Sent" and the longer
+                    // "To be charged <date>" alike — lines up at the same
+                    // spot regardless of label length, Report sent (and
+                    // Due, for everyone but Newton) stacked to its right
+                    // on the same line. Mobile keeps the original vertical
+                    // stack for now (see the flex-col default above).
+                    <>
+                      <span className={`inline-flex shrink-0 items-center justify-center whitespace-nowrap rounded px-1.5 py-0.5 text-xs font-medium sm:w-40 ${STATUS_COLOR.sent}`}>
+                        {isNewtonAutoCharge ? `To be charged ${formatDate(dueDateFor(job))}` : STATUS_LABEL.sent}
+                      </span>
+                      <div className="flex flex-col items-center sm:items-start">
+                        {job.invoice_sent_at && (
+                          <span className="whitespace-nowrap text-xs text-slate-500">Report sent {formatDate(job.invoice_sent_at.slice(0, 10))}</span>
+                        )}
+                        {/* Per Tim, 2026-08-28 — redundant once the pill to
+                            the left already says "To be charged <date>". */}
+                        {!isNewtonAutoCharge && <span className="whitespace-nowrap text-xs text-slate-500">Due {formatDate(dueDateFor(job))}</span>}
+                      </div>
+                    </>
                   ) : (
                     <>
                       {job.invoice_sent_at && (
                         <span className="whitespace-nowrap text-xs text-slate-500">Report sent {formatDate(job.invoice_sent_at.slice(0, 10))}</span>
                       )}
-                      {/* Per Tim, 2026-08-28 — Newton Fire & Flood's card is
-                          charged automatically on the due date (see
-                          lib/net30-autocharge.ts), so "Sent" doesn't tell the
-                          admin anything actionable there — the due date is
-                          the thing that actually matters for this company.
-                          Overdue/Paid/Ready to Send stay as-is even for
-                          Newton: those are still meaningfully different
-                          states worth flagging on their own. */}
-                      {isNewtonAutoCharge ? (
-                        <span className={`shrink-0 whitespace-nowrap rounded px-1.5 py-0.5 text-xs font-medium ${STATUS_COLOR.sent}`}>To be charged {formatDate(dueDateFor(job))}</span>
-                      ) : (
-                        <span className={`shrink-0 whitespace-nowrap rounded px-1.5 py-0.5 text-xs font-medium ${STATUS_COLOR[status]}`}>{STATUS_LABEL[status]}</span>
-                      )}
-                      {/* Redundant once the pill above already says
-                          "To be charged <date>". */}
-                      {!isNewtonAutoCharge && <span className="whitespace-nowrap text-xs text-slate-500">Due {formatDate(dueDateFor(job))}</span>}
+                      <span className={`shrink-0 whitespace-nowrap rounded px-1.5 py-0.5 text-xs font-medium ${STATUS_COLOR[status]}`}>{STATUS_LABEL[status]}</span>
+                      <span className="whitespace-nowrap text-xs text-slate-500">Due {formatDate(dueDateFor(job))}</span>
                     </>
                   )}
                 </div>
-                <div className="shrink-0 text-right">
-                  <span className="whitespace-nowrap text-xs font-semibold text-slate-800">{formatCents(job.invoice_total_cents ?? 0)}</span>
+                <div className="text-right">
+                  {/* Per Tim, 2026-08-28 — larger than the surrounding
+                      text-xs labels, the price is the thing that should
+                      actually stand out on this row. */}
+                  <span className="whitespace-nowrap text-lg font-bold text-slate-800">{formatCents(job.invoice_total_cents ?? 0)}</span>
                 </div>
               </div>
             </button>

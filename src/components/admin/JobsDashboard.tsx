@@ -2666,7 +2666,7 @@ export function ProjectDetailDialog({
           </div>
         )}
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3 sm:px-5 sm:pb-5">
+        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto px-3 pb-3 sm:px-5 sm:pb-5">
 
         {tab === "info" && (
         <>
@@ -2706,8 +2706,8 @@ export function ProjectDetailDialog({
               })();
               return (
                 <>
-                  {/* Edit stays inline next to Project # on mobile only now (see the absolutely-positioned desktop copy above); the portal badge (subcontractor jobs only) sits beside it there too, same as always. */}
-                  <div className="relative flex items-center justify-between gap-2">
+                  {/* Edit stays inline next to Project # on mobile only now (see the absolutely-positioned desktop copy above); the portal badge (subcontractor jobs only) sits beside it there too, same as always. sm:pr-20 (desktop only) keeps this row's own right-aligned content — namely the Gmail-thread icon below, which has no reason to hide on desktop — from rendering underneath the pinned Edit button, which shares this same top-right corner. */}
+                  <div className="relative flex items-center justify-between gap-2 sm:pr-20">
                     <DetailField label="Project #" value={job.project_number} />
                     <div className="flex shrink-0 items-center gap-2">
                       <span className="hidden sm:inline-flex">{portalBadge}</span>
@@ -3108,7 +3108,6 @@ export function ProjectDetailDialog({
                                 })()}
                               </div>
                               <DocumentStation job={job} onChanged={onChanged} kind="coc" label="Chain of Custody" serviceType={label} />
-                              <DocumentStation job={job} onChanged={onChanged} kind="lab_invoice" label="Laboratory Invoice" serviceType={label} />
                             </div>
                             {/* Discussion of Results lives right under this
                                 specific label's own upload station, not
@@ -3437,7 +3436,7 @@ export function ProjectDetailDialog({
               <div className="space-y-3">
                 <div className="flex flex-wrap gap-4 sm:flex-nowrap sm:gap-5 sm:overflow-x-auto sm:pb-1">
                   {reportComplete && job.invoice_total_cents != null ? (
-                    <div className="w-full overflow-hidden rounded-lg border border-slate-200 sm:w-60">
+                    <div className="w-full shrink-0 overflow-hidden rounded-lg border border-slate-200 sm:w-60">
                       <a href={`/api/admin/jobs/${job.id}/invoice?v=${encodeURIComponent(invoiceRevision)}`} target="_blank" rel="noreferrer" className="block">
                         <PdfThumbnail url={`/api/admin/jobs/${job.id}/invoice?v=${encodeURIComponent(invoiceRevision)}`} alt="Invoice preview" />
                         <p className="border-t border-slate-200 bg-white px-2 py-1 text-center text-xs font-bold uppercase text-slate-700">Invoice</p>
@@ -3453,11 +3452,24 @@ export function ProjectDetailDialog({
                       </div>
                     </div>
                   ) : (
-                    <div className="block w-full overflow-hidden rounded-lg border border-dashed border-slate-300 sm:w-60">
+                    <div className="block w-full shrink-0 overflow-hidden rounded-lg border border-dashed border-slate-300 sm:w-60">
                       <div className="flex h-40 w-full items-center justify-center bg-slate-50 px-2 text-center text-xs text-slate-400">Not ready yet</div>
                       <p className="border-t border-dashed border-slate-300 px-2 py-1 text-center text-xs font-bold uppercase text-slate-400">Invoice</p>
                     </div>
                   )}
+                  {/* Per Tim, 2026-08-27 — the lab's own invoice for the job
+                      belongs here next to the invoice we send, not back on
+                      the Report tab with the lab results/CoC paperwork. One
+                      station per service type, same as the Report tab had.
+                      shrink-0 (matching the Invoice card above) — without it
+                      DocumentStation's own nowrap label forces the browser
+                      to crush the Invoice card down to a sliver instead of
+                      just letting this row scroll horizontally. */}
+                  {serviceTypeGroups.flatMap((group) => group.labels).map((label) => (
+                    <div key={label} className="w-full shrink-0 sm:w-60">
+                      <DocumentStation job={job} onChanged={onChanged} kind="lab_invoice" label={`Lab Invoice — ${label}`} serviceType={label} />
+                    </div>
+                  ))}
                 </div>
                 {job.is_individual && job.status !== "paid" && (
                   job.report_release_override ? (
@@ -5948,6 +5960,9 @@ function LineItemsEditor({
           <p className="text-base font-bold uppercase text-emerald-600">Invoice total: {currency(total)}</p>
           <p className="text-base font-bold uppercase text-red-600">
             Lab fees: {labCostCents != null ? currency(labCostCents / 100) : "Not yet billed"}
+          </p>
+          <p className="text-base font-bold uppercase text-slate-400">
+            Profit: {labCostCents != null ? currency(total - labCostCents / 100) : "—"}
           </p>
         </div>
         <div className="flex items-center gap-2">

@@ -1252,9 +1252,7 @@ function JobRow({
   const siteContactNode = (
     <span className="block min-w-0 truncate whitespace-nowrap text-sm text-slate-500" onClick={(e) => e.stopPropagation()}>
       {job.site_contact_name ? toTitleCase(job.site_contact_name) : <span className="italic text-slate-400">no name</span>}
-      {/* Comma only between the two placeholders — per Tim, a real name
-          next to a real (or missing) phone reads fine with just a space. */}
-      {!job.site_contact_name && !job.site_contact_phone ? ", " : " "}
+      {" "}
       {job.site_contact_phone ? (
         <a href={telHref(job.site_contact_phone)} className="text-brand-700 hover:underline">
           {formatPhoneInput(job.site_contact_phone)}
@@ -3443,6 +3441,22 @@ export function ProjectDetailDialog({
                   </div>
                 </div>
                 <div className="mt-3">
+                  {/* Per Tim, 2026-08-28 — Newton Fire & Flood is the one
+                      company with a card on file (see ContactDetailDialog's
+                      "Automatic Payment" section and lib/net30-autocharge.ts),
+                      so their invoices don't just sit waiting on someone to
+                      click "Pay" — this is here so that's obvious from the
+                      job itself, not just known from memory. Due date
+                      mirrors the same days_until_due:30 the invoice was
+                      actually created with (see createStripeInvoiceForJob),
+                      same value LineItemsEditor's own Payment due date
+                      field shows above. */}
+                  {job.customers?.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID && job.status !== "paid" && (
+                    <div className="mb-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+                      <span className="font-bold uppercase">Automatic payment on file</span> — Stripe will charge Newton Fire &amp; Flood&apos;s card on file on{" "}
+                      {formatDate(job.payment_due_date || paymentDueDate(job.requested_date ?? "") || null) || "the invoice due date"} if this isn&apos;t paid before then.
+                    </div>
+                  )}
                   {payLinkError && <p className="mt-2 text-sm text-red-600">{payLinkError}</p>}
                 </div>
               </div>

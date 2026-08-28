@@ -3468,7 +3468,7 @@ export function ProjectDetailDialog({
                       just letting this row scroll horizontally. */}
                   {serviceTypeGroups.flatMap((group) => group.labels).map((label) => (
                     <div key={label} className="w-full shrink-0 sm:w-60">
-                      <DocumentStation job={job} onChanged={onChanged} kind="lab_invoice" label={`Lab Invoice — ${label}`} serviceType={label} />
+                      <DocumentStation job={job} onChanged={onChanged} kind="lab_invoice" label={`Lab Invoice — ${label}`} serviceType={label} titlePosition="bottom" />
                     </div>
                   ))}
                 </div>
@@ -3853,7 +3853,7 @@ function DocumentViewerModal({
 // lab results, etc.). Reuses the same documents route as everything else,
 // just tagged with this station's own kind.
 function DocumentStation({
-  job, onChanged, kind, label, serviceType, headerExtra,
+  job, onChanged, kind, label, serviceType, headerExtra, titlePosition = "top",
 }: {
   job: JobWithCustomer;
   onChanged: () => void;
@@ -3861,6 +3861,13 @@ function DocumentStation({
   label: string;
   serviceType: string;
   headerExtra?: ReactNode;
+  /** Per Tim, 2026-08-28 — the Invoice tab's Lab Invoice cards need to look
+      exactly like the Invoice/Final Report cards next to them: title in a
+      footer bar under the thumbnail, not a header above it, and no
+      whitespace-nowrap (a long service-type label there ran into the next
+      card instead of wrapping). "top" (the Report tab's own look, label
+      above a fixed-height box) stays the default. */
+  titlePosition?: "top" | "bottom";
 }) {
   const [dragOver, setDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -3911,45 +3918,56 @@ function DocumentStation({
 
   return (
     <div>
-      <div className="flex flex-nowrap items-center gap-2">
-        <h4 className="whitespace-nowrap text-xs font-semibold uppercase tracking-wide text-slate-400">{label}</h4>
-        {headerExtra}
-      </div>
+      {titlePosition === "top" && (
+        <div className="flex flex-nowrap items-center gap-2">
+          <h4 className="whitespace-nowrap text-xs font-semibold uppercase tracking-wide text-slate-400">{label}</h4>
+          {headerExtra}
+        </div>
+      )}
       {docs.length === 0 && (
-        <div
-          onDragOver={(e) => {
-            e.preventDefault();
-            setDragOver(true);
-          }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={(e) => {
-            e.preventDefault();
-            setDragOver(false);
-            if (e.dataTransfer.files.length > 0) uploadFiles(e.dataTransfer.files);
-          }}
-          className={`mt-1.5 flex h-40 w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-3 text-center ${
-            dragOver ? "border-brand-600 bg-brand-50" : "border-slate-300"
-          }`}
-        >
-          <p className="text-sm text-slate-500">Drag and drop a file here, or</p>
-          <button
-            type="button"
-            onClick={() => inputRef.current?.click()}
-            disabled={uploading}
-            className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
-          >
-            {uploading ? "Uploading…" : "Choose file"}
-          </button>
-          <input
-            ref={inputRef}
-            type="file"
-            accept="application/pdf,image/*"
-            className="hidden"
-            onChange={(e) => {
-              if (e.target.files && e.target.files.length > 0) uploadFiles(e.target.files);
-              e.target.value = "";
+        <div className={titlePosition === "bottom" ? "mt-1.5 block w-full overflow-hidden rounded-lg border border-dashed border-slate-300" : undefined}>
+          <div
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragOver(true);
             }}
-          />
+            onDragLeave={() => setDragOver(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragOver(false);
+              if (e.dataTransfer.files.length > 0) uploadFiles(e.dataTransfer.files);
+            }}
+            className={
+              titlePosition === "bottom"
+                ? `flex h-40 w-full flex-col items-center justify-center gap-2 p-3 text-center ${dragOver ? "bg-brand-50" : "bg-slate-50"}`
+                : `mt-1.5 flex h-40 w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-3 text-center ${
+                    dragOver ? "border-brand-600 bg-brand-50" : "border-slate-300"
+                  }`
+            }
+          >
+            <p className="text-sm text-slate-500">Drag and drop a file here, or</p>
+            <button
+              type="button"
+              onClick={() => inputRef.current?.click()}
+              disabled={uploading}
+              className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+            >
+              {uploading ? "Uploading…" : "Choose file"}
+            </button>
+            <input
+              ref={inputRef}
+              type="file"
+              accept="application/pdf,image/*"
+              className="hidden"
+              onChange={(e) => {
+                if (e.target.files && e.target.files.length > 0) uploadFiles(e.target.files);
+                e.target.value = "";
+              }}
+            />
+          </div>
+          {titlePosition === "bottom" && (
+            <p className="truncate border-t border-dashed border-slate-300 px-2 py-1 text-center text-xs font-bold uppercase text-slate-400" title={label}>{label}</p>
+          )}
         </div>
       )}
       {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
@@ -3987,6 +4005,13 @@ function DocumentStation({
                 >
                   {deletingId === doc.id ? "…" : "✕"}
                 </button>
+                {/* Per Tim, 2026-08-28 — same footer-title spot the Invoice
+                    and Final Report cards use, so a row mixing this with
+                    those looks consistent instead of DocumentStation's own
+                    header-above-the-box default (titlePosition "top"). */}
+                {titlePosition === "bottom" && (
+                  <p className="truncate border-t border-slate-200 bg-white px-2 py-1 text-center text-xs font-bold uppercase text-slate-700" title={label}>{label}</p>
+                )}
                 {/* Same View/Download row as the Invoice and Final Report
                     cards, for the same reason — a right-click-to-save on
                     the thumbnail isn't obvious, and the thumbnail's own

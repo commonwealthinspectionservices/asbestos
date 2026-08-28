@@ -5,6 +5,7 @@ import type { JobWithCustomer } from "@/lib/types";
 import { formatCents } from "@/lib/pricing";
 import { ProjectDetailDialog, EditProjectDialog, reportIsComplete } from "@/components/admin/JobsDashboard";
 import { formatDateMDY } from "@/lib/date-format";
+import { NEWTON_FIRE_FLOOD_COMPANY_ID } from "@/lib/report-findings";
 
 type InvoiceStatus = "ready_to_send" | "sent" | "overdue" | "paid";
 
@@ -392,7 +393,19 @@ export default function InvoicesView() {
                   <span className="shrink-0 whitespace-nowrap rounded bg-slate-100 px-1.5 py-0.5 text-xs font-mono text-slate-600">{job.project_number}</span>
                 )}
                 <span className="whitespace-nowrap text-xs font-semibold text-slate-800">{formatCents(job.invoice_total_cents ?? 0)}</span>
-                <span className={`shrink-0 whitespace-nowrap rounded px-1.5 py-0.5 text-xs font-medium ${STATUS_COLOR[status]}`}>{STATUS_LABEL[status]}</span>
+                {/* Per Tim, 2026-08-28 — Newton Fire & Flood's card is
+                    charged automatically on the due date (see
+                    lib/net30-autocharge.ts), so "Sent" doesn't tell the
+                    admin anything actionable there — the due date is the
+                    thing that actually matters for this company. Overdue/
+                    Paid/Ready to Send stay as-is even for Newton: those are
+                    still meaningfully different states worth flagging on
+                    their own. */}
+                {status === "sent" && job.customers?.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID ? (
+                  <span className={`shrink-0 whitespace-nowrap rounded px-1.5 py-0.5 text-xs font-medium ${STATUS_COLOR.sent}`}>To be charged {formatDate(dueDateFor(job))}</span>
+                ) : (
+                  <span className={`shrink-0 whitespace-nowrap rounded px-1.5 py-0.5 text-xs font-medium ${STATUS_COLOR[status]}`}>{STATUS_LABEL[status]}</span>
+                )}
               </div>
               <div className="whitespace-normal break-words text-xs font-medium text-slate-800">
                 {job.customers?.company || job.customers?.name}
@@ -402,7 +415,7 @@ export default function InvoicesView() {
               )}
               {status !== "paid" && (
                 <div className="flex w-full items-center justify-between gap-2 text-xs text-slate-500">
-                  <span className="whitespace-nowrap">{job.invoice_sent_at ? `Sent ${formatDate(job.invoice_sent_at.slice(0, 10))}` : ""}</span>
+                  <span className="whitespace-nowrap">{job.invoice_sent_at ? `Report sent ${formatDate(job.invoice_sent_at.slice(0, 10))}` : ""}</span>
                   <span className="whitespace-nowrap">Due {formatDate(dueDateFor(job))}</span>
                 </div>
               )}

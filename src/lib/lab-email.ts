@@ -681,6 +681,12 @@ async function processMatchedLabInvoiceEmail(params: {
   const storagePath = `${job.id}/${docId}-lab-invoice.pdf`;
   await supabase.storage.from("job-documents").upload(storagePath, pdfBuffer, { contentType: "application/pdf" });
   const uploadedAt = new Date().toISOString();
+  // Per Tim, 2026-08-28 — isLabInvoiceText already gated this whole path
+  // (see checkForLabResultEmails), but that's a bare keyword match with no
+  // corroborating signal. Failing to find an actual dollar total here is a
+  // real, independent red flag worth surfacing rather than silently filing
+  // whatever matched as if it were a normal invoice.
+  const totalCents = extractLabInvoiceTotalCents(pdfText);
   const newDocuments: JobDocument[] = serviceTypeLabels.map((label) => ({
     id: randomUUID(),
     kind: "lab_invoice",
@@ -689,12 +695,12 @@ async function processMatchedLabInvoiceEmail(params: {
     storage_path: storagePath,
     uploaded_at: uploadedAt,
     project_number_mismatch: null,
+    invoice_mismatch: totalCents == null ? true : null,
   }));
   const update: Record<string, unknown> = {
     documents: await replaceDocumentsByKindAndServiceType(supabase, job.documents ?? [], newDocuments),
   };
 
-  const totalCents = extractLabInvoiceTotalCents(pdfText);
   if (totalCents != null) update.lab_cost_cents = totalCents;
   const labInfo = detectLabInfo(pdfText);
   if (labInfo) {

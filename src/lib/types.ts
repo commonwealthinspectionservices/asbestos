@@ -193,6 +193,8 @@ export interface JobDocument {
   project_number_mismatch?: string | null;
   /** Set true when this lab_report's own content doesn't look like the domain (mold vs. asbestos/lead) implied by service_type — e.g. a mold report's "fungal" language showing up on a document filed as asbestos, or vice versa. Same mislabeling class that hit 26-0007/26-0008; null/absent when they agreed or it couldn't be determined. */
   domain_mismatch?: boolean | null;
+  /** Set true when a document filed as kind "lab_invoice" doesn't actually look like an invoice (see isLabInvoiceText/extractLabInvoiceTotalCents in lib/parse-lab-invoice.ts) — e.g. a finished report dragged into the wrong upload station by mistake, or an automated match that found a project number but no real invoice signal. Null/absent when it looked right or couldn't be determined. */
+  invoice_mismatch?: boolean | null;
 }
 
 /** A photo uploaded to a project's Photos tab (job-photos storage bucket) — either side can add these, unlike `documents` which is admin-only lab paperwork. */

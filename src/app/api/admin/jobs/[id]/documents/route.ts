@@ -9,6 +9,7 @@ import { requireAdminApi } from "@/lib/admin-api";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { withApiErrors } from "@/lib/api-handler";
 import { extractSampleCount, detectAsbestosResult, extractSampleResults, extractReportProjectNumber, detectLabInfo, extractMoldSampleCount, extractMoldSampleResults, extractSampledDate } from "@/lib/parse-lab-report";
+import { isLabInvoiceText } from "@/lib/parse-lab-invoice";
 import { splitTrailingCocPages } from "@/lib/split-lab-report-coc";
 import { extractPositionOrderedText } from "@/lib/pdf-position-text";
 import { ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK } from "@/lib/report-findings";
@@ -58,6 +59,7 @@ export const POST = withApiErrors(async (
   const update: Record<string, unknown> = {};
   let projectNumberMismatch: string | null = null;
   let domainMismatch = false;
+  let invoiceMismatch = false;
 
   // Lab results PDFs list one row (asbestos) or one column (mold's
   // Air-O-Cell/Swab genus tables) per physical sample — pull the count
@@ -197,6 +199,23 @@ export const POST = withApiErrors(async (
     }
   }
 
+  // Per Tim, 2026-08-28 — the Lab Invoice station had no content check at
+  // all (unlike Laboratory Results just above), so a finished report
+  // dragged into the wrong drop zone by mistake was accepted silently —
+  // exactly the "bad PDF upload" Tim described. Same isLabInvoiceText
+  // signal the automated Gmail pipeline uses to tell an invoice apart from
+  // a results report (see lib/parse-lab-invoice.ts) — best-effort, same
+  // as the domain check above: any parsing failure just leaves this
+  // unflagged rather than blocking the upload.
+  if (kind === "lab_invoice" && file.type === "application/pdf") {
+    try {
+      const { text } = await pdfParse(fileBuffer);
+      if (!isLabInvoiceText(text)) invoiceMismatch = true;
+    } catch {
+      // Unreadable PDF — leave unflagged; nothing else here depends on it.
+    }
+  }
+
   // Crystal Analytical (and similarly-shaped labs) send back one PDF with
   // the typed lab data pages followed by the scanned, handwritten chain-of-
   // custody form as the trailing page(s) — never a separate file. Splitting
@@ -233,6 +252,7 @@ export const POST = withApiErrors(async (
       uploaded_at: new Date().toISOString(),
       project_number_mismatch: projectNumberMismatch,
       domain_mismatch: domainMismatch || null,
+      invoice_mismatch: invoiceMismatch || null,
     },
   ];
 
@@ -262,12 +282,13 @@ export const POST = withApiErrors(async (
   // report-packet.ts's DomainMismatchError) could never actually clear
   // that flag — the old flagged row would just keep sitting in the array
   // forever, permanently blocking this domain's report even after the
-  // admin fixed it. Scoped to lab_report only (not coc/lab_invoice/other)
-  // to match exactly what the gate checks, minimizing behavior change
-  // elsewhere on this route.
+  // admin fixed it. Per Tim, 2026-08-28 — lab_invoice gets the same
+  // treatment now that it has its own mismatch flag above: re-uploading
+  // the correct file needs to actually clear a flagged invoice_mismatch,
+  // not just add a second document alongside the bad one.
   const priorDocuments =
-    kind === "lab_report"
-      ? (jobRow.documents ?? []).filter((d) => !(d.kind === "lab_report" && d.service_type === serviceType))
+    kind === "lab_report" || kind === "lab_invoice"
+      ? (jobRow.documents ?? []).filter((d) => !(d.kind === kind && d.service_type === serviceType))
       : (jobRow.documents ?? []);
   update.documents = [...priorDocuments, ...documents];
 

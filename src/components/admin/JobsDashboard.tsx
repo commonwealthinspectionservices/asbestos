@@ -4104,6 +4104,11 @@ function DocumentStation({
                     ⚠ This report's content doesn't look like {serviceTypeLabel(doc.service_type)} — double-check it's the right file before this goes out.
                   </p>
                 )}
+                {doc.invoice_mismatch && (
+                  <p className="bg-red-600 px-2 py-1 text-xs font-bold text-white">
+                    ⚠ This doesn't look like a lab invoice — double-check it's the right file.
+                  </p>
+                )}
               </div>
             );
           })}

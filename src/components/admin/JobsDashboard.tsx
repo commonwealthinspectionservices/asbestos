@@ -484,15 +484,15 @@ function paymentDueDate(projectDate: string): string | null {
   return d.toISOString().slice(0, 10);
 }
 
-// Per Tim, 2026-08-28 — once the invoice's actually been emailed, 30 days
-// after that (not requested_date, which can differ from when the report
-// really went out) is the real due date — this is what Stripe's own
-// auto-charge (lib/net30-autocharge.ts) goes by too, see stripe.ts's
-// tagInvoiceEmailed. A manually-set payment_due_date still wins outright;
-// requested_date+30 stays only as a rough pre-send estimate. Same
-// precedence as InvoicesView.tsx's own copy of this.
+// Per Tim, 2026-08-28 — always exactly 30 days after the invoice was
+// actually emailed (not requested_date, which can differ from when the
+// report really went out, and no longer a manually-set payment_due_date
+// override either — Tim wants this unconditional) — this is what Stripe's
+// own auto-charge (lib/net30-autocharge.ts) goes by too, see stripe.ts's
+// tagInvoiceEmailed. requested_date+30 stays only as a rough pre-send
+// estimate, before invoice_sent_at exists yet. Same precedence as
+// InvoicesView.tsx's own copy of this.
 function dueDateFor(job: JobWithCustomer): string | null {
-  if (job.payment_due_date) return job.payment_due_date;
   if (job.invoice_sent_at) return paymentDueDate(job.invoice_sent_at.slice(0, 10));
   return paymentDueDate(job.requested_date ?? "");
 }

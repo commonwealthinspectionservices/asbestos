@@ -47,14 +47,14 @@ function paymentDueDate(projectDate: string): string | null {
   return d.toISOString().slice(0, 10);
 }
 
-// Per Tim, 2026-08-28 — once the invoice's actually been emailed, 30 days
-// after that (not requested_date, which can differ from when the report
-// really went out) is the real due date — this is what Stripe's own
-// auto-charge (lib/net30-autocharge.ts) goes by too, see stripe.ts's
-// tagInvoiceEmailed. A manually-set payment_due_date still wins outright;
-// requested_date+30 stays only as a rough pre-send estimate.
+// Per Tim, 2026-08-28 — always exactly 30 days after the invoice was
+// actually emailed (not requested_date, which can differ from when the
+// report really went out, and no longer a manually-set payment_due_date
+// override either — Tim wants this unconditional) — this is what Stripe's
+// own auto-charge (lib/net30-autocharge.ts) goes by too, see stripe.ts's
+// tagInvoiceEmailed. requested_date+30 stays only as a rough pre-send
+// estimate, before invoice_sent_at exists yet.
 function dueDateFor(job: JobWithCustomer): string | null {
-  if (job.payment_due_date) return job.payment_due_date;
   if (job.invoice_sent_at) return paymentDueDate(job.invoice_sent_at.slice(0, 10));
   return paymentDueDate(job.requested_date ?? "");
 }
@@ -399,26 +399,31 @@ export default function InvoicesView() {
               onClick={() => setSelectedJobId(job.id)}
               className="flex w-full flex-col gap-0.5 rounded-lg border border-slate-200 bg-white p-3 text-left hover:border-brand-400"
             >
-              {/* Per Tim, 2026-08-28 — three columns filling the row's full
-                  width: left is identity (project #, company), center is
-                  status (Report sent directly above the status pill —
-                  "To be charged <date>" for Newton, Sent/Overdue/Paid for
-                  everyone else), right is just the total price, alone,
-                  right-aligned. grid-cols-[1fr_auto_1fr] (not flex) — with
-                  flex, the center column's actual position drifted with
-                  however much space the left/right content happened to
-                  take, instead of sitting at the row's true horizontal
-                  center; two equal 1fr tracks flanking the auto-sized
-                  center column is what forces it dead center regardless of
-                  company-name or price length. items-center (not
-                  items-start) vertically centers the left column's single
-                  line against the center column's taller two-line stack. */}
-              <div className="grid w-full grid-cols-[1fr_auto_1fr] items-center gap-3">
+              {/* Per Tim, 2026-08-28 — three columns: left is identity
+                  (project #, company), center is status (Report sent
+                  directly above the status pill), right is just the total
+                  price, alone, right-aligned. grid-cols-[minmax(280px,max-content)_auto_1fr]
+                  (not 1fr_auto_1fr) — equal 1fr tracks only stay equal
+                  when their content is roughly balanced; once company
+                  names stopped truncating (they can be almost any length
+                  now — no ellipsis, ever), a short name vs. a long one
+                  made the two 1fr tracks size differently after all,
+                  visibly dragging the center pill column left or right
+                  depending on company-name length, which is exactly what
+                  Tim didn't want. A fixed-minimum left column (280px,
+                  comfortably fits every company name currently in the
+                  system) keeps the pill's own position identical
+                  regardless of name length; max-content still lets it grow
+                  further right for a hypothetical longer one instead of
+                  ever truncating. items-center (not items-start)
+                  vertically centers the left column's single line against
+                  the center column's taller two-line stack. */}
+              <div className="grid w-full grid-cols-[minmax(280px,max-content)_auto_1fr] items-center gap-3">
                 <div>
                   {/* Per Tim, 2026-08-28 — company names must never
                       truncate with an ellipsis. No min-w-0/truncate here —
-                      this column's own grid track (see grid-cols-[1fr_auto_1fr]
-                      below) grows to fit the full name instead, pushing the
+                      this column's own grid track (see grid-cols above)
+                      grows to fit the full name instead, pushing the
                       center/right columns right as needed. */}
                   <div className="flex items-center gap-2">
                     {job.project_number && (

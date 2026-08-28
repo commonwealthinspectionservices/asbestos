@@ -2709,11 +2709,18 @@ export function ProjectDetailDialog({
           >
             Edit
           </button>
-          {/* Per Tim, 2026-08-28 — reverted the narrow right-column
-              placement: at in-between (tablet-ish) widths the 3fr column
-              was too cramped (Service type/Turnaround wrapping badly, the
-              pinned Edit button overlapping Requested date). Back to a
-              single full-width column for identity/address. */}
+          {/* Per Tim, 2026-08-28 — back to two columns on desktop (a narrow
+              3fr right column was tried and reverted here before, but that
+              was interleaving individual fields into a cramped sidebar;
+              this instead groups whole sections — identity/schedule stays
+              left, the three contact-info sections move right as one
+              tall block — specifically so nothing needs scrolling to see
+              on a normal desktop viewport, per Tim: "all the project info
+              stuff... should be viewable without having to scroll at
+              all." Mobile stays exactly the same single stacked column,
+              same order as before (grid-cols-1 default). */}
+          <div className="grid grid-cols-1 gap-x-8 gap-y-6 sm:grid-cols-2 sm:items-start">
+          <div className="space-y-6 sm:space-y-8">
           <div className="space-y-3 sm:space-y-2">
             {(() => {
               const portalBadge = job.source === "subcontractor" && (() => {
@@ -2929,8 +2936,12 @@ export function ProjectDetailDialog({
               </div>
             )}
           </div>
-          {/* Per Tim, 2026-08-28 — Job site contact / Email results to
-              moved here, right above Customer contact. */}
+          </div>
+          {/* Per Tim, 2026-08-28 — Job site contact / Email results to /
+              Company contact / Company info together make up the right
+              column now (see the grid opened above) — Job site contact
+              stays right above Customer contact within that column. */}
+          <div className="space-y-6 sm:space-y-8">
           <div className="space-y-3 sm:space-y-2">
             <h4 className="text-sm font-bold tracking-wide text-black underline">Job site contact</h4>
             <DetailField label="Name" value={job.site_contact_name ? toTitleCase(job.site_contact_name) : "—"} />
@@ -3019,6 +3030,8 @@ export function ProjectDetailDialog({
                 <DetailField label="Billing address" value={expandAddress(job.customers.companies.billing_address)} nowrap />
               </div>
             )}
+          </div>
+          </div>
           </div>
           {job.notes && job.notes.trim() && (
             <div className="space-y-3 sm:space-y-2">

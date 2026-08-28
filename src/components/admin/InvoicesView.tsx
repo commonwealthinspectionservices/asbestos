@@ -439,28 +439,29 @@ export default function InvoicesView() {
                   ) : status === "sent" ? (
                     // Per Tim, 2026-08-28 — desktop only: the pill sits to
                     // the left with a fixed width (sm:w-40) so every pill
-                    // in the list — "Sent" and the longer
-                    // "To be charged <date>" alike — lines up at the same
-                    // spot regardless of label length, Report sent (and
-                    // Due, for everyone but Newton) stacked to its right
-                    // on the same line. Mobile keeps the original vertical
-                    // stack for now (see the flex-col default above).
+                    // lines up at the same spot, always reading "Payment
+                    // Pending" (no more special Newton wording baked into
+                    // the pill itself — see below). Report sent stacked
+                    // directly above the due/charge line to its right, on
+                    // the same line as the pill. Mobile keeps the original
+                    // vertical stack for now (see the flex-col default
+                    // above).
                     <>
                       <span className={`inline-flex shrink-0 items-center justify-center whitespace-nowrap rounded px-1.5 py-0.5 text-xs font-medium sm:w-40 ${STATUS_COLOR.sent}`}>
-                        {isNewtonAutoCharge ? `To be charged ${formatDate(dueDateFor(job))}` : STATUS_LABEL.sent}
+                        {STATUS_LABEL.sent}
                       </span>
                       <div className="flex flex-col items-center sm:items-start">
                         {job.invoice_sent_at && (
                           <span className="whitespace-nowrap text-xs text-slate-500">Report sent {formatDate(job.invoice_sent_at.slice(0, 10))}</span>
                         )}
-                        {/* Per Tim, 2026-08-28 — redundant once the pill to
-                            the left already says "To be charged <date>", so
-                            no text here — but still an (invisible) second
-                            line, so every row renders the same height and
-                            every pill lands at the exact same vertical spot
-                            regardless of which kind of row it's in. */}
-                        <span className={`whitespace-nowrap text-xs text-slate-500 ${isNewtonAutoCharge ? "invisible" : ""}`}>
-                          Due {formatDate(dueDateFor(job))}
+                        {/* Per Tim, 2026-08-28 — plain text (not its own
+                            pill) directly right of "Payment Pending" for
+                            Newton Fire & Flood specifically, since their
+                            card auto-charges on this date (see
+                            lib/net30-autocharge.ts) instead of waiting on a
+                            manual payment like everyone else's "Due" here. */}
+                        <span className="whitespace-nowrap text-xs text-slate-500">
+                          {isNewtonAutoCharge ? "To be charged " : "Due "}{formatDate(dueDateFor(job))}
                         </span>
                       </div>
                     </>

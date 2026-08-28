@@ -1317,7 +1317,7 @@ function JobRow({
             // it's showing; h-auto let a <span> and a <select> (and a
             // bordered vs. unbordered select) each compute a slightly
             // different height at the same font-size/padding.
-            <span className="inline-flex h-7 w-full min-w-0 shrink-0 items-center overflow-hidden text-ellipsis whitespace-nowrap rounded border-2 border-transparent bg-slate-200 px-2 py-0.5 text-xs font-bold text-slate-700 sm:inline sm:h-9 sm:w-60 sm:text-sm">
+            <span className="inline-flex h-7 w-full min-w-0 shrink-0 items-center justify-center overflow-hidden text-ellipsis whitespace-nowrap rounded border-2 border-transparent bg-slate-200 px-2 py-0.5 text-center text-xs font-bold text-slate-700 sm:inline sm:h-9 sm:w-60 sm:text-left sm:text-sm">
               {statusLabelForJob(job, job.status)}
             </span>
           ) : (
@@ -1352,7 +1352,7 @@ function JobRow({
                 // fixed height as the closed-status <span> above so every
                 // status — open, ready-to-send, or closed — renders pixel
                 // identical.
-                className={`inline-flex h-7 w-full min-w-0 shrink-0 items-center overflow-hidden text-ellipsis whitespace-nowrap rounded border-2 bg-slate-200 px-2 py-0.5 text-xs font-bold text-slate-700 sm:inline-block sm:h-9 sm:w-60 sm:text-sm ${job.status === "ready_to_send" ? "border-amber-500" : "border-transparent"}`}
+                className={`inline-flex h-7 w-full min-w-0 shrink-0 items-center justify-center overflow-hidden text-ellipsis whitespace-nowrap rounded border-2 bg-slate-200 px-2 py-0.5 text-center text-xs font-bold text-slate-700 sm:inline-block sm:h-9 sm:w-60 sm:text-left sm:text-sm ${job.status === "ready_to_send" ? "border-amber-500" : "border-transparent"}`}
               >
                 {pipelineStatusesForJob(job).map((s) => (
                   <option key={s} value={s}>{statusLabelForJob(job, s)}</option>
@@ -4797,6 +4797,7 @@ export function EditProjectDialog({
   // AcceptScheduleControl uses.
   const [confirmedDate, setConfirmedDate] = useState(job.confirmed_date ?? job.requested_date ?? "");
   const [confirmedTime, setConfirmedTime] = useState(job.confirmed_time ?? job.requested_time ?? "");
+  const confirmedDateInputRef = useRef<HTMLInputElement>(null);
   const [paidDate, setPaidDate] = useState(job.paid_date ?? "");
   const [dueDate, setDueDate] = useState(job.payment_due_date || paymentDueDate(confirmedDate) || "");
   // Tracks the auto-computed (confirmed date + 30) value last applied, so
@@ -5141,12 +5142,33 @@ export function EditProjectDialog({
         <div className="mt-3 flex flex-col gap-2 sm:flex-row">
           <div className="sm:flex-1">
             <label className="block text-sm font-medium text-slate-700">Scheduled date</label>
-            {/* Per Tim, 2026-08-27 — explicit h-10 on both: a native
-                input[type=date] renders a few px taller than a <select>
-                even with identical padding/font-size classes (browser UA
-                styling, not this app's CSS), so without it the two boxes
-                looked mismatched despite sharing every other class. */}
-            <input type="date" className="mt-1 h-10 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value={confirmedDate} onChange={(e) => setConfirmedDate(e.target.value)} />
+            {/* Per Tim, 2026-08-27 — explicit h-10 alone wasn't enough: it
+                matched in Chrome-based testing, but confirmed live on a
+                real iPhone, Safari's own native input[type=date] chrome
+                still rendered visibly taller than the Scheduled time
+                <select> next to it despite identical classes (this is a
+                browser rendering quirk, not something CSS height can
+                override). Same fix already used for JobRow's own inline
+                schedule editor below: give up on the native control's own
+                look entirely — a plain div shows the formatted date and
+                the real input sits on top at opacity-0, still fully
+                tappable (opens the native picker), but nothing about its
+                own box model is ever visible or relied on. */}
+            <div
+              className="relative mt-1 h-10 w-full rounded-lg border border-slate-300 bg-white"
+              onClick={() => confirmedDateInputRef.current?.showPicker?.()}
+            >
+              <div className="flex h-full items-center px-3 text-sm text-slate-800">
+                {confirmedDate ? formatDateMDY(confirmedDate) : <span className="text-slate-400">Date</span>}
+              </div>
+              <input
+                ref={confirmedDateInputRef}
+                type="date"
+                value={confirmedDate}
+                onChange={(e) => setConfirmedDate(e.target.value)}
+                className="absolute inset-0 h-full w-full opacity-0"
+              />
+            </div>
           </div>
           <div className="sm:flex-1">
             <label className="block text-sm font-medium text-slate-700">Scheduled time</label>

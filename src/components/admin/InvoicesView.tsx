@@ -6,6 +6,7 @@ import { formatCents } from "@/lib/pricing";
 import { ProjectDetailDialog, EditProjectDialog } from "@/components/admin/JobsDashboard";
 import { formatDateMDY } from "@/lib/date-format";
 import { NEWTON_FIRE_FLOOD_COMPANY_ID } from "@/lib/report-findings";
+import { estimatedLabCostCents } from "@/lib/lab-rate-estimate";
 
 type InvoiceStatus = "ready_to_send" | "sent" | "overdue" | "paid";
 
@@ -134,6 +135,15 @@ export default function InvoicesView() {
   // Mobile only — one search box standing in for the desktop's three
   // separate fields, matched with OR against all three (see filteredRows).
   const [mobileSearch, setMobileSearch] = useState("");
+  // Per Tim, 2026-08-28 — the Lab Fees summary's first figure is picked
+  // day, not hardcoded to today — defaults to today but the admin can pick
+  // any date off the calendar. Week/Month/Year to Date stay anchored to
+  // the real current date regardless of this pick — those are standard
+  // reporting periods, not meant to shift with an arbitrary lookup.
+  const [labFeesDate, setLabFeesDate] = useState(() => {
+    const n = new Date();
+    return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-${String(n.getDate()).padStart(2, "0")}`;
+  });
 
   function toggleSort(field: SortField) {
     if (sortBy === field) {
@@ -245,18 +255,19 @@ export default function InvoicesView() {
   }, [invoicedJobs, filter, projectNumberQuery, companyQuery, addressQuery, mobileSearch, sortBy, sortDir]);
 
   const summary = useMemo(() => {
-    let outstandingCents = 0;
     let overdueCents = 0;
     let overdueCount = 0;
-    // Per Tim, 2026-08-27 — distinct from Outstanding (which also counts
-    // invoices still sitting at Ready to Send, never emailed yet): this is
-    // specifically money that's actually gone out to a customer and hasn't
-    // come back yet, sent or overdue either one.
+    // Per Tim, 2026-08-28 — this used to be distinct from a separate
+    // "Outstanding" figure that also counted invoices still sitting at
+    // Report and Invoice Ready, never emailed yet. That card's gone now —
+    // this page itself is scoped to sent/paid invoices only (see
+    // invoicedJobs above), so "ready to send" jobs never even reach this
+    // loop anymore, and Outstanding/Pending Payment had become the exact
+    // same number under two different labels.
     let awaitingPaymentCents = 0;
     for (const job of invoicedJobs) {
       const status = invoiceStatus(job);
       if (status === "paid") continue;
-      outstandingCents += job.invoice_total_cents ?? 0;
       if (status === "sent" || status === "overdue") {
         awaitingPaymentCents += job.invoice_total_cents ?? 0;
       }
@@ -265,8 +276,89 @@ export default function InvoicesView() {
         overdueCount++;
       }
     }
-    return { outstandingCents, overdueCents, overdueCount, awaitingPaymentCents };
+    return { overdueCents, overdueCount, awaitingPaymentCents };
   }, [invoicedJobs]);
+
+  // Per Tim, 2026-08-28 — lab fees actually paid out, bucketed by the same
+  // date every other total on this page already goes by (invoice_sent_at,
+  // converted to local time via localDateOnly — see that function's own
+  // comment on why a raw UTC slice would put some late-evening sends in
+  // the wrong bucket). The first figure is a single picked day (see
+  // labFeesDate above, defaults to today), not cumulative. This Week is
+  // always Monday through Friday of the current week specifically (not a
+  // rolling 7 days, and not Sunday-anchored) — a weekend send belongs to
+  // neither the week before nor after. Month/Year to Date are the standard
+  // cumulative reading (1st of the month/year through today). Each of
+  // Week/Month/Year carries its own actual date range for the subtext
+  // under it, since "this week"/"month to date"/"year to date" alone
+  // don't say which days that actually covers right now.
+  const labFeesSummary = useMemo(() => {
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const ymd = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    const todayStr = ymd(now);
+
+    // getDay(): 0=Sun..6=Sat. Days since this week's own Monday — Sunday
+    // (0) is 6 days after the prior Monday, everything else is dayOfWeek-1.
+    const daysSinceMonday = (now.getDay() + 6) % 7;
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - daysSinceMonday);
+    const friday = new Date(monday);
+    friday.setDate(monday.getDate() + 4);
+    const weekStartStr = ymd(monday);
+    const weekEndStr = ymd(friday);
+
+    const monthStartStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-01`;
+    const yearStartStr = `${now.getFullYear()}-01-01`;
+
+    let dayCents = 0;
+    let weekCents = 0;
+    let monthCents = 0;
+    let yearCents = 0;
+    for (const job of invoicedJobs) {
+      if (!job.invoice_sent_at || !job.lab_cost_cents) continue;
+      const sentDateStr = localDateOnly(job.invoice_sent_at);
+      if (sentDateStr === labFeesDate) dayCents += job.lab_cost_cents;
+      if (sentDateStr >= weekStartStr && sentDateStr <= weekEndStr) weekCents += job.lab_cost_cents;
+      if (sentDateStr >= monthStartStr) monthCents += job.lab_cost_cents;
+      if (sentDateStr >= yearStartStr) yearCents += job.lab_cost_cents;
+    }
+    return {
+      dayCents,
+      weekCents,
+      monthCents,
+      yearCents,
+      weekStartStr,
+      weekEndStr,
+      weekRangeLabel: `${formatDate(weekStartStr)} – ${formatDate(weekEndStr)}`,
+      monthRangeLabel: `${formatDate(monthStartStr)} – ${formatDate(todayStr)}`,
+      yearRangeLabel: `${formatDate(yearStartStr)} – ${formatDate(todayStr)}`,
+    };
+  }, [invoicedJobs, labFeesDate]);
+
+  // Per Tim, 2026-08-28 — Crystal Analytical is moving to billing once a
+  // week (Fridays) for everything analyzed that week, and he wants to see
+  // a running estimate of what that invoice will total *before* it
+  // arrives (see lib/lab-rate-estimate.ts for the rates this is based on).
+  // Bucketed by confirmed_date — when the actual fieldwork/sampling
+  // happened, the thing that determines which week's lab invoice a job's
+  // samples land on — not invoice_sent_at (that's when *our* invoice to
+  // the customer goes out, a completely separate, often much later,
+  // event). Runs over every job, not just invoicedJobs — a job whose
+  // samples were done this week may not have our own invoice sent yet at
+  // all. Actual (lab_cost_cents) is bucketed the same way, so the two
+  // numbers are comparing the same set of jobs, not two different ones.
+  const weeklyLabEstimate = useMemo(() => {
+    let estimatedCents = 0;
+    let actualCents = 0;
+    for (const job of jobs) {
+      if (!job.confirmed_date) continue;
+      if (job.confirmed_date < labFeesSummary.weekStartStr || job.confirmed_date > labFeesSummary.weekEndStr) continue;
+      estimatedCents += estimatedLabCostCents(job);
+      if (job.lab_cost_cents) actualCents += job.lab_cost_cents;
+    }
+    return { estimatedCents, actualCents };
+  }, [jobs, labFeesSummary.weekStartStr, labFeesSummary.weekEndStr]);
 
   async function patchJob(job: JobWithCustomer, patch: Record<string, unknown>) {
     const res = await fetch(`/api/admin/jobs/${job.id}`, {
@@ -301,22 +393,58 @@ export default function InvoicesView() {
 
       <div className="mt-3 flex flex-wrap gap-4 rounded-lg border border-slate-200 bg-white p-3 text-sm">
         <div>
-          <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Outstanding</div>
-          <div className="text-base font-semibold text-slate-800">{formatCents(summary.outstandingCents)}</div>
-        </div>
-        <div>
-          {/* Per Tim, 2026-08-27 — distinct from Outstanding: only invoices
-              actually emailed to the customer already (sent or overdue),
-              not ones still sitting at Ready to Send. */}
           <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Pending Payment</div>
           <div className="text-base font-semibold text-slate-800">{formatCents(summary.awaitingPaymentCents)}</div>
         </div>
         <div>
           <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Overdue</div>
-          <div className="text-base font-semibold text-red-600">
+          <div className="text-base font-semibold text-slate-800">
             {formatCents(summary.overdueCents)}
-            {summary.overdueCount > 0 && <span className="ml-1 text-xs font-normal text-red-500">({summary.overdueCount})</span>}
+            {summary.overdueCount > 0 && <span className="ml-1 text-xs font-normal text-slate-500">({summary.overdueCount})</span>}
           </div>
+        </div>
+      </div>
+
+      {/* Per Tim, 2026-08-28 — lab fees: a specific picked day (calendar
+          input, defaults to today), This Week (always Monday–Friday of
+          the current week), Month to Date, and Year to Date — the latter
+          three each show their own actual date range as subtext, since
+          the label alone doesn't say which days that currently covers. */}
+      <div className="mt-3 flex flex-wrap gap-4 rounded-lg border border-slate-200 bg-white p-3 text-sm">
+        <div>
+          <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">Lab Fees</label>
+          <input
+            type="date"
+            value={labFeesDate}
+            onChange={(e) => setLabFeesDate(e.target.value)}
+            className="mt-0.5 rounded border border-slate-300 px-1.5 py-0.5 text-xs text-slate-600"
+          />
+          <div className="mt-0.5 text-base font-semibold text-slate-800">{formatCents(labFeesSummary.dayCents)}</div>
+        </div>
+        <div>
+          {/* Per Tim, 2026-08-28 — Crystal Analytical bills weekly now
+              (Fridays), so this tracks an estimate of what that invoice
+              will total (see lib/lab-rate-estimate.ts) next to the actual
+              amount confirmed so far, for jobs whose fieldwork happened
+              this week specifically — not the same figure as Month/Year
+              to Date's own actual-only totals below, which stay anchored
+              to when our own invoice went out instead. */}
+          <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">This Week</div>
+          <div className="text-base font-semibold text-slate-800">
+            Est. {formatCents(weeklyLabEstimate.estimatedCents)}
+          </div>
+          <div className="text-sm text-slate-600">Actual {formatCents(weeklyLabEstimate.actualCents)}</div>
+          <div className="text-xs text-slate-400">{labFeesSummary.weekRangeLabel}</div>
+        </div>
+        <div>
+          <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Month to Date</div>
+          <div className="text-base font-semibold text-slate-800">{formatCents(labFeesSummary.monthCents)}</div>
+          <div className="text-xs text-slate-400">{labFeesSummary.monthRangeLabel}</div>
+        </div>
+        <div>
+          <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Year to Date</div>
+          <div className="text-base font-semibold text-slate-800">{formatCents(labFeesSummary.yearCents)}</div>
+          <div className="text-xs text-slate-400">{labFeesSummary.yearRangeLabel}</div>
         </div>
       </div>
 

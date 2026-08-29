@@ -25,12 +25,11 @@ const STATUS_LABEL: Record<InvoiceStatus, string> = {
   paid: "Paid",
 };
 
-const STATUS_COLOR: Record<InvoiceStatus, string> = {
-  ready_to_send: "bg-slate-200 text-slate-700",
-  sent: "bg-blue-100 text-blue-700",
-  overdue: "bg-red-100 text-red-700",
-  paid: "bg-emerald-100 text-emerald-700",
-};
+// Per Tim, 2026-08-29 — one neutral style for every status, not a color per
+// status — matches the plain slate pill every other status badge in the
+// app already uses (e.g. JobRow's own status pill on the Projects list),
+// rather than this view alone picking out "Payment Pending" in blue.
+const STATUS_PILL_CLASS = "bg-slate-200 text-slate-700";
 
 function formatDate(date: string | null | undefined): string {
   return formatDateMDY(date) ?? "—";
@@ -423,7 +422,7 @@ export default function InvoicesView() {
                   )}
                 </div>
                 <div className="flex justify-end">
-                  <span className={`shrink-0 whitespace-nowrap rounded px-1.5 py-0.5 text-xs font-medium ${STATUS_COLOR[status]}`}>
+                  <span className={`shrink-0 whitespace-nowrap rounded px-1.5 py-0.5 text-xs font-medium ${STATUS_PILL_CLASS}`}>
                     {STATUS_LABEL[status]}
                   </span>
                 </div>
@@ -494,7 +493,7 @@ export default function InvoicesView() {
                           {isNewtonAutoCharge ? "To be charged on " : "Due by "}{formatDate(dueDateFor(job))}
                         </span>
                       </div>
-                      <span className={`inline-flex w-40 shrink-0 items-center justify-center whitespace-nowrap rounded px-1.5 py-0.5 text-xs font-medium ${STATUS_COLOR.sent}`}>
+                      <span className={`inline-flex w-40 shrink-0 items-center justify-center whitespace-nowrap rounded px-1.5 py-0.5 text-xs font-medium ${STATUS_PILL_CLASS}`}>
                         {STATUS_LABEL.sent}
                       </span>
                     </>
@@ -503,7 +502,7 @@ export default function InvoicesView() {
                       {job.invoice_sent_at && (
                         <span className="whitespace-nowrap text-xs text-slate-500">Report sent {formatDate(localDateOnly(job.invoice_sent_at))}</span>
                       )}
-                      <span className={`shrink-0 whitespace-nowrap rounded px-1.5 py-0.5 text-xs font-medium ${STATUS_COLOR[status]}`}>{STATUS_LABEL[status]}</span>
+                      <span className={`shrink-0 whitespace-nowrap rounded px-1.5 py-0.5 text-xs font-medium ${STATUS_PILL_CLASS}`}>{STATUS_LABEL[status]}</span>
                       <span className="whitespace-nowrap text-xs text-slate-500">Due by {formatDate(dueDateFor(job))}</span>
                     </>
                   )}

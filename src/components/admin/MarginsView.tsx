@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import type { JobWithCustomer } from "@/lib/types";
-import { formatCents } from "@/lib/pricing";
+import { formatCents, computeMarginCents } from "@/lib/pricing";
 import { formatDateMDY } from "@/lib/date-format";
 
 function formatDate(date: string | null | undefined): string {
@@ -53,24 +53,25 @@ interface Group {
   marginCents: number;
 }
 
-// Per Tim, 2026-08-29 — matches the per-job Profit line on the Invoice tab
-// exactly (JobsDashboard's LineItemsEditor: total - labCostCents/100 -
-// stripeFeeCents/100), rather than a second, subtly different margin
-// figure for the same job. stripe_fee_cents is only ever populated once an
-// invoice is actually paid (see its own comment on Job) — null just means
-// no fee was charged yet, not that it's zero.
+// Per Tim, 2026-08-29 — marginCents itself now comes from
+// computeMarginCents (lib/pricing.ts), the same function the per-job
+// Profit line on the Invoice tab uses, rather than a second, independently
+// computed margin figure for the same job — those two drifted out of sync
+// once already. stripe_fee_cents is only ever populated once an invoice is
+// actually paid (see its own comment on Job) — null just means no fee was
+// charged yet, not that it's zero.
 function summarizeGroup(key: string, label: string, sortKey: string, jobsInGroup: { job: JobWithCustomer; labCostCents: number }[]): Group {
   const jobEntries = jobsInGroup
     .map(({ job, labCostCents }) => {
       const revenueCents = job.invoice_total_cents ?? 0;
       const stripeFeeCents = job.stripe_fee_cents ?? 0;
-      return { job, revenueCents, labCostCents, stripeFeeCents, marginCents: revenueCents - labCostCents - stripeFeeCents };
+      return { job, revenueCents, labCostCents, stripeFeeCents, marginCents: computeMarginCents(revenueCents, labCostCents, stripeFeeCents) };
     })
     .sort((a, b) => (a.job.project_number ?? "").localeCompare(b.job.project_number ?? ""));
   const revenueCents = jobEntries.reduce((sum, e) => sum + e.revenueCents, 0);
   const labCostCents = jobEntries.reduce((sum, e) => sum + e.labCostCents, 0);
   const stripeFeeCents = jobEntries.reduce((sum, e) => sum + e.stripeFeeCents, 0);
-  return { key, label, sortKey, jobEntries, revenueCents, labCostCents, stripeFeeCents, marginCents: revenueCents - labCostCents - stripeFeeCents };
+  return { key, label, sortKey, jobEntries, revenueCents, labCostCents, stripeFeeCents, marginCents: computeMarginCents(revenueCents, labCostCents, stripeFeeCents) };
 }
 
 // Per Tim, 2026-08-29 — pulled out of Lab Invoices into its own page:

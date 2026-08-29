@@ -17,6 +17,7 @@ import { ContactForm } from "@/components/admin/ContactDetailDialog";
 import { formatDateMDY } from "@/lib/date-format";
 import { subcontractorSenderForJob } from "@/lib/subcontractor-senders";
 import { timeSelectOptions } from "@/lib/time-options";
+import { computeMarginCents } from "@/lib/pricing";
 
 // Splits on (captured) bare URLs so odd-indexed segments are the URLs
 // themselves — used for job.notes, which can contain a real link (e.g. a
@@ -6096,7 +6097,7 @@ function LineItemsEditor({
             Lab fees: {labCostCents != null ? currency(labCostCents / 100) : "Not yet billed"}
           </p>
           <p className="text-base font-bold uppercase text-slate-400">
-            Profit: {labCostCents != null ? currency(total - labCostCents / 100 - (stripeFeeCents ?? 0) / 100) : "—"}
+            Profit: {labCostCents != null ? currency(computeMarginCents(Math.round(total * 100), labCostCents, stripeFeeCents ?? 0) / 100) : "—"}
           </p>
         </div>
         <div className="flex items-center gap-2">

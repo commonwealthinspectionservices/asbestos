@@ -38,6 +38,7 @@ interface JobEntry {
   job: JobWithCustomer;
   revenueCents: number;
   labCostCents: number;
+  stripeFeeCents: number;
   marginCents: number;
 }
 
@@ -48,19 +49,28 @@ interface Group {
   jobEntries: JobEntry[];
   revenueCents: number;
   labCostCents: number;
+  stripeFeeCents: number;
   marginCents: number;
 }
 
+// Per Tim, 2026-08-29 — matches the per-job Profit line on the Invoice tab
+// exactly (JobsDashboard's LineItemsEditor: total - labCostCents/100 -
+// stripeFeeCents/100), rather than a second, subtly different margin
+// figure for the same job. stripe_fee_cents is only ever populated once an
+// invoice is actually paid (see its own comment on Job) — null just means
+// no fee was charged yet, not that it's zero.
 function summarizeGroup(key: string, label: string, sortKey: string, jobsInGroup: { job: JobWithCustomer; labCostCents: number }[]): Group {
   const jobEntries = jobsInGroup
     .map(({ job, labCostCents }) => {
       const revenueCents = job.invoice_total_cents ?? 0;
-      return { job, revenueCents, labCostCents, marginCents: revenueCents - labCostCents };
+      const stripeFeeCents = job.stripe_fee_cents ?? 0;
+      return { job, revenueCents, labCostCents, stripeFeeCents, marginCents: revenueCents - labCostCents - stripeFeeCents };
     })
     .sort((a, b) => (a.job.project_number ?? "").localeCompare(b.job.project_number ?? ""));
   const revenueCents = jobEntries.reduce((sum, e) => sum + e.revenueCents, 0);
   const labCostCents = jobEntries.reduce((sum, e) => sum + e.labCostCents, 0);
-  return { key, label, sortKey, jobEntries, revenueCents, labCostCents, marginCents: revenueCents - labCostCents };
+  const stripeFeeCents = jobEntries.reduce((sum, e) => sum + e.stripeFeeCents, 0);
+  return { key, label, sortKey, jobEntries, revenueCents, labCostCents, stripeFeeCents, marginCents: revenueCents - labCostCents - stripeFeeCents };
 }
 
 // Per Tim, 2026-08-29 — pulled out of Lab Invoices into its own page:
@@ -277,7 +287,10 @@ export default function MarginsView() {
                     {expanded && (
                       <div className="flex flex-col gap-1.5 border-t border-slate-100 p-3 pt-2">
                         <div className="flex items-baseline justify-between text-xs text-slate-500">
-                          <span>{formatCents(g.revenueCents)} revenue − {formatCents(g.labCostCents)} lab cost</span>
+                          <span>
+                            {formatCents(g.revenueCents)} revenue − {formatCents(g.labCostCents)} lab cost
+                            {g.stripeFeeCents !== 0 && <> − {formatCents(g.stripeFeeCents)} Stripe fees</>}
+                          </span>
                         </div>
                         {g.jobEntries.map((e) => (
                           <div key={e.job.id} className="flex items-baseline justify-between gap-2">
@@ -285,7 +298,8 @@ export default function MarginsView() {
                               {e.job.project_number}
                             </Link>
                             <span className="whitespace-nowrap text-xs text-slate-500">
-                              {formatCents(e.revenueCents)} − {formatCents(e.labCostCents)} ={" "}
+                              {formatCents(e.revenueCents)} − {formatCents(e.labCostCents)}
+                              {e.stripeFeeCents !== 0 && <> − {formatCents(e.stripeFeeCents)}</>} ={" "}
                               <span className={e.marginCents < 0 ? "font-semibold text-red-600" : "font-semibold text-slate-800"}>{formatCents(e.marginCents)}</span>
                             </span>
                           </div>

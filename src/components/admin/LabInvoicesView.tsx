@@ -152,28 +152,6 @@ export default function LabInvoicesView() {
       .sort((a, b) => (a.receivedAt < b.receivedAt ? 1 : -1));
   }, [jobs]);
 
-  // Per Tim, 2026-08-28 — "some jobs haven't been billed yet, I need to
-  // keep track of this": every job with fieldwork already done
-  // (confirmed_date up through today) that has no lab_invoice document at
-  // all yet, regardless of which calendar week that fieldwork fell in —
-  // not scoped to "this week" (that scoping is exactly what produced the
-  // confusing second total above). Most recent fieldwork first, since
-  // that's the most likely to still be genuinely outstanding rather than
-  // just old and forgotten. Per Tim, 2026-08-29 — no dollar estimate here
-  // anymore ("I don't know if we really need to do this whole estimated
-  // thing anywhere at all") — it was already showing misleading $0.00 for
-  // a job with no samples logged yet, and now that Weekly Reports brings
-  // in the real number within days, a guess wasn't buying much. Just the
-  // job itself; the real amount shows up under Weekly Reports once it's
-  // actually billed.
-  const notYetBilledJobs = useMemo(() => {
-    const todayStr = ymd(new Date());
-    return jobs
-      .filter((j) => j.confirmed_date && j.confirmed_date <= todayStr)
-      .filter((j) => !(j.documents ?? []).some((d) => d.kind === "lab_invoice"))
-      .sort((a, b) => (b.confirmed_date ?? "").localeCompare(a.confirmed_date ?? ""));
-  }, [jobs]);
-
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
       <h1 className="text-lg font-semibold text-slate-800">Lab Invoices</h1>
@@ -279,24 +257,6 @@ export default function LabInvoicesView() {
                     </div>
                   );
                 })}
-              </div>
-            )}
-          </div>
-
-          {/* Per Tim, 2026-08-28 — "some jobs haven't been billed yet, I
-              need to keep track of this": every job with fieldwork done
-              that hasn't shown up in any report yet, most recent first. */}
-          <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3 text-sm">
-            <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Awaiting Lab Bill</div>
-            {notYetBilledJobs.length === 0 ? (
-              <p className="mt-2 text-sm text-slate-500">Everything's been billed.</p>
-            ) : (
-              <div className="mt-2 flex flex-col gap-2.5">
-                {notYetBilledJobs.map((job) => (
-                  <Link key={job.id} href={`/admin/dashboard?jobId=${job.id}`} className="font-mono text-xs text-brand-600 hover:underline">
-                    {job.project_number}
-                  </Link>
-                ))}
               </div>
             )}
           </div>

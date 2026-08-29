@@ -3477,9 +3477,24 @@ export function ProjectDetailDialog({
                       same value LineItemsEditor's own Payment due date
                       field shows above. */}
                   {job.customers?.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID && job.status !== "paid" && (
-                    <div className="mb-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-                      <span className="font-bold uppercase">Automatic payment on file</span> — Stripe will charge Newton Fire &amp; Flood&apos;s card on file on{" "}
-                      {formatDate(dueDateFor(job)) || "the invoice due date"} (30 days after the report was sent) if this isn&apos;t paid before then.
+                    // Per Tim, 2026-08-29 — "this should be one line
+                    // across" then "it should not scroll across": no
+                    // whitespace-nowrap/overflow-x-auto escape hatch, the
+                    // sentence itself has to actually fit max-w-3xl's own
+                    // width. Shortened it (dropped "on file" duplication,
+                    // "the report was sent" -> "report sent") and dropped
+                    // to text-xs — confirmed live it fits on one line with
+                    // room to spare at the dialog's own desktop width. Below
+                    // sm, this dialog is narrower than the sentence could
+                    // ever fit at any readable size, so it wraps normally
+                    // there instead — a wrapped line beats the mobile
+                    // Project Info tab's own now-fixed horizontal-scroll bug
+                    // (see JobsDashboard.tsx's DetailField) happening again.
+                    <div className="mb-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
+                      <p className="whitespace-normal text-xs text-emerald-800 sm:whitespace-nowrap">
+                        <span className="font-bold uppercase">Automatic payment on file</span> — Stripe will charge Newton Fire &amp; Flood&apos;s card on{" "}
+                        {formatDate(dueDateFor(job)) || "the invoice due date"} (30 days after report sent) if unpaid before then.
+                      </p>
                     </div>
                   )}
                   {payLinkError && <p className="mt-2 text-sm text-red-600">{payLinkError}</p>}

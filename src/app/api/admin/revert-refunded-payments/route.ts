@@ -55,23 +55,26 @@ export const GET = withApiErrors(async (req: NextRequest) => {
       const charge = await stripe.charges.retrieve(chargeId);
       if (!charge.refunded && charge.amount_refunded <= 0) continue;
 
-      // Per Tim, 2026-08-28 — this call's own result was never checked, so a
-      // silent write failure (permissions, a constraint, anything) would
-      // still report "reverted" success here while the row never actually
-      // changed — exactly indistinguishable from what's been happening.
-      // select() the row back so this can report the row's real
-      // post-update state, not just "no error was thrown."
-      // Same audit trail as markJobPaid's own (see lib/lab-email.ts) — a
-      // permanent, visible record right on the job of every time this
-      // reverted it, so the timeline of "marked paid" vs. "reverted" lines
-      // up on the job itself instead of needing to cross-reference logs.
+      // Per Tim, 2026-08-28 — found the real cause of every "reverted"
+      // success that didn't actually stick: stripe_fee_cents (added via a
+      // raw ALTER TABLE earlier this session) intermittently isn't in
+      // PostgREST's schema cache yet, and Postgres/PostgREST fails an
+      // *entire* update statement if any one referenced column is invalid
+      // — so bundling it into the same call as status/paid_date/
+      // payment_reversed_at meant the whole write silently failed
+      // whenever that cache was stale, leaving the row completely
+      // unchanged despite this endpoint (before this fix) reporting
+      // success. Split into two calls: the fields that actually matter for
+      // "is this job correctly marked unpaid" go through on their own,
+      // guaranteed independent of that column's cache state; clearing
+      // stripe_fee_cents is now a separate, best-effort follow-up that
+      // can't block or silently swallow the real fix.
       const auditLine = `[revert-refunded-payments, ${new Date().toISOString()}]`;
       const { data: updated, error: updateError } = await supabase
         .from("jobs")
         .update({
           status: "report_invoice_sent",
           paid_date: null,
-          stripe_fee_cents: null,
           payment_reversed_at: job.payment_reversed_at ?? new Date().toISOString(),
           notes: job.notes ? `${job.notes}\n${auditLine}` : auditLine,
         })
@@ -86,6 +89,10 @@ export const GET = withApiErrors(async (req: NextRequest) => {
         });
         continue;
       }
+
+      await supabase.from("jobs").update({ stripe_fee_cents: null }).eq("id", job.id).then(({ error: feeError }) => {
+        if (feeError) console.error(`revert-refunded-payments: cleared status/paid_date for ${label} but failed to clear stripe_fee_cents:`, feeError.message);
+      });
 
       reverted.push({ project_number: label, amount_refunded: `$${(charge.amount_refunded / 100).toFixed(2)}` });
     } catch (e) {

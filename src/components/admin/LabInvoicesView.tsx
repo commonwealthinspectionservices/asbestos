@@ -188,7 +188,7 @@ export default function LabInvoicesView() {
                                 return next;
                               })
                             }
-                            className="text-left text-xs font-medium text-brand-600"
+                            className="text-left text-sm font-medium text-brand-600"
                           >
                             <span className="mr-1 inline-block w-3 text-slate-400">{expanded ? "▾" : "▸"}</span>
                             {r.dateRange ?? formatDate(localDateOnly(r.receivedAt))}
@@ -204,13 +204,13 @@ export default function LabInvoicesView() {
                               href={`/api/admin/jobs/${r.pdfLink.jobId}/documents/${r.pdfLink.docId}`}
                               target="_blank"
                               rel="noreferrer"
-                              className="whitespace-nowrap text-xs text-slate-400 hover:text-brand-600 hover:underline"
+                              className="whitespace-nowrap text-sm text-slate-400 hover:text-brand-600 hover:underline"
                             >
                               PDF ↗
                             </a>
                           )}
                         </div>
-                        <span className="whitespace-nowrap text-xs font-semibold text-slate-800">
+                        <span className="whitespace-nowrap text-sm font-semibold text-slate-800">
                           Total {r.totalCents != null ? formatCents(r.totalCents) : "—"}
                         </span>
                       </div>

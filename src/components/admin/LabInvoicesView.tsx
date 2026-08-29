@@ -236,7 +236,7 @@ export default function LabInvoicesView() {
             {notYetBilledJobs.length === 0 ? (
               <p className="mt-2 text-sm text-slate-500">Everything's been billed.</p>
             ) : (
-              <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+              <div className="mt-2 flex flex-col gap-1.5">
                 {notYetBilledJobs.map((job) => (
                   <Link key={job.id} href={`/admin/dashboard?jobId=${job.id}`} className="font-mono text-xs text-brand-600 hover:underline">
                     {job.project_number}

@@ -5,7 +5,6 @@ import Link from "next/link";
 import type { JobWithCustomer } from "@/lib/types";
 import { formatCents } from "@/lib/pricing";
 import { formatDateMDY } from "@/lib/date-format";
-import { estimatedLabCostCents } from "@/lib/lab-rate-estimate";
 
 function formatDate(date: string | null | undefined): string {
   return formatDateMDY(date) ?? "—";
@@ -143,14 +142,19 @@ export default function LabInvoicesView() {
   // not scoped to "this week" (that scoping is exactly what produced the
   // confusing second total above). Most recent fieldwork first, since
   // that's the most likely to still be genuinely outstanding rather than
-  // just old and forgotten.
+  // just old and forgotten. Per Tim, 2026-08-29 — no dollar estimate here
+  // anymore ("I don't know if we really need to do this whole estimated
+  // thing anywhere at all") — it was already showing misleading $0.00 for
+  // a job with no samples logged yet, and now that Weekly Reports brings
+  // in the real number within days, a guess wasn't buying much. Just the
+  // job itself; the real amount shows up under Weekly Reports once it's
+  // actually billed.
   const notYetBilledJobs = useMemo(() => {
     const todayStr = ymd(new Date());
     return jobs
       .filter((j) => j.confirmed_date && j.confirmed_date <= todayStr)
       .filter((j) => !(j.documents ?? []).some((d) => d.kind === "lab_invoice"))
-      .map((job) => ({ job, cents: estimatedLabCostCents(job) }))
-      .sort((a, b) => (b.job.confirmed_date ?? "").localeCompare(a.job.confirmed_date ?? ""));
+      .sort((a, b) => (b.confirmed_date ?? "").localeCompare(a.confirmed_date ?? ""));
   }, [jobs]);
 
   return (
@@ -232,14 +236,11 @@ export default function LabInvoicesView() {
             {notYetBilledJobs.length === 0 ? (
               <p className="mt-2 text-sm text-slate-500">Everything's been billed.</p>
             ) : (
-              <div className="mt-2 space-y-1.5">
-                {notYetBilledJobs.map(({ job, cents }) => (
-                  <div key={job.id} className="flex items-baseline justify-between gap-2">
-                    <Link href={`/admin/dashboard?jobId=${job.id}`} className="font-mono text-xs text-brand-600 hover:underline">
-                      {job.project_number}
-                    </Link>
-                    <span className="whitespace-nowrap text-xs text-amber-600">Est. {formatCents(cents)}</span>
-                  </div>
+              <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+                {notYetBilledJobs.map((job) => (
+                  <Link key={job.id} href={`/admin/dashboard?jobId=${job.id}`} className="font-mono text-xs text-brand-600 hover:underline">
+                    {job.project_number}
+                  </Link>
                 ))}
               </div>
             )}

@@ -238,15 +238,21 @@ export default function LabInvoicesView() {
                         <div className="border-t border-slate-100 p-3 pt-2">
                           {/* Per Tim, 2026-08-29 — "the vertical list was
                               totally fine, we just need the price not so
-                              far away": back to one row per job, but the
-                              amount sits right next to the project number
-                              (a fixed small gap) instead of justify-between
-                              stretching it to the card's far edge — the
-                              empty space in a wide card is fine, it just
-                              shouldn't visually separate the number from
-                              its own price. gap-y-2.5 (was 1.5) per his
-                              "a tiny bit more spaced". */}
-                          <div className="flex flex-col gap-2.5">
+                              far away": the amount sits right next to the
+                              project number (a fixed small gap) instead of
+                              justify-between stretching it to the card's
+                              far edge. Per Tim, 2026-08-29 (round two) —
+                              "I still don't love all this empty space": an
+                              auto-fill grid repeats that same tight pair as
+                              many times per row as actually fit the card's
+                              real width, instead of guessing a fixed column
+                              count — unlike the earlier side-by-side attempt
+                              he found confusing, each pair stays visually
+                              tight (own small gap) rather than stretched
+                              across a shared cell, so which price belongs to
+                              which job is never ambiguous regardless of how
+                              many columns wrap. */}
+                          <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-x-6 gap-y-2.5">
                             {r.jobEntries.map((e) => (
                               <div key={e.job.id} className="flex items-baseline gap-5">
                                 <Link href={`/admin/dashboard?jobId=${e.job.id}`} className="font-mono text-xs text-brand-600 hover:underline">

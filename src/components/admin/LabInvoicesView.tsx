@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import type { JobDocument, JobWithCustomer } from "@/lib/types";
+import type { JobWithCustomer } from "@/lib/types";
 import { formatCents } from "@/lib/pricing";
 import { formatDateMDY } from "@/lib/date-format";
 import { estimatedLabCostCents } from "@/lib/lab-rate-estimate";
@@ -24,21 +24,6 @@ function ymd(d: Date): string {
 // (Eastern) time disagrees with UTC, e.g. a late-evening upload.
 function localDateOnly(iso: string): string {
   return ymd(new Date(iso));
-}
-
-// Monday–Friday range containing dateStr, computed from explicit Y/M/D
-// components (not `new Date(dateStr)`, which parses as UTC midnight and can
-// shift a day in local time) so a date near midnight lands in the correct
-// week regardless of this browser's timezone.
-function mondayFridayOfWeek(dateStr: string): { weekStartStr: string; weekEndStr: string } {
-  const [y, m, d] = dateStr.split("-").map(Number);
-  const date = new Date(y, m - 1, d);
-  const daysSinceMonday = (date.getDay() + 6) % 7;
-  const monday = new Date(date);
-  monday.setDate(date.getDate() - daysSinceMonday);
-  const friday = new Date(monday);
-  friday.setDate(monday.getDate() + 4);
-  return { weekStartStr: ymd(monday), weekEndStr: ymd(friday) };
 }
 
 // Per Tim, 2026-08-28 — split out of InvoicesView.tsx into its own tab:
@@ -168,59 +153,6 @@ export default function LabInvoicesView() {
       .sort((a, b) => (b.job.confirmed_date ?? "").localeCompare(a.job.confirmed_date ?? ""));
   }, [jobs]);
 
-  // Per Tim, 2026-08-28 — "It should be the main outline and then use
-  // other documents that you find along the way": everything the weekly
-  // reports above already account for is excluded here (report_total_cents
-  // != null) — this is only what's left over. In practice that's just the
-  // three Crystal per-invoice emails from before the weekly summary became
-  // the sole source (#6491/#6497/#6498, confirmed against his real inbox)
-  // — the automated pipeline no longer files anything else here going
-  // forward (see lib/lab-email.ts), so this section should stay short.
-  // Same content_hash/lab_invoice_number grouping as before.
-  const otherLabInvoices = useMemo(() => {
-    const seenPerJobPath = new Set<string>();
-    const flat: { job: JobWithCustomer; doc: JobDocument }[] = [];
-    for (const job of jobs) {
-      for (const doc of job.documents ?? []) {
-        if (doc.kind !== "lab_invoice" || doc.report_total_cents != null) continue;
-        const key = `${job.id}:${doc.storage_path}`;
-        if (seenPerJobPath.has(key)) continue;
-        seenPerJobPath.add(key);
-        flat.push({ job, doc });
-      }
-    }
-
-    const groups = new Map<string, { job: JobWithCustomer; doc: JobDocument }[]>();
-    const ungrouped: { job: JobWithCustomer; doc: JobDocument }[][] = [];
-    for (const row of flat) {
-      const key = row.doc.lab_invoice_number ? `n:${row.doc.lab_invoice_number}` : row.doc.content_hash ? `h:${row.doc.content_hash}` : null;
-      if (!key) {
-        ungrouped.push([row]);
-        continue;
-      }
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key)!.push(row);
-    }
-
-    return [...groups.values(), ...ungrouped]
-      .map((rows) => {
-        const sorted = [...rows].sort((a, b) => (a.job.project_number ?? "").localeCompare(b.job.project_number ?? ""));
-        const receivedAt = sorted.reduce((min, r) => (r.doc.uploaded_at < min ? r.doc.uploaded_at : min), sorted[0].doc.uploaded_at);
-        const weeks = sorted
-          .map((r) => (r.job.confirmed_date ? mondayFridayOfWeek(r.job.confirmed_date) : null))
-          .filter((w): w is { weekStartStr: string; weekEndStr: string } => w != null);
-        const covers =
-          weeks.length > 0
-            ? {
-                weekStartStr: weeks.reduce((min, w) => (w.weekStartStr < min ? w.weekStartStr : min), weeks[0].weekStartStr),
-                weekEndStr: weeks.reduce((max, w) => (w.weekEndStr > max ? w.weekEndStr : max), weeks[0].weekEndStr),
-              }
-            : null;
-        return { rows: sorted, receivedAt, covers };
-      })
-      .sort((a, b) => (a.receivedAt < b.receivedAt ? 1 : -1));
-  }, [jobs]);
-
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
       <h1 className="text-lg font-semibold text-slate-800">Lab Invoices</h1>
@@ -313,93 +245,6 @@ export default function LabInvoicesView() {
             )}
           </div>
 
-          {/* Per Tim, 2026-08-28 — "then use other documents that you find
-              along the way": whatever the weekly reports above don't
-              already account for — in practice just the three Crystal
-              per-invoice emails from before the weekly summary became the
-              sole source. */}
-          <div className="mt-3">
-            <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Other Lab Invoices</div>
-            {otherLabInvoices.length === 0 ? (
-              <p className="mt-2 rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-500">Nothing else on file.</p>
-            ) : (
-              // Per Tim, 2026-08-28 — its own bordered cell per invoice,
-              // same card pattern as the mobile Invoices-list cards
-              // (InvoicesView.tsx), not one shared card with thin dividers
-              // between rows.
-              <div className="mt-2 flex flex-col gap-2">
-                {otherLabInvoices.map((entry) => {
-                  const first = entry.rows[0];
-                  // Per Tim, 2026-08-28 — "track each invoice and then all
-                  // the jobs that it includes": each row's own amount_cents
-                  // is that JOB's own dollar share of this real invoice (see
-                  // computeLabCostCentsFromDocuments's own comment in
-                  // lib/lab-cost.ts), so summing across entry.rows gives the
-                  // whole invoice's real total without double-counting the
-                  // per-service-type-label document copies (already
-                  // collapsed to one row per job before this point). Null
-                  // for a document uploaded before amount_cents existed and
-                  // not yet backfilled (see
-                  // /api/admin/backfill-lab-invoice-amounts) — shown as "—"
-                  // rather than a misleading $0.
-                  const knownAmounts = entry.rows.filter((r) => r.doc.amount_cents != null);
-                  const totalCents = knownAmounts.length > 0 ? knownAmounts.reduce((sum, r) => sum + (r.doc.amount_cents ?? 0), 0) : null;
-                  return (
-                    <div
-                      key={first.doc.lab_invoice_number ?? first.doc.content_hash ?? `${first.job.id}:${first.doc.id}`}
-                      className="flex flex-col gap-1 rounded-lg border border-slate-200 bg-white p-3 text-sm"
-                    >
-                      {/* Per Tim, 2026-08-28 — corners anchored, same "fill
-                          the cell" pattern as the mobile Invoices-list cards:
-                          title top-left, Received top-right, job numbers
-                          middle-left, date range bottom-right. Title is
-                          Crystal's own printed invoice number ("Invoice no.:
-                          6491" on the PDF itself — see extractInvoiceNumber
-                          in lib/parse-lab-invoice.ts) when known, since
-                          that's what Tim actually sees on their invoice/
-                          email; falls back to a generic "Lab invoice" label
-                          for a document uploaded before that field existed
-                          and not yet backfilled (see
-                          /api/admin/backfill-lab-invoice-numbers). */}
-                      <div className="flex flex-wrap items-start justify-between gap-x-4">
-                        <a
-                          href={`/api/admin/jobs/${first.job.id}/documents/${first.doc.id}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-xs font-medium text-brand-600 hover:underline"
-                        >
-                          {first.doc.lab_invoice_number ? `Invoice #${first.doc.lab_invoice_number}` : "Lab invoice"} ↗
-                        </a>
-                        <span className="whitespace-nowrap text-xs text-slate-500">Received {formatDate(localDateOnly(entry.receivedAt))}</span>
-                      </div>
-                      {/* Per Tim, 2026-08-28 — comma-separated inline links
-                          instead of a stacked bullet list, so a cell's
-                          height doesn't grow with how many jobs one
-                          invoice covers. Each project number links to
-                          that job in the admin dashboard. */}
-                      <div className="flex flex-wrap text-xs text-slate-500">
-                        {entry.rows.map((r, i) => (
-                          <span key={r.job.id} className="whitespace-nowrap">
-                            <Link href={`/admin/dashboard?jobId=${r.job.id}`} className="font-mono text-brand-600 hover:underline">
-                              {r.job.project_number}
-                            </Link>
-                            {r.doc.amount_cents != null && <span className="ml-0.5 text-slate-400">({formatCents(r.doc.amount_cents)})</span>}
-                            {i < entry.rows.length - 1 && <span className="mr-1">,</span>}
-                          </span>
-                        ))}
-                      </div>
-                      <div className="flex flex-wrap items-baseline justify-between gap-x-4">
-                        <span className="whitespace-nowrap text-xs font-semibold text-slate-700">{totalCents != null ? formatCents(totalCents) : "—"}</span>
-                        <span className="whitespace-nowrap text-xs text-slate-500">
-                          {entry.covers ? `${formatDate(entry.covers.weekStartStr)} – ${formatDate(entry.covers.weekEndStr)}` : "—"}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
         </>
       )}
     </div>

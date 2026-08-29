@@ -81,7 +81,14 @@ export default function LabInvoicesView() {
   const weeklyReports = useMemo(() => {
     const groups = new Map<
       string,
-      { dateRange: string | null; totalCents: number | null; receivedAt: string; jobAmounts: Map<string, number>; seenNumsByJob: Map<string, Set<string>> }
+      {
+        dateRange: string | null;
+        totalCents: number | null;
+        receivedAt: string;
+        jobAmounts: Map<string, number>;
+        seenNumsByJob: Map<string, Set<string>>;
+        pdfLink: { jobId: string; docId: string } | null;
+      }
     >();
     for (const job of jobs) {
       for (const doc of job.documents ?? []) {
@@ -99,8 +106,18 @@ export default function LabInvoicesView() {
         const key = doc.report_date_range ?? doc.content_hash ?? "unknown";
         let g = groups.get(key);
         if (!g) {
-          g = { dateRange: doc.report_date_range ?? null, totalCents: doc.report_total_cents, receivedAt: doc.uploaded_at, jobAmounts: new Map(), seenNumsByJob: new Map() };
+          g = { dateRange: doc.report_date_range ?? null, totalCents: doc.report_total_cents, receivedAt: doc.uploaded_at, jobAmounts: new Map(), seenNumsByJob: new Map(), pdfLink: null };
           groups.set(key, g);
+        }
+        // Per Tim, 2026-08-29 — "shouldn't each week have a link to the PDF
+        // for that week?": only a document whose file_name actually starts
+        // with "weekly-lab-summary" is a real copy of THIS report's own
+        // PDF (see processWeeklyLabSummaryEmail in lib/lab-email.ts) — a
+        // backfilled document (see the comment above) keeps its own older
+        // per-invoice PDF's file_name and storage_path untouched, so
+        // linking to one of those would open the wrong document entirely.
+        if (!g.pdfLink && doc.file_name.startsWith("weekly-lab-summary")) {
+          g.pdfLink = { jobId: job.id, docId: doc.id };
         }
         // Max, not min — a backfilled document (see above) can carry a
         // much OLDER uploaded_at from whichever earlier pipeline actually
@@ -130,7 +147,7 @@ export default function LabInvoicesView() {
           .sort((a, b) => (a.job.project_number ?? "").localeCompare(b.job.project_number ?? ""));
         const linkedCents = jobEntries.reduce((sum, e) => sum + e.amountCents, 0);
         const unlinkedCents = g.totalCents != null ? g.totalCents - linkedCents : null;
-        return { key, dateRange: g.dateRange, totalCents: g.totalCents, receivedAt: g.receivedAt, jobEntries, unlinkedCents };
+        return { key, dateRange: g.dateRange, totalCents: g.totalCents, receivedAt: g.receivedAt, jobEntries, unlinkedCents, pdfLink: g.pdfLink };
       })
       .sort((a, b) => (a.receivedAt < b.receivedAt ? 1 : -1));
   }, [jobs]);
@@ -183,33 +200,62 @@ export default function LabInvoicesView() {
                   const expanded = expandedReportKeys.has(r.key);
                   return (
                     <div key={r.key} className="rounded-lg border border-slate-200 bg-white text-sm">
-                      <button
-                        onClick={() =>
-                          setExpandedReportKeys((prev) => {
-                            const next = new Set(prev);
-                            if (next.has(r.key)) next.delete(r.key);
-                            else next.add(r.key);
-                            return next;
-                          })
-                        }
-                        className="flex w-full flex-wrap items-baseline justify-between gap-x-4 p-3 text-left"
-                      >
-                        <span className="text-xs font-medium text-brand-600">
+                      <div className="flex w-full flex-wrap items-baseline justify-between gap-x-4 p-3">
+                        <button
+                          onClick={() =>
+                            setExpandedReportKeys((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(r.key)) next.delete(r.key);
+                              else next.add(r.key);
+                              return next;
+                            })
+                          }
+                          className="text-left text-xs font-medium text-brand-600"
+                        >
                           <span className="mr-1 inline-block w-3 text-slate-400">{expanded ? "▾" : "▸"}</span>
                           {r.dateRange ?? formatDate(localDateOnly(r.receivedAt))}
-                        </span>
-                        <span className="text-xs font-semibold text-slate-800">{r.totalCents != null ? formatCents(r.totalCents) : "—"}</span>
-                      </button>
+                        </button>
+                        <div className="flex items-baseline gap-2">
+                          {/* Per Tim, 2026-08-29 — "shouldn't each week have
+                              a link to the PDF for that week?" — the real
+                              weekly report PDF itself, same ↗ link
+                              convention this app already uses for other
+                              document links. */}
+                          {r.pdfLink && (
+                            <a
+                              href={`/api/admin/jobs/${r.pdfLink.jobId}/documents/${r.pdfLink.docId}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="whitespace-nowrap text-xs text-slate-400 hover:text-brand-600 hover:underline"
+                            >
+                              PDF ↗
+                            </a>
+                          )}
+                          <span className="whitespace-nowrap text-xs font-semibold text-slate-800">{r.totalCents != null ? formatCents(r.totalCents) : "—"}</span>
+                        </div>
+                      </div>
                       {expanded && (
-                        <div className="flex flex-col gap-1.5 border-t border-slate-100 p-3 pt-2">
-                          {r.jobEntries.map((e) => (
-                            <div key={e.job.id} className="flex items-baseline justify-between gap-2">
-                              <Link href={`/admin/dashboard?jobId=${e.job.id}`} className="font-mono text-xs text-brand-600 hover:underline">
-                                {e.job.project_number}
-                              </Link>
-                              <span className="whitespace-nowrap text-xs font-semibold text-slate-800">{formatCents(e.amountCents)}</span>
-                            </div>
-                          ))}
+                        <div className="border-t border-slate-100 p-3 pt-2">
+                          {/* Per Tim, 2026-08-29 — "the vertical list was
+                              totally fine, we just need the price not so
+                              far away": back to one row per job, but the
+                              amount sits right next to the project number
+                              (a fixed small gap) instead of justify-between
+                              stretching it to the card's far edge — the
+                              empty space in a wide card is fine, it just
+                              shouldn't visually separate the number from
+                              its own price. gap-y-2.5 (was 1.5) per his
+                              "a tiny bit more spaced". */}
+                          <div className="flex flex-col gap-2.5">
+                            {r.jobEntries.map((e) => (
+                              <div key={e.job.id} className="flex items-baseline gap-5">
+                                <Link href={`/admin/dashboard?jobId=${e.job.id}`} className="font-mono text-xs text-brand-600 hover:underline">
+                                  {e.job.project_number}
+                                </Link>
+                                <span className="whitespace-nowrap text-xs font-semibold text-slate-800">{formatCents(e.amountCents)}</span>
+                              </div>
+                            ))}
+                          </div>
                           {/* Per Tim, 2026-08-28 — "why does it say $1,108 if
                               only $548 was billed" — this is exactly that
                               gap, shown in place instead of left to look
@@ -217,7 +263,7 @@ export default function LabInvoicesView() {
                               report never named a project number Crystal's
                               own end could match to a job. */}
                           {r.unlinkedCents != null && r.unlinkedCents !== 0 && (
-                            <div className="text-xs text-slate-400">+ {formatCents(r.unlinkedCents)} not linked to a job on file</div>
+                            <div className="mt-1.5 text-xs text-slate-400">+ {formatCents(r.unlinkedCents)} not linked to a job on file</div>
                           )}
                         </div>
                       )}
@@ -232,11 +278,11 @@ export default function LabInvoicesView() {
               need to keep track of this": every job with fieldwork done
               that hasn't shown up in any report yet, most recent first. */}
           <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3 text-sm">
-            <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Not Yet Billed</div>
+            <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Awaiting Lab Bill</div>
             {notYetBilledJobs.length === 0 ? (
               <p className="mt-2 text-sm text-slate-500">Everything's been billed.</p>
             ) : (
-              <div className="mt-2 flex flex-col gap-1.5">
+              <div className="mt-2 flex flex-col gap-2.5">
                 {notYetBilledJobs.map((job) => (
                   <Link key={job.id} href={`/admin/dashboard?jobId=${job.id}`} className="font-mono text-xs text-brand-600 hover:underline">
                     {job.project_number}

@@ -782,16 +782,42 @@ async function processWeeklyLabSummaryEmail(params: {
   const reportDateRange = extractWeeklySummaryDateRangeLabel(pdfText);
   const contentHash = createHash("sha256").update(pdfBuffer).digest("hex");
 
+  // Per Tim, 2026-08-29 — "we need to fix stuff like that so that all
+  // money is accounted for on a job number": confirmed live on this exact
+  // report — Sales Receipt #6515 ($96, "11 James Way, Cambridge, MA") had
+  // no project number printed on it at all, while #6519 ($80, the SAME
+  // address) did, tagged "- 26-0008" — evidently the same job's samples
+  // split across two lab order numbers, with Crystal's own export only
+  // naming the project on one of them. Before falling back to "unmatched",
+  // try resolving a project-number-less transaction by the SAME address
+  // already confirmed elsewhere in THIS report — scoped to this one
+  // report (not a global address search across every job ever) and only
+  // when the address maps to exactly one project number, same
+  // never-guess-through-an-ambiguity discipline as findJobByReportAddress's
+  // own fallback above.
+  const projectByNormalizedAddress = new Map<string, string | null>(); // null = ambiguous, don't use
+  for (const t of transactions) {
+    if (!t.projectNumber || !t.address) continue;
+    const key = normalizeAddressForMatch(t.address);
+    const existing = projectByNormalizedAddress.get(key);
+    if (existing === undefined) {
+      projectByNormalizedAddress.set(key, t.projectNumber);
+    } else if (existing !== null && existing !== t.projectNumber) {
+      projectByNormalizedAddress.set(key, null);
+    }
+  }
+
   const byNum = new Map<string, { transactionType: string; amountCentsByProject: Map<string, number> }>();
   const unmatched: UnmatchedWeeklySummaryTransaction[] = [];
   for (const t of transactions) {
-    if (!t.projectNumber) {
+    const resolvedProjectNumber = t.projectNumber ?? (t.address ? projectByNormalizedAddress.get(normalizeAddressForMatch(t.address)) ?? null : null);
+    if (!resolvedProjectNumber) {
       unmatched.push({ num: t.num, transactionType: t.transactionType, projectNumber: null, address: t.address });
       continue;
     }
     if (!byNum.has(t.num)) byNum.set(t.num, { transactionType: t.transactionType, amountCentsByProject: new Map() });
     const group = byNum.get(t.num)!;
-    group.amountCentsByProject.set(t.projectNumber, (group.amountCentsByProject.get(t.projectNumber) ?? 0) + t.amountCents);
+    group.amountCentsByProject.set(resolvedProjectNumber, (group.amountCentsByProject.get(resolvedProjectNumber) ?? 0) + t.amountCents);
   }
 
   const recorded: { projectNumber: string; jobId: string; num: string }[] = [];

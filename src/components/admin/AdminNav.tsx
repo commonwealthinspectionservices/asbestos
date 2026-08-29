@@ -8,6 +8,7 @@ const NAV_LINKS = [
   { href: "/admin/dashboard", label: "Projects" },
   { href: "/admin/invoices", label: "Invoices" },
   { href: "/admin/lab-invoices", label: "Lab Invoices" },
+  { href: "/admin/weekly-summary", label: "Weekly Summary" },
   { href: "/admin/schedule", label: "Schedule" },
   { href: "/admin/customers", label: "Directory" },
   { href: "/admin/rays-library", label: "Ray's Library" },

@@ -265,20 +265,15 @@ export default function LabInvoicesView() {
                         <span className="text-xs font-semibold text-slate-800">{r.totalCents != null ? formatCents(r.totalCents) : "—"}</span>
                       </button>
                       {expanded && (
-                        <div className="flex flex-col gap-1 border-t border-slate-100 p-3 pt-2">
-                          {r.jobEntries.length > 0 && (
-                            <div className="flex flex-wrap text-xs text-slate-500">
-                              {r.jobEntries.map((e, i) => (
-                                <span key={e.job.id} className="whitespace-nowrap">
-                                  <Link href={`/admin/dashboard?jobId=${e.job.id}`} className="font-mono text-brand-600 hover:underline">
-                                    {e.job.project_number}
-                                  </Link>
-                                  <span className="ml-0.5 text-slate-400">({formatCents(e.amountCents)})</span>
-                                  {i < r.jobEntries.length - 1 && <span className="mr-1">,</span>}
-                                </span>
-                              ))}
+                        <div className="flex flex-col gap-1.5 border-t border-slate-100 p-3 pt-2">
+                          {r.jobEntries.map((e) => (
+                            <div key={e.job.id} className="flex items-baseline justify-between gap-2">
+                              <Link href={`/admin/dashboard?jobId=${e.job.id}`} className="font-mono text-xs text-brand-600 hover:underline">
+                                {e.job.project_number}
+                              </Link>
+                              <span className="whitespace-nowrap text-xs font-semibold text-slate-800">{formatCents(e.amountCents)}</span>
                             </div>
-                          )}
+                          ))}
                           {/* Per Tim, 2026-08-28 — "why does it say $1,108 if
                               only $548 was billed" — this is exactly that
                               gap, shown in place instead of left to look

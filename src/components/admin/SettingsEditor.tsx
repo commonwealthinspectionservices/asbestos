@@ -187,6 +187,17 @@ export default function SettingsEditor() {
         </Field>
       </Section>
 
+      <Section title="License & certificate">
+        <p className="text-xs text-slate-500">
+          A single PDF (license + state certificate, combined) merged into every asbestos report packet.
+          Re-uploading replaces it — no version history.
+        </p>
+        <CredentialsDocumentUpload
+          hasDocument={!!form.credentials_document_path}
+          onUploaded={(path) => update("credentials_document_path", path)}
+        />
+      </Section>
+
       <Section title="Inspectors">
         <div className="space-y-3">
           {form.inspectors.map((inspector, i) => (
@@ -443,6 +454,69 @@ function NumberInput({ value, onChange, step }: { value: number; onChange: (v: n
       value={value}
       onChange={(e) => onChange(Number(e.target.value))}
     />
+  );
+}
+
+function CredentialsDocumentUpload({ hasDocument, onUploaded }: { hasDocument: boolean; onUploaded: (path: string) => void }) {
+  const [file, setFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [uploaded, setUploaded] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  async function upload() {
+    if (!file) return;
+    setUploading(true);
+    setError(null);
+    setUploaded(false);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/admin/settings/credentials-document", { method: "POST", body: formData });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Upload failed");
+      onUploaded(data.settings.credentials_document_path);
+      setUploaded(true);
+      setFile(null);
+      if (inputRef.current) inputRef.current.value = "";
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <div>
+      {hasDocument && (
+        <a
+          href="/api/admin/settings/credentials-document"
+          target="_blank"
+          rel="noreferrer"
+          className="text-sm text-brand-600 hover:underline"
+        >
+          View current file ↗
+        </a>
+      )}
+      {error && <div className="mt-2 rounded bg-red-50 px-2 py-1 text-xs text-red-700">{error}</div>}
+      <div className="mt-2 flex items-center gap-2">
+        <input
+          ref={inputRef}
+          type="file"
+          accept="application/pdf"
+          onChange={(e) => { setFile(e.target.files?.[0] ?? null); setUploaded(false); }}
+          className="text-sm"
+        />
+        <button
+          onClick={upload}
+          disabled={!file || uploading}
+          className="shrink-0 rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 disabled:opacity-50"
+        >
+          {uploading ? "Uploading…" : hasDocument ? "Replace" : "Upload"}
+        </button>
+        {uploaded && <span className="text-xs text-emerald-700">Uploaded.</span>}
+      </div>
+    </div>
   );
 }
 

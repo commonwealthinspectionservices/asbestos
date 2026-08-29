@@ -10,6 +10,30 @@ import { withApiErrors } from "@/lib/api-handler";
 // replaces it.
 const STORAGE_PATH = "_settings/credentials.pdf";
 
+// Lets the Settings page's own "View current file" link open the PDF
+// that's actually merged into report packets — same download pattern as
+// the per-job document route (jobs/[id]/documents/[docId]), just against
+// this one fixed path instead of a job's documents array.
+export const GET = withApiErrors(async (req: NextRequest) => {
+  const unauthorized = requireAdminApi(req);
+  if (unauthorized) return unauthorized;
+
+  const supabase = getSupabaseAdmin();
+  const { data: blob, error: downloadError } = await supabase.storage
+    .from("job-documents")
+    .download(STORAGE_PATH);
+  if (downloadError || !blob) {
+    return NextResponse.json({ error: "No credentials document on file" }, { status: 404 });
+  }
+
+  return new NextResponse(await blob.arrayBuffer(), {
+    headers: {
+      "Content-Type": blob.type || "application/pdf",
+      "Content-Disposition": 'inline; filename="credentials.pdf"',
+    },
+  });
+});
+
 export const POST = withApiErrors(async (req: NextRequest) => {
   const unauthorized = requireAdminApi(req);
   if (unauthorized) return unauthorized;

@@ -65,20 +65,15 @@ export default function LabInvoicesView() {
       .finally(() => setLoading(false));
   }, []);
 
-  // Per Tim, 2026-08-28 — lab fees actually paid out, bucketed by
-  // invoice_sent_at (converted to local time via localDateOnly — see that
-  // function's own comment on why a raw UTC slice would put some
-  // late-evening sends in the wrong bucket). This Week is always Monday
-  // through Friday of the current week specifically (not a rolling 7 days,
-  // and not Sunday-anchored) — a weekend send belongs to neither the week
-  // before nor after. Month/Year to Date are the standard cumulative
-  // reading (1st of the month/year through today). Each carries its own
-  // actual date range for the subtext under it, since the label alone
-  // doesn't say which days that currently covers.
+  // Per Tim, 2026-08-28 — This Week is always Monday through Friday of the
+  // current week specifically (not a rolling 7 days, and not Sunday-
+  // anchored) — a weekend falls in neither the week before nor after.
+  // Month/Year to Date cards were dropped the same day ("the top cell...
+  // is too complicated, we just need a simple way to track how much I'm
+  // spending on samples per week") — this page is now just a plain
+  // week-by-week list, current week first.
   const labFeesSummary = useMemo(() => {
     const now = new Date();
-    const todayStr = ymd(now);
-
     // getDay(): 0=Sun..6=Sat. Days since this week's own Monday — Sunday
     // (0) is 6 days after the prior Monday, everything else is dayOfWeek-1.
     const daysSinceMonday = (now.getDay() + 6) % 7;
@@ -88,28 +83,8 @@ export default function LabInvoicesView() {
     friday.setDate(monday.getDate() + 4);
     const weekStartStr = ymd(monday);
     const weekEndStr = ymd(friday);
-
-    const monthStartStr = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-01`;
-    const yearStartStr = `${now.getFullYear()}-01-01`;
-
-    let monthCents = 0;
-    let yearCents = 0;
-    for (const job of jobs) {
-      if (!job.invoice_sent_at || !job.lab_cost_cents) continue;
-      const sentDateStr = localDateOnly(job.invoice_sent_at);
-      if (sentDateStr >= monthStartStr) monthCents += job.lab_cost_cents;
-      if (sentDateStr >= yearStartStr) yearCents += job.lab_cost_cents;
-    }
-    return {
-      monthCents,
-      yearCents,
-      weekStartStr,
-      weekEndStr,
-      weekRangeLabel: `${formatDate(weekStartStr)} – ${formatDate(weekEndStr)}`,
-      monthRangeLabel: `${formatDate(monthStartStr)} – ${formatDate(todayStr)}`,
-      yearRangeLabel: `${formatDate(yearStartStr)} – ${formatDate(todayStr)}`,
-    };
-  }, [jobs]);
+    return { weekStartStr, weekEndStr, weekRangeLabel: `${formatDate(weekStartStr)} – ${formatDate(weekEndStr)}` };
+  }, []);
 
   // Per Tim, 2026-08-28 — Crystal Analytical bills once a week (Fridays)
   // for everything analyzed that week, and he wants to see a running
@@ -132,34 +107,29 @@ export default function LabInvoicesView() {
     return { estimatedCents };
   }, [jobs, labFeesSummary.weekStartStr, labFeesSummary.weekEndStr]);
 
-  // Per Tim, 2026-08-28 — "once a week is done, we need to put all those
-  // invoices together and file [them] away together": once a week has
-  // actually finished (its Friday is in the past — the in-progress week
-  // stays on the This Week estimate card above, not here) every job whose
-  // fieldwork fell in that week should be filed together in one place,
-  // with a link straight to each one's Lab Invoice document. Grouped by
-  // confirmed_date for the same reason weeklyLabEstimate above uses it,
-  // not invoice_sent_at. Capped to the 10 most recent completed weeks —
-  // this is a filing aid for reconciling recent invoices, not an
-  // unbounded archive.
+  // Per Tim, 2026-08-28 — one plain number per completed week: how much
+  // actually went to the lab that week. Once a week has actually finished
+  // (its Friday is in the past — the in-progress week stays on the This
+  // Week estimate row above, not here), every job whose fieldwork fell in
+  // that week contributes its own lab_cost_cents to that week's total.
+  // Grouped by confirmed_date for the same reason weeklyLabEstimate above
+  // uses it, not invoice_sent_at. Capped to the 10 most recent completed
+  // weeks — a running history, not an unbounded archive; the itemized
+  // per-invoice detail behind these totals lives in "All Lab Invoices"
+  // below for whoever wants to drill in.
   const pastWeeklyLabInvoices = useMemo(() => {
     const todayStr = ymd(new Date());
-    const weeks = new Map<string, { weekStartStr: string; weekEndStr: string; jobs: JobWithCustomer[] }>();
+    const weeks = new Map<string, { weekStartStr: string; weekEndStr: string; actualCents: number }>();
     for (const job of jobs) {
       if (!job.confirmed_date) continue;
       const { weekStartStr, weekEndStr } = mondayFridayOfWeek(job.confirmed_date);
       if (weekEndStr >= todayStr) continue;
-      if (!weeks.has(weekStartStr)) weeks.set(weekStartStr, { weekStartStr, weekEndStr, jobs: [] });
-      weeks.get(weekStartStr)!.jobs.push(job);
+      if (!weeks.has(weekStartStr)) weeks.set(weekStartStr, { weekStartStr, weekEndStr, actualCents: 0 });
+      weeks.get(weekStartStr)!.actualCents += job.lab_cost_cents ?? 0;
     }
     return Array.from(weeks.values())
       .sort((a, b) => (a.weekStartStr < b.weekStartStr ? 1 : -1))
-      .slice(0, 10)
-      .map((week) => ({
-        ...week,
-        actualCents: week.jobs.reduce((sum, j) => sum + (j.lab_cost_cents ?? 0), 0),
-        jobs: [...week.jobs].sort((a, b) => (a.project_number ?? "").localeCompare(b.project_number ?? "")),
-      }));
+      .slice(0, 10);
   }, [jobs]);
 
   // Per Tim, 2026-08-28 — "a list of every single pdf invoice that gets
@@ -256,66 +226,26 @@ export default function LabInvoicesView() {
 
       {!loading && !error && (
         <>
-          <div className="mt-3 flex flex-wrap gap-4 rounded-lg border border-slate-200 bg-white p-3 text-sm">
-            <div>
-              <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">This Week</div>
-              <div className="text-base font-semibold text-slate-800">
-                Est. {formatCents(weeklyLabEstimate.estimatedCents)}
-              </div>
-              <div className="text-xs text-slate-400">{labFeesSummary.weekRangeLabel}</div>
-            </div>
-            <div>
-              <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Month to Date</div>
-              <div className="text-base font-semibold text-slate-800">{formatCents(labFeesSummary.monthCents)}</div>
-              <div className="text-xs text-slate-400">{labFeesSummary.monthRangeLabel}</div>
-            </div>
-            <div>
-              <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Year to Date</div>
-              <div className="text-base font-semibold text-slate-800">{formatCents(labFeesSummary.yearCents)}</div>
-              <div className="text-xs text-slate-400">{labFeesSummary.yearRangeLabel}</div>
-            </div>
-          </div>
-
+          {/* Per Tim, 2026-08-28 — "the top cell... is too complicated, we
+              just need a simple way to track how much I'm spending on
+              samples per week": one plain list, current week first, just a
+              date range and a dollar figure. No job breakdown, no invoice
+              numbers, no Month/Year cards — that detail still lives in "All
+              Lab Invoices" below for whoever wants to drill in. */}
           <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3 text-sm">
-            <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Weekly Lab Invoice Filing</div>
-            {pastWeeklyLabInvoices.length === 0 ? (
-              <p className="mt-2 text-sm text-slate-500">No completed weeks yet.</p>
-            ) : (
-              <div className="mt-2 space-y-3">
-                {pastWeeklyLabInvoices.map((week) => (
-                  <div key={week.weekStartStr} className="border-t border-slate-100 pt-2 first:border-t-0 first:pt-0">
-                    <div className="flex items-baseline justify-between">
-                      <span className="text-xs font-medium text-slate-600">
-                        {formatDate(week.weekStartStr)} – {formatDate(week.weekEndStr)}
-                      </span>
-                      <span className="text-xs font-semibold text-slate-800">{formatCents(week.actualCents)}</span>
-                    </div>
-                    <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
-                      {week.jobs.map((job) => {
-                        const doc = (job.documents ?? []).find((d) => d.kind === "lab_invoice");
-                        return (
-                          <div key={job.id} className="flex items-center gap-1.5 text-xs">
-                            <span className="font-mono text-slate-500">{job.project_number}</span>
-                            {doc ? (
-                              <a
-                                href={`/api/admin/jobs/${job.id}/documents/${doc.id}`}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-brand-600 hover:underline"
-                              >
-                                Lab invoice ↗
-                              </a>
-                            ) : (
-                              <span className="text-slate-400">No lab invoice</span>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
+            <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Weekly Lab Spending</div>
+            <div className="mt-2 space-y-1.5">
+              <div className="flex items-baseline justify-between">
+                <span className="text-slate-600">{labFeesSummary.weekRangeLabel}</span>
+                <span className="font-semibold text-slate-800">Est. {formatCents(weeklyLabEstimate.estimatedCents)}</span>
               </div>
-            )}
+              {pastWeeklyLabInvoices.map((week) => (
+                <div key={week.weekStartStr} className="flex items-baseline justify-between">
+                  <span className="text-slate-600">{formatDate(week.weekStartStr)} – {formatDate(week.weekEndStr)}</span>
+                  <span className="font-semibold text-slate-800">{formatCents(week.actualCents)}</span>
+                </div>
+              ))}
+            </div>
           </div>
 
           <div className="mt-3">

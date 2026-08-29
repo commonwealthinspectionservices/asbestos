@@ -1723,9 +1723,9 @@ function HazardIcon() {
 function DetailField({ label, value, nowrap, trailing }: { label: string; value: React.ReactNode; nowrap?: boolean; trailing?: React.ReactNode }) {
   if (value == null || value === "" || (typeof value === "string" && !value.trim())) return null;
   return (
-    <div className="flex items-start gap-2 text-sm">
-      <span className="w-48 shrink-0 whitespace-nowrap font-bold text-black">{label}</span>
-      <span className={`min-w-0 flex-1 text-black ${nowrap ? "sm:whitespace-nowrap" : ""}`}>{value}</span>
+    <div className="flex flex-col gap-0.5 text-sm sm:flex-row sm:items-start sm:gap-2">
+      <span className="font-bold text-black sm:w-48 sm:shrink-0 sm:whitespace-nowrap">{label}</span>
+      <span className={`break-words text-black sm:min-w-0 sm:flex-1 ${nowrap ? "sm:whitespace-nowrap" : ""}`}>{value}</span>
       {trailing}
     </div>
   );
@@ -2715,7 +2715,7 @@ export function ProjectDetailDialog({
           </div>
         )}
 
-        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto px-3 pb-3 sm:px-5 sm:pb-5">
+        <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-3 pb-3 sm:px-5 sm:pb-5">
 
         {tab === "info" && (
         <>
@@ -2744,7 +2744,7 @@ export function ProjectDetailDialog({
               same order as before (grid-cols-1 default). */}
           <div className="grid grid-cols-1 gap-x-8 gap-y-6 sm:grid-cols-2 sm:items-start">
           <div className="space-y-6 sm:space-y-8">
-          <div className="space-y-3 sm:space-y-2">
+          <div className="space-y-4 sm:space-y-2">
             {(() => {
               const portalBadge = job.source === "subcontractor" && (() => {
                 const sender = subcontractorSenderForJob(job.customers?.email);
@@ -2858,7 +2858,7 @@ export function ProjectDetailDialog({
               nowrap
             />
           </div>
-          <div className="space-y-3 sm:space-y-2">
+          <div className="space-y-4 sm:space-y-2">
             {job.source === "subcontractor" ? (
               job.status === "needs_scheduling" ? (
                 <>
@@ -2931,15 +2931,15 @@ export function ProjectDetailDialog({
               </>
             )}
             {job.confirmation_sent_at && (
-              <div className="flex items-start gap-2 text-xs text-slate-400">
-                <span className="w-32 shrink-0 uppercase font-bold">Confirmation Sent</span>
-                <span className="min-w-0 flex-1">{formatDateTime(job.confirmation_sent_at)}</span>
+              <div className="flex flex-col gap-0.5 text-xs text-slate-400 sm:flex-row sm:items-start sm:gap-2">
+                <span className="uppercase font-bold sm:w-32 sm:shrink-0">Confirmation Sent</span>
+                <span className="break-words sm:min-w-0 sm:flex-1">{formatDateTime(job.confirmation_sent_at)}</span>
               </div>
             )}
             {job.reminder_sent_at && (
-              <div className="flex items-start gap-2 text-xs text-slate-400">
-                <span className="w-32 shrink-0 uppercase font-bold">Reminder Sent</span>
-                <span className="min-w-0 flex-1">{formatDateTime(job.reminder_sent_at)}</span>
+              <div className="flex flex-col gap-0.5 text-xs text-slate-400 sm:flex-row sm:items-start sm:gap-2">
+                <span className="uppercase font-bold sm:w-32 sm:shrink-0">Reminder Sent</span>
+                <span className="break-words sm:min-w-0 sm:flex-1">{formatDateTime(job.reminder_sent_at)}</span>
               </div>
             )}
             {job.status === "needs_scheduling" && job.source !== "subcontractor" && job.source !== "email_intake" && (
@@ -2957,14 +2957,14 @@ export function ProjectDetailDialog({
                 ) : null
               }
             />
-            <div className="flex items-start gap-2 text-sm">
-              <span className="w-32 shrink-0 font-bold text-black">Scope of Work</span>
-              <span className="min-w-0 flex-1 text-black">{job.scope_of_work || "—"}</span>
+            <div className="flex flex-col gap-0.5 text-sm sm:flex-row sm:items-start sm:gap-2">
+              <span className="font-bold text-black sm:w-48 sm:shrink-0 sm:whitespace-nowrap">Scope of Work</span>
+              <span className="break-words text-black sm:min-w-0 sm:flex-1">{job.scope_of_work || "—"}</span>
             </div>
             {job.subcontractor_sample_types.length > 0 && (
-              <div className="flex items-start gap-2 text-sm">
-                <span className="w-32 shrink-0 font-bold text-black">Samples</span>
-                <ul className="min-w-0 flex-1 list-disc space-y-0.5 pl-4 text-black">
+              <div className="flex flex-col gap-0.5 text-sm sm:flex-row sm:items-start sm:gap-2">
+                <span className="font-bold text-black sm:w-48 sm:shrink-0 sm:whitespace-nowrap">Samples</span>
+                <ul className="list-disc break-words pl-4 text-black sm:min-w-0 sm:flex-1 sm:space-y-0.5">
                   {job.subcontractor_sample_types.map((s, i) => <li key={i}>{s}</li>)}
                 </ul>
               </div>
@@ -2976,7 +2976,7 @@ export function ProjectDetailDialog({
               column now (see the grid opened above) — Job site contact
               stays right above Customer contact within that column. */}
           <div className="space-y-6 sm:space-y-8">
-          <div className="space-y-3 sm:space-y-2">
+          <div className="space-y-4 sm:space-y-2">
             <h4 className="text-sm font-bold tracking-wide text-black underline">Job site contact</h4>
             <DetailField label="Name" value={job.site_contact_name ? toTitleCase(job.site_contact_name) : "—"} />
             <DetailField
@@ -2992,7 +2992,7 @@ export function ProjectDetailDialog({
             <DetailField label="Email" value={job.site_contact_email} nowrap />
           </div>
           {job.report_emails && job.report_emails.trim() && (
-            <div className="space-y-3 sm:space-y-2">
+            <div className="space-y-4 sm:space-y-2">
               <h4 className="text-sm font-bold tracking-wide text-black underline">Email results to</h4>
               {job.report_emails.split(",").map((e) => e.trim()).filter(Boolean).map((addr, i) => {
                 const contact = companyContactsForDisplay.find((c) => c.email?.toLowerCase() === addr.toLowerCase());
@@ -3007,7 +3007,7 @@ export function ProjectDetailDialog({
           {/* Per Tim, 2026-08-28 — dropped the 2-column grid here too, same
               single evenly-spaced left-aligned list at every width. */}
           <div className="space-y-6">
-            <div className="space-y-3 sm:space-y-2">
+            <div className="space-y-4 sm:space-y-2">
               {/* Per Tim, 2026-08-28 — "Company contact" once this job's
                   customer actually belongs to a company, matching the
                   naming style everywhere else on this tab (Job site
@@ -3041,7 +3041,7 @@ export function ProjectDetailDialog({
             {!job.customers?.is_individual && job.customers?.companies && (
               job.customers.companies.billing_contact || job.customers.companies.phone || job.customers.companies.billing_address
             ) && (
-              <div className="space-y-3 sm:space-y-2">
+              <div className="space-y-4 sm:space-y-2">
                 <h4 className="text-sm font-bold tracking-wide text-black underline">Company info</h4>
                 {job.customers.companies.billing_contact && (
                   <DetailField
@@ -3068,7 +3068,7 @@ export function ProjectDetailDialog({
           </div>
           </div>
           {job.notes && job.notes.trim() && (
-            <div className="space-y-3 sm:space-y-2">
+            <div className="space-y-4 sm:space-y-2">
               <h4 className="text-sm font-bold tracking-wide text-black underline">Notes</h4>
               <ul className="list-disc space-y-1 pl-5 text-sm text-black">
                 {job.notes.split("\n").map((line) => line.trim()).filter(Boolean).map((line, i) => (
@@ -3078,7 +3078,7 @@ export function ProjectDetailDialog({
             </div>
           )}
           {(job.job_classification || job.payment_method || job.po_number || job.invoice_number) && (
-            <div className="space-y-2">
+            <div className="space-y-4 sm:space-y-2">
               <h4 className="text-sm font-bold tracking-wide text-black underline">Job details</h4>
               <DetailField label="Classification" value={job.job_classification} />
               <DetailField label="Payment method" value={job.payment_method} />

@@ -47,10 +47,10 @@ export default function LabInvoicesView() {
     fetch("/api/admin/jobs")
       .then(async (r) => {
         const data = await r.json();
-        if (!r.ok) throw new Error(data.error ?? "Failed to load lab invoices");
+        if (!r.ok) throw new Error(data.error ?? "Failed to load lab costs");
         setJobs(data.jobs);
       })
-      .catch((e) => setError(e instanceof Error ? e.message : "Failed to load lab invoices"))
+      .catch((e) => setError(e instanceof Error ? e.message : "Failed to load lab costs"))
       .finally(() => setLoading(false));
   }, []);
 
@@ -154,7 +154,7 @@ export default function LabInvoicesView() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
-      <h1 className="text-lg font-semibold text-slate-800">Lab Invoices</h1>
+      <h1 className="text-lg font-semibold text-slate-800">Lab Costs</h1>
 
       {loading && <p className="mt-4 text-sm text-slate-500">Loading…</p>}
       {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
@@ -169,11 +169,10 @@ export default function LabInvoicesView() {
               covers and each one's own share, so the total is still
               traceable, just not shown until asked for. */}
           <div className="mt-3">
-            <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Weekly Reports</div>
             {weeklyReports.length === 0 ? (
-              <p className="mt-2 rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-500">No weekly reports received yet.</p>
+              <p className="rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-500">No weekly reports received yet.</p>
             ) : (
-              <div className="mt-2 flex flex-col gap-2">
+              <div className="flex flex-col gap-2">
                 {weeklyReports.map((r) => {
                   const expanded = expandedReportKeys.has(r.key);
                   return (

@@ -7,7 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 const NAV_LINKS = [
   { href: "/admin/dashboard", label: "Projects" },
   { href: "/admin/invoices", label: "Invoices" },
-  { href: "/admin/lab-invoices", label: "Lab Invoices" },
+  { href: "/admin/lab-invoices", label: "Lab Costs" },
   { href: "/admin/margins", label: "Margins" },
   { href: "/admin/schedule", label: "Schedule" },
   { href: "/admin/customers", label: "Directory" },

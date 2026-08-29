@@ -1,4 +1,4 @@
-import { randomUUID } from "crypto";
+import { randomUUID, createHash } from "crypto";
 // Imports the implementation directly rather than the package root — see
 // src/app/api/admin/jobs/[id]/documents/route.ts for why.
 import pdfParse from "pdf-parse/lib/pdf-parse.js";
@@ -33,7 +33,13 @@ import {
   extractMoldSampleResults,
   extractSampledDate,
 } from "@/lib/parse-lab-report";
-import { isLabInvoiceText, isWeeklyLabSummaryText, extractWeeklyLabSummaryTransactions } from "@/lib/parse-lab-invoice";
+import {
+  isLabInvoiceText,
+  isWeeklyLabSummaryText,
+  extractWeeklyLabSummaryTransactions,
+  extractWeeklySummaryTotalCents,
+  extractWeeklySummaryDateRangeLabel,
+} from "@/lib/parse-lab-invoice";
 import { defaultInvoiceLineItems, invoiceLineItemsTotalCents } from "@/lib/invoice-defaults";
 import { computeLabCostCentsFromDocuments } from "@/lib/lab-cost";
 import { formatCents } from "@/lib/pricing";
@@ -742,6 +748,16 @@ async function processWeeklyLabSummaryEmail(params: {
   const supabase = getSupabaseAdmin();
 
   const transactions = extractWeeklyLabSummaryTransactions(pdfText);
+  // Per Tim, 2026-08-28 — "I just really want to go off those weekly
+  // reports... it should be the main outline": the report's own printed
+  // grand total/billing period, not a total this system reconstructs
+  // itself — set identically on every document this email produces (see
+  // JobDocument's own comment) and grouped back together by contentHash,
+  // computed once here since every job below gets the exact same
+  // unmodified pdfBuffer re-uploaded as its own copy.
+  const reportTotalCents = extractWeeklySummaryTotalCents(pdfText);
+  const reportDateRange = extractWeeklySummaryDateRangeLabel(pdfText);
+  const contentHash = createHash("sha256").update(pdfBuffer).digest("hex");
 
   const byNum = new Map<string, { transactionType: string; amountCentsByProject: Map<string, number> }>();
   const unmatched: UnmatchedWeeklySummaryTransaction[] = [];
@@ -795,6 +811,9 @@ async function processWeeklyLabSummaryEmail(params: {
         project_number_mismatch: null,
         lab_invoice_number: num,
         amount_cents: amountCents,
+        content_hash: contentHash,
+        report_total_cents: reportTotalCents,
+        report_date_range: reportDateRange,
       }));
       const mergedDocuments = replaceLabInvoiceDocumentByNumber(job.documents ?? [], newDocuments, num);
 

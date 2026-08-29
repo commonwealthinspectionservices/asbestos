@@ -201,6 +201,10 @@ export interface JobDocument {
   lab_invoice_number?: string | null;
   /** This job's own dollar share of this real invoice/receipt/refund, in cents (negative for a Refund) — lab_invoice only. See computeLabCostCentsFromDocuments in lib/lab-cost.ts: Job's own lab_cost_cents is now always derived from these rather than written directly, so a job billed across more than one invoice number (a real weekly report showed one job split across three separate Sales Receipts) sums correctly instead of the writers racing to overwrite/add to one shared scalar. Absent on documents uploaded before this field existed — see /api/admin/backfill-lab-invoice-amounts for retroactively filling it in. */
   amount_cents?: number | null;
+  /** The WHOLE weekly report's own printed grand total, in cents — not this job's own share (see amount_cents for that). Set identically on every lab_invoice document that came from the same real QuickBooks weekly-summary email (see processWeeklyLabSummaryEmail in lib/lab-email.ts), grouped back together via content_hash — LabInvoicesView reads it off any one document in that group to show the real per-report total Tim actually sees in his inbox, rather than a total this system reconstructed itself. Null/absent on a document not from a weekly summary, or one whose report total couldn't be read off the page. */
+  report_total_cents?: number | null;
+  /** The weekly report's own printed billing period ("August 23-29, 2026"), verbatim — same content_hash-grouping and weekly-summary-only scope as report_total_cents above. */
+  report_date_range?: string | null;
 }
 
 /** A photo uploaded to a project's Photos tab (job-photos storage bucket) — either side can add these, unlike `documents` which is admin-only lab paperwork. */

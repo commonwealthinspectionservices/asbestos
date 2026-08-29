@@ -5,6 +5,8 @@ import {
   extractInvoiceLineItems,
   isWeeklyLabSummaryText,
   extractWeeklyLabSummaryTransactions,
+  extractWeeklySummaryTotalCents,
+  extractWeeklySummaryDateRangeLabel,
 } from "../parse-lab-invoice";
 import { extractReportProjectNumber, detectLabInfo } from "../parse-lab-report";
 
@@ -340,6 +342,26 @@ describe("extractWeeklyLabSummaryTransactions", () => {
     const job0007 = transactions.filter((t) => t.projectNumber === "26-0007");
     expect(job0007.map((t) => t.num)).toEqual(["6506", "6510", "6512"]);
     expect(job0007.reduce((sum, t) => sum + t.amountCents, 0)).toBe(22000);
+  });
+});
+
+describe("extractWeeklySummaryTotalCents", () => {
+  it("reads the report's own printed grand total ($1,108.00)", () => {
+    expect(extractWeeklySummaryTotalCents(WEEKLY_SUMMARY)).toBe(110_800);
+  });
+
+  it("returns null for a document that isn't a weekly summary", () => {
+    expect(extractWeeklySummaryTotalCents(QUICKBOOKS_INVOICE)).toBeNull();
+  });
+});
+
+describe("extractWeeklySummaryDateRangeLabel", () => {
+  it("reads the report's own printed billing period", () => {
+    expect(extractWeeklySummaryDateRangeLabel(WEEKLY_SUMMARY)).toBe("August 23-29, 2026");
+  });
+
+  it("returns null for a document that isn't a weekly summary", () => {
+    expect(extractWeeklySummaryDateRangeLabel(QUICKBOOKS_INVOICE)).toBeNull();
   });
 });
 

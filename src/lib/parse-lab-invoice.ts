@@ -147,3 +147,34 @@ export function extractWeeklyLabSummaryTransactions(pdfText: string): WeeklyLabS
   }
   return transactions;
 }
+
+// Per Tim, 2026-08-28 — "I just really want to go off those weekly
+// reports... it should be the main outline": rather than inferring a
+// week's real lab cost by summing whatever this system happened to
+// attribute to jobs, this pulls the report's own printed grand total
+// straight off the page — the same number Tim sees when he opens the real
+// PDF. Anchored on "Total for Commonwealth Inspection" specifically (his
+// own company's subtotal), not the bare "TOTAL" line right after it — this
+// report's own title ("Commonwealth Inspection Weekly Report") means the
+// two have always matched on every real example seen, but the named
+// subtotal is the one that's unambiguously ours if Crystal's own template
+// ever grows to list other clients in the same document. Same
+// concatenated-numbers shape as the transaction rows above: "80.00
+// $1,108.00" is quantity then dollar total, with no space in extracted
+// text between the label and the numbers that follow it.
+const REPORT_TOTAL_PATTERN = /Total for Commonwealth Inspection[\s\S]{0,60}?[\d,]+\.\d{2}\$([\d,]+\.\d{2})/i;
+
+export function extractWeeklySummaryTotalCents(pdfText: string): number | null {
+  const match = pdfText.match(REPORT_TOTAL_PATTERN);
+  return match ? Math.round(parseFloat(match[1].replace(/,/g, "")) * 100) : null;
+}
+
+// The report's own printed billing period ("August 23-29, 2026") — sits on
+// its own line directly under the "Commonwealth Inspection Weekly Report"
+// heading, confirmed against a real example.
+const REPORT_DATE_RANGE_PATTERN = /Commonwealth Inspection Weekly Report\s*\n?\s*([A-Za-z]+\s+\d{1,2}\s*-\s*\d{1,2},\s*\d{4})/;
+
+export function extractWeeklySummaryDateRangeLabel(pdfText: string): string | null {
+  const match = pdfText.match(REPORT_DATE_RANGE_PATTERN);
+  return match ? match[1].replace(/\s+/g, " ").trim() : null;
+}

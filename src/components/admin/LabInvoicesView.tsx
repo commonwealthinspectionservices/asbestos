@@ -86,51 +86,61 @@ export default function LabInvoicesView() {
     return { weekStartStr, weekEndStr, weekRangeLabel: `${formatDate(weekStartStr)} – ${formatDate(weekEndStr)}` };
   }, []);
 
-  // Per Tim, 2026-08-28 — Crystal Analytical bills once a week (Fridays)
-  // for everything analyzed that week, and he wants to see a running
-  // estimate of what that invoice will total *before* it arrives (see
-  // lib/lab-rate-estimate.ts for the rates this is based on). Bucketed by
-  // confirmed_date — when the fieldwork/sampling actually happened, the
-  // thing that determines which week's lab invoice a job's samples land
-  // on — not invoice_sent_at (that's when *our* invoice to the customer
-  // goes out, a separate, often much later, event). Estimate only, never
-  // an "actual" figure — the real invoice for an in-progress week doesn't
-  // exist until Friday, so there's nothing real to show yet (see
-  // allLabInvoices below for the real thing, once it's actually uploaded).
-  const weeklyLabEstimate = useMemo(() => {
-    let estimatedCents = 0;
+  // Per Tim, 2026-08-28 — "I just really want to go off those weekly
+  // reports... it should be the main outline": one row per REAL weekly
+  // summary email Crystal/QuickBooks actually sent (grouped by
+  // content_hash — every lab_invoice document that email produced, across
+  // every job it covered, shares the same hash, since they're all
+  // unmodified copies of the same downloaded PDF), showing that report's
+  // own printed date range and grand total (report_date_range/
+  // report_total_cents — see their own comments on JobDocument) rather
+  // than a total this system reconstructs by summing whatever it happened
+  // to attribute to jobs. That's the real ground truth Tim actually sees
+  // in his inbox every Friday at 5.
+  const weeklyReports = useMemo(() => {
+    const groups = new Map<string, { dateRange: string | null; totalCents: number | null; receivedAt: string }>();
     for (const job of jobs) {
-      if (!job.confirmed_date) continue;
-      if (job.confirmed_date < labFeesSummary.weekStartStr || job.confirmed_date > labFeesSummary.weekEndStr) continue;
-      estimatedCents += estimatedLabCostCents(job);
+      for (const doc of job.documents ?? []) {
+        if (doc.kind !== "lab_invoice" || !doc.content_hash || doc.report_total_cents == null) continue;
+        const existing = groups.get(doc.content_hash);
+        if (!existing) {
+          groups.set(doc.content_hash, { dateRange: doc.report_date_range ?? null, totalCents: doc.report_total_cents, receivedAt: doc.uploaded_at });
+        } else if (doc.uploaded_at < existing.receivedAt) {
+          existing.receivedAt = doc.uploaded_at;
+        }
+      }
     }
-    return { estimatedCents };
+    return Array.from(groups.entries())
+      .map(([hash, g]) => ({ hash, ...g }))
+      .sort((a, b) => (a.receivedAt < b.receivedAt ? 1 : -1));
+  }, [jobs]);
+
+  // Per Tim, 2026-08-28 — "even this week I still don't know what my exact
+  // lab costs were, and some jobs haven't been billed yet, I need to keep
+  // track of this": rather than one blended estimate for the whole week,
+  // this shows every job whose fieldwork fell in the current week
+  // individually, flagged either "billed" (it already has a real
+  // lab_invoice document — job.lab_cost_cents, now always derived from
+  // those, see lib/lab-cost.ts) or "not yet billed" (only an estimate
+  // exists, from lib/lab-rate-estimate.ts, until Friday's real report
+  // covers it). Bucketed by confirmed_date, same reasoning as
+  // weeklyReports' own week boundaries — when the fieldwork actually
+  // happened, not when our own invoice to the customer went out.
+  const thisWeekJobs = useMemo(() => {
+    return jobs
+      .filter((j) => j.confirmed_date && j.confirmed_date >= labFeesSummary.weekStartStr && j.confirmed_date <= labFeesSummary.weekEndStr)
+      .map((job) => {
+        const billed = (job.documents ?? []).some((d) => d.kind === "lab_invoice");
+        return { job, billed, cents: billed ? job.lab_cost_cents ?? 0 : estimatedLabCostCents(job) };
+      })
+      .sort((a, b) => (a.job.project_number ?? "").localeCompare(b.job.project_number ?? ""));
   }, [jobs, labFeesSummary.weekStartStr, labFeesSummary.weekEndStr]);
 
-  // Per Tim, 2026-08-28 — one plain number per completed week: how much
-  // actually went to the lab that week. Once a week has actually finished
-  // (its Friday is in the past — the in-progress week stays on the This
-  // Week estimate row above, not here), every job whose fieldwork fell in
-  // that week contributes its own lab_cost_cents to that week's total.
-  // Grouped by confirmed_date for the same reason weeklyLabEstimate above
-  // uses it, not invoice_sent_at. Capped to the 10 most recent completed
-  // weeks — a running history, not an unbounded archive; the itemized
-  // per-invoice detail behind these totals lives in "All Lab Invoices"
-  // below for whoever wants to drill in.
-  const pastWeeklyLabInvoices = useMemo(() => {
-    const todayStr = ymd(new Date());
-    const weeks = new Map<string, { weekStartStr: string; weekEndStr: string; actualCents: number }>();
-    for (const job of jobs) {
-      if (!job.confirmed_date) continue;
-      const { weekStartStr, weekEndStr } = mondayFridayOfWeek(job.confirmed_date);
-      if (weekEndStr >= todayStr) continue;
-      if (!weeks.has(weekStartStr)) weeks.set(weekStartStr, { weekStartStr, weekEndStr, actualCents: 0 });
-      weeks.get(weekStartStr)!.actualCents += job.lab_cost_cents ?? 0;
-    }
-    return Array.from(weeks.values())
-      .sort((a, b) => (a.weekStartStr < b.weekStartStr ? 1 : -1))
-      .slice(0, 10);
-  }, [jobs]);
+  const thisWeekSummary = useMemo(() => {
+    const billedCents = thisWeekJobs.filter((r) => r.billed).reduce((sum, r) => sum + r.cents, 0);
+    const notYetBilledCents = thisWeekJobs.filter((r) => !r.billed).reduce((sum, r) => sum + r.cents, 0);
+    return { billedCents, notYetBilledCents };
+  }, [thisWeekJobs]);
 
   // Per Tim, 2026-08-28 — "a list of every single pdf invoice that gets
   // sent to me by the lab and when it was sent to me and which dates it
@@ -226,26 +236,59 @@ export default function LabInvoicesView() {
 
       {!loading && !error && (
         <>
-          {/* Per Tim, 2026-08-28 — "the top cell... is too complicated, we
-              just need a simple way to track how much I'm spending on
-              samples per week": one plain list, current week first, just a
-              date range and a dollar figure. No job breakdown, no invoice
-              numbers, no Month/Year cards — that detail still lives in "All
-              Lab Invoices" below for whoever wants to drill in. */}
+          {/* Per Tim, 2026-08-28 — "even this week I still don't know what
+              my exact lab costs were, and some jobs haven't been billed
+              yet": every job this week, one line each, flagged billed
+              (real $) vs not yet billed (estimate) instead of one blended
+              number. */}
           <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3 text-sm">
-            <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Weekly Lab Spending</div>
-            <div className="mt-2 space-y-1.5">
-              <div className="flex items-baseline justify-between">
-                <span className="text-slate-600">{labFeesSummary.weekRangeLabel}</span>
-                <span className="font-semibold text-slate-800">Est. {formatCents(weeklyLabEstimate.estimatedCents)}</span>
+            <div className="flex flex-wrap items-baseline justify-between gap-x-4">
+              <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">This Week — {labFeesSummary.weekRangeLabel}</div>
+              <div className="whitespace-nowrap text-xs text-slate-500">
+                {formatCents(thisWeekSummary.billedCents)} billed
+                {thisWeekSummary.notYetBilledCents > 0 && <> · Est. {formatCents(thisWeekSummary.notYetBilledCents)} more</>}
               </div>
-              {pastWeeklyLabInvoices.map((week) => (
-                <div key={week.weekStartStr} className="flex items-baseline justify-between">
-                  <span className="text-slate-600">{formatDate(week.weekStartStr)} – {formatDate(week.weekEndStr)}</span>
-                  <span className="font-semibold text-slate-800">{formatCents(week.actualCents)}</span>
-                </div>
-              ))}
             </div>
+            {thisWeekJobs.length === 0 ? (
+              <p className="mt-2 text-sm text-slate-500">No jobs yet this week.</p>
+            ) : (
+              <div className="mt-2 space-y-1.5">
+                {thisWeekJobs.map(({ job, billed, cents }) => (
+                  <div key={job.id} className="flex items-baseline justify-between gap-2">
+                    <Link href={`/admin/dashboard?jobId=${job.id}`} className="font-mono text-xs text-brand-600 hover:underline">
+                      {job.project_number}
+                    </Link>
+                    {billed ? (
+                      <span className="whitespace-nowrap text-xs font-semibold text-slate-800">{formatCents(cents)}</span>
+                    ) : (
+                      <span className="whitespace-nowrap text-xs text-amber-600">
+                        Not yet billed <span className="text-slate-400">(est. {formatCents(cents)})</span>
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Per Tim, 2026-08-28 — "I just really want to go off those
+              weekly reports... it should be the main outline": one row per
+              real Friday email, the report's own printed total — ground
+              truth, not a number this system reconstructed. */}
+          <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3 text-sm">
+            <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Weekly Reports</div>
+            {weeklyReports.length === 0 ? (
+              <p className="mt-2 text-sm text-slate-500">No weekly reports received yet.</p>
+            ) : (
+              <div className="mt-2 space-y-1.5">
+                {weeklyReports.map((r) => (
+                  <div key={r.hash} className="flex items-baseline justify-between">
+                    <span className="text-slate-600">{r.dateRange ?? formatDate(localDateOnly(r.receivedAt))}</span>
+                    <span className="font-semibold text-slate-800">{r.totalCents != null ? formatCents(r.totalCents) : "—"}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="mt-3">

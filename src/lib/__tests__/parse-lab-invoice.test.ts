@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { isLabInvoiceText, extractLabInvoiceTotalCents, extractInvoiceLineItems } from "../parse-lab-invoice";
+import {
+  isLabInvoiceText,
+  extractLabInvoiceTotalCents,
+  extractInvoiceLineItems,
+  isWeeklyLabSummaryText,
+  extractWeeklyLabSummaryTransactions,
+} from "../parse-lab-invoice";
 import { extractReportProjectNumber, detectLabInfo } from "../parse-lab-report";
 
 // Excerpt of a real EMSL billing invoice's extracted text (not a results
@@ -132,6 +138,208 @@ describe("isLabInvoiceText / extractInvoiceLineItems on a QuickBooks invoice", (
     expect(extractInvoiceLineItems(QUICKBOOKS_INVOICE)).toEqual([
       { projectNumber: "26-0004", amountCents: 12000 },
     ]);
+  });
+});
+
+// Real pdf-parse output (verbatim, via `pdf-parse/lib/pdf-parse.js` against
+// the actual PDF Tim forwarded, 2026-08-28) — QuickBooks' own weekly rollup
+// email, a completely different template from any per-invoice PDF above:
+// one table, every transaction (Invoice/Sales Receipt/Refund) billed that
+// week, columns run together with no space in extracted text (see
+// TRANSACTION_ROW_PATTERN's own comment). 17 line items across 15 distinct
+// Nums, one Refund, several jobs with no project number printed at all.
+const WEEKLY_SUMMARY = `Cash Basis  Friday, August 28, 2026 05:00 PM GMT-04:00
+  1/1
+Crystal Analytical LLC
+Commonwealth Inspection Weekly Report
+August 23-29, 2026
+Transaction dateTransaction typeNumProduct/Service full nameDescriptionQuantitySales priceAmountBalance
+Commonwealth Inspection Services,
+LLC
+08/26/2026Invoice6491
+Analytical Services:Asbestos
+Analysis:PLM - Bulk CVE, Per-Layer
+- 24 Hr TAT
+2601003627 - 61 Partridge St.,
+Boston, MA - 26-0003
+8.0012.0096.0096.00
+08/26/2026Invoice6491
+Analytical Services:Asbestos
+Analysis:PLM - Bulk CVE, Per-Layer
+- 24 Hr TAT
+2601003617 - 36 Drummer Rd.,
+Acton, MA - 26-0002
+12.0012.00144.00240.00
+08/26/2026Invoice6491
+Analytical Services:Mold
+Analysis:Mold - Spore Trap Analysis
+- 24Hr TAT
+2601003618 - 36 Drummer Rd.,
+Acton, MA - 26-0002
+4.0020.0080.00320.00
+08/26/2026Invoice6491
+Analytical Services:Mold
+Analysis:Mold - Direct Examination -
+24Hr TAT
+2601003618 - 36 Drummer Rd.,
+Acton, MA - 26-0002
+1.0020.0020.00340.00
+08/26/2026Invoice6491
+Analytical Services:Asbestos
+Analysis:PLM - Bulk CVE, Per-Layer
+- 24 Hr TAT
+2601003626 - 17 Hastings St.,
+Framingham, MA - 26-0001
+4.0012.0048.00388.00
+08/26/2026Invoice6497
+Analytical Services:Asbestos
+Analysis:PLM - Bulk CVE, Per-Layer
+- 24 Hr TAT
+2601003647 - 690 Blue Hill Ave,
+Dorchester, MA - 26-0004
+10.0012.00120.00508.00
+08/26/2026Invoice6498
+Analytical Services:Asbestos
+Analysis:PLM - Bulk CVE, Per-Layer
+- 24 Hr TAT
+2601003646 - 29 Tilesboro St., Unit
+3, Dorchester, MA - 26-0005
+8.0012.0096.00604.00
+08/26/2026Sales Receipt6504
+Analytical Services:Asbestos
+Analysis:PLM - Bulk CVE, Per-Layer
+- 24 Hr TAT
+2601003653 - 150 Bishops Forest
+Dr., Waltham, MA
+4.0012.0048.00652.00
+08/26/2026Refund6505
+Analytical Services:Asbestos
+Analysis:PLM - Bulk CVE, Per-Layer
+- 24 Hr TAT
+2601003653 - 150 Bishops Forest
+Dr., Waltham, MA
+-4.0012.00-48.00604.00
+08/26/2026Sales Receipt6506
+Analytical Services:Asbestos
+Analysis:PLM - Bulk CVE, Per-Layer
+- 24 Hr TAT
+2601003655 - 150 Bishops Forest
+Drive, Waltham, MA - 26-0007
+8.0015.00120.00724.00
+08/26/2026Sales Receipt6510
+Analytical Services:Mold
+Analysis:Mold - Direct Examination -
+24Hr TAT
+2601003653 - 150 Bishops Forest
+Dr., Waltham, MA - 26-0007
+2.0020.0040.00764.00
+08/26/2026Sales Receipt6512
+Analytical Services:Mold
+Analysis:Mold - Spore Trap Analysis
+- 24Hr TAT
+2601003654 - 150 Bishops Forest
+Dr., Waltham, MA - 26-0007
+3.0020.0060.00824.00
+08/26/2026Sales Receipt6515
+Analytical Services:Asbestos
+Analysis:PLM - Bulk CVE, Per-Layer
+- 24 Hr TAT
+2601003663 - 11 James Way,
+Cambridge, MA
+8.0012.0096.00920.00
+08/26/2026Sales Receipt6516
+Analytical Services:Asbestos
+Analysis:PLM - Bulk CVE, Per-Layer
+- 24 Hr TAT
+2601003656 - 89 Trefton Ave,
+Weymouth, MA - 26-0006
+4.0012.0048.00968.00
+08/26/2026Sales Receipt6519
+Analytical Services:Mold
+Analysis:Mold - Spore Trap Analysis
+- 24Hr TAT
+2601003664 - 11 James Way,
+Cambridge, MA - 26-0008
+3.0020.0060.001,028.00
+08/26/2026Sales Receipt6519
+Analytical Services:Mold
+Analysis:Mold - Direct Examination -
+24Hr TAT
+2601003664 - 11 James Way,
+Cambridge, MA - 26-0008
+1.0020.0020.001,048.00
+08/28/2026Sales Receipt6545
+Analytical Services:Asbestos
+Analysis:PLM - Bulk CVE, Per-Layer
+- 3Hr TAT
+2601003704 - 1 Riverview Rd.,
+Hingham, MA - 26-0009
+4.0015.0060.001,108.00
+Total for Commonwealth Inspection
+Services, LLC
+80.00$1,108.00
+TOTAL80.00$1,108.00`;
+
+describe("isWeeklyLabSummaryText", () => {
+  it("recognizes a real QuickBooks weekly summary", () => {
+    expect(isWeeklyLabSummaryText(WEEKLY_SUMMARY)).toBe(true);
+  });
+
+  it("does not mistake a per-invoice PDF for a weekly summary", () => {
+    expect(isWeeklyLabSummaryText(QUICKBOOKS_INVOICE)).toBe(false);
+    expect(isWeeklyLabSummaryText(INVOICE_8_SAMPLES)).toBe(false);
+  });
+});
+
+describe("extractWeeklyLabSummaryTransactions", () => {
+  const transactions = extractWeeklyLabSummaryTransactions(WEEKLY_SUMMARY);
+
+  it("extracts every one of the 17 real line items", () => {
+    expect(transactions).toHaveLength(17);
+  });
+
+  it("totals to exactly the report's own grand total ($1,108.00)", () => {
+    expect(transactions.reduce((sum, t) => sum + t.amountCents, 0)).toBe(110_800);
+  });
+
+  it("reads transaction type, num, and project number off the first (Invoice) row", () => {
+    expect(transactions[0]).toMatchObject({
+      num: "6491",
+      transactionType: "Invoice",
+      projectNumber: "26-0003",
+      amountCents: 9600,
+    });
+  });
+
+  it("sums multiple line items under the same num for the same job (mold sub-methods, #6491/26-0002)", () => {
+    const num6491Job0002 = transactions.filter((t) => t.num === "6491" && t.projectNumber === "26-0002");
+    expect(num6491Job0002.map((t) => t.amountCents)).toEqual([14400, 8000, 2000]);
+  });
+
+  it("reads a Sales Receipt row correctly, including its rush rate ($15/sample, not the standard $12)", () => {
+    const rushRow = transactions.find((t) => t.num === "6545");
+    expect(rushRow).toMatchObject({
+      transactionType: "Sales Receipt",
+      projectNumber: "26-0009",
+      amountCents: 6000,
+    });
+  });
+
+  it("reads a Refund row as a negative amount", () => {
+    const refundRow = transactions.find((t) => t.num === "6505");
+    expect(refundRow).toMatchObject({ transactionType: "Refund", amountCents: -4800 });
+  });
+
+  it("leaves projectNumber null for a line with no FLI project number printed at all", () => {
+    const unmatchedRow = transactions.find((t) => t.num === "6504");
+    expect(unmatchedRow?.projectNumber).toBeNull();
+    expect(unmatchedRow?.address).toBe("150 Bishops Forest Dr., Waltham, MA");
+  });
+
+  it("groups the same job's split billing across separate Sales Receipt nums (26-0007: #6506/#6510/#6512)", () => {
+    const job0007 = transactions.filter((t) => t.projectNumber === "26-0007");
+    expect(job0007.map((t) => t.num)).toEqual(["6506", "6510", "6512"]);
+    expect(job0007.reduce((sum, t) => sum + t.amountCents, 0)).toBe(22000);
   });
 });
 

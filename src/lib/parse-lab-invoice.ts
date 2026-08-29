@@ -79,3 +79,71 @@ export function extractLabInvoiceTotalCents(pdfText: string): number | null {
   if (totalMatch) return Math.round(parseFloat(totalMatch[1].replace(/,/g, "")) * 100);
   return null;
 }
+
+// A completely different document from Crystal's own per-invoice PDFs
+// above: QuickBooks' own weekly rollup email (quickbooks@notification.
+// intuit.com, subject "Crystal Analytical Weekly Summary"), one PDF listing
+// every transaction (Invoice, Sales Receipt, or Refund) billed against
+// Commonwealth that week, regardless of which job(s) each one covers. Per
+// Tim, 2026-08-28 — "the golden document for tracking it all": Sales
+// Receipt and Refund transactions never arrive as their own separate email
+// the way an Invoice does, so this is the only source for those. "Commonwealth
+// Inspection Weekly Report" is this template's own fixed heading, confirmed
+// unique to it (never appears on a per-invoice PDF).
+export function isWeeklyLabSummaryText(pdfText: string): boolean {
+  return /Commonwealth Inspection Weekly Report/i.test(pdfText);
+}
+
+export interface WeeklyLabSummaryTransaction {
+  num: string;
+  transactionType: "Invoice" | "Sales Receipt" | "Refund";
+  date: string | null;
+  projectNumber: string | null;
+  address: string | null;
+  amountCents: number;
+}
+
+// Confirmed against a real weekly report's own pdf-parse output (no spaces
+// survive between adjacent table cells): one row reads as
+// "08/26/2026Invoice6491<Product/Service name, wraps across several lines>
+// <lab order id> - <address>[ - <FLI project number>]<qty><price><amount>
+// <balance>" — the last four numbers run together with no separator at all
+// (e.g. "8.0012.0096.0096.00"), but since none of them ever carries more
+// than 2 decimal digits, and "." never appears anywhere else in a row,
+// matching "digits/commas up to a 2-digit decimal" cleanly recovers all
+// four every time — a comma thousands-separator ("1,028.00") or a leading
+// "-" on a Refund line both still round-trip through this pattern intact.
+// The lookahead (next row's own date+type, or either of the two closing
+// "Total" lines) needs its own leading \s* — the line break before it is
+// still there in extracted text even though nothing else is.
+const TRANSACTION_ROW_PATTERN =
+  /(\d{2}\/\d{2}\/\d{4})(Invoice|Sales Receipt|Refund)(\d+)([\s\S]*?)((?:-?[\d,]+\.\d{2}){4})(?=\s*\d{2}\/\d{2}\/\d{4}(?:Invoice|Sales Receipt|Refund)|\s*Total for|\s*TOTAL)/g;
+const AMOUNT_TOKEN_PATTERN = /-?[\d,]+\.\d{2}/g;
+const PROJECT_NUMBER_PATTERN = /(?<!\d)(2\d-\d{3,6})(?!\d)/;
+// The Description cell's own lab-order id — an 8+ digit run with no
+// decimal point — anchors where the address starts; an optional trailing
+// " - <project number>" (not every line has one) marks where it ends.
+const LAB_ORDER_ADDRESS_PATTERN = /\d{8,}\s*-\s*([\s\S]*?)(?:\s*-\s*2\d-\d{3,6})?\s*$/;
+
+export function extractWeeklyLabSummaryTransactions(pdfText: string): WeeklyLabSummaryTransaction[] {
+  const transactions: WeeklyLabSummaryTransaction[] = [];
+  for (const match of pdfText.matchAll(TRANSACTION_ROW_PATTERN)) {
+    const [, date, transactionType, num, body, amountsBlock] = match;
+    // Order is quantity, sales price, amount, balance — the transaction's
+    // own dollar amount (what it actually billed) is the third of the four.
+    const amounts = [...amountsBlock.matchAll(AMOUNT_TOKEN_PATTERN)].map((m) =>
+      Math.round(parseFloat(m[0].replace(/,/g, "")) * 100)
+    );
+    const projectMatch = body.match(PROJECT_NUMBER_PATTERN);
+    const addressMatch = body.match(LAB_ORDER_ADDRESS_PATTERN);
+    transactions.push({
+      num,
+      transactionType: transactionType as WeeklyLabSummaryTransaction["transactionType"],
+      date,
+      projectNumber: projectMatch ? projectMatch[1] : null,
+      address: addressMatch ? addressMatch[1].replace(/\s+/g, " ").trim() : null,
+      amountCents: amounts[2] ?? 0,
+    });
+  }
+  return transactions;
+}

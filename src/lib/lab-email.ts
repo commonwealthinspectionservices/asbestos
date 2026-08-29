@@ -33,7 +33,14 @@ import {
   extractMoldSampleResults,
   extractSampledDate,
 } from "@/lib/parse-lab-report";
-import { isLabInvoiceText, extractLabInvoiceTotalCents, extractInvoiceLineItems, extractInvoiceNumber } from "@/lib/parse-lab-invoice";
+import {
+  isLabInvoiceText,
+  extractLabInvoiceTotalCents,
+  extractInvoiceLineItems,
+  extractInvoiceNumber,
+  isWeeklyLabSummaryText,
+  extractWeeklyLabSummaryTransactions,
+} from "@/lib/parse-lab-invoice";
 import { defaultInvoiceLineItems, invoiceLineItemsTotalCents } from "@/lib/invoice-defaults";
 import { formatCents } from "@/lib/pricing";
 import { createStripeInvoiceForJob, tagInvoiceEmailed, getStripe } from "@/lib/stripe";
@@ -481,6 +488,30 @@ export async function checkForLabResultEmails(): Promise<LabEmailCheckResult> {
           const data = await getAttachmentData(accessToken, candidate.id, part.attachmentId);
           const { text } = await pdfParse(data);
 
+          // QuickBooks' own weekly rollup (see processWeeklyLabSummaryEmail)
+          // needs its own path checked first, same reasoning as the
+          // multi-job invoice check right below it — one PDF, many jobs.
+          if (isWeeklyLabSummaryText(text)) {
+            const { recorded, unmatched } = await processWeeklyLabSummaryEmail({
+              accessToken,
+              messageId: candidate.id,
+              pdfBuffer: data,
+              pdfText: text,
+            });
+            await addLabelToMessage(accessToken, candidate.id, processedLabelId);
+            result.labInvoicesRecorded.push(...recorded.map((r) => ({ projectNumber: r.projectNumber, jobId: r.jobId })));
+            result.unmatched += unmatched.length;
+            if (unmatched.length > 0) {
+              console.error(
+                `lab-email: weekly summary on message ${candidate.id} had unmatched transaction(s): ${unmatched
+                  .map((u) => `${u.transactionType} #${u.num}${u.projectNumber ? ` (${u.projectNumber})` : ""}`)
+                  .join(", ")}`
+              );
+              await alertUnmatchedWeeklySummaryTransactions(unmatched).catch(() => {});
+            }
+            continue candidateLoop;
+          }
+
           // A multi-job invoice (see processMultiJobLabInvoiceEmail) needs
           // its own path before the single-project-number match below —
           // that match can only ever land on one job, which would
@@ -813,6 +844,154 @@ async function processMultiJobLabInvoiceEmail(params: {
 
   await markMessageRead(accessToken, messageId);
   return { recorded, unmatchedProjectNumbers };
+}
+
+// A job can legitimately carry MORE THAN ONE lab_invoice document under the
+// very same service_type this way — a real weekly report showed 26-0007
+// alone billed under three separate Sales Receipt numbers (6506/6510/6512)
+// in one week — so, unlike replaceDocumentsByKindAndServiceType (used
+// everywhere else in this file, which replaces by kind+service_type alone),
+// this only ever replaces the one row matching this exact invoice/receipt
+// number — idempotent against reprocessing the same weekly email, while
+// leaving every other invoice number's own row on the job untouched.
+function replaceLabInvoiceDocumentByNumber(existing: JobDocument[], incoming: JobDocument[], num: string): JobDocument[] {
+  const kept = existing.filter((d) => !(d.kind === "lab_invoice" && d.lab_invoice_number === num));
+  return [...kept, ...incoming];
+}
+
+interface UnmatchedWeeklySummaryTransaction {
+  num: string;
+  transactionType: string;
+  projectNumber: string | null;
+  address: string | null;
+}
+
+// Per Tim, 2026-08-28 — real money named on a real invoice that this system
+// couldn't attach to any job deserves a page, not just a console.error
+// nobody will ever read (unlike processMultiJobLabInvoiceEmail's own
+// unmatchedProjectNumbers, which only console.errors — that one's usually a
+// job this system genuinely doesn't track; a weekly-summary line skipping a
+// job silently is a bigger miss since Tim called this "the golden document
+// for tracking it all").
+async function alertUnmatchedWeeklySummaryTransactions(unmatched: UnmatchedWeeklySummaryTransaction[]): Promise<void> {
+  await sendEmail({
+    to: process.env.OWNER_EMAIL!,
+    subject: `Weekly lab summary: ${unmatched.length} transaction(s) couldn't be matched to a job`,
+    html: emailShell(`
+      <p style="font-size:15px;">This week's Crystal Analytical weekly summary named transaction(s) that couldn't be matched to any job in this system:</p>
+      <ul>
+        ${unmatched
+          .map((u) => {
+            const reason = u.projectNumber
+              ? `project number "${escapeHtml(u.projectNumber)}" printed on the invoice doesn't match any job`
+              : u.address
+                ? `no project number on this line (${escapeHtml(u.address)})`
+                : "no project number on this line";
+            return `<li>${escapeHtml(u.transactionType)} #${escapeHtml(u.num)} — ${reason}</li>`;
+          })
+          .join("")}
+      </ul>
+      <p>These charges are real (they're on the invoice) but aren't reflected on any job's lab cost yet — worth checking the weekly report PDF directly to reconcile.</p>
+    `),
+  }).catch(() => {});
+}
+
+// QuickBooks' own weekly rollup (see isWeeklyLabSummaryText/
+// extractWeeklyLabSummaryTransactions in parse-lab-invoice.ts) — a second,
+// independent source for the same Invoice-type charges the per-invoice-email
+// path above already tracks (Crystal's own invoice number shows up in both
+// places — the per-job dedup below, keyed on that same number, is what
+// keeps the two from double-counting), but the ONLY source for Sales
+// Receipt and Refund transactions, which never arrive as their own separate
+// email. Per Tim, 2026-08-28 — "the golden document for tracking it all."
+// Grouped by each transaction's own num first (Tim's own framing: "track
+// each invoice and then all the jobs that it includes") — a single num can
+// carry more than one line item for the same job (e.g. one real receipt,
+// #6519, billed two mold sub-methods for 26-0008 as two separate lines), so
+// amounts are summed per (num, projectNumber) before anything touches the
+// database. Grouping this way, keyed on lab_invoice_number, is also exactly
+// what LabInvoicesView's existing "All Lab Invoices" cards already group
+// by — no new UI needed for this to show up there correctly.
+async function processWeeklyLabSummaryEmail(params: {
+  accessToken: string;
+  messageId: string;
+  pdfBuffer: Buffer;
+  pdfText: string;
+}): Promise<{
+  recorded: { projectNumber: string; jobId: string; num: string }[];
+  unmatched: UnmatchedWeeklySummaryTransaction[];
+}> {
+  const { accessToken, messageId, pdfBuffer, pdfText } = params;
+  const supabase = getSupabaseAdmin();
+
+  const transactions = extractWeeklyLabSummaryTransactions(pdfText);
+
+  const byNum = new Map<string, { transactionType: string; amountCentsByProject: Map<string, number> }>();
+  const unmatched: UnmatchedWeeklySummaryTransaction[] = [];
+  for (const t of transactions) {
+    if (!t.projectNumber) {
+      unmatched.push({ num: t.num, transactionType: t.transactionType, projectNumber: null, address: t.address });
+      continue;
+    }
+    if (!byNum.has(t.num)) byNum.set(t.num, { transactionType: t.transactionType, amountCentsByProject: new Map() });
+    const group = byNum.get(t.num)!;
+    group.amountCentsByProject.set(t.projectNumber, (group.amountCentsByProject.get(t.projectNumber) ?? 0) + t.amountCents);
+  }
+
+  const recorded: { projectNumber: string; jobId: string; num: string }[] = [];
+  // One upload per JOB, not per num or globally — a job appearing under
+  // several num-groups this week (26-0007 above) still only gets this same
+  // weekly PDF's bytes stored once, same "own the job.id-prefixed path"
+  // storage convention every other upload in this file already follows.
+  const uploadedStoragePathByJobId = new Map<string, string>();
+
+  for (const [num, group] of byNum) {
+    for (const [projectNumber, amountCents] of group.amountCentsByProject) {
+      const { data: job } = await supabase.from("jobs").select("*").ilike("project_number", projectNumber).maybeSingle();
+      if (!job) {
+        unmatched.push({ num, transactionType: group.transactionType, projectNumber, address: null });
+        continue;
+      }
+
+      const alreadyRecorded = ((job.documents ?? []) as JobDocument[]).some(
+        (d) => d.kind === "lab_invoice" && d.lab_invoice_number === num
+      );
+      if (alreadyRecorded) continue;
+
+      let storagePath = uploadedStoragePathByJobId.get(job.id);
+      if (!storagePath) {
+        const docId = randomUUID();
+        storagePath = `${job.id}/${docId}-weekly-lab-summary.pdf`;
+        await supabase.storage.from("job-documents").upload(storagePath, pdfBuffer, { contentType: "application/pdf" });
+        uploadedStoragePathByJobId.set(job.id, storagePath);
+      }
+
+      const serviceTypeLabels = (job.service_type ?? "").split(",").map((s: string) => s.trim()).filter(Boolean);
+      const uploadedAt = new Date().toISOString();
+      const newDocuments: JobDocument[] = serviceTypeLabels.map((label: string) => ({
+        id: randomUUID(),
+        kind: "lab_invoice",
+        service_type: label,
+        file_name: `weekly-lab-summary-${num}.pdf`,
+        storage_path: storagePath as string,
+        uploaded_at: uploadedAt,
+        project_number_mismatch: null,
+        lab_invoice_number: num,
+      }));
+
+      await supabase
+        .from("jobs")
+        .update({
+          documents: replaceLabInvoiceDocumentByNumber(job.documents ?? [], newDocuments, num),
+          lab_cost_cents: (job.lab_cost_cents ?? 0) + amountCents,
+        })
+        .eq("id", job.id);
+      recorded.push({ projectNumber: job.project_number ?? projectNumber, jobId: job.id, num });
+    }
+  }
+
+  await markMessageRead(accessToken, messageId);
+  return { recorded, unmatched };
 }
 
 // Confirmed live 2026-08-26 (jobs 26-0007/26-0008, "Final Fungal Report

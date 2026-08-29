@@ -18,6 +18,7 @@ import { formatDateMDY } from "@/lib/date-format";
 import { subcontractorSenderForJob } from "@/lib/subcontractor-senders";
 import { timeSelectOptions } from "@/lib/time-options";
 import { computeMarginCents } from "@/lib/pricing";
+import { dueDateFor, paymentDueDate } from "@/lib/invoice-due-date";
 
 // Splits on (captured) bare URLs so odd-indexed segments are the URLs
 // themselves — used for job.notes, which can contain a real link (e.g. a
@@ -472,43 +473,6 @@ const EDITABLE_STATUSES = OPEN_STATUSES;
 
 function lineItemsTotalCents(items: InvoiceLineItem[]): number {
   return items.reduce((total, item) => total + Math.round(item.quantity * item.unit_cost_cents), 0);
-}
-
-// Default due date shown/used until the admin explicitly overrides it via
-// the Invoice section's own date field (job.payment_due_date) — 30 days
-// after the project date.
-function paymentDueDate(projectDate: string): string | null {
-  if (!projectDate) return null;
-  const d = new Date(`${projectDate}T00:00:00`);
-  if (Number.isNaN(d.getTime())) return null;
-  d.setDate(d.getDate() + 30);
-  return d.toISOString().slice(0, 10);
-}
-
-// Per Tim, 2026-08-28 — invoice_sent_at is a full UTC timestamp, not a
-// plain date. Naively slicing its first 10 characters grabs the UTC
-// calendar date, which disagrees with local (Eastern) time once a send
-// happens late evening — a report actually sent Tuesday night showed as
-// Wednesday here. new Date(iso)'s local getters (same approach
-// formatDateTime above already uses) give the calendar date this
-// browser's timezone actually saw it sent on. Same helper as
-// InvoicesView.tsx's own copy.
-function localDateOnly(iso: string): string {
-  const d = new Date(iso);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-// Per Tim, 2026-08-28 — always exactly 30 days after the invoice was
-// actually emailed (not requested_date, which can differ from when the
-// report really went out, and no longer a manually-set payment_due_date
-// override either — Tim wants this unconditional) — this is what Stripe's
-// own auto-charge (lib/net30-autocharge.ts) goes by too, see stripe.ts's
-// tagInvoiceEmailed. requested_date+30 stays only as a rough pre-send
-// estimate, before invoice_sent_at exists yet. Same precedence as
-// InvoicesView.tsx's own copy of this.
-function dueDateFor(job: JobWithCustomer): string | null {
-  if (job.invoice_sent_at) return paymentDueDate(localDateOnly(job.invoice_sent_at));
-  return paymentDueDate(job.confirmed_date ?? job.requested_date ?? "");
 }
 
 // Positive only once money is actually owed and sitting past its due date —

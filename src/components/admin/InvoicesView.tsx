@@ -6,6 +6,7 @@ import { formatCents } from "@/lib/pricing";
 import { ProjectDetailDialog, EditProjectDialog } from "@/components/admin/JobsDashboard";
 import { formatDateMDY } from "@/lib/date-format";
 import { NEWTON_FIRE_FLOOD_COMPANY_ID } from "@/lib/report-findings";
+import { dueDateFor } from "@/lib/invoice-due-date";
 
 type InvoiceStatus = "ready_to_send" | "sent" | "overdue" | "paid";
 
@@ -42,34 +43,11 @@ function formatDate(date: string | null | undefined): string {
 // Wednesday here. new Date(iso)'s local getters (same approach
 // JobsDashboard.tsx's formatDateTime already uses for the Project Info
 // tab's own "Sent" line) give the calendar date this browser's timezone
-// actually saw it sent on.
+// actually saw it sent on. Same helper as invoice-due-date.ts's own
+// localDateOnly, used here just for display (not the due-date math).
 function localDateOnly(iso: string): string {
   const d = new Date(iso);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-// Every repeat customer/contractor invoice is due 30 days after the project
-// date, no exceptions — same fixed rule as JobsDashboard.tsx's own copy of
-// this (kept duplicated rather than shared, matching this codebase's
-// existing convention of each view owning its small date helpers).
-function paymentDueDate(projectDate: string): string | null {
-  if (!projectDate) return null;
-  const d = new Date(`${projectDate}T00:00:00`);
-  if (Number.isNaN(d.getTime())) return null;
-  d.setDate(d.getDate() + 30);
-  return d.toISOString().slice(0, 10);
-}
-
-// Per Tim, 2026-08-28 — always exactly 30 days after the invoice was
-// actually emailed (not requested_date, which can differ from when the
-// report really went out, and no longer a manually-set payment_due_date
-// override either — Tim wants this unconditional) — this is what Stripe's
-// own auto-charge (lib/net30-autocharge.ts) goes by too, see stripe.ts's
-// tagInvoiceEmailed. requested_date+30 stays only as a rough pre-send
-// estimate, before invoice_sent_at exists yet.
-function dueDateFor(job: JobWithCustomer): string | null {
-  if (job.invoice_sent_at) return paymentDueDate(localDateOnly(job.invoice_sent_at));
-  return paymentDueDate(job.confirmed_date ?? job.requested_date ?? "");
 }
 
 function isPastDue(dueIso: string | null): boolean {

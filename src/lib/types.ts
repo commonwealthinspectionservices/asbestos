@@ -199,6 +199,8 @@ export interface JobDocument {
   content_hash?: string | null;
   /** Crystal Analytical's own invoice number ("Invoice no.: 6491" on the PDF itself — see extractInvoiceNumber in lib/parse-lab-invoice.ts), lab_invoice only. Shown as the invoice's title in LabInvoicesView instead of a generic "Lab invoice" label. Absent on documents uploaded before this field existed — see /api/admin/backfill-lab-invoice-numbers for retroactively filling it in. */
   lab_invoice_number?: string | null;
+  /** This job's own dollar share of this real invoice/receipt/refund, in cents (negative for a Refund) — lab_invoice only. See computeLabCostCentsFromDocuments in lib/lab-cost.ts: Job's own lab_cost_cents is now always derived from these rather than written directly, so a job billed across more than one invoice number (a real weekly report showed one job split across three separate Sales Receipts) sums correctly instead of the writers racing to overwrite/add to one shared scalar. Absent on documents uploaded before this field existed — see /api/admin/backfill-lab-invoice-amounts for retroactively filling it in. */
+  amount_cents?: number | null;
 }
 
 /** A photo uploaded to a project's Photos tab (job-photos storage bucket) — either side can add these, unlike `documents` which is admin-only lab paperwork. */

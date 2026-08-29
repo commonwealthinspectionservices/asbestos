@@ -9,7 +9,8 @@ import { requireAdminApi } from "@/lib/admin-api";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { withApiErrors } from "@/lib/api-handler";
 import { extractSampleCount, detectAsbestosResult, extractSampleResults, extractReportProjectNumber, detectLabInfo, extractMoldSampleCount, extractMoldSampleResults, extractSampledDate } from "@/lib/parse-lab-report";
-import { isLabInvoiceText } from "@/lib/parse-lab-invoice";
+import { isLabInvoiceText, extractLabInvoiceTotalCents, extractInvoiceNumber } from "@/lib/parse-lab-invoice";
+import { computeLabCostCentsFromDocuments } from "@/lib/lab-cost";
 import { splitTrailingCocPages } from "@/lib/split-lab-report-coc";
 import { extractPositionOrderedText } from "@/lib/pdf-position-text";
 import { ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK } from "@/lib/report-findings";
@@ -60,6 +61,8 @@ export const POST = withApiErrors(async (
   let projectNumberMismatch: string | null = null;
   let domainMismatch = false;
   let invoiceMismatch = false;
+  let invoiceAmountCents: number | null = null;
+  let invoiceNumber: string | null = null;
 
   // Lab results PDFs list one row (asbestos) or one column (mold's
   // Air-O-Cell/Swab genus tables) per physical sample — pull the count
@@ -152,9 +155,10 @@ export const POST = withApiErrors(async (
       }
 
       // Positive/negative for the final report — asbestos jobs only, for
-      // now (lead isn't in scope yet). Only EMSL's format is recognized;
-      // other labs just leave this for the admin to set by hand on the
-      // Final Report tab.
+      // now (lead isn't in scope yet). Recognizes both EMSL's and Crystal
+      // Analytical's report layouts (see bestReportSamplesAnyLab in
+      // lib/parse-lab-report.ts); an unrecognized format just leaves this
+      // for the admin to set by hand on the Final Report tab.
       if (/asbestos/i.test(serviceType)) {
         const result = detectAsbestosResult(text, positionOrderedText);
         if (result != null) {
@@ -178,12 +182,15 @@ export const POST = withApiErrors(async (
         }
       }
 
-      // EMSL always echoes the client's own project number back on the
-      // report — catches uploading the right kind of file to the wrong
-      // job by mistake. Only flags when the report clearly names a
-      // *different* number; says nothing when it can't find one at all.
-      // A flag only — the rest of the extraction above still runs and
-      // saves normally either way.
+      // The report itself almost always echoes the client's own project
+      // number back somewhere in its text (EMSL always does, right after
+      // its own "Project:" label; Crystal Analytical's own reports embed it
+      // too, just without that exact label — see extractReportProjectNumber's
+      // generic fallback) — catches uploading the right kind of file to the
+      // wrong job by mistake. Only flags when the report clearly names a
+      // *different* number; says nothing when it can't find one at all. A
+      // flag only — the rest of the extraction above still runs and saves
+      // normally either way.
       const reportProjectNumber = extractReportProjectNumber(text);
       if (
         reportProjectNumber &&
@@ -211,6 +218,13 @@ export const POST = withApiErrors(async (
     try {
       const { text } = await pdfParse(fileBuffer);
       if (!isLabInvoiceText(text)) invoiceMismatch = true;
+      // Per Tim, 2026-08-28 — same amount_cents/lab_invoice_number every
+      // automated path now sets (see computeLabCostCentsFromDocuments in
+      // lib/lab-cost.ts), so a manually-uploaded/re-uploaded invoice feeds
+      // this job's lab_cost_cents the same way an automated one would,
+      // instead of only ever clearing the invoice_mismatch flag.
+      invoiceAmountCents = extractLabInvoiceTotalCents(text);
+      invoiceNumber = extractInvoiceNumber(text);
     } catch {
       // Unreadable PDF — leave unflagged; nothing else here depends on it.
     }
@@ -253,6 +267,7 @@ export const POST = withApiErrors(async (
       project_number_mismatch: projectNumberMismatch,
       domain_mismatch: domainMismatch || null,
       invoice_mismatch: invoiceMismatch || null,
+      ...(kind === "lab_invoice" ? { lab_invoice_number: invoiceNumber, amount_cents: invoiceAmountCents } : {}),
     },
   ];
 
@@ -291,6 +306,9 @@ export const POST = withApiErrors(async (
       ? (jobRow.documents ?? []).filter((d) => !(d.kind === kind && d.service_type === serviceType))
       : (jobRow.documents ?? []);
   update.documents = [...priorDocuments, ...documents];
+  if (kind === "lab_invoice") {
+    update.lab_cost_cents = computeLabCostCentsFromDocuments(update.documents as JobDocument[]);
+  }
 
   // asbestos_result/sample_results may not exist yet if these migrations
   // haven't been run — tolerate that rather than losing the document

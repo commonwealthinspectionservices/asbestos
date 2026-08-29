@@ -42,6 +42,7 @@ import {
   extractWeeklyLabSummaryTransactions,
 } from "@/lib/parse-lab-invoice";
 import { defaultInvoiceLineItems, invoiceLineItemsTotalCents } from "@/lib/invoice-defaults";
+import { computeLabCostCentsFromDocuments } from "@/lib/lab-cost";
 import { formatCents } from "@/lib/pricing";
 import { createStripeInvoiceForJob, tagInvoiceEmailed, getStripe } from "@/lib/stripe";
 import { splitTrailingCocPages } from "@/lib/split-lab-report-coc";
@@ -426,7 +427,7 @@ async function findJobByReportAddress(
   return null;
 }
 
-/** Checks the connected inbox for lab result emails, matches them to a project by the project number printed in the PDF (falling back to the report's own printed address when the project number was only ever handwritten on a scanned, non-machine-readable chain-of-custody page — see extractReportProjectAddress/findJobByReportAddress), and drafts the final report + invoice. Also catches chain-of-custody receipt emails (matched by subject line), lab-bundled COC attachments, and EMSL's separate billing invoice emails (recorded as lab cost, not drafted). Draft only — never sent automatically. */
+/** Checks the connected inbox for lab result emails, matches them to a project by the project number printed in the PDF (falling back to the report's own printed address when the project number was only ever handwritten on a scanned, non-machine-readable chain-of-custody page — see extractReportProjectAddress/findJobByReportAddress), and drafts the final report + invoice. Also catches chain-of-custody receipt emails (matched by subject line), lab-bundled COC attachments, Crystal Analytical's own per-invoice billing emails (single- and multi-job), and QuickBooks' weekly summary rollup (all three recorded as lab cost, not drafted — see processMatchedLabInvoiceEmail/processMultiJobLabInvoiceEmail/processWeeklyLabSummaryEmail). Draft only — never sent automatically. */
 export async function checkForLabResultEmails(): Promise<LabEmailCheckResult> {
   const accessToken = await getValidAccessToken();
   if (!accessToken) throw new Error("Gmail is not connected");
@@ -693,14 +694,13 @@ async function uploadCocDocument(job: Job, pdfBuffer: Buffer, serviceType?: stri
   await supabase.from("jobs").update({ documents }).eq("id", job.id);
 }
 
-// EMSL's billing invoice for the job, caught by the same project-number
-// match as a results report (see isLabInvoiceText's call site above) but
-// routed here instead — files it under "Laboratory Invoice" (the same
-// document kind and station the manual upload uses) and records the
-// dollar total as this job's lab cost. Per how EMSL actually bills here,
-// there's only ever one invoice per job, so this overwrites lab_cost_cents
-// outright rather than accumulating — the real invoiced amount is
-// authoritative over anything typed in manually beforehand.
+// A lab invoice that matched exactly one job by its own printed project
+// number — either an EMSL invoice (always one job per invoice) or a
+// Crystal Analytical invoice that happens to bill only one job that day
+// (see processMultiJobLabInvoiceEmail below for Crystal's more common
+// multi-job case). Files it under "Laboratory Invoice" (the same document
+// kind and station the manual upload uses) and records the dollar total as
+// this job's own lab cost.
 async function processMatchedLabInvoiceEmail(params: {
   accessToken: string;
   messageId: string;
@@ -746,12 +746,17 @@ async function processMatchedLabInvoiceEmail(params: {
     invoice_mismatch: totalCents == null ? true : null,
     content_hash: contentHash,
     lab_invoice_number: invoiceNumber,
+    amount_cents: totalCents,
   }));
+  const mergedDocuments = await replaceDocumentsByKindAndServiceType(supabase, job.documents ?? [], newDocuments);
   const update: Record<string, unknown> = {
-    documents: await replaceDocumentsByKindAndServiceType(supabase, job.documents ?? [], newDocuments),
+    documents: mergedDocuments,
+    // Derived from the documents themselves (see computeLabCostCentsFromDocuments's
+    // own comment) rather than written directly — self-healing if this job
+    // already carries lab cost from a different invoice number too.
+    lab_cost_cents: computeLabCostCentsFromDocuments(mergedDocuments),
   };
 
-  if (totalCents != null) update.lab_cost_cents = totalCents;
   const labInfo = detectLabInfo(pdfText);
   if (labInfo) {
     update.lab_name = labInfo.labName;
@@ -765,9 +770,9 @@ async function processMatchedLabInvoiceEmail(params: {
 
 // Crystal Analytical bills per lab order, not per job — one invoice
 // routinely spans every job billed that day (confirmed against a real
-// invoice, #6491: three jobs, five line items, one shared PDF). Unlike
-// EMSL's always-one-job invoice above, this looks its own jobs up rather
-// than receiving one already matched — the single-project-number match in
+// invoice, #6491: three jobs, five line items, one shared PDF). Unlike the
+// always-one-job case above, this looks its own jobs up rather than
+// receiving one already matched — the single-project-number match in
 // checkForLabResultEmails' main loop can only ever land on one job, which
 // would silently attribute the *entire* invoice total to whichever job
 // happened to match first. Each matched job gets its own copy of the PDF
@@ -827,10 +832,12 @@ async function processMultiJobLabInvoiceEmail(params: {
       project_number_mismatch: null,
       content_hash: contentHash,
       lab_invoice_number: invoiceNumber,
+      amount_cents: amountCents,
     }));
+    const mergedDocuments = await replaceDocumentsByKindAndServiceType(supabase, job.documents ?? [], newDocuments);
     const update: Record<string, unknown> = {
-      documents: await replaceDocumentsByKindAndServiceType(supabase, job.documents ?? [], newDocuments),
-      lab_cost_cents: amountCents,
+      documents: mergedDocuments,
+      lab_cost_cents: computeLabCostCentsFromDocuments(mergedDocuments),
     };
     if (labInfo) {
       update.lab_name = labInfo.labName;
@@ -977,13 +984,15 @@ async function processWeeklyLabSummaryEmail(params: {
         uploaded_at: uploadedAt,
         project_number_mismatch: null,
         lab_invoice_number: num,
+        amount_cents: amountCents,
       }));
+      const mergedDocuments = replaceLabInvoiceDocumentByNumber(job.documents ?? [], newDocuments, num);
 
       await supabase
         .from("jobs")
         .update({
-          documents: replaceLabInvoiceDocumentByNumber(job.documents ?? [], newDocuments, num),
-          lab_cost_cents: (job.lab_cost_cents ?? 0) + amountCents,
+          documents: mergedDocuments,
+          lab_cost_cents: computeLabCostCentsFromDocuments(mergedDocuments),
         })
         .eq("id", job.id);
       recorded.push({ projectNumber: job.project_number ?? projectNumber, jobId: job.id, num });

@@ -330,6 +330,20 @@ export default function LabInvoicesView() {
               <div className="mt-2 flex flex-col gap-2">
                 {allLabInvoices.map((entry) => {
                   const first = entry.rows[0];
+                  // Per Tim, 2026-08-28 — "track each invoice and then all
+                  // the jobs that it includes": each row's own amount_cents
+                  // is that JOB's own dollar share of this real invoice (see
+                  // computeLabCostCentsFromDocuments's own comment in
+                  // lib/lab-cost.ts), so summing across entry.rows gives the
+                  // whole invoice's real total without double-counting the
+                  // per-service-type-label document copies (already
+                  // collapsed to one row per job before this point). Null
+                  // for a document uploaded before amount_cents existed and
+                  // not yet backfilled (see
+                  // /api/admin/backfill-lab-invoice-amounts) — shown as "—"
+                  // rather than a misleading $0.
+                  const knownAmounts = entry.rows.filter((r) => r.doc.amount_cents != null);
+                  const totalCents = knownAmounts.length > 0 ? knownAmounts.reduce((sum, r) => sum + (r.doc.amount_cents ?? 0), 0) : null;
                   return (
                     <div
                       key={first.doc.lab_invoice_number ?? first.doc.content_hash ?? `${first.job.id}:${first.doc.id}`}
@@ -369,11 +383,13 @@ export default function LabInvoicesView() {
                             <Link href={`/admin/dashboard?jobId=${r.job.id}`} className="font-mono text-brand-600 hover:underline">
                               {r.job.project_number}
                             </Link>
+                            {r.doc.amount_cents != null && <span className="ml-0.5 text-slate-400">({formatCents(r.doc.amount_cents)})</span>}
                             {i < entry.rows.length - 1 && <span className="mr-1">,</span>}
                           </span>
                         ))}
                       </div>
-                      <div className="flex justify-end">
+                      <div className="flex flex-wrap items-baseline justify-between gap-x-4">
+                        <span className="whitespace-nowrap text-xs font-semibold text-slate-700">{totalCents != null ? formatCents(totalCents) : "—"}</span>
                         <span className="whitespace-nowrap text-xs text-slate-500">
                           {entry.covers ? `${formatDate(entry.covers.weekStartStr)} – ${formatDate(entry.covers.weekEndStr)}` : "—"}
                         </span>

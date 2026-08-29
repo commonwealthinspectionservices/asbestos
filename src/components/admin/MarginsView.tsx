@@ -285,25 +285,34 @@ export default function MarginsView() {
                       </span>
                     </button>
                     {expanded && (
-                      <div className="flex flex-col gap-1.5 border-t border-slate-100 p-3 pt-2">
-                        <div className="flex items-baseline justify-between text-xs text-slate-500">
-                          <span>
-                            {formatCents(g.revenueCents)} revenue − {formatCents(g.labCostCents)} lab cost
-                            {g.stripeFeeCents !== 0 && <> − {formatCents(g.stripeFeeCents)} Stripe fees</>}
-                          </span>
+                      <div className="flex flex-col gap-2.5 border-t border-slate-100 p-3 pt-2">
+                        <div className="text-xs text-slate-500">
+                          {formatCents(g.revenueCents)} revenue − {formatCents(g.labCostCents)} lab cost
+                          {g.stripeFeeCents !== 0 && <> − {formatCents(g.stripeFeeCents)} Stripe fees</>}
                         </div>
-                        {g.jobEntries.map((e) => (
-                          <div key={e.job.id} className="flex items-baseline justify-between gap-2">
-                            <Link href={`/admin/dashboard?jobId=${e.job.id}`} className="font-mono text-xs text-brand-600 hover:underline">
-                              {e.job.project_number}
-                            </Link>
-                            <span className="whitespace-nowrap text-xs text-slate-500">
-                              {formatCents(e.revenueCents)} − {formatCents(e.labCostCents)}
-                              {e.stripeFeeCents !== 0 && <> − {formatCents(e.stripeFeeCents)}</>} ={" "}
-                              <span className={e.marginCents < 0 ? "font-semibold text-red-600" : "font-semibold text-slate-800"}>{formatCents(e.marginCents)}</span>
-                            </span>
-                          </div>
-                        ))}
+                        {/* Same tight auto-fill pairing as Lab Costs' own
+                            Weekly Reports grid — each project #/math pair
+                            keeps its own small gap instead of stretching
+                            across the card's full width, so as many pairs
+                            as actually fit per row do, with no dead middle
+                            space. minmax is wider than Lab Costs' own
+                            150px — this row's value ("$1,338.00 − $244.00
+                            = $1,094.00") runs a lot longer than a bare
+                            amount. */}
+                        <div className="grid grid-cols-[repeat(auto-fill,minmax(230px,1fr))] gap-x-6 gap-y-2.5">
+                          {g.jobEntries.map((e) => (
+                            <div key={e.job.id} className="flex items-baseline gap-5">
+                              <Link href={`/admin/dashboard?jobId=${e.job.id}`} className="font-mono text-xs text-brand-600 hover:underline">
+                                {e.job.project_number}
+                              </Link>
+                              <span className="whitespace-nowrap text-xs text-slate-500">
+                                {formatCents(e.revenueCents)} − {formatCents(e.labCostCents)}
+                                {e.stripeFeeCents !== 0 && <> − {formatCents(e.stripeFeeCents)}</>} ={" "}
+                                <span className={e.marginCents < 0 ? "font-semibold text-red-600" : "font-semibold text-slate-800"}>{formatCents(e.marginCents)}</span>
+                              </span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>

@@ -403,13 +403,6 @@ export default function InvoicesView() {
         <div className="mt-4 space-y-2">
           {rows.map(({ job, status }) => {
             const isNewtonAutoCharge = status === "sent" && job.customers?.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID;
-            // Per Tim, 2026-08-28 — "keep track of all of them [lab
-            // invoices]" from this page directly, not just from inside
-            // each job's own Invoice tab. Per Tim's own "one invoice per
-            // job, not per service type" simplification earlier, any
-            // service-type-tagged copy on the job points at the same
-            // underlying file, so the first one found is enough.
-            const labInvoiceDoc = (job.documents ?? []).find((d) => d.kind === "lab_invoice");
             return (
             <button
               key={job.id}
@@ -452,21 +445,8 @@ export default function InvoicesView() {
                     </>
                   )}
                 </div>
-                <div className="flex flex-col items-end gap-0.5">
+                <div className="flex justify-end">
                   <span className="whitespace-nowrap text-xs font-semibold text-slate-800">{formatCents(job.invoice_total_cents ?? 0)}</span>
-                  {labInvoiceDoc ? (
-                    <a
-                      href={`/api/admin/jobs/${job.id}/documents/${labInvoiceDoc.id}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      onClick={(e) => e.stopPropagation()}
-                      className="whitespace-nowrap text-xs text-brand-600 hover:underline"
-                    >
-                      Lab invoice ↗
-                    </a>
-                  ) : (
-                    <span className="whitespace-nowrap text-xs text-slate-400">No lab invoice</span>
-                  )}
                 </div>
               </div>
 
@@ -543,21 +523,8 @@ export default function InvoicesView() {
                     </>
                   )}
                 </div>
-                <div className="flex flex-col items-end gap-0.5 text-right">
+                <div className="text-right">
                   <span className="whitespace-nowrap text-xs font-semibold text-slate-800">{formatCents(job.invoice_total_cents ?? 0)}</span>
-                  {labInvoiceDoc ? (
-                    <a
-                      href={`/api/admin/jobs/${job.id}/documents/${labInvoiceDoc.id}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      onClick={(e) => e.stopPropagation()}
-                      className="whitespace-nowrap text-xs text-brand-600 hover:underline"
-                    >
-                      Lab invoice ↗
-                    </a>
-                  ) : (
-                    <span className="whitespace-nowrap text-xs text-slate-400">No lab invoice</span>
-                  )}
                 </div>
               </div>
             </button>

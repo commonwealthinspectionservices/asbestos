@@ -201,25 +201,26 @@ export default function LabInvoicesView() {
                   return (
                     <div key={r.key} className="rounded-lg border border-slate-200 bg-white text-sm">
                       <div className="flex w-full flex-wrap items-baseline justify-between gap-x-4 p-3">
-                        <button
-                          onClick={() =>
-                            setExpandedReportKeys((prev) => {
-                              const next = new Set(prev);
-                              if (next.has(r.key)) next.delete(r.key);
-                              else next.add(r.key);
-                              return next;
-                            })
-                          }
-                          className="text-left text-xs font-medium text-brand-600"
-                        >
-                          <span className="mr-1 inline-block w-3 text-slate-400">{expanded ? "▾" : "▸"}</span>
-                          {r.dateRange ?? formatDate(localDateOnly(r.receivedAt))}
-                        </button>
                         <div className="flex items-baseline gap-2">
+                          <button
+                            onClick={() =>
+                              setExpandedReportKeys((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(r.key)) next.delete(r.key);
+                                else next.add(r.key);
+                                return next;
+                              })
+                            }
+                            className="text-left text-xs font-medium text-brand-600"
+                          >
+                            <span className="mr-1 inline-block w-3 text-slate-400">{expanded ? "▾" : "▸"}</span>
+                            {r.dateRange ?? formatDate(localDateOnly(r.receivedAt))}
+                          </button>
                           {/* Per Tim, 2026-08-29 — "shouldn't each week have
-                              a link to the PDF for that week?" — the real
-                              weekly report PDF itself, same ↗ link
-                              convention this app already uses for other
+                              a link to the PDF for that week?" (moved to sit
+                              directly next to the date, per his follow-up)
+                              — the real weekly report PDF itself, same ↗
+                              link convention this app already uses for other
                               document links. */}
                           {r.pdfLink && (
                             <a
@@ -231,8 +232,10 @@ export default function LabInvoicesView() {
                               PDF ↗
                             </a>
                           )}
-                          <span className="whitespace-nowrap text-xs font-semibold text-slate-800">{r.totalCents != null ? formatCents(r.totalCents) : "—"}</span>
                         </div>
+                        <span className="whitespace-nowrap text-xs font-semibold text-slate-800">
+                          Total {r.totalCents != null ? formatCents(r.totalCents) : "—"}
+                        </span>
                       </div>
                       {expanded && (
                         <div className="border-t border-slate-100 p-3 pt-2">

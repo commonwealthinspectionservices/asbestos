@@ -411,9 +411,10 @@ export default function InvoicesView() {
             >
               {/* Per Tim, 2026-08-28 — mobile-only layout, corners anchored
                   instead of one plain top-to-bottom stack: identity top-
-                  left, status pill top-right, Report sent/Due (or To be
-                  charged) left-aligned in the middle, price bottom-right —
-                  "fill out the cell," not just list everything down the
+                  left, price top-right, Report sent/Due (or To be charged)
+                  left-aligned in the middle, status pill bottom-right (per
+                  Tim, 2026-08-28 — flipped from price/pill's original spots)
+                  — "fill out the cell," not just list everything down the
                   left edge. gap-3 spaces the three row-groups evenly.
                   Company name still wraps rather than truncates (no
                   whitespace-nowrap) — never an ellipsis, any screen size. */}
@@ -427,9 +428,7 @@ export default function InvoicesView() {
                       {job.customers?.company || job.customers?.name}
                     </span>
                   </div>
-                  <span className={`shrink-0 whitespace-nowrap rounded px-1.5 py-0.5 text-xs font-medium ${STATUS_COLOR[status]}`}>
-                    {STATUS_LABEL[status]}
-                  </span>
+                  <span className="shrink-0 whitespace-nowrap text-xs font-semibold text-slate-800">{formatCents(job.invoice_total_cents ?? 0)}</span>
                 </div>
                 <div className="flex flex-col items-start gap-0.5 text-left">
                   {status === "paid" ? (
@@ -440,34 +439,37 @@ export default function InvoicesView() {
                         <span className="whitespace-nowrap text-xs text-slate-500">Report sent {formatDate(localDateOnly(job.invoice_sent_at))}</span>
                       )}
                       <span className="whitespace-nowrap text-xs text-slate-500">
-                        {isNewtonAutoCharge ? "To be charged " : "Due by "}{formatDate(dueDateFor(job))}
+                        {isNewtonAutoCharge ? "To be charged on " : "Due by "}{formatDate(dueDateFor(job))}
                       </span>
                     </>
                   )}
                 </div>
                 <div className="flex justify-end">
-                  <span className="whitespace-nowrap text-xs font-semibold text-slate-800">{formatCents(job.invoice_total_cents ?? 0)}</span>
+                  <span className={`shrink-0 whitespace-nowrap rounded px-1.5 py-0.5 text-xs font-medium ${STATUS_COLOR[status]}`}>
+                    {STATUS_LABEL[status]}
+                  </span>
                 </div>
               </div>
 
               {/* Per Tim, 2026-08-28 — desktop only (hidden below sm): three
                   columns — left is identity (project #, company), center is
-                  status (Report sent directly above the status pill), right
-                  is just the total price, alone, right-aligned.
+                  just the total price, right is status (Report sent
+                  directly above the status pill), right-aligned (per Tim,
+                  2026-08-28 — flipped from price/status's original spots).
                   grid-cols-[minmax(280px,max-content)_auto_1fr] (not
                   1fr_auto_1fr) — equal 1fr tracks only stay equal when
                   their content is roughly balanced; once company names
                   stopped truncating, a short name vs. a long one made the
                   two 1fr tracks size differently after all, visibly
-                  dragging the center pill column left or right depending
+                  dragging the center price column left or right depending
                   on company-name length, which is exactly what Tim didn't
                   want. A fixed-minimum left column (280px, comfortably fits
                   every company name currently in the system) keeps the
-                  pill's own position identical regardless of name length;
+                  price's own position identical regardless of name length;
                   max-content still lets it grow further right for a
                   hypothetical longer one instead of ever truncating.
                   items-center vertically centers the left column's single
-                  line against the center column's taller two-line stack. */}
+                  line against the right column's taller two-line stack. */}
               <div className="hidden w-full sm:grid sm:grid-cols-[minmax(280px,max-content)_auto_1fr] sm:items-center sm:gap-3">
                 <div>
                   <div className="flex items-center gap-2">
@@ -479,39 +481,44 @@ export default function InvoicesView() {
                     </span>
                   </div>
                 </div>
+                <div>
+                  <span className="whitespace-nowrap text-xs font-semibold text-slate-800">{formatCents(job.invoice_total_cents ?? 0)}</span>
+                </div>
                 <div
-                  className={`flex items-center text-center ${
-                    status === "sent" ? "flex-row gap-2 text-left" : "flex-col gap-0.5"
+                  className={`flex items-center justify-end ${
+                    status === "sent" ? "flex-row gap-2 text-left" : "flex-col items-end gap-0.5 text-right"
                   }`}
                 >
                   {status === "paid" ? (
                     <span className="whitespace-nowrap text-xs text-slate-500">Paid {formatDate(job.paid_date)}</span>
                   ) : status === "sent" ? (
-                    // Per Tim, 2026-08-28 — the pill sits to the left with
-                    // a fixed width (w-40) so every pill lines up at the
-                    // same spot, always reading "Payment Pending" (no more
-                    // special Newton wording baked into the pill itself —
-                    // see below). Report sent stacked directly above the
-                    // due/charge line to its right, on the same line as
-                    // the pill.
+                    // Per Tim, 2026-08-28 — the pill sits at the far right,
+                    // flush against this column's own right edge (the group
+                    // itself is justify-end above), with a fixed width
+                    // (w-40) so every pill lands at the exact same spot
+                    // regardless of how long the date text next to it runs —
+                    // always reading "Payment Pending" (no more special
+                    // Newton wording baked into the pill itself — see
+                    // below). Report sent stacked directly above the
+                    // due/charge line, to the pill's own left.
                     <>
-                      <span className={`inline-flex w-40 shrink-0 items-center justify-center whitespace-nowrap rounded px-1.5 py-0.5 text-xs font-medium ${STATUS_COLOR.sent}`}>
-                        {STATUS_LABEL.sent}
-                      </span>
-                      <div className="flex flex-col items-start">
+                      <div className="flex flex-col items-end">
                         {job.invoice_sent_at && (
                           <span className="whitespace-nowrap text-xs text-slate-500">Report sent {formatDate(localDateOnly(job.invoice_sent_at))}</span>
                         )}
                         {/* Per Tim, 2026-08-28 — plain text (not its own
-                            pill) directly right of "Payment Pending" for
+                            pill) directly left of "Payment Pending" for
                             Newton Fire & Flood specifically, since their
                             card auto-charges on this date (see
                             lib/net30-autocharge.ts) instead of waiting on a
                             manual payment like everyone else's "Due" here. */}
                         <span className="whitespace-nowrap text-xs text-slate-500">
-                          {isNewtonAutoCharge ? "To be charged " : "Due by "}{formatDate(dueDateFor(job))}
+                          {isNewtonAutoCharge ? "To be charged on " : "Due by "}{formatDate(dueDateFor(job))}
                         </span>
                       </div>
+                      <span className={`inline-flex w-40 shrink-0 items-center justify-center whitespace-nowrap rounded px-1.5 py-0.5 text-xs font-medium ${STATUS_COLOR.sent}`}>
+                        {STATUS_LABEL.sent}
+                      </span>
                     </>
                   ) : (
                     <>
@@ -522,9 +529,6 @@ export default function InvoicesView() {
                       <span className="whitespace-nowrap text-xs text-slate-500">Due by {formatDate(dueDateFor(job))}</span>
                     </>
                   )}
-                </div>
-                <div className="text-right">
-                  <span className="whitespace-nowrap text-xs font-semibold text-slate-800">{formatCents(job.invoice_total_cents ?? 0)}</span>
                 </div>
               </div>
             </button>

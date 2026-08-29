@@ -65,118 +65,119 @@ export default function LabInvoicesView() {
       .finally(() => setLoading(false));
   }, []);
 
-  // Per Tim, 2026-08-28 — This Week is always Monday through Friday of the
-  // current week specifically (not a rolling 7 days, and not Sunday-
-  // anchored) — a weekend falls in neither the week before nor after.
-  // Month/Year to Date cards were dropped the same day ("the top cell...
-  // is too complicated, we just need a simple way to track how much I'm
-  // spending on samples per week") — this page is now just a plain
-  // week-by-week list, current week first.
-  const labFeesSummary = useMemo(() => {
-    const now = new Date();
-    // getDay(): 0=Sun..6=Sat. Days since this week's own Monday — Sunday
-    // (0) is 6 days after the prior Monday, everything else is dayOfWeek-1.
-    const daysSinceMonday = (now.getDay() + 6) % 7;
-    const monday = new Date(now);
-    monday.setDate(now.getDate() - daysSinceMonday);
-    const friday = new Date(monday);
-    friday.setDate(monday.getDate() + 4);
-    const weekStartStr = ymd(monday);
-    const weekEndStr = ymd(friday);
-    return { weekStartStr, weekEndStr, weekRangeLabel: `${formatDate(weekStartStr)} – ${formatDate(weekEndStr)}` };
-  }, []);
-
-  // Per Tim, 2026-08-28 — "I just really want to go off those weekly
-  // reports... it should be the main outline": one row per REAL weekly
-  // summary email Crystal/QuickBooks actually sent (grouped by
-  // content_hash — every lab_invoice document that email produced, across
-  // every job it covered, shares the same hash, since they're all
-  // unmodified copies of the same downloaded PDF), showing that report's
-  // own printed date range and grand total (report_date_range/
-  // report_total_cents — see their own comments on JobDocument) rather
-  // than a total this system reconstructs by summing whatever it happened
-  // to attribute to jobs. That's the real ground truth Tim actually sees
-  // in his inbox every Friday at 5.
+  // Per Tim, 2026-08-28 — "why does it say $1,108 if only $548 was billed…
+  // this is confusing": those two numbers were both real, but answered
+  // different questions that looked like they should match and didn't —
+  // $1,108 was the whole Friday report (which bills whatever fieldwork
+  // happened to get analyzed that week, regardless of which week the
+  // fieldwork itself was done in, plus some line items with no job number
+  // on them at all), while $548 was only jobs whose fieldwork fell in the
+  // current calendar week. Fix: stop computing a second, separately-scoped
+  // total that can diverge from the report's own number. Every dollar
+  // shown now traces back to one place — the report card it came from —
+  // instead of being re-summed under a different label.
+  //
+  // "I just really want to go off those weekly reports... it should be the
+  // main outline": one row per REAL weekly summary email Crystal/
+  // QuickBooks actually sent (grouped by content_hash — every lab_invoice
+  // document that email produced, across every job it covered, shares the
+  // same hash, since they're all unmodified copies of the same downloaded
+  // PDF), showing that report's own printed date range and grand total
+  // (report_date_range/report_total_cents — see their own comments on
+  // JobDocument) plus exactly which jobs it covers and each one's own
+  // share — so if the total doesn't equal the sum of the jobs listed
+  // (some line items never named a project number Crystal's own end could
+  // match to a job), that gap is shown right there, not left to look like
+  // an error.
   const weeklyReports = useMemo(() => {
-    const groups = new Map<string, { dateRange: string | null; totalCents: number | null; receivedAt: string }>();
+    const groups = new Map<
+      string,
+      { dateRange: string | null; totalCents: number | null; receivedAt: string; jobAmounts: Map<string, number>; seenNumsByJob: Map<string, Set<string>> }
+    >();
     for (const job of jobs) {
       for (const doc of job.documents ?? []) {
-        if (doc.kind !== "lab_invoice" || !doc.content_hash || doc.report_total_cents == null) continue;
-        const existing = groups.get(doc.content_hash);
-        if (!existing) {
-          groups.set(doc.content_hash, { dateRange: doc.report_date_range ?? null, totalCents: doc.report_total_cents, receivedAt: doc.uploaded_at });
-        } else if (doc.uploaded_at < existing.receivedAt) {
-          existing.receivedAt = doc.uploaded_at;
+        if (doc.kind !== "lab_invoice" || doc.report_total_cents == null) continue;
+        // Grouped by the report's own printed billing period, not
+        // content_hash — a job whose transaction was already recorded by
+        // an earlier, different pipeline (see processWeeklyLabSummaryEmail's
+        // own comment in lib/lab-email.ts) keeps ITS OWN document's real
+        // content_hash pointing at whichever PDF actually produced it,
+        // even after this report's own total/date-range get backfilled
+        // onto it — forcing this report's hash onto that document would
+        // misattribute which file it actually is. report_date_range is
+        // reliably set on every document tied to this report, backfilled
+        // or not, so it's the key that actually unifies them.
+        const key = doc.report_date_range ?? doc.content_hash ?? "unknown";
+        let g = groups.get(key);
+        if (!g) {
+          g = { dateRange: doc.report_date_range ?? null, totalCents: doc.report_total_cents, receivedAt: doc.uploaded_at, jobAmounts: new Map(), seenNumsByJob: new Map() };
+          groups.set(key, g);
         }
+        // Max, not min — a backfilled document (see above) can carry a
+        // much OLDER uploaded_at from whichever earlier pipeline actually
+        // created it, which would otherwise make "Received" read as days
+        // before this report actually arrived. Every document genuinely
+        // NEW to this report gets uploaded within the same single run, so
+        // their timestamps already agree with each other regardless.
+        if (doc.uploaded_at > g.receivedAt) g.receivedAt = doc.uploaded_at;
+
+        // Dedupe the per-service-type-label copies of the same
+        // transaction (a mixed asbestos+mold job gets one document row per
+        // label, all sharing the same lab_invoice_number) so a job with
+        // two labels on the same transaction isn't double-counted.
+        const numKey = doc.lab_invoice_number ?? doc.id;
+        if (!g.seenNumsByJob.has(job.id)) g.seenNumsByJob.set(job.id, new Set());
+        const seenNums = g.seenNumsByJob.get(job.id)!;
+        if (seenNums.has(numKey)) continue;
+        seenNums.add(numKey);
+
+        g.jobAmounts.set(job.id, (g.jobAmounts.get(job.id) ?? 0) + (doc.amount_cents ?? 0));
       }
     }
     return Array.from(groups.entries())
-      .map(([hash, g]) => ({ hash, ...g }))
+      .map(([key, g]) => {
+        const jobEntries = Array.from(g.jobAmounts.entries())
+          .map(([jobId, amountCents]) => ({ job: jobs.find((j) => j.id === jobId)!, amountCents }))
+          .sort((a, b) => (a.job.project_number ?? "").localeCompare(b.job.project_number ?? ""));
+        const linkedCents = jobEntries.reduce((sum, e) => sum + e.amountCents, 0);
+        const unlinkedCents = g.totalCents != null ? g.totalCents - linkedCents : null;
+        return { key, dateRange: g.dateRange, totalCents: g.totalCents, receivedAt: g.receivedAt, jobEntries, unlinkedCents };
+      })
       .sort((a, b) => (a.receivedAt < b.receivedAt ? 1 : -1));
   }, [jobs]);
 
-  // Per Tim, 2026-08-28 — "even this week I still don't know what my exact
-  // lab costs were, and some jobs haven't been billed yet, I need to keep
-  // track of this": rather than one blended estimate for the whole week,
-  // this shows every job whose fieldwork fell in the current week
-  // individually, flagged either "billed" (it already has a real
-  // lab_invoice document — job.lab_cost_cents, now always derived from
-  // those, see lib/lab-cost.ts) or "not yet billed" (only an estimate
-  // exists, from lib/lab-rate-estimate.ts, until Friday's real report
-  // covers it). Bucketed by confirmed_date, same reasoning as
-  // weeklyReports' own week boundaries — when the fieldwork actually
-  // happened, not when our own invoice to the customer went out.
-  const thisWeekJobs = useMemo(() => {
+  // Per Tim, 2026-08-28 — "some jobs haven't been billed yet, I need to
+  // keep track of this": every job with fieldwork already done
+  // (confirmed_date up through today) that has no lab_invoice document at
+  // all yet, regardless of which calendar week that fieldwork fell in —
+  // not scoped to "this week" (that scoping is exactly what produced the
+  // confusing second total above). Most recent fieldwork first, since
+  // that's the most likely to still be genuinely outstanding rather than
+  // just old and forgotten.
+  const notYetBilledJobs = useMemo(() => {
+    const todayStr = ymd(new Date());
     return jobs
-      .filter((j) => j.confirmed_date && j.confirmed_date >= labFeesSummary.weekStartStr && j.confirmed_date <= labFeesSummary.weekEndStr)
-      .map((job) => {
-        const billed = (job.documents ?? []).some((d) => d.kind === "lab_invoice");
-        return { job, billed, cents: billed ? job.lab_cost_cents ?? 0 : estimatedLabCostCents(job) };
-      })
-      .sort((a, b) => (a.job.project_number ?? "").localeCompare(b.job.project_number ?? ""));
-  }, [jobs, labFeesSummary.weekStartStr, labFeesSummary.weekEndStr]);
+      .filter((j) => j.confirmed_date && j.confirmed_date <= todayStr)
+      .filter((j) => !(j.documents ?? []).some((d) => d.kind === "lab_invoice"))
+      .map((job) => ({ job, cents: estimatedLabCostCents(job) }))
+      .sort((a, b) => (b.job.confirmed_date ?? "").localeCompare(a.job.confirmed_date ?? ""));
+  }, [jobs]);
 
-  const thisWeekSummary = useMemo(() => {
-    const billedCents = thisWeekJobs.filter((r) => r.billed).reduce((sum, r) => sum + r.cents, 0);
-    const notYetBilledCents = thisWeekJobs.filter((r) => !r.billed).reduce((sum, r) => sum + r.cents, 0);
-    return { billedCents, notYetBilledCents };
-  }, [thisWeekJobs]);
-
-  // Per Tim, 2026-08-28 — "a list of every single pdf invoice that gets
-  // sent to me by the lab and when it was sent to me and which dates it
-  // covers": literally one row per real email Crystal Analytical actually
-  // sent (confirmed against his real inbox: 3 emails on file, invoices
-  // #6491/#6497/#6498), not one row per (job, document) pair. Two
-  // dedup/group passes get there:
-  //
-  // 1. Same job, same file — a mixed job (asbestos + mold) gets one
-  //    lab_invoice document PER SERVICE-TYPE LABEL, all pointing at the
-  //    same storage_path (see the "one station per label" comment in
-  //    lib/lab-email.ts's processMatchedLabInvoiceEmail) — collapse those
-  //    to one row per (job, storage_path) first.
-  // 2. Different jobs, same real invoice — Crystal Analytical bills
-  //    several jobs on one shared PDF (see processMultiJobLabInvoiceEmail),
-  //    which gets uploaded as its own byte-identical copy under every job
-  //    it covers. content_hash (see its own comment on JobDocument) is
-  //    what recognizes those copies as one real invoice again — grouped
-  //    into a single row listing every job it covers. A document without a
-  //    hash yet (predates that field, not yet backfilled — see
-  //    /api/admin/backfill-lab-invoice-hashes) stays its own standalone
-  //    row rather than silently vanishing from the list.
-  //
-  // "Received" is the earliest uploaded_at across the group (when it
-  // actually landed in our system); "Covers" is the Monday–Friday week
-  // containing each covered job's confirmed_date, widened to the full
-  // min–max span across the group (normally identical for every job on one
-  // real invoice, since Crystal Analytical bills everything analyzed that
-  // week together) — the invoice itself doesn't carry a machine-readable
-  // billing-period field.
-  const allLabInvoices = useMemo(() => {
+  // Per Tim, 2026-08-28 — "It should be the main outline and then use
+  // other documents that you find along the way": everything the weekly
+  // reports above already account for is excluded here (report_total_cents
+  // != null) — this is only what's left over. In practice that's just the
+  // three Crystal per-invoice emails from before the weekly summary became
+  // the sole source (#6491/#6497/#6498, confirmed against his real inbox)
+  // — the automated pipeline no longer files anything else here going
+  // forward (see lib/lab-email.ts), so this section should stay short.
+  // Same content_hash/lab_invoice_number grouping as before.
+  const otherLabInvoices = useMemo(() => {
     const seenPerJobPath = new Set<string>();
     const flat: { job: JobWithCustomer; doc: JobDocument }[] = [];
     for (const job of jobs) {
       for (const doc of job.documents ?? []) {
-        if (doc.kind !== "lab_invoice") continue;
+        if (doc.kind !== "lab_invoice" || doc.report_total_cents != null) continue;
         const key = `${job.id}:${doc.storage_path}`;
         if (seenPerJobPath.has(key)) continue;
         seenPerJobPath.add(key);
@@ -184,18 +185,6 @@ export default function LabInvoicesView() {
       }
     }
 
-    // Group key preference: lab_invoice_number (Crystal's own printed
-    // number, e.g. "6491") over content_hash. Crystal's own number is what
-    // actually identifies "the same real invoice," independent of exactly
-    // how each copy got into this system — content_hash only catches
-    // byte-identical copies (the automated multi-job path re-uploads the
-    // exact same buffer per job), but the same real invoice manually
-    // uploaded separately per job (a different export/scan each time) can
-    // still print the identical invoice number while never hashing the
-    // same. Confirmed live 2026-08-28 — Tim: "I thought that I've only got
-    // three invoices from the lab so far," but content_hash alone was
-    // still showing more than three, because several of Boston Harbor's
-    // copies weren't byte-identical even though they're the same invoice.
     const groups = new Map<string, { job: JobWithCustomer; doc: JobDocument }[]>();
     const ungrouped: { job: JobWithCustomer; doc: JobDocument }[][] = [];
     for (const row of flat) {
@@ -236,34 +225,43 @@ export default function LabInvoicesView() {
 
       {!loading && !error && (
         <>
-          {/* Per Tim, 2026-08-28 — "even this week I still don't know what
-              my exact lab costs were, and some jobs haven't been billed
-              yet": every job this week, one line each, flagged billed
-              (real $) vs not yet billed (estimate) instead of one blended
-              number. */}
-          <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3 text-sm">
-            <div className="flex flex-wrap items-baseline justify-between gap-x-4">
-              <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">This Week — {labFeesSummary.weekRangeLabel}</div>
-              <div className="whitespace-nowrap text-xs text-slate-500">
-                {formatCents(thisWeekSummary.billedCents)} billed
-                {thisWeekSummary.notYetBilledCents > 0 && <> · Est. {formatCents(thisWeekSummary.notYetBilledCents)} more</>}
-              </div>
-            </div>
-            {thisWeekJobs.length === 0 ? (
-              <p className="mt-2 text-sm text-slate-500">No jobs yet this week.</p>
+          {/* Per Tim, 2026-08-28 — "It should be the main outline": one card
+              per real Friday email, its own printed total up top, then
+              exactly which jobs it covers and each one's own share — so
+              the total is traceable right there instead of needing a
+              separate section to explain it. */}
+          <div className="mt-3">
+            <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Weekly Reports</div>
+            {weeklyReports.length === 0 ? (
+              <p className="mt-2 rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-500">No weekly reports received yet.</p>
             ) : (
-              <div className="mt-2 space-y-1.5">
-                {thisWeekJobs.map(({ job, billed, cents }) => (
-                  <div key={job.id} className="flex items-baseline justify-between gap-2">
-                    <Link href={`/admin/dashboard?jobId=${job.id}`} className="font-mono text-xs text-brand-600 hover:underline">
-                      {job.project_number}
-                    </Link>
-                    {billed ? (
-                      <span className="whitespace-nowrap text-xs font-semibold text-slate-800">{formatCents(cents)}</span>
-                    ) : (
-                      <span className="whitespace-nowrap text-xs text-amber-600">
-                        Not yet billed <span className="text-slate-400">(est. {formatCents(cents)})</span>
-                      </span>
+              <div className="mt-2 flex flex-col gap-2">
+                {weeklyReports.map((r) => (
+                  <div key={r.key} className="flex flex-col gap-1 rounded-lg border border-slate-200 bg-white p-3 text-sm">
+                    <div className="flex flex-wrap items-baseline justify-between gap-x-4">
+                      <span className="text-xs font-medium text-slate-700">{r.dateRange ?? formatDate(localDateOnly(r.receivedAt))}</span>
+                      <span className="text-xs font-semibold text-slate-800">{r.totalCents != null ? formatCents(r.totalCents) : "—"}</span>
+                    </div>
+                    {r.jobEntries.length > 0 && (
+                      <div className="flex flex-wrap text-xs text-slate-500">
+                        {r.jobEntries.map((e, i) => (
+                          <span key={e.job.id} className="whitespace-nowrap">
+                            <Link href={`/admin/dashboard?jobId=${e.job.id}`} className="font-mono text-brand-600 hover:underline">
+                              {e.job.project_number}
+                            </Link>
+                            <span className="ml-0.5 text-slate-400">({formatCents(e.amountCents)})</span>
+                            {i < r.jobEntries.length - 1 && <span className="mr-1">,</span>}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {/* Per Tim, 2026-08-28 — "why does it say $1,108 if only
+                        $548 was billed" — this is exactly that gap, shown
+                        in place instead of left to look like an error: some
+                        line items on the real report never named a project
+                        number Crystal's own end could match to a job. */}
+                    {r.unlinkedCents != null && r.unlinkedCents !== 0 && (
+                      <div className="text-xs text-slate-400">+ {formatCents(r.unlinkedCents)} not linked to a job on file</div>
                     )}
                   </div>
                 ))}
@@ -271,37 +269,43 @@ export default function LabInvoicesView() {
             )}
           </div>
 
-          {/* Per Tim, 2026-08-28 — "I just really want to go off those
-              weekly reports... it should be the main outline": one row per
-              real Friday email, the report's own printed total — ground
-              truth, not a number this system reconstructed. */}
+          {/* Per Tim, 2026-08-28 — "some jobs haven't been billed yet, I
+              need to keep track of this": every job with fieldwork done
+              that hasn't shown up in any report yet, most recent first. */}
           <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3 text-sm">
-            <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Weekly Reports</div>
-            {weeklyReports.length === 0 ? (
-              <p className="mt-2 text-sm text-slate-500">No weekly reports received yet.</p>
+            <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Not Yet Billed</div>
+            {notYetBilledJobs.length === 0 ? (
+              <p className="mt-2 text-sm text-slate-500">Everything's been billed.</p>
             ) : (
               <div className="mt-2 space-y-1.5">
-                {weeklyReports.map((r) => (
-                  <div key={r.hash} className="flex items-baseline justify-between">
-                    <span className="text-slate-600">{r.dateRange ?? formatDate(localDateOnly(r.receivedAt))}</span>
-                    <span className="font-semibold text-slate-800">{r.totalCents != null ? formatCents(r.totalCents) : "—"}</span>
+                {notYetBilledJobs.map(({ job, cents }) => (
+                  <div key={job.id} className="flex items-baseline justify-between gap-2">
+                    <Link href={`/admin/dashboard?jobId=${job.id}`} className="font-mono text-xs text-brand-600 hover:underline">
+                      {job.project_number}
+                    </Link>
+                    <span className="whitespace-nowrap text-xs text-amber-600">Est. {formatCents(cents)}</span>
                   </div>
                 ))}
               </div>
             )}
           </div>
 
+          {/* Per Tim, 2026-08-28 — "then use other documents that you find
+              along the way": whatever the weekly reports above don't
+              already account for — in practice just the three Crystal
+              per-invoice emails from before the weekly summary became the
+              sole source. */}
           <div className="mt-3">
-            <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">All Lab Invoices</div>
-            {allLabInvoices.length === 0 ? (
-              <p className="mt-2 rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-500">No lab invoices uploaded yet.</p>
+            <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Other Lab Invoices</div>
+            {otherLabInvoices.length === 0 ? (
+              <p className="mt-2 rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-500">Nothing else on file.</p>
             ) : (
               // Per Tim, 2026-08-28 — its own bordered cell per invoice,
               // same card pattern as the mobile Invoices-list cards
               // (InvoicesView.tsx), not one shared card with thin dividers
               // between rows.
               <div className="mt-2 flex flex-col gap-2">
-                {allLabInvoices.map((entry) => {
+                {otherLabInvoices.map((entry) => {
                   const first = entry.rows[0];
                   // Per Tim, 2026-08-28 — "track each invoice and then all
                   // the jobs that it includes": each row's own amount_cents

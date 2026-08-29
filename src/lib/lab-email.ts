@@ -426,6 +426,29 @@ async function findJobByReportAddress(
   return null;
 }
 
+// Confirmed live 2026-08-28 — the QuickBooks-generated weekly summary PDF
+// specifically (never any Crystal Analytical or EMSL PDF seen so far)
+// intermittently fails pdf-parse's bundled legacy pdf.js with "Invalid root
+// reference" or "Invalid PDF structure", even though the exact same bytes
+// parse fine as a plain standalone Node script every time — genuinely
+// non-deterministic within this app's own webpack-bundled module (the same
+// document succeeded on one run and failed differently on the next, no
+// code change in between), not a real defect in the PDF itself. A short
+// retry is enough in practice — every failure observed recovered on the
+// very next attempt.
+async function parsePdfWithRetry(data: Buffer, label: string, attempts = 3): Promise<{ text: string }> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      return await pdfParse(data);
+    } catch (e) {
+      lastError = e;
+      console.error(`lab-email: pdf-parse attempt ${attempt}/${attempts} failed for ${label}:`, e instanceof Error ? e.message : e);
+    }
+  }
+  throw lastError;
+}
+
 /** Checks the connected inbox for lab result emails, matches them to a project by the project number printed in the PDF (falling back to the report's own printed address when the project number was only ever handwritten on a scanned, non-machine-readable chain-of-custody page — see extractReportProjectAddress/findJobByReportAddress), and drafts the final report + invoice. Also catches chain-of-custody receipt emails (matched by subject line), lab-bundled COC attachments, and QuickBooks' weekly summary rollup (recorded as lab cost, not drafted — see processWeeklyLabSummaryEmail). Per Tim, 2026-08-28 — the weekly summary is now the sole source for lab cost tracking; a per-invoice Crystal/EMSL email is recognized only so it doesn't get misrouted into the results-report path below, then marked processed and otherwise ignored. Draft only — never sent automatically. */
 export async function checkForLabResultEmails(): Promise<LabEmailCheckResult> {
   const accessToken = await getValidAccessToken();
@@ -486,7 +509,7 @@ export async function checkForLabResultEmails(): Promise<LabEmailCheckResult> {
       for (const part of pdfParts) {
         try {
           const data = await getAttachmentData(accessToken, candidate.id, part.attachmentId);
-          const { text } = await pdfParse(data);
+          const { text } = await parsePdfWithRetry(data, `${candidate.id}:${part.filename}`);
 
           // QuickBooks' own weekly rollup (see processWeeklyLabSummaryEmail)
           // needs its own path checked first, same reasoning as the
@@ -786,10 +809,41 @@ async function processWeeklyLabSummaryEmail(params: {
         continue;
       }
 
-      const alreadyRecorded = ((job.documents ?? []) as JobDocument[]).some(
+      const existingDocsForNum = ((job.documents ?? []) as JobDocument[]).filter(
         (d) => d.kind === "lab_invoice" && d.lab_invoice_number === num
       );
-      if (alreadyRecorded) continue;
+      if (existingDocsForNum.length > 0) {
+        // This exact transaction was already recorded — almost always by
+        // this same weekly-summary pipeline on an earlier run (idempotent
+        // reprocessing), but for a handful of jobs processed before the
+        // weekly summary became the sole source (see checkForLabResultEmails'
+        // own comment), it's the OLDER per-invoice-email pipeline's own
+        // document, filed under Crystal's own per-invoice PDF rather than
+        // this weekly one. Either way, the dollar amount is already
+        // accounted for — recording it again here would double it. What's
+        // still missing on that older case is this report's own
+        // report_total_cents/report_date_range (added after that document
+        // existed) — LabInvoicesView groups "Weekly Reports" by
+        // report_date_range specifically, not content_hash (a job's
+        // existing document keeps its OWN real PDF's hash, so forcing this
+        // report's hash onto it would misattribute which file it actually
+        // is), so filling this in is what's needed to recognize this job as
+        // part of THIS report. Confirmed live 2026-08-28: without this
+        // backfill, 26-0001 through 26-0005's real share of the report
+        // showed up as "not linked to a job on file," which is backwards.
+        // Only fills in fields that are still null — never touches
+        // amount_cents, so the real dollar total this job already carries
+        // can't change here.
+        if (existingDocsForNum.some((d) => d.report_date_range == null)) {
+          const enriched = (job.documents ?? []).map((d: JobDocument) =>
+            d.kind === "lab_invoice" && d.lab_invoice_number === num && d.report_date_range == null
+              ? { ...d, report_total_cents: d.report_total_cents ?? reportTotalCents, report_date_range: d.report_date_range ?? reportDateRange }
+              : d
+          );
+          await supabase.from("jobs").update({ documents: enriched }).eq("id", job.id);
+        }
+        continue;
+      }
 
       let storagePath = uploadedStoragePathByJobId.get(job.id);
       if (!storagePath) {

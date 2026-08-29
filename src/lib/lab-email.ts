@@ -1,4 +1,4 @@
-import { randomUUID, createHash } from "crypto";
+import { randomUUID } from "crypto";
 // Imports the implementation directly rather than the package root — see
 // src/app/api/admin/jobs/[id]/documents/route.ts for why.
 import pdfParse from "pdf-parse/lib/pdf-parse.js";
@@ -33,14 +33,7 @@ import {
   extractMoldSampleResults,
   extractSampledDate,
 } from "@/lib/parse-lab-report";
-import {
-  isLabInvoiceText,
-  extractLabInvoiceTotalCents,
-  extractInvoiceLineItems,
-  extractInvoiceNumber,
-  isWeeklyLabSummaryText,
-  extractWeeklyLabSummaryTransactions,
-} from "@/lib/parse-lab-invoice";
+import { isLabInvoiceText, isWeeklyLabSummaryText, extractWeeklyLabSummaryTransactions } from "@/lib/parse-lab-invoice";
 import { defaultInvoiceLineItems, invoiceLineItemsTotalCents } from "@/lib/invoice-defaults";
 import { computeLabCostCentsFromDocuments } from "@/lib/lab-cost";
 import { formatCents } from "@/lib/pricing";
@@ -427,7 +420,7 @@ async function findJobByReportAddress(
   return null;
 }
 
-/** Checks the connected inbox for lab result emails, matches them to a project by the project number printed in the PDF (falling back to the report's own printed address when the project number was only ever handwritten on a scanned, non-machine-readable chain-of-custody page — see extractReportProjectAddress/findJobByReportAddress), and drafts the final report + invoice. Also catches chain-of-custody receipt emails (matched by subject line), lab-bundled COC attachments, Crystal Analytical's own per-invoice billing emails (single- and multi-job), and QuickBooks' weekly summary rollup (all three recorded as lab cost, not drafted — see processMatchedLabInvoiceEmail/processMultiJobLabInvoiceEmail/processWeeklyLabSummaryEmail). Draft only — never sent automatically. */
+/** Checks the connected inbox for lab result emails, matches them to a project by the project number printed in the PDF (falling back to the report's own printed address when the project number was only ever handwritten on a scanned, non-machine-readable chain-of-custody page — see extractReportProjectAddress/findJobByReportAddress), and drafts the final report + invoice. Also catches chain-of-custody receipt emails (matched by subject line), lab-bundled COC attachments, and QuickBooks' weekly summary rollup (recorded as lab cost, not drafted — see processWeeklyLabSummaryEmail). Per Tim, 2026-08-28 — the weekly summary is now the sole source for lab cost tracking; a per-invoice Crystal/EMSL email is recognized only so it doesn't get misrouted into the results-report path below, then marked processed and otherwise ignored. Draft only — never sent automatically. */
 export async function checkForLabResultEmails(): Promise<LabEmailCheckResult> {
   const accessToken = await getValidAccessToken();
   if (!accessToken) throw new Error("Gmail is not connected");
@@ -513,28 +506,20 @@ export async function checkForLabResultEmails(): Promise<LabEmailCheckResult> {
             continue candidateLoop;
           }
 
-          // A multi-job invoice (see processMultiJobLabInvoiceEmail) needs
-          // its own path before the single-project-number match below —
-          // that match can only ever land on one job, which would
-          // attribute an invoice spanning several jobs entirely to
-          // whichever one happened to match first.
+          // Per Tim, 2026-08-28 — "the system should only take into
+          // account the weekly invoice that I got... screw all the other
+          // ones": the weekly QuickBooks summary (isWeeklyLabSummaryText
+          // above) is now the sole source for lab cost tracking — it's a
+          // strict superset of what these per-invoice Crystal/EMSL emails
+          // ever covered. Recognized here only so an invoice PDF doesn't
+          // fall through into the lab-REPORT matching logic below as if it
+          // were results data (it has no real sample data, which used to
+          // trigger a false "may be filed under wrong domain" alert) —
+          // marked processed and otherwise ignored, not filed or recorded
+          // anywhere.
           if (isLabInvoiceText(text)) {
-            const distinctProjectNumbers = new Set(extractInvoiceLineItems(text).map((i) => i.projectNumber));
-            if (distinctProjectNumbers.size > 1) {
-              const { recorded, unmatchedProjectNumbers } = await processMultiJobLabInvoiceEmail({
-                accessToken,
-                messageId: candidate.id,
-                pdfBuffer: data,
-                pdfText: text,
-              });
-              await addLabelToMessage(accessToken, candidate.id, processedLabelId);
-              result.labInvoicesRecorded.push(...recorded);
-              result.unmatched += unmatchedProjectNumbers.length;
-              if (unmatchedProjectNumbers.length > 0) {
-                console.error(`lab-email: invoice on message ${candidate.id} named project number(s) with no matching job: ${unmatchedProjectNumbers.join(", ")}`);
-              }
-              continue candidateLoop;
-            }
+            await addLabelToMessage(accessToken, candidate.id, processedLabelId);
+            continue candidateLoop;
           }
 
           const projectNumber = extractReportProjectNumber(text);
@@ -562,23 +547,9 @@ export async function checkForLabResultEmails(): Promise<LabEmailCheckResult> {
       }
 
       if (matchedJob && matchedBuffer) {
-        // EMSL's billing invoice carries the same "Project:" line as its
-        // results report, so it matches a job here too — isLabInvoiceText
-        // tells the two apart before this runs the results-report path
-        // (sample extraction, drafting) on a document that isn't one.
-        if (isLabInvoiceText(matchedText)) {
-          await processMatchedLabInvoiceEmail({
-            accessToken,
-            messageId: candidate.id,
-            job: matchedJob,
-            pdfBuffer: matchedBuffer,
-            pdfText: matchedText,
-          });
-          await addLabelToMessage(accessToken, candidate.id, processedLabelId);
-          result.labInvoicesRecorded.push({ projectNumber: matchedJob.project_number ?? "", jobId: matchedJob.id });
-          continue;
-        }
-
+        // An invoice PDF can no longer reach here at all — the isLabInvoiceText
+        // check above skips the whole candidate before matchedJob/matchedText
+        // ever gets set from one (see its own comment).
         await processMatchedLabEmail({
           accessToken,
           messageId: candidate.id,
@@ -694,165 +665,6 @@ async function uploadCocDocument(job: Job, pdfBuffer: Buffer, serviceType?: stri
   await supabase.from("jobs").update({ documents }).eq("id", job.id);
 }
 
-// A lab invoice that matched exactly one job by its own printed project
-// number — either an EMSL invoice (always one job per invoice) or a
-// Crystal Analytical invoice that happens to bill only one job that day
-// (see processMultiJobLabInvoiceEmail below for Crystal's more common
-// multi-job case). Files it under "Laboratory Invoice" (the same document
-// kind and station the manual upload uses) and records the dollar total as
-// this job's own lab cost.
-async function processMatchedLabInvoiceEmail(params: {
-  accessToken: string;
-  messageId: string;
-  job: Job;
-  pdfBuffer: Buffer;
-  pdfText: string;
-}): Promise<void> {
-  const { accessToken, messageId, job, pdfBuffer, pdfText } = params;
-  const supabase = getSupabaseAdmin();
-
-  // One Laboratory Invoice station per service type label, not per domain
-  // (see the Lab Paperwork loop in JobsDashboard.tsx) — a job combining
-  // asbestos and mold work billed on the same invoice needs it filed under
-  // every label so each domain's own Report tab actually shows it, not
-  // just whichever label happened to be first. Confirmed live 2026-08-25:
-  // 26-0002's invoice only populated under Limited Asbestos Inspection,
-  // leaving the Mold Report tab's own station empty even though the same
-  // invoice covers the mold work too. One storage upload, one JobDocument
-  // row per label (all pointing at the same file — no need to re-upload
-  // the same bytes once per label).
-  const serviceTypeLabels = (job.service_type ?? "").split(",").map((s) => s.trim()).filter(Boolean);
-
-  const docId = randomUUID();
-  const storagePath = `${job.id}/${docId}-lab-invoice.pdf`;
-  await supabase.storage.from("job-documents").upload(storagePath, pdfBuffer, { contentType: "application/pdf" });
-  const uploadedAt = new Date().toISOString();
-  // Per Tim, 2026-08-28 — isLabInvoiceText already gated this whole path
-  // (see checkForLabResultEmails), but that's a bare keyword match with no
-  // corroborating signal. Failing to find an actual dollar total here is a
-  // real, independent red flag worth surfacing rather than silently filing
-  // whatever matched as if it were a normal invoice.
-  const totalCents = extractLabInvoiceTotalCents(pdfText);
-  const contentHash = createHash("sha256").update(pdfBuffer).digest("hex");
-  const invoiceNumber = extractInvoiceNumber(pdfText);
-  const newDocuments: JobDocument[] = serviceTypeLabels.map((label) => ({
-    id: randomUUID(),
-    kind: "lab_invoice",
-    service_type: label,
-    file_name: "lab-invoice.pdf",
-    storage_path: storagePath,
-    uploaded_at: uploadedAt,
-    project_number_mismatch: null,
-    invoice_mismatch: totalCents == null ? true : null,
-    content_hash: contentHash,
-    lab_invoice_number: invoiceNumber,
-    amount_cents: totalCents,
-  }));
-  const mergedDocuments = await replaceDocumentsByKindAndServiceType(supabase, job.documents ?? [], newDocuments);
-  const update: Record<string, unknown> = {
-    documents: mergedDocuments,
-    // Derived from the documents themselves (see computeLabCostCentsFromDocuments's
-    // own comment) rather than written directly — self-healing if this job
-    // already carries lab cost from a different invoice number too.
-    lab_cost_cents: computeLabCostCentsFromDocuments(mergedDocuments),
-  };
-
-  const labInfo = detectLabInfo(pdfText);
-  if (labInfo) {
-    update.lab_name = labInfo.labName;
-    update.lab_nist_cert = labInfo.nistCert;
-    update.lab_massdls_cert = labInfo.massdlsCert;
-  }
-
-  await supabase.from("jobs").update(update).eq("id", job.id);
-  await markMessageRead(accessToken, messageId);
-}
-
-// Crystal Analytical bills per lab order, not per job — one invoice
-// routinely spans every job billed that day (confirmed against a real
-// invoice, #6491: three jobs, five line items, one shared PDF). Unlike the
-// always-one-job case above, this looks its own jobs up rather than
-// receiving one already matched — the single-project-number match in
-// checkForLabResultEmails' main loop can only ever land on one job, which
-// would silently attribute the *entire* invoice total to whichever job
-// happened to match first. Each matched job gets its own copy of the PDF
-// (so it shows up on that job's own Laboratory Invoice station) and only
-// the amount its own line items actually total to, not the invoice grand
-// total. A project number the invoice names but this system has no job
-// for (a typo, a job from before this system, one outside FLI Environmental
-// entirely) is skipped and reported back, not silently dropped.
-async function processMultiJobLabInvoiceEmail(params: {
-  accessToken: string;
-  messageId: string;
-  pdfBuffer: Buffer;
-  pdfText: string;
-}): Promise<{ recorded: { projectNumber: string; jobId: string }[]; unmatchedProjectNumbers: string[] }> {
-  const { accessToken, messageId, pdfBuffer, pdfText } = params;
-  const supabase = getSupabaseAdmin();
-
-  const amountCentsByProject = new Map<string, number>();
-  for (const item of extractInvoiceLineItems(pdfText)) {
-    amountCentsByProject.set(item.projectNumber, (amountCentsByProject.get(item.projectNumber) ?? 0) + item.amountCents);
-  }
-
-  const labInfo = detectLabInfo(pdfText);
-  const recorded: { projectNumber: string; jobId: string }[] = [];
-  const unmatchedProjectNumbers: string[] = [];
-  // One hash for the whole batch — every job below gets its own uploaded
-  // copy of these exact same bytes (own storage_path, own document id), so
-  // this is what lets a reader (see content_hash's own comment on
-  // JobDocument) recognize them as the same real invoice email again
-  // afterward.
-  const contentHash = createHash("sha256").update(pdfBuffer).digest("hex");
-  const invoiceNumber = extractInvoiceNumber(pdfText);
-
-  for (const [projectNumber, amountCents] of amountCentsByProject) {
-    const { data: job } = await supabase.from("jobs").select("*").ilike("project_number", projectNumber).maybeSingle();
-    if (!job) {
-      unmatchedProjectNumbers.push(projectNumber);
-      continue;
-    }
-
-    // Same one-station-per-label reasoning as processMatchedLabInvoiceEmail
-    // above — a job combining domains needs the invoice filed under every
-    // label, not just the first, so every domain's own Report tab shows it.
-    const serviceTypeLabels = (job.service_type ?? "").split(",").map((s: string) => s.trim()).filter(Boolean);
-
-    const docId = randomUUID();
-    const storagePath = `${job.id}/${docId}-lab-invoice.pdf`;
-    await supabase.storage.from("job-documents").upload(storagePath, pdfBuffer, { contentType: "application/pdf" });
-    const uploadedAt = new Date().toISOString();
-    const newDocuments: JobDocument[] = serviceTypeLabels.map((label: string) => ({
-      id: randomUUID(),
-      kind: "lab_invoice",
-      service_type: label,
-      file_name: "lab-invoice.pdf",
-      storage_path: storagePath,
-      uploaded_at: uploadedAt,
-      project_number_mismatch: null,
-      content_hash: contentHash,
-      lab_invoice_number: invoiceNumber,
-      amount_cents: amountCents,
-    }));
-    const mergedDocuments = await replaceDocumentsByKindAndServiceType(supabase, job.documents ?? [], newDocuments);
-    const update: Record<string, unknown> = {
-      documents: mergedDocuments,
-      lab_cost_cents: computeLabCostCentsFromDocuments(mergedDocuments),
-    };
-    if (labInfo) {
-      update.lab_name = labInfo.labName;
-      update.lab_nist_cert = labInfo.nistCert;
-      update.lab_massdls_cert = labInfo.massdlsCert;
-    }
-
-    await supabase.from("jobs").update(update).eq("id", job.id);
-    recorded.push({ projectNumber: job.project_number ?? projectNumber, jobId: job.id });
-  }
-
-  await markMessageRead(accessToken, messageId);
-  return { recorded, unmatchedProjectNumbers };
-}
-
 // A job can legitimately carry MORE THAN ONE lab_invoice document under the
 // very same service_type this way — a real weekly report showed 26-0007
 // alone billed under three separate Sales Receipt numbers (6506/6510/6512)
@@ -875,11 +687,9 @@ interface UnmatchedWeeklySummaryTransaction {
 
 // Per Tim, 2026-08-28 — real money named on a real invoice that this system
 // couldn't attach to any job deserves a page, not just a console.error
-// nobody will ever read (unlike processMultiJobLabInvoiceEmail's own
-// unmatchedProjectNumbers, which only console.errors — that one's usually a
-// job this system genuinely doesn't track; a weekly-summary line skipping a
-// job silently is a bigger miss since Tim called this "the golden document
-// for tracking it all").
+// nobody will ever read — a weekly-summary line skipping a job silently is
+// a real miss since Tim called this "the golden document for tracking it
+// all," and it's now the sole source of lab cost tracking.
 async function alertUnmatchedWeeklySummaryTransactions(unmatched: UnmatchedWeeklySummaryTransaction[]): Promise<void> {
   await sendEmail({
     to: process.env.OWNER_EMAIL!,
@@ -1172,8 +982,8 @@ async function processMatchedLabEmail(params: {
   // it shows up on the Laboratory Paperwork tab and gets merged into the
   // downloadable report packet — not just used to extract numbers. One row
   // per mold label THIS report actually reported data for (same
-  // one-copy-per-label approach processMatchedLabInvoiceEmail already
-  // uses) — not every mold label the job has: confirmed live wrong on
+  // one-copy-per-label approach processWeeklyLabSummaryEmail's own lab
+  // invoice documents use) — not every mold label the job has: confirmed live wrong on
   // 26-0007, where filing an air+bulk *combo* report under every mold label
   // was right (26-0008), but filing a bulk-*only* report under "Mold Air
   // Sampling" too overwrote that label's real air spore-trap report with

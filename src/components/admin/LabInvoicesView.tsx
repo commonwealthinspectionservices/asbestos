@@ -51,6 +51,11 @@ export default function LabInvoicesView() {
   const [jobs, setJobs] = useState<JobWithCustomer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Per Tim, 2026-08-28 — "this page should almost just be a link to a
+  // bunch of weeks... once you click into the week, it opens up a
+  // dropdown of all the jobs from that week": collapsed by default, one
+  // toggle per report, so the top-level list is just a week and its total.
+  const [expandedReportKeys, setExpandedReportKeys] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     setLoading(true);
@@ -225,46 +230,69 @@ export default function LabInvoicesView() {
 
       {!loading && !error && (
         <>
-          {/* Per Tim, 2026-08-28 — "It should be the main outline": one card
-              per real Friday email, its own printed total up top, then
-              exactly which jobs it covers and each one's own share — so
-              the total is traceable right there instead of needing a
-              separate section to explain it. */}
+          {/* Per Tim, 2026-08-28 — "this page should almost just be a link
+              to a bunch of weeks... once you click into the week, it opens
+              up a dropdown of all the jobs from that week": collapsed by
+              default — just the date range and the report's own real
+              total — expanding on click to reveal exactly which jobs it
+              covers and each one's own share, so the total is still
+              traceable, just not shown until asked for. */}
           <div className="mt-3">
             <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Weekly Reports</div>
             {weeklyReports.length === 0 ? (
               <p className="mt-2 rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-500">No weekly reports received yet.</p>
             ) : (
               <div className="mt-2 flex flex-col gap-2">
-                {weeklyReports.map((r) => (
-                  <div key={r.key} className="flex flex-col gap-1 rounded-lg border border-slate-200 bg-white p-3 text-sm">
-                    <div className="flex flex-wrap items-baseline justify-between gap-x-4">
-                      <span className="text-xs font-medium text-slate-700">{r.dateRange ?? formatDate(localDateOnly(r.receivedAt))}</span>
-                      <span className="text-xs font-semibold text-slate-800">{r.totalCents != null ? formatCents(r.totalCents) : "—"}</span>
+                {weeklyReports.map((r) => {
+                  const expanded = expandedReportKeys.has(r.key);
+                  return (
+                    <div key={r.key} className="rounded-lg border border-slate-200 bg-white text-sm">
+                      <button
+                        onClick={() =>
+                          setExpandedReportKeys((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(r.key)) next.delete(r.key);
+                            else next.add(r.key);
+                            return next;
+                          })
+                        }
+                        className="flex w-full flex-wrap items-baseline justify-between gap-x-4 p-3 text-left"
+                      >
+                        <span className="text-xs font-medium text-brand-600">
+                          <span className="mr-1 inline-block w-3 text-slate-400">{expanded ? "▾" : "▸"}</span>
+                          {r.dateRange ?? formatDate(localDateOnly(r.receivedAt))}
+                        </span>
+                        <span className="text-xs font-semibold text-slate-800">{r.totalCents != null ? formatCents(r.totalCents) : "—"}</span>
+                      </button>
+                      {expanded && (
+                        <div className="flex flex-col gap-1 border-t border-slate-100 p-3 pt-2">
+                          {r.jobEntries.length > 0 && (
+                            <div className="flex flex-wrap text-xs text-slate-500">
+                              {r.jobEntries.map((e, i) => (
+                                <span key={e.job.id} className="whitespace-nowrap">
+                                  <Link href={`/admin/dashboard?jobId=${e.job.id}`} className="font-mono text-brand-600 hover:underline">
+                                    {e.job.project_number}
+                                  </Link>
+                                  <span className="ml-0.5 text-slate-400">({formatCents(e.amountCents)})</span>
+                                  {i < r.jobEntries.length - 1 && <span className="mr-1">,</span>}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          {/* Per Tim, 2026-08-28 — "why does it say $1,108 if
+                              only $548 was billed" — this is exactly that
+                              gap, shown in place instead of left to look
+                              like an error: some line items on the real
+                              report never named a project number Crystal's
+                              own end could match to a job. */}
+                          {r.unlinkedCents != null && r.unlinkedCents !== 0 && (
+                            <div className="text-xs text-slate-400">+ {formatCents(r.unlinkedCents)} not linked to a job on file</div>
+                          )}
+                        </div>
+                      )}
                     </div>
-                    {r.jobEntries.length > 0 && (
-                      <div className="flex flex-wrap text-xs text-slate-500">
-                        {r.jobEntries.map((e, i) => (
-                          <span key={e.job.id} className="whitespace-nowrap">
-                            <Link href={`/admin/dashboard?jobId=${e.job.id}`} className="font-mono text-brand-600 hover:underline">
-                              {e.job.project_number}
-                            </Link>
-                            <span className="ml-0.5 text-slate-400">({formatCents(e.amountCents)})</span>
-                            {i < r.jobEntries.length - 1 && <span className="mr-1">,</span>}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                    {/* Per Tim, 2026-08-28 — "why does it say $1,108 if only
-                        $548 was billed" — this is exactly that gap, shown
-                        in place instead of left to look like an error: some
-                        line items on the real report never named a project
-                        number Crystal's own end could match to a job. */}
-                    {r.unlinkedCents != null && r.unlinkedCents !== 0 && (
-                      <div className="text-xs text-slate-400">+ {formatCents(r.unlinkedCents)} not linked to a job on file</div>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

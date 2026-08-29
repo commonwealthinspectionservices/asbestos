@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseAdmin } from "@/lib/supabase";
+import { getSupabaseAdmin, getSupabaseAdminFresh } from "@/lib/supabase";
 import { requireAdminApi } from "@/lib/admin-api";
 import { getSettings } from "@/lib/settings";
 import { generateProjectNumber } from "@/lib/project-number";
@@ -19,7 +19,14 @@ export const GET = withApiErrors(async (req: NextRequest) => {
   const from = url.searchParams.get("from"); // YYYY-MM-DD, inclusive; defaults to today
   const statuses = url.searchParams.get("statuses")?.split(",");
 
-  const supabase = getSupabaseAdmin();
+  // Per Tim, 2026-08-28 (26-0007/26-0008) — getSupabaseAdmin()'s reads are
+  // cache-eligible under Next.js's fetch Data Cache (see that function's own
+  // comment); this list is what every admin page reads to show current job
+  // status, including payment status, so a stale cached response here reads
+  // as "the fix didn't take" even when the underlying data is already
+  // correct. This is exactly the same class of bug lib/gmail.ts's own
+  // connection-status check hit before switching to Fresh.
+  const supabase = getSupabaseAdminFresh();
   let query = supabase
     .from("jobs")
     .select("*, customers!customer_id(*, companies!company_id(*, billing_contact:customers!billing_contact_id(id, name, email, phone)))")

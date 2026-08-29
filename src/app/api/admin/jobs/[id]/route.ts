@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseAdmin } from "@/lib/supabase";
+import { getSupabaseAdminFresh } from "@/lib/supabase";
 import { requireAdminApi } from "@/lib/admin-api";
 import { withApiErrors } from "@/lib/api-handler";
 import { parseLineItems, lineItemsTotalCents } from "@/lib/invoice-line-items";
@@ -143,7 +143,7 @@ export const PATCH = withApiErrors(async (
     return NextResponse.json({ error: "No editable fields provided" }, { status: 400 });
   }
 
-  const supabase = getSupabaseAdmin();
+  const supabase = getSupabaseAdminFresh();
 
   // confirmed_date/confirmed_time/status are only ever advanced by a
   // deliberate action now — either AcceptScheduleControl (sends status,
@@ -334,7 +334,7 @@ export const DELETE = withApiErrors(async (
   const unauthorized = requireAdminApi(req);
   if (unauthorized) return unauthorized;
 
-  const supabase = getSupabaseAdmin();
+  const supabase = getSupabaseAdminFresh();
 
   // Deleting the row alone leaves every uploaded lab report, chain of
   // custody, invoice, and photo behind in Storage forever — nothing else

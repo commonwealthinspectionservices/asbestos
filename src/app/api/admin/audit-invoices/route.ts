@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApi } from "@/lib/admin-api";
-import { getSupabaseAdmin } from "@/lib/supabase";
+import { getSupabaseAdminFresh } from "@/lib/supabase";
 import { withApiErrors } from "@/lib/api-handler";
 import type { Company, Customer, Job } from "@/lib/types";
 
@@ -23,7 +23,7 @@ export const GET = withApiErrors(async (req: NextRequest) => {
   const unauthorized = requireAdminApi(req);
   if (unauthorized) return unauthorized;
 
-  const supabase = getSupabaseAdmin();
+  const supabase = getSupabaseAdminFresh();
   const { data, error } = await supabase
     .from("jobs")
     .select("*, customers!customer_id(*, companies!company_id(*))")

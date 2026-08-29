@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { requireAdminApi } from "@/lib/admin-api";
-import { getSupabaseAdmin } from "@/lib/supabase";
+import { getSupabaseAdminFresh } from "@/lib/supabase";
 import { getStripe, captureStripeFee } from "@/lib/stripe";
 import { withApiErrors } from "@/lib/api-handler";
 import type { Job } from "@/lib/types";
@@ -46,7 +46,7 @@ export const GET = withApiErrors(async (req: NextRequest) => {
   if (unauthorized) return unauthorized;
 
   const stripe = getStripe();
-  const supabase = getSupabaseAdmin();
+  const supabase = getSupabaseAdminFresh();
   const { data, error } = await supabase
     .from("jobs")
     .select("id, project_number, stripe_invoice_id, paid_date, payment_reversed_at")

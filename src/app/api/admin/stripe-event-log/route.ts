@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApi } from "@/lib/admin-api";
-import { getSupabaseAdmin } from "@/lib/supabase";
+import { getSupabaseAdminFresh } from "@/lib/supabase";
 import { getStripe } from "@/lib/stripe";
 import { withApiErrors } from "@/lib/api-handler";
 
@@ -22,7 +22,7 @@ export const GET = withApiErrors(async (req: NextRequest) => {
   if (unauthorized) return unauthorized;
 
   const stripe = getStripe();
-  const supabase = getSupabaseAdmin();
+  const supabase = getSupabaseAdminFresh();
 
   const projectParam = req.nextUrl.searchParams.get("project");
   const projectNumbers = projectParam ? projectParam.split(",").map((s) => s.trim()) : ["26-0007", "26-0008"];

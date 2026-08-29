@@ -55,7 +55,13 @@ export const GET = withApiErrors(async (req: NextRequest) => {
       const charge = await stripe.charges.retrieve(chargeId);
       if (!charge.refunded && charge.amount_refunded <= 0) continue;
 
-      await supabase
+      // Per Tim, 2026-08-28 — this call's own result was never checked, so a
+      // silent write failure (permissions, a constraint, anything) would
+      // still report "reverted" success here while the row never actually
+      // changed — exactly indistinguishable from what's been happening.
+      // select() the row back so this can report the row's real
+      // post-update state, not just "no error was thrown."
+      const { data: updated, error: updateError } = await supabase
         .from("jobs")
         .update({
           status: "report_invoice_sent",
@@ -63,7 +69,17 @@ export const GET = withApiErrors(async (req: NextRequest) => {
           stripe_fee_cents: null,
           payment_reversed_at: job.payment_reversed_at ?? new Date().toISOString(),
         })
-        .eq("id", job.id);
+        .eq("id", job.id)
+        .select("status, paid_date, payment_reversed_at")
+        .maybeSingle();
+
+      if (updateError || !updated || updated.status !== "report_invoice_sent") {
+        errors.push({
+          project_number: label,
+          error: updateError?.message ?? `update returned no error but row now reads: ${JSON.stringify(updated)}`,
+        });
+        continue;
+      }
 
       reverted.push({ project_number: label, amount_refunded: `$${(charge.amount_refunded / 100).toFixed(2)}` });
     } catch (e) {

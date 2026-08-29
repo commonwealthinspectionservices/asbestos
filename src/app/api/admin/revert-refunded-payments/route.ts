@@ -6,7 +6,7 @@ import { getStripe } from "@/lib/stripe";
 import { withApiErrors } from "@/lib/api-handler";
 import type { Job } from "@/lib/types";
 
-type JobRow = Pick<Job, "id" | "project_number" | "stripe_invoice_id" | "paid_date" | "payment_reversed_at" | "status">;
+type JobRow = Pick<Job, "id" | "project_number" | "stripe_invoice_id" | "paid_date" | "payment_reversed_at" | "status" | "notes">;
 
 // Per Tim, 2026-08-28 — confirmed via check-stripe-refunds: 26-0007/26-0008
 // were accidentally charged and then genuinely refunded in Stripe, but
@@ -35,7 +35,7 @@ export const GET = withApiErrors(async (req: NextRequest) => {
   const supabase = getSupabaseAdminFresh();
   const { data, error } = await supabase
     .from("jobs")
-    .select("id, project_number, stripe_invoice_id, paid_date, payment_reversed_at, status")
+    .select("id, project_number, stripe_invoice_id, paid_date, payment_reversed_at, status, notes")
     .not("stripe_invoice_id", "is", null)
     .not("paid_date", "is", null);
   if (error) {
@@ -61,6 +61,11 @@ export const GET = withApiErrors(async (req: NextRequest) => {
       // changed — exactly indistinguishable from what's been happening.
       // select() the row back so this can report the row's real
       // post-update state, not just "no error was thrown."
+      // Same audit trail as markJobPaid's own (see lib/lab-email.ts) — a
+      // permanent, visible record right on the job of every time this
+      // reverted it, so the timeline of "marked paid" vs. "reverted" lines
+      // up on the job itself instead of needing to cross-reference logs.
+      const auditLine = `[revert-refunded-payments, ${new Date().toISOString()}]`;
       const { data: updated, error: updateError } = await supabase
         .from("jobs")
         .update({
@@ -68,6 +73,7 @@ export const GET = withApiErrors(async (req: NextRequest) => {
           paid_date: null,
           stripe_fee_cents: null,
           payment_reversed_at: job.payment_reversed_at ?? new Date().toISOString(),
+          notes: job.notes ? `${job.notes}\n${auditLine}` : auditLine,
         })
         .eq("id", job.id)
         .select("status, paid_date, payment_reversed_at")

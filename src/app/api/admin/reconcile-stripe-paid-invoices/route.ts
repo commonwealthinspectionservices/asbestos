@@ -70,7 +70,7 @@ export const GET = withApiErrors(async (req: NextRequest) => {
       if (invoice.status !== "paid") continue;
 
       const { markJobPaid } = await import("@/lib/lab-email");
-      await markJobPaid(job.id);
+      await markJobPaid(job.id, "reconcile-stripe-paid-invoices");
 
       const { data: after } = await supabase.from("jobs").select("paid_date, payment_reversed_at").eq("id", job.id).single();
       if (!after?.paid_date) {

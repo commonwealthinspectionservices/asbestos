@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
     const jobId = await resolveJobIdFromInvoiceId(supabase, invoice.id, invoice.metadata?.job_id);
     if (jobId) {
       const { markJobPaid } = await import("@/lib/lab-email");
-      await markJobPaid(jobId);
+      await markJobPaid(jobId, `webhook:invoice.paid:${event.id}`);
       // markJobPaid independently verifies the underlying charge before
       // ever marking a job paid (see its own comment) — a refunded charge
       // gets flagged payment_reversed_at instead, with paid_date left

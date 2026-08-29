@@ -221,7 +221,7 @@ export const PATCH = withApiErrors(async (
   if (patch.status === "paid") {
     const { data: current, error: selectError } = await supabase
       .from("jobs")
-      .select("status, paid_date, source, stripe_invoice_id")
+      .select("status, paid_date, source, stripe_invoice_id, notes")
       .eq("id", params.id)
       .single();
     // Per Tim, 2026-08-28 (26-0007/26-0008) — this manual status-change
@@ -267,6 +267,14 @@ export const PATCH = withApiErrors(async (
       justBecamePaid = true;
       if (!("paid_date" in patch) && !current?.paid_date) {
         patch.paid_date = new Date().toISOString().slice(0, 10);
+      }
+      // Per Tim, 2026-08-28 (26-0007/26-0008) — same audit trail as
+      // markJobPaid's own (see lib/lab-email.ts) for this completely
+      // separate write path, so whichever one actually marks a job paid
+      // next time leaves a visible, permanent record right on the job.
+      if (!("notes" in patch)) {
+        const auditLine = `[PATCH status=paid: manual, ${new Date().toISOString()}]`;
+        patch.notes = current?.notes ? `${current.notes}\n${auditLine}` : auditLine;
       }
     }
   }

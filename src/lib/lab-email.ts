@@ -1615,11 +1615,11 @@ export async function autoDraftReportIfJustPaid(jobId: string): Promise<void> {
  * marking the job paid — so no caller of this function, present or future,
  * can reintroduce this class of bug by forgetting to check.
  */
-export async function markJobPaid(jobId: string): Promise<void> {
+export async function markJobPaid(jobId: string, source = "unknown"): Promise<void> {
   const supabase = getSupabaseAdmin();
   const { data: current } = await supabase
     .from("jobs")
-    .select("paid_date, payment_reversed_at, project_number, stripe_invoice_id")
+    .select("paid_date, payment_reversed_at, project_number, stripe_invoice_id, notes")
     .eq("id", jobId)
     .maybeSingle();
 
@@ -1661,6 +1661,16 @@ export async function markJobPaid(jobId: string): Promise<void> {
   if (!current?.paid_date) {
     update.paid_date = new Date().toISOString().slice(0, 10);
   }
+  // Per Tim, 2026-08-28 (26-0007/26-0008) — a permanent, visible audit
+  // trail right on the job itself for every time this function actually
+  // marks something paid: which caller triggered it (webhook, reconcile,
+  // etc.) and when. Every write path that can mark a job paid was already
+  // proven correct by direct testing, yet the job kept flipping back to
+  // paid anyway with no way to tell which of them did it — this is so the
+  // next occurrence is a one-look answer instead of another multi-hour
+  // investigation.
+  const auditLine = `[markJobPaid: ${source}, ${new Date().toISOString()}]`;
+  update.notes = current?.notes ? `${current.notes}\n${auditLine}` : auditLine;
   await supabase.from("jobs").update(update).eq("id", jobId);
 
   await autoDraftReportIfJustPaid(jobId);

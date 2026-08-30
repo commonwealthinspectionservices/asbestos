@@ -63,10 +63,26 @@ function ymd(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
 function invoiceStatus(job: JobWithCustomer): InvoiceStatus {
   if (job.paid_date) return "paid";
   if (job.invoice_sent_at) return isPastDue(dueDateFor(job)) ? "overdue" : "sent";
   return "ready_to_send";
+}
+
+// Per Tim, 2026-08-30 — "some jobs get sampled Thursday or Friday but
+// might not get billed until the next week... we need to decide a
+// specific system on where jobs are getting placed historically": the
+// week/month a job's gross/net counts toward is the week/month its
+// invoice actually went out (invoice_sent_at), not the day it was
+// sampled — a Friday job invoiced the following Monday lands in the
+// Monday week. This is what "which week is this revenue in" means for a
+// billing page. paid_date/confirmed_date/requested_date are only
+// fallbacks for the rare job missing invoice_sent_at.
+function billingDateFor(job: JobWithCustomer): string | null {
+  if (job.invoice_sent_at) return ymd(new Date(job.invoice_sent_at));
+  return job.paid_date ?? job.confirmed_date ?? job.requested_date ?? null;
 }
 
 // Per Tim, 2026-08-30 — "address NEW LINE town state zip": street on its
@@ -154,6 +170,33 @@ function MoneyGrid({
       <span className={`whitespace-nowrap text-right ${marginCents != null && marginCents < 0 ? "text-red-600" : "text-slate-700"}`}>
         {marginCents != null ? formatCents(marginCents) : "—"}
       </span>
+    </div>
+  );
+}
+
+// Per Tim, 2026-08-30 — "a simple way to keep track of net and gross for
+// weeks and months over time": one plain list of period rows, gross and
+// net right-aligned, no borders per row, no click targets — a glance-able
+// table, not another browsable view.
+function PeriodHistoryTable({
+  title, rows,
+}: {
+  title: string; rows: { label: string; grossCents: number; netCents: number }[];
+}) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white p-3 text-sm">
+      <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">{title}</div>
+      <div className="mt-2 flex flex-col gap-1">
+        {rows.map((r) => (
+          <div key={r.label} className="flex items-baseline justify-between gap-3">
+            <span className="text-slate-500">{r.label}</span>
+            <span className="whitespace-nowrap text-right">
+              <span className="text-slate-800">{formatCents(r.grossCents)}</span>
+              <span className="ml-2 text-slate-400">net {formatCents(r.netCents)}</span>
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -299,40 +342,57 @@ export default function BillingView() {
     return { awaitingPaymentCents };
   }, [invoicedJobs]);
 
-  // Per Tim, 2026-08-30 — "I do want a way to track weekly and monthly
-  // revenues... keep it as simple as possible": two plain running totals,
-  // not a browsable grouped view like the one he just had removed.
-  // Bucketed by confirmed_date (fallback requested_date) — the same date
-  // the old monthly/yearly rollups used — over every invoiced job,
-  // regardless of payment status, so a job counts toward the week/month
-  // it was actually confirmed in.
-  const periodSummary = useMemo(() => {
+  // Per Tim, 2026-08-30 — "I just want a simple way to keep track of net
+  // and gross for weeks and months over time": a plain, non-interactive
+  // table of the last 6 weeks and last 6 months — not the browsable
+  // grouped view he'd already had removed once for being too much.
+  // Bucketed by billingDateFor (see its own comment for why that's
+  // invoice_sent_at, not the sampling date).
+  const periodHistory = useMemo(() => {
     const today = new Date();
-    const weekStart = new Date(today);
-    weekStart.setHours(0, 0, 0, 0);
-    weekStart.setDate(weekStart.getDate() - weekStart.getDay());
-    const weekStartStr = ymd(weekStart);
-    const monthStartStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-01`;
 
-    let weekRevenueCents = 0;
-    let weekMarginCents = 0;
-    let monthRevenueCents = 0;
-    let monthMarginCents = 0;
+    const currentWeekStart = new Date(today);
+    currentWeekStart.setHours(0, 0, 0, 0);
+    currentWeekStart.setDate(currentWeekStart.getDate() - currentWeekStart.getDay());
+
+    const weekly = Array.from({ length: 6 }, (_, i) => {
+      const start = new Date(currentWeekStart);
+      start.setDate(start.getDate() - i * 7);
+      const end = new Date(start);
+      end.setDate(start.getDate() + 6);
+      const label =
+        i === 0 ? "This Week" : i === 1 ? "Last Week" : `${MONTH_NAMES[start.getMonth()].slice(0, 3)} ${start.getDate()}–${end.getDate()}`;
+      return { label, startStr: ymd(start), endStr: ymd(end), grossCents: 0, netCents: 0 };
+    });
+
+    const monthly = Array.from({ length: 6 }, (_, i) => {
+      const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const label = i === 0 ? "This Month" : i === 1 ? "Last Month" : `${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`;
+      return { label, key, grossCents: 0, netCents: 0 };
+    });
+
     for (const job of invoicedJobs) {
-      const bucketDate = job.confirmed_date ?? job.requested_date;
+      const bucketDate = billingDateFor(job);
       if (!bucketDate) continue;
-      const revenueCents = job.invoice_total_cents ?? 0;
-      const marginCents = computeMarginCents(revenueCents, job.lab_cost_cents ?? 0, job.stripe_fee_cents ?? 0);
-      if (bucketDate >= weekStartStr) {
-        weekRevenueCents += revenueCents;
-        weekMarginCents += marginCents;
+      const grossCents = job.invoice_total_cents ?? 0;
+      const netCents = computeMarginCents(grossCents, job.lab_cost_cents ?? 0, job.stripe_fee_cents ?? 0);
+
+      const w = weekly.find((b) => bucketDate >= b.startStr && bucketDate <= b.endStr);
+      if (w) {
+        w.grossCents += grossCents;
+        w.netCents += netCents;
       }
-      if (bucketDate >= monthStartStr) {
-        monthRevenueCents += revenueCents;
-        monthMarginCents += marginCents;
+
+      const monthKey = bucketDate.slice(0, 7);
+      const m = monthly.find((b) => b.key === monthKey);
+      if (m) {
+        m.grossCents += grossCents;
+        m.netCents += netCents;
       }
     }
-    return { weekRevenueCents, weekMarginCents, monthRevenueCents, monthMarginCents };
+
+    return { weekly, monthly };
   }, [invoicedJobs]);
 
   async function patchJob(job: JobWithCustomer, patch: Record<string, unknown>) {
@@ -349,27 +409,21 @@ export default function BillingView() {
       {/* Per Tim, 2026-08-30 — "the Payment Pending cell doesn't need to
           be so huge, it can just be one line... next to Billing": dropped
           the bordered stat-tile card in favor of one inline line next to
-          the page title. Then "I do want a way to track weekly and
-          monthly revenues... keep it as simple as possible" — two more
-          plain numbers on the same line, not a browsable view. */}
+          the page title. */}
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <h1 className="text-lg font-semibold text-slate-800">Billing</h1>
-        <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm text-slate-500">
-          <span>
-            Payment Pending <span className="font-semibold text-slate-800">{formatCents(listSummary.awaitingPaymentCents)}</span>
-          </span>
-          {/* Per Tim, 2026-08-30 — "I just want it to say gross and net
-              really" — replaced the "$X (margin $Y)" phrasing with plain
-              Gross/Net labels. */}
-          <span>
-            This Week Gross <span className="font-semibold text-slate-800">{formatCents(periodSummary.weekRevenueCents)}</span>{" "}
-            Net <span className="font-semibold text-slate-800">{formatCents(periodSummary.weekMarginCents)}</span>
-          </span>
-          <span>
-            This Month Gross <span className="font-semibold text-slate-800">{formatCents(periodSummary.monthRevenueCents)}</span>{" "}
-            Net <span className="font-semibold text-slate-800">{formatCents(periodSummary.monthMarginCents)}</span>
-          </span>
+        <div className="text-sm text-slate-500">
+          Payment Pending <span className="font-semibold text-slate-800">{formatCents(listSummary.awaitingPaymentCents)}</span>
         </div>
+      </div>
+
+      {/* Per Tim, 2026-08-30 — "I just want a simple way to keep track of
+          net and gross for weeks and months over time" — a plain,
+          non-interactive table (no expand/collapse, no clicking into
+          jobs) of the last 6 weeks and last 6 months. */}
+      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <PeriodHistoryTable title="Weekly" rows={periodHistory.weekly} />
+        <PeriodHistoryTable title="Monthly" rows={periodHistory.monthly} />
       </div>
 
       {error && <div className="mt-3 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>}

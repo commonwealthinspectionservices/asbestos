@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { JobWithCustomer } from "@/lib/types";
 import { formatCents, computeMarginCents } from "@/lib/pricing";
 import { formatDateMDY } from "@/lib/date-format";
+import { expandAddress } from "@/lib/address";
 
 function formatDate(date: string | null | undefined): string {
   return formatDateMDY(date) ?? "—";
@@ -315,27 +316,43 @@ export default function MarginsView() {
                           {formatCents(g.revenueCents)} revenue − {formatCents(g.labCostCents)} lab cost
                           {g.stripeFeeCents !== 0 && <> − {formatCents(g.stripeFeeCents)} Stripe fees</>}
                         </div>
-                        {/* Same tight auto-fill pairing as Lab Costs' own
-                            Weekly Reports grid — each project #/math pair
-                            keeps its own small gap instead of stretching
-                            across the card's full width, so as many pairs
-                            as actually fit per row do, with no dead middle
-                            space. minmax is wider than Lab Costs' own
-                            150px — this row's value ("$1,338.00 − $244.00
-                            = $1,094.00") runs a lot longer than a bare
-                            amount. */}
-                        <div className="grid grid-cols-[repeat(auto-fill,minmax(230px,1fr))] gap-x-6 gap-y-2.5">
+                        {/* Per Tim, 2026-08-30 — "I want all the formatting
+                            to be consistent throughout": same full-width
+                            card per job as Lab Costs and Invoices (project
+                            # badge + company + address on the left), not
+                            the old tight grid this used to be — this was
+                            the one card style still left behind after the
+                            other two pages picked it up. */}
+                        <div className="flex flex-col gap-2">
                           {g.jobEntries.map((e) => (
-                            <div key={e.job.id} className="flex items-baseline gap-5">
-                              <Link href={`/admin/dashboard?jobId=${e.job.id}`} className="font-mono text-xs text-brand-600 hover:underline">
-                                {e.job.project_number}
-                              </Link>
-                              <span className="whitespace-nowrap text-xs text-slate-500">
-                                {formatCents(e.revenueCents)} − {formatCents(e.labCostCents)}
-                                {e.stripeFeeCents !== 0 && <> − {formatCents(e.stripeFeeCents)}</>} ={" "}
-                                <span className={e.marginCents < 0 ? "font-semibold text-red-600" : "font-semibold text-slate-800"}>{formatCents(e.marginCents)}</span>
-                              </span>
-                            </div>
+                            <Link
+                              key={e.job.id}
+                              href={`/admin/dashboard?jobId=${e.job.id}`}
+                              className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3 hover:border-brand-400"
+                            >
+                              <div className="min-w-0">
+                                <div className="flex min-w-0 items-center gap-2">
+                                  <span className="shrink-0 whitespace-nowrap rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs text-slate-600">
+                                    {e.job.project_number}
+                                  </span>
+                                  <span className="min-w-0 truncate text-sm font-medium text-slate-800">
+                                    {e.job.customers?.company || e.job.customers?.name}
+                                  </span>
+                                </div>
+                                {e.job.service_address && (
+                                  <div className="mt-0.5 truncate text-xs text-slate-500">{expandAddress(e.job.service_address)}</div>
+                                )}
+                              </div>
+                              <div className="shrink-0 text-right">
+                                <div className={`whitespace-nowrap text-sm font-semibold ${e.marginCents < 0 ? "text-red-600" : "text-slate-800"}`}>
+                                  {formatCents(e.marginCents)}
+                                </div>
+                                <div className="whitespace-nowrap text-xs text-slate-500">
+                                  {formatCents(e.revenueCents)} − {formatCents(e.labCostCents)}
+                                  {e.stripeFeeCents !== 0 && <> − {formatCents(e.stripeFeeCents)}</>}
+                                </div>
+                              </div>
+                            </Link>
                           ))}
                         </div>
                       </div>

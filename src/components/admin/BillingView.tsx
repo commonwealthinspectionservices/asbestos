@@ -156,9 +156,11 @@ function MoneyGrid({
 // By Job (Invoices' old filter/sort/search list)
 // ---------------------------------------------------------------------
 
-type FilterKey = "all" | "sent" | "overdue" | "paid";
+// Per Tim, 2026-08-30 — "delete the All button... always default to
+// being on Payment Pending": dropped "all" entirely rather than just
+// hiding the button, so there's no lingering state nothing points to.
+type FilterKey = "sent" | "overdue" | "paid";
 const FILTERS: { key: FilterKey; label: string }[] = [
-  { key: "all", label: "All" },
   { key: "sent", label: "Payment Pending" },
   { key: "overdue", label: "Overdue" },
   { key: "paid", label: "Paid" },
@@ -184,7 +186,7 @@ export default function BillingView() {
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [editingJobId, setEditingJobId] = useState<string | null>(null);
 
-  const [filter, setFilter] = useState<FilterKey>("all");
+  const [filter, setFilter] = useState<FilterKey>("sent");
   const [sortBy, setSortBy] = useState<SortField>("project_number");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [projectNumberQuery, setProjectNumberQuery] = useState("");
@@ -251,8 +253,7 @@ export default function BillingView() {
   }, [jobs.length]);
 
   const rows = useMemo(() => {
-    let result = invoicedJobs.map((job) => ({ job, status: invoiceStatus(job) }));
-    if (filter !== "all") result = result.filter(({ status }) => status === filter);
+    let result = invoicedJobs.map((job) => ({ job, status: invoiceStatus(job) })).filter(({ status }) => status === filter);
 
     if (projectNumberQuery.trim()) {
       result = result.filter(({ job }) => matchesAnyWord(job.project_number ?? "", projectNumberQuery));

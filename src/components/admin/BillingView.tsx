@@ -102,31 +102,42 @@ function AddressLines({ address }: { address: string | null | undefined }) {
 // separate times across the old Invoices/Lab Costs/Margins pages this
 // session; now there's exactly one place to fix. `right` is whatever
 // financial/status content that particular view needs next to it.
-function JobRow({ job, onOpen, right }: { job: JobWithCustomer; onOpen: () => void; right: React.ReactNode }) {
+function JobRow({
+  job, onOpen, right, below,
+}: {
+  job: JobWithCustomer; onOpen: () => void; right: React.ReactNode; below?: React.ReactNode;
+}) {
   return (
     <button
       onClick={onOpen}
-      // Per Tim, 2026-08-30 — "No. What I meant is that all of the text
-      // should be aligned left... a bit more space above the address...
-      // we will organize from there": dropped the earlier right-aligned/
-      // flush-right treatment entirely — every block in the card now
-      // reads top to bottom, left-aligned, as one plain stack.
+      // Per Tim, 2026-08-30 — "move Invoice, Lab Cost, and Margin out
+      // into the center white blank area": the address block never used
+      // the card's full width, leaving a blank gap to its right — `right`
+      // now sits next to the address instead of on its own row below,
+      // using that space. Still left-aligned inside its own column, still
+      // wraps to its own line below on a narrow card (mobile) instead of
+      // squeezing.
+      //
+      // Per Tim, 2026-08-30 (follow-up) — "no, move the due date and
+      // Payment Pending back to where they were, on their own line on the
+      // left": only Invoice/Lab Cost/Margin belonged in that center
+      // space — due date and the status pill go back to being their own
+      // full-width row below, via the separate `below` slot.
       className="flex w-full flex-col items-start gap-1.5 rounded-lg border border-slate-200 bg-white p-3 text-left hover:border-brand-400"
     >
-      <div>
-        <div className="flex items-start gap-2">
-          <span className="mt-0.5 shrink-0 whitespace-nowrap rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs text-slate-600">
-            {job.project_number}
-          </span>
-          <span className="whitespace-nowrap text-sm font-medium text-slate-800">
-            {job.customers?.company || job.customers?.name}
-          </span>
-        </div>
-        <div className="mt-1.5">
-          <AddressLines address={job.service_address} />
-        </div>
+      <div className="flex items-start gap-2">
+        <span className="mt-0.5 shrink-0 whitespace-nowrap rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs text-slate-600">
+          {job.project_number}
+        </span>
+        <span className="whitespace-nowrap text-sm font-medium text-slate-800">
+          {job.customers?.company || job.customers?.name}
+        </span>
       </div>
-      <div className="w-full text-left">{right}</div>
+      <div className="flex w-full flex-wrap items-start gap-x-10 gap-y-1.5">
+        <AddressLines address={job.service_address} />
+        {right}
+      </div>
+      {below && <div className="w-full text-left">{below}</div>}
     </button>
   );
 }
@@ -757,18 +768,25 @@ export default function BillingView() {
                     job={job}
                     onOpen={() => setSelectedJobId(job.id)}
                     right={
-                      // Per Tim, 2026-08-30 — "too much empty space in
-                      // these cells": gap-1.5 between MoneyGrid/due-date/
-                      // status pill read loose next to MoneyGrid's own
-                      // tight internal gap-y-0.5 — tightened to match.
-                      <div className="flex shrink-0 flex-col items-start gap-0.5">
-                        <MoneyGrid
-                          revenueCents={job.invoice_total_cents ?? 0}
-                          labCostCents={job.lab_cost_cents}
-                          stripeFeeCents={job.stripe_fee_cents ?? 0}
-                          marginCents={job.lab_cost_cents != null ? computeMarginCents(job.invoice_total_cents ?? 0, job.lab_cost_cents, job.stripe_fee_cents ?? 0) : null}
-                        />
-                        <div className="text-left text-xs text-slate-500">
+                      <MoneyGrid
+                        revenueCents={job.invoice_total_cents ?? 0}
+                        labCostCents={job.lab_cost_cents}
+                        stripeFeeCents={job.stripe_fee_cents ?? 0}
+                        marginCents={job.lab_cost_cents != null ? computeMarginCents(job.invoice_total_cents ?? 0, job.lab_cost_cents, job.stripe_fee_cents ?? 0) : null}
+                      />
+                    }
+                    below={
+                      // Per Tim, 2026-08-30 — "move the due date and
+                      // Payment Pending back to where they were, on their
+                      // own line on the left" then "move due by / to be
+                      // charged into the bottom right": status pill stays
+                      // bottom-left, due date now sits opposite it at the
+                      // card's bottom-right edge.
+                      <div className="mt-0.5 flex w-full items-center justify-between gap-2">
+                        <span className={`shrink-0 whitespace-nowrap rounded px-1.5 py-0.5 text-xs font-medium ${STATUS_PILL_CLASS}`}>
+                          {STATUS_LABEL[status]}
+                        </span>
+                        <div className="text-right text-xs text-slate-500">
                           {status === "paid" ? (
                             <>Paid {formatDate(job.paid_date)}</>
                           ) : (
@@ -777,9 +795,6 @@ export default function BillingView() {
                             </>
                           )}
                         </div>
-                        <span className={`shrink-0 whitespace-nowrap rounded px-1.5 py-0.5 text-xs font-medium ${STATUS_PILL_CLASS}`}>
-                          {STATUS_LABEL[status]}
-                        </span>
                       </div>
                     }
                   />

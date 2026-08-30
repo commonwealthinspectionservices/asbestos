@@ -14,11 +14,16 @@ import { expandAddress, splitAddress } from "@/lib/address";
 // Margins were three separate pages each re-fetching the same jobs and
 // re-rendering nearly the same card (project #, company, address) to
 // answer three different slices of the same question — what a job
-// invoiced, what the lab charged, and the margin between them. Merged into
-// one page with two views: By Job (Invoices' old filter/sort/search list,
-// now with Lab Cost/Margin columns added) and By Period (Lab Costs' real
-// weekly reports + Margins' weekly/monthly/yearly rollups, sharing the
-// same per-job row). One JobRow component renders every row in both views.
+// invoiced, what the lab charged, and the margin between them. First
+// merged into one page with two full-page views (By Job / By Period)
+// behind a toggle — then per Tim, "I'm very confused by the billing screen
+// and the by job and by period options... I don't understand the
+// difference... it feels like too much on one page": two different page
+// layouts behind one toggle just traded three pages for two. Collapsed
+// into ONE list (filter/search always available, same as the old Invoices
+// page) with an optional "Group by" control (None/Week/Month/Year) that
+// reorganizes that same list into sections instead of swapping to a
+// different layout. One JobRow component renders every row everywhere.
 
 type InvoiceStatus = "ready_to_send" | "sent" | "overdue" | "paid";
 
@@ -102,22 +107,21 @@ function JobRow({ job, onOpen, right }: { job: JobWithCustomer; onOpen: () => vo
     <button
       onClick={onOpen}
       // Per Tim, 2026-08-30 — "these cells shouldn't have so much blank
-      // space": justify-between stretched `right` all the way to the
-      // card's own far edge, leaving a big dead gap in the middle on a
-      // wide row with a short company name — same complaint, same fix,
-      // as the earlier "price not so far away" pass on Lab Costs' cards.
-      // Left-aligned now: the two blocks sit close together with a fixed
-      // gap, and any real leftover space lands at the row's own right
-      // margin instead of between the two blocks.
-      className="flex w-full flex-wrap items-start gap-x-10 gap-y-1 rounded-lg border border-slate-200 bg-white p-3 text-left hover:border-brand-400"
+      // space" (round 1): justify-between stretched `right` all the way to
+      // the card's own far edge, leaving a big dead gap in the middle on a
+      // wide row with a short company name — fixed by left-aligning
+      // instead. Then cards moved to a two-per-row grid, which made every
+      // card narrow enough that `right` almost always wraps onto its own
+      // line below the address block anyway — and on that line, an
+      // unstretched flex item just hugs the left edge, leaving blank space
+      // on the right (round 3: "make it so the text fills out those cells
+      // entirely"). Rather than rely on flex-wrap's per-line behavior,
+      // this now always stacks top block / bottom block and stretches the
+      // bottom block's own row to the card's full width so its content can
+      // right-align flush to the actual right edge every time.
+      className="flex w-full flex-col gap-1.5 rounded-lg border border-slate-200 bg-white p-3 text-left hover:border-brand-400"
     >
       <div>
-        {/* whitespace-nowrap + no min-w-0/shrink on this block: the
-            company name always renders as one full, untruncated line
-            (per Tim, "no ...s for company names" / "one line across") —
-            the outer row is flex-wrap, so if that doesn't leave room for
-            `right` on the same line, `right` just wraps to its own line
-            below instead of squeezing or truncating the name. */}
         <div className="flex items-start gap-2">
           <span className="mt-0.5 shrink-0 whitespace-nowrap rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs text-slate-600">
             {job.project_number}
@@ -128,7 +132,7 @@ function JobRow({ job, onOpen, right }: { job: JobWithCustomer; onOpen: () => vo
         </div>
         <AddressLines address={job.service_address} />
       </div>
-      {right}
+      <div className="flex w-full justify-end">{right}</div>
     </button>
   );
 }
@@ -196,11 +200,15 @@ const SORT_FIELDS: { key: SortField; label: string }[] = [
 
 const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
-type PeriodKey = "weekly" | "monthly" | "yearly";
-const PERIODS: { key: PeriodKey; label: string }[] = [
-  { key: "weekly", label: "Weekly" },
-  { key: "monthly", label: "Monthly" },
-  { key: "yearly", label: "Yearly" },
+// Per Tim, 2026-08-30 — "none" replaces the old By Job/By Period toggle:
+// the flat, ungrouped list is just one more "Group by" option now (the
+// default one) instead of a separate page layout.
+type GroupByKey = "none" | "weekly" | "monthly" | "yearly";
+const GROUP_BY_OPTIONS: { key: GroupByKey; label: string }[] = [
+  { key: "none", label: "None" },
+  { key: "weekly", label: "Week" },
+  { key: "monthly", label: "Month" },
+  { key: "yearly", label: "Year" },
 ];
 
 interface PeriodJobEntry {
@@ -261,15 +269,9 @@ export default function BillingView() {
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [editingJobId, setEditingJobId] = useState<string | null>(null);
 
-  // Per Tim, 2026-08-30 — "too many clicks... a lot of repeating
-  // information": By Job is the flat, filterable/sortable list (former
-  // Invoices) with Lab Cost/Margin now added to every row so those don't
-  // need a separate page visit; By Period is the real-weekly-report/
-  // monthly/yearly rollup (former Lab Costs + Margins), sharing the same
-  // row so a job's numbers read identically in either view.
-  const [view, setView] = useState<"list" | "period">("list");
-
-  // By Job state (same as the old InvoicesView)
+  // Per Tim, 2026-08-30 — filter/sort/search apply everywhere now, not
+  // just in an ungrouped view — one consistent set of controls regardless
+  // of how the list below is grouped.
   const [filter, setFilter] = useState<FilterKey>("all");
   const [sortBy, setSortBy] = useState<SortField>("project_number");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
@@ -278,8 +280,9 @@ export default function BillingView() {
   const [addressQuery, setAddressQuery] = useState("");
   const [mobileSearch, setMobileSearch] = useState("");
 
-  // By Period state (same as the old LabInvoicesView + MarginsView)
-  const [period, setPeriod] = useState<PeriodKey>("weekly");
+  // "Group by" replaces the old By Job/By Period toggle — see this file's
+  // own top comment.
+  const [groupBy, setGroupBy] = useState<GroupByKey>("none");
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
 
   function loadJobs() {
@@ -502,9 +505,53 @@ export default function BillingView() {
       .sort((a, b) => (b.confirmed_date ?? "").localeCompare(a.confirmed_date ?? ""));
   }, [jobs]);
 
-  const groups = period === "weekly" ? weeklyReports : period === "monthly" ? monthlyGroups : yearlyGroups;
-  const emptyMessage = period === "weekly" ? "No weekly reports received yet." : "No jobs with a confirmed date yet.";
+  const groups = groupBy === "weekly" ? weeklyReports : groupBy === "monthly" ? monthlyGroups : yearlyGroups;
+  const emptyMessage = groupBy === "weekly" ? "No weekly reports received yet." : "No jobs with a confirmed date yet.";
 
+  // Per Tim, 2026-08-30 — the filter pills/search boxes below apply
+  // whether or not the list is grouped, so this needs to work against a
+  // plain job the same way rows' own filtering does. Status filter (All/
+  // Payment Pending/Overdue/Paid) is checked separately in each branch
+  // below since a period jobEntry doesn't carry its own precomputed status.
+  function matchesSearch(job: JobWithCustomer): boolean {
+    if (projectNumberQuery.trim() && !matchesAnyWord(job.project_number ?? "", projectNumberQuery)) return false;
+    if (companyQuery.trim() && !matchesAnyWord(job.customers?.company || job.customers?.name || "", companyQuery)) return false;
+    if (addressQuery.trim() && !matchesAnyWord(job.service_address ?? "", addressQuery)) return false;
+    if (mobileSearch.trim()) {
+      const hit =
+        matchesAnyWord(job.project_number ?? "", mobileSearch) ||
+        matchesAnyWord(job.customers?.company || job.customers?.name || "", mobileSearch) ||
+        matchesAnyWord(job.service_address ?? "", mobileSearch);
+      if (!hit) return false;
+    }
+    return true;
+  }
+
+  // Per Tim, 2026-08-30 — same filter pills/search apply to a grouped
+  // view too, not just the flat list — one consistent set of controls
+  // regardless of grouping. Recomputes each group's own totals from just
+  // the jobs that still match, so "Total"/"margin" in a filtered group
+  // reflects what's actually shown below it; totalCents/pdfLink/
+  // unlinkedCents stay the real report's own numbers either way, since
+  // those describe the actual weekly email, not the current UI filter.
+  const filteredGroups = useMemo(() => {
+    return groups
+      .map((g) => {
+        const jobEntries = g.jobEntries.filter(
+          (e) => (filter === "all" || invoiceStatus(e.job) === filter) && matchesSearch(e.job)
+        );
+        const revenueCents = jobEntries.reduce((s, e) => s + e.revenueCents, 0);
+        const labCostCents = jobEntries.reduce((s, e) => s + e.labCostCents, 0);
+        const stripeFeeCents = jobEntries.reduce((s, e) => s + e.stripeFeeCents, 0);
+        return { ...g, jobEntries, revenueCents, labCostCents, stripeFeeCents, marginCents: computeMarginCents(revenueCents, labCostCents, stripeFeeCents) };
+      })
+      .filter((g) => g.jobEntries.length > 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groups, filter, projectNumberQuery, companyQuery, addressQuery, mobileSearch]);
+
+  // Stat tiles stay off the ORIGINAL (unfiltered) groups — same idea as
+  // Pending Payment/Overdue below, which are also business-wide totals,
+  // not a number that shifts as you type into a search box.
   const periodSummary = useMemo(() => {
     return groups.reduce(
       (acc, g) => ({ revenueCents: acc.revenueCents + g.revenueCents, marginCents: acc.marginCents + g.marginCents }),
@@ -525,19 +572,23 @@ export default function BillingView() {
     <div className="mx-auto max-w-3xl px-4 py-6">
       <h1 className="text-lg font-semibold text-slate-800">Billing</h1>
 
-      <div className="mt-3 flex gap-1.5">
-        <button
-          onClick={() => setView("list")}
-          className={`shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium ${view === "list" ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}
-        >
-          By Job
-        </button>
-        <button
-          onClick={() => setView("period")}
-          className={`shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium ${view === "period" ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}
-        >
-          By Period
-        </button>
+      {/* Per Tim, 2026-08-30 — "don't understand the difference" between
+          By Job / By Period: replaced that page-level toggle with a single
+          "Group by" control that reorganizes one list instead of swapping
+          to a different layout. */}
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <span className="shrink-0 text-sm font-medium text-slate-500">Group by:</span>
+        <div className="flex gap-1.5">
+          {GROUP_BY_OPTIONS.map((g) => (
+            <button
+              key={g.key}
+              onClick={() => setGroupBy(g.key)}
+              className={`shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium ${groupBy === g.key ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}
+            >
+              {g.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="mt-3 flex flex-wrap gap-4 rounded-lg border border-slate-200 bg-white p-3 text-sm">
@@ -552,10 +603,10 @@ export default function BillingView() {
             {listSummary.overdueCount > 0 && <span className="ml-1 text-xs font-normal text-slate-500">({listSummary.overdueCount})</span>}
           </div>
         </div>
-        {view === "period" && (
+        {groupBy !== "none" && (
           <>
             <div>
-              <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Revenue ({PERIODS.find((p) => p.key === period)!.label})</div>
+              <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Revenue ({GROUP_BY_OPTIONS.find((g) => g.key === groupBy)!.label})</div>
               <div className="text-base font-semibold text-slate-800">{formatCents(periodSummary.revenueCents)}</div>
             </div>
             <div>
@@ -566,7 +617,7 @@ export default function BillingView() {
                   moved onto this stat tile's own label since that page no
                   longer exists on its own. */}
               <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                Margin ({PERIODS.find((p) => p.key === period)!.label}) — Invoice − Lab Cost
+                Margin ({GROUP_BY_OPTIONS.find((g) => g.key === groupBy)!.label}) — Invoice − Lab Cost
               </div>
               <div className={`text-base font-semibold ${periodSummary.marginCents < 0 ? "text-red-600" : "text-slate-800"}`}>
                 {formatCents(periodSummary.marginCents)}
@@ -579,7 +630,7 @@ export default function BillingView() {
       {error && <div className="mt-3 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>}
       {loading && <p className="mt-6 text-sm text-slate-500">Loading…</p>}
 
-      {!loading && !error && view === "list" && (
+      {!loading && !error && (
         <>
           {/* Mobile: a dropdown, same pattern as the Directory's tab
               selector and the Projects page's status filter. */}
@@ -608,52 +659,73 @@ export default function BillingView() {
             ))}
           </div>
 
-          <div className="mt-3 flex gap-2 sm:hidden">
-            <div className="relative min-w-0 flex-1">
-              <select
-                value={`${sortBy}:${sortDir}`}
-                onChange={(e) => {
-                  const [field, dir] = e.target.value.split(":");
-                  setSortBy(field as SortField);
-                  setSortDir(dir as "asc" | "desc");
-                }}
-                className="w-full appearance-none rounded-lg border border-slate-300 bg-white py-2 pl-3 pr-8 text-sm text-slate-700"
-              >
-                {SORT_FIELDS.map((f) => (
-                  <optgroup key={f.key} label={f.label}>
-                    <option value={`${f.key}:asc`}>{f.label} ↑</option>
-                    <option value={`${f.key}:desc`}>{f.label} ↓</option>
-                  </optgroup>
-                ))}
-              </select>
-              <span className="pointer-events-none absolute inset-y-0 right-0 flex w-7 items-center justify-center text-slate-500">▾</span>
-            </div>
-            <input
-              value={mobileSearch}
-              onChange={(e) => setMobileSearch(e.target.value)}
-              placeholder="Search…"
-              className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm"
-            />
-          </div>
+          {/* Sort doesn't apply to a grouped display — only shown for the
+              flat, ungrouped list. */}
+          {groupBy === "none" && (
+            <>
+              <div className="mt-3 flex gap-2 sm:hidden">
+                <div className="relative min-w-0 flex-1">
+                  <select
+                    value={`${sortBy}:${sortDir}`}
+                    onChange={(e) => {
+                      const [field, dir] = e.target.value.split(":");
+                      setSortBy(field as SortField);
+                      setSortDir(dir as "asc" | "desc");
+                    }}
+                    className="w-full appearance-none rounded-lg border border-slate-300 bg-white py-2 pl-3 pr-8 text-sm text-slate-700"
+                  >
+                    {SORT_FIELDS.map((f) => (
+                      <optgroup key={f.key} label={f.label}>
+                        <option value={`${f.key}:asc`}>{f.label} ↑</option>
+                        <option value={`${f.key}:desc`}>{f.label} ↓</option>
+                      </optgroup>
+                    ))}
+                  </select>
+                  <span className="pointer-events-none absolute inset-y-0 right-0 flex w-7 items-center justify-center text-slate-500">▾</span>
+                </div>
+                <input
+                  value={mobileSearch}
+                  onChange={(e) => setMobileSearch(e.target.value)}
+                  placeholder="Search…"
+                  className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                />
+              </div>
 
-          <div className="mt-3 hidden flex-wrap items-center gap-2 sm:flex">
-            <span className="shrink-0 text-sm font-medium text-gray-400">Sort by:</span>
-            {SORT_FIELDS.map((f) => (
-              <button
-                key={f.key}
-                onClick={() => {
-                  if (sortBy === f.key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-                  else {
-                    setSortBy(f.key);
-                    setSortDir("asc");
-                  }
-                }}
-                className={`shrink-0 rounded-lg px-2.5 py-1 text-sm font-medium ${sortBy === f.key ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
-              >
-                {f.label}{sortBy === f.key ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
-              </button>
-            ))}
-          </div>
+              <div className="mt-3 hidden flex-wrap items-center gap-2 sm:flex">
+                <span className="shrink-0 text-sm font-medium text-gray-400">Sort by:</span>
+                {SORT_FIELDS.map((f) => (
+                  <button
+                    key={f.key}
+                    onClick={() => {
+                      if (sortBy === f.key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+                      else {
+                        setSortBy(f.key);
+                        setSortDir("asc");
+                      }
+                    }}
+                    className={`shrink-0 rounded-lg px-2.5 py-1 text-sm font-medium ${sortBy === f.key ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
+                  >
+                    {f.label}{sortBy === f.key ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* Mobile search-by-field only makes sense next to the flat
+              list; a grouped display just uses the single mobile search
+              box above (folded into the Sort row when groupBy === "none",
+              standalone here otherwise). */}
+          {groupBy !== "none" && (
+            <div className="mt-3 sm:hidden">
+              <input
+                value={mobileSearch}
+                onChange={(e) => setMobileSearch(e.target.value)}
+                placeholder="Search…"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              />
+            </div>
+          )}
 
           <div className="mt-3 hidden gap-2 sm:flex sm:flex-row sm:flex-nowrap sm:items-center">
             <span className="shrink-0 text-sm font-medium text-slate-500">Search by:</span>
@@ -677,8 +749,8 @@ export default function BillingView() {
             />
           </div>
 
-          {rows.length > 0 && (
-            <div className="mt-4 flex flex-col gap-2">
+          {groupBy === "none" && rows.length > 0 && (
+            <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
               {rows.map(({ job, status }) => {
                 const isNewtonAutoCharge = status === "sent" && job.customers?.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID;
                 return (
@@ -717,128 +789,119 @@ export default function BillingView() {
               })}
             </div>
           )}
-        </>
-      )}
 
-      {!loading && !error && view === "period" && (
-        <>
-          <div className="mt-3 flex gap-1.5">
-            {PERIODS.map((p) => (
-              <button
-                key={p.key}
-                onClick={() => setPeriod(p.key)}
-                className={`shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium ${period === p.key ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="mt-3">
-            {groups.length === 0 ? (
-              <p className="rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-500">{emptyMessage}</p>
-            ) : (
-              <div className="flex flex-col gap-2">
-                {groups.map((g) => {
-                  const expanded = expandedKeys.has(`${period}:${g.key}`);
-                  return (
-                    <div key={g.key} className="rounded-lg border border-slate-200 bg-white text-sm">
-                      <button
-                        onClick={() =>
-                          setExpandedKeys((prev) => {
-                            const next = new Set(prev);
-                            const k = `${period}:${g.key}`;
-                            if (next.has(k)) next.delete(k);
-                            else next.add(k);
-                            return next;
-                          })
-                        }
-                        className="flex w-full flex-wrap items-baseline justify-between gap-x-4 p-3 text-left"
-                      >
-                        <span className="flex items-baseline gap-2 text-sm font-medium text-brand-600">
-                          <span className="mr-1 inline-block w-3 text-slate-400">{expanded ? "▾" : "▸"}</span>
-                          {g.label}
-                          {g.pdfLink && (
-                            <a
-                              href={`/api/admin/jobs/${g.pdfLink.jobId}/documents/${g.pdfLink.docId}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              onClick={(e) => e.stopPropagation()}
-                              className="whitespace-nowrap text-sm text-slate-400 hover:text-brand-600 hover:underline"
-                            >
-                              PDF ↗
-                            </a>
-                          )}
-                        </span>
-                        {/* Per Tim, 2026-08-30 — "the formatting of my
-                            billing page should be more consistent": this
-                            was the one place margin still got the old
-                            always-colored-green-if-positive treatment —
-                            every per-job Margin cell right below it (and
-                            everywhere else on this page) only colors
-                            red-if-negative, otherwise plain. Matched, and
-                            bumped to text-sm to actually read as this
-                            row's own headline number instead of smaller
-                            than its own date label. */}
-                        <span className={`whitespace-nowrap text-sm font-semibold ${g.marginCents < 0 ? "text-red-600" : "text-slate-800"}`}>
-                          {formatCents(g.marginCents)} margin
-                        </span>
-                      </button>
-                      {expanded && (
-                        <div className="flex flex-col gap-2.5 border-t border-slate-100 p-3 pt-2">
-                          <div className="text-xs text-slate-500">
-                            {formatCents(g.revenueCents)} revenue − {formatCents(g.labCostCents)} lab cost
-                            {g.stripeFeeCents !== 0 && <> − {formatCents(g.stripeFeeCents)} Stripe fees</>}
-                          </div>
-                          <div className="flex flex-col gap-2">
-                            {g.jobEntries.map((e) => (
-                              <JobRow
-                                key={e.job.id}
-                                job={e.job}
-                                onOpen={() => setSelectedJobId(e.job.id)}
-                                right={
-                                  <MoneyGrid
-                                    revenueCents={e.revenueCents}
-                                    labCostCents={e.labCostCents}
-                                    stripeFeeCents={e.stripeFeeCents}
-                                    marginCents={e.marginCents}
+          {groupBy !== "none" && (
+            <>
+              <div className="mt-3">
+                {filteredGroups.length === 0 ? (
+                  <p className="rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-500">{emptyMessage}</p>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {filteredGroups.map((g) => {
+                      const expanded = expandedKeys.has(`${groupBy}:${g.key}`);
+                      return (
+                        <div key={g.key} className="rounded-lg border border-slate-200 bg-white text-sm">
+                          <button
+                            onClick={() =>
+                              setExpandedKeys((prev) => {
+                                const next = new Set(prev);
+                                const k = `${groupBy}:${g.key}`;
+                                if (next.has(k)) next.delete(k);
+                                else next.add(k);
+                                return next;
+                              })
+                            }
+                            className="flex w-full flex-wrap items-baseline justify-between gap-x-4 p-3 text-left"
+                          >
+                            <span className="flex items-baseline gap-2 text-sm font-medium text-brand-600">
+                              <span className="mr-1 inline-block w-3 text-slate-400">{expanded ? "▾" : "▸"}</span>
+                              {g.label}
+                              {g.pdfLink && (
+                                <a
+                                  href={`/api/admin/jobs/${g.pdfLink.jobId}/documents/${g.pdfLink.docId}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="whitespace-nowrap text-sm text-slate-400 hover:text-brand-600 hover:underline"
+                                >
+                                  PDF ↗
+                                </a>
+                              )}
+                            </span>
+                            {/* Per Tim, 2026-08-30 — "the formatting of my
+                                billing page should be more consistent": this
+                                was the one place margin still got the old
+                                always-colored-green-if-positive treatment —
+                                every per-job Margin cell right below it (and
+                                everywhere else on this page) only colors
+                                red-if-negative, otherwise plain. Matched, and
+                                bumped to text-sm to actually read as this
+                                row's own headline number instead of smaller
+                                than its own date label. */}
+                            <span className={`whitespace-nowrap text-sm font-semibold ${g.marginCents < 0 ? "text-red-600" : "text-slate-800"}`}>
+                              {formatCents(g.marginCents)} margin
+                            </span>
+                          </button>
+                          {expanded && (
+                            <div className="flex flex-col gap-2.5 border-t border-slate-100 p-3 pt-2">
+                              <div className="text-xs text-slate-500">
+                                {formatCents(g.revenueCents)} revenue − {formatCents(g.labCostCents)} lab cost
+                                {g.stripeFeeCents !== 0 && <> − {formatCents(g.stripeFeeCents)} Stripe fees</>}
+                              </div>
+                              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                {g.jobEntries.map((e) => (
+                                  <JobRow
+                                    key={e.job.id}
+                                    job={e.job}
+                                    onOpen={() => setSelectedJobId(e.job.id)}
+                                    right={
+                                      <MoneyGrid
+                                        revenueCents={e.revenueCents}
+                                        labCostCents={e.labCostCents}
+                                        stripeFeeCents={e.stripeFeeCents}
+                                        marginCents={e.marginCents}
+                                      />
+                                    }
                                   />
-                                }
-                              />
-                            ))}
-                          </div>
-                          {g.unlinkedCents != null && g.unlinkedCents !== 0 && (
-                            <div className="text-xs text-slate-400">+ {formatCents(g.unlinkedCents)} not linked to a job on file</div>
+                                ))}
+                              </div>
+                              {g.unlinkedCents != null && g.unlinkedCents !== 0 && (
+                                <div className="text-xs text-slate-400">+ {formatCents(g.unlinkedCents)} not linked to a job on file</div>
+                              )}
+                            </div>
                           )}
                         </div>
-                      )}
-                    </div>
-                  );
-                })}
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
 
-          {/* Per Tim, 2026-08-30 — "every single job should go on this
-              page regardless of whether or not we have a lab invoice so
-              that we can keep track of which ones we have and which ones
-              we don't." */}
-          <div className="mt-3">
-            {jobsWithoutLabInvoice.length === 0 ? (
-              <p className="rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-500">Everything&apos;s been billed.</p>
-            ) : (
-              <div className="flex flex-col gap-2">
-                {jobsWithoutLabInvoice.map((job) => (
-                  <JobRow
-                    key={job.id}
-                    job={job}
-                    onOpen={() => setSelectedJobId(job.id)}
-                    right={<span className="shrink-0 whitespace-nowrap text-xs text-slate-400">No lab invoice yet</span>}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
+              {/* Per Tim, 2026-08-30 — "every single job should go on this
+                  page regardless of whether or not we have a lab invoice so
+                  that we can keep track of which ones we have and which ones
+                  we don't" — this only applies to the weekly-report grouping,
+                  since that's the one tied to the real lab invoice document. */}
+              {groupBy === "weekly" && (
+                <div className="mt-3">
+                  {jobsWithoutLabInvoice.length === 0 ? (
+                    <p className="rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-500">Everything&apos;s been billed.</p>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      {jobsWithoutLabInvoice.map((job) => (
+                        <JobRow
+                          key={job.id}
+                          job={job}
+                          onOpen={() => setSelectedJobId(job.id)}
+                          right={<span className="shrink-0 whitespace-nowrap text-xs text-slate-400">No lab invoice yet</span>}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          )}
         </>
       )}
 

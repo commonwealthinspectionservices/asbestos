@@ -64,7 +64,14 @@ export const GET = withApiErrors(async (req: NextRequest) => {
     if (job.paid_date && !job.payment_reversed_at && invoice.status !== "paid") {
       issues.push({ project_number: label, issue: "Job marked paid but its Stripe invoice isn't", detail: `Stripe status: ${invoice.status}` });
     }
-    if (!job.paid_date && invoice.status === "paid") {
+    // Per Tim, 2026-08-30 — false alarm on 26-0007/26-0008: both were
+    // already correctly refunded (payment_reversed_at set 2026-08-29), but
+    // this check didn't know that — a Stripe invoice's own status stays
+    // "paid" forever even after the underlying charge is refunded (see
+    // reconcile-stripe-paid-invoices' own comment), so a legitimately-
+    // reversed job looked identical to a missed webhook here. Same
+    // payment_reversed_at guard reconcile's own query already has.
+    if (!job.paid_date && !job.payment_reversed_at && invoice.status === "paid") {
       issues.push({ project_number: label, issue: "Stripe invoice is paid but the job was never marked paid — a webhook may have been missed" });
     }
     if (!job.paid_date && (invoice.status === "void" || invoice.status === "uncollectible")) {

@@ -57,6 +57,12 @@ function isPastDue(dueIso: string | null): boolean {
   return due.getTime() < today.getTime();
 }
 
+// Local calendar date (not UTC) as YYYY-MM-DD, for comparing against the
+// plain date strings (confirmed_date/requested_date) jobs are stored with.
+function ymd(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 function invoiceStatus(job: JobWithCustomer): InvoiceStatus {
   if (job.paid_date) return "paid";
   if (job.invoice_sent_at) return isPastDue(dueDateFor(job)) ? "overdue" : "sent";
@@ -293,6 +299,42 @@ export default function BillingView() {
     return { awaitingPaymentCents };
   }, [invoicedJobs]);
 
+  // Per Tim, 2026-08-30 — "I do want a way to track weekly and monthly
+  // revenues... keep it as simple as possible": two plain running totals,
+  // not a browsable grouped view like the one he just had removed.
+  // Bucketed by confirmed_date (fallback requested_date) — the same date
+  // the old monthly/yearly rollups used — over every invoiced job,
+  // regardless of payment status, so a job counts toward the week/month
+  // it was actually confirmed in.
+  const periodSummary = useMemo(() => {
+    const today = new Date();
+    const weekStart = new Date(today);
+    weekStart.setHours(0, 0, 0, 0);
+    weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+    const weekStartStr = ymd(weekStart);
+    const monthStartStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-01`;
+
+    let weekRevenueCents = 0;
+    let weekMarginCents = 0;
+    let monthRevenueCents = 0;
+    let monthMarginCents = 0;
+    for (const job of invoicedJobs) {
+      const bucketDate = job.confirmed_date ?? job.requested_date;
+      if (!bucketDate) continue;
+      const revenueCents = job.invoice_total_cents ?? 0;
+      const marginCents = computeMarginCents(revenueCents, job.lab_cost_cents ?? 0, job.stripe_fee_cents ?? 0);
+      if (bucketDate >= weekStartStr) {
+        weekRevenueCents += revenueCents;
+        weekMarginCents += marginCents;
+      }
+      if (bucketDate >= monthStartStr) {
+        monthRevenueCents += revenueCents;
+        monthMarginCents += marginCents;
+      }
+    }
+    return { weekRevenueCents, weekMarginCents, monthRevenueCents, monthMarginCents };
+  }, [invoicedJobs]);
+
   async function patchJob(job: JobWithCustomer, patch: Record<string, unknown>) {
     const res = await fetch(`/api/admin/jobs/${job.id}`, {
       method: "PATCH",
@@ -307,11 +349,23 @@ export default function BillingView() {
       {/* Per Tim, 2026-08-30 — "the Payment Pending cell doesn't need to
           be so huge, it can just be one line... next to Billing": dropped
           the bordered stat-tile card in favor of one inline line next to
-          the page title. */}
+          the page title. Then "I do want a way to track weekly and
+          monthly revenues... keep it as simple as possible" — two more
+          plain numbers on the same line, not a browsable view. */}
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <h1 className="text-lg font-semibold text-slate-800">Billing</h1>
-        <div className="text-sm text-slate-500">
-          Payment Pending <span className="font-semibold text-slate-800">{formatCents(listSummary.awaitingPaymentCents)}</span>
+        <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm text-slate-500">
+          <span>
+            Payment Pending <span className="font-semibold text-slate-800">{formatCents(listSummary.awaitingPaymentCents)}</span>
+          </span>
+          <span>
+            This Week <span className="font-semibold text-slate-800">{formatCents(periodSummary.weekRevenueCents)}</span>{" "}
+            <span className="text-slate-400">({formatCents(periodSummary.weekMarginCents)} margin)</span>
+          </span>
+          <span>
+            This Month <span className="font-semibold text-slate-800">{formatCents(periodSummary.monthRevenueCents)}</span>{" "}
+            <span className="text-slate-400">({formatCents(periodSummary.monthMarginCents)} margin)</span>
+          </span>
         </div>
       </div>
 

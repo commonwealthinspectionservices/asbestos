@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { JobWithCustomer } from "@/lib/types";
 import { formatCents } from "@/lib/pricing";
 import { formatDateMDY } from "@/lib/date-format";
+import { expandAddress } from "@/lib/address";
 
 function formatDate(date: string | null | undefined): string {
   return formatDateMDY(date) ?? "—";
@@ -216,30 +217,38 @@ export default function LabInvoicesView() {
                       </div>
                       {expanded && (
                         <div className="border-t border-slate-100 p-3 pt-2">
-                          {/* Per Tim, 2026-08-29 — "the vertical list was
-                              totally fine, we just need the price not so
-                              far away": the amount sits right next to the
-                              project number (a fixed small gap) instead of
-                              justify-between stretching it to the card's
-                              far edge. Per Tim, 2026-08-29 (round two) —
-                              "I still don't love all this empty space": an
-                              auto-fill grid repeats that same tight pair as
-                              many times per row as actually fit the card's
-                              real width, instead of guessing a fixed column
-                              count — unlike the earlier side-by-side attempt
-                              he found confusing, each pair stays visually
-                              tight (own small gap) rather than stretched
-                              across a shared cell, so which price belongs to
-                              which job is never ambiguous regardless of how
-                              many columns wrap. */}
-                          <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-x-6 gap-y-2.5">
+                          {/* Per Tim, 2026-08-30 — "I want lab costs to be
+                              this format too job by job", pointing at
+                              Invoices' own per-job card row: project #
+                              badge + company name on the left, amount on
+                              the right, one full-width card per job instead
+                              of the tight auto-fill grid this used to be. */}
+                          <div className="flex flex-col gap-2">
                             {r.jobEntries.map((e) => (
-                              <div key={e.job.id} className="flex items-baseline gap-5">
-                                <Link href={`/admin/dashboard?jobId=${e.job.id}`} className="font-mono text-xs text-brand-600 hover:underline">
-                                  {e.job.project_number}
-                                </Link>
-                                <span className="whitespace-nowrap text-xs font-semibold text-slate-800">{formatCents(e.amountCents)}</span>
-                              </div>
+                              <Link
+                                key={e.job.id}
+                                href={`/admin/dashboard?jobId=${e.job.id}`}
+                                className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3 hover:border-brand-400"
+                              >
+                                <div className="min-w-0">
+                                  <div className="flex min-w-0 items-center gap-2">
+                                    <span className="shrink-0 whitespace-nowrap rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs text-slate-600">
+                                      {e.job.project_number}
+                                    </span>
+                                    <span className="min-w-0 truncate text-sm font-medium text-slate-800">
+                                      {e.job.customers?.company || e.job.customers?.name}
+                                    </span>
+                                  </div>
+                                  {/* Per Tim, 2026-08-30 — "i need address on
+                                      these": the job site address, same
+                                      expandAddress abbreviation-expansion
+                                      every other address in the app uses. */}
+                                  {e.job.service_address && (
+                                    <div className="mt-0.5 truncate text-xs text-slate-500">{expandAddress(e.job.service_address)}</div>
+                                  )}
+                                </div>
+                                <span className="shrink-0 whitespace-nowrap text-sm font-semibold text-slate-800">{formatCents(e.amountCents)}</span>
+                              </Link>
                             ))}
                           </div>
                           {/* Per Tim, 2026-08-28 — "why does it say $1,108 if
@@ -249,7 +258,7 @@ export default function LabInvoicesView() {
                               report never named a project number Crystal's
                               own end could match to a job. */}
                           {r.unlinkedCents != null && r.unlinkedCents !== 0 && (
-                            <div className="mt-1.5 text-xs text-slate-400">+ {formatCents(r.unlinkedCents)} not linked to a job on file</div>
+                            <div className="mt-2 text-xs text-slate-400">+ {formatCents(r.unlinkedCents)} not linked to a job on file</div>
                           )}
                         </div>
                       )}

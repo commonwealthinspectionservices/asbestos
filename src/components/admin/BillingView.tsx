@@ -762,7 +762,17 @@ export default function BillingView() {
                             </a>
                           )}
                         </span>
-                        <span className={`whitespace-nowrap text-xs font-semibold ${g.marginCents < 0 ? "text-red-600" : "text-emerald-600"}`}>
+                        {/* Per Tim, 2026-08-30 — "the formatting of my
+                            billing page should be more consistent": this
+                            was the one place margin still got the old
+                            always-colored-green-if-positive treatment —
+                            every per-job Margin cell right below it (and
+                            everywhere else on this page) only colors
+                            red-if-negative, otherwise plain. Matched, and
+                            bumped to text-sm to actually read as this
+                            row's own headline number instead of smaller
+                            than its own date label. */}
+                        <span className={`whitespace-nowrap text-sm font-semibold ${g.marginCents < 0 ? "text-red-600" : "text-slate-800"}`}>
                           {formatCents(g.marginCents)} margin
                         </span>
                       </button>

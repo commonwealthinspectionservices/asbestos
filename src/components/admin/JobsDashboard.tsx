@@ -1627,7 +1627,7 @@ function JobRow({
                   {reportStatus}
                 </div>
               )}
-              <div className={`w-full text-sm text-slate-500 ${showReportInvoice ? "hidden" : ""}`}>
+              <div className={`w-full text-sm text-slate-500 sm:text-right ${showReportInvoice ? "hidden" : ""}`}>
                 {!isUnscheduled ? (
                   <>
                     <div>{hasCompletedFieldwork(job.status) ? "Completed" : "Scheduled"} date: {formatDate(job.confirmed_date ?? job.requested_date) || "—"}</div>

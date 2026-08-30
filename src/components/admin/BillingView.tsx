@@ -446,23 +446,12 @@ export default function BillingView() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
-      {/* Per Tim, 2026-08-30 — "the Payment Pending cell doesn't need to
-          be so huge, it can just be one line... next to Billing": dropped
-          the bordered stat-tile card in favor of one inline line next to
-          the page title. */}
-      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <h1 className="text-lg font-semibold text-slate-800">Billing</h1>
-        <div className="text-sm text-slate-500">
-          Payment Pending <span className="font-semibold text-slate-800">{formatCents(listSummary.awaitingPaymentCents)}</span>
-        </div>
-      </div>
-
-      {/* Per Tim, 2026-08-30 — "the weekly and monthly sales should be at
-          the top just underneath the Billing title, and above the
-          Payment Pending button": moved back up from the bottom of the
-          page, above the filter pills. Still a plain, non-interactive
-          table (no expand/collapse, no clicking into jobs). */}
-      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+      {/* Per Tim, 2026-08-30 — "delete billing title, move sort by tool
+          left, drop payment pending down and make it all on the same
+          line across": the h1 and its own header row are gone; Payment
+          Pending now lives in the same row as Sort by/the filter pills
+          further down instead of its own line up top. */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <PeriodHistoryTable title="Weekly" rows={periodHistory.weekly} />
         <PeriodHistoryTable title="Monthly" rows={periodHistory.monthly} />
       </div>
@@ -472,6 +461,12 @@ export default function BillingView() {
 
       {!loading && !error && (
         <>
+          {/* Mobile: Payment Pending now shows here (its own header line
+              is gone), above the filter/sort dropdowns. */}
+          <div className="mt-3 text-sm text-slate-500 sm:hidden">
+            Payment Pending <span className="font-semibold text-slate-800">{formatCents(listSummary.awaitingPaymentCents)}</span>
+          </div>
+
           {/* Mobile: a dropdown, same pattern as the Directory's tab
               selector and the Projects page's status filter. */}
           <div className="relative mt-3 sm:hidden">
@@ -487,43 +482,48 @@ export default function BillingView() {
             <span className="pointer-events-none absolute inset-y-0 right-0 flex w-9 items-center justify-center text-slate-500">▾</span>
           </div>
 
-          {/* Per Tim, 2026-08-30 — "make these on the same line, and sort
-              by can be aligned right": filter pills and Sort by used to be
-              two stacked rows on desktop — now one row, filters on the
-              left, Sort by pushed to the right edge. */}
-          <div className="mt-3 hidden items-center justify-between gap-2 sm:flex sm:flex-wrap">
-            <div className="flex flex-wrap gap-1.5">
-              {FILTERS.map((f) => (
-                <button
-                  key={f.key}
-                  onClick={() => setFilter(f.key)}
-                  className={`shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium ${filter === f.key ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}
-                >
-                  {f.label}
-                </button>
-              ))}
+          {/* Per Tim, 2026-08-30 — "delete billing title, move sort by
+              tool left, drop payment pending down and make it all on the
+              same line across": Sort by now comes first (left), then the
+              filter pills, then the Payment Pending total — all one row. */}
+          <div className="mt-3 hidden items-center justify-between gap-x-4 gap-y-2 sm:flex sm:flex-wrap">
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="shrink-0 text-sm font-medium text-gray-400">Sort by:</span>
+                {SORT_FIELDS.map((f) => (
+                  <button
+                    key={f.key}
+                    onClick={() => {
+                      if (sortBy === f.key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+                      else {
+                        setSortBy(f.key);
+                        setSortDir("asc");
+                      }
+                    }}
+                    // Per Tim, 2026-08-30 — "make both the color of the
+                    // Payment Pending button": the active Sort pill was
+                    // bg-slate-700 while the active filter pill (Payment
+                    // Pending) is bg-brand-600 — matched to the same blue.
+                    className={`shrink-0 rounded-lg px-2.5 py-1 text-sm font-medium ${sortBy === f.key ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}
+                  >
+                    {f.label}{sortBy === f.key ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
+                  </button>
+                ))}
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {FILTERS.map((f) => (
+                  <button
+                    key={f.key}
+                    onClick={() => setFilter(f.key)}
+                    className={`shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium ${filter === f.key ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="shrink-0 text-sm font-medium text-gray-400">Sort by:</span>
-              {SORT_FIELDS.map((f) => (
-                <button
-                  key={f.key}
-                  onClick={() => {
-                    if (sortBy === f.key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-                    else {
-                      setSortBy(f.key);
-                      setSortDir("asc");
-                    }
-                  }}
-                  // Per Tim, 2026-08-30 — "make both the color of the
-                  // Payment Pending button": the active Sort pill was
-                  // bg-slate-700 while the active filter pill (Payment
-                  // Pending) is bg-brand-600 — matched to the same blue.
-                  className={`shrink-0 rounded-lg px-2.5 py-1 text-sm font-medium ${sortBy === f.key ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}
-                >
-                  {f.label}{sortBy === f.key ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
-                </button>
-              ))}
+            <div className="text-sm text-slate-500">
+              Payment Pending <span className="font-semibold text-slate-800">{formatCents(listSummary.awaitingPaymentCents)}</span>
             </div>
           </div>
 

@@ -246,6 +246,18 @@ export default function MarginsView() {
     hasAutoExpandedYearly.current = true;
   }, [yearlyGroups]);
 
+  // Per Tim, 2026-08-30 — "default to opening the current week when you
+  // open up that margins tab": same one-time auto-expand pattern as
+  // yearly above, and the same one Lab Costs' own Weekly Reports already
+  // uses — weeklyGroups[0] is "this week" by the same definition (most
+  // recent report, sorted first).
+  const hasAutoExpandedThisWeek = useRef(false);
+  useEffect(() => {
+    if (hasAutoExpandedThisWeek.current || weeklyGroups.length === 0) return;
+    setExpandedKeys((prev) => new Set(prev).add(`weekly:${weeklyGroups[0].key}`));
+    hasAutoExpandedThisWeek.current = true;
+  }, [weeklyGroups]);
+
   const groups = period === "weekly" ? weeklyGroups : period === "monthly" ? monthlyGroups : yearlyGroups;
   const emptyMessage =
     period === "weekly" ? "No weekly reports received yet." : `No jobs with a confirmed date yet.`;
@@ -263,7 +275,7 @@ export default function MarginsView() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
-      <h1 className="text-lg font-semibold text-slate-800">Margins</h1>
+      <h1 className="text-lg font-semibold text-slate-800">Margins (Invoice − Lab Costs)</h1>
 
       <div className="mt-3 flex flex-wrap gap-4 rounded-lg border border-slate-200 bg-white p-3 text-sm">
         <div>

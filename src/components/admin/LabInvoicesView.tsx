@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import type { JobWithCustomer } from "@/lib/types";
 import { formatCents } from "@/lib/pricing";
@@ -180,6 +180,20 @@ export default function LabInvoicesView() {
     const thisWeekCents = weeklyReports[0]?.totalCents ?? null;
     const totalCents = weeklyReports.reduce((sum, r) => sum + (r.totalCents ?? 0), 0);
     return { thisWeekCents, totalCents };
+  }, [weeklyReports]);
+
+  // Per Tim, 2026-08-30 — "the current week should always open by
+  // default": same one-time auto-expand pattern as Margins' own "always
+  // open the current year" — fires once, the first time weeklyReports
+  // actually has data; the ref guard means a later manual collapse
+  // sticks instead of getting silently re-expanded on every refetch.
+  // weeklyReports[0] is "this week" by the same definition the summary
+  // box above already uses (most recent report, sorted first).
+  const hasAutoExpandedThisWeek = useRef(false);
+  useEffect(() => {
+    if (hasAutoExpandedThisWeek.current || weeklyReports.length === 0) return;
+    setExpandedReportKeys((prev) => new Set(prev).add(weeklyReports[0].key));
+    hasAutoExpandedThisWeek.current = true;
   }, [weeklyReports]);
 
   // Per Tim, 2026-08-30 — "every single job should go on this page

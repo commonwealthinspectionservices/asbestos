@@ -101,7 +101,15 @@ function JobRow({ job, onOpen, right }: { job: JobWithCustomer; onOpen: () => vo
   return (
     <button
       onClick={onOpen}
-      className="flex w-full flex-wrap items-start justify-between gap-x-3 gap-y-1 rounded-lg border border-slate-200 bg-white p-3 text-left hover:border-brand-400"
+      // Per Tim, 2026-08-30 — "these cells shouldn't have so much blank
+      // space": justify-between stretched `right` all the way to the
+      // card's own far edge, leaving a big dead gap in the middle on a
+      // wide row with a short company name — same complaint, same fix,
+      // as the earlier "price not so far away" pass on Lab Costs' cards.
+      // Left-aligned now: the two blocks sit close together with a fixed
+      // gap, and any real leftover space lands at the row's own right
+      // margin instead of between the two blocks.
+      className="flex w-full flex-wrap items-start gap-x-10 gap-y-1 rounded-lg border border-slate-200 bg-white p-3 text-left hover:border-brand-400"
     >
       <div>
         {/* whitespace-nowrap + no min-w-0/shrink on this block: the

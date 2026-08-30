@@ -303,15 +303,14 @@ export default function BillingView() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
-      <h1 className="text-lg font-semibold text-slate-800">Billing</h1>
-
-      {/* Per Tim, 2026-08-30 — "I don't need it to list how much is
-          overdue" and "instead of Pending Payment, it should be Payment
-          Pending" (matching the status pill's own wording). */}
-      <div className="mt-3 flex flex-wrap gap-4 rounded-lg border border-slate-200 bg-white p-3 text-sm">
-        <div>
-          <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Payment Pending</div>
-          <div className="text-base font-semibold text-slate-800">{formatCents(listSummary.awaitingPaymentCents)}</div>
+      {/* Per Tim, 2026-08-30 — "the Payment Pending cell doesn't need to
+          be so huge, it can just be one line... next to Billing": dropped
+          the bordered stat-tile card in favor of one inline line next to
+          the page title. */}
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <h1 className="text-lg font-semibold text-slate-800">Billing</h1>
+        <div className="text-sm text-slate-500">
+          Payment Pending <span className="font-semibold text-slate-800">{formatCents(listSummary.awaitingPaymentCents)}</span>
         </div>
       </div>
 

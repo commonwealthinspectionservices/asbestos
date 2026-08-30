@@ -65,6 +65,18 @@ function ymd(d: Date): string {
 
 const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
+// Per Tim, 2026-08-30 — "instead of Aug 24-30 it should say August 24th
+// - 30th": full month name plus an ordinal day, used by the Weekly
+// table's date-range labels.
+function ordinal(n: number): string {
+  const j = n % 10;
+  const k = n % 100;
+  if (j === 1 && k !== 11) return `${n}st`;
+  if (j === 2 && k !== 12) return `${n}nd`;
+  if (j === 3 && k !== 13) return `${n}rd`;
+  return `${n}th`;
+}
+
 // Per Tim, 2026-08-30 — "it should only just start at August 24th 2026,
 // that's when my company started": the Weekly/Monthly history tables
 // never show a period entirely before this date.
@@ -397,8 +409,8 @@ export default function BillingView() {
       end.setDate(start.getDate() + 6);
       const label =
         start.getMonth() === end.getMonth()
-          ? `${MONTH_NAMES[start.getMonth()].slice(0, 3)} ${start.getDate()}–${end.getDate()}`
-          : `${MONTH_NAMES[start.getMonth()].slice(0, 3)} ${start.getDate()}–${MONTH_NAMES[end.getMonth()].slice(0, 3)} ${end.getDate()}`;
+          ? `${MONTH_NAMES[start.getMonth()]} ${ordinal(start.getDate())} - ${ordinal(end.getDate())}`
+          : `${MONTH_NAMES[start.getMonth()]} ${ordinal(start.getDate())} - ${MONTH_NAMES[end.getMonth()]} ${ordinal(end.getDate())}`;
       return { label, startStr: ymd(start), endStr: ymd(end), grossCents: 0, netCents: 0 };
     }).filter((b) => b.endStr >= COMPANY_START_DATE);
 

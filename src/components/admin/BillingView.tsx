@@ -284,19 +284,12 @@ export default function BillingView() {
   }, [invoicedJobs, filter, projectNumberQuery, companyQuery, addressQuery, mobileSearch, sortBy, sortDir]);
 
   const listSummary = useMemo(() => {
-    let overdueCents = 0;
-    let overdueCount = 0;
     let awaitingPaymentCents = 0;
     for (const job of invoicedJobs) {
       const status = invoiceStatus(job);
-      if (status === "paid") continue;
       if (status === "sent" || status === "overdue") awaitingPaymentCents += job.invoice_total_cents ?? 0;
-      if (status === "overdue") {
-        overdueCents += job.invoice_total_cents ?? 0;
-        overdueCount++;
-      }
     }
-    return { overdueCents, overdueCount, awaitingPaymentCents };
+    return { awaitingPaymentCents };
   }, [invoicedJobs]);
 
   async function patchJob(job: JobWithCustomer, patch: Record<string, unknown>) {
@@ -312,17 +305,13 @@ export default function BillingView() {
     <div className="mx-auto max-w-3xl px-4 py-6">
       <h1 className="text-lg font-semibold text-slate-800">Billing</h1>
 
+      {/* Per Tim, 2026-08-30 — "I don't need it to list how much is
+          overdue" and "instead of Pending Payment, it should be Payment
+          Pending" (matching the status pill's own wording). */}
       <div className="mt-3 flex flex-wrap gap-4 rounded-lg border border-slate-200 bg-white p-3 text-sm">
         <div>
-          <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Pending Payment</div>
+          <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Payment Pending</div>
           <div className="text-base font-semibold text-slate-800">{formatCents(listSummary.awaitingPaymentCents)}</div>
-        </div>
-        <div>
-          <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Overdue</div>
-          <div className="text-base font-semibold text-slate-800">
-            {formatCents(listSummary.overdueCents)}
-            {listSummary.overdueCount > 0 && <span className="ml-1 text-xs font-normal text-slate-500">({listSummary.overdueCount})</span>}
-          </div>
         </div>
       </div>
 
@@ -346,16 +335,40 @@ export default function BillingView() {
             <span className="pointer-events-none absolute inset-y-0 right-0 flex w-9 items-center justify-center text-slate-500">▾</span>
           </div>
 
-          <div className="mt-3 hidden gap-1.5 sm:flex sm:flex-wrap">
-            {FILTERS.map((f) => (
-              <button
-                key={f.key}
-                onClick={() => setFilter(f.key)}
-                className={`shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium ${filter === f.key ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}
-              >
-                {f.label}
-              </button>
-            ))}
+          {/* Per Tim, 2026-08-30 — "make these on the same line, and sort
+              by can be aligned right": filter pills and Sort by used to be
+              two stacked rows on desktop — now one row, filters on the
+              left, Sort by pushed to the right edge. */}
+          <div className="mt-3 hidden items-center justify-between gap-2 sm:flex sm:flex-wrap">
+            <div className="flex flex-wrap gap-1.5">
+              {FILTERS.map((f) => (
+                <button
+                  key={f.key}
+                  onClick={() => setFilter(f.key)}
+                  className={`shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium ${filter === f.key ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="shrink-0 text-sm font-medium text-gray-400">Sort by:</span>
+              {SORT_FIELDS.map((f) => (
+                <button
+                  key={f.key}
+                  onClick={() => {
+                    if (sortBy === f.key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+                    else {
+                      setSortBy(f.key);
+                      setSortDir("asc");
+                    }
+                  }}
+                  className={`shrink-0 rounded-lg px-2.5 py-1 text-sm font-medium ${sortBy === f.key ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
+                >
+                  {f.label}{sortBy === f.key ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="mt-3 flex gap-2 sm:hidden">
@@ -384,25 +397,6 @@ export default function BillingView() {
               placeholder="Search…"
               className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm"
             />
-          </div>
-
-          <div className="mt-3 hidden flex-wrap items-center gap-2 sm:flex">
-            <span className="shrink-0 text-sm font-medium text-gray-400">Sort by:</span>
-            {SORT_FIELDS.map((f) => (
-              <button
-                key={f.key}
-                onClick={() => {
-                  if (sortBy === f.key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-                  else {
-                    setSortBy(f.key);
-                    setSortDir("asc");
-                  }
-                }}
-                className={`shrink-0 rounded-lg px-2.5 py-1 text-sm font-medium ${sortBy === f.key ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
-              >
-                {f.label}{sortBy === f.key ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
-              </button>
-            ))}
           </div>
 
           <div className="mt-3 hidden gap-2 sm:flex sm:flex-row sm:flex-nowrap sm:items-center">

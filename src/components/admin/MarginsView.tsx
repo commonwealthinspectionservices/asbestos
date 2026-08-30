@@ -343,14 +343,32 @@ export default function MarginsView() {
                                   <div className="mt-0.5 truncate text-xs text-slate-500">{expandAddress(e.job.service_address)}</div>
                                 )}
                               </div>
-                              <div className="shrink-0 text-right">
-                                <div className={`whitespace-nowrap text-sm font-semibold ${e.marginCents < 0 ? "text-red-600" : "text-slate-800"}`}>
+                              {/* Per Tim, 2026-08-30 — "this should be
+                                  clearer, maybe a table style of what's the
+                                  invoice price and what's the lab cost":
+                                  the old "$550.00 − $48.00" formula made you
+                                  do the subtraction yourself to know which
+                                  number was which. A little label/value
+                                  grid instead — each row's own two columns
+                                  (grid-cols-[auto_auto], not fixed widths)
+                                  line up down the block, Margin split off
+                                  with its own rule since it's the total, not
+                                  another line item. */}
+                              <div className="grid shrink-0 grid-cols-[auto_auto] items-baseline justify-end gap-x-2 gap-y-0.5 text-xs">
+                                <span className="text-right text-slate-400">Invoice</span>
+                                <span className="whitespace-nowrap text-right text-slate-700">{formatCents(e.revenueCents)}</span>
+                                <span className="text-right text-slate-400">Lab Cost</span>
+                                <span className="whitespace-nowrap text-right text-slate-700">{formatCents(e.labCostCents)}</span>
+                                {e.stripeFeeCents !== 0 && (
+                                  <>
+                                    <span className="text-right text-slate-400">Stripe Fee</span>
+                                    <span className="whitespace-nowrap text-right text-slate-700">{formatCents(e.stripeFeeCents)}</span>
+                                  </>
+                                )}
+                                <span className="text-right text-slate-400">Margin</span>
+                                <span className={`whitespace-nowrap text-right ${e.marginCents < 0 ? "text-red-600" : "text-slate-700"}`}>
                                   {formatCents(e.marginCents)}
-                                </div>
-                                <div className="whitespace-nowrap text-xs text-slate-500">
-                                  {formatCents(e.revenueCents)} − {formatCents(e.labCostCents)}
-                                  {e.stripeFeeCents !== 0 && <> − {formatCents(e.stripeFeeCents)}</>}
-                                </div>
+                                </span>
                               </div>
                             </Link>
                           ))}

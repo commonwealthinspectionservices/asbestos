@@ -1016,3 +1016,13 @@ alter type job_status add value if not exists 'report_invoice_sent' after 'ready
 -- service-type lookup — otherwise a real matched service type's own
 -- configured base fee would win once one gets picked on the Invoice tab.
 alter table jobs add column if not exists is_revisit boolean not null default false;
+
+-- Per Tim, 2026-08-30 — "FLI's client should be three lines across,
+-- company name, company contact's name, company contact phone number":
+-- a subcontractor job's end client (e.g. "Restore1", the company FLI
+-- Environmental is doing the work for) is its own company name, distinct
+-- from site_contact_name/site_contact_phone which now hold that end
+-- client's own contact person's name/phone. Nullable and freeform — per
+-- Tim, "I'm not always sure going in who I'm gonna be subcontracting the
+-- job for... it should just be more of a note."
+alter table jobs add column if not exists subcontractor_client_company text;

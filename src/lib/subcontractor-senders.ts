@@ -26,3 +26,22 @@ export function subcontractorSenderForJob(email: string | null | undefined): Sub
   const domain = email.split("@")[1]?.toLowerCase();
   return KNOWN_SUBCONTRACTOR_SENDERS.find((s) => s.domain === domain) ?? null;
 }
+
+// Per Tim, 2026-08-30 — "instead of having to check subcontractor job,
+// it should just recognize FLI Environmental and Fast Mold Testing as
+// the two companies that I do subcontractor jobs for": the manual Add
+// Project form auto-detects a subcontractor job by company name alone.
+// Separate from KNOWN_SUBCONTRACTOR_SENDERS above, which needs full
+// sender metadata (domain/phone/portal/serviceType) for the automated
+// email-intake pipeline — FLI Environmental doesn't have that yet, just
+// a name.
+export const KNOWN_SUBCONTRACTOR_COMPANY_NAMES: string[] = [
+  ...KNOWN_SUBCONTRACTOR_SENDERS.map((s) => s.companyName),
+  "FLI Environmental",
+];
+
+export function isKnownSubcontractorCompanyName(name: string | null | undefined): boolean {
+  const normalized = name?.trim().toLowerCase();
+  if (!normalized) return false;
+  return KNOWN_SUBCONTRACTOR_COMPANY_NAMES.some((n) => n.toLowerCase() === normalized);
+}

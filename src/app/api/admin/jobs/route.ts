@@ -177,6 +177,11 @@ export const POST = withApiErrors(async (req: NextRequest) => {
     // "portal_booking"/"email_intake" stay reserved for their own
     // automated intake pipelines and can't be requested here.
     source: body.source === "subcontractor" ? "subcontractor" : "admin",
+    // Per Tim, 2026-08-30 — "FLI's client... company name, company
+    // contact's name, company contact phone number": the end client's own
+    // company name (e.g. "Restore1"), distinct from siteContactName/Phone
+    // above, which now hold that end client's contact person.
+    subcontractor_client_company: body.subcontractorClientCompany?.trim() || null,
     payment_type: body.paymentType === "check" ? "check" : "online",
     notes: body.notes || null,
     project_name: body.projectName || null,
@@ -203,7 +208,7 @@ export const POST = withApiErrors(async (req: NextRequest) => {
 
   // These columns predate this route being written — tolerate a migration
   // not having been run yet rather than failing project creation entirely.
-  const TOLERATED_MISSING_COLUMNS = ["report_emails", "scope_of_work", "payment_due_date", "confirmed_date", "confirmed_time"];
+  const TOLERATED_MISSING_COLUMNS = ["report_emails", "scope_of_work", "payment_due_date", "confirmed_date", "confirmed_time", "subcontractor_client_company"];
   let job = null;
   let jobError: { message?: string } | null = null;
   for (let attempt = 0; attempt <= TOLERATED_MISSING_COLUMNS.length; attempt++) {

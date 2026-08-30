@@ -15,7 +15,7 @@ import JobPhotos from "@/components/shared/JobPhotos";
 import { AcceptScheduleControl, extractTimeRange, parseWindowStartTime24h } from "@/components/admin/AcceptScheduleControl";
 import { ContactForm } from "@/components/admin/ContactDetailDialog";
 import { formatDateMDY } from "@/lib/date-format";
-import { subcontractorSenderForJob } from "@/lib/subcontractor-senders";
+import { subcontractorSenderForJob, isKnownSubcontractorCompanyName } from "@/lib/subcontractor-senders";
 import { timeSelectOptions } from "@/lib/time-options";
 import { computeMarginCents } from "@/lib/pricing";
 import { dueDateFor, paymentDueDate } from "@/lib/invoice-due-date";
@@ -2942,7 +2942,18 @@ export function ProjectDetailDialog({
               stays right above Customer contact within that column. */}
           <div className="space-y-6 sm:space-y-8">
           <div className="space-y-4 sm:space-y-2">
-            <h4 className="text-sm font-bold tracking-wide text-black underline">Job site contact</h4>
+            {/* Per Tim, 2026-08-30 — "FLI's client should be three lines
+                across, company name, company contact's name, company
+                contact phone number": mirrors AddProjectDialog's own
+                relabeled section for a subcontractor job — the end
+                client's company name gets its own line above the usual
+                Name/Phone (that end client's own contact person). */}
+            <h4 className="text-sm font-bold tracking-wide text-black underline">
+              {job.source === "subcontractor" ? "Their client" : "Job site contact"}
+            </h4>
+            {job.source === "subcontractor" && (
+              <DetailField label="Company" value={job.subcontractor_client_company ?? "—"} nowrap />
+            )}
             <DetailField label="Name" value={job.site_contact_name ? toTitleCase(job.site_contact_name) : "—"} />
             <DetailField
               label="Phone"
@@ -4372,6 +4383,12 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
   const [serviceZip, setServiceZip] = useState("");
   const [siteContactName, setSiteContactName] = useState("");
   const [siteContactPhone, setSiteContactPhone] = useState("");
+  // Per Tim, 2026-08-30 — "FLI's client should be three lines across,
+  // company name, company contact's name, company contact phone number":
+  // for a subcontractor job, siteContactName/Phone above hold the end
+  // client's own contact person; this is the end client's company name
+  // itself (e.g. "Restore1"), a separate line.
+  const [endClientCompany, setEndClientCompany] = useState("");
   // Individual mode defaults this true (site contact assumed to be the
   // customer) when picked; Company is this form's own starting kind (most
   // projects come in through a company), where the site contact is usually
@@ -4389,19 +4406,28 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
   const [requestedTime, setRequestedTime] = useState("");
   const [notes, setNotes] = useState("");
   const [paymentType, setPaymentType] = useState<"online" | "check">("online");
-  // Per Tim, 2026-08-30 — "I want to be able to add a subcontractor job
-  // manually": jobs.source === "subcontractor" was previously only ever
-  // set by the automated email-intake pipeline (subcontractor-intake.ts)
-  // — there was no way to create one by hand. Subcontractor jobs are
-  // never billed through this app (no Report/Invoice tab, no payment
-  // gate) — they're work Commonwealth does FOR another environmental
-  // company (e.g. Fast Mold Testing, FLI Environmental), so "Company"
-  // here means the subcontracting company, not a billing client.
-  const [isSubcontractor, setIsSubcontractor] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [fetchingNumber, setFetchingNumber] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmingExit, setConfirmingExit] = useState(false);
+
+  // Per Tim, 2026-08-30 — "instead of having to check subcontractor job,
+  // it should just recognize FLI Environmental and Fast Mold Testing as
+  // the two companies that I do subcontractor jobs for": no manual
+  // checkbox — derived straight from the typed/selected company name
+  // against the same known-subcontractor list the email-intake pipeline
+  // uses. Subcontractor jobs are never billed through this app (no
+  // Report/Invoice tab, no payment gate); "Company" means the
+  // subcontracting company, not a billing client, whenever this is true.
+  //
+  // Per Tim, 2026-08-30 (follow-up) — "originally, when I go to type in
+  // FLI Environmental or Fast Mold Testing, it should just say Company.
+  // And then once I enter it in is when it will revert to Subcontracting
+  // For": gated on companyId (a suggestion was picked) or
+  // companyNameBlurred (typed the full name and moved on) — not on every
+  // keystroke, which onChange resets to false via setCompanyNameBlurred.
+  const isSubcontractor =
+    customerKind === "company" && (Boolean(companyId) || companyNameBlurred) && isKnownSubcontractorCompanyName(companyName);
 
   useEffect(() => {
     if (!siteContactSameAsContact) return;
@@ -4504,6 +4530,7 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
           }) || undefined,
           siteContactName: siteContactName.trim() || undefined,
           siteContactPhone: siteContactPhone.trim() || undefined,
+          subcontractorClientCompany: endClientCompany.trim() || undefined,
           serviceTypeKeys: selectedServiceTypeKeys,
           customServiceType: customServiceType.trim() || undefined,
           scopeOfWork: scopeOfWork.trim() || undefined,
@@ -4587,53 +4614,42 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
 
         {error && <div className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
 
-        <label className="mt-4 flex items-start gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
-          <input
-            type="checkbox"
-            className="mt-0.5"
-            checked={isSubcontractor}
-            onChange={(e) => {
-              setIsSubcontractor(e.target.checked);
-              // Subcontractor jobs are always for a company (the one
-              // subcontracting the work out) — Individual doesn't apply.
-              if (e.target.checked) {
-                setCustomerKind("company");
-                setSiteContactSameAsContact(false);
-              }
+        {/* Per Tim, 2026-08-30 — "should just be 'subcontractor job'...
+            aligned left beneath company button above project number...
+            only when company is selected": shortened label, dropped the
+            bordered-box treatment, moved below the Company/Individual
+            toggle (which now always shows). Per the follow-up — "instead
+            of having to check subcontractor job, it should just
+            recognize FLI Environmental and Fast Mold Testing" — this is
+            now a plain read-only indicator, not a checkbox; see
+            isSubcontractor's own comment above for how it's detected. */}
+        <div className="mt-4 flex gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setCustomerKind("company");
+              setSiteContactSameAsContact(false);
             }}
-          />
-          <span>
-            <span className="font-medium">This is a subcontractor job</span> — you&apos;re doing the work for another
-            environmental company (e.g. Fast Mold Testing, FLI Environmental), not billing a client directly. Skips
-            the Report/Invoice flow and Billing page; adds Shipping/Compensation tabs instead.
-          </span>
-        </label>
+            className={`flex-1 rounded-lg px-3 py-1.5 text-sm font-medium ${customerKind === "company" ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}
+          >
+            Company
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setCustomerKind("individual");
+              setCompanyName("");
+              setCompanyId("");
+              setSiteContactSameAsContact(true);
+            }}
+            className={`flex-1 rounded-lg px-3 py-1.5 text-sm font-medium ${customerKind === "individual" ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}
+          >
+            Individual
+          </button>
+        </div>
 
-        {!isSubcontractor && (
-          <div className="mt-4 flex gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                setCustomerKind("company");
-                setSiteContactSameAsContact(false);
-              }}
-              className={`flex-1 rounded-lg px-3 py-1.5 text-sm font-medium ${customerKind === "company" ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}
-            >
-              Company
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setCustomerKind("individual");
-                setCompanyName("");
-                setCompanyId("");
-                setSiteContactSameAsContact(true);
-              }}
-              className={`flex-1 rounded-lg px-3 py-1.5 text-sm font-medium ${customerKind === "individual" ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}
-            >
-              Individual
-            </button>
-          </div>
+        {isSubcontractor && (
+          <p className="mt-2 text-sm font-medium text-brand-700">Subcontractor job</p>
         )}
 
         <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:gap-4">
@@ -4664,7 +4680,7 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
           ) : (
             <div className="min-w-0 sm:flex-1">
               <label className="block text-sm font-medium text-slate-700">
-                {isSubcontractor ? "Subcontracting company" : "Company"}
+                {isSubcontractor ? "Subcontracting for" : "Company"}
               </label>
               <div className="mt-1">
                 <ComboboxInput
@@ -4749,32 +4765,80 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
           <ZipInput street={serviceStreet} city={serviceCity} state={serviceState} zip={serviceZip} setZip={setServiceZip} />
         </div>
 
-        <label className="mt-3 block text-sm font-medium text-slate-700">Job site contact</label>
-        <div className="mt-1 flex flex-col gap-2 sm:flex-row">
-          <div className="min-w-0 sm:w-0 sm:flex-1">
-            {/* Plain text, not ComboboxInput — the job site contact is the
-                homeowner, essentially never one of the company/individual
-                contacts already on file, so suggesting matches from that
-                list is just noise here. */}
+        {isSubcontractor ? (
+          // Per Tim, 2026-08-30 — "I want Restore1 on there somewhere...
+          // I'm not always sure going in who I'm subcontracting the job
+          // for, it should just be a note" then "FLI's client should be
+          // three lines across, company name, company contact's name,
+          // company contact phone number": the end client's own company
+          // name (subcontractor_client_company, new column) on its own
+          // line, then that company's own contact person's name/phone
+          // (site_contact_name/phone — same field the automated email
+          // intake already uses for this exact purpose, see
+          // subcontractor-intake.ts). All optional/freeform — a note, not
+          // a full contact record.
+          <>
+            <label className="mt-3 block text-sm font-medium text-slate-700">
+              {companyName.trim() || "Their"}&apos;s client (if known)
+            </label>
             <input
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-              value={siteContactName}
-              onChange={(e) => { setSiteContactName(e.target.value); setSiteContactSameAsContact(false); }}
-              placeholder="Name"
+              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              value={endClientCompany}
+              onChange={(e) => setEndClientCompany(e.target.value)}
+              placeholder="e.g. Restore1"
             />
-          </div>
-          <div className="min-w-0 sm:w-0 sm:flex-1">
-            <input
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-              placeholder="Phone"
-              value={siteContactPhone}
-              onChange={(e) => {
-                setSiteContactPhone(formatPhoneInput(e.target.value));
-                setSiteContactSameAsContact(false);
-              }}
-            />
-          </div>
-        </div>
+            <div className="mt-1.5 flex flex-col gap-2 sm:flex-row">
+              <div className="min-w-0 sm:w-0 sm:flex-1">
+                <input
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  value={siteContactName}
+                  onChange={(e) => { setSiteContactName(e.target.value); setSiteContactSameAsContact(false); }}
+                  placeholder="Their contact's name"
+                />
+              </div>
+              <div className="min-w-0 sm:w-0 sm:flex-1">
+                <input
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  placeholder="Their contact's phone"
+                  value={siteContactPhone}
+                  onChange={(e) => {
+                    setSiteContactPhone(formatPhoneInput(e.target.value));
+                    setSiteContactSameAsContact(false);
+                  }}
+                />
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <label className="mt-3 block text-sm font-medium text-slate-700">Job site contact</label>
+            <div className="mt-1 flex flex-col gap-2 sm:flex-row">
+              <div className="min-w-0 sm:w-0 sm:flex-1">
+                {/* Plain text, not ComboboxInput — the job site contact is
+                    the homeowner, essentially never one of the
+                    company/individual contacts already on file, so
+                    suggesting matches from that list is just noise here. */}
+                <input
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  value={siteContactName}
+                  onChange={(e) => { setSiteContactName(e.target.value); setSiteContactSameAsContact(false); }}
+                  placeholder="Name"
+                />
+              </div>
+              <div className="min-w-0 sm:w-0 sm:flex-1">
+                <input
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  placeholder="Phone"
+                  value={siteContactPhone}
+                  onChange={(e) => {
+                    setSiteContactPhone(formatPhoneInput(e.target.value));
+                    setSiteContactSameAsContact(false);
+                  }}
+                />
+              </div>
+            </div>
+          </>
+        )}
 
         <label className="mt-3 block text-sm font-medium text-slate-700">Service type</label>
         <div className="mt-1 flex flex-col gap-1.5 sm:flex-row sm:gap-4">
@@ -4998,6 +5062,12 @@ export function EditProjectDialog({
   const [siteContactName, setSiteContactName] = useState(job.site_contact_name ?? "");
   const [siteContactPhone, setSiteContactPhone] = useState(job.site_contact_phone ?? "");
   const [siteContactSameAsContact, setSiteContactSameAsContact] = useState(false);
+  // Per Tim, 2026-08-30 — a subcontractor job's source is fixed at
+  // creation (see AddProjectDialog's own isSubcontractor comment); this
+  // dialog only needs to know it to relabel/expand the client fields,
+  // never to set it.
+  const isSubcontractor = job.source === "subcontractor";
+  const [endClientCompany, setEndClientCompany] = useState(job.subcontractor_client_company ?? "");
   const [selectedServiceTypeKeys, setSelectedServiceTypeKeys] = useState<string[]>([]);
   const [customServiceType, setCustomServiceType] = useState("");
   // Independent of the text itself, so checking the box first (before
@@ -5201,6 +5271,7 @@ export function EditProjectDialog({
             notes,
             site_contact_name: siteContactName.trim() || null,
             site_contact_phone: siteContactPhone || null,
+            subcontractor_client_company: endClientCompany.trim() || null,
             service_address: serviceAddress || null,
             service_type: serviceTypeLabel || null,
             scope_of_work: scopeOfWork.trim() || null,
@@ -5255,7 +5326,7 @@ export function EditProjectDialog({
     projectNumber, status, companyName, companyId, customerId, contactName, email, phone,
     additionalReportEmails,
     serviceStreet, serviceUnit, serviceCity, serviceState, serviceZip,
-    siteContactName, siteContactPhone, selectedServiceTypeKeys, customServiceType, scopeOfWork,
+    siteContactName, siteContactPhone, endClientCompany, selectedServiceTypeKeys, customServiceType, scopeOfWork,
     confirmedDate, confirmedTime, paidDate, dueDate, notes, paymentType, isRevisit,
   ]);
 
@@ -5466,46 +5537,86 @@ export function EditProjectDialog({
           onChange={(e) => setScopeOfWork(e.target.value)}
         />
 
-        <label className="mt-3 block text-sm font-medium text-slate-700">Job site contact</label>
-        <div className="mt-1 flex gap-2">
-          <div className="w-0 flex-1">
-            {/* Plain text, not ComboboxInput — the job site contact is the
-                homeowner, essentially never one of the company/individual
-                contacts already on file, so suggesting matches from that
-                list is just noise here. */}
+        {isSubcontractor ? (
+          // Per Tim, 2026-08-30 — "FLI's client should be three lines
+          // across, company name, company contact's name, company
+          // contact phone number" — same layout as AddProjectDialog's own
+          // section, now editable after creation too (this is how job
+          // 26-0012's missing "Restore1" gets fixed once the DB column
+          // exists).
+          <>
+            <label className="mt-3 block text-sm font-medium text-slate-700">
+              {companyName.trim() || "Their"}&apos;s client (if known)
+            </label>
             <input
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-500"
-              value={siteContactName}
-              onChange={(e) => setSiteContactName(e.target.value)}
-              placeholder="Name"
-              disabled={siteContactSameAsContact}
+              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              value={endClientCompany}
+              onChange={(e) => setEndClientCompany(e.target.value)}
+              placeholder="e.g. Restore1"
             />
-          </div>
-          <div className="w-0 flex-1">
-            <input
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-500"
-              placeholder="Phone"
-              value={siteContactPhone}
-              disabled={siteContactSameAsContact}
-              onChange={(e) => setSiteContactPhone(formatPhoneInput(e.target.value))}
-            />
-          </div>
-        </div>
-        <label className="mt-2 flex items-center gap-2 text-sm text-slate-600">
-          <input
-            type="checkbox"
-            checked={siteContactSameAsContact}
-            onChange={(e) => {
-              const checked = e.target.checked;
-              setSiteContactSameAsContact(checked);
-              if (!checked) {
-                setSiteContactName("");
-                setSiteContactPhone("");
-              }
-            }}
-          />
-          {companyName.trim() ? "Company contact" : "Customer contact"} is also job site contact
-        </label>
+            <div className="mt-1.5 flex gap-2">
+              <div className="w-0 flex-1">
+                <input
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  value={siteContactName}
+                  onChange={(e) => setSiteContactName(e.target.value)}
+                  placeholder="Their contact's name"
+                />
+              </div>
+              <div className="w-0 flex-1">
+                <input
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  placeholder="Their contact's phone"
+                  value={siteContactPhone}
+                  onChange={(e) => setSiteContactPhone(formatPhoneInput(e.target.value))}
+                />
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <label className="mt-3 block text-sm font-medium text-slate-700">Job site contact</label>
+            <div className="mt-1 flex gap-2">
+              <div className="w-0 flex-1">
+                {/* Plain text, not ComboboxInput — the job site contact is
+                    the homeowner, essentially never one of the
+                    company/individual contacts already on file, so
+                    suggesting matches from that list is just noise here. */}
+                <input
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-500"
+                  value={siteContactName}
+                  onChange={(e) => setSiteContactName(e.target.value)}
+                  placeholder="Name"
+                  disabled={siteContactSameAsContact}
+                />
+              </div>
+              <div className="w-0 flex-1">
+                <input
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-500"
+                  placeholder="Phone"
+                  value={siteContactPhone}
+                  disabled={siteContactSameAsContact}
+                  onChange={(e) => setSiteContactPhone(formatPhoneInput(e.target.value))}
+                />
+              </div>
+            </div>
+            <label className="mt-2 flex items-center gap-2 text-sm text-slate-600">
+              <input
+                type="checkbox"
+                checked={siteContactSameAsContact}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setSiteContactSameAsContact(checked);
+                  if (!checked) {
+                    setSiteContactName("");
+                    setSiteContactPhone("");
+                  }
+                }}
+              />
+              {companyName.trim() ? "Company contact" : "Customer contact"} is also job site contact
+            </label>
+          </>
+        )}
 
         <label className="mt-3 block text-sm font-medium text-slate-700">{companyName.trim() ? "Company contact" : "Customer contact"}</label>
         <div className="mt-1 flex gap-2">
@@ -5597,17 +5708,24 @@ export function EditProjectDialog({
         <label className="mt-3 block text-sm font-medium text-slate-700">Notes</label>
         <textarea className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
 
-        <label className="mt-3 block text-sm font-medium text-slate-700">Payment type</label>
-        <select
-          className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-          value={paymentType}
-          onChange={(e) => setPaymentType(e.target.value as "online" | "check")}
-        >
-          <option value="online">Stripe</option>
-          <option value="check">Check</option>
-        </select>
-        {paymentType === "check" && (
-          <p className="mt-1 text-xs text-slate-500">No Stripe invoice or pay-now link will be created automatically for this project.</p>
+        {/* Per Tim, 2026-08-30 — subcontractor jobs are never billed
+            through this app, so Payment type doesn't apply (same as
+            AddProjectDialog's own gate on this section). */}
+        {!isSubcontractor && (
+          <>
+            <label className="mt-3 block text-sm font-medium text-slate-700">Payment type</label>
+            <select
+              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              value={paymentType}
+              onChange={(e) => setPaymentType(e.target.value as "online" | "check")}
+            >
+              <option value="online">Stripe</option>
+              <option value="check">Check</option>
+            </select>
+            {paymentType === "check" && (
+              <p className="mt-1 text-xs text-slate-500">No Stripe invoice or pay-now link will be created automatically for this project.</p>
+            )}
+          </>
         )}
 
         {/* Per Tim, 2026-08-27 — going back to sample more at a site

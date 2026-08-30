@@ -59,6 +59,7 @@ const job: Job = {
   site_contact_email: null,
   subcontractor_preferred_window: null,
   subcontractor_sample_types: [],
+  subcontractor_client_company: null,
   service_type: "asbestos",
   scope_of_work: null,
   base_fee_cents: 45000,

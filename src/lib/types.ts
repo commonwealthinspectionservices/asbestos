@@ -387,6 +387,8 @@ export interface Job {
   subcontractor_preferred_window: string | null;
   /** From an "Includes: (x1 A) + (x1 B) + ..." line in the subcontracting company's job notes — see splitJobNotes in parse-subcontractor-assignment.ts. Empty means no such line was present, not "no samples." */
   subcontractor_sample_types: string[];
+  /** Per Tim, 2026-08-30 — the end client the subcontracting company is doing the work for (e.g. "Restore1", distinct from FLI Environmental/Fast Mold Testing themselves) — a freeform note, not always known at intake. site_contact_name/site_contact_phone hold that end client's own contact person, not their company name. */
+  subcontractor_client_company: string | null;
   /** Distinct from the free-text `payment_method` field above (informational, import-only). This one drives real behavior: "online" auto-creates a Stripe hosted invoice and includes its pay-now link on drafted invoice emails, and shows the portal's Pay now button. "check" skips Stripe entirely on those automatic paths — the admin's own on-demand "Get payment link" button still works regardless. */
   payment_type: "online" | "check";
   created_at: string;

@@ -70,6 +70,11 @@ const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "Ju
 // never show a period entirely before this date.
 const COMPANY_START_DATE = "2026-08-24";
 
+// Per Tim, 2026-08-30 — "I don't want the weekly and monthly at the top
+// to get too crowded": how many rows each history table shows, capped
+// rather than growing forever as more real weeks/months pass.
+const HISTORY_PERIOD_COUNT = 4;
+
 function invoiceStatus(job: JobWithCustomer): InvoiceStatus {
   if (job.paid_date) return "paid";
   if (job.invoice_sent_at) return isPastDue(dueDateFor(job)) ? "overdue" : "sent";
@@ -353,10 +358,16 @@ export default function BillingView() {
 
   // Per Tim, 2026-08-30 — "I just want a simple way to keep track of net
   // and gross for weeks and months over time": a plain, non-interactive
-  // table of the last 6 weeks and last 6 months — not the browsable
+  // table of the last few weeks and last few months — not the browsable
   // grouped view he'd already had removed once for being too much.
   // Bucketed by billingDateFor (see its own comment for why that's
   // invoice_sent_at, not the sampling date).
+  //
+  // Per Tim, 2026-08-30 (follow-up) — "I don't want the weekly and
+  // monthly at the top to get too crowded": capped at 4 rows each
+  // (rather than the original 6) so the table stays a fixed, small size
+  // at the top of the page no matter how long the company's been
+  // running, instead of growing every week/month.
   //
   // Per Tim, 2026-08-30 (follow-up) — "it should only just start at
   // August 24th 2026, that's when my company started": buckets entirely
@@ -379,7 +390,7 @@ export default function BillingView() {
     // should list out the actual weeks": same treatment as the Monthly
     // table's "August 2026" change — always the literal date range, no
     // This Week/Last Week special-casing.
-    const weekly = Array.from({ length: 6 }, (_, i) => {
+    const weekly = Array.from({ length: HISTORY_PERIOD_COUNT }, (_, i) => {
       const start = new Date(currentWeekStart);
       start.setDate(start.getDate() - i * 7);
       const end = new Date(start);
@@ -394,7 +405,7 @@ export default function BillingView() {
     // Per Tim, 2026-08-30 — "instead of This Month, it should say August
     // 2026": always the literal month name and year, no relative
     // This Month/Last Month special-casing.
-    const monthly = Array.from({ length: 6 }, (_, i) => {
+    const monthly = Array.from({ length: HISTORY_PERIOD_COUNT }, (_, i) => {
       const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
       const label = `${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`;

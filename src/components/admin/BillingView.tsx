@@ -458,14 +458,17 @@ export default function BillingView() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
-      {/* Per Tim, 2026-08-30 — "delete billing title, move sort by tool
-          left, drop payment pending down and make it all on the same
-          line across": the h1 and its own header row are gone; Payment
-          Pending now lives in the same row as Sort by/the filter pills
-          further down instead of its own line up top. */}
+      {/* Per Tim, 2026-08-30 — "payment pending should have its own line
+          and should be directly beneath the weekly monthly sales": one
+          shared line (mobile and desktop alike) right under the two
+          tables, instead of folded into the Sort by row further down. */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <PeriodHistoryTable title="Weekly" rows={periodHistory.weekly} />
         <PeriodHistoryTable title="Monthly" rows={periodHistory.monthly} />
+      </div>
+
+      <div className="mt-3 text-sm text-slate-500">
+        Payment Pending <span className="font-semibold text-slate-800">{formatCents(listSummary.awaitingPaymentCents)}</span>
       </div>
 
       {error && <div className="mt-3 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>}
@@ -473,15 +476,14 @@ export default function BillingView() {
 
       {!loading && !error && (
         <>
-          {/* Mobile: Payment Pending now shows here (its own header line
-              is gone), above the filter/sort dropdowns. */}
-          <div className="mt-3 text-sm text-slate-500 sm:hidden">
-            Payment Pending <span className="font-semibold text-slate-800">{formatCents(listSummary.awaitingPaymentCents)}</span>
-          </div>
-
           {/* Mobile: a dropdown, same pattern as the Directory's tab
-              selector and the Projects page's status filter. */}
-          <div className="relative mt-3 sm:hidden">
+              selector and the Projects page's status filter. Per Tim —
+              "the sort by, search by, and the rest of the cells should
+              have some space above it to show that the weekly, monthly,
+              and payment pending parts are separate": mt-6 here (and on
+              the desktop row below) instead of mt-3, so this reads as its
+              own group. */}
+          <div className="relative mt-6 sm:hidden">
             <select
               value={filter}
               onChange={(e) => setFilter(e.target.value as FilterKey)}
@@ -497,37 +499,34 @@ export default function BillingView() {
           {/* Per Tim, 2026-08-30 — "swap payment pending in the three
               buttons, the positions of those. The three buttons should be
               aligned right so that it's not confused with the sort by
-              buttons": Payment Pending's total now sits next to Sort by
-              on the left, and the filter pills moved to the right edge —
-              putting real distance between the two pill groups instead of
-              them sitting shoulder to shoulder. */}
-          <div className="mt-3 hidden items-center justify-between gap-x-4 gap-y-2 sm:flex sm:flex-wrap">
-            <div className="flex flex-wrap items-center gap-4">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="shrink-0 text-sm font-medium text-gray-400">Sort by:</span>
-                {SORT_FIELDS.map((f) => (
-                  <button
-                    key={f.key}
-                    onClick={() => {
-                      if (sortBy === f.key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-                      else {
-                        setSortBy(f.key);
-                        setSortDir("asc");
-                      }
-                    }}
-                    // Per Tim, 2026-08-30 — "make both the color of the
-                    // Payment Pending button": the active Sort pill was
-                    // bg-slate-700 while the active filter pill (Payment
-                    // Pending) is bg-brand-600 — matched to the same blue.
-                    className={`shrink-0 rounded-lg px-2.5 py-1 text-sm font-medium ${sortBy === f.key ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}
-                  >
-                    {f.label}{sortBy === f.key ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
-                  </button>
-                ))}
-              </div>
-              <div className="text-sm text-slate-500">
-                Payment Pending <span className="font-semibold text-slate-800">{formatCents(listSummary.awaitingPaymentCents)}</span>
-              </div>
+              buttons": filter pills sit at the right edge, Sort by on the
+              left — putting real distance between the two pill groups
+              instead of them sitting shoulder to shoulder. Payment
+              Pending moved out of this row entirely (see above, its own
+              line under Weekly/Monthly) and mt-3 became mt-6 for the same
+              reason — see this file's Payment Pending comment above. */}
+          <div className="mt-6 hidden items-center justify-between gap-x-4 gap-y-2 sm:flex sm:flex-wrap">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="shrink-0 text-sm font-medium text-gray-400">Sort by:</span>
+              {SORT_FIELDS.map((f) => (
+                <button
+                  key={f.key}
+                  onClick={() => {
+                    if (sortBy === f.key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+                    else {
+                      setSortBy(f.key);
+                      setSortDir("asc");
+                    }
+                  }}
+                  // Per Tim, 2026-08-30 — "make both the color of the
+                  // Payment Pending button": the active Sort pill was
+                  // bg-slate-700 while the active filter pill (Payment
+                  // Pending) is bg-brand-600 — matched to the same blue.
+                  className={`shrink-0 rounded-lg px-2.5 py-1 text-sm font-medium ${sortBy === f.key ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}
+                >
+                  {f.label}{sortBy === f.key ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
+                </button>
+              ))}
             </div>
             <div className="flex flex-wrap gap-1.5">
               {FILTERS.map((f) => (

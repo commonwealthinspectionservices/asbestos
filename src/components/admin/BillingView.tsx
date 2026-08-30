@@ -446,6 +446,16 @@ export default function BillingView() {
         </div>
       </div>
 
+      {/* Per Tim, 2026-08-30 — "the weekly and monthly sales should be at
+          the top just underneath the Billing title, and above the
+          Payment Pending button": moved back up from the bottom of the
+          page, above the filter pills. Still a plain, non-interactive
+          table (no expand/collapse, no clicking into jobs). */}
+      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <PeriodHistoryTable title="Weekly" rows={periodHistory.weekly} />
+        <PeriodHistoryTable title="Monthly" rows={periodHistory.monthly} />
+      </div>
+
       {error && <div className="mt-3 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>}
       {loading && <p className="mt-6 text-sm text-slate-500">Loading…</p>}
 
@@ -596,15 +606,6 @@ export default function BillingView() {
           )}
         </>
       )}
-
-      {/* Per Tim, 2026-08-30 — "weekly and monthly should only be at the
-          bottom": moved down from next to the page title. Still a plain,
-          non-interactive table (no expand/collapse, no clicking into
-          jobs). */}
-      <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <PeriodHistoryTable title="Weekly" rows={periodHistory.weekly} />
-        <PeriodHistoryTable title="Monthly" rows={periodHistory.monthly} />
-      </div>
 
       {(() => {
         const detailJob = selectedJobId ? jobs.find((j) => j.id === selectedJobId) : null;

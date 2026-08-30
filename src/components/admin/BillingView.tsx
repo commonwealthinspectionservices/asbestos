@@ -73,7 +73,7 @@ const COMPANY_START_DATE = "2026-08-24";
 // Per Tim, 2026-08-30 — "I don't want the weekly and monthly at the top
 // to get too crowded": how many rows each history table shows, capped
 // rather than growing forever as more real weeks/months pass.
-const HISTORY_PERIOD_COUNT = 4;
+const HISTORY_PERIOD_COUNT = 3;
 
 function invoiceStatus(job: JobWithCustomer): InvoiceStatus {
   if (job.paid_date) return "paid";

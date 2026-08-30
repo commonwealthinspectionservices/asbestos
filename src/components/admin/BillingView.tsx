@@ -381,10 +381,13 @@ export default function BillingView() {
       return { label, startStr: ymd(start), endStr: ymd(end), grossCents: 0, netCents: 0 };
     }).filter((b) => b.endStr >= COMPANY_START_DATE);
 
+    // Per Tim, 2026-08-30 — "instead of This Month, it should say August
+    // 2026": always the literal month name and year, no relative
+    // This Month/Last Month special-casing.
     const monthly = Array.from({ length: 6 }, (_, i) => {
       const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-      const label = i === 0 ? "This Month" : i === 1 ? "Last Month" : `${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`;
+      const label = `${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`;
       return { label, key, grossCents: 0, netCents: 0 };
     }).filter((b) => b.key >= COMPANY_START_DATE.slice(0, 7));
 

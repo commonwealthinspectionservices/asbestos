@@ -281,11 +281,10 @@ export default function MarginsView() {
 
       {!loading && !error && (
         <div className="mt-3">
-          <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Revenue vs. Lab Cost</div>
           {groups.length === 0 ? (
-            <p className="mt-2 rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-500">{emptyMessage}</p>
+            <p className="rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-500">{emptyMessage}</p>
           ) : (
-            <div className="mt-2 flex flex-col gap-2">
+            <div className="flex flex-col gap-2">
               {groups.map((g) => {
                 const expanded = expandedKeys.has(`${period}:${g.key}`);
                 return (

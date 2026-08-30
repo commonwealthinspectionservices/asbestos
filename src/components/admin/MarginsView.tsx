@@ -5,10 +5,26 @@ import Link from "next/link";
 import type { JobWithCustomer } from "@/lib/types";
 import { formatCents, computeMarginCents } from "@/lib/pricing";
 import { formatDateMDY } from "@/lib/date-format";
-import { expandAddress } from "@/lib/address";
+import { expandAddress, splitAddress } from "@/lib/address";
 
 function formatDate(date: string | null | undefined): string {
   return formatDateMDY(date) ?? "—";
+}
+
+// Per Tim, 2026-08-30 — "address NEW LINE town state zip": street on its
+// own line, town/state/zip on the one below, same split JobsDashboard.tsx's
+// own Project Info tab already uses for the job site address — not a plain
+// line-clamp, which would wrap wherever the text happened to run out of
+// room instead of at the actual street/town boundary.
+function AddressLines({ address }: { address: string | null | undefined }) {
+  if (!address) return null;
+  const { street, cityStateZip } = splitAddress(address);
+  return (
+    <div className="mt-0.5 text-xs text-slate-500">
+      <div className="truncate">{expandAddress(street)}</div>
+      {cityStateZip && <div className="truncate">{expandAddress(cityStateZip)}</div>}
+    </div>
+  );
 }
 
 function pad2(n: number): string {
@@ -327,20 +343,28 @@ export default function MarginsView() {
                             <Link
                               key={e.job.id}
                               href={`/admin/dashboard?jobId=${e.job.id}`}
-                              className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3 hover:border-brand-400"
+                              className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1 rounded-lg border border-slate-200 bg-white p-3 hover:border-brand-400"
                             >
-                              <div className="min-w-0">
-                                <div className="flex min-w-0 items-center gap-2">
-                                  <span className="shrink-0 whitespace-nowrap rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs text-slate-600">
+                              <div>
+                                {/* Per Tim, 2026-08-30 — "no ...s for company
+                                    names" then "company names in mobile need
+                                    to be one line across": no min-w-0/shrink
+                                    on this block and whitespace-nowrap on
+                                    the name itself, so it always renders as
+                                    one full, untruncated line — the outer
+                                    card is flex-wrap instead, so if that
+                                    doesn't leave room for the Invoice/Lab
+                                    Cost/Margin grid on the same line, that
+                                    grid just wraps to its own line below. */}
+                                <div className="flex items-start gap-2">
+                                  <span className="mt-0.5 shrink-0 whitespace-nowrap rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs text-slate-600">
                                     {e.job.project_number}
                                   </span>
-                                  <span className="min-w-0 truncate text-sm font-medium text-slate-800">
+                                  <span className="whitespace-nowrap text-sm font-medium text-slate-800">
                                     {e.job.customers?.company || e.job.customers?.name}
                                   </span>
                                 </div>
-                                {e.job.service_address && (
-                                  <div className="mt-0.5 truncate text-xs text-slate-500">{expandAddress(e.job.service_address)}</div>
-                                )}
+                                <AddressLines address={e.job.service_address} />
                               </div>
                               {/* Per Tim, 2026-08-30 — "this should be
                                   clearer, maybe a table style of what's the

@@ -7,7 +7,7 @@ import { ProjectDetailDialog, EditProjectDialog } from "@/components/admin/JobsD
 import { formatDateMDY } from "@/lib/date-format";
 import { NEWTON_FIRE_FLOOD_COMPANY_ID } from "@/lib/report-findings";
 import { dueDateFor } from "@/lib/invoice-due-date";
-import { expandAddress } from "@/lib/address";
+import { expandAddress, splitAddress } from "@/lib/address";
 
 type InvoiceStatus = "ready_to_send" | "sent" | "overdue" | "paid";
 
@@ -31,6 +31,22 @@ const STATUS_LABEL: Record<InvoiceStatus, string> = {
 // app already uses (e.g. JobRow's own status pill on the Projects list),
 // rather than this view alone picking out "Payment Pending" in blue.
 const STATUS_PILL_CLASS = "bg-slate-200 text-slate-700";
+
+// Per Tim, 2026-08-30 — "address NEW LINE town state zip": street on its
+// own line, town/state/zip on the one below, same split JobsDashboard.tsx's
+// own Project Info tab already uses for the job site address — not a plain
+// line-clamp, which would wrap wherever the text happened to run out of
+// room instead of at the actual street/town boundary.
+function AddressLines({ address }: { address: string | null | undefined }) {
+  if (!address) return null;
+  const { street, cityStateZip } = splitAddress(address);
+  return (
+    <div className="mt-0.5 text-xs text-slate-500">
+      <div className="truncate">{expandAddress(street)}</div>
+      {cityStateZip && <div className="truncate">{expandAddress(cityStateZip)}</div>}
+    </div>
+  );
+}
 
 function formatDate(date: string | null | undefined): string {
   return formatDateMDY(date) ?? "—";
@@ -409,12 +425,7 @@ export default function InvoicesView() {
                     </div>
                     <span className="shrink-0 whitespace-nowrap text-xs font-semibold text-slate-800">{formatCents(job.invoice_total_cents ?? 0)}</span>
                   </div>
-                  {/* Per Tim, 2026-08-30 — "address should be on these" —
-                      same expandAddress abbreviation-expansion every other
-                      address in the app uses (see Lab Costs' own copy). */}
-                  {job.service_address && (
-                    <div className="truncate text-xs text-slate-500">{expandAddress(job.service_address)}</div>
-                  )}
+                  <AddressLines address={job.service_address} />
                 </div>
                 <div className="flex flex-col items-start gap-0.5 text-left">
                   {status === "paid" ? (
@@ -466,9 +477,7 @@ export default function InvoicesView() {
                       {job.customers?.company || job.customers?.name}
                     </span>
                   </div>
-                  {job.service_address && (
-                    <div className="mt-0.5 truncate text-xs text-slate-500">{expandAddress(job.service_address)}</div>
-                  )}
+                  <AddressLines address={job.service_address} />
                 </div>
                 <div>
                   <span className="whitespace-nowrap text-xs font-semibold text-slate-800">{formatCents(job.invoice_total_cents ?? 0)}</span>

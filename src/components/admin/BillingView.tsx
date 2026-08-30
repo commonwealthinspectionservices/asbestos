@@ -148,19 +148,25 @@ function MoneyGrid({
 }: {
   revenueCents: number; labCostCents: number | null; stripeFeeCents: number; marginCents: number | null;
 }) {
+  // Per Tim, 2026-08-30 — "make it a bit more organized. Maybe make it
+  // all aligned left": labels were text-right, so their left edges
+  // staggered depending on each label's own length ("Lab Cost" vs.
+  // "Invoice") instead of lining up. Labels now left-align to a common
+  // edge; values stay right-aligned in their own column, same as any
+  // label/value financial table.
   return (
-    <div className="grid shrink-0 grid-cols-[auto_auto] items-baseline justify-end gap-x-2 gap-y-0.5 text-xs">
-      <span className="text-right text-slate-400">Invoice</span>
+    <div className="grid shrink-0 grid-cols-[auto_auto] items-baseline gap-x-2 gap-y-0.5 text-xs">
+      <span className="text-left text-slate-400">Invoice</span>
       <span className="whitespace-nowrap text-right text-slate-700">{formatCents(revenueCents)}</span>
-      <span className="text-right text-slate-400">Lab Cost</span>
+      <span className="text-left text-slate-400">Lab Cost</span>
       <span className="whitespace-nowrap text-right text-slate-700">{labCostCents != null ? formatCents(labCostCents) : "—"}</span>
       {stripeFeeCents !== 0 && (
         <>
-          <span className="text-right text-slate-400">Stripe Fee</span>
+          <span className="text-left text-slate-400">Stripe Fee</span>
           <span className="whitespace-nowrap text-right text-slate-700">{formatCents(stripeFeeCents)}</span>
         </>
       )}
-      <span className="text-right text-slate-400">Margin</span>
+      <span className="text-left text-slate-400">Margin</span>
       <span className={`whitespace-nowrap text-right ${marginCents != null && marginCents < 0 ? "text-red-600" : "text-slate-700"}`}>
         {marginCents != null ? formatCents(marginCents) : "—"}
       </span>

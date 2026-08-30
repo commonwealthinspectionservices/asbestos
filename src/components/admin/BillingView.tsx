@@ -106,20 +106,12 @@ function JobRow({ job, onOpen, right }: { job: JobWithCustomer; onOpen: () => vo
   return (
     <button
       onClick={onOpen}
-      // Per Tim, 2026-08-30 — "these cells shouldn't have so much blank
-      // space" (round 1): justify-between stretched `right` all the way to
-      // the card's own far edge, leaving a big dead gap in the middle on a
-      // wide row with a short company name — fixed by left-aligning
-      // instead. Then cards moved to a two-per-row grid, which made every
-      // card narrow enough that `right` almost always wraps onto its own
-      // line below the address block anyway — and on that line, an
-      // unstretched flex item just hugs the left edge, leaving blank space
-      // on the right (round 3: "make it so the text fills out those cells
-      // entirely"). Rather than rely on flex-wrap's per-line behavior,
-      // this now always stacks top block / bottom block and stretches the
-      // bottom block's own row to the card's full width so its content can
-      // right-align flush to the actual right edge every time.
-      className="flex w-full flex-col gap-1.5 rounded-lg border border-slate-200 bg-white p-3 text-left hover:border-brand-400"
+      // Per Tim, 2026-08-30 — "No. What I meant is that all of the text
+      // should be aligned left... a bit more space above the address...
+      // we will organize from there": dropped the earlier right-aligned/
+      // flush-right treatment entirely — every block in the card now
+      // reads top to bottom, left-aligned, as one plain stack.
+      className="flex w-full flex-col items-start gap-1.5 rounded-lg border border-slate-200 bg-white p-3 text-left hover:border-brand-400"
     >
       <div>
         <div className="flex items-start gap-2">
@@ -130,9 +122,11 @@ function JobRow({ job, onOpen, right }: { job: JobWithCustomer; onOpen: () => vo
             {job.customers?.company || job.customers?.name}
           </span>
         </div>
-        <AddressLines address={job.service_address} />
+        <div className="mt-1.5">
+          <AddressLines address={job.service_address} />
+        </div>
       </div>
-      <div className="flex w-full justify-end">{right}</div>
+      <div className="w-full text-left">{right}</div>
     </button>
   );
 }
@@ -148,26 +142,24 @@ function MoneyGrid({
 }: {
   revenueCents: number; labCostCents: number | null; stripeFeeCents: number; marginCents: number | null;
 }) {
-  // Per Tim, 2026-08-30 — "make it a bit more organized. Maybe make it
-  // all aligned left": labels were text-right, so their left edges
-  // staggered depending on each label's own length ("Lab Cost" vs.
-  // "Invoice") instead of lining up. Labels now left-align to a common
-  // edge; values stay right-aligned in their own column, same as any
-  // label/value financial table.
+  // Per Tim, 2026-08-30 — "No. What I meant is that all of the text
+  // should be aligned left": values were still right-aligned in their own
+  // column. Both columns now left-align — the whole grid reads as one
+  // plain left-aligned block, no separate alignment per column.
   return (
     <div className="grid shrink-0 grid-cols-[auto_auto] items-baseline gap-x-2 gap-y-0.5 text-xs">
       <span className="text-left text-slate-400">Invoice</span>
-      <span className="whitespace-nowrap text-right text-slate-700">{formatCents(revenueCents)}</span>
+      <span className="whitespace-nowrap text-left text-slate-700">{formatCents(revenueCents)}</span>
       <span className="text-left text-slate-400">Lab Cost</span>
-      <span className="whitespace-nowrap text-right text-slate-700">{labCostCents != null ? formatCents(labCostCents) : "—"}</span>
+      <span className="whitespace-nowrap text-left text-slate-700">{labCostCents != null ? formatCents(labCostCents) : "—"}</span>
       {stripeFeeCents !== 0 && (
         <>
           <span className="text-left text-slate-400">Stripe Fee</span>
-          <span className="whitespace-nowrap text-right text-slate-700">{formatCents(stripeFeeCents)}</span>
+          <span className="whitespace-nowrap text-left text-slate-700">{formatCents(stripeFeeCents)}</span>
         </>
       )}
       <span className="text-left text-slate-400">Margin</span>
-      <span className={`whitespace-nowrap text-right ${marginCents != null && marginCents < 0 ? "text-red-600" : "text-slate-700"}`}>
+      <span className={`whitespace-nowrap text-left ${marginCents != null && marginCents < 0 ? "text-red-600" : "text-slate-700"}`}>
         {marginCents != null ? formatCents(marginCents) : "—"}
       </span>
     </div>
@@ -769,14 +761,14 @@ export default function BillingView() {
                       // these cells": gap-1.5 between MoneyGrid/due-date/
                       // status pill read loose next to MoneyGrid's own
                       // tight internal gap-y-0.5 — tightened to match.
-                      <div className="flex shrink-0 flex-col items-end gap-0.5">
+                      <div className="flex shrink-0 flex-col items-start gap-0.5">
                         <MoneyGrid
                           revenueCents={job.invoice_total_cents ?? 0}
                           labCostCents={job.lab_cost_cents}
                           stripeFeeCents={job.stripe_fee_cents ?? 0}
                           marginCents={job.lab_cost_cents != null ? computeMarginCents(job.invoice_total_cents ?? 0, job.lab_cost_cents, job.stripe_fee_cents ?? 0) : null}
                         />
-                        <div className="text-right text-xs text-slate-500">
+                        <div className="text-left text-xs text-slate-500">
                           {status === "paid" ? (
                             <>Paid {formatDate(job.paid_date)}</>
                           ) : (

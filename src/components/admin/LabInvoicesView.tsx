@@ -361,13 +361,14 @@ export default function LabInvoicesView() {
               that we can keep track of which ones we have and which ones
               we don't." Same card format as Weekly Reports' own job rows,
               minus the amount/PDF (there's nothing to open yet) — the
-              whole card just goes to the job's Project Info tab. */}
+              whole card just goes to the job's Project Info tab. No
+              section title (per Tim's follow-up) — stays at the bottom,
+              below every real Weekly Report. */}
           <div className="mt-3">
-            <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Awaiting Lab Bill</div>
             {jobsWithoutLabInvoice.length === 0 ? (
-              <p className="mt-2 rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-500">Everything's been billed.</p>
+              <p className="rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-500">Everything's been billed.</p>
             ) : (
-              <div className="mt-2 flex flex-col gap-2">
+              <div className="flex flex-col gap-2">
                 {jobsWithoutLabInvoice.map((job) => (
                   <Link
                     key={job.id}

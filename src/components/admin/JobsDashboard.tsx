@@ -4389,6 +4389,15 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
   const [requestedTime, setRequestedTime] = useState("");
   const [notes, setNotes] = useState("");
   const [paymentType, setPaymentType] = useState<"online" | "check">("online");
+  // Per Tim, 2026-08-30 — "I want to be able to add a subcontractor job
+  // manually": jobs.source === "subcontractor" was previously only ever
+  // set by the automated email-intake pipeline (subcontractor-intake.ts)
+  // — there was no way to create one by hand. Subcontractor jobs are
+  // never billed through this app (no Report/Invoice tab, no payment
+  // gate) — they're work Commonwealth does FOR another environmental
+  // company (e.g. Fast Mold Testing, FLI Environmental), so "Company"
+  // here means the subcontracting company, not a billing client.
+  const [isSubcontractor, setIsSubcontractor] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [fetchingNumber, setFetchingNumber] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -4503,6 +4512,7 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
           status: startingStatus,
           notes: notes.trim() || undefined,
           paymentType,
+          source: isSubcontractor ? "subcontractor" : undefined,
         }),
       });
       const data = await res.json();
@@ -4577,30 +4587,54 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
 
         {error && <div className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
 
-        <div className="mt-4 flex gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              setCustomerKind("company");
-              setSiteContactSameAsContact(false);
+        <label className="mt-4 flex items-start gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+          <input
+            type="checkbox"
+            className="mt-0.5"
+            checked={isSubcontractor}
+            onChange={(e) => {
+              setIsSubcontractor(e.target.checked);
+              // Subcontractor jobs are always for a company (the one
+              // subcontracting the work out) — Individual doesn't apply.
+              if (e.target.checked) {
+                setCustomerKind("company");
+                setSiteContactSameAsContact(false);
+              }
             }}
-            className={`flex-1 rounded-lg px-3 py-1.5 text-sm font-medium ${customerKind === "company" ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}
-          >
-            Company
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setCustomerKind("individual");
-              setCompanyName("");
-              setCompanyId("");
-              setSiteContactSameAsContact(true);
-            }}
-            className={`flex-1 rounded-lg px-3 py-1.5 text-sm font-medium ${customerKind === "individual" ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}
-          >
-            Individual
-          </button>
-        </div>
+          />
+          <span>
+            <span className="font-medium">This is a subcontractor job</span> — you&apos;re doing the work for another
+            environmental company (e.g. Fast Mold Testing, FLI Environmental), not billing a client directly. Skips
+            the Report/Invoice flow and Billing page; adds Shipping/Compensation tabs instead.
+          </span>
+        </label>
+
+        {!isSubcontractor && (
+          <div className="mt-4 flex gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setCustomerKind("company");
+                setSiteContactSameAsContact(false);
+              }}
+              className={`flex-1 rounded-lg px-3 py-1.5 text-sm font-medium ${customerKind === "company" ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}
+            >
+              Company
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setCustomerKind("individual");
+                setCompanyName("");
+                setCompanyId("");
+                setSiteContactSameAsContact(true);
+              }}
+              className={`flex-1 rounded-lg px-3 py-1.5 text-sm font-medium ${customerKind === "individual" ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}
+            >
+              Individual
+            </button>
+          </div>
+        )}
 
         <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:gap-4">
           <div className="shrink-0">
@@ -4629,7 +4663,9 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
             </>
           ) : (
             <div className="min-w-0 sm:flex-1">
-              <label className="block text-sm font-medium text-slate-700">Company</label>
+              <label className="block text-sm font-medium text-slate-700">
+                {isSubcontractor ? "Subcontracting company" : "Company"}
+              </label>
               <div className="mt-1">
                 <ComboboxInput
                   value={companyName}
@@ -4841,17 +4877,23 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
         <label className="mt-3 block text-sm font-medium text-slate-700">Notes</label>
         <textarea className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" rows={4} value={notes} onChange={(e) => setNotes(e.target.value)} />
 
-        <label className="mt-3 block text-sm font-medium text-slate-700">Payment type</label>
-        <select
-          className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-          value={paymentType}
-          onChange={(e) => setPaymentType(e.target.value as "online" | "check")}
-        >
-          <option value="online">Stripe</option>
-          <option value="check">Check</option>
-        </select>
-        {paymentType === "check" && (
-          <p className="mt-1 text-xs text-slate-500">No Stripe invoice or pay-now link will be created automatically for this project.</p>
+        {/* Per Tim, 2026-08-30 — subcontractor jobs are never billed
+            through this app, so Payment type doesn't apply. */}
+        {!isSubcontractor && (
+          <>
+            <label className="mt-3 block text-sm font-medium text-slate-700">Payment type</label>
+            <select
+              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              value={paymentType}
+              onChange={(e) => setPaymentType(e.target.value as "online" | "check")}
+            >
+              <option value="online">Stripe</option>
+              <option value="check">Check</option>
+            </select>
+            {paymentType === "check" && (
+              <p className="mt-1 text-xs text-slate-500">No Stripe invoice or pay-now link will be created automatically for this project.</p>
+            )}
+          </>
         )}
 
         <div className="mt-4 flex gap-2">

@@ -171,7 +171,12 @@ export const POST = withApiErrors(async (req: NextRequest) => {
     // Distinguishes a real customer request (AcceptScheduleControl only
     // shows for those) from a project the admin entered directly, which
     // may also start at "needs_scheduling" but has no request to accept.
-    source: "admin",
+    // Per Tim, 2026-08-30 — "I want to be able to add a subcontractor job
+    // manually": the only other source this route will ever set on the
+    // client's say-so is "subcontractor" (AddProjectDialog's toggle) —
+    // "portal_booking"/"email_intake" stay reserved for their own
+    // automated intake pipelines and can't be requested here.
+    source: body.source === "subcontractor" ? "subcontractor" : "admin",
     payment_type: body.paymentType === "check" ? "check" : "online",
     notes: body.notes || null,
     project_name: body.projectName || null,

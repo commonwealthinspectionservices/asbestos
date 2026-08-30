@@ -472,10 +472,12 @@ export default function BillingView() {
               selector and the Projects page's status filter. Per Tim —
               "the sort by, search by, and the rest of the cells should
               have some space above it to show that the weekly, monthly,
-              and payment pending parts are separate": mt-6 here (and on
-              the desktop row below) instead of mt-3, so this reads as its
-              own group. */}
-          <div className="relative mt-6 sm:hidden">
+              and payment pending parts are separate", then "drop
+              everything below sort by and payment pending button lower
+              so that there's more space above it": mt-10 here (and on
+              the desktop row below), pushed further than the original
+              mt-6. */}
+          <div className="relative mt-10 sm:hidden">
             <select
               value={filter}
               onChange={(e) => setFilter(e.target.value as FilterKey)}
@@ -495,9 +497,11 @@ export default function BillingView() {
               left — putting real distance between the two pill groups
               instead of them sitting shoulder to shoulder. Payment
               Pending moved out of this row entirely (see above, its own
-              line under Weekly/Monthly) and mt-3 became mt-6 for the same
-              reason — see this file's Payment Pending comment above. */}
-          <div className="mt-6 hidden items-center justify-between gap-x-4 gap-y-2 sm:flex sm:flex-wrap">
+              line under Weekly/Monthly) and mt-3 became mt-6, then mt-10
+              per "drop everything below sort by and payment pending
+              button lower so that there's more space above it" — see the
+              mobile dropdown's comment above. */}
+          <div className="mt-10 hidden items-center justify-between gap-x-4 gap-y-2 sm:flex sm:flex-wrap">
             <div className="flex flex-wrap items-center gap-2">
               <span className="shrink-0 text-sm font-medium text-gray-400">Sort by:</span>
               {SORT_FIELDS.map((f) => (

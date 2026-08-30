@@ -107,6 +107,17 @@ function billingDateFor(job: JobWithCustomer): string | null {
   return job.paid_date ?? job.confirmed_date ?? job.requested_date ?? null;
 }
 
+// Per Tim, 2026-08-30 — "invoice and lab costs should be links to the
+// PDF invoices": a job can have more than one lab_invoice document
+// (partial billing across weekly reports) — links to the most recently
+// uploaded one, since that's the one most likely to be what someone
+// clicking "Lab Cost" from a billing summary actually wants.
+function latestLabInvoiceDocId(job: JobWithCustomer): string | null {
+  const labInvoices = (job.documents ?? []).filter((d) => d.kind === "lab_invoice");
+  if (labInvoices.length === 0) return null;
+  return labInvoices.reduce((a, b) => (a.uploaded_at > b.uploaded_at ? a : b)).id;
+}
+
 // Per Tim, 2026-08-30 — "address NEW LINE town state zip": street on its
 // own line, town/state/zip on the one below, same split JobsDashboard.tsx's
 // own Project Info tab already uses — not a plain line-clamp, which would
@@ -143,8 +154,14 @@ function JobRow({
       // the card's far right edge instead of hugging the address.
       className="flex w-full flex-col items-start gap-1.5 rounded-lg border border-slate-200 bg-white p-3 text-left hover:border-brand-400"
     >
-      <div className="flex items-start gap-2">
-        <span className="mt-0.5 shrink-0 whitespace-nowrap rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs text-slate-600">
+      {/* Per Tim, 2026-08-30 — "make sure project number and company
+          name in the preview cards are directly in line on top": the
+          badge's own padding made items-start (aligning box tops) read
+          as misaligned against the plain company-name text next to it —
+          items-center lines them up regardless of the font-size/padding
+          difference between the two. */}
+      <div className="flex items-center gap-2">
+        <span className="shrink-0 whitespace-nowrap rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs text-slate-600">
           {job.project_number}
         </span>
         <span className="whitespace-nowrap text-sm font-medium text-slate-800">
@@ -167,20 +184,43 @@ function JobRow({
 // $0. Same size/format for every row per Tim's follow-up — Margin isn't
 // visually singled out, just colored red if it's negative.
 function MoneyGrid({
-  revenueCents, labCostCents, stripeFeeCents, marginCents,
+  revenueCents, labCostCents, stripeFeeCents, marginCents, invoiceHref, labInvoiceHref,
 }: {
   revenueCents: number; labCostCents: number | null; stripeFeeCents: number; marginCents: number | null;
+  invoiceHref?: string | null; labInvoiceHref?: string | null;
 }) {
   // Per Tim, 2026-08-30 — "the text should all start in the same point,
   // the I, the L, and the M, but just move it far right": labels
   // (Invoice/Lab Cost/Margin) left-align to a common edge; values
   // right-align in their own column. The block itself is what moves far
   // right now (see JobRow's justify-between), not each line of text.
+  //
+  // Per Tim, 2026-08-30 (follow-up) — "invoice and lab costs should be
+  // links to the PDF invoices... I should easily be able to click on my
+  // invoice and the lab invoice from each job": the label itself becomes
+  // a link when a PDF is available. stopPropagation keeps the click from
+  // also firing JobRow's own onClick (which opens the job detail dialog)
+  // — same pattern this file already used for the old weekly report's
+  // "PDF ↗" link.
+  const invoiceLabel = invoiceHref ? (
+    <a href={invoiceHref} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="text-left text-slate-400 underline hover:text-brand-600">
+      Invoice
+    </a>
+  ) : (
+    <span className="text-left text-slate-400">Invoice</span>
+  );
+  const labCostLabel = labInvoiceHref ? (
+    <a href={labInvoiceHref} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="text-left text-slate-400 underline hover:text-brand-600">
+      Lab Cost
+    </a>
+  ) : (
+    <span className="text-left text-slate-400">Lab Cost</span>
+  );
   return (
     <div className="grid shrink-0 grid-cols-[auto_auto] items-baseline gap-x-2 gap-y-0.5 text-xs">
-      <span className="text-left text-slate-400">Invoice</span>
+      {invoiceLabel}
       <span className="whitespace-nowrap text-right text-slate-700">{formatCents(revenueCents)}</span>
-      <span className="text-left text-slate-400">Lab Cost</span>
+      {labCostLabel}
       <span className="whitespace-nowrap text-right text-slate-700">{labCostCents != null ? formatCents(labCostCents) : "—"}</span>
       {stripeFeeCents !== 0 && (
         <>
@@ -604,6 +644,7 @@ export default function BillingView() {
             <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
               {rows.map(({ job, status }) => {
                 const isNewtonAutoCharge = status === "sent" && job.customers?.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID;
+                const labInvoiceDocId = latestLabInvoiceDocId(job);
                 return (
                   <JobRow
                     key={job.id}
@@ -615,11 +656,18 @@ export default function BillingView() {
                         labCostCents={job.lab_cost_cents}
                         stripeFeeCents={job.stripe_fee_cents ?? 0}
                         marginCents={job.lab_cost_cents != null ? computeMarginCents(job.invoice_total_cents ?? 0, job.lab_cost_cents, job.stripe_fee_cents ?? 0) : null}
+                        invoiceHref={job.invoice_total_cents != null ? `/api/admin/jobs/${job.id}/invoice` : null}
+                        labInvoiceHref={labInvoiceDocId ? `/api/admin/jobs/${job.id}/documents/${labInvoiceDocId}` : null}
                       />
                     }
                     below={
+                      // Per Tim, 2026-08-30 — "all of this text should be
+                      // the exact same size": every string in this card
+                      // was already 12px (text-xs) — font-medium on the
+                      // status pill was the one thing making it read as
+                      // bigger than the rest at the same point size.
                       <div className="mt-0.5 flex w-full items-center justify-between gap-2">
-                        <span className={`shrink-0 whitespace-nowrap rounded px-1.5 py-0.5 text-xs font-medium ${STATUS_PILL_CLASS}`}>
+                        <span className={`shrink-0 whitespace-nowrap rounded px-1.5 py-0.5 text-xs ${STATUS_PILL_CLASS}`}>
                           {STATUS_LABEL[status]}
                         </span>
                         <div className="text-right text-xs text-slate-500">

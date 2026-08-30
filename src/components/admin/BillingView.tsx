@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { JobWithCustomer } from "@/lib/types";
 import { formatCents, computeMarginCents } from "@/lib/pricing";
 import { ProjectDetailDialog, EditProjectDialog } from "@/components/admin/JobsDashboard";
@@ -18,12 +18,12 @@ import { expandAddress, splitAddress } from "@/lib/address";
 // merged into one page with two full-page views (By Job / By Period)
 // behind a toggle — then per Tim, "I'm very confused by the billing screen
 // and the by job and by period options... I don't understand the
-// difference... it feels like too much on one page": two different page
-// layouts behind one toggle just traded three pages for two. Collapsed
-// into ONE list (filter/search always available, same as the old Invoices
-// page) with an optional "Group by" control (None/Week/Month/Year) that
-// reorganizes that same list into sections instead of swapping to a
-// different layout. One JobRow component renders every row everywhere.
+// difference... it feels like too much on one page": tried collapsing
+// those two views into one list with a "Group by" control instead — then
+// per Tim, "I don't really like the group by feature... drop it, just the
+// flat list": removed grouping entirely. This is now one flat, filterable/
+// sortable list of invoiced jobs, same shape as the old standalone
+// Invoices page. One JobRow component renders every row.
 
 type InvoiceStatus = "ready_to_send" | "sent" | "overdue" | "paid";
 
@@ -46,23 +46,6 @@ const STATUS_PILL_CLASS = "bg-slate-200 text-slate-700";
 
 function formatDate(date: string | null | undefined): string {
   return formatDateMDY(date) ?? "—";
-}
-
-// Per Tim, 2026-08-28 — invoice_sent_at/document uploaded_at are full UTC
-// timestamps, not plain dates. Naively slicing the first 10 characters
-// grabs the UTC calendar date, which disagrees with local (Eastern) time
-// once something happens late evening. new Date(iso)'s local getters give
-// the calendar date this browser's timezone actually saw it on.
-function localDateOnly(iso: string): string {
-  const d = new Date(iso);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-function pad2(n: number): string {
-  return String(n).padStart(2, "0");
-}
-function ymd(d: Date): string {
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 }
 
 function isPastDue(dueIso: string | null): boolean {
@@ -96,12 +79,11 @@ function AddressLines({ address }: { address: string | null | undefined }) {
   );
 }
 
-// Per Tim, 2026-08-30 — one row component for every list in this page
-// (By Job and every period group in By Period) — the badge/company/
-// address block is the exact thing that needed the same fixes three
-// separate times across the old Invoices/Lab Costs/Margins pages this
-// session; now there's exactly one place to fix. `right` is whatever
-// financial/status content that particular view needs next to it.
+// Per Tim, 2026-08-30 — the badge/company/address block is the exact
+// thing that needed the same fixes three separate times across the old
+// Invoices/Lab Costs/Margins pages this session; now there's exactly one
+// place to fix. `right` is whatever financial content sits beside the
+// address; `below` is whatever status/date content sits on its own row.
 function JobRow({
   job, onOpen, right, below,
 }: {
@@ -110,19 +92,11 @@ function JobRow({
   return (
     <button
       onClick={onOpen}
-      // Per Tim, 2026-08-30 — "move Invoice, Lab Cost, and Margin out
-      // into the center white blank area": the address block never used
-      // the card's full width, leaving a blank gap to its right — `right`
-      // now sits next to the address instead of on its own row below,
-      // using that space. Still left-aligned inside its own column, still
-      // wraps to its own line below on a narrow card (mobile) instead of
-      // squeezing.
-      //
-      // Per Tim, 2026-08-30 (follow-up) — "no, move the due date and
-      // Payment Pending back to where they were, on their own line on the
-      // left": only Invoice/Lab Cost/Margin belonged in that center
-      // space — due date and the status pill go back to being their own
-      // full-width row below, via the separate `below` slot.
+      // Per Tim, 2026-08-30 — "the text should all start in the same
+      // point, the I, the L, and the M, but just move it far right":
+      // Invoice/Lab Cost/Margin's own label column stays left-aligned to
+      // a common edge (see MoneyGrid), but the whole block now sits at
+      // the card's far right edge instead of hugging the address.
       className="flex w-full flex-col items-start gap-1.5 rounded-lg border border-slate-200 bg-white p-3 text-left hover:border-brand-400"
     >
       <div className="flex items-start gap-2">
@@ -133,7 +107,7 @@ function JobRow({
           {job.customers?.company || job.customers?.name}
         </span>
       </div>
-      <div className="flex w-full flex-wrap items-start gap-x-10 gap-y-1.5">
+      <div className="flex w-full flex-wrap items-start justify-between gap-x-4 gap-y-1.5">
         <AddressLines address={job.service_address} />
         {right}
       </div>
@@ -153,24 +127,25 @@ function MoneyGrid({
 }: {
   revenueCents: number; labCostCents: number | null; stripeFeeCents: number; marginCents: number | null;
 }) {
-  // Per Tim, 2026-08-30 — "No. What I meant is that all of the text
-  // should be aligned left": values were still right-aligned in their own
-  // column. Both columns now left-align — the whole grid reads as one
-  // plain left-aligned block, no separate alignment per column.
+  // Per Tim, 2026-08-30 — "the text should all start in the same point,
+  // the I, the L, and the M, but just move it far right": labels
+  // (Invoice/Lab Cost/Margin) left-align to a common edge; values
+  // right-align in their own column. The block itself is what moves far
+  // right now (see JobRow's justify-between), not each line of text.
   return (
     <div className="grid shrink-0 grid-cols-[auto_auto] items-baseline gap-x-2 gap-y-0.5 text-xs">
       <span className="text-left text-slate-400">Invoice</span>
-      <span className="whitespace-nowrap text-left text-slate-700">{formatCents(revenueCents)}</span>
+      <span className="whitespace-nowrap text-right text-slate-700">{formatCents(revenueCents)}</span>
       <span className="text-left text-slate-400">Lab Cost</span>
-      <span className="whitespace-nowrap text-left text-slate-700">{labCostCents != null ? formatCents(labCostCents) : "—"}</span>
+      <span className="whitespace-nowrap text-right text-slate-700">{labCostCents != null ? formatCents(labCostCents) : "—"}</span>
       {stripeFeeCents !== 0 && (
         <>
           <span className="text-left text-slate-400">Stripe Fee</span>
-          <span className="whitespace-nowrap text-left text-slate-700">{formatCents(stripeFeeCents)}</span>
+          <span className="whitespace-nowrap text-right text-slate-700">{formatCents(stripeFeeCents)}</span>
         </>
       )}
       <span className="text-left text-slate-400">Margin</span>
-      <span className={`whitespace-nowrap text-left ${marginCents != null && marginCents < 0 ? "text-red-600" : "text-slate-700"}`}>
+      <span className={`whitespace-nowrap text-right ${marginCents != null && marginCents < 0 ? "text-red-600" : "text-slate-700"}`}>
         {marginCents != null ? formatCents(marginCents) : "—"}
       </span>
     </div>
@@ -202,75 +177,6 @@ const SORT_FIELDS: { key: SortField; label: string }[] = [
   { key: "due_date", label: "Due date" },
 ];
 
-// ---------------------------------------------------------------------
-// By Period (Lab Costs' real weekly reports + Margins' weekly/monthly/
-// yearly rollups)
-// ---------------------------------------------------------------------
-
-const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-
-// Per Tim, 2026-08-30 — "none" replaces the old By Job/By Period toggle:
-// the flat, ungrouped list is just one more "Group by" option now (the
-// default one) instead of a separate page layout.
-type GroupByKey = "none" | "weekly" | "monthly" | "yearly";
-const GROUP_BY_OPTIONS: { key: GroupByKey; label: string }[] = [
-  { key: "none", label: "None" },
-  { key: "weekly", label: "Week" },
-  { key: "monthly", label: "Month" },
-  { key: "yearly", label: "Year" },
-];
-
-interface PeriodJobEntry {
-  job: JobWithCustomer;
-  revenueCents: number;
-  labCostCents: number;
-  stripeFeeCents: number;
-  marginCents: number;
-}
-
-interface PeriodGroup {
-  key: string;
-  label: string;
-  sortKey: string;
-  jobEntries: PeriodJobEntry[];
-  revenueCents: number;
-  labCostCents: number;
-  stripeFeeCents: number;
-  marginCents: number;
-  // Only set for real weekly reports (a real email Crystal/QuickBooks
-  // sent) — monthly/yearly are synthetic buckets with no such document.
-  totalCents?: number | null;
-  pdfLink?: { jobId: string; docId: string } | null;
-  unlinkedCents?: number | null;
-}
-
-// Per Tim, 2026-08-29 — marginCents comes from computeMarginCents
-// (lib/pricing.ts), the same function the per-job Profit line on the
-// Invoice tab uses, rather than a second, independently computed margin
-// figure for the same job — those two drifted out of sync once already.
-function summarizeGroup(
-  key: string, label: string, sortKey: string,
-  jobsInGroup: { job: JobWithCustomer; labCostCents: number }[],
-  extra?: { totalCents: number | null; pdfLink: { jobId: string; docId: string } | null }
-): PeriodGroup {
-  const jobEntries = jobsInGroup
-    .map(({ job, labCostCents }) => {
-      const revenueCents = job.invoice_total_cents ?? 0;
-      const stripeFeeCents = job.stripe_fee_cents ?? 0;
-      return { job, revenueCents, labCostCents, stripeFeeCents, marginCents: computeMarginCents(revenueCents, labCostCents, stripeFeeCents) };
-    })
-    .sort((a, b) => (a.job.project_number ?? "").localeCompare(b.job.project_number ?? ""));
-  const revenueCents = jobEntries.reduce((sum, e) => sum + e.revenueCents, 0);
-  const labCostCents = jobEntries.reduce((sum, e) => sum + e.labCostCents, 0);
-  const stripeFeeCents = jobEntries.reduce((sum, e) => sum + e.stripeFeeCents, 0);
-  const unlinkedCents = extra && extra.totalCents != null ? extra.totalCents - labCostCents : null;
-  return {
-    key, label, sortKey, jobEntries, revenueCents, labCostCents, stripeFeeCents,
-    marginCents: computeMarginCents(revenueCents, labCostCents, stripeFeeCents),
-    ...(extra ? { totalCents: extra.totalCents, pdfLink: extra.pdfLink, unlinkedCents } : {}),
-  };
-}
-
 export default function BillingView() {
   const [jobs, setJobs] = useState<JobWithCustomer[]>([]);
   const [loading, setLoading] = useState(true);
@@ -278,9 +184,6 @@ export default function BillingView() {
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [editingJobId, setEditingJobId] = useState<string | null>(null);
 
-  // Per Tim, 2026-08-30 — filter/sort/search apply everywhere now, not
-  // just in an ungrouped view — one consistent set of controls regardless
-  // of how the list below is grouped.
   const [filter, setFilter] = useState<FilterKey>("all");
   const [sortBy, setSortBy] = useState<SortField>("project_number");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
@@ -288,11 +191,6 @@ export default function BillingView() {
   const [companyQuery, setCompanyQuery] = useState("");
   const [addressQuery, setAddressQuery] = useState("");
   const [mobileSearch, setMobileSearch] = useState("");
-
-  // "Group by" replaces the old By Job/By Period toggle — see this file's
-  // own top comment.
-  const [groupBy, setGroupBy] = useState<GroupByKey>("none");
-  const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
 
   function loadJobs() {
     setLoading(true);
@@ -310,8 +208,6 @@ export default function BillingView() {
   useEffect(() => {
     loadJobs();
   }, []);
-
-  // ---- By Job ----
 
   // Per Tim, 2026-08-28 — this page is only for invoices that have
   // actually gone out (or been paid), not ones merely ready to send.
@@ -403,171 +299,6 @@ export default function BillingView() {
     return { overdueCents, overdueCount, awaitingPaymentCents };
   }, [invoicedJobs]);
 
-  // ---- By Period ----
-
-  const weeklyReports = useMemo(() => {
-    const groups = new Map<
-      string,
-      {
-        dateRange: string | null;
-        totalCents: number | null;
-        receivedAt: string;
-        jobAmounts: Map<string, number>;
-        seenNumsByJob: Map<string, Set<string>>;
-        pdfLink: { jobId: string; docId: string } | null;
-      }
-    >();
-    for (const job of jobs) {
-      for (const doc of job.documents ?? []) {
-        if (doc.kind !== "lab_invoice" || doc.report_total_cents == null) continue;
-        const key = doc.report_date_range ?? doc.content_hash ?? "unknown";
-        let g = groups.get(key);
-        if (!g) {
-          g = { dateRange: doc.report_date_range ?? null, totalCents: doc.report_total_cents, receivedAt: doc.uploaded_at, jobAmounts: new Map(), seenNumsByJob: new Map(), pdfLink: null };
-          groups.set(key, g);
-        }
-        if (!g.pdfLink && doc.file_name.startsWith("weekly-lab-summary")) {
-          g.pdfLink = { jobId: job.id, docId: doc.id };
-        }
-        if (doc.uploaded_at > g.receivedAt) g.receivedAt = doc.uploaded_at;
-
-        const numKey = doc.lab_invoice_number ?? doc.id;
-        if (!g.seenNumsByJob.has(job.id)) g.seenNumsByJob.set(job.id, new Set());
-        const seenNums = g.seenNumsByJob.get(job.id)!;
-        if (seenNums.has(numKey)) continue;
-        seenNums.add(numKey);
-
-        g.jobAmounts.set(job.id, (g.jobAmounts.get(job.id) ?? 0) + (doc.amount_cents ?? 0));
-      }
-    }
-    return Array.from(groups.entries())
-      .map(([key, g]) => {
-        const jobsInGroup = Array.from(g.jobAmounts.entries()).map(([jobId, labCostCents]) => ({
-          job: jobs.find((j) => j.id === jobId)!,
-          labCostCents,
-        }));
-        const label = g.dateRange ?? formatDate(localDateOnly(g.receivedAt));
-        return { ...summarizeGroup(key, label, g.receivedAt, jobsInGroup, { totalCents: g.totalCents, pdfLink: g.pdfLink }), receivedAt: g.receivedAt };
-      })
-      .sort((a, b) => (a.sortKey < b.sortKey ? 1 : -1));
-  }, [jobs]);
-
-  const monthlyGroups = useMemo(() => {
-    const groups = new Map<string, JobWithCustomer[]>();
-    for (const job of jobs) {
-      if (!(job.documents ?? []).some((d) => d.kind === "lab_invoice")) continue;
-      const bucketDate = job.confirmed_date ?? job.requested_date;
-      if (!bucketDate) continue;
-      const key = bucketDate.slice(0, 7);
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key)!.push(job);
-    }
-    return Array.from(groups.entries())
-      .map(([key, jobsInGroup]) => {
-        const [y, m] = key.split("-");
-        const label = `${MONTH_NAMES[Number(m) - 1]} ${y}`;
-        return summarizeGroup(key, label, key, jobsInGroup.map((job) => ({ job, labCostCents: job.lab_cost_cents ?? 0 })));
-      })
-      .sort((a, b) => (a.sortKey < b.sortKey ? 1 : -1));
-  }, [jobs]);
-
-  const yearlyGroups = useMemo(() => {
-    const groups = new Map<string, JobWithCustomer[]>();
-    for (const job of jobs) {
-      if (!(job.documents ?? []).some((d) => d.kind === "lab_invoice")) continue;
-      const bucketDate = job.confirmed_date ?? job.requested_date;
-      if (!bucketDate) continue;
-      const key = bucketDate.slice(0, 4);
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key)!.push(job);
-    }
-    return Array.from(groups.entries())
-      .map(([key, jobsInGroup]) => summarizeGroup(key, key, key, jobsInGroup.map((job) => ({ job, labCostCents: job.lab_cost_cents ?? 0 }))))
-      .sort((a, b) => (a.sortKey < b.sortKey ? 1 : -1));
-  }, [jobs]);
-
-  const hasAutoExpandedYearly = useRef(false);
-  useEffect(() => {
-    if (hasAutoExpandedYearly.current || yearlyGroups.length === 0) return;
-    const currentYear = String(new Date().getFullYear());
-    if (yearlyGroups.some((g) => g.key === currentYear)) {
-      setExpandedKeys((prev) => new Set(prev).add(`yearly:${currentYear}`));
-    }
-    hasAutoExpandedYearly.current = true;
-  }, [yearlyGroups]);
-
-  const hasAutoExpandedThisWeek = useRef(false);
-  useEffect(() => {
-    if (hasAutoExpandedThisWeek.current || weeklyReports.length === 0) return;
-    setExpandedKeys((prev) => new Set(prev).add(`weekly:${weeklyReports[0].key}`));
-    hasAutoExpandedThisWeek.current = true;
-  }, [weeklyReports]);
-
-  // Per Tim, 2026-08-30 — "every single job should go on this page
-  // regardless of whether or not we have a lab invoice so that we can
-  // keep track of which ones we have and which ones we don't."
-  const jobsWithoutLabInvoice = useMemo(() => {
-    const todayStr = ymd(new Date());
-    return jobs
-      .filter((j) => j.confirmed_date && j.confirmed_date <= todayStr)
-      .filter((j) => !(j.documents ?? []).some((d) => d.kind === "lab_invoice"))
-      .sort((a, b) => (b.confirmed_date ?? "").localeCompare(a.confirmed_date ?? ""));
-  }, [jobs]);
-
-  const groups = groupBy === "weekly" ? weeklyReports : groupBy === "monthly" ? monthlyGroups : yearlyGroups;
-  const emptyMessage = groupBy === "weekly" ? "No weekly reports received yet." : "No jobs with a confirmed date yet.";
-
-  // Per Tim, 2026-08-30 — the filter pills/search boxes below apply
-  // whether or not the list is grouped, so this needs to work against a
-  // plain job the same way rows' own filtering does. Status filter (All/
-  // Payment Pending/Overdue/Paid) is checked separately in each branch
-  // below since a period jobEntry doesn't carry its own precomputed status.
-  function matchesSearch(job: JobWithCustomer): boolean {
-    if (projectNumberQuery.trim() && !matchesAnyWord(job.project_number ?? "", projectNumberQuery)) return false;
-    if (companyQuery.trim() && !matchesAnyWord(job.customers?.company || job.customers?.name || "", companyQuery)) return false;
-    if (addressQuery.trim() && !matchesAnyWord(job.service_address ?? "", addressQuery)) return false;
-    if (mobileSearch.trim()) {
-      const hit =
-        matchesAnyWord(job.project_number ?? "", mobileSearch) ||
-        matchesAnyWord(job.customers?.company || job.customers?.name || "", mobileSearch) ||
-        matchesAnyWord(job.service_address ?? "", mobileSearch);
-      if (!hit) return false;
-    }
-    return true;
-  }
-
-  // Per Tim, 2026-08-30 — same filter pills/search apply to a grouped
-  // view too, not just the flat list — one consistent set of controls
-  // regardless of grouping. Recomputes each group's own totals from just
-  // the jobs that still match, so "Total"/"margin" in a filtered group
-  // reflects what's actually shown below it; totalCents/pdfLink/
-  // unlinkedCents stay the real report's own numbers either way, since
-  // those describe the actual weekly email, not the current UI filter.
-  const filteredGroups = useMemo(() => {
-    return groups
-      .map((g) => {
-        const jobEntries = g.jobEntries.filter(
-          (e) => (filter === "all" || invoiceStatus(e.job) === filter) && matchesSearch(e.job)
-        );
-        const revenueCents = jobEntries.reduce((s, e) => s + e.revenueCents, 0);
-        const labCostCents = jobEntries.reduce((s, e) => s + e.labCostCents, 0);
-        const stripeFeeCents = jobEntries.reduce((s, e) => s + e.stripeFeeCents, 0);
-        return { ...g, jobEntries, revenueCents, labCostCents, stripeFeeCents, marginCents: computeMarginCents(revenueCents, labCostCents, stripeFeeCents) };
-      })
-      .filter((g) => g.jobEntries.length > 0);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [groups, filter, projectNumberQuery, companyQuery, addressQuery, mobileSearch]);
-
-  // Stat tiles stay off the ORIGINAL (unfiltered) groups — same idea as
-  // Pending Payment/Overdue below, which are also business-wide totals,
-  // not a number that shifts as you type into a search box.
-  const periodSummary = useMemo(() => {
-    return groups.reduce(
-      (acc, g) => ({ revenueCents: acc.revenueCents + g.revenueCents, marginCents: acc.marginCents + g.marginCents }),
-      { revenueCents: 0, marginCents: 0 }
-    );
-  }, [groups]);
-
   async function patchJob(job: JobWithCustomer, patch: Record<string, unknown>) {
     const res = await fetch(`/api/admin/jobs/${job.id}`, {
       method: "PATCH",
@@ -581,25 +312,6 @@ export default function BillingView() {
     <div className="mx-auto max-w-3xl px-4 py-6">
       <h1 className="text-lg font-semibold text-slate-800">Billing</h1>
 
-      {/* Per Tim, 2026-08-30 — "don't understand the difference" between
-          By Job / By Period: replaced that page-level toggle with a single
-          "Group by" control that reorganizes one list instead of swapping
-          to a different layout. */}
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <span className="shrink-0 text-sm font-medium text-slate-500">Group by:</span>
-        <div className="flex gap-1.5">
-          {GROUP_BY_OPTIONS.map((g) => (
-            <button
-              key={g.key}
-              onClick={() => setGroupBy(g.key)}
-              className={`shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium ${groupBy === g.key ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}
-            >
-              {g.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
       <div className="mt-3 flex flex-wrap gap-4 rounded-lg border border-slate-200 bg-white p-3 text-sm">
         <div>
           <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Pending Payment</div>
@@ -612,28 +324,6 @@ export default function BillingView() {
             {listSummary.overdueCount > 0 && <span className="ml-1 text-xs font-normal text-slate-500">({listSummary.overdueCount})</span>}
           </div>
         </div>
-        {groupBy !== "none" && (
-          <>
-            <div>
-              <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Revenue ({GROUP_BY_OPTIONS.find((g) => g.key === groupBy)!.label})</div>
-              <div className="text-base font-semibold text-slate-800">{formatCents(periodSummary.revenueCents)}</div>
-            </div>
-            <div>
-              {/* Per Tim, 2026-08-30 — "Margin should have a cell in the
-                  title at the top of billing page to outline all that":
-                  same clarifying formula the old standalone Margins page's
-                  own title carried ("Margins (Invoice − Lab Costs)"),
-                  moved onto this stat tile's own label since that page no
-                  longer exists on its own. */}
-              <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                Margin ({GROUP_BY_OPTIONS.find((g) => g.key === groupBy)!.label}) — Invoice − Lab Cost
-              </div>
-              <div className={`text-base font-semibold ${periodSummary.marginCents < 0 ? "text-red-600" : "text-slate-800"}`}>
-                {formatCents(periodSummary.marginCents)}
-              </div>
-            </div>
-          </>
-        )}
       </div>
 
       {error && <div className="mt-3 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>}
@@ -668,73 +358,52 @@ export default function BillingView() {
             ))}
           </div>
 
-          {/* Sort doesn't apply to a grouped display — only shown for the
-              flat, ungrouped list. */}
-          {groupBy === "none" && (
-            <>
-              <div className="mt-3 flex gap-2 sm:hidden">
-                <div className="relative min-w-0 flex-1">
-                  <select
-                    value={`${sortBy}:${sortDir}`}
-                    onChange={(e) => {
-                      const [field, dir] = e.target.value.split(":");
-                      setSortBy(field as SortField);
-                      setSortDir(dir as "asc" | "desc");
-                    }}
-                    className="w-full appearance-none rounded-lg border border-slate-300 bg-white py-2 pl-3 pr-8 text-sm text-slate-700"
-                  >
-                    {SORT_FIELDS.map((f) => (
-                      <optgroup key={f.key} label={f.label}>
-                        <option value={`${f.key}:asc`}>{f.label} ↑</option>
-                        <option value={`${f.key}:desc`}>{f.label} ↓</option>
-                      </optgroup>
-                    ))}
-                  </select>
-                  <span className="pointer-events-none absolute inset-y-0 right-0 flex w-7 items-center justify-center text-slate-500">▾</span>
-                </div>
-                <input
-                  value={mobileSearch}
-                  onChange={(e) => setMobileSearch(e.target.value)}
-                  placeholder="Search…"
-                  className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                />
-              </div>
-
-              <div className="mt-3 hidden flex-wrap items-center gap-2 sm:flex">
-                <span className="shrink-0 text-sm font-medium text-gray-400">Sort by:</span>
+          <div className="mt-3 flex gap-2 sm:hidden">
+            <div className="relative min-w-0 flex-1">
+              <select
+                value={`${sortBy}:${sortDir}`}
+                onChange={(e) => {
+                  const [field, dir] = e.target.value.split(":");
+                  setSortBy(field as SortField);
+                  setSortDir(dir as "asc" | "desc");
+                }}
+                className="w-full appearance-none rounded-lg border border-slate-300 bg-white py-2 pl-3 pr-8 text-sm text-slate-700"
+              >
                 {SORT_FIELDS.map((f) => (
-                  <button
-                    key={f.key}
-                    onClick={() => {
-                      if (sortBy === f.key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-                      else {
-                        setSortBy(f.key);
-                        setSortDir("asc");
-                      }
-                    }}
-                    className={`shrink-0 rounded-lg px-2.5 py-1 text-sm font-medium ${sortBy === f.key ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
-                  >
-                    {f.label}{sortBy === f.key ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
-                  </button>
+                  <optgroup key={f.key} label={f.label}>
+                    <option value={`${f.key}:asc`}>{f.label} ↑</option>
+                    <option value={`${f.key}:desc`}>{f.label} ↓</option>
+                  </optgroup>
                 ))}
-              </div>
-            </>
-          )}
-
-          {/* Mobile search-by-field only makes sense next to the flat
-              list; a grouped display just uses the single mobile search
-              box above (folded into the Sort row when groupBy === "none",
-              standalone here otherwise). */}
-          {groupBy !== "none" && (
-            <div className="mt-3 sm:hidden">
-              <input
-                value={mobileSearch}
-                onChange={(e) => setMobileSearch(e.target.value)}
-                placeholder="Search…"
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-              />
+              </select>
+              <span className="pointer-events-none absolute inset-y-0 right-0 flex w-7 items-center justify-center text-slate-500">▾</span>
             </div>
-          )}
+            <input
+              value={mobileSearch}
+              onChange={(e) => setMobileSearch(e.target.value)}
+              placeholder="Search…"
+              className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            />
+          </div>
+
+          <div className="mt-3 hidden flex-wrap items-center gap-2 sm:flex">
+            <span className="shrink-0 text-sm font-medium text-gray-400">Sort by:</span>
+            {SORT_FIELDS.map((f) => (
+              <button
+                key={f.key}
+                onClick={() => {
+                  if (sortBy === f.key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+                  else {
+                    setSortBy(f.key);
+                    setSortDir("asc");
+                  }
+                }}
+                className={`shrink-0 rounded-lg px-2.5 py-1 text-sm font-medium ${sortBy === f.key ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
+              >
+                {f.label}{sortBy === f.key ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
+              </button>
+            ))}
+          </div>
 
           <div className="mt-3 hidden gap-2 sm:flex sm:flex-row sm:flex-nowrap sm:items-center">
             <span className="shrink-0 text-sm font-medium text-slate-500">Search by:</span>
@@ -758,7 +427,7 @@ export default function BillingView() {
             />
           </div>
 
-          {groupBy === "none" && rows.length > 0 && (
+          {rows.length > 0 && (
             <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
               {rows.map(({ job, status }) => {
                 const isNewtonAutoCharge = status === "sent" && job.customers?.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID;
@@ -776,12 +445,6 @@ export default function BillingView() {
                       />
                     }
                     below={
-                      // Per Tim, 2026-08-30 — "move the due date and
-                      // Payment Pending back to where they were, on their
-                      // own line on the left" then "move due by / to be
-                      // charged into the bottom right": status pill stays
-                      // bottom-left, due date now sits opposite it at the
-                      // card's bottom-right edge.
                       <div className="mt-0.5 flex w-full items-center justify-between gap-2">
                         <span className={`shrink-0 whitespace-nowrap rounded px-1.5 py-0.5 text-xs font-medium ${STATUS_PILL_CLASS}`}>
                           {STATUS_LABEL[status]}
@@ -801,119 +464,6 @@ export default function BillingView() {
                 );
               })}
             </div>
-          )}
-
-          {groupBy !== "none" && (
-            <>
-              <div className="mt-3">
-                {filteredGroups.length === 0 ? (
-                  <p className="rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-500">{emptyMessage}</p>
-                ) : (
-                  <div className="flex flex-col gap-2">
-                    {filteredGroups.map((g) => {
-                      const expanded = expandedKeys.has(`${groupBy}:${g.key}`);
-                      return (
-                        <div key={g.key} className="rounded-lg border border-slate-200 bg-white text-sm">
-                          <button
-                            onClick={() =>
-                              setExpandedKeys((prev) => {
-                                const next = new Set(prev);
-                                const k = `${groupBy}:${g.key}`;
-                                if (next.has(k)) next.delete(k);
-                                else next.add(k);
-                                return next;
-                              })
-                            }
-                            className="flex w-full flex-wrap items-baseline justify-between gap-x-4 p-3 text-left"
-                          >
-                            <span className="flex items-baseline gap-2 text-sm font-medium text-brand-600">
-                              <span className="mr-1 inline-block w-3 text-slate-400">{expanded ? "▾" : "▸"}</span>
-                              {g.label}
-                              {g.pdfLink && (
-                                <a
-                                  href={`/api/admin/jobs/${g.pdfLink.jobId}/documents/${g.pdfLink.docId}`}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="whitespace-nowrap text-sm text-slate-400 hover:text-brand-600 hover:underline"
-                                >
-                                  PDF ↗
-                                </a>
-                              )}
-                            </span>
-                            {/* Per Tim, 2026-08-30 — "the formatting of my
-                                billing page should be more consistent": this
-                                was the one place margin still got the old
-                                always-colored-green-if-positive treatment —
-                                every per-job Margin cell right below it (and
-                                everywhere else on this page) only colors
-                                red-if-negative, otherwise plain. Matched, and
-                                bumped to text-sm to actually read as this
-                                row's own headline number instead of smaller
-                                than its own date label. */}
-                            <span className={`whitespace-nowrap text-sm font-semibold ${g.marginCents < 0 ? "text-red-600" : "text-slate-800"}`}>
-                              {formatCents(g.marginCents)} margin
-                            </span>
-                          </button>
-                          {expanded && (
-                            <div className="flex flex-col gap-2.5 border-t border-slate-100 p-3 pt-2">
-                              <div className="text-xs text-slate-500">
-                                {formatCents(g.revenueCents)} revenue − {formatCents(g.labCostCents)} lab cost
-                                {g.stripeFeeCents !== 0 && <> − {formatCents(g.stripeFeeCents)} Stripe fees</>}
-                              </div>
-                              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                                {g.jobEntries.map((e) => (
-                                  <JobRow
-                                    key={e.job.id}
-                                    job={e.job}
-                                    onOpen={() => setSelectedJobId(e.job.id)}
-                                    right={
-                                      <MoneyGrid
-                                        revenueCents={e.revenueCents}
-                                        labCostCents={e.labCostCents}
-                                        stripeFeeCents={e.stripeFeeCents}
-                                        marginCents={e.marginCents}
-                                      />
-                                    }
-                                  />
-                                ))}
-                              </div>
-                              {g.unlinkedCents != null && g.unlinkedCents !== 0 && (
-                                <div className="text-xs text-slate-400">+ {formatCents(g.unlinkedCents)} not linked to a job on file</div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {/* Per Tim, 2026-08-30 — "every single job should go on this
-                  page regardless of whether or not we have a lab invoice so
-                  that we can keep track of which ones we have and which ones
-                  we don't" — this only applies to the weekly-report grouping,
-                  since that's the one tied to the real lab invoice document. */}
-              {groupBy === "weekly" && (
-                <div className="mt-3">
-                  {jobsWithoutLabInvoice.length === 0 ? (
-                    <p className="rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-500">Everything&apos;s been billed.</p>
-                  ) : (
-                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                      {jobsWithoutLabInvoice.map((job) => (
-                        <JobRow
-                          key={job.id}
-                          job={job}
-                          onOpen={() => setSelectedJobId(job.id)}
-                          right={<span className="shrink-0 whitespace-nowrap text-xs text-slate-400">No lab invoice yet</span>}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </>
           )}
         </>
       )}

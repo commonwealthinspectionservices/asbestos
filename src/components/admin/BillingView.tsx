@@ -551,7 +551,15 @@ export default function BillingView() {
               <div className="text-base font-semibold text-slate-800">{formatCents(periodSummary.revenueCents)}</div>
             </div>
             <div>
-              <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Margin ({PERIODS.find((p) => p.key === period)!.label})</div>
+              {/* Per Tim, 2026-08-30 — "Margin should have a cell in the
+                  title at the top of billing page to outline all that":
+                  same clarifying formula the old standalone Margins page's
+                  own title carried ("Margins (Invoice − Lab Costs)"),
+                  moved onto this stat tile's own label since that page no
+                  longer exists on its own. */}
+              <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                Margin ({PERIODS.find((p) => p.key === period)!.label}) — Invoice − Lab Cost
+              </div>
               <div className={`text-base font-semibold ${periodSummary.marginCents < 0 ? "text-red-600" : "text-slate-800"}`}>
                 {formatCents(periodSummary.marginCents)}
               </div>
@@ -671,7 +679,11 @@ export default function BillingView() {
                     job={job}
                     onOpen={() => setSelectedJobId(job.id)}
                     right={
-                      <div className="flex shrink-0 flex-col items-end gap-1.5">
+                      // Per Tim, 2026-08-30 — "too much empty space in
+                      // these cells": gap-1.5 between MoneyGrid/due-date/
+                      // status pill read loose next to MoneyGrid's own
+                      // tight internal gap-y-0.5 — tightened to match.
+                      <div className="flex shrink-0 flex-col items-end gap-0.5">
                         <MoneyGrid
                           revenueCents={job.invoice_total_cents ?? 0}
                           labCostCents={job.lab_cost_cents}

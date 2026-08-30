@@ -65,6 +65,11 @@ function ymd(d: Date): string {
 
 const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
+// Per Tim, 2026-08-30 — "it should only just start at August 24th 2026,
+// that's when my company started": the Weekly/Monthly history tables
+// never show a period entirely before this date.
+const COMPANY_START_DATE = "2026-08-24";
+
 function invoiceStatus(job: JobWithCustomer): InvoiceStatus {
   if (job.paid_date) return "paid";
   if (job.invoice_sent_at) return isPastDue(dueDateFor(job)) ? "overdue" : "sent";
@@ -348,6 +353,13 @@ export default function BillingView() {
   // grouped view he'd already had removed once for being too much.
   // Bucketed by billingDateFor (see its own comment for why that's
   // invoice_sent_at, not the sampling date).
+  //
+  // Per Tim, 2026-08-30 (follow-up) — "it should only just start at
+  // August 24th 2026, that's when my company started": buckets entirely
+  // before that date are dropped rather than shown empty — there's no
+  // real "last month" or "the week before" when the company didn't exist
+  // yet, so the table just grows one row at a time as real weeks/months
+  // pass.
   const periodHistory = useMemo(() => {
     const today = new Date();
 
@@ -363,14 +375,14 @@ export default function BillingView() {
       const label =
         i === 0 ? "This Week" : i === 1 ? "Last Week" : `${MONTH_NAMES[start.getMonth()].slice(0, 3)} ${start.getDate()}–${end.getDate()}`;
       return { label, startStr: ymd(start), endStr: ymd(end), grossCents: 0, netCents: 0 };
-    });
+    }).filter((b) => b.endStr >= COMPANY_START_DATE);
 
     const monthly = Array.from({ length: 6 }, (_, i) => {
       const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
       const label = i === 0 ? "This Month" : i === 1 ? "Last Month" : `${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`;
       return { label, key, grossCents: 0, netCents: 0 };
-    });
+    }).filter((b) => b.key >= COMPANY_START_DATE.slice(0, 7));
 
     for (const job of invoicedJobs) {
       const bucketDate = billingDateFor(job);
@@ -415,15 +427,6 @@ export default function BillingView() {
         <div className="text-sm text-slate-500">
           Payment Pending <span className="font-semibold text-slate-800">{formatCents(listSummary.awaitingPaymentCents)}</span>
         </div>
-      </div>
-
-      {/* Per Tim, 2026-08-30 — "I just want a simple way to keep track of
-          net and gross for weeks and months over time" — a plain,
-          non-interactive table (no expand/collapse, no clicking into
-          jobs) of the last 6 weeks and last 6 months. */}
-      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <PeriodHistoryTable title="Weekly" rows={periodHistory.weekly} />
-        <PeriodHistoryTable title="Monthly" rows={periodHistory.monthly} />
       </div>
 
       {error && <div className="mt-3 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>}
@@ -576,6 +579,15 @@ export default function BillingView() {
           )}
         </>
       )}
+
+      {/* Per Tim, 2026-08-30 — "weekly and monthly should only be at the
+          bottom": moved down from next to the page title. Still a plain,
+          non-interactive table (no expand/collapse, no clicking into
+          jobs). */}
+      <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <PeriodHistoryTable title="Weekly" rows={periodHistory.weekly} />
+        <PeriodHistoryTable title="Monthly" rows={periodHistory.monthly} />
+      </div>
 
       {(() => {
         const detailJob = selectedJobId ? jobs.find((j) => j.id === selectedJobId) : null;

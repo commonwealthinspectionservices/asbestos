@@ -367,17 +367,27 @@ export default function BillingView() {
   const periodHistory = useMemo(() => {
     const today = new Date();
 
+    // Per Tim, 2026-08-30 — "we should start on Monday and go through
+    // Sunday": weeks run Mon–Sun, not the Sun–Sat weeks used before.
+    // getDay() is 0=Sun..6=Sat; (day + 6) % 7 gives days since Monday
+    // for every day including Sunday itself.
     const currentWeekStart = new Date(today);
     currentWeekStart.setHours(0, 0, 0, 0);
-    currentWeekStart.setDate(currentWeekStart.getDate() - currentWeekStart.getDay());
+    currentWeekStart.setDate(currentWeekStart.getDate() - ((currentWeekStart.getDay() + 6) % 7));
 
+    // Per Tim, 2026-08-30 — "instead of This Week and Last Week, it
+    // should list out the actual weeks": same treatment as the Monthly
+    // table's "August 2026" change — always the literal date range, no
+    // This Week/Last Week special-casing.
     const weekly = Array.from({ length: 6 }, (_, i) => {
       const start = new Date(currentWeekStart);
       start.setDate(start.getDate() - i * 7);
       const end = new Date(start);
       end.setDate(start.getDate() + 6);
       const label =
-        i === 0 ? "This Week" : i === 1 ? "Last Week" : `${MONTH_NAMES[start.getMonth()].slice(0, 3)} ${start.getDate()}–${end.getDate()}`;
+        start.getMonth() === end.getMonth()
+          ? `${MONTH_NAMES[start.getMonth()].slice(0, 3)} ${start.getDate()}–${end.getDate()}`
+          : `${MONTH_NAMES[start.getMonth()].slice(0, 3)} ${start.getDate()}–${MONTH_NAMES[end.getMonth()].slice(0, 3)} ${end.getDate()}`;
       return { label, startStr: ymd(start), endStr: ymd(end), grossCents: 0, netCents: 0 };
     }).filter((b) => b.endStr >= COMPANY_START_DATE);
 

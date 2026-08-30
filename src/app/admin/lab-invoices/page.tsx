@@ -1,18 +1,8 @@
 import { redirect } from "next/navigation";
-import { hasAdminSession } from "@/lib/auth";
-import AdminNav, { AdminFooter } from "@/components/admin/AdminNav";
-import LabInvoicesView from "@/components/admin/LabInvoicesView";
 
+// Per Tim, 2026-08-30 — merged Invoices/Lab Costs/Margins into one Billing
+// page ("too many clicks... a lot of repeating information") — this route
+// stays only as a redirect so any old bookmark/link still lands somewhere.
 export default function AdminLabInvoicesPage() {
-  if (!hasAdminSession()) redirect("/admin/login");
-
-  return (
-    <div className="flex min-h-screen flex-col bg-slate-50">
-      <AdminNav />
-      <div className="flex-1">
-        <LabInvoicesView />
-      </div>
-      <AdminFooter />
-    </div>
-  );
+  redirect("/admin/billing");
 }

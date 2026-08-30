@@ -756,7 +756,7 @@ async function alertUnmatchedWeeklySummaryTransactions(unmatched: UnmatchedWeekl
 // #6519, billed two mold sub-methods for 26-0008 as two separate lines), so
 // amounts are summed per (num, projectNumber) before anything touches the
 // database. Grouping this way, keyed on lab_invoice_number, is also exactly
-// what LabInvoicesView's existing "All Lab Invoices" cards already group
+// what BillingView's existing "All Lab Invoices" cards already group
 // by — no new UI needed for this to show up there correctly.
 async function processWeeklyLabSummaryEmail(params: {
   accessToken: string;
@@ -849,7 +849,7 @@ async function processWeeklyLabSummaryEmail(params: {
         // accounted for — recording it again here would double it. What's
         // still missing on that older case is this report's own
         // report_total_cents/report_date_range (added after that document
-        // existed) — LabInvoicesView groups "Weekly Reports" by
+        // existed) — BillingView groups "Weekly Reports" by
         // report_date_range specifically, not content_hash (a job's
         // existing document keeps its OWN real PDF's hash, so forcing this
         // report's hash onto it would misattribute which file it actually

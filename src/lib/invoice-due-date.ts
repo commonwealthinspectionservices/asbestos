@@ -28,7 +28,7 @@ export function paymentDueDate(projectDate: string): string | null {
 // override either — Tim wants this unconditional) — this is what Stripe's
 // own auto-charge (lib/net30-autocharge.ts) goes by too, see stripe.ts's
 // tagInvoiceEmailed. requested_date+30 stays only as a rough pre-send
-// estimate, before invoice_sent_at exists yet. Shared by InvoicesView.tsx
+// estimate, before invoice_sent_at exists yet. Shared by BillingView.tsx
 // and JobsDashboard.tsx — was two byte-identical copies until 2026-08-29's
 // organization pass; unlike the margin formula (lib/pricing.ts's
 // computeMarginCents), these hadn't actually drifted, but the codebase's

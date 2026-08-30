@@ -16,9 +16,9 @@ export function serviceRateLabel(service: ServiceType): string {
 /**
  * Revenue minus lab cost minus the real Stripe processing fee, all in
  * cents. Shared by the per-job Profit line (JobsDashboard's
- * LineItemsEditor) and the Margins page's own rollups — they drifted out
- * of sync once already (see MarginsView.tsx's own comment), so this is
- * the one place either should compute it.
+ * LineItemsEditor) and BillingView's own per-job/period rollups — they
+ * drifted out of sync once already, so this is the one place either
+ * should compute it.
  */
 export function computeMarginCents(revenueCents: number, labCostCents: number, stripeFeeCents: number): number {
   return revenueCents - labCostCents - stripeFeeCents;

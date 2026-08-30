@@ -153,6 +153,16 @@ export default function LabInvoicesView() {
       .sort((a, b) => (a.receivedAt < b.receivedAt ? 1 : -1));
   }, [jobs]);
 
+  // Per Tim, 2026-08-30 — "lab costs and margins should have these
+  // headers", pointing at Invoices' own Pending Payment/Overdue summary
+  // box. This week is just weeklyReports[0] (already sorted most-recent
+  // first); Total sums every real report on file.
+  const summary = useMemo(() => {
+    const thisWeekCents = weeklyReports[0]?.totalCents ?? null;
+    const totalCents = weeklyReports.reduce((sum, r) => sum + (r.totalCents ?? 0), 0);
+    return { thisWeekCents, totalCents };
+  }, [weeklyReports]);
+
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
       <h1 className="text-lg font-semibold text-slate-800">Lab Costs</h1>
@@ -162,6 +172,19 @@ export default function LabInvoicesView() {
 
       {!loading && !error && (
         <>
+          <div className="mt-3 flex flex-wrap gap-4 rounded-lg border border-slate-200 bg-white p-3 text-sm">
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">This Week</div>
+              <div className="text-base font-semibold text-slate-800">
+                {summary.thisWeekCents != null ? formatCents(summary.thisWeekCents) : "—"}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Total</div>
+              <div className="text-base font-semibold text-slate-800">{formatCents(summary.totalCents)}</div>
+            </div>
+          </div>
+
           {/* Per Tim, 2026-08-28 — "this page should almost just be a link
               to a bunch of weeks... once you click into the week, it opens
               up a dropdown of all the jobs from that week": collapsed by

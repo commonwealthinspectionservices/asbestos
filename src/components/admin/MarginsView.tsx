@@ -233,9 +233,33 @@ export default function MarginsView() {
   const emptyMessage =
     period === "weekly" ? "No weekly reports received yet." : `No jobs with a confirmed date yet.`;
 
+  // Per Tim, 2026-08-30 — "lab costs and margins should have these
+  // headers", pointing at Invoices' own summary box: total revenue and
+  // total margin across every group in the currently selected period, so
+  // the overall picture doesn't require expanding every card by hand.
+  const summary = useMemo(() => {
+    return groups.reduce(
+      (acc, g) => ({ revenueCents: acc.revenueCents + g.revenueCents, marginCents: acc.marginCents + g.marginCents }),
+      { revenueCents: 0, marginCents: 0 }
+    );
+  }, [groups]);
+
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
       <h1 className="text-lg font-semibold text-slate-800">Margins</h1>
+
+      <div className="mt-3 flex flex-wrap gap-4 rounded-lg border border-slate-200 bg-white p-3 text-sm">
+        <div>
+          <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Total Revenue</div>
+          <div className="text-base font-semibold text-slate-800">{formatCents(summary.revenueCents)}</div>
+        </div>
+        <div>
+          <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Total Margin</div>
+          <div className={`text-base font-semibold ${summary.marginCents < 0 ? "text-red-600" : "text-slate-800"}`}>
+            {formatCents(summary.marginCents)}
+          </div>
+        </div>
+      </div>
 
       <div className="mt-3 flex gap-1.5">
         {PERIODS.map((p) => (

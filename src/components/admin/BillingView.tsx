@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import type { JobWithCustomer } from "@/lib/types";
 import { formatCents, computeMarginCents } from "@/lib/pricing";
 import { ProjectDetailDialog, EditProjectDialog } from "@/components/admin/JobsDashboard";
@@ -188,18 +188,22 @@ function PeriodHistoryTable({
 }: {
   title: string; rows: { label: string; grossCents: number; netCents: number }[];
 }) {
+  // Per Tim, 2026-08-30 — "make sure the net numbers are lined up
+  // vertically": gross/net used to trail right after the label as one
+  // inline string, so the "net" column landed at a different x per row
+  // depending on that row's own gross value's width. A 3-column grid
+  // (label / gross / net) gives gross and net each their own fixed
+  // column, aligned down every row.
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-3 text-sm">
       <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">{title}</div>
-      <div className="mt-2 flex flex-col gap-1">
+      <div className="mt-2 grid grid-cols-[1fr_auto_auto] items-baseline gap-x-3 gap-y-1">
         {rows.map((r) => (
-          <div key={r.label} className="flex items-baseline justify-between gap-3">
+          <Fragment key={r.label}>
             <span className="text-slate-500">{r.label}</span>
-            <span className="whitespace-nowrap text-right">
-              <span className="text-slate-800">{formatCents(r.grossCents)}</span>
-              <span className="ml-2 text-slate-400">net {formatCents(r.netCents)}</span>
-            </span>
-          </div>
+            <span className="whitespace-nowrap text-right text-slate-800">{formatCents(r.grossCents)}</span>
+            <span className="whitespace-nowrap text-right text-slate-400">net {formatCents(r.netCents)}</span>
+          </Fragment>
         ))}
       </div>
     </div>

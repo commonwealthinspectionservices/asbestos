@@ -89,6 +89,8 @@ export default function LabInvoicesView() {
         jobAmounts: Map<string, number>;
         seenNumsByJob: Map<string, Set<string>>;
         pdfLink: { jobId: string; docId: string } | null;
+        jobDocId: Map<string, string>;
+        jobDocFallbackId: Map<string, string>;
       }
     >();
     for (const job of jobs) {
@@ -107,7 +109,7 @@ export default function LabInvoicesView() {
         const key = doc.report_date_range ?? doc.content_hash ?? "unknown";
         let g = groups.get(key);
         if (!g) {
-          g = { dateRange: doc.report_date_range ?? null, totalCents: doc.report_total_cents, receivedAt: doc.uploaded_at, jobAmounts: new Map(), seenNumsByJob: new Map(), pdfLink: null };
+          g = { dateRange: doc.report_date_range ?? null, totalCents: doc.report_total_cents, receivedAt: doc.uploaded_at, jobAmounts: new Map(), seenNumsByJob: new Map(), pdfLink: null, jobDocId: new Map(), jobDocFallbackId: new Map() };
           groups.set(key, g);
         }
         // Per Tim, 2026-08-29 — "shouldn't each week have a link to the PDF
@@ -119,6 +121,19 @@ export default function LabInvoicesView() {
         // linking to one of those would open the wrong document entirely.
         if (!g.pdfLink && doc.file_name.startsWith("weekly-lab-summary")) {
           g.pdfLink = { jobId: job.id, docId: doc.id };
+        }
+        // Per Tim, 2026-08-30 — "clicking anywhere else should just open
+        // up the lab invoice": each job's OWN copy of this report's PDF
+        // (every job gets one uploaded to its own storage path — see
+        // processWeeklyLabSummaryEmail), same weekly-lab-summary
+        // preference as the report-level pdfLink above; jobDocFallbackId
+        // covers the rare job whose only document here is a backfilled
+        // one, so the click still opens something rather than nothing.
+        if (!g.jobDocId.has(job.id) && doc.file_name.startsWith("weekly-lab-summary")) {
+          g.jobDocId.set(job.id, doc.id);
+        }
+        if (!g.jobDocFallbackId.has(job.id)) {
+          g.jobDocFallbackId.set(job.id, doc.id);
         }
         // Max, not min — a backfilled document (see above) can carry a
         // much OLDER uploaded_at from whichever earlier pipeline actually
@@ -144,7 +159,11 @@ export default function LabInvoicesView() {
     return Array.from(groups.entries())
       .map(([key, g]) => {
         const jobEntries = Array.from(g.jobAmounts.entries())
-          .map(([jobId, amountCents]) => ({ job: jobs.find((j) => j.id === jobId)!, amountCents }))
+          .map(([jobId, amountCents]) => ({
+            job: jobs.find((j) => j.id === jobId)!,
+            amountCents,
+            docId: g.jobDocId.get(jobId) ?? g.jobDocFallbackId.get(jobId) ?? null,
+          }))
           .sort((a, b) => (a.job.project_number ?? "").localeCompare(b.job.project_number ?? ""));
         const linkedCents = jobEntries.reduce((sum, e) => sum + e.amountCents, 0);
         const unlinkedCents = g.totalCents != null ? g.totalCents - linkedCents : null;
@@ -162,6 +181,22 @@ export default function LabInvoicesView() {
     const totalCents = weeklyReports.reduce((sum, r) => sum + (r.totalCents ?? 0), 0);
     return { thisWeekCents, totalCents };
   }, [weeklyReports]);
+
+  // Per Tim, 2026-08-30 — "every single job should go on this page
+  // regardless of whether or not we have a lab invoice so that we can
+  // keep track of which ones we have and which ones we don't": every job
+  // with fieldwork already done (confirmed_date up through today) that
+  // has no lab_invoice document at all yet — same fieldwork-done scoping
+  // as the rest of this app's "is this job actually billable yet" checks,
+  // not every job regardless of status (a job still To Be Scheduled has
+  // no fieldwork to have billed in the first place).
+  const jobsWithoutLabInvoice = useMemo(() => {
+    const todayStr = ymd(new Date());
+    return jobs
+      .filter((j) => j.confirmed_date && j.confirmed_date <= todayStr)
+      .filter((j) => !(j.documents ?? []).some((d) => d.kind === "lab_invoice"))
+      .sort((a, b) => (b.confirmed_date ?? "").localeCompare(a.confirmed_date ?? ""));
+  }, [jobs]);
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
@@ -247,31 +282,60 @@ export default function LabInvoicesView() {
                               the right, one full-width card per job instead
                               of the tight auto-fill grid this used to be. */}
                           <div className="flex flex-col gap-2">
+                            {/* Per Tim, 2026-08-30 — "clicking the project
+                                number should open the project info tab, and
+                                clicking anywhere else should just open up
+                                the lab invoice... I want to be able to
+                                easily access the lab invoice": split into
+                                two clickable regions instead of one link
+                                covering the whole card — the badge on its
+                                own goes to the job, everything else opens
+                                that job's own copy of this report's PDF
+                                directly (see jobDocId/jobDocFallbackId
+                                above), falling back to the job page only if
+                                this job genuinely has no document on file
+                                for this report. */}
                             {r.jobEntries.map((e) => (
-                              <Link
-                                key={e.job.id}
-                                href={`/admin/dashboard?jobId=${e.job.id}`}
-                                className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3 hover:border-brand-400"
-                              >
-                                <div className="min-w-0">
-                                  <div className="flex min-w-0 items-center gap-2">
-                                    <span className="shrink-0 whitespace-nowrap rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs text-slate-600">
-                                      {e.job.project_number}
-                                    </span>
-                                    <span className="min-w-0 truncate text-sm font-medium text-slate-800">
+                              <div key={e.job.id} className="flex items-stretch gap-0 rounded-lg border border-slate-200 bg-white hover:border-brand-400">
+                                <Link
+                                  href={`/admin/dashboard?jobId=${e.job.id}`}
+                                  title="Open project info"
+                                  className="flex shrink-0 items-center rounded-l-lg py-3 pl-3 pr-2 hover:bg-slate-50"
+                                >
+                                  <span className="whitespace-nowrap rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs text-slate-600">
+                                    {e.job.project_number}
+                                  </span>
+                                </Link>
+                                <a
+                                  href={e.docId ? `/api/admin/jobs/${e.job.id}/documents/${e.docId}` : `/admin/dashboard?jobId=${e.job.id}`}
+                                  target={e.docId ? "_blank" : undefined}
+                                  rel={e.docId ? "noreferrer" : undefined}
+                                  title={e.docId ? "Open lab invoice PDF" : "Open project info"}
+                                  className="flex min-w-0 flex-1 items-center justify-between gap-3 rounded-r-lg py-3 pr-3"
+                                >
+                                  <div className="min-w-0">
+                                    {/* Per Tim, 2026-08-30 — a <span> here
+                                        truncated unreliably once splitting
+                                        this row into two clickable regions
+                                        narrowed its available width — span
+                                        is inline by default, so overflow:
+                                        hidden doesn't constrain it to the
+                                        parent's width the way it does for
+                                        the address <div> right below. */}
+                                    <div className="truncate text-sm font-medium text-slate-800">
                                       {e.job.customers?.company || e.job.customers?.name}
-                                    </span>
+                                    </div>
+                                    {/* Per Tim, 2026-08-30 — "i need address on
+                                        these": the job site address, same
+                                        expandAddress abbreviation-expansion
+                                        every other address in the app uses. */}
+                                    {e.job.service_address && (
+                                      <div className="mt-0.5 truncate text-xs text-slate-500">{expandAddress(e.job.service_address)}</div>
+                                    )}
                                   </div>
-                                  {/* Per Tim, 2026-08-30 — "i need address on
-                                      these": the job site address, same
-                                      expandAddress abbreviation-expansion
-                                      every other address in the app uses. */}
-                                  {e.job.service_address && (
-                                    <div className="mt-0.5 truncate text-xs text-slate-500">{expandAddress(e.job.service_address)}</div>
-                                  )}
-                                </div>
-                                <span className="shrink-0 whitespace-nowrap text-sm font-semibold text-slate-800">{formatCents(e.amountCents)}</span>
-                              </Link>
+                                  <span className="shrink-0 whitespace-nowrap text-sm font-semibold text-slate-800">{formatCents(e.amountCents)}</span>
+                                </a>
+                              </div>
                             ))}
                           </div>
                           {/* Per Tim, 2026-08-28 — "why does it say $1,108 if
@@ -288,6 +352,44 @@ export default function LabInvoicesView() {
                     </div>
                   );
                 })}
+              </div>
+            )}
+          </div>
+
+          {/* Per Tim, 2026-08-30 — "every single job should go on this
+              page regardless of whether or not we have a lab invoice so
+              that we can keep track of which ones we have and which ones
+              we don't." Same card format as Weekly Reports' own job rows,
+              minus the amount/PDF (there's nothing to open yet) — the
+              whole card just goes to the job's Project Info tab. */}
+          <div className="mt-3">
+            <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Awaiting Lab Bill</div>
+            {jobsWithoutLabInvoice.length === 0 ? (
+              <p className="mt-2 rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-500">Everything's been billed.</p>
+            ) : (
+              <div className="mt-2 flex flex-col gap-2">
+                {jobsWithoutLabInvoice.map((job) => (
+                  <Link
+                    key={job.id}
+                    href={`/admin/dashboard?jobId=${job.id}`}
+                    className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3 hover:border-brand-400"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span className="shrink-0 whitespace-nowrap rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs text-slate-600">
+                          {job.project_number}
+                        </span>
+                        <span className="block min-w-0 truncate text-sm font-medium text-slate-800">
+                          {job.customers?.company || job.customers?.name}
+                        </span>
+                      </div>
+                      {job.service_address && (
+                        <div className="mt-0.5 truncate text-xs text-slate-500">{expandAddress(job.service_address)}</div>
+                      )}
+                    </div>
+                    <span className="shrink-0 whitespace-nowrap text-xs text-slate-400">No lab invoice yet</span>
+                  </Link>
+                ))}
               </div>
             )}
           </div>

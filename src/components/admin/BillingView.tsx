@@ -358,13 +358,16 @@ export default function BillingView() {
           <span>
             Payment Pending <span className="font-semibold text-slate-800">{formatCents(listSummary.awaitingPaymentCents)}</span>
           </span>
+          {/* Per Tim, 2026-08-30 — "I just want it to say gross and net
+              really" — replaced the "$X (margin $Y)" phrasing with plain
+              Gross/Net labels. */}
           <span>
-            This Week <span className="font-semibold text-slate-800">{formatCents(periodSummary.weekRevenueCents)}</span>{" "}
-            <span className="text-slate-400">({formatCents(periodSummary.weekMarginCents)} margin)</span>
+            This Week Gross <span className="font-semibold text-slate-800">{formatCents(periodSummary.weekRevenueCents)}</span>{" "}
+            Net <span className="font-semibold text-slate-800">{formatCents(periodSummary.weekMarginCents)}</span>
           </span>
           <span>
-            This Month <span className="font-semibold text-slate-800">{formatCents(periodSummary.monthRevenueCents)}</span>{" "}
-            <span className="text-slate-400">({formatCents(periodSummary.monthMarginCents)} margin)</span>
+            This Month Gross <span className="font-semibold text-slate-800">{formatCents(periodSummary.monthRevenueCents)}</span>{" "}
+            Net <span className="font-semibold text-slate-800">{formatCents(periodSummary.monthMarginCents)}</span>
           </span>
         </div>
       </div>

@@ -458,17 +458,9 @@ export default function BillingView() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
-      {/* Per Tim, 2026-08-30 — "payment pending should have its own line
-          and should be directly beneath the weekly monthly sales": one
-          shared line (mobile and desktop alike) right under the two
-          tables, instead of folded into the Sort by row further down. */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <PeriodHistoryTable title="Weekly" rows={periodHistory.weekly} />
         <PeriodHistoryTable title="Monthly" rows={periodHistory.monthly} />
-      </div>
-
-      <div className="mt-3 text-sm text-slate-500">
-        Payment Pending <span className="font-semibold text-slate-800">{formatCents(listSummary.awaitingPaymentCents)}</span>
       </div>
 
       {error && <div className="mt-3 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>}
@@ -590,6 +582,19 @@ export default function BillingView() {
               className="w-full min-w-0 rounded-lg border border-slate-300 px-2.5 py-1 text-sm sm:w-0 sm:flex-1"
             />
           </div>
+
+          {/* Per Tim, 2026-08-30 — "Total amount pending should be
+              directly in between search by and 26-0009, and it should
+              only be there when the Payment Pending button on the top
+              right is selected": moved down from under Weekly/Monthly,
+              renamed from "Payment Pending" (too easy to confuse with
+              the filter pill/status pill of the same name), and now only
+              shows for the sent/Payment Pending filter. */}
+          {filter === "sent" && (
+            <div className="mt-3 text-sm text-slate-500">
+              Total Amount Pending <span className="font-semibold text-slate-800">{formatCents(listSummary.awaitingPaymentCents)}</span>
+            </div>
+          )}
 
           {rows.length > 0 && (
             <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">

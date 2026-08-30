@@ -482,10 +482,13 @@ export default function BillingView() {
             <span className="pointer-events-none absolute inset-y-0 right-0 flex w-9 items-center justify-center text-slate-500">▾</span>
           </div>
 
-          {/* Per Tim, 2026-08-30 — "delete billing title, move sort by
-              tool left, drop payment pending down and make it all on the
-              same line across": Sort by now comes first (left), then the
-              filter pills, then the Payment Pending total — all one row. */}
+          {/* Per Tim, 2026-08-30 — "swap payment pending in the three
+              buttons, the positions of those. The three buttons should be
+              aligned right so that it's not confused with the sort by
+              buttons": Payment Pending's total now sits next to Sort by
+              on the left, and the filter pills moved to the right edge —
+              putting real distance between the two pill groups instead of
+              them sitting shoulder to shoulder. */}
           <div className="mt-3 hidden items-center justify-between gap-x-4 gap-y-2 sm:flex sm:flex-wrap">
             <div className="flex flex-wrap items-center gap-4">
               <div className="flex flex-wrap items-center gap-2">
@@ -510,20 +513,20 @@ export default function BillingView() {
                   </button>
                 ))}
               </div>
-              <div className="flex flex-wrap gap-1.5">
-                {FILTERS.map((f) => (
-                  <button
-                    key={f.key}
-                    onClick={() => setFilter(f.key)}
-                    className={`shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium ${filter === f.key ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}
-                  >
-                    {f.label}
-                  </button>
-                ))}
+              <div className="text-sm text-slate-500">
+                Payment Pending <span className="font-semibold text-slate-800">{formatCents(listSummary.awaitingPaymentCents)}</span>
               </div>
             </div>
-            <div className="text-sm text-slate-500">
-              Payment Pending <span className="font-semibold text-slate-800">{formatCents(listSummary.awaitingPaymentCents)}</span>
+            <div className="flex flex-wrap gap-1.5">
+              {FILTERS.map((f) => (
+                <button
+                  key={f.key}
+                  onClick={() => setFilter(f.key)}
+                  className={`shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium ${filter === f.key ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}
+                >
+                  {f.label}
+                </button>
+              ))}
             </div>
           </div>
 

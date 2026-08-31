@@ -3110,11 +3110,17 @@ export function ProjectDetailDialog({
                 contact phone number": mirrors AddProjectDialog's own
                 relabeled section for a subcontractor job — the end
                 client's company name gets its own line above the usual
-                Name/Phone (that end client's own contact person). */}
+                Name/Phone (that end client's own contact person).
+                Per Tim, 2026-08-31 — FLI Environmental jobs still need this
+                company-name line even though they no longer get the rest
+                of isSubcontractingFor's cosmetic treatment (heading stays
+                "Job site contact", not "Their client") — see
+                FLI_ENVIRONMENTAL_COMPANY_ID's own comment for why FLI now
+                has its own real workflow instead of that label. */}
             <h4 className="text-sm font-bold tracking-wide text-black underline">
               {isSubcontractingFor ? "Their client" : "Job site contact"}
             </h4>
-            {isSubcontractingFor && (
+            {(isSubcontractingFor || isFliJob) && (
               <DetailField label="Company" value={job.subcontractor_client_company ?? "—"} nowrap />
             )}
             <DetailField label="Name" value={job.site_contact_name ? toTitleCase(job.site_contact_name) : "—"} />
@@ -3759,7 +3765,12 @@ export function ProjectDetailDialog({
                       DocumentStation's own nowrap label forces the browser
                       to crush the Invoice card down to a sliver instead of
                       just letting this row scroll horizontally. */}
-                  {(() => {
+                  {/* Per Tim, 2026-08-31 — FLI Environmental jobs never have
+                      a lab invoice for Commonwealth to track: FLI submits
+                      samples to the lab under their own account and pays
+                      for that themselves (see FLI_ENVIRONMENTAL_COMPANY_ID's
+                      own comment). */}
+                  {!isFliJob && (() => {
                     const firstLabel = serviceTypeGroups.flatMap((group) => group.labels)[0];
                     return firstLabel ? (
                       <div className="w-full shrink-0 sm:w-60">
@@ -5035,7 +5046,7 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
           <ZipInput street={serviceStreet} city={serviceCity} state={serviceState} zip={serviceZip} setZip={setServiceZip} />
         </div>
 
-        {isSubcontractingFor ? (
+        {(isSubcontractingFor || isFliEnvironmental) ? (
           // Per Tim, 2026-08-30 — "I want Restore1 on there somewhere...
           // I'm not always sure going in who I'm subcontracting the job
           // for, it should just be a note" then "FLI's client should be
@@ -5046,7 +5057,10 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
           // (site_contact_name/phone — same field the automated email
           // intake already uses for this exact purpose, see
           // subcontractor-intake.ts). All optional/freeform — a note, not
-          // a full contact record.
+          // a full contact record. Per Tim, 2026-08-31 — FLI Environmental
+          // still needs this 3-line entry even though it no longer gets
+          // isSubcontractingFor's other cosmetic treatment (see
+          // FLI_ENVIRONMENTAL_COMPANY_ID's own comment).
           <>
             <label className="mt-3 block text-sm font-medium text-slate-700">
               {companyName.trim() || "Their"}&apos;s client
@@ -5343,6 +5357,10 @@ export function EditProjectDialog({
   // isSubcontractingFor. No customerKind/blur gate here (unlike Add) since
   // an existing job's company name is already settled, not mid-typing.
   const isSubcontractingFor = !job.is_individual && isKnownSubcontractingForName(companyName);
+  // Per Tim, 2026-08-31 — see FLI_ENVIRONMENTAL_COMPANY_ID's own comment;
+  // an existing job's company is settled, so this checks company_id
+  // directly rather than re-deriving from typed/picked state like Add does.
+  const isFliEnvironmental = job.customers?.company_id === FLI_ENVIRONMENTAL_COMPANY_ID;
   const [endClientCompany, setEndClientCompany] = useState(job.subcontractor_client_company ?? "");
   const [selectedServiceTypeKeys, setSelectedServiceTypeKeys] = useState<string[]>([]);
   const [customServiceType, setCustomServiceType] = useState("");
@@ -5821,13 +5839,15 @@ export function EditProjectDialog({
           onChange={(e) => setScopeOfWork(e.target.value)}
         />
 
-        {isSubcontractingFor ? (
+        {(isSubcontractingFor || isFliEnvironmental) ? (
           // Per Tim, 2026-08-30 — "FLI's client should be three lines
           // across, company name, company contact's name, company
           // contact phone number" — same layout as AddProjectDialog's own
           // section, now editable after creation too (this is how job
           // 26-0012's missing "Restore1" gets fixed once the DB column
-          // exists).
+          // exists). Per Tim, 2026-08-31 — FLI Environmental keeps this
+          // 3-line entry even without isSubcontractingFor's other cosmetic
+          // treatment (see FLI_ENVIRONMENTAL_COMPANY_ID's own comment).
           <>
             <label className="mt-3 block text-sm font-medium text-slate-700">
               {companyName.trim() || "Their"}&apos;s client

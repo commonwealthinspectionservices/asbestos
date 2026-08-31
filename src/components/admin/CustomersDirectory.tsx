@@ -3,19 +3,22 @@
 import { useEffect, useState } from "react";
 import CompaniesDirectory from "@/components/admin/CompaniesDirectory";
 import ContactsDirectory from "@/components/admin/ContactsDirectory";
-import PortalAccountsDirectory from "@/components/admin/PortalAccountsDirectory";
 import HomeownersDirectory from "@/components/admin/HomeownersDirectory";
 
-// One directory, four tabs — companies (Boston Harbor Water Restoration),
+// One directory, three tabs — companies (Boston Harbor Water Restoration),
 // individual contacts (a client who's an individual, or an employee at one
-// of those companies), every portal account (Supabase Auth, including ones
-// that never finished onboarding into a customers row), and homeowners (a
-// read-only view built from job records, not a table of its own — see
-// HomeownersDirectory). A company's own card can still open one of its
-// contacts, and a contact's own card can jump back to their company — the
-// tab is just which list you start browsing from.
+// of those companies), and homeowners (a read-only view built from job
+// records, not a table of its own — see HomeownersDirectory). A company's
+// own card can still open one of its contacts, and a contact's own card can
+// jump back to their company — the tab is just which list you start
+// browsing from.
+//
+// Per Tim, 2026-08-30 — dropped the "Portal Accounts" tab (every Supabase
+// Auth account, including ones stuck mid-signup): felt like a repeat of
+// Individuals with no real day-to-day use. See PortalAccountsDirectory.tsx
+// in git history if that raw-accounts view is ever needed again.
 export default function CustomersDirectory() {
-  const [tab, setTab] = useState<"companies" | "contacts" | "accounts" | "homeowners">("companies");
+  const [tab, setTab] = useState<"companies" | "contacts" | "homeowners">("companies");
   // Lifted up from CompaniesDirectory/ContactsDirectory so the header's
   // mobile-only Add button (next to the Directory title) and each tab's
   // own desktop button open the same form.
@@ -40,7 +43,7 @@ export default function CustomersDirectory() {
   // mismatch instead of just picking the tab a render late.
   useEffect(() => {
     const t = new URLSearchParams(window.location.search).get("tab");
-    if (t === "contacts" || t === "accounts" || t === "homeowners") setTab(t);
+    if (t === "contacts" || t === "homeowners") setTab(t);
   }, []);
 
   return (
@@ -67,10 +70,8 @@ export default function CustomersDirectory() {
         </div>
       </div>
 
-      {/* Mobile: a single dropdown instead of a tab row — four labels
-          (especially "Portal Accounts") don't fit comfortably as buttons at
-          this width no matter how they're packed. Desktop: unchanged
-          left-packed row of tab buttons. */}
+      {/* Mobile: a single dropdown instead of a tab row — desktop keeps the
+          unchanged left-packed row of tab buttons below. */}
       <div className="relative mt-3 sm:hidden">
         <select
           value={tab}
@@ -79,7 +80,6 @@ export default function CustomersDirectory() {
         >
           <option value="companies">Companies</option>
           <option value="contacts">Individuals</option>
-          <option value="accounts">Portal Accounts</option>
           <option value="homeowners">Homeowners</option>
         </select>
         <span className="pointer-events-none absolute inset-y-0 right-0 flex w-9 items-center justify-center text-slate-500">▾</span>
@@ -91,7 +91,6 @@ export default function CustomersDirectory() {
         placeholder={
           tab === "companies" ? "Search by company name…" :
           tab === "contacts" ? "Search by name, company, or email…" :
-          tab === "accounts" ? "Search by name or email…" :
           "Search by name, phone, or address…"
         }
         value={mobileSearch}
@@ -112,12 +111,6 @@ export default function CustomersDirectory() {
           Individuals
         </button>
         <button
-          onClick={() => setTab("accounts")}
-          className={`shrink-0 whitespace-nowrap px-3 py-2 text-sm font-medium uppercase ${tab === "accounts" ? "border-b-2 border-brand-600 text-brand-600" : "text-slate-500 hover:underline"}`}
-        >
-          Portal Accounts
-        </button>
-        <button
           onClick={() => setTab("homeowners")}
           className={`shrink-0 whitespace-nowrap px-3 py-2 text-sm font-medium uppercase ${tab === "homeowners" ? "border-b-2 border-brand-600 text-brand-600" : "text-slate-500 hover:underline"}`}
         >
@@ -130,8 +123,6 @@ export default function CustomersDirectory() {
           <CompaniesDirectory adding={addingCompany} onAddingChange={setAddingCompany} mobileSearch={mobileSearch} />
         ) : tab === "contacts" ? (
           <ContactsDirectory adding={addingContact} onAddingChange={setAddingContact} mobileSearch={mobileSearch} />
-        ) : tab === "accounts" ? (
-          <PortalAccountsDirectory mobileSearch={mobileSearch} />
         ) : (
           <HomeownersDirectory mobileSearch={mobileSearch} />
         )}

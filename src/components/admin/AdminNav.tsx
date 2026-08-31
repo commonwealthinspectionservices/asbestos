@@ -40,19 +40,29 @@ export default function AdminNav() {
 
   // Per Tim, 2026-08-31 — "always make it so that the header is default at
   // the top of the screen... sometimes it starts with the header hidden,
-  // and I don't want that to ever happen ever." Mobile browsers (Safari
-  // especially) restore the previous scroll position on back/forward
-  // navigation by default — landing back on an admin page already
+  // and I don't want that to ever happen ever," then again: "when I go to
+  // the billing tab, the default thing is to hide the header... it should
+  // always start at the very, very, very top of the page." Mobile browsers
+  // (Safari especially) restore the previous scroll position on back/
+  // forward navigation by default — landing back on an admin page already
   // scrolled past the header. Forcing manual restoration + an explicit
-  // scroll-to-top on every mount means every visit to an admin page
-  // (present on all of them, since AdminNav renders at the top of each)
-  // starts with the header actually visible, not wherever the browser
-  // last left it.
+  // scroll-to-top on every mount handles a normal navigation (present on
+  // every admin page, since AdminNav renders at the top of each), but a
+  // real back/forward-cache restore on Safari resumes the exact frozen
+  // page — no remount, no mount effect — so it can still reassert its own
+  // scroll position after this effect already ran once. The pageshow
+  // listener (checking event.persisted, which is specifically true for a
+  // bfcache restore) re-forces scroll-to-top for that case too.
   useEffect(() => {
     if ("scrollRestoration" in window.history) {
       window.history.scrollRestoration = "manual";
     }
     window.scrollTo(0, 0);
+    const handlePageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) window.scrollTo(0, 0);
+    };
+    window.addEventListener("pageshow", handlePageShow);
+    return () => window.removeEventListener("pageshow", handlePageShow);
   }, []);
 
   async function logout() {

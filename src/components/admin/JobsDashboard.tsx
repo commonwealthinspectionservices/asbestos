@@ -19,6 +19,7 @@ import { subcontractorSenderForJob, isKnownSubcontractorCompanyName, isKnownSubc
 import { timeSelectOptions } from "@/lib/time-options";
 import { computeMarginCents } from "@/lib/pricing";
 import { dueDateFor, paymentDueDate } from "@/lib/invoice-due-date";
+import { useLockBodyScroll } from "@/lib/use-lock-body-scroll";
 
 // Splits on (captured) bare URLs so odd-indexed segments are the URLs
 // themselves — used for job.notes, which can contain a real link (e.g. a
@@ -1302,6 +1303,7 @@ function JobRow({
   // job, so the checkbox defaults on rather than off.
   const [confirmingSchedule, setConfirmingSchedule] = useState(false);
   const [notifyOnSchedule, setNotifyOnSchedule] = useState(true);
+  useLockBodyScroll(confirmingSchedule);
   function trySubmitManual(nextDate: string, nextTime: string, notify: boolean) {
     if (nextDate && nextTime) {
       onFieldChange({ status: "scheduled", confirmed_date: nextDate, confirmed_time: nextTime, schedule_visible_to_customer: true, notifySchedule: notify });
@@ -1888,6 +1890,10 @@ export function ProjectDetailDialog({
   initialTab?: "info" | "report" | "invoice" | "chat" | "photos";
 }) {
   const [tab, setTab] = useState<"info" | "report" | "invoice" | "chat" | "photos" | "shipping" | "compensation">(initialTab ?? "info");
+  // Per Tim, 2026-08-31 — this dialog is only ever mounted while it should
+  // be showing (the parent list decides that), so it locks the page behind
+  // it for its whole lifetime, not conditionally.
+  useLockBodyScroll(true);
   // Cosmetic-only counterpart to job.source === "subcontractor" — see
   // AddProjectDialog's own isSubcontractingFor comment. Read-only view of
   // whatever's on the job now, so no blur-gating needed like the live form.
@@ -1906,6 +1912,7 @@ export function ProjectDetailDialog({
       .then((data) => setCompanyContactsForDisplay(data.customers ?? []));
   }, [job.customers?.company_id]);
   const [confirmingReleaseOverride, setConfirmingReleaseOverride] = useState(false);
+  useLockBodyScroll(confirmingReleaseOverride);
   const [submittingReleaseOverride, setSubmittingReleaseOverride] = useState(false);
   const [releaseOverrideError, setReleaseOverrideError] = useState<string | null>(null);
   const [serviceTypeSettings, setServiceTypeSettings] = useState<ServiceType[]>([]);
@@ -3942,6 +3949,7 @@ function DocumentViewerModal({
   const containerRef = useRef<HTMLDivElement>(null);
   const [failed, setFailed] = useState(false);
   const [loading, setLoading] = useState(!isImage);
+  useLockBodyScroll(true);
 
   useEffect(() => {
     if (isImage) return;
@@ -4040,6 +4048,7 @@ function DocumentStation({
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [viewingDoc, setViewingDoc] = useState<JobDocument | null>(null);
   const [confirmingDeleteDoc, setConfirmingDeleteDoc] = useState<JobDocument | null>(null);
+  useLockBodyScroll(confirmingDeleteDoc !== null);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -4474,6 +4483,7 @@ export function ComboboxInput<T>({
 }
 
 function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+  useLockBodyScroll(true);
   const [serviceTypes, setServiceTypes] = useState<{ key: string; label: string }[]>([]);
   const [customerKind, setCustomerKind] = useState<"individual" | "company">("company");
   const [projectNumber, setProjectNumber] = useState("");
@@ -4520,6 +4530,7 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
   const [fetchingNumber, setFetchingNumber] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmingExit, setConfirmingExit] = useState(false);
+  useLockBodyScroll(confirmingExit);
 
   // Per Tim, 2026-08-30 — "instead of having to check subcontractor job,
   // it should just recognize FLI Environmental and Fast Mold Testing as
@@ -5153,6 +5164,7 @@ export function EditProjectDialog({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  useLockBodyScroll(true);
   const [serviceTypes, setServiceTypes] = useState<{ key: string; label: string }[]>([]);
   const [projectNumber, setProjectNumber] = useState(job.project_number ?? "");
   const [status, setStatus] = useState<string>(job.status);
@@ -5237,6 +5249,7 @@ export function EditProjectDialog({
   const [error, setError] = useState<string | null>(null);
   const [companyContacts, setCompanyContacts] = useState<Customer[]>([]);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  useLockBodyScroll(confirmingDelete);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const submittingRef = useRef(false);

@@ -6238,39 +6238,41 @@ function LineItemsEditor({
                       ))}
                     </div>
                   )}
-                  {/* Per Tim, 2026-08-31 — "the invoice line items stretch
-                      off of the page, and they should not": the six fixed-
-                      width pieces here (# / "samples at" / $ / "each" /
-                      "=" / $) never fit a phone's width in one row —
-                      flex-wrap lets them break onto a second line instead
-                      of overflowing past the screen edge. */}
-                  <div className="flex flex-wrap items-center gap-2">
+                  {/* Per Tim, 2026-08-31 — first "the invoice line items
+                      stretch off of the page" (flex-wrap fixed the overflow
+                      by breaking to a second line), then "should be one
+                      line across... there's some extra space in the cells
+                      we can squeeze down": no wrap now — every cell
+                      (quantity box, $ boxes, gaps, text size) trimmed down
+                      instead, tight enough that all six pieces fit one row
+                      on a phone's own width without spilling over. */}
+                  <div className="flex flex-nowrap items-center gap-1">
                     <input
                       type="number"
-                      className="w-16 rounded-lg border border-slate-300 px-2 py-1.5 text-center text-sm"
+                      className="w-11 shrink-0 rounded-lg border border-slate-300 px-1 py-1.5 text-center text-xs"
                       placeholder="#"
                       value={row.quantity}
                       onChange={(e) => update(i, { quantity: e.target.value })}
                     />
-                    <span className="shrink-0 text-sm text-slate-600">samples at</span>
-                    <div className="relative w-24 shrink-0">
-                      <span className="pointer-events-none absolute inset-y-0 left-2 flex items-center text-sm text-slate-400">$</span>
+                    <span className="shrink-0 text-xs text-slate-600">samples at</span>
+                    <div className="relative w-16 shrink-0">
+                      <span className="pointer-events-none absolute inset-y-0 left-1.5 flex items-center text-xs text-slate-400">$</span>
                       <input
                         type="number"
-                        className="w-full rounded-lg border border-slate-300 py-1.5 pl-5 pr-2 text-center text-sm"
+                        className="w-full rounded-lg border border-slate-300 py-1.5 pl-4 pr-1 text-center text-xs"
                         placeholder="0.00"
                         value={row.unitCost}
                         onChange={(e) => update(i, { unitCost: e.target.value })}
                         onBlur={(e) => formatCostOnBlur(i, e.target.value)}
                       />
                     </div>
-                    <span className="shrink-0 text-sm text-slate-600">each</span>
-                    <span className="shrink-0 text-sm text-slate-500">=</span>
-                    <div className="relative w-24 shrink-0">
-                      <span className="pointer-events-none absolute inset-y-0 left-2 flex items-center text-sm text-slate-400">$</span>
+                    <span className="shrink-0 text-xs text-slate-600">each</span>
+                    <span className="shrink-0 text-xs text-slate-500">=</span>
+                    <div className="relative w-16 shrink-0">
+                      <span className="pointer-events-none absolute inset-y-0 left-1.5 flex items-center text-xs text-slate-400">$</span>
                       <input
                         type="number"
-                        className="w-full rounded-lg border border-slate-300 py-1.5 pl-5 pr-2 text-center text-sm"
+                        className="w-full rounded-lg border border-slate-300 py-1.5 pl-4 pr-1 text-center text-xs"
                         placeholder="0.00"
                         value={totalDraft[i] !== undefined ? totalDraft[i] : rowTotal(row).toFixed(2)}
                         onChange={(e) => setTotalDraft((d) => ({ ...d, [i]: e.target.value }))}

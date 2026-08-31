@@ -22,6 +22,7 @@ import {
   FULL_INSPECTION_WALLS_PARAGRAPH, FULL_INSPECTION_BULK_SAMPLING_PARAGRAPH, FULL_INSPECTION_ACM_CATEGORY_PARAGRAPH,
   FULL_INSPECTION_NON_ACM_CATEGORY_PARAGRAPH, FULL_INSPECTION_ADDITIONAL_SUSPECT_REMARK,
   FULL_INSPECTION_ACM_ABATEMENT_REMARK, FULL_INSPECTION_ACM_PLAN_DISCLAIMER_REMARK,
+  FLI_ENVIRONMENTAL_COMPANY_ID, FLI_ENVIRONMENTAL_BUSINESS_NAME, FLI_ENVIRONMENTAL_ADDRESS, FLI_ENVIRONMENTAL_PHONE,
 } from "@/lib/report-findings";
 
 // The site header's own text wordmark (see AdminNav.tsx's "boxed brand
@@ -29,6 +30,11 @@ import {
 // branding language rather than introducing a different mark.
 const LOGO_PATH = path.join(process.cwd(), "public", "letterhead.png");
 const SIGNATURE_PATH = path.join(process.cwd(), "public", "signature.png");
+// Per Tim, 2026-08-31 — cropped from the FLI Environmental chain-of-custody
+// form he supplied as the reference format (that PDF's own logo is baked
+// into a single flattened full-page scan, not a separable asset — this is
+// a first pass; swap for a cleaner file straight from FLI if he has one).
+const FLI_LOGO_PATH = path.join(process.cwd(), "public", "fli-letterhead.png");
 
 // Spelled-out sample counts for the mold Discussion of Results sentence
 // ("Six (6) samples were collected...", matching real report wording) —
@@ -85,6 +91,9 @@ const styles = StyleSheet.create({
   headerSpacer: { flexGrow: 1 },
   // Matches letterhead.png's own 968x178 aspect ratio (~5.44:1).
   logo: { width: 165, height: 30.3 },
+  // Matches fli-letterhead.png's own 404x134 aspect ratio (~3:1) — a
+  // squarer mark-plus-wordmark than Commonwealth's own wide text-only logo.
+  fliLogo: { width: 120, height: 39.8 },
   // lineHeight:1 is deliberate, not a stylistic choice — react-pdf's fixed +
   // render (used for the continuation header below) silently fails to
   // render any Text inside it that inherits styles.page's lineHeight:1.22.
@@ -348,6 +357,15 @@ function ReportDocumentForDomain({ job, customer, settings, domain }: ProjectRep
   if (domain === "lead") {
     return <LeadReportDocument job={job} customer={customer} settings={settings} />;
   }
+  // Per Tim, 2026-08-31 — FLI Environmental jobs are subcontracted asbestos
+  // work Tim runs end to end himself but writes up on FLI's own letterhead,
+  // not Commonwealth's. See FLI_ENVIRONMENTAL_COMPANY_ID's own comment for
+  // why this is a real structural template swap, not the old cosmetic-only
+  // "subcontracting for" label. Checked before the full-inspection branch
+  // below since FLI's own template is Limited-Inspection-shaped regardless.
+  if (customer.company_id === FLI_ENVIRONMENTAL_COMPANY_ID) {
+    return <FliAsbestosReportDocument job={job} customer={customer} settings={settings} />;
+  }
   // Pre-Renovation/Pre-Demolition are a full, inspector-directed survey —
   // a genuinely different report from Limited's short, client-directed
   // sampling letter. See isFullInspectionAsbestosJob's own comment.
@@ -355,6 +373,55 @@ function ReportDocumentForDomain({ job, customer, settings, domain }: ProjectRep
     return <FullInspectionAsbestosReportDocument job={job} customer={customer} settings={settings} />;
   }
   return <AsbestosReportDocument job={job} customer={customer} settings={settings} />;
+}
+
+// Shared by AsbestosReportDocument and FliAsbestosReportDocument — one row
+// per positive sample_results entry (not deduped by material — 01A/01B on
+// the same material are still two separate physical samples with their own
+// footage), cross-referenced against sample_findings by fieldCode. A
+// positive result with no sample_findings entry yet still gets a row
+// (blank material/quantity) rather than being silently dropped.
+function computePositiveMaterialRows(job: Job): { fieldCode: string; material: string; quantityText: string }[] {
+  const positiveSamples = (job.sample_results ?? []).filter((s) => /%/.test(s.result));
+  const findingByCode = new Map((job.sample_findings ?? []).map((f) => [f.fieldCode, f]));
+  return positiveSamples.map((s) => {
+    const finding = findingByCode.get(s.fieldCode);
+    return {
+      fieldCode: s.fieldCode,
+      material: finding?.material ?? "",
+      quantityText: finding?.estimated_quantity
+        ? `${finding.estimated_quantity} ${finding.unit === "linear_ft" ? "linear feet" : "square feet"}`
+        : "",
+    };
+  });
+}
+
+// Shared by AsbestosReportDocument and FliAsbestosReportDocument — the
+// table page listing every positive sample's material and approximate
+// footage, added on only when the job actually has positive results (both
+// letters are otherwise held to one page, and a job with nothing positive
+// shouldn't grow a page over an empty table).
+function PositiveMaterialsSummaryTable({ rows }: { rows: ReturnType<typeof computePositiveMaterialRows> }) {
+  if (rows.length === 0) return null;
+  return (
+    <>
+      <Text style={styles.sectionTitle} break>Asbestos-Containing Materials Summary Table</Text>
+      <View style={styles.appendixTable}>
+        <View style={styles.appendixHeaderRow}>
+          <Text style={[styles.positiveMaterialsColSample, styles.appendixHeaderText]}>Sample #</Text>
+          <Text style={[styles.positiveMaterialsColMaterial, styles.appendixHeaderText]}>Material</Text>
+          <Text style={[styles.positiveMaterialsColQuantity, styles.appendixHeaderText]}>Approximate Quantity</Text>
+        </View>
+        {rows.map((r, i) => (
+          <View style={styles.appendixRow} key={i}>
+            <Text style={[styles.positiveMaterialsColSample, styles.appendixCellText]}>{r.fieldCode}</Text>
+            <Text style={[styles.positiveMaterialsColMaterial, styles.appendixCellText]}>{r.material}</Text>
+            <Text style={[styles.positiveMaterialsColQuantity, styles.appendixCellText]}>{r.quantityText}</Text>
+          </View>
+        ))}
+      </View>
+    </>
+  );
 }
 
 function AsbestosReportDocument({ job, customer, settings }: ProjectReportData) {
@@ -401,31 +468,7 @@ function AsbestosReportDocument({ job, customer, settings }: ProjectReportData) 
   // set directly in the database — never a real admin edit.
 
   const { knownCustomerName, dateText, billingStreet, billing, serviceStreet, service } = commonLetterFields(job, customer, settings, job.lab_date_sampled ?? job.confirmed_date ?? job.requested_date);
-
-  // Per Tim, 2026-08-31 — Limited Inspection's own counterpart to Full
-  // Inspection's Appendix A table: a table page listing every positive
-  // sample with its material and approximate footage, added on only when
-  // the job actually has positive results — this letter is otherwise held
-  // to one page (see pageAsbestos above) and a job with nothing positive
-  // shouldn't grow a page over an empty table. One row per positive
-  // sample_results entry (not deduped by material) — 01A/01B on the same
-  // material are still two separate physical samples with their own
-  // footage. Cross-referenced against sample_findings by fieldCode for the
-  // material/quantity that field carries; a positive result with no
-  // sample_findings entry yet still gets a row (blank material/quantity)
-  // rather than being silently dropped from the table.
-  const positiveSamples = (job.sample_results ?? []).filter((s) => /%/.test(s.result));
-  const findingByCode = new Map((job.sample_findings ?? []).map((f) => [f.fieldCode, f]));
-  const positiveMaterialRows = positiveSamples.map((s) => {
-    const finding = findingByCode.get(s.fieldCode);
-    return {
-      fieldCode: s.fieldCode,
-      material: finding?.material ?? "",
-      quantityText: finding?.estimated_quantity
-        ? `${finding.estimated_quantity} ${finding.unit === "linear_ft" ? "linear feet" : "square feet"}`
-        : "",
-    };
-  });
+  const positiveMaterialRows = computePositiveMaterialRows(job);
 
   return (
     <Document title={`Bulk Sample Analytical Results — ${expandAddress(job.service_address)}`}>
@@ -513,25 +556,153 @@ function AsbestosReportDocument({ job, customer, settings }: ProjectReportData) 
 
         <SignatureBlock settings={settings} showLicense />
 
-        {positiveMaterialRows.length > 0 && (
-          <>
-            <Text style={styles.sectionTitle} break>Asbestos-Containing Materials Summary Table</Text>
-            <View style={styles.appendixTable}>
-              <View style={styles.appendixHeaderRow}>
-                <Text style={[styles.positiveMaterialsColSample, styles.appendixHeaderText]}>Sample #</Text>
-                <Text style={[styles.positiveMaterialsColMaterial, styles.appendixHeaderText]}>Material</Text>
-                <Text style={[styles.positiveMaterialsColQuantity, styles.appendixHeaderText]}>Approximate Quantity</Text>
-              </View>
-              {positiveMaterialRows.map((r, i) => (
-                <View style={styles.appendixRow} key={i}>
-                  <Text style={[styles.positiveMaterialsColSample, styles.appendixCellText]}>{r.fieldCode}</Text>
-                  <Text style={[styles.positiveMaterialsColMaterial, styles.appendixCellText]}>{r.material}</Text>
-                  <Text style={[styles.positiveMaterialsColQuantity, styles.appendixCellText]}>{r.quantityText}</Text>
-                </View>
-              ))}
+        <PositiveMaterialsSummaryTable rows={positiveMaterialRows} />
+      </Page>
+    </Document>
+  );
+}
+
+// Per Tim, 2026-08-31 — FLI Environmental's own subcontract workflow: Tim
+// runs the job the same way as any other, but writes up the final report on
+// FLI's own letterhead, matching the exact wording of the FLI-branded
+// "Asbestos Limited Template.xlsm" he supplied as the format to go off of
+// (Commonwealth's own AsbestosReportDocument above was itself originally
+// rebranded FROM this same source template — see report-xlsm.ts's own
+// comment — so this is a near-verbatim sibling, not a new design). Kept as
+// its own separate component rather than parameterizing
+// AsbestosReportDocument, matching this file's existing convention of
+// separate per-identity templates (see Lead/Mold/FullInspection below) —
+// FLI's identity is a handful of fixed constants, not something that
+// belongs threaded through the shared Settings-driven letter.
+//
+// Differences from the real xlsm template, both confirmed against its own
+// cells and flagged to Tim rather than silently assumed: the "FLI Project
+// #:" line shows Commonwealth's own internal project number (26-XXXX) —
+// there's no separate FLI-assigned number tracked anywhere in this app —
+// and the positive-materials summary table page is new (added on top of
+// FLI's own original format, matching what Commonwealth's own report now
+// does, per Tim's "the full process should work the exact same way").
+function FliAsbestosReportDocument({ job, customer, settings }: ProjectReportData) {
+  const sampleCountsTotal = Object.entries(job.sample_counts ?? {})
+    .filter(([label]) => domainForServiceTypeLabel(label) === "asbestos")
+    .reduce((sum, [, n]) => sum + (n || 0), 0);
+  const totalSamples = sampleCountsTotal > 0 ? sampleCountsTotal : job.sample_count ?? 0;
+  const remarks = [
+    "Sampling was limited to the specific materials and areas identified by the client.  Additional suspect materials may be present and if discovered during building renovation, maintenance or demolition, should be sampled and analyzed for asbestos content prior to disturbing.",
+  ];
+  const resultRemarkIndex = remarks.length;
+  if (job.asbestos_result === "positive") {
+    remarks.push(ASBESTOS_POSITIVE_REMARK);
+  } else if (job.asbestos_result === "negative") {
+    remarks.push(ASBESTOS_NEGATIVE_REMARK);
+  } else {
+    remarks.push("NO RESULTS YET.");
+  }
+  if (job.report_summary && job.report_summary !== ASBESTOS_POSITIVE_REMARK && job.report_summary !== ASBESTOS_NEGATIVE_REMARK) {
+    remarks.push(job.report_summary);
+  }
+
+  const { knownCustomerName, dateText, billingStreet, billing, serviceStreet, service } = commonLetterFields(job, customer, settings, job.lab_date_sampled ?? job.confirmed_date ?? job.requested_date);
+  const positiveMaterialRows = computePositiveMaterialRows(job);
+
+  return (
+    <Document title={`Bulk Sample Analytical Results — ${expandAddress(job.service_address)}`}>
+      <Page size="LETTER" style={[styles.page, styles.pageAsbestos]}>
+        <FliLetterHeader
+          reTitle="Bulk Sample Analytical Results"
+          knownCustomerName={knownCustomerName}
+          serviceAddress={expandAddress(job.service_address)}
+          projectNumber={job.project_number}
+          dateText={dateText}
+        />
+
+        <View style={styles.reBlock}>
+          <View style={styles.reRowTop}>
+            <View style={styles.reTopLeft}>
+              <Text style={styles.reLabel}>RE:</Text>
+              <Text>Bulk Sample Analytical Results</Text>
             </View>
-          </>
-        )}
+            <Text style={styles.dateLine}>{dateText}</Text>
+          </View>
+          <View style={styles.reRow}>
+            <Text style={styles.reLabel} />
+            <ValueOrBlank style={styles.reValue} value={serviceStreet} inline />
+          </View>
+          <View style={styles.reRow}>
+            <Text style={styles.reLabel} />
+            <ValueOrBlank style={styles.reValue} value={service.cityStateZip} inline />
+          </View>
+          <View style={styles.reRow}>
+            <Text style={styles.reLabel} />
+            <Text style={styles.reProjectLabel}>FLI Project #:</Text>
+            <ValueOrBlank style={styles.reValue} value={job.project_number} inline />
+          </View>
+        </View>
+
+        <RecipientBlock
+          knownCustomerName={knownCustomerName}
+          customer={customer}
+          billingStreet={billingStreet}
+          billingCityStateZip={billing.cityStateZip}
+        />
+
+        <Text style={styles.salutation}>Dear <ValueOrBlank style={styles.salutation} value={knownCustomerName} inline />:</Text>
+
+        <Text style={styles.paragraph}>
+          {FLI_ENVIRONMENTAL_BUSINESS_NAME} collected samples of specific materials from the address noted above. Samples were
+          transported under chain-of-custody protocol to an accredited laboratory for analysis.
+        </Text>
+
+        <View wrap={false}>
+        <Text style={styles.sectionTitleTight}>Sampling Summary:</Text>
+        <View style={styles.summaryBlock}>
+          <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Date of Sampling:</Text><ValueOrBlank style={styles.summaryValue} value={formatDateMDY(job.lab_date_sampled ?? job.confirmed_date ?? job.requested_date)} /></View>
+          <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Total # of Samples:</Text><ValueOrBlank style={styles.summaryValue} value={totalSamples} /></View>
+          <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Samples Analyzed At:</Text><ValueOrBlank style={styles.summaryValue} value={job.lab_name} /></View>
+          <View style={styles.summaryRow}><Text style={styles.summaryLabel}>NIST/NVLAP Certification#:</Text><ValueOrBlank style={styles.summaryValue} value={job.lab_nist_cert} /></View>
+          <View style={styles.summaryRow}><Text style={styles.summaryLabel}>MassDLS Lab Certification#:</Text><ValueOrBlank style={styles.summaryValue} value={job.lab_massdls_cert} /></View>
+        </View>
+        </View>
+
+        <Text style={styles.paragraph}>
+          Bulk samples were collected and submitted via chain of custody to the analytical laboratory by {FLI_ENVIRONMENTAL_BUSINESS_NAME}
+          {" "}The samples were analyzed by Polarized Light Microscopy per EPA Method 600/R-93-116, July 1993. Any homogeneous material having
+          at least one (1) sample analyzed to contain greater than one percent (1%) asbestos is categorized as an
+          asbestos containing material. Any homogeneous material having at least one (1) sample analyzed to contain any amount
+          of asbestos is categorized as an asbestos containing waste material. Homogeneous materials where each sample analyzed
+          was determined not to contain asbestos are categorized as non-asbestos. Laboratory Analytical Data Sheets are attached
+          and provide details about each sample collected.
+        </Text>
+
+        <Text style={styles.sectionTitle}>Remarks and Limitations:</Text>
+        <View style={styles.listBlock}>
+          {remarks.map((text, i) => (
+            <View style={styles.listItem} key={i} wrap={false}>
+              <Text style={styles.listIndex}>{i + 1}.</Text>
+              <Text style={i === resultRemarkIndex ? styles.resultRemarkTextAsbestos : styles.listText}>{text}</Text>
+            </View>
+          ))}
+        </View>
+
+        {/* Two paragraphs, not one — the xlsm's own B32 cell has these as a
+            single sentence-pair, but keeping them together let a line wrap
+            land right after the phone number's own internal hyphen
+            ("251-0040"), and react-pdf's line-breaker rendered a stray extra
+            hyphen glyph right there (confirmed visually, not just a
+            pdf-parse text-extraction artifact — same wrap point, several
+            other fixes tried first). Splitting into its own short paragraph
+            keeps this sentence on one line, same as Commonwealth's own
+            near-identical sentence in AsbestosReportDocument above. */}
+        <Text style={styles.paragraph}>
+          Should you have any questions or need additional information, please contact our office at {FLI_ENVIRONMENTAL_PHONE}.
+        </Text>
+        <Text style={styles.paragraph}>
+          Thank you for the opportunity to provide you with our services and we look forward to working together in the future.
+        </Text>
+
+        <FliSignatureBlock settings={settings} />
+
+        <PositiveMaterialsSummaryTable rows={positiveMaterialRows} />
       </Page>
     </Document>
   );
@@ -1228,6 +1399,45 @@ function LetterHeader({
   );
 }
 
+// FLI Environmental's own header — same shape as LetterHeader above, but a
+// separate component rather than a parameterized variant since FLI's
+// identity (logo/phone) is a handful of fixed constants, not something
+// that belongs threaded through the shared Settings-driven letter. No
+// business_email line — the real FLI template's own header doesn't carry one.
+function FliLetterHeader({
+  reTitle, knownCustomerName, serviceAddress, projectNumber, dateText,
+}: {
+  reTitle: string;
+  knownCustomerName: string | null;
+  serviceAddress: string;
+  projectNumber: string | null;
+  dateText: string;
+}) {
+  return (
+    <>
+      <View style={styles.header}>
+        <Image src={FLI_LOGO_PATH} style={styles.fliLogo} />
+        <View style={styles.headerSpacer} />
+        <Text style={styles.headerContact}>{FLI_ENVIRONMENTAL_PHONE}</Text>
+      </View>
+      <View fixed render={({ pageNumber }) => pageNumber === 1 ? null : (
+        <View style={styles.continuationHeader}>
+          <View style={styles.continuationHeaderLeft}>
+            <Text style={styles.continuationHeaderLine}>{reTitle}</Text>
+            <Text style={styles.continuationHeaderLine}>{knownCustomerName}</Text>
+            <Text style={styles.continuationHeaderLine}>{serviceAddress}</Text>
+          </View>
+          <View style={styles.continuationHeaderRight}>
+            {projectNumber && <Text style={styles.continuationHeaderLine}>FLI Project #: {projectNumber}</Text>}
+            <Text style={styles.continuationHeaderLine}>{dateText}</Text>
+            <Text style={styles.continuationHeaderLine}>Page {pageNumber}</Text>
+          </View>
+        </View>
+      )} />
+    </>
+  );
+}
+
 // Shared across all 4 letter templates. For the 3 templates whose RE block
 // carries the date on its own top line, dateText is omitted here and this
 // is just name/company/billing address. Full-inspection instead passes
@@ -1280,6 +1490,25 @@ function SignatureBlock({ settings, showLicense }: { settings: Settings; showLic
       {showLicense && inspector.license_number && (
         <Text style={styles.signatureLine}>Asbestos Inspector License #{inspector.license_number}</Text>
       )}
+    </View>
+  );
+}
+
+// FLI's own sign-off — "FLI Environmental, Inc." rather than
+// settings.business_name, "Project Manager" under the name rather than a
+// license line (neither appears in the real xlsm template's B39/B40 cells;
+// Commonwealth's own SignatureBlock above does show the license line, so
+// this genuinely differs, not an oversight). Still Tim's own real signature
+// image and name — he's still the one signing, just on FLI's letterhead.
+function FliSignatureBlock({ settings }: { settings: Settings }) {
+  const inspector = primaryInspector(settings);
+  return (
+    <View style={styles.signatureBlock} wrap={false}>
+      <Text style={styles.signatureLine}>Sincerely,</Text>
+      <Text style={styles.signatureName}>{FLI_ENVIRONMENTAL_BUSINESS_NAME}</Text>
+      <Image src={SIGNATURE_PATH} style={styles.signatureImage} />
+      <Text style={styles.signatureLine}>{inspector.name}</Text>
+      <Text style={styles.signatureLine}>Project Manager</Text>
     </View>
   );
 }

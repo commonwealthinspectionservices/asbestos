@@ -45,6 +45,20 @@ export const BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID = "4a76d165-fc9d-4088-8b
 export const BOSTON_HARBOR_WATER_RESTORATION_REPORT_CONTACT_ID = "6f702e5c-0ae4-41c5-b0d9-7264331c16a2";
 export const BOSTON_HARBOR_WATER_RESTORATION_REPORT_CONTACT_NAME = "Joe Kline";
 
+// Per Tim, 2026-08-31 — a new, heavier subcontracting arrangement with FLI
+// Environmental: Tim runs the whole job himself but writes the final report
+// on FLI's own letterhead/format (their template, not Commonwealth's — see
+// FliAsbestosReportDocument in report-pdf.tsx) and is paid a base fee only
+// (see the matching company_id check in invoice-defaults.ts). Replaces the
+// old cosmetic-only "subcontracting for" italic label this company used to
+// get (see subcontractor-senders.ts) — every future FLI Environmental job
+// uses this workflow now, not just some. Matched against company_id, same
+// reasoning as Newton/Boston Harbor above.
+export const FLI_ENVIRONMENTAL_COMPANY_ID = "101e2de0-d65d-4ad2-b0cf-89bfb9bd8352";
+export const FLI_ENVIRONMENTAL_BUSINESS_NAME = "FLI Environmental, Inc.";
+export const FLI_ENVIRONMENTAL_ADDRESS = "69 Bridge Street, Dedham, MA 02026";
+export const FLI_ENVIRONMENTAL_PHONE = "(781) 251-0040";
+
 // Which final-report domain a single service-type label belongs to.
 // Defaults to "asbestos" for anything that doesn't clearly say "mold" or
 // "lead" (a custom/free-text type, or the common case where the label is

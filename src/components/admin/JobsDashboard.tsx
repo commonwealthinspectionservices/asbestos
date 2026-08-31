@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import type { Company, Customer, FullInspectionMaterial, InvoiceLineItem, JobDocument, JobWithCustomer, LabProfile, PricingZone, SampleItem, ServiceType } from "@/lib/types";
 import { defaultInvoiceLineItems, sampleDescriptionForServiceType } from "@/lib/invoice-defaults";
-import { ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK, jobReportDomains, domainForServiceTypeLabel, isFullInspectionAsbestosJob, NEWTON_FIRE_FLOOD_COMPANY_ID, BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID, type ReportDomain } from "@/lib/report-findings";
+import { ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK, jobReportDomains, domainForServiceTypeLabel, isFullInspectionAsbestosJob, NEWTON_FIRE_FLOOD_COMPANY_ID, BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID, FLI_ENVIRONMENTAL_COMPANY_ID, type ReportDomain } from "@/lib/report-findings";
 import { splitAddress, parseAddressToFields, buildBillingAddress, googleMapsUrl, wazeUrl, expandAddress } from "@/lib/address";
 import { joinName, splitFullName, toTitleCase } from "@/lib/name";
 import { telHref } from "@/lib/phone";
@@ -4652,11 +4652,28 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
   const isSubcontractingFor =
     customerKind === "company" && (Boolean(companyId) || companyNameBlurred) && isKnownSubcontractingForName(companyName);
 
+  // Per Tim, 2026-08-31 — FLI Environmental's own subcontract workflow
+  // (see FLI_ENVIRONMENTAL_COMPANY_ID's own comment): auto-detected from
+  // picking FLI Environmental as the company, same as isSubcontractor
+  // above, but by companyId (a real Directory pick) rather than by name —
+  // this one drives billing (which payment type defaults selected), so it
+  // shouldn't fire off a bare typed-but-not-yet-picked company name the
+  // way the cosmetic isSubcontractingFor label is allowed to.
+  const isFliEnvironmental = customerKind === "company" && companyId === FLI_ENVIRONMENTAL_COMPANY_ID;
+
   useEffect(() => {
     if (!siteContactSameAsContact) return;
     setSiteContactName(contactName);
     setSiteContactPhone(phone);
   }, [siteContactSameAsContact, contactName, phone]);
+
+  // FLI pays Commonwealth the base fee directly (not via a Stripe-collected
+  // online payment) — pre-selects "check" the moment FLI Environmental is
+  // picked as the company, same as any other check-paid job from here on;
+  // still just a default, not locked, in case some FLI job is ever different.
+  useEffect(() => {
+    if (isFliEnvironmental) setPaymentType("check");
+  }, [isFliEnvironmental]);
 
   async function searchCompanies(q: string): Promise<Company[]> {
     const res = await fetch(`/api/admin/companies?q=${encodeURIComponent(q)}`);

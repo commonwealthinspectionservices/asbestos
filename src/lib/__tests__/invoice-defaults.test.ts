@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { defaultInvoiceLineItems, resolveBaseFeeCents } from "@/lib/invoice-defaults";
-import { NEWTON_FIRE_FLOOD_COMPANY_ID } from "@/lib/report-findings";
+import { NEWTON_FIRE_FLOOD_COMPANY_ID, FLI_ENVIRONMENTAL_COMPANY_ID } from "@/lib/report-findings";
 import type { Customer, JobWithCustomer, ServiceType } from "@/lib/types";
 
 const asbestosBulk: ServiceType = {
@@ -132,6 +132,21 @@ const newtonCustomer: Customer = {
   company_id: NEWTON_FIRE_FLOOD_COMPANY_ID,
   email: "phil@newtonfireandflood.com",
   phone: "617-817-1701",
+  billing_address: null,
+  stripe_customer_id: null,
+  auth_user_id: null,
+  is_individual: false,
+  created_at: new Date().toISOString(),
+  onboarding_completed_at: null,
+};
+
+const fliCustomer: Customer = {
+  id: "cust-fli",
+  name: "Dave MacDonald",
+  company: "FLI Environmental",
+  company_id: FLI_ENVIRONMENTAL_COMPANY_ID,
+  email: "dave@flienvironmental.com",
+  phone: "",
   billing_address: null,
   stripe_customer_id: null,
   auth_user_id: null,
@@ -295,6 +310,31 @@ describe("defaultInvoiceLineItems", () => {
     const items = defaultInvoiceLineItems(job, [], []);
 
     expect(items).toHaveLength(0);
+  });
+
+  it("charges an FLI Environmental job only the base fee, no per-sample line even with sample_counts present", () => {
+    const job = baseJob({
+      service_type: "Limited Asbestos Inspection",
+      sample_counts: { "Limited Asbestos Inspection": 6 },
+      customers: fliCustomer,
+    });
+    const items = defaultInvoiceLineItems(job, [asbestosBulk], []);
+
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({ billing_unit: "Base Fee", unit_cost_cents: 45000 });
+  });
+
+  it("skips the rush rate and any surcharge for an FLI Environmental job even when marked Rush", () => {
+    const job = baseJob({
+      service_type: "Limited Asbestos Inspection",
+      sample_counts: { "Limited Asbestos Inspection": 6 },
+      lab_turnaround: "Rush",
+      customers: fliCustomer,
+    });
+    const items = defaultInvoiceLineItems(job, [asbestosBulk], []);
+
+    expect(items).toHaveLength(1);
+    expect(items.some((i) => i.description.includes("Rush"))).toBe(false);
   });
 });
 

@@ -44,14 +44,17 @@ export function isKnownSubcontractorCompanyName(name: string | null | undefined)
   return KNOWN_SUBCONTRACTOR_COMPANY_NAMES.some((n) => n.toLowerCase() === normalized);
 }
 
-// Cosmetic-only detection — same-turn follow-up, still 2026-08-30: Tim
-// still wants the "Company" field to relabel to "Subcontracting for" (and
-// the "their client" company/contact fields to appear) when he types FLI
-// Environmental, even though FLI jobs otherwise use the fully normal job
-// format above. This list is intentionally broader than
-// KNOWN_SUBCONTRACTOR_COMPANY_NAMES — it only ever drives labels/fields in
-// the Add/Edit Project forms, never `source`, tabs, or Billing.
-export const KNOWN_SUBCONTRACTING_FOR_NAMES: string[] = [...KNOWN_SUBCONTRACTOR_COMPANY_NAMES, "FLI Environmental"];
+// Cosmetic-only detection — only ever drives labels/fields in the Add/Edit
+// Project forms, never `source`, tabs, or Billing. FLI Environmental used to
+// be in this list too (just an italicized label, otherwise a fully normal
+// job) but per Tim, 2026-08-31, that's now superseded by a real structural
+// workflow of its own — see FLI_ENVIRONMENTAL_COMPANY_ID in
+// report-findings.ts, which every future FLI Environmental job uses
+// instead. Left as its own list (rather than folded back into
+// KNOWN_SUBCONTRACTOR_COMPANY_NAMES) since a future genuinely-cosmetic-only
+// subcontractor could still be added here without also getting Fast Mold
+// Testing's heavier Shipping/Compensation treatment.
+export const KNOWN_SUBCONTRACTING_FOR_NAMES: string[] = [...KNOWN_SUBCONTRACTOR_COMPANY_NAMES];
 
 export function isKnownSubcontractingForName(name: string | null | undefined): boolean {
   const normalized = name?.trim().toLowerCase();

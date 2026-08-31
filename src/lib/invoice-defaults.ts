@@ -1,5 +1,5 @@
 import { resolveZoneBaseFeeCents } from "@/lib/pricing-zones";
-import { NEWTON_FIRE_FLOOD_COMPANY_ID } from "@/lib/report-findings";
+import { NEWTON_FIRE_FLOOD_COMPANY_ID, FLI_ENVIRONMENTAL_COMPANY_ID } from "@/lib/report-findings";
 import type { InvoiceLineItem, JobWithCustomer, PricingZone, ServiceType } from "@/lib/types";
 
 // Single source of truth for "what should this invoice look like before
@@ -152,6 +152,14 @@ export function defaultInvoiceLineItems(
       billing_unit: "Base Fee",
       unit_cost_cents: baseFeeCents,
     });
+  }
+
+  // Per Tim, 2026-08-31 — FLI Environmental subcontract jobs: Commonwealth
+  // is paid the base fee only. FLI submits samples to the lab under their
+  // own account and pays for that themselves, so no per-sample line (or
+  // any of the rush/Newton-style surcharge logic below) ever applies here.
+  if (job.customers?.company_id === FLI_ENVIRONMENTAL_COMPANY_ID) {
+    return rows;
   }
 
   const isRush = job.lab_turnaround === "Rush";

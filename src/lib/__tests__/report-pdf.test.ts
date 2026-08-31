@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import rawPdfParse from "pdf-parse/lib/pdf-parse.js";
 import { renderProjectReportPdfForDomain } from "@/lib/report-pdf";
+import { FLI_ENVIRONMENTAL_COMPANY_ID } from "@/lib/report-findings";
 import type { Job, Customer, Settings } from "@/lib/types";
 
 // Collapses whitespace (including the line breaks pdf-parse inserts at
@@ -530,6 +531,52 @@ describe("renderProjectReportPdf", () => {
       const { text } = await pdfParse(pdf);
       expect(text).toContain("Bulk Sample Analytical Results");
       expect(text).not.toContain("Inspection for Asbestos Containing Materials");
+    });
+  });
+
+  describe("FLI Environmental subcontract jobs", () => {
+    const fliCustomer: Customer = { ...customer, company: "FLI Environmental", company_id: FLI_ENVIRONMENTAL_COMPANY_ID };
+
+    it("renders FLI's own letterhead/wording instead of Commonwealth's normal template", async () => {
+      const pdf = await renderProjectReportPdfForDomain({
+        job: { ...job, service_type: "Limited Asbestos Inspection" },
+        customer: fliCustomer,
+        settings,
+      }, "asbestos");
+      const { text } = await pdfParse(pdf);
+      expect(text).toContain("FLI Environmental, Inc. collected samples");
+      expect(text).toContain("FLI Project #:");
+      expect(text).toContain("(781) 251-0040");
+      expect(text).not.toContain(settings.business_name);
+      expect(text).not.toContain("Asbestos Inspector License #");
+    });
+
+    it("still uses Commonwealth's own template for a job at a different company", async () => {
+      const pdf = await renderProjectReportPdfForDomain({
+        job: { ...job, service_type: "Limited Asbestos Inspection" },
+        customer,
+        settings,
+      }, "asbestos");
+      const { text } = await pdfParse(pdf);
+      expect(text).not.toContain("FLI Environmental, Inc. collected samples");
+      expect(text).toContain(settings.business_name);
+    });
+
+    it("still lists positive materials in the same summary table format", async () => {
+      const pdf = await renderProjectReportPdfForDomain({
+        job: {
+          ...job,
+          asbestos_result: "positive",
+          sample_results: [{ fieldCode: "01A", result: "7% Chrysotile" }],
+          sample_findings: [{ fieldCode: "01A", material: "12x12 floor tile", estimated_quantity: "80", unit: "sq_ft" }],
+        },
+        customer: fliCustomer,
+        settings,
+      }, "asbestos");
+      const { text } = await pdfParse(pdf);
+      expect(text).toContain("Asbestos-Containing Materials Summary Table");
+      expect(text).toContain("12x12 floor tile");
+      expect(text).toContain("80 square feet");
     });
   });
 });

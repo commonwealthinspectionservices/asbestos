@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 // Generic, job-independent Chain of Custody templates — printed ahead of
 // time in stacks and filled out entirely by hand in the field, rather than
 // pulled per-job (see blank-coc-pdf.tsx / mold-coc-pdf.tsx for the job-
@@ -37,6 +39,15 @@ export default function ChainOfCustody() {
             </div>
           </div>
         ))}
+      </div>
+
+      {/* Per Tim, 2026-08-31 — "delete Ray's Library from the tabs on top
+          and just make it a small link at the bottom of the Chain of
+          Custody page" — no longer a top-level nav tab, still a real page. */}
+      <div className="mt-6 text-center">
+        <Link href="/admin/rays-library" className="text-sm text-slate-500 hover:underline">
+          Ray&apos;s Library
+        </Link>
       </div>
     </div>
   );

@@ -11,12 +11,16 @@ type NavLink = { href: string; label: string };
 // the "Billing ▾" dropdown that used to group those three links (per Tim,
 // 2026-08-29 — "idk it just seems like so many tabs") is gone too — one
 // page needs one plain link, not a dropdown.
+// Per Tim, 2026-08-31 — "delete Ray's Library from the tabs on top and
+// just make it a small link at the bottom of the Chain of Custody page":
+// it's still a real page (see /admin/rays-library), just no longer
+// promoted to a top-level tab — the link now lives on the Chain of
+// Custody page instead (see ChainOfCustodyView.tsx).
 const NAV_LINKS: NavLink[] = [
   { href: "/admin/dashboard", label: "Projects" },
   { href: "/admin/billing", label: "Billing" },
   { href: "/admin/schedule", label: "Schedule" },
   { href: "/admin/customers", label: "Directory" },
-  { href: "/admin/rays-library", label: "Ray's Library" },
   { href: "/admin/chain-of-custody", label: "Chain of Custody" },
   { href: "/admin/settings", label: "Settings" },
 ];

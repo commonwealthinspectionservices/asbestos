@@ -902,9 +902,17 @@ export default function JobsDashboard() {
         >
           All Projects
         </button>
+        {/* Per Tim, 2026-08-31 — "Add Project should be aligned all the way
+            right, all other buttons should remain in the same place":
+            ml-auto pushes just this button to the row's far edge without
+            touching the others' own left-packed order/position. Padding
+            now matches the status-filter buttons exactly too ("make sure
+            all buttons throughout are the same format") — this one used
+            to run px-3 py-1 with a stray hover:underline none of its
+            siblings had. */}
         <button
           onClick={() => setAddingProject(true)}
-          className="shrink-0 whitespace-nowrap rounded-lg bg-emerald-600 px-3 py-1 text-sm font-bold text-white hover:underline"
+          className="ml-auto shrink-0 whitespace-nowrap rounded-lg bg-emerald-600 px-2.5 py-1 text-sm font-bold text-white"
         >
           Add Project
         </button>
@@ -1227,6 +1235,19 @@ function JobRow({
     >
       {customerLabel}
     </a>
+  ) : isKnownSubcontractingForName(job.customers?.company) ? (
+    // Per Tim, 2026-08-31 — "I feel like FLI Environmental should be
+    // italics, and that's it", then "it should just be FLI Environmental
+    // slash Restore1 — the second company listed after the slash is
+    // always gonna be the company that we contracted for, so it's their
+    // customer": the only card-level cue that a company job is actually
+    // subcontracting-for work (see isSubcontractingFor's own comment on
+    // AddProjectDialog) — no badge, just italic type, with the end
+    // client appended when one's on file.
+    <span className="italic">
+      {customerLabel}
+      {job.subcontractor_client_company ? ` / ${job.subcontractor_client_company}` : ""}
+    </span>
   ) : (
     customerLabel
   );

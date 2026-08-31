@@ -30,10 +30,9 @@ import {
 // branding language rather than introducing a different mark.
 const LOGO_PATH = path.join(process.cwd(), "public", "letterhead.png");
 const SIGNATURE_PATH = path.join(process.cwd(), "public", "signature.png");
-// Per Tim, 2026-08-31 — cropped from the FLI Environmental chain-of-custody
-// form he supplied as the reference format (that PDF's own logo is baked
-// into a single flattened full-page scan, not a separable asset — this is
-// a first pass; swap for a cleaner file straight from FLI if he has one).
+// A clean file straight from FLI Environmental (per Tim, 2026-08-31) —
+// replaced an earlier first-pass crop from their chain-of-custody form's
+// own scanned logo.
 const FLI_LOGO_PATH = path.join(process.cwd(), "public", "fli-letterhead.png");
 
 // Spelled-out sample counts for the mold Discussion of Results sentence
@@ -91,9 +90,10 @@ const styles = StyleSheet.create({
   headerSpacer: { flexGrow: 1 },
   // Matches letterhead.png's own 968x178 aspect ratio (~5.44:1).
   logo: { width: 165, height: 30.3 },
-  // Matches fli-letterhead.png's own 404x134 aspect ratio (~3:1) — a
-  // squarer mark-plus-wordmark than Commonwealth's own wide text-only logo.
-  fliLogo: { width: 120, height: 39.8 },
+  // Matches fli-letterhead.png's own 673x180 aspect ratio (~3.74:1) — a
+  // clean file straight from FLI (per Tim, 2026-08-31), replacing the
+  // earlier crop from their chain-of-custody form's scanned logo.
+  fliLogo: { width: 150, height: 40.1 },
   // lineHeight:1 is deliberate, not a stylistic choice — react-pdf's fixed +
   // render (used for the continuation header below) silently fails to
   // render any Text inside it that inherits styles.page's lineHeight:1.22.

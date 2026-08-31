@@ -1339,7 +1339,12 @@ function JobRow({
             // exact same height instead of just their tops lining up.
             <span className="inline-flex h-7 w-24 shrink-0 items-center justify-center whitespace-nowrap rounded border-2 border-transparent bg-slate-200 px-2 py-0.5 text-xs font-mono font-bold text-slate-800 hover:underline sm:inline sm:h-auto sm:w-auto sm:justify-start sm:text-sm">{job.project_number}</span>
           )}
-          <div className="hidden truncate whitespace-nowrap font-medium text-slate-800 sm:block">
+          {/* Per Tim, 2026-08-31 — "Restore1 looks like it's getting cut
+              off, I wanna make sure that it's not": measured this sitting
+              exactly at its container's width limit once the end-client
+              suffix ("FLI Environmental / Restore1") got added — wraps to
+              a second line now instead of ever truncating. */}
+          <div className="hidden font-medium text-slate-800 sm:block">
             {customerLabelNode}
           </div>
         </div>
@@ -1436,7 +1441,7 @@ function JobRow({
           actually in Payment Pending, any company, not just Newton Fire &
           Flood. */}
       <div className="flex items-center justify-between gap-2 sm:hidden">
-        <div className="min-w-0 truncate whitespace-nowrap text-sm font-medium text-slate-800">{customerLabelNode}</div>
+        <div className="min-w-0 text-sm font-medium text-slate-800">{customerLabelNode}</div>
         {job.status === "report_invoice_sent" && (
           <span className="shrink-0 whitespace-nowrap text-sm text-slate-500">
             Due by {formatDate(dueDateFor(job))}

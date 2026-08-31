@@ -15,7 +15,7 @@ import JobPhotos from "@/components/shared/JobPhotos";
 import { AcceptScheduleControl, extractTimeRange, parseWindowStartTime24h } from "@/components/admin/AcceptScheduleControl";
 import { ContactForm } from "@/components/admin/ContactDetailDialog";
 import { formatDateMDY } from "@/lib/date-format";
-import { subcontractorSenderForJob, isKnownSubcontractorCompanyName } from "@/lib/subcontractor-senders";
+import { subcontractorSenderForJob, isKnownSubcontractorCompanyName, isKnownSubcontractingForName } from "@/lib/subcontractor-senders";
 import { timeSelectOptions } from "@/lib/time-options";
 import { computeMarginCents } from "@/lib/pricing";
 import { dueDateFor, paymentDueDate } from "@/lib/invoice-due-date";
@@ -1808,6 +1808,10 @@ export function ProjectDetailDialog({
   initialTab?: "info" | "report" | "invoice" | "chat" | "photos";
 }) {
   const [tab, setTab] = useState<"info" | "report" | "invoice" | "chat" | "photos" | "shipping" | "compensation">(initialTab ?? "info");
+  // Cosmetic-only counterpart to job.source === "subcontractor" — see
+  // AddProjectDialog's own isSubcontractingFor comment. Read-only view of
+  // whatever's on the job now, so no blur-gating needed like the live form.
+  const isSubcontractingFor = isKnownSubcontractingForName(job.customers?.company);
   // Just for labeling "Email results to" below — report_emails is only ever
   // stored as bare addresses (see lib/lab-email.ts's own recipient-building,
   // which needs plain emails to send to), so names for display are looked
@@ -2766,7 +2770,7 @@ export function ProjectDetailDialog({
                       mobile-only block (mobile) like before. */}
                   {showSentStatus && sentStatusLines}
                   <DetailField
-                    label="Company"
+                    label={isSubcontractingFor ? "Subcontracting for" : "Company"}
                     nowrap
                     value={
                       portalBadge ? (
@@ -2949,9 +2953,9 @@ export function ProjectDetailDialog({
                 client's company name gets its own line above the usual
                 Name/Phone (that end client's own contact person). */}
             <h4 className="text-sm font-bold tracking-wide text-black underline">
-              {job.source === "subcontractor" ? "Their client" : "Job site contact"}
+              {isSubcontractingFor ? "Their client" : "Job site contact"}
             </h4>
-            {job.source === "subcontractor" && (
+            {isSubcontractingFor && (
               <DetailField label="Company" value={job.subcontractor_client_company ?? "—"} nowrap />
             )}
             <DetailField label="Name" value={job.site_contact_name ? toTitleCase(job.site_contact_name) : "—"} />
@@ -4428,6 +4432,15 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
   // keystroke, which onChange resets to false via setCompanyNameBlurred.
   const isSubcontractor =
     customerKind === "company" && (Boolean(companyId) || companyNameBlurred) && isKnownSubcontractorCompanyName(companyName);
+  // Per Tim, 2026-08-30 (same-turn follow-up, after seeing FLI Environmental
+  // switched back to the plain "Company" format above) — he still wants the
+  // label/fields below to recognize FLI Environmental, just not the
+  // Shipping/Compensation-tab/Billing-exclusion treatment isSubcontractor
+  // drives. Cosmetic-only: label text, the plain indicator, and the "their
+  // client" fields use this instead of isSubcontractor; everything that
+  // affects `source`, tabs, or billing keeps using isSubcontractor above.
+  const isSubcontractingFor =
+    customerKind === "company" && (Boolean(companyId) || companyNameBlurred) && isKnownSubcontractingForName(companyName);
 
   useEffect(() => {
     if (!siteContactSameAsContact) return;
@@ -4648,7 +4661,7 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
           </button>
         </div>
 
-        {isSubcontractor && (
+        {isSubcontractingFor && (
           <p className="mt-2 text-sm font-medium text-brand-700">Subcontractor job</p>
         )}
 
@@ -4680,7 +4693,7 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
           ) : (
             <div className="min-w-0 sm:flex-1">
               <label className="block text-sm font-medium text-slate-700">
-                {isSubcontractor ? "Subcontracting for" : "Company"}
+                {isSubcontractingFor ? "Subcontracting for" : "Company"}
               </label>
               <div className="mt-1">
                 <ComboboxInput
@@ -4765,7 +4778,7 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
           <ZipInput street={serviceStreet} city={serviceCity} state={serviceState} zip={serviceZip} setZip={setServiceZip} />
         </div>
 
-        {isSubcontractor ? (
+        {isSubcontractingFor ? (
           // Per Tim, 2026-08-30 — "I want Restore1 on there somewhere...
           // I'm not always sure going in who I'm subcontracting the job
           // for, it should just be a note" then "FLI's client should be
@@ -5067,6 +5080,11 @@ export function EditProjectDialog({
   // dialog only needs to know it to relabel/expand the client fields,
   // never to set it.
   const isSubcontractor = job.source === "subcontractor";
+  // Per Tim, 2026-08-30 (same-turn follow-up) — cosmetic-only counterpart
+  // to isSubcontractor above, see AddProjectDialog's own comment on
+  // isSubcontractingFor. No customerKind/blur gate here (unlike Add) since
+  // an existing job's company name is already settled, not mid-typing.
+  const isSubcontractingFor = !job.is_individual && isKnownSubcontractingForName(companyName);
   const [endClientCompany, setEndClientCompany] = useState(job.subcontractor_client_company ?? "");
   const [selectedServiceTypeKeys, setSelectedServiceTypeKeys] = useState<string[]>([]);
   const [customServiceType, setCustomServiceType] = useState("");
@@ -5537,7 +5555,7 @@ export function EditProjectDialog({
           onChange={(e) => setScopeOfWork(e.target.value)}
         />
 
-        {isSubcontractor ? (
+        {isSubcontractingFor ? (
           // Per Tim, 2026-08-30 — "FLI's client should be three lines
           // across, company name, company contact's name, company
           // contact phone number" — same layout as AddProjectDialog's own

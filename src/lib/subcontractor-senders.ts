@@ -27,21 +27,34 @@ export function subcontractorSenderForJob(email: string | null | undefined): Sub
   return KNOWN_SUBCONTRACTOR_SENDERS.find((s) => s.domain === domain) ?? null;
 }
 
-// Per Tim, 2026-08-30 — "instead of having to check subcontractor job,
-// it should just recognize FLI Environmental and Fast Mold Testing as
-// the two companies that I do subcontractor jobs for": the manual Add
-// Project form auto-detects a subcontractor job by company name alone.
-// Separate from KNOWN_SUBCONTRACTOR_SENDERS above, which needs full
-// sender metadata (domain/phone/portal/serviceType) for the automated
-// email-intake pipeline — FLI Environmental doesn't have that yet, just
-// a name.
-export const KNOWN_SUBCONTRACTOR_COMPANY_NAMES: string[] = [
-  ...KNOWN_SUBCONTRACTOR_SENDERS.map((s) => s.companyName),
-  "FLI Environmental",
-];
+// Structural treatment — Shipping/Compensation tabs in place of Report/
+// Invoice, excluded from Billing, source: "subcontractor". Per Tim,
+// 2026-08-30: "the only subcontracted jobs that should have this format
+// is fastmoldtesting.com. For FLI Environmental subcontracted jobs, we
+// need to use the same normal format." So this stays derived from
+// KNOWN_SUBCONTRACTOR_SENDERS alone (currently just Fast Mold Testing) —
+// FLI Environmental jobs get a normal source: "admin" job, Report/Invoice
+// tabs, and normal Billing inclusion, even though the work itself is
+// subcontracted.
+export const KNOWN_SUBCONTRACTOR_COMPANY_NAMES: string[] = KNOWN_SUBCONTRACTOR_SENDERS.map((s) => s.companyName);
 
 export function isKnownSubcontractorCompanyName(name: string | null | undefined): boolean {
   const normalized = name?.trim().toLowerCase();
   if (!normalized) return false;
   return KNOWN_SUBCONTRACTOR_COMPANY_NAMES.some((n) => n.toLowerCase() === normalized);
+}
+
+// Cosmetic-only detection — same-turn follow-up, still 2026-08-30: Tim
+// still wants the "Company" field to relabel to "Subcontracting for" (and
+// the "their client" company/contact fields to appear) when he types FLI
+// Environmental, even though FLI jobs otherwise use the fully normal job
+// format above. This list is intentionally broader than
+// KNOWN_SUBCONTRACTOR_COMPANY_NAMES — it only ever drives labels/fields in
+// the Add/Edit Project forms, never `source`, tabs, or Billing.
+export const KNOWN_SUBCONTRACTING_FOR_NAMES: string[] = [...KNOWN_SUBCONTRACTOR_COMPANY_NAMES, "FLI Environmental"];
+
+export function isKnownSubcontractingForName(name: string | null | undefined): boolean {
+  const normalized = name?.trim().toLowerCase();
+  if (!normalized) return false;
+  return KNOWN_SUBCONTRACTING_FOR_NAMES.some((n) => n.toLowerCase() === normalized);
 }

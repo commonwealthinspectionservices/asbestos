@@ -57,7 +57,8 @@ export async function sendEmail(opts: {
   }
 }
 
-export function emailShell(bodyHtml: string): string {
+export function emailShell(bodyHtml: string, opts: { signature?: boolean } = {}): string {
+  const { signature = true } = opts;
   const appUrl = getAppUrl();
   const logoImg = appUrl
     ? `<img src="${appUrl}/logo.png" width="32" height="32" alt="" style="display:block; border-radius:50%;" />`
@@ -78,9 +79,9 @@ export function emailShell(bodyHtml: string): string {
       <tr>
         <td style="padding:24px;">
           ${bodyHtml}
-          <p style="font-size:13px; color:#64748b; margin-top:24px; padding-top:16px; border-top:1px solid #e2e8f0;">
+          ${signature ? `<p style="font-size:13px; color:#64748b; margin-top:24px; padding-top:16px; border-top:1px solid #e2e8f0;">
             Tim Hall<br>Commonwealth Inspection Services<br>617-390-4778
-          </p>
+          </p>` : ""}
         </td>
       </tr>
     </table>

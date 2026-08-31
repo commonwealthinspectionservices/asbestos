@@ -286,14 +286,16 @@ export async function sendJobScheduledNotification(jobId: string): Promise<void>
   const { data: customer } = await supabase.from("customers").select("email").eq("id", job.customer_id).maybeSingle();
   if (!customer?.email) return;
 
-  const whenLine = job.confirmed_time
-    ? `${formatDateMDY(job.confirmed_date)} at ${formatRequestedTime(job.confirmed_time)}`
-    : formatDateMDY(job.confirmed_date) ?? "";
-
+  // Per Tim, 2026-08-30 (follow-up, after seeing a preview) — "delete the
+  // line with service... list it out as scheduled date on one line and
+  // scheduled time on the next line below it. Also, delete the part where
+  // it says let us know if anything changes, and also delete my
+  // information at the bottom": wants this one genuinely tiny, not the
+  // fuller confirmation-email format sendJobConfirmedEmailIfDue uses.
   const rows = [
-    ["Service", job.service_type ?? ""],
     ["Address", expandAddress(job.service_address)],
-    ["Scheduled", whenLine],
+    ["Scheduled date", formatDateMDY(job.confirmed_date) ?? ""],
+    ["Scheduled time", (job.confirmed_time ? formatRequestedTime(job.confirmed_time) : "") ?? ""],
   ];
   if (job.project_number) rows.unshift(["Project #", job.project_number]);
 
@@ -310,11 +312,13 @@ export async function sendJobScheduledNotification(jobId: string): Promise<void>
     subject: threadSubject(job.service_address, job.service_type),
     existingMessageIds: existingIds,
     gmailThreadId: job.email_gmail_thread_id,
-    html: emailShell(`
+    html: emailShell(
+      `
       <p style="font-size:15px;">This job is now scheduled:</p>
       <table style="width:100%; font-size:14px; color:#16213a;">${tableRows}</table>
-      <p style="font-size:15px; margin-top:16px;">Let us know if anything changes.</p>
-    `),
+    `,
+      { signature: false }
+    ),
   });
   if (result.ok) {
     await supabase

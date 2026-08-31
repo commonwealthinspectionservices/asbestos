@@ -65,21 +65,14 @@ export default function AdminNav() {
           Admin
         </Link>
 
-        {/* Per Tim, 2026-08-31 — "stretch out all the buttons across the
-            header tab so that they're in between Admin and Sign out all
-            the way spaced out": flex-1 + justify-between spreads the nav
-            links themselves across the full width, instead of clustering
-            tight against Sign out on the right. Sign out stays a separate
-            sibling — shrink-0, own far-right position — not part of the
-            spaced group. */}
-        <div className="hidden flex-1 items-center justify-between whitespace-nowrap sm:flex">
+        <div className="hidden shrink-0 items-center gap-0.5 whitespace-nowrap sm:flex md:gap-1">
           {NAV_LINKS.map((link) => (
             <Link key={link.href} href={link.href} className={linkClass(link.href)}>{link.label}</Link>
           ))}
+          <button type="button" onClick={logout} className={`ml-1 ${signOutClass}`}>
+            Sign out
+          </button>
         </div>
-        <button type="button" onClick={logout} className={`hidden shrink-0 sm:inline-flex ${signOutClass}`}>
-          Sign out
-        </button>
 
         <div className="flex shrink-0 items-center gap-2 sm:hidden">
           <button

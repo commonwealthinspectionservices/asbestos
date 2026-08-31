@@ -2153,7 +2153,7 @@ export function ProjectDetailDialog({
   );
   const labDropdown = (domain: ReportDomain) => (
     <div className="flex w-full items-center gap-2 text-sm">
-      <span className="shrink-0 text-xs font-semibold uppercase text-slate-400">Lab</span>
+      <span className="w-28 shrink-0 text-xs font-semibold uppercase text-slate-400">Lab</span>
       <select
         className="h-9 w-full min-w-0 flex-1 truncate rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
         value={(domain === "mold" ? job.mold_lab_name : domain === "lead" ? job.lead_lab_name : job.lab_name) ?? ""}
@@ -2175,7 +2175,7 @@ export function ProjectDetailDialog({
   // short of editing the database directly.
   const dateSampledInput = (domain: ReportDomain) => (
     <div className="flex w-full items-center gap-2 text-sm">
-      <span className="shrink-0 text-xs font-semibold uppercase text-slate-400">Date Sampled</span>
+      <span className="w-28 shrink-0 text-xs font-semibold uppercase text-slate-400">Date Sampled</span>
       <input
         type="date"
         className="h-9 w-full min-w-0 flex-1 rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
@@ -2201,7 +2201,7 @@ export function ProjectDetailDialog({
   }
   const fliProjectNumberInput = (
     <div className="flex w-full items-center gap-2 text-sm">
-      <span className="shrink-0 text-xs font-semibold uppercase text-slate-400">FLI Project #</span>
+      <span className="w-28 shrink-0 text-xs font-semibold uppercase text-slate-400">FLI Project #</span>
       <input
         type="text"
         className="h-9 w-full min-w-0 flex-1 rounded-lg border border-slate-300 px-2 py-1.5 text-sm"

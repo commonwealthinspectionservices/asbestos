@@ -325,9 +325,9 @@ describe("renderProjectReportPdf", () => {
     const { text } = await pdfParse(pdf);
     expect(text).toContain("Asbestos-Containing Materials Identified:");
     expect(text).toContain("12x12 floor tile");
-    expect(text).toContain("120 sq ft");
+    expect(text).toContain("120 square feet");
     expect(text).toContain("Pipe insulation");
-    expect(text).toContain("40 linear ft");
+    expect(text).toContain("40 linear feet");
   });
 
   it("omits the materials-identified section entirely when sample_findings is empty", async () => {

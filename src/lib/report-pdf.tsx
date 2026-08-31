@@ -506,7 +506,7 @@ function AsbestosReportDocument({ job, customer, settings }: ProjectReportData) 
                   </View>
                   {f.estimated_quantity && (
                     <Text style={styles.materialQuantity}>
-                      Approximately {f.estimated_quantity} {f.unit === "linear_ft" ? "linear ft" : "sq ft"}
+                      Approximately {f.estimated_quantity} {f.unit === "linear_ft" ? "linear feet" : "square feet"}
                     </Text>
                   )}
                 </View>

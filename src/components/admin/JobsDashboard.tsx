@@ -3300,7 +3300,7 @@ export function ProjectDetailDialog({
                                                 cell — not red, matching the rest of the row's text size.
                                                 Same font as the rest of the page (no font-mono) per Tim,
                                                 2026-08-31. Footage is a small number field plus its own
-                                                unit dropdown (sq ft / linear ft) rather than one free-text
+                                                unit dropdown (square feet / linear feet) rather than one free-text
                                                 box the admin has to spell the unit into by hand. */}
                                             {showFinding && (
                                               <div className="text-slate-500">
@@ -3321,8 +3321,8 @@ export function ProjectDetailDialog({
                                                     value={finding.unit || "sq_ft"}
                                                     onChange={(e) => updateFinding(s.fieldCode, { unit: e.target.value === "linear_ft" ? "linear_ft" : "sq_ft" })}
                                                   >
-                                                    <option value="sq_ft">sq ft</option>
-                                                    <option value="linear_ft">linear ft</option>
+                                                    <option value="sq_ft">square feet</option>
+                                                    <option value="linear_ft">linear feet</option>
                                                   </select>
                                                 </span>
                                               )}

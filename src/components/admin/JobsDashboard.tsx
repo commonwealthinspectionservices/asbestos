@@ -4792,7 +4792,7 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
           // a full contact record.
           <>
             <label className="mt-3 block text-sm font-medium text-slate-700">
-              {companyName.trim() || "Their"}&apos;s client (if known)
+              {companyName.trim() || "Their"}&apos;s client
             </label>
             <input
               className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
@@ -5380,7 +5380,14 @@ export function EditProjectDialog({
             <input className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-2 text-sm" value={projectNumber} onChange={(e) => setProjectNumber(e.target.value)} />
           </div>
           <div className="min-w-0 flex-1">
-            <label className="block text-sm font-medium text-slate-700">Company (leave blank for an individual)</label>
+            {/* Per Tim, 2026-08-30 — "by the time I'm editing the project
+                it should know already at that point that it's not an
+                individual job": is_individual is fixed at creation (like
+                source), so there's no ambiguity left to hint about here —
+                just label it for whichever this job already is. */}
+            <label className="block text-sm font-medium text-slate-700">
+              {job.is_individual ? "Customer name" : isSubcontractingFor ? "Subcontracting for" : "Company"}
+            </label>
             <div className="mt-1">
               <ComboboxInput
                 value={companyName}
@@ -5564,7 +5571,7 @@ export function EditProjectDialog({
           // exists).
           <>
             <label className="mt-3 block text-sm font-medium text-slate-700">
-              {companyName.trim() || "Their"}&apos;s client (if known)
+              {companyName.trim() || "Their"}&apos;s client
             </label>
             <input
               className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"

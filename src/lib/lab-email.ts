@@ -561,7 +561,23 @@ export async function checkForLabResultEmails(): Promise<LabEmailCheckResult> {
               .ilike("project_number", projectNumber)
               .maybeSingle();
             job = data as unknown as (Job & { customers: Customer & { companies: Company | null } }) | null;
-          } else {
+          }
+          // Per Tim, 2026-08-31 — a report never resolving to a match here
+          // even with a projectNumber extracted isn't necessarily "no such
+          // job": confirmed live on 26-0011 (an FLI Environmental
+          // subcontract job, see FLI_ENVIRONMENTAL_COMPANY_ID's own
+          // comment) — Crystal Analytical's own "FLI Project#:" field is
+          // the same "26-NNNN" shape as this app's own project_number
+          // (FLI runs its own numbering the same way), so the generic
+          // fallback in extractReportProjectNumber genuinely finds a real
+          // number on the report — just FLI's, not this app's, since a
+          // report for a job submitted under FLI's own lab account never
+          // mentions this app's project number anywhere at all. Falling
+          // back to the address match here (not just when no number was
+          // found at all) catches that case without needing to first
+          // detect "this must be an FLI job" — same address match already
+          // used for every other report with no extractable number.
+          if (!job) {
             const reportAddress = extractReportProjectAddress(text);
             if (reportAddress) job = await findJobByReportAddress(supabase, reportAddress);
           }

@@ -211,11 +211,20 @@ export const POST = withApiErrors(async (
       // *different* number; says nothing when it can't find one at all. A
       // flag only — the rest of the extraction above still runs and saves
       // normally either way.
+      // Per Tim, 2026-08-31 — an FLI Environmental subcontract job's own
+      // report never echoes this app's internal project_number at all —
+      // Crystal Analytical's "FLI Project#:" field carries FLI's own
+      // number instead (confirmed live on 26-0011: extracted "26-3115",
+      // this app's own number is "26-0011" — same "26-NNNN" shape, FLI
+      // runs its own numbering the same way, so every such upload would
+      // otherwise get flagged as a false mismatch). Compare against
+      // fli_project_number when the job has one on file instead.
       const reportProjectNumber = extractReportProjectNumber(text);
+      const expectedProjectNumber = jobRow.fli_project_number || jobRow.project_number;
       if (
         reportProjectNumber &&
-        jobRow.project_number &&
-        reportProjectNumber.toLowerCase() !== jobRow.project_number.toLowerCase()
+        expectedProjectNumber &&
+        reportProjectNumber.toLowerCase() !== expectedProjectNumber.toLowerCase()
       ) {
         projectNumberMismatch = reportProjectNumber;
       }

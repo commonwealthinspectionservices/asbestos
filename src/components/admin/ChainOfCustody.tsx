@@ -17,9 +17,6 @@ export default function ChainOfCustody() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
       <h1 className="text-lg font-semibold text-slate-800">Chain of Custody</h1>
-      <p className="mt-1 text-sm text-slate-500">
-        Blank templates for printing ahead of time — fill out by hand in the field.
-      </p>
 
       <div className="mt-4 divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
         {FORMS.map((form) => (
@@ -44,7 +41,7 @@ export default function ChainOfCustody() {
       {/* Per Tim, 2026-08-31 — "delete Ray's Library from the tabs on top
           and just make it a small link at the bottom of the Chain of
           Custody page" — no longer a top-level nav tab, still a real page. */}
-      <div className="mt-6 text-center">
+      <div className="mt-6">
         <Link href="/admin/rays-library" className="text-sm text-slate-500 hover:underline">
           Ray&apos;s Library
         </Link>

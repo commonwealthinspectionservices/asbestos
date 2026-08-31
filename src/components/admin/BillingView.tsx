@@ -257,7 +257,13 @@ function PeriodHistoryTable({
       <div className="mt-2 grid grid-cols-[1fr_auto_auto] items-baseline gap-x-3 gap-y-1">
         {rows.map((r) => (
           <Fragment key={r.label}>
-            <span className="text-slate-500">{r.label}</span>
+            {/* Per Tim, 2026-08-31 — "for weekly, we can make it smaller if
+                needed, but all weeks like August 31st to September 6th
+                must be one line across... not stretch onto two lines":
+                text-xs on mobile (desktop keeps text-sm from the parent)
+                plus whitespace-nowrap shrinks the label just enough to
+                fit a full date-range on one line instead of wrapping. */}
+            <span className="whitespace-nowrap text-xs text-slate-500 sm:text-sm">{r.label}</span>
             <span className="whitespace-nowrap text-right text-slate-800">{formatCents(r.grossCents)}</span>
             <span className="whitespace-nowrap text-right text-slate-400">net {formatCents(r.netCents)}</span>
           </Fragment>
@@ -499,8 +505,8 @@ export default function BillingView() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <PeriodHistoryTable title="Weekly" rows={periodHistory.weekly} />
-        <PeriodHistoryTable title="Monthly" rows={periodHistory.monthly} />
+        <PeriodHistoryTable title="Weekly Revenue" rows={periodHistory.weekly} />
+        <PeriodHistoryTable title="Monthly Revenue" rows={periodHistory.monthly} />
       </div>
 
       {error && <div className="mt-3 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>}

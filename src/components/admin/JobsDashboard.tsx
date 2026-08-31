@@ -931,8 +931,19 @@ export default function JobsDashboard() {
           single choice at a time) and one search box, half the row each,
           replacing the whole sort/filter/search row below. Desktop:
           unchanged — that row stays exactly as it's always been. */}
+      {/* Per Tim, 2026-08-31 — "the search cell should be just slightly
+          larger... make the project number cell smaller, barely. And also
+          make search on the left in the other drop down on the right":
+          swapped order (search first) and an uneven flex split (search
+          gets more of the row) instead of the previous even 50/50. */}
       <div className="mt-4 flex gap-2 sm:hidden">
-        <div className="relative min-w-0 flex-1">
+        <input
+          value={mobileSearch}
+          onChange={(e) => setMobileSearch(e.target.value)}
+          placeholder="Search…"
+          className="min-w-0 flex-[3] rounded-lg border border-slate-300 px-3 py-2 text-sm"
+        />
+        <div className="relative min-w-0 flex-[2]">
           <select
             value={mobileSortFilterValue}
             onChange={(e) => handleMobileSortFilterChange(e.target.value)}
@@ -956,12 +967,6 @@ export default function JobsDashboard() {
           </select>
           <span className="pointer-events-none absolute inset-y-0 right-0 flex w-7 items-center justify-center text-slate-500">▾</span>
         </div>
-        <input
-          value={mobileSearch}
-          onChange={(e) => setMobileSearch(e.target.value)}
-          placeholder="Search…"
-          className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm"
-        />
       </div>
 
       <div className="mt-4 hidden flex-wrap items-center gap-2 sm:flex">
@@ -1321,15 +1326,18 @@ function JobRow({
       <div className="flex w-full items-start justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
           {job.project_number && (
-            // Per Tim, 2026-08-27 — fixed width so every project # badge is
-            // the exact same size regardless of digit count, instead of a
-            // longer number (e.g. a ".1" revisit) growing wide enough to
-            // overlap the status pill next to it. justify-center so a
-            // shorter number still centers instead of hugging the left edge
-            // of a now-wider-than-it-needs box. Same text-xs as the status
-            // pill beside it on mobile — every piece of text on this row
-            // matches, not just the pill. Desktop keeps its original auto
-            // width and text-sm, unchanged.
+            // Per Tim, 2026-08-31 — briefly switched this to auto-width/
+            // left-justified on mobile, then reversed course the same
+            // session: "let's go back to the project numbers being
+            // centered so that they can all be the exact same size... in
+            // the project preview cards on mobile" — fixed width again so
+            // every badge matches regardless of digit count (a ".1"
+            // revisit no longer grows wider than the rest), justify-center
+            // so a shorter number still centers instead of hugging the
+            // left edge of a now-wider-than-it-needs box. Same text-xs as
+            // the status pill beside it on mobile — every piece of text on
+            // this row matches, not just the pill. Desktop keeps its
+            // original auto width and text-sm, unchanged.
             // border-2 border-transparent (not borderless) — Per Tim,
             // 2026-08-28: the status pill beside this on desktop needs a
             // real border for its own ready-to-send highlight, and at
@@ -3564,23 +3572,16 @@ export function ProjectDetailDialog({
                       same value LineItemsEditor's own Payment due date
                       field shows above. */}
                   {job.customers?.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID && job.status !== "paid" && (
-                    // Per Tim, 2026-08-29 — "this should be one line
-                    // across" then "it should not scroll across": no
-                    // whitespace-nowrap/overflow-x-auto escape hatch, the
-                    // sentence itself has to actually fit max-w-3xl's own
-                    // width. Shortened it (dropped "on file" duplication,
-                    // "the report was sent" -> "report sent") and dropped
-                    // to text-xs — confirmed live it fits on one line with
-                    // room to spare at the dialog's own desktop width. Below
-                    // sm, this dialog is narrower than the sentence could
-                    // ever fit at any readable size, so it wraps normally
-                    // there instead — a wrapped line beats the mobile
-                    // Project Info tab's own now-fixed horizontal-scroll bug
-                    // (see JobsDashboard.tsx's DetailField) happening again.
+                    // Per Tim, 2026-08-31 — "delete the subtext and just
+                    // keep the green box that says automatic payment" (per
+                    // Tim, 2026-08-29 — "this should be one line across"
+                    // then "it should not scroll across"), then "the green
+                    // automatic payment box should say automatic payment
+                    // to be charged on DATE" — keeps just the due date,
+                    // not the full explanatory sentence.
                     <div className="mb-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
-                      <p className="whitespace-normal text-xs text-emerald-800 sm:whitespace-nowrap">
-                        <span className="font-bold uppercase">Automatic payment on file</span> — Stripe will charge Newton Fire &amp; Flood&apos;s card on{" "}
-                        {formatDate(dueDateFor(job)) || "the invoice due date"} (30 days after report sent) if unpaid before then.
+                      <p className="text-xs font-bold uppercase text-emerald-800">
+                        Automatic payment to be charged on {formatDate(dueDateFor(job)) || "the invoice due date"}
                       </p>
                     </div>
                   )}
@@ -4080,6 +4081,18 @@ function DocumentStation({
   }
 
   const docs = (job.documents ?? []).filter((d) => d.kind === kind && d.service_type === serviceType);
+  // Per Tim, 2026-08-31 — "there's like four or five lab invoices" stacked
+  // as full cards on mobile confused him into thinking he'd been billed
+  // multiple times for one job. He hadn't (double-checked against the
+  // lab's own PDF: each is a genuinely separate invoice number, correctly
+  // summing to the one real Lab Fees total already shown elsewhere) — the
+  // problem was just presentation. Collapses to one summary line that
+  // expands into the full card list, rather than always showing every
+  // card at once. Scoped to lab_invoice specifically (kind's other uses —
+  // CoC, photos — still want every thumbnail visible by default).
+  const [labInvoicesExpanded, setLabInvoicesExpanded] = useState(false);
+  const collapseLabInvoices = kind === "lab_invoice" && docs.length > 1 && !labInvoicesExpanded;
+  const labInvoicesTotalCents = docs.reduce((sum, d) => sum + (d.amount_cents ?? 0), 0);
 
   return (
     <div>
@@ -4136,8 +4149,29 @@ function DocumentStation({
         </div>
       )}
       {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
-      {docs.length > 0 && (
+      {collapseLabInvoices && (
+        <button
+          type="button"
+          onClick={() => setLabInvoicesExpanded(true)}
+          className="mt-1.5 flex w-full items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-sm hover:border-brand-400"
+        >
+          <span className="font-medium text-slate-700">
+            {docs.length} lab invoices · {(labInvoicesTotalCents / 100).toLocaleString("en-US", { style: "currency", currency: "USD" })} total
+          </span>
+          <span className="shrink-0 text-xs text-brand-600">Show all</span>
+        </button>
+      )}
+      {docs.length > 0 && !collapseLabInvoices && (
         <div className="mt-1.5 space-y-2">
+          {kind === "lab_invoice" && docs.length > 1 && (
+            <button
+              type="button"
+              onClick={() => setLabInvoicesExpanded(false)}
+              className="text-xs text-brand-600 hover:underline"
+            >
+              Collapse
+            </button>
+          )}
           {docs.map((doc) => {
             const url = `/api/admin/jobs/${job.id}/documents/${doc.id}`;
             const isImage = /\.(png|jpe?g|gif|webp)$/i.test(doc.file_name);
@@ -6204,7 +6238,13 @@ function LineItemsEditor({
                       ))}
                     </div>
                   )}
-                  <div className="flex items-center gap-2">
+                  {/* Per Tim, 2026-08-31 — "the invoice line items stretch
+                      off of the page, and they should not": the six fixed-
+                      width pieces here (# / "samples at" / $ / "each" /
+                      "=" / $) never fit a phone's width in one row —
+                      flex-wrap lets them break onto a second line instead
+                      of overflowing past the screen edge. */}
+                  <div className="flex flex-wrap items-center gap-2">
                     <input
                       type="number"
                       className="w-16 rounded-lg border border-slate-300 px-2 py-1.5 text-center text-sm"

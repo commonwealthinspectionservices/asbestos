@@ -38,6 +38,23 @@ export default function AdminNav() {
     setMenuOpen(false);
   }, [pathname]);
 
+  // Per Tim, 2026-08-31 — "always make it so that the header is default at
+  // the top of the screen... sometimes it starts with the header hidden,
+  // and I don't want that to ever happen ever." Mobile browsers (Safari
+  // especially) restore the previous scroll position on back/forward
+  // navigation by default — landing back on an admin page already
+  // scrolled past the header. Forcing manual restoration + an explicit
+  // scroll-to-top on every mount means every visit to an admin page
+  // (present on all of them, since AdminNav renders at the top of each)
+  // starts with the header actually visible, not wherever the browser
+  // last left it.
+  useEffect(() => {
+    if ("scrollRestoration" in window.history) {
+      window.history.scrollRestoration = "manual";
+    }
+    window.scrollTo(0, 0);
+  }, []);
+
   async function logout() {
     await fetch("/api/admin/login", { method: "DELETE" });
     router.push("/admin/login");

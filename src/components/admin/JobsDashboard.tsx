@@ -2151,6 +2151,38 @@ export function ProjectDetailDialog({
       </button>
     </div>
   );
+  // Per Tim, 2026-08-31 — FLI Environmental's own chain-of-custody form
+  // lists these 6 turnaround options (not Commonwealth's own Standard/Rush
+  // pair), so an FLI job's turnaround control matches theirs instead —
+  // same lab_turnaround field/styling, just Rush's own highlight preserved
+  // and the other 5 options using the same "active" look Standard used to.
+  const FLI_TURNAROUND_OPTIONS = ["Rush", "24-Hr", "48-Hr", "3-Day", "4-Day", "5-Day"];
+  async function setTurnaround(value: string) {
+    await fetch(`/api/admin/jobs/${job.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lab_turnaround: value }),
+    });
+    onChanged();
+  }
+  const fliTurnaroundControl = (
+    <div className="flex flex-wrap items-center gap-2 text-sm">
+      <span className="rounded bg-slate-100 px-2 py-0.5 text-xs font-bold uppercase text-slate-600">Turnaround</span>
+      {FLI_TURNAROUND_OPTIONS.map((opt) => (
+        <button
+          key={opt}
+          onClick={() => setTurnaround(opt)}
+          className={`rounded px-2 py-0.5 text-xs font-bold uppercase ${
+            job.lab_turnaround === opt
+              ? opt === "Rush" ? "bg-yellow-100 text-slate-600" : "bg-slate-700 text-white"
+              : "bg-slate-100 text-slate-600"
+          }`}
+        >
+          {opt}
+        </button>
+      ))}
+    </div>
+  );
   const labDropdown = (domain: ReportDomain) => (
     <div className="flex w-full items-center gap-2 text-sm">
       <span className="w-28 shrink-0 text-xs font-semibold uppercase text-slate-400">Lab</span>
@@ -3273,7 +3305,7 @@ export function ProjectDetailDialog({
                                 the far right. */}
                             <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                               <p className="text-base font-bold uppercase text-slate-700">{label}</p>
-                              {labelIdx === 0 && turnaroundControl}
+                              {labelIdx === 0 && (isFliJob ? fliTurnaroundControl : turnaroundControl)}
                             </div>
                             {labelIdx === 0 && (
                               <div className="mb-4 space-y-2">
@@ -3654,7 +3686,7 @@ export function ProjectDetailDialog({
                   header, not this scrollable body). */}
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <h3 className="text-lg font-bold uppercase tracking-wide text-black underline">Invoice</h3>
-                {turnaroundControl}
+                {isFliJob ? fliTurnaroundControl : turnaroundControl}
               </div>
               <div className="mt-3">
                 <div className="mb-4 space-y-1">

@@ -71,6 +71,7 @@ const job: Job = {
   subcontractor_preferred_window: null,
   subcontractor_sample_types: [],
   subcontractor_client_company: null,
+  fli_project_number: null,
   service_type: "asbestos",
   scope_of_work: null,
   base_fee_cents: 45000,
@@ -549,6 +550,17 @@ describe("renderProjectReportPdf", () => {
       expect(text).toContain("(781) 251-0040");
       expect(text).not.toContain(settings.business_name);
       expect(text).not.toContain("Asbestos Inspector License #");
+    });
+
+    it("shows FLI's own assigned project number, not this app's internal one, when set", async () => {
+      const pdf = await renderProjectReportPdfForDomain({
+        job: { ...job, service_type: "Limited Asbestos Inspection", project_number: "26-0011", fli_project_number: "FLI-4471" },
+        customer: fliCustomer,
+        settings,
+      }, "asbestos");
+      const { text } = await pdfParse(pdf);
+      expect(text).toMatch(/FLI Project #:\s*FLI-4471/);
+      expect(text).not.toMatch(/FLI Project #:\s*26-0011/);
     });
 
     it("still uses Commonwealth's own template for a job at a different company", async () => {

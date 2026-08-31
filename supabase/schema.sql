@@ -1035,3 +1035,10 @@ alter table jobs add column if not exists subcontractor_client_company text;
 -- overwritten every time a lab report is (re)parsed and would silently
 -- wipe this out.
 alter table jobs add column if not exists sample_findings jsonb not null default '[]'::jsonb;
+
+-- Per Tim, 2026-08-31 — FLI Environmental assigns their own project number
+-- to a subcontracted job, separate from this app's own project_number;
+-- "track both mine and theirs." Hand-typed by Tim once FLI gives it out,
+-- shown on the FLI-branded report's "FLI Project #:" line instead of this
+-- app's own project_number there.
+alter table jobs add column if not exists fli_project_number text;

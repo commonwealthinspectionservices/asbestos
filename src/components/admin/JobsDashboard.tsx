@@ -1920,6 +1920,7 @@ export function ProjectDetailDialog({
   const [labs, setLabs] = useState<LabProfile[]>([]);
   const [reportSummaryInput, setReportSummaryInput] = useState(job.report_summary ?? "");
   const [reportNotesInput, setReportNotesInput] = useState(job.report_notes ?? "");
+  const [fliProjectNumberInputValue, setFliProjectNumberInputValue] = useState(job.fli_project_number ?? "");
   // Lead's own Overall Findings sentence — separate from asbestos's
   // report_summary above, since a job combining asbestos and lead produces
   // two separate final reports and can't share one field between them.
@@ -2183,6 +2184,34 @@ export function ProjectDetailDialog({
       />
     </div>
   );
+  // Per Tim, 2026-08-31 — "track both mine and theirs": FLI Environmental
+  // assigns their own project number to a subcontracted job, separate from
+  // (and shown instead of) this app's own project_number on the FLI-
+  // branded report's "FLI Project #:" line — see fli_project_number's own
+  // comment in types.ts. Only shown for FLI Environmental jobs; every other
+  // job has no such second number to track.
+  const isFliJob = job.customers?.company_id === FLI_ENVIRONMENTAL_COMPANY_ID;
+  async function saveFliProjectNumber(value: string) {
+    await fetch(`/api/admin/jobs/${job.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fli_project_number: value.trim() || null }),
+    });
+    onChanged();
+  }
+  const fliProjectNumberInput = (
+    <div className="flex w-full items-center gap-2 text-sm">
+      <span className="shrink-0 text-xs font-semibold uppercase text-slate-400">FLI Project #</span>
+      <input
+        type="text"
+        className="h-9 w-full min-w-0 flex-1 rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+        value={fliProjectNumberInputValue}
+        onChange={(e) => setFliProjectNumberInputValue(e.target.value)}
+        onBlur={(e) => saveFliProjectNumber(e.target.value)}
+      />
+    </div>
+  );
+
   // report_summary is one shared field for the whole job's asbestos/lead
   // report (mold has its own separate discussion fields now, so no more
   // cross-domain field sharing) — the Result dropdown only ever needs to
@@ -3244,6 +3273,7 @@ export function ProjectDetailDialog({
                               <div className="mb-4 space-y-2">
                                 {labDropdown(group.domain)}
                                 {dateSampledInput(group.domain)}
+                                {isFliJob && group.domain === "asbestos" && fliProjectNumberInput}
                               </div>
                             )}
                             <div className="grid grid-cols-2 gap-3">

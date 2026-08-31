@@ -612,7 +612,7 @@ function FliAsbestosReportDocument({ job, customer, settings }: ProjectReportDat
           reTitle="Bulk Sample Analytical Results"
           knownCustomerName={knownCustomerName}
           serviceAddress={expandAddress(job.service_address)}
-          projectNumber={job.project_number}
+          projectNumber={job.fli_project_number}
           dateText={dateText}
         />
 
@@ -635,7 +635,7 @@ function FliAsbestosReportDocument({ job, customer, settings }: ProjectReportDat
           <View style={styles.reRow}>
             <Text style={styles.reLabel} />
             <Text style={styles.reProjectLabel}>FLI Project #:</Text>
-            <ValueOrBlank style={styles.reValue} value={job.project_number} inline />
+            <ValueOrBlank style={styles.reValue} value={job.fli_project_number} inline />
           </View>
         </View>
 

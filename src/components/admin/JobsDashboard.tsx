@@ -1269,11 +1269,19 @@ function JobRow({
   const [manualDate, setManualDate] = useState("");
   const [manualTime, setManualTime] = useState("");
   const dateInputRef = useRef<HTMLInputElement>(null);
-  function trySubmitManual(nextDate: string, nextTime: string) {
+  // Per Tim, 2026-08-30 — "when I move it from To Be Scheduled to Scheduled
+  // officially, it should definitely ask me, would you like to send them an
+  // email notification, and I can check either yes or no": he already does
+  // this by hand every time he schedules a Boston Harbor Water Restoration
+  // job, so the checkbox defaults on rather than off.
+  const [confirmingSchedule, setConfirmingSchedule] = useState(false);
+  const [notifyOnSchedule, setNotifyOnSchedule] = useState(true);
+  function trySubmitManual(nextDate: string, nextTime: string, notify: boolean) {
     if (nextDate && nextTime) {
-      onFieldChange({ status: "scheduled", confirmed_date: nextDate, confirmed_time: nextTime, schedule_visible_to_customer: true });
+      onFieldChange({ status: "scheduled", confirmed_date: nextDate, confirmed_time: nextTime, schedule_visible_to_customer: true, notifySchedule: notify });
       setManualDate("");
       setManualTime("");
+      setConfirmingSchedule(false);
     }
   }
   return (
@@ -1597,12 +1605,50 @@ function JobRow({
                 <button
                   type="button"
                   disabled={!manualDate || !manualTime}
-                  onClick={() => trySubmitManual(manualDate, manualTime)}
+                  onClick={() => setConfirmingSchedule(true)}
                   className="shrink-0 rounded-lg bg-emerald-600 px-2 py-1 text-xs font-bold text-white disabled:opacity-50"
                 >
                   Schedule
                 </button>
               </div>
+              {confirmingSchedule && (
+                <div
+                  className="fixed inset-0 z-10 flex items-center justify-center bg-black/40 px-4"
+                  onClick={() => setConfirmingSchedule(false)}
+                >
+                  <div className="w-full max-w-sm rounded-xl bg-white p-5" onClick={(e) => e.stopPropagation()}>
+                    <h3 className="font-semibold text-slate-800">Schedule this job?</h3>
+                    <p className="mt-2 text-sm text-slate-600">
+                      {formatDateMDY(manualDate)} at {formatTime(manualTime)}
+                    </p>
+                    <label className="mt-4 flex items-start gap-2 text-sm text-slate-700">
+                      <input
+                        type="checkbox"
+                        checked={notifyOnSchedule}
+                        onChange={(e) => setNotifyOnSchedule(e.target.checked)}
+                        className="mt-0.5 h-4 w-4 accent-brand-600"
+                      />
+                      Email {job.customers?.company || "them"} that it's scheduled
+                    </label>
+                    <div className="mt-4 flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => trySubmitManual(manualDate, manualTime, notifyOnSchedule)}
+                        className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white"
+                      >
+                        Schedule
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmingSchedule(false)}
+                        className="rounded-lg border border-slate-300 px-4 py-2 text-sm"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             // No editable date/time cells for any other job source — just

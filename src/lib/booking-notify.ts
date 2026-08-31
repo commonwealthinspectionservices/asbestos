@@ -260,3 +260,70 @@ export async function sendJobConfirmedEmailIfDue(jobId: string): Promise<void> {
       .eq("id", job.id);
   }
 }
+
+/**
+ * Per Tim, 2026-08-30 — "when I move it from To Be Scheduled to Scheduled
+ * officially, it should ask me, would you like to send them an email
+ * notification" — the email_intake counterpart to
+ * sendJobConfirmedEmailIfDue above, which deliberately skips this source
+ * (see its own comment: no reliable distribution list to auto-reply to).
+ * This one is never automatic — only ever called when the admin explicitly
+ * opts in via that prompt, so the "who's really on this thread" concern
+ * doesn't apply the same way: it's a deliberate, reviewed decision each
+ * time, not a blind auto-send. Reuses confirmation_sent_at as the same
+ * "already notified" marker sendJobConfirmedEmailIfDue uses, so the
+ * existing "Confirmation sent {date}" tracking text picks it up too.
+ */
+export async function sendJobScheduledNotification(jobId: string): Promise<void> {
+  const supabase = getSupabaseAdmin();
+  const { data: job } = await supabase
+    .from("jobs")
+    .select("id, project_number, service_address, service_type, confirmed_date, confirmed_time, email_thread_message_ids, email_gmail_thread_id, customer_id")
+    .eq("id", jobId)
+    .maybeSingle();
+  if (!job || !job.confirmed_date) return;
+
+  const { data: customer } = await supabase.from("customers").select("email").eq("id", job.customer_id).maybeSingle();
+  if (!customer?.email) return;
+
+  const whenLine = job.confirmed_time
+    ? `${formatDateMDY(job.confirmed_date)} at ${formatRequestedTime(job.confirmed_time)}`
+    : formatDateMDY(job.confirmed_date) ?? "";
+
+  const rows = [
+    ["Service", job.service_type ?? ""],
+    ["Address", expandAddress(job.service_address)],
+    ["Scheduled", whenLine],
+  ];
+  if (job.project_number) rows.unshift(["Project #", job.project_number]);
+
+  const tableRows = rows
+    .map(
+      ([label, value]) =>
+        `<tr><td style="padding:4px 8px 4px 0; color:#64748b; white-space:nowrap; vertical-align:top;">${escapeHtml(label)}</td><td>${escapeHtml(value ?? "")}</td></tr>`
+    )
+    .join("");
+
+  const existingIds: string[] = Array.isArray(job.email_thread_message_ids) ? job.email_thread_message_ids : [];
+  const result = await sendThreadedEmail({
+    to: customer.email,
+    subject: threadSubject(job.service_address, job.service_type),
+    existingMessageIds: existingIds,
+    gmailThreadId: job.email_gmail_thread_id,
+    html: emailShell(`
+      <p style="font-size:15px;">This job is now scheduled:</p>
+      <table style="width:100%; font-size:14px; color:#16213a;">${tableRows}</table>
+      <p style="font-size:15px; margin-top:16px;">Let us know if anything changes.</p>
+    `),
+  });
+  if (result.ok) {
+    await supabase
+      .from("jobs")
+      .update({
+        email_thread_message_ids: result.messageId ? [...existingIds, result.messageId] : existingIds,
+        email_gmail_thread_id: result.gmailThreadId ?? job.email_gmail_thread_id,
+        confirmation_sent_at: new Date().toISOString(),
+      })
+      .eq("id", job.id);
+  }
+}

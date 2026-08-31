@@ -321,6 +321,21 @@ export const PATCH = withApiErrors(async (
     );
   }
 
+  // Per Tim, 2026-08-30 — email_intake jobs (Boston Harbor Water
+  // Restoration) never get the automatic "confirmed" email above (see
+  // sendJobConfirmedEmailIfDue's own comment on that source), since he
+  // manually replies on the thread himself instead. This is that same
+  // reply, just admin-triggered: `notifySchedule: true` is sent only when
+  // he checks the box in the "move to Scheduled" prompt, never implied by
+  // status/confirmed_date alone — so it's read straight off the raw body,
+  // not derived from `patch`.
+  if (body.notifySchedule === true) {
+    const { sendJobScheduledNotification } = await import("@/lib/booking-notify");
+    await sendJobScheduledNotification(params.id).catch((e) =>
+      console.error(`Failed to send schedule notification for job ${params.id}:`, e)
+    );
+  }
+
   if (justBecamePaid) {
     // Dynamic import: lab-email.ts statically imports pdf-parse, which
     // corrupts state @react-pdf/renderer depends on if the two ever load

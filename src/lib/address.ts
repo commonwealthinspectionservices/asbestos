@@ -167,6 +167,14 @@ export function parseAddressToFields(address: string | null | undefined): Addres
 const UNIT_LABEL_RE = /^(Unit|Apt|Apartment|Suite|Ste|#)\b/i;
 
 export function buildBillingAddress({ street, unit, city, state, zip }: AddressFields): string {
+  // Per Tim, 2026-08-30 — "leave stuff blank instead of filling in generic
+  // info": every one of these forms defaults its State dropdown to "MA"
+  // with no blank option, so an address section nobody touched (e.g. a
+  // company-contact form that never shows street/city/zip fields at all)
+  // was still producing a lone "MA" instead of a genuinely empty address.
+  // Only the state defaulting to something is a UI convenience, not a real
+  // address — so treat state-only as nothing entered at all.
+  if (!street.trim() && !unit.trim() && !city.trim() && !zip.trim()) return "";
   const trimmedUnit = unit.trim();
   const labeledUnit = trimmedUnit && !UNIT_LABEL_RE.test(trimmedUnit) ? `Unit ${trimmedUnit}` : trimmedUnit;
   const streetLine = [street.trim(), labeledUnit].filter(Boolean).join(" ");

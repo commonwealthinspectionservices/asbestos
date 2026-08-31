@@ -9,20 +9,40 @@ import { withApiErrors } from "@/lib/api-handler";
 // contact. This assembles a browsable list purely by scanning jobs and
 // grouping same name+phone together, rather than reading from a table of
 // its own — read-only, nothing to keep in sync with job records.
+//
+// Excludes anyone who's since become a real Directory contact (Companies/
+// Individuals) — a job's site contact isn't always a homeowner (e.g. a
+// business rep at the subcontracting company's own client), and once
+// they're entered as a real contact they belong there instead, not here.
 export const GET = withApiErrors(async (req: NextRequest) => {
   const unauthorized = requireAdminApi(req);
   if (unauthorized) return unauthorized;
 
   const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase
-    .from("jobs")
-    .select("id, project_number, site_contact_name, site_contact_phone, service_address, status, source, requested_date, confirmed_date, created_at")
-    .not("site_contact_name", "is", null)
-    .order("created_at", { ascending: false });
+  const [{ data, error }, { data: customers, error: customersError }] = await Promise.all([
+    supabase
+      .from("jobs")
+      .select("id, project_number, site_contact_name, site_contact_phone, service_address, status, source, requested_date, confirmed_date, created_at")
+      .not("site_contact_name", "is", null)
+      .order("created_at", { ascending: false }),
+    supabase.from("customers").select("name"),
+  ]);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+  if (customersError) {
+    return NextResponse.json({ error: customersError.message }, { status: 500 });
+  }
+
+  // Per Tim, 2026-08-30 — Chris Bromley (Restoration 1's own rep, site
+  // contact on a job subcontracted through FLI Environmental) showed up
+  // here even after being entered as a real company contact: "he is not a
+  // homeowner... I want them to be able to keep his info for future sales."
+  // Once someone's a real Directory contact (linked to a company or not),
+  // they're not a passively-captured site contact anymore — same name
+  // match the jobs are already grouped by below, just against customers.
+  const realContactNames = new Set((customers ?? []).map((c) => c.name.trim().toLowerCase()));
 
   type JobRow = {
     id: string;
@@ -45,6 +65,7 @@ export const GET = withApiErrors(async (req: NextRequest) => {
   for (const job of (data ?? []) as JobRow[]) {
     const name = job.site_contact_name.trim();
     if (!name) continue;
+    if (realContactNames.has(name.toLowerCase())) continue;
     const phone = job.site_contact_phone?.trim() || null;
     const key = `${name.toLowerCase()}|${phone ?? ""}`;
     const existing = groups.get(key);

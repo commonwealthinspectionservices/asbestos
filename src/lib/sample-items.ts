@@ -43,18 +43,19 @@ export function parseSampleCounts(raw: unknown): { counts: Record<string, number
 
 /** Validates and normalizes a raw sample_findings payload — the per-positive-
     sample material + approximate footage typed in next to each lab result. */
-export function parseSampleFindings(raw: unknown): { findings: { fieldCode: string; material: string; estimated_quantity: string }[] } | { error: string } {
+export function parseSampleFindings(raw: unknown): { findings: { fieldCode: string; material: string; estimated_quantity: string; unit: "sq_ft" | "linear_ft" }[] } | { error: string } {
   if (!Array.isArray(raw)) {
     return { error: "sample_findings must be an array" };
   }
 
-  const findings: { fieldCode: string; material: string; estimated_quantity: string }[] = [];
+  const findings: { fieldCode: string; material: string; estimated_quantity: string; unit: "sq_ft" | "linear_ft" }[] = [];
   for (const rawItem of raw) {
     const fieldCode = typeof rawItem?.fieldCode === "string" ? rawItem.fieldCode.trim() : "";
     const material = typeof rawItem?.material === "string" ? rawItem.material.trim() : "";
     const estimatedQuantity = typeof rawItem?.estimated_quantity === "string" ? rawItem.estimated_quantity.trim() : "";
+    const unit = rawItem?.unit === "linear_ft" ? "linear_ft" : "sq_ft";
     if (!fieldCode) continue;
-    findings.push({ fieldCode, material, estimated_quantity: estimatedQuantity });
+    findings.push({ fieldCode, material, estimated_quantity: estimatedQuantity, unit });
   }
 
   return { findings };

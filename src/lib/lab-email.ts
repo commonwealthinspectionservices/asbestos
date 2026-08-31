@@ -1071,6 +1071,7 @@ async function processMatchedLabEmail(params: {
               fieldCode: s.fieldCode,
               material: materials[s.fieldCode] || existing?.material || "",
               estimated_quantity: existing?.estimated_quantity ?? "",
+              unit: existing?.unit ?? "sq_ft",
             };
           });
         if (findings.length > 0) update.sample_findings = findings;

@@ -315,8 +315,8 @@ describe("renderProjectReportPdf", () => {
         ...job,
         asbestos_result: "positive",
         sample_findings: [
-          { fieldCode: "01A", material: "12x12 floor tile", estimated_quantity: "120 sq ft" },
-          { fieldCode: "02A", material: "Pipe insulation", estimated_quantity: "40 ln ft" },
+          { fieldCode: "01A", material: "12x12 floor tile", estimated_quantity: "120", unit: "sq_ft" },
+          { fieldCode: "02A", material: "Pipe insulation", estimated_quantity: "40", unit: "linear_ft" },
         ],
       },
       customer,
@@ -327,7 +327,7 @@ describe("renderProjectReportPdf", () => {
     expect(text).toContain("12x12 floor tile");
     expect(text).toContain("120 sq ft");
     expect(text).toContain("Pipe insulation");
-    expect(text).toContain("40 ln ft");
+    expect(text).toContain("40 linear ft");
   });
 
   it("omits the materials-identified section entirely when sample_findings is empty", async () => {
@@ -342,7 +342,7 @@ describe("renderProjectReportPdf", () => {
 
   it("omits a sample_findings entry left blank in both fields", async () => {
     const pdf = await renderProjectReportPdfForDomain({
-      job: { ...job, asbestos_result: "positive", sample_findings: [{ fieldCode: "01A", material: "", estimated_quantity: "" }] },
+      job: { ...job, asbestos_result: "positive", sample_findings: [{ fieldCode: "01A", material: "", estimated_quantity: "", unit: "sq_ft" }] },
       customer,
       settings,
     }, "asbestos");

@@ -309,11 +309,15 @@ describe("renderProjectReportPdf", () => {
     expect(text).not.toContain("None of the suspect materials sampled were determined to have asbestos fibers present");
   });
 
-  it("lists positive materials with their approximate footage when sample_findings is populated", async () => {
+  it("adds a summary table page listing every positive sample with its material and footage", async () => {
     const pdf = await renderProjectReportPdfForDomain({
       job: {
         ...job,
         asbestos_result: "positive",
+        sample_results: [
+          { fieldCode: "01A", result: "7% Chrysotile" },
+          { fieldCode: "02A", result: "10% Chrysotile" },
+        ],
         sample_findings: [
           { fieldCode: "01A", material: "12x12 floor tile", estimated_quantity: "120", unit: "sq_ft" },
           { fieldCode: "02A", material: "Pipe insulation", estimated_quantity: "40", unit: "linear_ft" },
@@ -323,31 +327,44 @@ describe("renderProjectReportPdf", () => {
       settings,
     }, "asbestos");
     const { text } = await pdfParse(pdf);
-    expect(text).toContain("Asbestos-Containing Materials Identified:");
+    expect(text).toContain("Asbestos-Containing Materials Summary Table");
+    expect(text).toContain("01A");
     expect(text).toContain("12x12 floor tile");
     expect(text).toContain("120 square feet");
+    expect(text).toContain("02A");
     expect(text).toContain("Pipe insulation");
     expect(text).toContain("40 linear feet");
   });
 
-  it("omits the materials-identified section entirely when sample_findings is empty", async () => {
+  it("omits the summary table page entirely when there are no positive sample results", async () => {
     const pdf = await renderProjectReportPdfForDomain({
-      job: { ...job, asbestos_result: "positive", sample_findings: [] },
+      job: {
+        ...job,
+        asbestos_result: "negative",
+        sample_results: [{ fieldCode: "01A", result: "None Detected" }],
+        sample_findings: [],
+      },
       customer,
       settings,
     }, "asbestos");
     const { text } = await pdfParse(pdf);
-    expect(text).not.toContain("Asbestos-Containing Materials Identified:");
+    expect(text).not.toContain("Asbestos-Containing Materials Summary Table");
   });
 
-  it("omits a sample_findings entry left blank in both fields", async () => {
+  it("still lists a positive sample in the table when it has no matching sample_findings entry yet", async () => {
     const pdf = await renderProjectReportPdfForDomain({
-      job: { ...job, asbestos_result: "positive", sample_findings: [{ fieldCode: "01A", material: "", estimated_quantity: "", unit: "sq_ft" }] },
+      job: {
+        ...job,
+        asbestos_result: "positive",
+        sample_results: [{ fieldCode: "01A", result: "7% Chrysotile" }],
+        sample_findings: [],
+      },
       customer,
       settings,
     }, "asbestos");
     const { text } = await pdfParse(pdf);
-    expect(text).not.toContain("Asbestos-Containing Materials Identified:");
+    expect(text).toContain("Asbestos-Containing Materials Summary Table");
+    expect(text).toContain("01A");
   });
 
   it("renders bullet- and number-marked lines in mold_report_notes as an actual list, not literal markers", async () => {

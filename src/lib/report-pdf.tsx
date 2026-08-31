@@ -163,14 +163,6 @@ const styles = StyleSheet.create({
   listItemFullInspection: { flexDirection: "row", marginBottom: STANDARD_GAP + 6, paddingLeft: 4 },
   listIndex: { width: 16 },
   listText: { flex: 1, textAlign: "justify" },
-  // Per Tim, 2026-08-31 (reference screenshot) — approximate footage for a
-  // positive material reads large and centered, not folded into the
-  // material's own list-item text at body size. Trimmed down from the
-  // reference's own size (closer to 20pt) since this letter is held to one
-  // page — still clearly the most prominent thing in this section, but
-  // small enough that 2-3 positive materials with footage filled in don't
-  // automatically force a second page the way 20pt did in testing.
-  materialQuantity: { fontSize: 15, fontWeight: 700, textAlign: "center", marginTop: 1, marginBottom: TIGHT_GAP },
   // The positive/negative sentence both wrap to ~2 lines at this width;
   // "NO RESULTS YET." on its own is one short line. Reserving 2 lines'
   // worth of height for this one remark specifically keeps the letter's
@@ -206,6 +198,13 @@ const styles = StyleSheet.create({
   appendixColSamplesB: { width: "14%", paddingRight: 4 },
   appendixColMaterialB: { width: "24%", paddingRight: 4 },
   appendixColLocB: { width: "20.66%", paddingRight: 4 },
+  // Limited Inspection's own positive-materials table (3 columns, no
+  // Location column — Limited jobs don't track per-material location the
+  // way Full Inspection's materials editor does) — wider than Appendix A's
+  // own column set so the table still fills the page width.
+  positiveMaterialsColSample: { width: "16%", paddingRight: 4 },
+  positiveMaterialsColMaterial: { width: "54%", paddingRight: 4 },
+  positiveMaterialsColQuantity: { width: "30%" },
 });
 
 export interface ProjectReportData {
@@ -404,15 +403,29 @@ function AsbestosReportDocument({ job, customer, settings }: ProjectReportData) 
   const { knownCustomerName, dateText, billingStreet, billing, serviceStreet, service } = commonLetterFields(job, customer, settings, job.lab_date_sampled ?? job.confirmed_date ?? job.requested_date);
 
   // Per Tim, 2026-08-31 — Limited Inspection's own counterpart to Full
-  // Inspection's Appendix A "Estimated quantity" column: the material +
-  // approximate footage typed in next to each positive lab result in the
-  // admin UI. Filtered to only rows actually filled in, both because a
-  // fieldCode gets a stub entry the moment its input is touched (even if
-  // later cleared back to blank) and to keep this section's footprint at
-  // zero on any job where the field is left unused — this letter is held
-  // to one page (see pageAsbestos above) and can't afford a section that
-  // always reserves space regardless of whether there's anything to say.
-  const materialFindings = (job.sample_findings ?? []).filter((f) => f.material.trim() || f.estimated_quantity.trim());
+  // Inspection's Appendix A table: a table page listing every positive
+  // sample with its material and approximate footage, added on only when
+  // the job actually has positive results — this letter is otherwise held
+  // to one page (see pageAsbestos above) and a job with nothing positive
+  // shouldn't grow a page over an empty table. One row per positive
+  // sample_results entry (not deduped by material) — 01A/01B on the same
+  // material are still two separate physical samples with their own
+  // footage. Cross-referenced against sample_findings by fieldCode for the
+  // material/quantity that field carries; a positive result with no
+  // sample_findings entry yet still gets a row (blank material/quantity)
+  // rather than being silently dropped from the table.
+  const positiveSamples = (job.sample_results ?? []).filter((s) => /%/.test(s.result));
+  const findingByCode = new Map((job.sample_findings ?? []).map((f) => [f.fieldCode, f]));
+  const positiveMaterialRows = positiveSamples.map((s) => {
+    const finding = findingByCode.get(s.fieldCode);
+    return {
+      fieldCode: s.fieldCode,
+      material: finding?.material ?? "",
+      quantityText: finding?.estimated_quantity
+        ? `${finding.estimated_quantity} ${finding.unit === "linear_ft" ? "linear feet" : "square feet"}`
+        : "",
+    };
+  });
 
   return (
     <Document title={`Bulk Sample Analytical Results — ${expandAddress(job.service_address)}`}>
@@ -494,32 +507,31 @@ function AsbestosReportDocument({ job, customer, settings }: ProjectReportData) 
           ))}
         </View>
 
-        {materialFindings.length > 0 && (
-          <View wrap={false}>
-            <Text style={styles.sectionTitle}>Asbestos-Containing Materials Identified:</Text>
-            <View style={styles.listBlock}>
-              {materialFindings.map((f, i) => (
-                <View key={i} wrap={false}>
-                  <View style={styles.listItem}>
-                    <Text style={styles.listIndex}>{i + 1}.</Text>
-                    <Text style={styles.listText}>{f.material || "Unspecified material"}</Text>
-                  </View>
-                  {f.estimated_quantity && (
-                    <Text style={styles.materialQuantity}>
-                      Approximately {f.estimated_quantity} {f.unit === "linear_ft" ? "linear feet" : "square feet"}
-                    </Text>
-                  )}
-                </View>
-              ))}
-            </View>
-          </View>
-        )}
-
         <Text style={styles.paragraph}>
           Should you have any questions or need additional information, please contact {inspector.name} at {settings.business_phone}.
         </Text>
 
         <SignatureBlock settings={settings} showLicense />
+
+        {positiveMaterialRows.length > 0 && (
+          <>
+            <Text style={styles.sectionTitle} break>Asbestos-Containing Materials Summary Table</Text>
+            <View style={styles.appendixTable}>
+              <View style={styles.appendixHeaderRow}>
+                <Text style={[styles.positiveMaterialsColSample, styles.appendixHeaderText]}>Sample #</Text>
+                <Text style={[styles.positiveMaterialsColMaterial, styles.appendixHeaderText]}>Material</Text>
+                <Text style={[styles.positiveMaterialsColQuantity, styles.appendixHeaderText]}>Approximate Quantity</Text>
+              </View>
+              {positiveMaterialRows.map((r, i) => (
+                <View style={styles.appendixRow} key={i}>
+                  <Text style={[styles.positiveMaterialsColSample, styles.appendixCellText]}>{r.fieldCode}</Text>
+                  <Text style={[styles.positiveMaterialsColMaterial, styles.appendixCellText]}>{r.material}</Text>
+                  <Text style={[styles.positiveMaterialsColQuantity, styles.appendixCellText]}>{r.quantityText}</Text>
+                </View>
+              ))}
+            </View>
+          </>
+        )}
       </Page>
     </Document>
   );

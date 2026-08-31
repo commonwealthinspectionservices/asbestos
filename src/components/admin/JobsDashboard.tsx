@@ -2004,6 +2004,25 @@ export function ProjectDetailDialog({
   const [savingMaterials, setSavingMaterials] = useState(false);
   const materialsHasMountedRef = useRef(false);
   const materialsDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Per Tim, 2026-08-31 — Limited Inspection jobs' own counterpart to
+  // fullInspectionMaterials above: material + approximate footage typed in
+  // next to a positive sample result, not a whole separate materials
+  // table. Same always-save-on-change debounce pattern.
+  const [sampleFindings, setSampleFindings] = useState<{ fieldCode: string; material: string; estimated_quantity: string }[]>(job.sample_findings ?? []);
+  const sampleFindingsHasMountedRef = useRef(false);
+  const sampleFindingsDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  function findingFor(fieldCode: string) {
+    return sampleFindings.find((f) => f.fieldCode === fieldCode) ?? { fieldCode, material: "", estimated_quantity: "" };
+  }
+  function updateFinding(fieldCode: string, patch: Partial<{ material: string; estimated_quantity: string }>) {
+    setSampleFindings((rows) => {
+      const existing = rows.find((f) => f.fieldCode === fieldCode);
+      if (existing) {
+        return rows.map((f) => (f.fieldCode === fieldCode ? { ...f, ...patch } : f));
+      }
+      return [...rows, { fieldCode, material: "", estimated_quantity: "", ...patch }];
+    });
+  }
   const [payLinkLoading, setPayLinkLoading] = useState(false);
   const [payLinkError, setPayLinkError] = useState<string | null>(null);
   async function getPaymentLink() {
@@ -2439,6 +2458,30 @@ export function ProjectDetailDialog({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fullInspectionMaterials]);
+
+  async function saveSampleFindings() {
+    await fetch(`/api/admin/jobs/${job.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sample_findings: sampleFindings }),
+    });
+    onChanged();
+  }
+
+  useEffect(() => {
+    if (!sampleFindingsHasMountedRef.current) {
+      sampleFindingsHasMountedRef.current = true;
+      return;
+    }
+    if (sampleFindingsDebounceRef.current) clearTimeout(sampleFindingsDebounceRef.current);
+    sampleFindingsDebounceRef.current = setTimeout(() => {
+      saveSampleFindings();
+    }, 1000);
+    return () => {
+      if (sampleFindingsDebounceRef.current) clearTimeout(sampleFindingsDebounceRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sampleFindings]);
 
 
   // Fingerprints of exactly the fields each PDF actually renders, passed to
@@ -3204,13 +3247,25 @@ export function ProjectDetailDialog({
                               </div>
                             )}
                             <div className="grid grid-cols-2 gap-3">
-                              <DocumentStation
-                                job={job}
-                                onChanged={onChanged}
-                                kind="lab_report"
-                                label="Laboratory Results"
-                                serviceType={label}
-                              />
+                              {/* Per Tim, 2026-08-31 — Chain of Custody must sit
+                                  directly below Laboratory Results with no gap.
+                                  Stacked together in their own column so their
+                                  height is independent of Sample Results (now
+                                  unbounded, so it's often the taller column) —
+                                  a plain 3-item grid-cols-2 wrap put Chain of
+                                  Custody in row 2 col 1, stretched apart from
+                                  Laboratory Results by however tall Sample
+                                  Results made row 1. */}
+                              <div className="space-y-3">
+                                <DocumentStation
+                                  job={job}
+                                  onChanged={onChanged}
+                                  kind="lab_report"
+                                  label="Laboratory Results"
+                                  serviceType={label}
+                                />
+                                <DocumentStation job={job} onChanged={onChanged} kind="coc" label="Chain of Custody" serviceType={label} />
+                              </div>
                               <div>
                                 <div className="flex flex-nowrap items-center gap-2">
                                   <h4 className="whitespace-nowrap text-xs font-semibold uppercase tracking-wide text-slate-400">Sample Results</h4>
@@ -3232,10 +3287,36 @@ export function ProjectDetailDialog({
                                     ? job.mold_sample_results?.filter((r) => !r.serviceType || r.serviceType === label)
                                     : job.sample_results;
                                   return results && results.length > 0 ? (
-                                    <div className="mt-1.5 h-40 w-full overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 p-2 font-mono text-xs">
-                                      {results.map((s, i) => (
-                                        <div key={i} className={/%/.test(s.result) ? "text-red-600" : "text-slate-900"}>{s.fieldCode}: {s.result}</div>
-                                      ))}
+                                    <div className="mt-1.5 w-full rounded-lg border border-slate-200 bg-slate-50 p-2 font-mono text-xs">
+                                      {results.map((s, i) => {
+                                        const isPositive = /%/.test(s.result);
+                                        const material = findingFor(s.fieldCode).material;
+                                        const showFinding = isPositive && group.domain === "asbestos";
+                                        return (
+                                          <div key={i} className={i > 0 ? "mt-2 border-t border-slate-200 pt-2" : ""}>
+                                            {/* Per Tim, 2026-08-31 — material (pulled from the lab report
+                                                itself, not typed in here) sits above its result, footage
+                                                goes directly to the right of the result in a plain bordered
+                                                cell — not red, matching the rest of the row's text size. */}
+                                            {showFinding && (
+                                              <div className="text-slate-500">
+                                                {material || <span className="italic text-slate-400">Material not available</span>}
+                                              </div>
+                                            )}
+                                            <div className={isPositive ? "text-red-600" : "text-slate-900"}>
+                                              {s.fieldCode}: {s.result}
+                                              {showFinding && (
+                                                <input
+                                                  className="ml-2 w-28 rounded border border-slate-300 bg-white px-1.5 py-0.5 text-xs text-slate-700 placeholder:italic placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
+                                                  placeholder="add footage"
+                                                  value={findingFor(s.fieldCode).estimated_quantity}
+                                                  onChange={(e) => updateFinding(s.fieldCode, { estimated_quantity: e.target.value })}
+                                                />
+                                              )}
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
                                       <div className="mt-1.5 border-t border-slate-200 pt-1.5 font-sans font-semibold text-slate-500">
                                         Total: {results.length} sample{results.length === 1 ? "" : "s"}
                                       </div>
@@ -3247,7 +3328,6 @@ export function ProjectDetailDialog({
                                   );
                                 })()}
                               </div>
-                              <DocumentStation job={job} onChanged={onChanged} kind="coc" label="Chain of Custody" serviceType={label} />
                             </div>
                             {/* Discussion of Results lives right under this
                                 specific label's own upload station, not

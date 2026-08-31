@@ -41,6 +41,25 @@ export function parseSampleCounts(raw: unknown): { counts: Record<string, number
   return { counts };
 }
 
+/** Validates and normalizes a raw sample_findings payload — the per-positive-
+    sample material + approximate footage typed in next to each lab result. */
+export function parseSampleFindings(raw: unknown): { findings: { fieldCode: string; material: string; estimated_quantity: string }[] } | { error: string } {
+  if (!Array.isArray(raw)) {
+    return { error: "sample_findings must be an array" };
+  }
+
+  const findings: { fieldCode: string; material: string; estimated_quantity: string }[] = [];
+  for (const rawItem of raw) {
+    const fieldCode = typeof rawItem?.fieldCode === "string" ? rawItem.fieldCode.trim() : "";
+    const material = typeof rawItem?.material === "string" ? rawItem.material.trim() : "";
+    const estimatedQuantity = typeof rawItem?.estimated_quantity === "string" ? rawItem.estimated_quantity.trim() : "";
+    if (!fieldCode) continue;
+    findings.push({ fieldCode, material, estimated_quantity: estimatedQuantity });
+  }
+
+  return { findings };
+}
+
 /** Validates and normalizes a raw FullInspectionMaterial[] payload from the full-inspection materials editor. */
 export function parseFullInspectionMaterials(raw: unknown): { materials: FullInspectionMaterial[] } | { error: string } {
   if (!Array.isArray(raw)) {

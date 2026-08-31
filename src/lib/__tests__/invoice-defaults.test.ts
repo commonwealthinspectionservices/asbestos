@@ -42,6 +42,7 @@ function baseJob(overrides: Partial<JobWithCustomer> = {}): JobWithCustomer {
     sample_items: [],
     sample_counts: {},
     full_inspection_materials: [],
+    sample_findings: [],
     lab_name: null,
     lab_cost_cents: null,
     stripe_fee_cents: null,

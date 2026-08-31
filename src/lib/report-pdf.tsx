@@ -163,6 +163,14 @@ const styles = StyleSheet.create({
   listItemFullInspection: { flexDirection: "row", marginBottom: STANDARD_GAP + 6, paddingLeft: 4 },
   listIndex: { width: 16 },
   listText: { flex: 1, textAlign: "justify" },
+  // Per Tim, 2026-08-31 (reference screenshot) — approximate footage for a
+  // positive material reads large and centered, not folded into the
+  // material's own list-item text at body size. Trimmed down from the
+  // reference's own size (closer to 20pt) since this letter is held to one
+  // page — still clearly the most prominent thing in this section, but
+  // small enough that 2-3 positive materials with footage filled in don't
+  // automatically force a second page the way 20pt did in testing.
+  materialQuantity: { fontSize: 15, fontWeight: 700, textAlign: "center", marginTop: 1, marginBottom: TIGHT_GAP },
   // The positive/negative sentence both wrap to ~2 lines at this width;
   // "NO RESULTS YET." on its own is one short line. Reserving 2 lines'
   // worth of height for this one remark specifically keeps the letter's
@@ -395,6 +403,17 @@ function AsbestosReportDocument({ job, customer, settings }: ProjectReportData) 
 
   const { knownCustomerName, dateText, billingStreet, billing, serviceStreet, service } = commonLetterFields(job, customer, settings, job.lab_date_sampled ?? job.confirmed_date ?? job.requested_date);
 
+  // Per Tim, 2026-08-31 — Limited Inspection's own counterpart to Full
+  // Inspection's Appendix A "Estimated quantity" column: the material +
+  // approximate footage typed in next to each positive lab result in the
+  // admin UI. Filtered to only rows actually filled in, both because a
+  // fieldCode gets a stub entry the moment its input is touched (even if
+  // later cleared back to blank) and to keep this section's footprint at
+  // zero on any job where the field is left unused — this letter is held
+  // to one page (see pageAsbestos above) and can't afford a section that
+  // always reserves space regardless of whether there's anything to say.
+  const materialFindings = (job.sample_findings ?? []).filter((f) => f.material.trim() || f.estimated_quantity.trim());
+
   return (
     <Document title={`Bulk Sample Analytical Results — ${expandAddress(job.service_address)}`}>
       <Page size="LETTER" style={[styles.page, styles.pageAsbestos]}>
@@ -474,6 +493,25 @@ function AsbestosReportDocument({ job, customer, settings }: ProjectReportData) 
             </View>
           ))}
         </View>
+
+        {materialFindings.length > 0 && (
+          <View wrap={false}>
+            <Text style={styles.sectionTitle}>Asbestos-Containing Materials Identified:</Text>
+            <View style={styles.listBlock}>
+              {materialFindings.map((f, i) => (
+                <View key={i} wrap={false}>
+                  <View style={styles.listItem}>
+                    <Text style={styles.listIndex}>{i + 1}.</Text>
+                    <Text style={styles.listText}>{f.material || "Unspecified material"}</Text>
+                  </View>
+                  {f.estimated_quantity && (
+                    <Text style={styles.materialQuantity}>Approximately {f.estimated_quantity}</Text>
+                  )}
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
 
         <Text style={styles.paragraph}>
           Should you have any questions or need additional information, please contact {inspector.name} at {settings.business_phone}.

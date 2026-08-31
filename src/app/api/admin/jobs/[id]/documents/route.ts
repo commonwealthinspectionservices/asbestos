@@ -8,7 +8,7 @@ import pdfParse from "pdf-parse/lib/pdf-parse.js";
 import { requireAdminApi } from "@/lib/admin-api";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { withApiErrors } from "@/lib/api-handler";
-import { extractSampleCount, detectAsbestosResult, extractSampleResults, extractReportProjectNumber, detectLabInfo, extractMoldSampleCount, extractMoldSampleResults, extractSampledDate } from "@/lib/parse-lab-report";
+import { extractSampleCount, detectAsbestosResult, extractSampleResults, extractReportProjectNumber, detectLabInfo, extractMoldSampleCount, extractMoldSampleResults, extractSampledDate, extractCrystalAnalyticalMaterialDescriptions } from "@/lib/parse-lab-report";
 import { isLabInvoiceText, extractLabInvoiceTotalCents, extractInvoiceNumber } from "@/lib/parse-lab-invoice";
 import { computeLabCostCentsFromDocuments } from "@/lib/lab-cost";
 import { splitTrailingCocPages } from "@/lib/split-lab-report-coc";
@@ -179,6 +179,25 @@ export const POST = withApiErrors(async (
         const sampleResults = extractSampleResults(text, positionOrderedText);
         if (sampleResults.length > 0) {
           update.sample_results = sampleResults;
+          // Per Tim, 2026-08-31 — see the matching comment in lab-email.ts
+          // (the automated-email upload path) for why this merges rather
+          // than replaces, and why it's Crystal-Analytical-only for now.
+          const labName = (labInfo?.labName ?? jobRow.lab_name ?? "").toLowerCase();
+          if (positionOrderedText && labName.includes("crystal analytical")) {
+            const materials = extractCrystalAnalyticalMaterialDescriptions(positionOrderedText);
+            const existingByCode = new Map((jobRow.sample_findings ?? []).map((f) => [f.fieldCode, f]));
+            const findings = sampleResults
+              .filter((s) => /%/.test(s.result))
+              .map((s) => {
+                const existing = existingByCode.get(s.fieldCode);
+                return {
+                  fieldCode: s.fieldCode,
+                  material: materials[s.fieldCode] || existing?.material || "",
+                  estimated_quantity: existing?.estimated_quantity ?? "",
+                };
+              });
+            if (findings.length > 0) update.sample_findings = findings;
+          }
         }
       }
 
@@ -313,7 +332,7 @@ export const POST = withApiErrors(async (
   // asbestos_result/sample_results may not exist yet if these migrations
   // haven't been run — tolerate that rather than losing the document
   // upload itself over it.
-  const TOLERATED_MISSING_COLUMNS = ["asbestos_result", "sample_results"];
+  const TOLERATED_MISSING_COLUMNS = ["asbestos_result", "sample_results", "sample_findings"];
   let updated: Record<string, unknown> | null = null;
   let updateError: { message?: string } | null = null;
   for (let attempt = 0; attempt <= TOLERATED_MISSING_COLUMNS.length; attempt++) {

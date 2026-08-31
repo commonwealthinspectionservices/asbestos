@@ -32,6 +32,7 @@ import {
   extractMoldSampleCount,
   extractMoldSampleResults,
   extractSampledDate,
+  extractCrystalAnalyticalMaterialDescriptions,
 } from "@/lib/parse-lab-report";
 import {
   isLabInvoiceText,
@@ -1044,7 +1045,37 @@ async function processMatchedLabEmail(params: {
       }
     }
     const sampleResults = extractSampleResults(pdfText, positionOrderedText);
-    if (sampleResults.length > 0) { update.sample_results = sampleResults; asbestosDataFound = true; }
+    if (sampleResults.length > 0) {
+      update.sample_results = sampleResults;
+      asbestosDataFound = true;
+      // Per Tim, 2026-08-31 — material for each positive result should
+      // always be pre-filled from the lab report, not typed in by hand.
+      // Only Crystal Analytical's layout has been verified (see
+      // extractCrystalAnalyticalMaterialDescriptions) — labInfo may not be
+      // set on this particular pass (only assigned when detectLabInfo finds
+      // a name above), so this also falls back to the job's own already-
+      // stored lab_name. Merges rather than replaces: an admin-entered
+      // footage (estimated_quantity) on a prior pass must survive a
+      // re-parse from a corrected/supplemental report, exactly like
+      // sample_findings is kept separate from sample_results in the first
+      // place (see that field's own comment in types.ts).
+      const labName = (labInfo?.labName ?? job.lab_name ?? "").toLowerCase();
+      if (positionOrderedText && labName.includes("crystal analytical")) {
+        const materials = extractCrystalAnalyticalMaterialDescriptions(positionOrderedText);
+        const existingByCode = new Map((job.sample_findings ?? []).map((f) => [f.fieldCode, f]));
+        const findings = sampleResults
+          .filter((s) => /%/.test(s.result))
+          .map((s) => {
+            const existing = existingByCode.get(s.fieldCode);
+            return {
+              fieldCode: s.fieldCode,
+              material: materials[s.fieldCode] || existing?.material || "",
+              estimated_quantity: existing?.estimated_quantity ?? "",
+            };
+          });
+        if (findings.length > 0) update.sample_findings = findings;
+      }
+    }
   }
   // Per Tim, 2026-08-27 — isMoldLabReport's own "fungal" keyword is the
   // only thing standing between a report landing on the right domain or
@@ -1113,12 +1144,24 @@ async function processMatchedLabEmail(params: {
   }));
   update.documents = await replaceDocumentsByKindAndServiceType(supabase, job.documents ?? [], reportDocuments);
 
-  const { data: updatedRow, error: updateError } = await supabase
-    .from("jobs")
-    .update(update)
-    .eq("id", job.id)
-    .select("*, customers!customer_id(*, companies!company_id(*))")
-    .single();
+  // sample_findings may not exist yet if its migration hasn't been run —
+  // tolerate that rather than failing this whole automated intake (every
+  // other field this pass extracted, plus the report document itself,
+  // would otherwise be lost too) the same way documents/route.ts's manual
+  // upload already tolerates asbestos_result/sample_results being new.
+  let updatedRow: Record<string, unknown> | null = null;
+  let updateError: { message?: string } | null = null;
+  for (let attempt = 0; attempt <= 1; attempt++) {
+    ({ data: updatedRow, error: updateError } = await supabase
+      .from("jobs")
+      .update(update)
+      .eq("id", job.id)
+      .select("*, customers!customer_id(*, companies!company_id(*))")
+      .single());
+    if (!updateError) break;
+    if (!("sample_findings" in update) || !/sample_findings/i.test(updateError?.message ?? "")) break;
+    delete update.sample_findings;
+  }
   if (updateError || !updatedRow) {
     throw new Error(`Failed to update project from lab email: ${updateError?.message}`);
   }

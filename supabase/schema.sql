@@ -1026,3 +1026,12 @@ alter table jobs add column if not exists is_revisit boolean not null default fa
 -- Tim, "I'm not always sure going in who I'm gonna be subcontracting the
 -- job for... it should just be more of a note."
 alter table jobs add column if not exists subcontractor_client_company text;
+
+-- Per Tim, 2026-08-31 — "list out the approximate linear or square footage
+-- of each positive material identified in any of my reports": for Limited
+-- Inspection jobs, one row per positive sample (matched to sample_results
+-- by fieldCode), hand-typed material + approximate footage. Its own column
+-- rather than added onto sample_results, since that one gets fully
+-- overwritten every time a lab report is (re)parsed and would silently
+-- wipe this out.
+alter table jobs add column if not exists sample_findings jsonb not null default '[]'::jsonb;

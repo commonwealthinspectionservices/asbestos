@@ -3,7 +3,7 @@ import { getSupabaseAdminFresh } from "@/lib/supabase";
 import { requireAdminApi } from "@/lib/admin-api";
 import { withApiErrors } from "@/lib/api-handler";
 import { parseLineItems, lineItemsTotalCents } from "@/lib/invoice-line-items";
-import { parseSampleItems, parseSampleCounts, parseFullInspectionMaterials } from "@/lib/sample-items";
+import { parseSampleItems, parseSampleCounts, parseFullInspectionMaterials, parseSampleFindings } from "@/lib/sample-items";
 
 const EDITABLE_FIELDS = [
   "project_number",
@@ -138,6 +138,18 @@ export const PATCH = withApiErrors(async (
         ? "negative"
         : null;
     }
+  }
+
+  // Per Tim, 2026-08-31 — positive-sample material/footage, typed in next
+  // to that sample's lab result on the Samples tab. Deliberately its own
+  // field rather than living on sample_results itself (see sample_findings'
+  // own comment in types.ts).
+  if ("sample_findings" in body) {
+    const parsed = parseSampleFindings(body.sample_findings);
+    if ("error" in parsed) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
+    }
+    patch.sample_findings = parsed.findings;
   }
 
   if (Object.keys(patch).length === 0) {
@@ -283,7 +295,7 @@ export const PATCH = withApiErrors(async (
   // Columns added after this route was first written — tolerated in case
   // the migration adding them hasn't been run against this database yet,
   // so a save never hard-fails over one of them being missing.
-  const TOLERATED_MISSING_COLUMNS = ["paid_date", "sample_counts", "report_emails", "invoice_emails", "scope_of_work", "payment_due_date", "asbestos_result", "lead_result", "invoice_auto", "confirmed_date", "confirmed_time", "schedule_visible_to_customer", "report_release_override", "full_inspection_materials", "lead_report_summary", "lead_report_notes", "lead_lab_name", "lead_lab_cert", "subcontractor_client_company"];
+  const TOLERATED_MISSING_COLUMNS = ["paid_date", "sample_counts", "report_emails", "invoice_emails", "scope_of_work", "payment_due_date", "asbestos_result", "lead_result", "invoice_auto", "confirmed_date", "confirmed_time", "schedule_visible_to_customer", "report_release_override", "full_inspection_materials", "lead_report_summary", "lead_report_notes", "lead_lab_name", "lead_lab_cert", "subcontractor_client_company", "sample_findings"];
 
   let currentPatch = patch;
   let data: Record<string, unknown> | null = null;

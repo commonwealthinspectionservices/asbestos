@@ -72,6 +72,7 @@ const job: Job = {
   ],
   sample_counts: {},
   full_inspection_materials: [],
+  sample_findings: [],
   lab_name: "Crystal Analytical, LLC.",
   lab_cost_cents: 12000,
   stripe_fee_cents: null,

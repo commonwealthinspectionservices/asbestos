@@ -84,6 +84,7 @@ const job: Job = {
   ],
   sample_counts: {},
   full_inspection_materials: [],
+  sample_findings: [],
   lab_name: "Crystal Analytical, LLC.",
   lab_cost_cents: 12000,
   stripe_fee_cents: null,
@@ -306,6 +307,47 @@ describe("renderProjectReportPdf", () => {
     const { text } = await pdfParse(pdf);
     expect(text).not.toContain("must be removed by a licensed asbestos abatement contractor");
     expect(text).not.toContain("None of the suspect materials sampled were determined to have asbestos fibers present");
+  });
+
+  it("lists positive materials with their approximate footage when sample_findings is populated", async () => {
+    const pdf = await renderProjectReportPdfForDomain({
+      job: {
+        ...job,
+        asbestos_result: "positive",
+        sample_findings: [
+          { fieldCode: "01A", material: "12x12 floor tile", estimated_quantity: "120 sq ft" },
+          { fieldCode: "02A", material: "Pipe insulation", estimated_quantity: "40 ln ft" },
+        ],
+      },
+      customer,
+      settings,
+    }, "asbestos");
+    const { text } = await pdfParse(pdf);
+    expect(text).toContain("Asbestos-Containing Materials Identified:");
+    expect(text).toContain("12x12 floor tile");
+    expect(text).toContain("120 sq ft");
+    expect(text).toContain("Pipe insulation");
+    expect(text).toContain("40 ln ft");
+  });
+
+  it("omits the materials-identified section entirely when sample_findings is empty", async () => {
+    const pdf = await renderProjectReportPdfForDomain({
+      job: { ...job, asbestos_result: "positive", sample_findings: [] },
+      customer,
+      settings,
+    }, "asbestos");
+    const { text } = await pdfParse(pdf);
+    expect(text).not.toContain("Asbestos-Containing Materials Identified:");
+  });
+
+  it("omits a sample_findings entry left blank in both fields", async () => {
+    const pdf = await renderProjectReportPdfForDomain({
+      job: { ...job, asbestos_result: "positive", sample_findings: [{ fieldCode: "01A", material: "", estimated_quantity: "" }] },
+      customer,
+      settings,
+    }, "asbestos");
+    const { text } = await pdfParse(pdf);
+    expect(text).not.toContain("Asbestos-Containing Materials Identified:");
   });
 
   it("renders bullet- and number-marked lines in mold_report_notes as an actual list, not literal markers", async () => {

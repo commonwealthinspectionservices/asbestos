@@ -338,6 +338,8 @@ export interface Job {
   sample_results: { fieldCode: string; result: string }[];
   /** Mold's own version of sample_results, separate so an asbestos+mold job's two lab uploads don't clobber each other's per-sample list. serviceType (e.g. "Mold Air Sampling") tags which label a row belongs to, so the admin UI can show each label only its own samples — optional since rows recorded before this field existed don't have it. */
   mold_sample_results: { fieldCode: string; result: string; serviceType?: string }[];
+  /** Per Tim, 2026-08-31 — "list out the approximate linear or square footage of each positive material identified," for Limited Inspection jobs (Full Inspection jobs already have this via full_inspection_materials/estimated_quantity). One row per positive sample, hand-typed material + approximate footage, matched to sample_results by fieldCode for display — kept as its own field rather than added directly onto sample_results, since that array gets fully overwritten every time a lab report is (re)parsed (see lab-email.ts/documents route) and would silently wipe out anything typed in here. */
+  sample_findings: { fieldCode: string; material: string; estimated_quantity: string }[];
   requested_time: string | null;
   window: JobWindow;
   status: JobStatus;

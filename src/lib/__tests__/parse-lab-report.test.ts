@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { extractSampleCount, detectAsbestosResult, extractSampleResults, extractReportProjectNumber, extractReportProjectAddress, detectLabInfo, extractMoldSampleCount, extractMoldSampleResults } from "../parse-lab-report";
+import { extractSampleCount, detectAsbestosResult, extractSampleResults, extractReportProjectNumber, extractReportProjectAddress, detectLabInfo, extractMoldSampleCount, extractMoldSampleResults, extractCrystalAnalyticalMaterialDescriptions } from "../parse-lab-report";
 
 // Excerpts of real EMSL bulk asbestos PLM report text, exactly as pdf-parse
 // extracts it (value-before-label ordering and all — PDF text extraction
@@ -647,6 +647,96 @@ describe("Crystal Analytical report format", () => {
     const results = extractSampleResults(CRYSTAL_ANALYTICAL_PARENTHETICAL_REFERENCE);
     expect(results.map((r) => r.fieldCode)).toEqual(["01A", "01B", "02A", "02B", "03A", "03B", "04A", "04B"]);
     expect(results.every((r) => r.result === "None Detected")).toBe(true);
+  });
+});
+
+// Real Crystal Analytical report (job 26-0010, Laboratory ID 2601003705,
+// confirmed live 2026-08-31), run through extractPositionOrderedText —
+// unlike every other fixture in this file, extractCrystalAnalyticalMaterial
+// Descriptions needs the position-ordered reconstruction (see
+// pdf-position-text.ts), not the raw pdf-parse stream, since it depends on
+// each table row landing on its own line. Tim confirmed 01A/01B ("Black/
+// Brown 9x9 Floor Tile...") and 02A/02B ("Black Mastic...") as the real
+// material text off this exact report.
+const CRYSTAL_ANALYTICAL_POSITION_ORDERED = `Physical Non-Asbestos
+Description & Location Asbestos %
+Client ID Item ID
+Attributes Fibrous Components
+01A 0001 Black/Brown 9x9 Floor Tile, Floor, inside Brown 7% Chrysotile
+of closet, basement
+Non-Fibrous
+Homogeneous
+01B 0002 Black/Brown 9x9 Floor Tile, Floor, inside Brown 7% Chrysotile
+of closet, basement
+Non-Fibrous
+Homogeneous
+02A 0003 Black Mastic - 01A, Floor, inside of closet, Black 10% Chrysotile
+basement Non-Fibrous
+Homogeneous
+02B 0004 Black Mastic - 01B, Floor, inside of closet, Black 10% Chrysotile
+basement Non-Fibrous
+Homogeneous
+03A 0005 Gypsum Wall Base, White wall, right of White 5% Cellulose None Detected
+closet, basement Semi-Fibrous
+Homogeneous
+03B 0006 Gypsum Wall Base, White wall, right of White 5% Cellulose None Detected
+closet, basement
+Semi-Fibrous
+Homogeneous
+04A 0007 Gypsum Wall Skim Coat, White wall, right White None Detected
+of closet, basement
+Non-Fibrous
+Homogeneous
+04B 0008 Gypsum Wall Skim Coat, White wall, right White None Detected
+of closet, basement
+Non-Fibrous
+Homogeneous
+Reviewer:
+Analyst:
+Christine
+Renee Esber
+Cleveland
+Crystal Analytical, LLC.      •       55 Accord Park Dr., Ste. 2D; Rockland, MA 02370      •      (781) 347-3936
+Page 2 of 3
+
+LABORATORY ID: 2601003705
+Project Address: 6 Redmond Ave, North Reading, MA
+Project Name: 26-0010`;
+
+describe("extractCrystalAnalyticalMaterialDescriptions", () => {
+  it("pulls the real material text for a positive result whose color word doesn't repeat", () => {
+    const materials = extractCrystalAnalyticalMaterialDescriptions(CRYSTAL_ANALYTICAL_POSITION_ORDERED);
+    expect(materials["01A"]).toBe("Black/Brown 9x9 Floor Tile, Floor, inside of closet, basement");
+    expect(materials["01B"]).toBe("Black/Brown 9x9 Floor Tile, Floor, inside of closet, basement");
+  });
+
+  it("doesn't fold the description's own trailing comma+word into the color", () => {
+    // "...of closet, Black 10% Chrysotile" — the description itself ends in
+    // a location phrase right up against the color word, no punctuation
+    // between them to lean on.
+    const materials = extractCrystalAnalyticalMaterialDescriptions(CRYSTAL_ANALYTICAL_POSITION_ORDERED);
+    expect(materials["02A"]).toBe("Black Mastic - 01A, Floor, inside of closet, basement");
+    expect(materials["02B"]).toBe("Black Mastic - 01B, Floor, inside of closet, basement");
+  });
+
+  it("doesn't get fooled by a color word that also appears earlier in the description", () => {
+    // "White wall, right White None Detected" — "White" names both a wall
+    // in the description AND the row's real physical-attributes color.
+    const materials = extractCrystalAnalyticalMaterialDescriptions(CRYSTAL_ANALYTICAL_POSITION_ORDERED);
+    expect(materials["04A"]).toBe("Gypsum Wall Skim Coat, White wall, right of closet, basement");
+    expect(materials["04B"]).toBe("Gypsum Wall Skim Coat, White wall, right of closet, basement");
+  });
+
+  it("drops a row instead of guessing when a non-asbestos fibrous component's own percentage could steal the split", () => {
+    // "White 5% Cellulose None Detected" — Cellulose isn't a color, but a
+    // looser split could still land right before it.
+    const materials = extractCrystalAnalyticalMaterialDescriptions(CRYSTAL_ANALYTICAL_POSITION_ORDERED);
+    expect(materials["03A"]).toBeUndefined();
+    expect(materials["03B"]).toBeUndefined();
+  });
+
+  it("returns nothing for a report with no recognizable rows", () => {
+    expect(extractCrystalAnalyticalMaterialDescriptions("not a lab report")).toEqual({});
   });
 });
 

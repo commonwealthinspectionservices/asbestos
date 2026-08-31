@@ -182,6 +182,89 @@ function bestReportSamplesCrystalAnalytical(pdfText: string): SampleResult[] {
   return samples;
 }
 
+// Per Tim, 2026-08-31 — the material description for the admin's positive-
+// sample footage entry should be pulled from the lab report itself, not
+// typed in by hand: Crystal Analytical's "Description & Location" column
+// just echoes back whatever Tim named the sample when he submitted it.
+// Only wired up for Crystal Analytical (the only lab this was verified
+// against, real report 2601003705/26-0010) — EMSL and other labs fall back
+// to no material rather than guessing at an unfamiliar layout.
+//
+// Needs the position-ordered text (see pdf-position-text.ts), not the plain
+// stream-order text — same reason bestReportSamplesCrystalAnalytical does:
+// in position order, one table row reliably lands on one line, e.g.
+// "01A 0001 Black/Brown 9x9 Floor Tile, Floor, inside Brown 7% Chrysotile".
+// That line has the row's Client ID, Item ID, description, physical-
+// attributes color, and result all run together with no column separators,
+// so the description has to be pulled out from between the Item ID and the
+// color word rather than isolated by a delimiter.
+//
+// The color word can't be found by matching a fixed color vocabulary
+// against the whole line — a real report line reads "...White wall, right
+// White None Detected", where "White" is both part of the description
+// ("White wall") *and* the actual physical-attributes color naming the same
+// row. What's reliable instead is position: greedy backtracking against
+// "<description> <one word> <result>" locks onto the LAST word directly
+// adjacent to the result (the real color), leaving every earlier occurrence
+// — including a same-word one — inside the description where it belongs.
+//
+// A wrapped description's second line lands *after* the color/result cells
+// in position order (confirmed: row 04A's line 1 ends "...right White None
+// Detected", and "of closet, basement" — the rest of that same description
+// — is a separate line right after). So this also walks forward up to 2
+// more lines, stripping the physical-attributes column's own fixed-
+// vocabulary words (Non-Fibrous/Fibrous/Semi-Fibrous/Homogeneous/
+// Heterogeneous) out of each candidate line and appending whatever's left,
+// until it hits the next row's own field code or one of the report's
+// repeating header/footer lines (confirmed spanning a page break: "Reviewer:
+// / Analyst:" and the next page's "LABORATORY ID:" block).
+const CRYSTAL_ROW_START_PATTERN = /^(\d{2}[A-Z](?:\.\d+)?)\s+\d{4}\s+(.*)$/;
+// Deliberately narrower than CRYSTAL_RESULT_PATTERN above (no bare-mineral
+// fallback): a row with a non-asbestos fibrous component listed by its own
+// percentage before the real asbestos result (e.g. "White 5% Cellulose None
+// Detected") would otherwise let the bare mineral name "Chrysotile" alone
+// satisfy the boundary one word too early, swallowing the true color into
+// the description. Percent-or-"none detected" is unambiguous here since the
+// color word is never itself a number or that literal phrase.
+const CRYSTAL_MATERIAL_BOUNDARY_PATTERN = /none detected|\d+%/i;
+const CRYSTAL_DESCRIPTION_COLOR_PATTERN = new RegExp(`^(.+)\\s+\\S+\\s+(?=${CRYSTAL_MATERIAL_BOUNDARY_PATTERN.source})`, "i");
+const CRYSTAL_ATTRIBUTE_KEYWORDS_PATTERN = /\b(?:Non-Fibrous|Semi-Fibrous|Fibrous|Homogeneous|Heterogeneous)\b/gi;
+const CRYSTAL_NON_CONTINUATION_LINE_PATTERN = /^(?:Reviewer|Analyst|Page \d|LABORATORY ID|Client ID|Physical|Description & Location|Attributes|Fibrous Components|Crystal Analytical|Project (?:Address|Name)|Date|Contact Name|Client (?:Name|Location))/i;
+
+export function extractCrystalAnalyticalMaterialDescriptions(positionOrderedText: string): Record<string, string> {
+  const lines = positionOrderedText.split("\n");
+  const materials: Record<string, string> = {};
+
+  for (let i = 0; i < lines.length; i++) {
+    const rowMatch = lines[i].match(CRYSTAL_ROW_START_PATTERN);
+    if (!rowMatch) continue;
+    const [, fieldCode, rest] = rowMatch;
+    if (materials[fieldCode] !== undefined) continue;
+
+    const descriptionMatch = rest.match(CRYSTAL_DESCRIPTION_COLOR_PATTERN);
+    if (!descriptionMatch) continue;
+
+    const parts = [descriptionMatch[1].trim()];
+    for (let j = i + 1; j < Math.min(i + 3, lines.length); j++) {
+      const line = lines[j].trim();
+      if (!line || CRYSTAL_ROW_START_PATTERN.test(line) || CRYSTAL_NON_CONTINUATION_LINE_PATTERN.test(line)) break;
+      const stripped = line.replace(CRYSTAL_ATTRIBUTE_KEYWORDS_PATTERN, "").trim();
+      if (stripped) parts.push(stripped);
+    }
+    const material = parts.join(" ");
+    // A row whose non-asbestos fibrous component also carries its own
+    // percentage (e.g. "5% Cellulose") can still pull the split one word
+    // early even with the narrower boundary above — a stray "N%" left over
+    // in the joined text is the tell. Drop it rather than show something
+    // subtly wrong on a real inspection report; the UI's own "Material not
+    // available" fallback covers this instead.
+    if (/\d+%/.test(material)) continue;
+    materials[fieldCode] = material;
+  }
+
+  return materials;
+}
+
 // Tries every recognized report layout in turn and uses whichever actually
 // finds samples — each lab's own function returns an empty array rather
 // than throwing when its format doesn't match, so this is a safe waterfall

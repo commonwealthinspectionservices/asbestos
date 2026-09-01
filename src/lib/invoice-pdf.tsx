@@ -14,6 +14,13 @@ import type { Job, Customer, Company, Settings, InvoiceLineItem } from "@/lib/ty
 import { formatDateMDY } from "@/lib/date-format";
 import { formatPhoneNumber } from "@/lib/phone";
 import { expandAddress } from "@/lib/address";
+import {
+  FLI_ENVIRONMENTAL_COMPANY_ID,
+  FLI_ENVIRONMENTAL_BUSINESS_NAME,
+  FLI_ENVIRONMENTAL_ADDRESS,
+  FLI_ENVIRONMENTAL_PHONE,
+  effectiveProjectNumber,
+} from "@/lib/report-findings";
 
 const LETTERHEAD_PATH = path.join(process.cwd(), "public", "letterhead.png");
 
@@ -70,6 +77,15 @@ function InvoiceDocument({ job, customer, company, settings }: InvoiceData) {
 
   const totalCents = job.invoice_total_cents ?? lineItemsTotalCents(items);
 
+  // Per Tim, 2026-09-01 — FLI Environmental's own invoices must bill FLI
+  // itself (their real address/phone, not whatever's on file for them in
+  // the Directory, which can be incomplete) and must carry FLI's own
+  // project number (job.fli_project_number) alongside Commonwealth's —
+  // same effectiveProjectNumber helper report/email attachment filenames
+  // already use for these jobs, see report-findings.ts.
+  const isFliJob = customer.company_id === FLI_ENVIRONMENTAL_COMPANY_ID;
+  const fliProjectNumber = isFliJob ? effectiveProjectNumber(job) : null;
+
   return (
     <Document title={`Invoice — ${job.project_number ?? expandAddress(job.service_address)}`}>
       <Page size="LETTER" style={styles.page}>
@@ -81,6 +97,7 @@ function InvoiceDocument({ job, customer, company, settings }: InvoiceData) {
             <Text style={styles.invoiceTitle}>
               INVOICE{job.project_number && <Text style={styles.invoiceProjectNo}>   Project #{job.project_number}</Text>}
             </Text>
+            {fliProjectNumber && <Text style={styles.invoiceProjectNo}>FLI Project #{fliProjectNumber}</Text>}
           </View>
         </View>
 
@@ -89,18 +106,30 @@ function InvoiceDocument({ job, customer, company, settings }: InvoiceData) {
             happens to be on the job (e.g. "Boston Harbor Water Restoration",
             not "Joe Kline"). Per Tim: no Attn: line, ever — falls back to
             the contact's own name/phone only when there's no company on
-            file at all. */}
+            file at all. FLI Environmental always bills to FLI's own fixed
+            identity (see isFliJob above), never the Directory's copy. */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Bill to</Text>
-          <Text style={styles.meta}>{company?.name || customer.company || customer.name}</Text>
-          {customer.billing_address && <Text style={styles.meta}>{expandAddress(customer.billing_address)}</Text>}
-          {(company?.phone || customer.phone) && <Text style={styles.meta}>{formatPhoneNumber(company?.phone || customer.phone || "")}</Text>}
+          <Text style={styles.meta}>{isFliJob ? FLI_ENVIRONMENTAL_BUSINESS_NAME : (company?.name || customer.company || customer.name)}</Text>
+          {isFliJob ? (
+            <Text style={styles.meta}>{FLI_ENVIRONMENTAL_ADDRESS}</Text>
+          ) : (
+            customer.billing_address && <Text style={styles.meta}>{expandAddress(customer.billing_address)}</Text>
+          )}
+          {isFliJob ? (
+            <Text style={styles.meta}>{formatPhoneNumber(FLI_ENVIRONMENTAL_PHONE)}</Text>
+          ) : (
+            (company?.phone || customer.phone) && <Text style={styles.meta}>{formatPhoneNumber(company?.phone || customer.phone || "")}</Text>
+          )}
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Project</Text>
           {job.project_number && (
             <View style={styles.row}><Text style={styles.label}>Project #</Text><Text style={styles.value}>{job.project_number}</Text></View>
+          )}
+          {fliProjectNumber && (
+            <View style={styles.row}><Text style={styles.label}>FLI Project #</Text><Text style={styles.value}>{fliProjectNumber}</Text></View>
           )}
           <View style={styles.row}><Text style={styles.label}>Service address</Text><Text style={styles.value}>{expandAddress(job.service_address)}</Text></View>
           <View style={styles.row}><Text style={styles.label}>Service type(s)</Text><Text style={styles.value}>{serviceLabel}</Text></View>
@@ -148,7 +177,8 @@ function InvoiceDocument({ job, customer, company, settings }: InvoiceData) {
         </View>
 
         <Text style={styles.notesBlock}>
-          Please remit payment referencing Project #{job.project_number ?? "—"}.
+          Please remit payment referencing Project #{job.project_number ?? "—"}
+          {fliProjectNumber && ` (FLI Project #${fliProjectNumber})`}.
         </Text>
 
         <View style={styles.footer}>

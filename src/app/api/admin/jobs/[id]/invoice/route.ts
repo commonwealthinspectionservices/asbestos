@@ -5,7 +5,6 @@ import { getSettings } from "@/lib/settings";
 import { renderInvoicePdf } from "@/lib/invoice-pdf";
 import { withApiErrors } from "@/lib/api-handler";
 import { withCompanyBillingAddress } from "@/lib/customer-billing";
-import { effectiveProjectNumber } from "@/lib/report-findings";
 import type { Company, Customer, Job } from "@/lib/types";
 
 export const GET = withApiErrors(async (
@@ -44,7 +43,7 @@ export const GET = withApiErrors(async (
   return new NextResponse(new Uint8Array(pdf), {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `${disposition}; filename="${effectiveProjectNumber(jobRow) ?? params.id} invoice.pdf"`,
+      "Content-Disposition": `${disposition}; filename="${jobRow.project_number ?? params.id} invoice.pdf"`,
     },
   });
 });

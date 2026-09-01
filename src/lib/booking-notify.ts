@@ -274,11 +274,11 @@ export async function sendJobConfirmedEmailIfDue(jobId: string): Promise<void> {
  * "already notified" marker sendJobConfirmedEmailIfDue uses, so the
  * existing "Confirmation sent {date}" tracking text picks it up too.
  *
- * Per Tim, 2026-09-02 — "it needs to reply to every single person on the
- * email chain": replyAllFromThread Cc's every other address already on the
- * thread (see sendThreadedEmail's own comment), not just the one on-file
- * customer.email — the same "deliberate, reviewed send" reasoning above is
- * exactly why this is the one place that's safe to turn on.
+ * Per Tim, 2026-09-02 — "just make it a reply all": replyAllFromThread adds
+ * every other address already on the thread (see sendThreadedEmail's own
+ * comment) into `to`, not just the one on-file customer.email — the same
+ * "deliberate, reviewed send" reasoning above is exactly why this is the
+ * one place that's safe to turn on.
  */
 export async function sendJobScheduledNotification(jobId: string): Promise<void> {
   const supabase = getSupabaseAdmin();

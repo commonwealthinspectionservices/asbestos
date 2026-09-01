@@ -73,10 +73,11 @@ export async function sendThreadedEmail(params: {
   html: string;
   existingMessageIds: string[];
   gmailThreadId: string | null;
-  // Per Tim, 2026-09-02 — "it needs to reply to every single person on the
-  // email chain": Cc's every other From/To/Cc address already on the
-  // Gmail thread, not just the one on-file `to` address. Only ever passed
-  // true by an admin-initiated, reviewed send (see
+  // Per Tim, 2026-09-02 — "just make it a reply all": every other
+  // From/To/Cc address already on the Gmail thread goes straight into `to`
+  // alongside the one on-file address, not split off into Cc — one flat
+  // recipient list, no To-vs-Cc distinction to second-guess. Only ever
+  // passed true by an admin-initiated, reviewed send (see
   // sendJobScheduledNotification's own comment) — left off by default so
   // the fully-automatic booking-received/confirmed emails keep their
   // existing "no reliable distribution list to auto-reply to" behavior.
@@ -85,17 +86,16 @@ export async function sendThreadedEmail(params: {
   const accessToken = await getValidAccessToken();
   if (accessToken) {
     try {
-      let cc: string | undefined;
+      let to = params.to;
       if (params.replyAllFromThread && params.gmailThreadId) {
         const participants = await getThreadParticipants(accessToken, params.gmailThreadId);
         const extra = participants.filter(
           (addr) => addr.toLowerCase() !== params.to.toLowerCase() && addr.toLowerCase() !== OWN_ADDRESS.toLowerCase()
         );
-        if (extra.length > 0) cc = extra.join(", ");
+        if (extra.length > 0) to = [params.to, ...extra].join(", ");
       }
       const sent = await sendMessage(accessToken, {
-        to: params.to,
-        cc,
+        to,
         subject: params.subject,
         bodyHtml: params.html,
         headers: threadHeaders(params.existingMessageIds),

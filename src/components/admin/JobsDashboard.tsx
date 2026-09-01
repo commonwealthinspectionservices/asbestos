@@ -2711,7 +2711,7 @@ export function ProjectDetailDialog({
           with padding + rounded corners on the same scrolling element,
           let content bleed above the header during momentum scroll on
           mobile Safari). */}
-      <div className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl bg-white">
+      <div className="flex max-h-[95vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl bg-white">
         {(() => {
           // One dropdown option per tab the button row below would otherwise
           // render — a report tab is keyed "report:<domain>" since a job
@@ -3202,36 +3202,6 @@ export function ProjectDetailDialog({
                 <DetailField label="Billing address" value={addressLines(job.customers?.companies?.billing_address)} nowrap />
               </>
             )}
-            {/* Per Tim, 2026-08-31 — "align this all the way left": same
-                move as FLI Environmental information above, now for every
-                other company job too — Company info moves down here out
-                of the right column, Company contact stays put. */}
-            {!isFliJob && !job.customers?.is_individual && job.customers?.companies && (
-              job.customers.companies.billing_contact || job.customers.companies.phone || job.customers.companies.billing_address
-            ) && (
-              <>
-                <h4 className="mt-8 text-sm font-bold tracking-wide text-black underline">Company info</h4>
-                {job.customers.companies.billing_contact && (
-                  <DetailField
-                    label="Billing contact"
-                    value={
-                      <a
-                        href={`/admin/customers?tab=contacts&contactId=${job.customers.companies.billing_contact.id}`}
-                        className="hover:underline"
-                      >
-                        {toTitleCase(job.customers.companies.billing_contact.name)}
-                      </a>
-                    }
-                    nowrap
-                  />
-                )}
-                <DetailField
-                  label="Phone"
-                  value={job.customers.companies.phone ? <a href={telHref(job.customers.companies.phone)} className="text-brand-700 hover:underline">{formatPhoneInput(job.customers.companies.phone)}</a> : undefined}
-                />
-                <DetailField label="Billing address" value={addressLines(job.customers.companies.billing_address)} nowrap />
-              </>
-            )}
             {job.subcontractor_sample_types.length > 0 && (
               <div className="flex flex-col gap-0.5 text-sm sm:flex-row sm:items-start sm:gap-2">
                 <span className="font-bold text-black sm:w-48 sm:shrink-0 sm:whitespace-nowrap">Samples</span>
@@ -3379,6 +3349,38 @@ export function ProjectDetailDialog({
                 />
                 <DetailField label="Email" value={job.customers?.email} nowrap />
               </div>
+              {/* Per Tim, 2026-09-01 — moved back into the right column,
+                  under Company contact (was in the left column per
+                  2026-08-31's "align this all the way left"): the left
+                  column ran much taller than the right, leaving this whole
+                  area empty — Tim wants that space used rather than the
+                  left column trimmed. */}
+              {!job.customers?.is_individual && job.customers?.companies && (
+                job.customers.companies.billing_contact || job.customers.companies.phone || job.customers.companies.billing_address
+              ) && (
+                <div className="space-y-4 sm:space-y-2">
+                  <h4 className="text-sm font-bold tracking-wide text-black underline">Company info</h4>
+                  {job.customers.companies.billing_contact && (
+                    <DetailField
+                      label="Billing contact"
+                      value={
+                        <a
+                          href={`/admin/customers?tab=contacts&contactId=${job.customers.companies.billing_contact.id}`}
+                          className="hover:underline"
+                        >
+                          {toTitleCase(job.customers.companies.billing_contact.name)}
+                        </a>
+                      }
+                      nowrap
+                    />
+                  )}
+                  <DetailField
+                    label="Phone"
+                    value={job.customers.companies.phone ? <a href={telHref(job.customers.companies.phone)} className="text-brand-700 hover:underline">{formatPhoneInput(job.customers.companies.phone)}</a> : undefined}
+                  />
+                  <DetailField label="Billing address" value={addressLines(job.customers.companies.billing_address)} nowrap />
+                </div>
+              )}
             </div>
           )}
           </div>

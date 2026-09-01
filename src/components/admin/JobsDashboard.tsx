@@ -3475,26 +3475,22 @@ export function ProjectDetailDialog({
                                 </>
                               ) : (
                                 <>
-                                  {/* Per Tim, 2026-08-31 — Chain of Custody must sit
-                                      directly below Laboratory Results with no gap.
-                                      Stacked together in their own column so their
-                                      height is independent of Sample Results (now
-                                      unbounded, so it's often the taller column) —
-                                      a plain 3-item grid-cols-2 wrap put Chain of
-                                      Custody in row 2 col 1, stretched apart from
-                                      Laboratory Results by however tall Sample
-                                      Results made row 1. */}
-                                  <div className="space-y-3">
-                                    <DocumentStation
-                                      job={job}
-                                      onChanged={onChanged}
-                                      kind="lab_report"
-                                      label="Laboratory Results"
-                                      serviceType={label}
-                                    />
-                                    <DocumentStation job={job} onChanged={onChanged} kind="coc" label="Chain of Custody" serviceType={label} />
-                                  </div>
-                                  <div>
+                                  {/* Per Tim, 2026-09-01 — Chain of Custody sits
+                                      directly to the right of Laboratory Results
+                                      (same row, matching the mold layout above)
+                                      instead of stacked below it; Sample Results
+                                      moves down to its old spot and stretches the
+                                      full width of the row instead of sharing it
+                                      with Laboratory Results/Chain of Custody. */}
+                                  <DocumentStation
+                                    job={job}
+                                    onChanged={onChanged}
+                                    kind="lab_report"
+                                    label="Laboratory Results"
+                                    serviceType={label}
+                                  />
+                                  <DocumentStation job={job} onChanged={onChanged} kind="coc" label="Chain of Custody" serviceType={label} />
+                                  <div className="col-span-2">
                                     <div className="flex flex-nowrap items-center gap-2">
                                       <h4 className="whitespace-nowrap text-xs font-semibold uppercase tracking-wide text-slate-400">Sample Results</h4>
                                     </div>

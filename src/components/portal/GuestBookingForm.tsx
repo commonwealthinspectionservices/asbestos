@@ -427,7 +427,7 @@ export default function GuestBookingForm() {
                 in[sic] rush in plain text it should say Turnaround in
                 bold". */}
             <div className="flex shrink-0 flex-col items-end gap-1">
-              <span className="text-xs font-bold text-slate-700">Turnaround</span>
+              <span className="text-xs font-bold text-slate-700">Turnaround Time</span>
               <div className="flex items-center gap-1.5 text-xs font-bold uppercase">
                 <button
                   type="button"

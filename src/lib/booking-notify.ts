@@ -273,6 +273,12 @@ export async function sendJobConfirmedEmailIfDue(jobId: string): Promise<void> {
  * time, not a blind auto-send. Reuses confirmation_sent_at as the same
  * "already notified" marker sendJobConfirmedEmailIfDue uses, so the
  * existing "Confirmation sent {date}" tracking text picks it up too.
+ *
+ * Per Tim, 2026-09-02 — "it needs to reply to every single person on the
+ * email chain": replyAllFromThread Cc's every other address already on the
+ * thread (see sendThreadedEmail's own comment), not just the one on-file
+ * customer.email — the same "deliberate, reviewed send" reasoning above is
+ * exactly why this is the one place that's safe to turn on.
  */
 export async function sendJobScheduledNotification(jobId: string): Promise<void> {
   const supabase = getSupabaseAdmin();
@@ -312,6 +318,7 @@ export async function sendJobScheduledNotification(jobId: string): Promise<void>
     subject: threadSubject(job.service_address, job.service_type),
     existingMessageIds: existingIds,
     gmailThreadId: job.email_gmail_thread_id,
+    replyAllFromThread: true,
     html: emailShell(
       `
       <p style="font-size:15px;">This job is now scheduled:</p>

@@ -256,6 +256,47 @@ export async function getMessage(accessToken: string, id: string): Promise<Gmail
   return res.json();
 }
 
+// Best-effort split of a From/To/Cc header value into bare email addresses
+// — not a full RFC 5322 parser, just enough for real Gmail headers. Pulls
+// every "<addr>"-bracketed address out first (handles a comma inside a
+// quoted display name, e.g. `"Hammond, Ryan" <ryan@x.com>`, since the
+// bracket — not the comma — is what's matched on), then comma-splits
+// whatever's left over for any bare, non-bracketed addresses mixed in with
+// them.
+function extractEmailAddresses(headerValue: string): string[] {
+  const found: string[] = [];
+  const remaining = headerValue.replace(/[^,]*<([^<>]+)>/g, (_, addr: string) => {
+    found.push(addr.trim());
+    return "";
+  });
+  const bare = remaining
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s.includes("@"));
+  return [...found, ...bare];
+}
+
+// Per Tim, 2026-09-02 — "it needs to reply to every single person on the
+// email chain": every From/To/Cc address across every message in the
+// thread, deduped case-insensitively. Used by sendJobScheduledNotification
+// (see its own comment on why reply-all is safe there specifically, unlike
+// the fully-automatic booking-received/confirmed emails).
+export async function getThreadParticipants(accessToken: string, threadId: string): Promise<string[]> {
+  const res = await gmailFetch(accessToken, `/threads/${threadId}?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Cc`);
+  const data = await res.json();
+  const seen = new Map<string, string>();
+  for (const message of data.messages ?? []) {
+    for (const headerName of ["From", "To", "Cc"]) {
+      const header = (message.payload?.headers ?? []).find((h: { name: string; value: string }) => h.name.toLowerCase() === headerName.toLowerCase());
+      if (!header?.value) continue;
+      for (const addr of extractEmailAddresses(header.value)) {
+        if (!seen.has(addr.toLowerCase())) seen.set(addr.toLowerCase(), addr);
+      }
+    }
+  }
+  return Array.from(seen.values());
+}
+
 // Walks a message's MIME tree (attachments can be nested under
 // multipart/mixed > multipart/related, etc.) collecting every PDF part.
 export function findPdfParts(payload: GmailMessagePart | undefined): { filename: string; attachmentId: string }[] {
@@ -429,9 +470,9 @@ export async function createDraft(
 // In-Reply-To/References.
 export async function sendMessage(
   accessToken: string,
-  params: { to: string; subject: string; bodyHtml: string; headers?: Record<string, string>; threadId?: string }
+  params: { to: string; cc?: string; subject: string; bodyHtml: string; headers?: Record<string, string>; threadId?: string }
 ): Promise<{ id: string; threadId: string }> {
-  const raw = buildRawEmail({ from: FROM, to: params.to, subject: params.subject, bodyHtml: params.bodyHtml, attachments: [], headers: params.headers });
+  const raw = buildRawEmail({ from: FROM, to: params.to, cc: params.cc, subject: params.subject, bodyHtml: params.bodyHtml, attachments: [], headers: params.headers });
   const res = await gmailFetch(accessToken, "/messages/send", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

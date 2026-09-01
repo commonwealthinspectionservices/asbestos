@@ -18,8 +18,8 @@
 // Falls back to Resend (see lib/email.ts) whenever Gmail isn't connected,
 // so these emails still send even if the Gmail connection is down — just
 // without joining the thread that time.
-import { sendEmail } from "@/lib/email";
-import { getValidAccessToken, sendMessage, getMessageIdHeader } from "@/lib/gmail";
+import { sendEmail, FROM } from "@/lib/email";
+import { getValidAccessToken, sendMessage, getMessageIdHeader, getThreadParticipants } from "@/lib/gmail";
 import { inspectionReportSubjectPrefix } from "@/lib/report-findings";
 import { expandAddress } from "@/lib/address";
 
@@ -62,18 +62,40 @@ export interface ThreadSendResult {
   gmailThreadId: string | null;
 }
 
+// Bare address out of FROM ("Commonwealth Inspection Services <tim@...>") —
+// used below to keep replyAllFromThread from Cc'ing our own mailbox back to
+// itself.
+const OWN_ADDRESS = FROM.match(/<([^<>]+)>/)?.[1] ?? FROM;
+
 export async function sendThreadedEmail(params: {
   to: string;
   subject: string;
   html: string;
   existingMessageIds: string[];
   gmailThreadId: string | null;
+  // Per Tim, 2026-09-02 — "it needs to reply to every single person on the
+  // email chain": Cc's every other From/To/Cc address already on the
+  // Gmail thread, not just the one on-file `to` address. Only ever passed
+  // true by an admin-initiated, reviewed send (see
+  // sendJobScheduledNotification's own comment) — left off by default so
+  // the fully-automatic booking-received/confirmed emails keep their
+  // existing "no reliable distribution list to auto-reply to" behavior.
+  replyAllFromThread?: boolean;
 }): Promise<ThreadSendResult> {
   const accessToken = await getValidAccessToken();
   if (accessToken) {
     try {
+      let cc: string | undefined;
+      if (params.replyAllFromThread && params.gmailThreadId) {
+        const participants = await getThreadParticipants(accessToken, params.gmailThreadId);
+        const extra = participants.filter(
+          (addr) => addr.toLowerCase() !== params.to.toLowerCase() && addr.toLowerCase() !== OWN_ADDRESS.toLowerCase()
+        );
+        if (extra.length > 0) cc = extra.join(", ");
+      }
       const sent = await sendMessage(accessToken, {
         to: params.to,
+        cc,
         subject: params.subject,
         bodyHtml: params.html,
         headers: threadHeaders(params.existingMessageIds),

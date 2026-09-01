@@ -395,7 +395,7 @@ export default function PortalBookingForm({ isIndividual }: { isIndividual: bool
                 // some extra breathing room, set apart from Mold Inspection
                 // above it, now that it has no header of its own to mark
                 // the category change.
-                <div key={c} className={c === "lead" ? "mt-6" : undefined}>
+                <div key={c} className={c === "lead" ? "mt-12" : undefined}>
                   {/* Per Tim, 2026-09-02 — "the lead paint sampling title
                       should just be removed": Lead Paint Sampling is the
                       only item in this category, and the box itself now

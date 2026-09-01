@@ -308,7 +308,7 @@ function formatDateTime(iso: string | null | undefined): string {
   if (Number.isNaN(d.getTime())) return "";
   const datePart = `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}/${d.getFullYear()}`;
   const timePart = d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-  return `${datePart} ${timePart}`;
+  return `${datePart} at ${timePart}`;
 }
 
 // Deep-links straight to this exact draft/message in the Gmail web UI
@@ -2873,13 +2873,32 @@ export function ProjectDetailDialog({
               corner of this whole tab (anchored to this sm:relative
               wrapper), not inline with any particular field. Mobile is
               unaffected — its own copy stays inline with Project #, same
-              as before. */}
-          <button
-            onClick={onEdit}
-            className="hidden shrink-0 rounded-lg border border-slate-300 px-3.5 py-1.5 text-sm font-bold uppercase hover:underline sm:absolute sm:right-0 sm:top-0 sm:block"
-          >
-            Edit
-          </button>
+              as before. Per Tim, 2026-08-31 — the Gmail-thread mail icon
+              moved up here too, directly next to Edit, instead of sitting
+              off by itself near Project #; same hidden-on-mobile/
+              shown-on-desktop split as Edit's own two copies. */}
+          <div className="hidden shrink-0 items-center gap-2 sm:absolute sm:right-0 sm:top-0 sm:flex">
+            {job.email_gmail_thread_id && (
+              <a
+                href={`https://mail.google.com/mail/u/0/#all/${job.email_gmail_thread_id}`}
+                target="_blank"
+                rel="noreferrer"
+                title="Open this job's email conversation in Gmail"
+                className="shrink-0 rounded-lg border border-slate-300 p-2 text-slate-600 hover:bg-slate-50"
+              >
+                <svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="2" y="4" width="16" height="12" rx="2" stroke="currentColor" strokeWidth="1.5" />
+                  <path d="M3 5.5L10 11L17 5.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </a>
+            )}
+            <button
+              onClick={onEdit}
+              className="shrink-0 rounded-lg border border-slate-300 px-3.5 py-1.5 text-sm font-bold uppercase hover:underline"
+            >
+              Edit
+            </button>
+          </div>
           {/* Per Tim, 2026-08-28 — back to two columns on desktop (a narrow
               3fr right column was tried and reverted here before, but that
               was interleaving individual fields into a cramped sidebar;
@@ -2910,8 +2929,8 @@ export function ProjectDetailDialog({
               })();
               return (
                 <>
-                  {/* Edit stays inline next to Project # on mobile only now (see the absolutely-positioned desktop copy above); the portal badge (subcontractor jobs only) sits beside it there too, same as always. sm:pr-20 (desktop only) keeps this row's own right-aligned content — namely the Gmail-thread icon below, which has no reason to hide on desktop — from rendering underneath the pinned Edit button, which shares this same top-right corner. */}
-                  <div className="relative flex items-center justify-between gap-2 sm:pr-20">
+                  {/* Edit stays inline next to Project # on mobile only now (see the absolutely-positioned desktop copy above); the portal badge (subcontractor jobs only) sits beside it there too, same as always. Per Tim, 2026-08-31 — the Gmail-thread mail icon moved up next to that same desktop Edit copy, so its own instance here is mobile-only now too (sm:hidden) — sm:pr-28 (desktop only) still reserves clearance under the pinned Edit+icon block for the portal badge, which does stay visible on desktop. */}
+                  <div className="relative flex items-center justify-between gap-2 sm:pr-28">
                     <DetailField label="Project #" value={job.project_number} />
                     <div className="flex shrink-0 items-center gap-2">
                       <span className="hidden sm:inline-flex">{portalBadge}</span>
@@ -2928,7 +2947,7 @@ export function ProjectDetailDialog({
                           target="_blank"
                           rel="noreferrer"
                           title="Open this job's email conversation in Gmail"
-                          className="shrink-0 rounded-lg border border-slate-300 p-2 text-slate-600 hover:bg-slate-50"
+                          className="shrink-0 rounded-lg border border-slate-300 p-2 text-slate-600 hover:bg-slate-50 sm:hidden"
                         >
                           <svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <rect x="2" y="4" width="16" height="12" rx="2" stroke="currentColor" strokeWidth="1.5" />
@@ -3099,19 +3118,10 @@ export function ProjectDetailDialog({
             </div>
             {/* Per Tim, 2026-08-31 — moved down here (the open space below
                 Scope of Work) instead of cramped in with the date/time
-                fields above. */}
-            {job.confirmation_sent_at && (
-              <div className="flex flex-col gap-0.5 text-xs text-slate-400 sm:flex-row sm:items-start sm:gap-2">
-                <span className="uppercase font-bold sm:w-32 sm:shrink-0">Confirmation Sent</span>
-                <span className="break-words sm:min-w-0 sm:flex-1">{formatDateTime(job.confirmation_sent_at)}</span>
-              </div>
-            )}
-            {job.reminder_sent_at && (
-              <div className="flex flex-col gap-0.5 text-xs text-slate-400 sm:flex-row sm:items-start sm:gap-2">
-                <span className="uppercase font-bold sm:w-32 sm:shrink-0">Reminder Sent</span>
-                <span className="break-words sm:min-w-0 sm:flex-1">{formatDateTime(job.reminder_sent_at)}</span>
-              </div>
-            )}
+                fields above; same plain DetailField styling as every other
+                field on this tab, not the small muted text it had before. */}
+            <DetailField label="Confirmation Sent" value={job.confirmation_sent_at ? formatDateTime(job.confirmation_sent_at) : null} />
+            <DetailField label="Reminder Sent" value={job.reminder_sent_at ? formatDateTime(job.reminder_sent_at) : null} />
             {job.subcontractor_sample_types.length > 0 && (
               <div className="flex flex-col gap-0.5 text-sm sm:flex-row sm:items-start sm:gap-2">
                 <span className="font-bold text-black sm:w-48 sm:shrink-0 sm:whitespace-nowrap">Samples</span>

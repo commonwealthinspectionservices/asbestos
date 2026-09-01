@@ -19,6 +19,14 @@ const moldAir: ServiceType = {
   rush_fee_cents: 0,
 };
 
+const moldBulk: ServiceType = {
+  key: "mold_bulk",
+  label: "Mold Bulk Sampling",
+  base_fee_cents: 45000,
+  per_sample_cents: 2500,
+  rush_fee_cents: 0,
+};
+
 function baseJob(overrides: Partial<JobWithCustomer> = {}): JobWithCustomer {
   return {
     id: "job-1",
@@ -246,7 +254,10 @@ describe("defaultInvoiceLineItems", () => {
     expect(sampleRow?.description).toBe("Bulk Samples for Asbestos Analysis by PLM");
   });
 
-  it("leaves a Rush mold-only job's sample rate untouched — the $50 rush rate is asbestos-only", () => {
+  // Per Tim, 2026-09-02 — extended the flat rush rate to mold: $100/sample
+  // for Air-O-Cell, $50/sample for Mold Surface (Bulk) Sampling. Was
+  // asbestos-only before this; lead and mold swab still have no rush rate.
+  it("charges the $100 flat rush rate for a Rush Air-O-Cell job, not the standard per-sample rate", () => {
     const job = baseJob({
       service_type: "Mold Air Sampling",
       sample_counts: { "Mold Air Sampling": 4 },
@@ -254,8 +265,23 @@ describe("defaultInvoiceLineItems", () => {
     });
     const items = defaultInvoiceLineItems(job, [moldAir], []);
 
-    expect(items.find((i) => i.billing_unit === "Sample")?.unit_cost_cents).toBe(8500);
+    const sampleRow = items.find((i) => i.billing_unit === "Sample");
+    expect(sampleRow?.unit_cost_cents).toBe(10000);
+    expect(sampleRow?.description).toContain("(Rush)");
     expect(items.some((i) => i.description.includes("Rush Fee"))).toBe(false);
+  });
+
+  it("charges the $50 flat rush rate for a Rush Mold Bulk (Surface) Sampling job", () => {
+    const job = baseJob({
+      service_type: "Mold Bulk Sampling",
+      sample_counts: { "Mold Bulk Sampling": 3 },
+      lab_turnaround: "Rush",
+    });
+    const items = defaultInvoiceLineItems(job, [moldBulk], []);
+
+    const sampleRow = items.find((i) => i.billing_unit === "Sample");
+    expect(sampleRow?.unit_cost_cents).toBe(5000);
+    expect(sampleRow?.description).toContain("(Rush)");
   });
 
   it("adds the rush fee only once for a Newton job that's also marked Rush turnaround", () => {

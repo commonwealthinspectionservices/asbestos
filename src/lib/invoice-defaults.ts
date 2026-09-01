@@ -167,33 +167,41 @@ export function defaultInvoiceLineItems(
 
   // Per Tim, 2026-08-28 (confirmed against a real Boston Harbor Water
   // Restoration invoice, 26-0009) — "when it's a rush job, you just charge
-  // fifty dollars per sample for asbestos": a flat $50/sample rate on the
-  // bulk-asbestos line itself, not a multiplier of whatever the standard
-  // rate happens to be configured as, and not a separate rush-fee line on
-  // top of the normal sample line (an earlier version of this code added
-  // exactly that — $100 for the samples plus a further $200 "Rush Fee"
-  // line — which double-charged the rush premium). Newton Fire & Flood is
-  // the one exception: their own standing arrangement is a flat 20%
-  // surcharge on the whole invoice (below), not a per-sample rate change,
-  // so this $50 rate never applies to them.
-  const RUSH_ASBESTOS_SAMPLE_CENTS = 5000;
+  // fifty dollars per sample for asbestos": a flat rate on the sample line
+  // itself, not a multiplier of whatever the standard rate happens to be
+  // configured as, and not a separate rush-fee line on top of the normal
+  // sample line (an earlier version of this code added exactly that — $100
+  // for the samples plus a further $200 "Rush Fee" line — which
+  // double-charged the rush premium). Per Tim, 2026-09-02 — extended the
+  // same flat-rate-replacement treatment to mold: $50/sample for Mold
+  // Surface (Bulk) Sampling, matching asbestos, and $100/sample for
+  // Air-O-Cell. Lead and mold swab have no rush rate — a job's rush flag
+  // simply doesn't change their line's price, same as before this change.
+  // Newton Fire & Flood is the one exception across all of these: their own
+  // standing arrangement is a flat 20% surcharge on the whole invoice
+  // (below), not a per-sample rate change, so none of these rush rates
+  // ever apply to them.
+  const RUSH_SAMPLE_CENTS: Record<string, number> = {
+    "Bulk Samples for Asbestos Analysis by PLM": 5000,
+    "Bulk Samples for Mold Analysis": 5000,
+    "Air-O-Cell Samples for Mold Analysis": 10000,
+  };
   const rushRateApplies = isRush && !isNewton;
 
   for (const label of serviceTypeLabels) {
     const count = job.sample_counts?.[label];
     if (!count) continue;
-    const isAsbestosBulk = sampleDescriptionForServiceType(label) === "Bulk Samples for Asbestos Analysis by PLM";
-    const isRushAsbestosBulk = rushRateApplies && isAsbestosBulk;
-    const perSampleCents = isRushAsbestosBulk
-      ? RUSH_ASBESTOS_SAMPLE_CENTS
-      : resolvePerSampleCentsForLabel(label, serviceTypeSettings, job.per_sample_cents);
+    const description = sampleDescriptionForServiceType(label);
+    const rushCents = rushRateApplies ? RUSH_SAMPLE_CENTS[description] : undefined;
+    const isRushRate = rushCents != null;
+    const perSampleCents = isRushRate ? rushCents : resolvePerSampleCentsForLabel(label, serviceTypeSettings, job.per_sample_cents);
     if (perSampleCents == null) continue;
     rows.push({
       // Per Tim, 2026-08-28 — the line item itself has to say "Rush" so a
-      // customer looking at the invoice can see why this sample is $50
-      // instead of the usual $25, not just a bare price with no
-      // explanation for the difference.
-      description: isRushAsbestosBulk ? `${sampleDescriptionForServiceType(label)} (Rush)` : sampleDescriptionForServiceType(label),
+      // customer looking at the invoice can see why this sample costs more
+      // than usual, not just a bare price with no explanation for the
+      // difference.
+      description: isRushRate ? `${description} (Rush)` : description,
       quantity: count,
       billing_unit: "Sample",
       unit_cost_cents: perSampleCents,
@@ -210,7 +218,7 @@ export function defaultInvoiceLineItems(
       description: rushRateApplies ? "Bulk Samples for Asbestos Analysis by PLM (Rush)" : "Bulk Samples for Asbestos Analysis by PLM",
       quantity: job.sample_count,
       billing_unit: "Sample",
-      unit_cost_cents: rushRateApplies ? RUSH_ASBESTOS_SAMPLE_CENTS : job.per_sample_cents,
+      unit_cost_cents: rushRateApplies ? RUSH_SAMPLE_CENTS["Bulk Samples for Asbestos Analysis by PLM"] : job.per_sample_cents,
     });
   }
 

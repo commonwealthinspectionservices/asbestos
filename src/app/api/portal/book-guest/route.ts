@@ -20,7 +20,7 @@ export const POST = withApiErrors(async (req: NextRequest) => {
   const body = await req.json().catch(() => null);
   const {
     address, lat, lng, distanceMiles, state, serviceTypeKeys, date: requestedDate, requestedTime,
-    notes, scopeOfWork, disclaimerAck,
+    notes, scopeOfWork, disclaimerAck, rush,
     name, email, phone,
   } = body ?? {};
 
@@ -94,6 +94,11 @@ export const POST = withApiErrors(async (req: NextRequest) => {
       service_type: serviceTypeLabel,
       base_fee_cents: baseFeeCents,
       per_sample_cents: matchedServiceTypes[0].per_sample_cents,
+      // Per Tim, 2026-09-02 — the booking form's own Standard/Rush toggle
+      // (GuestBookingForm.tsx) previews rush pricing live; this is what
+      // makes that preview match what actually gets invoiced later
+      // (invoice-defaults.ts reads this same job.lab_turnaround).
+      lab_turnaround: rush ? "Rush" : null,
       requested_date: requestedDate,
       requested_time: time,
       window: derivedWindow,

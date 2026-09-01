@@ -9,11 +9,35 @@ import { buildBillingAddress, US_STATES } from "@/lib/address";
 import { formatPhoneNumber } from "@/lib/phone";
 import { formatDateMDY } from "@/lib/date-format";
 import { createSupabaseBrowserClient, createSupabaseEmailLinkClient } from "@/lib/supabase-browser";
+import { formatCents } from "@/lib/pricing";
 
 interface ServiceTypeOption {
   key: string;
   label: string;
   rateLabel: string;
+  base_fee_cents: number;
+}
+
+// Per Tim, 2026-09-02 — "we need to make the standard vs rush toggle for
+// this screen too... show how that effects prices as they change it", then
+// (follow-up) — "mold surface sampling rushes need to also be 50 for rush
+// and make it 100 for rush on air o cell samples": mirrors the real
+// invoicing rule in invoice-defaults.ts's own RUSH_SAMPLE_CENTS exactly — a
+// flat rate that replaces the normal per-sample rate for these types only.
+// Lead and mold swab have no rush rate; their price line doesn't change.
+const RUSH_SAMPLE_CENTS: Record<string, number> = {
+  asbestos_bulk: 5000,
+  asbestos_pre_reno: 5000,
+  asbestos_pre_demo: 5000,
+  mold_bulk: 5000,
+  mold_air: 10000,
+};
+function displayRateLabel(s: ServiceTypeOption, rush: boolean): string {
+  const rushCents = rush ? RUSH_SAMPLE_CENTS[s.key] : undefined;
+  if (rushCents != null) {
+    return `${formatCents(s.base_fee_cents)} base + ${formatCents(rushCents)}/sample (Rush)`;
+  }
+  return s.rateLabel;
 }
 
 type Step = "address" | "category" | "scope" | "date" | "account" | "review" | "done" | "check-email" | "already-registered";
@@ -112,6 +136,7 @@ export default function GuestBookingForm() {
   const [serviceTypes, setServiceTypes] = useState<ServiceTypeOption[]>([]);
 
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+  const [rush, setRush] = useState(false);
   const [scopeOfWork, setScopeOfWork] = useState("");
 
   const [date, setDate] = useState(todayIso());
@@ -218,6 +243,7 @@ export default function GuestBookingForm() {
           body: JSON.stringify({
             address, lat, lng, distanceMiles, state,
             serviceTypeKeys: Array.from(selectedKeys),
+            rush,
             scopeOfWork,
             date, requestedTime: preferredTime || null,
             notes, disclaimerAck: true,
@@ -391,7 +417,35 @@ export default function GuestBookingForm() {
           <button className="text-sm text-brand-600 underline" onClick={() => setStep("address")}>
             ← Back
           </button>
-          <p className="text-sm text-slate-600">{address}</p>
+          {/* Per Tim, 2026-09-02 — "make it on same line as address above
+              service types": Standard/Rush sits at the far right of the
+              address line, same two-button-pill pattern as the admin
+              side's own turnaroundControl (JobsDashboard.tsx). */}
+          <div className="flex items-end justify-between gap-2">
+            <p className="text-sm text-slate-600">{address}</p>
+            {/* Per Tim, 2026-09-02 (follow-up) — "directly above standard
+                in[sic] rush in plain text it should say Turnaround in
+                bold". */}
+            <div className="flex shrink-0 flex-col items-end gap-1">
+              <span className="text-xs font-bold text-slate-700">Turnaround</span>
+              <div className="flex items-center gap-1.5 text-xs font-bold uppercase">
+                <button
+                  type="button"
+                  onClick={() => setRush(false)}
+                  className={`rounded px-2 py-1 ${!rush ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
+                >
+                  Standard
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRush(true)}
+                  className={`rounded px-2 py-1 text-slate-600 ${rush ? "bg-yellow-100" : "bg-slate-100"}`}
+                >
+                  Rush
+                </button>
+              </div>
+            </div>
+          </div>
           <label className="block text-base font-medium text-slate-700">Service types</label>
           <div className="space-y-4">
             {/* Per Tim, 2026-09-02 — "delete mold swab sampling as an option
@@ -432,7 +486,7 @@ export default function GuestBookingForm() {
                             includes the zone-adjusted base fee (see
                             handleAddress in /api/book), not just the
                             per-sample rate. */}
-                        <span className="block text-right text-xs font-normal text-slate-400">{s.rateLabel}</span>
+                        <span className="block text-right text-xs font-normal text-slate-400">{displayRateLabel(s, rush)}</span>
                         <span className="flex items-start gap-2">
                           <input
                             type="checkbox"
@@ -626,6 +680,10 @@ export default function GuestBookingForm() {
               <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Address</div>
               <div className="text-slate-700">{address}</div>
             </div>
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Turnaround</div>
+              <div className="text-slate-700">{rush ? "Rush" : "Standard"}</div>
+            </div>
             {(() => {
               const selected = serviceTypes.filter((s) => selectedKeys.has(s.key));
               return selected.length > 0 ? (
@@ -640,7 +698,7 @@ export default function GuestBookingForm() {
                         {serviceTypeSubtext(s.key) && (
                           <div className="text-xs text-slate-500">{serviceTypeSubtext(s.key)}</div>
                         )}
-                        <div className="text-slate-500">{s.rateLabel}</div>
+                        <div className="text-slate-500">{displayRateLabel(s, rush)}</div>
                       </div>
                     ))}
                   </div>

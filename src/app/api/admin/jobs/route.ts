@@ -182,6 +182,7 @@ export const POST = withApiErrors(async (req: NextRequest) => {
     // company name (e.g. "Restore1"), distinct from siteContactName/Phone
     // above, which now hold that end client's contact person.
     subcontractor_client_company: body.subcontractorClientCompany?.trim() || null,
+    fli_project_number: body.fliProjectNumber?.trim() || null,
     payment_type: body.paymentType === "check" ? "check" : "online",
     notes: body.notes || null,
     project_name: body.projectName || null,

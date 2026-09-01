@@ -2960,6 +2960,7 @@ export function ProjectDetailDialog({
                       </button>
                     </div>
                   </div>
+                  {isFliJob && <DetailField label="FLI Project #" value={job.fli_project_number} />}
                   <DetailField label="Status" value={statusLabelForJob(job, job.status)} />
                   {/* Per Tim, 2026-08-27 — listed as plain fields here,
                       between Status and Company, left-aligned like
@@ -4664,6 +4665,11 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
   // client's own contact person; this is the end client's company name
   // itself (e.g. "Restore1"), a separate line.
   const [endClientCompany, setEndClientCompany] = useState("");
+  // Per Tim, 2026-08-31 — "obviously I should be able to add that in when
+  // I make the job": FLI's own project number, settable up front here
+  // instead of only after the fact via the Asbestos Report tab's inline
+  // input (see fli_project_number's own comment).
+  const [fliProjectNumber, setFliProjectNumber] = useState("");
   // Individual mode defaults this true (site contact assumed to be the
   // customer) when picked; Company is this form's own starting kind (most
   // projects come in through a company), where the site contact is usually
@@ -4833,6 +4839,7 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
           siteContactName: siteContactName.trim() || undefined,
           siteContactPhone: siteContactPhone.trim() || undefined,
           subcontractorClientCompany: endClientCompany.trim() || undefined,
+          fliProjectNumber: fliProjectNumber.trim() || undefined,
           serviceTypeKeys: selectedServiceTypeKeys,
           customServiceType: customServiceType.trim() || undefined,
           scopeOfWork: scopeOfWork.trim() || undefined,
@@ -5113,6 +5120,17 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
                 />
               </div>
             </div>
+            {isFliEnvironmental && (
+              <>
+                <label className="mt-3 block text-sm font-medium text-slate-700">FLI Project #</label>
+                <input
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  value={fliProjectNumber}
+                  onChange={(e) => setFliProjectNumber(e.target.value)}
+                  placeholder="e.g. 26-3115"
+                />
+              </>
+            )}
           </>
         ) : (
           <>
@@ -5383,6 +5401,7 @@ export function EditProjectDialog({
   // directly rather than re-deriving from typed/picked state like Add does.
   const isFliEnvironmental = job.customers?.company_id === FLI_ENVIRONMENTAL_COMPANY_ID;
   const [endClientCompany, setEndClientCompany] = useState(job.subcontractor_client_company ?? "");
+  const [fliProjectNumber, setFliProjectNumber] = useState(job.fli_project_number ?? "");
   const [selectedServiceTypeKeys, setSelectedServiceTypeKeys] = useState<string[]>([]);
   const [customServiceType, setCustomServiceType] = useState("");
   // Independent of the text itself, so checking the box first (before
@@ -5588,6 +5607,7 @@ export function EditProjectDialog({
             site_contact_name: siteContactName.trim() || null,
             site_contact_phone: siteContactPhone || null,
             subcontractor_client_company: endClientCompany.trim() || null,
+            fli_project_number: fliProjectNumber.trim() || null,
             service_address: serviceAddress || null,
             service_type: serviceTypeLabel || null,
             scope_of_work: scopeOfWork.trim() || null,
@@ -5642,7 +5662,7 @@ export function EditProjectDialog({
     projectNumber, status, companyName, companyId, customerId, contactName, email, phone,
     additionalReportEmails,
     serviceStreet, serviceUnit, serviceCity, serviceState, serviceZip,
-    siteContactName, siteContactPhone, endClientCompany, selectedServiceTypeKeys, customServiceType, scopeOfWork,
+    siteContactName, siteContactPhone, endClientCompany, fliProjectNumber, selectedServiceTypeKeys, customServiceType, scopeOfWork,
     confirmedDate, confirmedTime, paidDate, dueDate, notes, paymentType, isRevisit,
   ]);
 
@@ -5897,6 +5917,17 @@ export function EditProjectDialog({
                 />
               </div>
             </div>
+            {isFliEnvironmental && (
+              <>
+                <label className="mt-3 block text-sm font-medium text-slate-700">FLI Project #</label>
+                <input
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  value={fliProjectNumber}
+                  onChange={(e) => setFliProjectNumber(e.target.value)}
+                  placeholder="e.g. 26-3115"
+                />
+              </>
+            )}
           </>
         ) : (
           <>

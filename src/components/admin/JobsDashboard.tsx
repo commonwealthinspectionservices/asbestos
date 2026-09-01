@@ -2929,6 +2929,22 @@ export function ProjectDetailDialog({
               })();
               return (
                 <>
+                  {/* Per Tim, 2026-08-31 — "company needs to be at top above
+                      project #": moved ahead of the Project #/Edit row. */}
+                  <DetailField
+                    label={isSubcontractingFor ? "Subcontracting for" : "Company"}
+                    nowrap
+                    value={
+                      portalBadge ? (
+                        <>
+                          <span className="hidden sm:inline">{job.customers?.company}</span>
+                          <span className="sm:hidden">{portalBadge}</span>
+                        </>
+                      ) : (
+                        job.customers?.company
+                      )
+                    }
+                  />
                   {/* Edit stays inline next to Project # on mobile only now (see the absolutely-positioned desktop copy above); the portal badge (subcontractor jobs only) sits beside it there too, same as always. Per Tim, 2026-08-31 — the Gmail-thread mail icon moved up next to that same desktop Edit copy, so its own instance here is mobile-only now too (sm:hidden) — sm:pr-28 (desktop only) still reserves clearance under the pinned Edit+icon block for the portal badge, which does stay visible on desktop. */}
                   <div className="relative flex items-center justify-between gap-2 sm:pr-28">
                     <DetailField label="Project #" value={job.project_number} />
@@ -2968,20 +2984,6 @@ export function ProjectDetailDialog({
                       corner (desktop) or split into its own separate
                       mobile-only block (mobile) like before. */}
                   {showSentStatus && sentStatusLines}
-                  <DetailField
-                    label={isSubcontractingFor ? "Subcontracting for" : "Company"}
-                    nowrap
-                    value={
-                      portalBadge ? (
-                        <>
-                          <span className="hidden sm:inline">{job.customers?.company}</span>
-                          <span className="sm:hidden">{portalBadge}</span>
-                        </>
-                      ) : (
-                        job.customers?.company
-                      )
-                    }
-                  />
                 </>
               );
             })()}
@@ -3069,15 +3071,18 @@ export function ProjectDetailDialog({
                     buildEmailIntakeNote's own comment in job-intake.ts),
                     so these fields have nothing real to show once a job
                     moves past needs_scheduling either — the earlier branch
-                    above already hides them while needs_scheduling. */}
-                {job.customers?.company_id !== BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID && (
+                    above already hides them while needs_scheduling. Per
+                    Tim, 2026-08-31 — "all unnecessary for FLI jobs we just
+                    need scheduled date and schedule time": FLI jobs get
+                    the same treatment, dropping Requested date/time. */}
+                {job.customers?.company_id !== BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID && !isFliJob && (
                   <>
                     <DetailField label="Requested date" value={job.requested_date ? formatDate(job.requested_date) : "—"} />
                     <DetailField label="Requested time" value={job.requested_date ? formatTime(job.requested_time) || "—" : "—"} />
                   </>
                 )}
                 <DetailField
-                  label={hasCompletedFieldwork(job.status) ? "Completed date" : "Scheduled date"}
+                  label={isFliJob ? "Scheduled date" : hasCompletedFieldwork(job.status) ? "Completed date" : "Scheduled date"}
                   value={
                     job.status === "needs_scheduling"
                       ? formatDate(job.confirmed_date) || "—"
@@ -3085,7 +3090,7 @@ export function ProjectDetailDialog({
                   }
                 />
                 <DetailField
-                  label={hasCompletedFieldwork(job.status) ? "Completed time" : "Scheduled time"}
+                  label={isFliJob ? "Scheduled time" : hasCompletedFieldwork(job.status) ? "Completed time" : "Scheduled time"}
                   value={
                     job.status === "needs_scheduling"
                       ? formatTime(job.confirmed_time) || "—"
@@ -3123,13 +3128,24 @@ export function ProjectDetailDialog({
                 field on this tab, not the small muted text it had before. */}
             <DetailField label="Confirmation Sent" value={job.confirmation_sent_at ? formatDateTime(job.confirmation_sent_at) : null} />
             <DetailField label="Reminder Sent" value={job.reminder_sent_at ? formatDateTime(job.reminder_sent_at) : null} />
-            {/* Per Tim, 2026-08-31 — "move this below confirmation sent and
-                align left": moved out of the right column (see its own
-                comment below, still describing Email results to / Company
-                contact / Company info) and down into this left column,
-                same plain left-aligned DetailField styling as everything
-                else here instead of sitting on its own on the right. */}
-            <h4 className="mt-2 text-sm font-bold tracking-wide text-black underline">
+            {job.subcontractor_sample_types.length > 0 && (
+              <div className="flex flex-col gap-0.5 text-sm sm:flex-row sm:items-start sm:gap-2">
+                <span className="font-bold text-black sm:w-48 sm:shrink-0 sm:whitespace-nowrap">Samples</span>
+                <ul className="list-disc break-words pl-4 text-black sm:min-w-0 sm:flex-1 sm:space-y-0.5">
+                  {job.subcontractor_sample_types.map((s, i) => <li key={i}>{s}</li>)}
+                </ul>
+              </div>
+            )}
+          </div>
+          </div>
+          {/* Per Tim, 2026-08-31 — "move all of this all the way up": Job
+              site contact / Email results to / FLI Environmental
+              information all lead the right column again, flush with the
+              top (same row as Company/Project # on the left) rather than
+              paired lower down with the Requested/Scheduled date block. */}
+          <div className="space-y-6 sm:space-y-8">
+          <div className="space-y-4 sm:space-y-2">
+            <h4 className="text-sm font-bold tracking-wide text-black underline">
               {isSubcontractingFor ? "Their client" : "Job site contact"}
             </h4>
             {(isSubcontractingFor || isFliJob) && (
@@ -3147,22 +3163,7 @@ export function ProjectDetailDialog({
               }
             />
             <DetailField label="Email" value={job.site_contact_email} nowrap />
-            {job.subcontractor_sample_types.length > 0 && (
-              <div className="flex flex-col gap-0.5 text-sm sm:flex-row sm:items-start sm:gap-2">
-                <span className="font-bold text-black sm:w-48 sm:shrink-0 sm:whitespace-nowrap">Samples</span>
-                <ul className="list-disc break-words pl-4 text-black sm:min-w-0 sm:flex-1 sm:space-y-0.5">
-                  {job.subcontractor_sample_types.map((s, i) => <li key={i}>{s}</li>)}
-                </ul>
-              </div>
-            )}
           </div>
-          </div>
-          {/* Per Tim, 2026-08-31 — "move this below confirmation sent and
-              align left": Job site contact moved out of this right column
-              and down into the left column, right after Confirmation
-              Sent/Reminder Sent (see its own comment there) — this column
-              now starts with Email results to instead. */}
-          <div className="space-y-6 sm:space-y-8">
           {job.report_emails && job.report_emails.trim() && (
             <div className="space-y-4 sm:space-y-2">
               <h4 className="text-sm font-bold tracking-wide text-black underline">Email results to</h4>

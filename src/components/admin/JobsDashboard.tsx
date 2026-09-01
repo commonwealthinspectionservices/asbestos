@@ -3162,8 +3162,14 @@ export function ProjectDetailDialog({
                 Scope of Work) instead of cramped in with the date/time
                 fields above; same plain DetailField styling as every other
                 field on this tab, not the small muted text it had before. */}
-            <DetailField label="Confirmation Sent" value={job.confirmation_sent_at ? formatDateTime(job.confirmation_sent_at) : null} />
-            <DetailField label="Reminder Sent" value={job.reminder_sent_at ? formatDateTime(job.reminder_sent_at) : null} />
+            {/* Per Tim, 2026-09-02 — "even if it's not sent, it should
+                still have some text there": DetailField hides itself
+                entirely on a null value, which made this row vanish
+                rather than clearly say it hadn't gone out — same "always
+                visible, plain fallback text" treatment as Scope of Work
+                right above (job.scope_of_work || "—"). */}
+            <DetailField label="Confirmation Sent" value={job.confirmation_sent_at ? formatDateTime(job.confirmation_sent_at) : "Not sent"} />
+            <DetailField label="Reminder Sent" value={job.reminder_sent_at ? formatDateTime(job.reminder_sent_at) : "Not sent"} />
             {/* Per Tim, 2026-08-31 — "this part should be aligned left":
                 moved from the right column (which had grown much taller
                 than this one) down here, in the open space below Scope of

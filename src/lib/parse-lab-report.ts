@@ -227,7 +227,25 @@ const CRYSTAL_ROW_START_PATTERN = /^(\d{2}[A-Z](?:\.\d+)?)\s+\d{4}\s+(.*)$/;
 // the description. Percent-or-"none detected" is unambiguous here since the
 // color word is never itself a number or that literal phrase.
 const CRYSTAL_MATERIAL_BOUNDARY_PATTERN = /none detected|\d+%/i;
-const CRYSTAL_DESCRIPTION_COLOR_PATTERN = new RegExp(`^(.+)\\s+\\S+\\s+(?=${CRYSTAL_MATERIAL_BOUNDARY_PATTERN.source})`, "i");
+// Per Tim, 2026-09-02 — a row can carry its OWN non-asbestos fibrous
+// component before the real result (e.g. "...Gray 10% Cellulose None
+// Detected": color "Gray", then a secondary "10% Cellulose" that isn't the
+// asbestos result at all, then the real "None Detected"). The original
+// pattern only ever stripped one trailing word (assumed to be the color),
+// so a row like that left a stray "10%" inside the description and got
+// dropped entirely by the `/\d+%/.test(material)` guard below. This adds an
+// optional repeated "<percent>% <word>" group between the color and the
+// real boundary, and forces the mandatory color-word slot to NOT itself
+// look like a percentage — so "10% Cellulose" routes into the optional
+// group instead of getting swallowed into the description. Still narrower
+// than a full parse: a row with a secondary component and NO real
+// description before the color (just "White 5% Cellulose None Detected")
+// still fails safely into the same guard, exactly as before this change —
+// this only fixes rows that have real description text to work with.
+const CRYSTAL_DESCRIPTION_COLOR_PATTERN = new RegExp(
+  `^(.+?)\\s+(?!\\d+%)\\S+\\s+(?:\\d+%\\s+\\S+\\s+)*(?=${CRYSTAL_MATERIAL_BOUNDARY_PATTERN.source})`,
+  "i"
+);
 const CRYSTAL_ATTRIBUTE_KEYWORDS_PATTERN = /\b(?:Non-Fibrous|Semi-Fibrous|Fibrous|Homogeneous|Heterogeneous)\b/gi;
 const CRYSTAL_NON_CONTINUATION_LINE_PATTERN = /^(?:Reviewer|Analyst|Page \d|LABORATORY ID|Client ID|Physical|Description & Location|Attributes|Fibrous Components|Crystal Analytical|Project (?:Address|Name)|Date|Contact Name|Client (?:Name|Location))/i;
 

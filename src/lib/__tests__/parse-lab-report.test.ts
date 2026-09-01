@@ -727,12 +727,26 @@ describe("extractCrystalAnalyticalMaterialDescriptions", () => {
     expect(materials["04B"]).toBe("Gypsum Wall Skim Coat, White wall, right of closet, basement");
   });
 
-  it("drops a row instead of guessing when a non-asbestos fibrous component's own percentage could steal the split", () => {
-    // "White 5% Cellulose None Detected" — Cellulose isn't a color, but a
-    // looser split could still land right before it.
+  it("still finds the real description when a non-asbestos fibrous component's own percentage sits between the color and the result", () => {
+    // "...White wall, right of White 5% Cellulose None Detected" — "White"
+    // is both part of the description AND the row's real color (same as
+    // the 04A/04B case above), and "5% Cellulose" is a secondary
+    // non-asbestos component, not the row's real (negative) result. Per
+    // Tim, 2026-09-02 — this used to fall back to dropping the row
+    // entirely rather than risk folding the stray "5%" into the
+    // description; it's now recognized and stripped out along with the
+    // color, same as any other row.
     const materials = extractCrystalAnalyticalMaterialDescriptions(CRYSTAL_ANALYTICAL_POSITION_ORDERED);
-    expect(materials["03A"]).toBeUndefined();
-    expect(materials["03B"]).toBeUndefined();
+    expect(materials["03A"]).toBe("Gypsum Wall Base, White wall, right of closet, basement");
+    expect(materials["03B"]).toBe("Gypsum Wall Base, White wall, right of closet, basement");
+  });
+
+  it("still drops a row when there's no real description before the color and its own percentage", () => {
+    // "White 5% Cellulose None Detected" with nothing before "White" at all
+    // is genuinely ambiguous — there's no description text to anchor on, so
+    // this still gives up rather than guess.
+    const materials = extractCrystalAnalyticalMaterialDescriptions("05A 0009 White 5% Cellulose None Detected\n");
+    expect(materials["05A"]).toBeUndefined();
   });
 
   it("returns nothing for a report with no recognizable rows", () => {

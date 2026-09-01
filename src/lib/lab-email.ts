@@ -1235,7 +1235,6 @@ async function processMatchedLabEmail(params: {
     }
     const sampleResults = extractSampleResults(pdfText, positionOrderedText);
     if (sampleResults.length > 0) {
-      update.sample_results = sampleResults;
       asbestosDataFound = true;
       // Per Tim, 2026-08-31 — material for each positive result should
       // always be pre-filled from the lab report, not typed in by hand.
@@ -1249,8 +1248,15 @@ async function processMatchedLabEmail(params: {
       // sample_findings is kept separate from sample_results in the first
       // place (see that field's own comment in types.ts).
       const labName = (labInfo?.labName ?? job.lab_name ?? "").toLowerCase();
+      let resultsWithMaterial = sampleResults;
       if (positionOrderedText && labName.includes("crystal analytical")) {
         const materials = extractCrystalAnalyticalMaterialDescriptions(positionOrderedText);
+        // Per Tim, 2026-09-01 — "list out ... all the details for each one
+        // of them": material is now shown for EVERY sample row (not just
+        // positive ones), so it's merged onto sample_results itself here —
+        // sample_findings below stays positive-only, it's still just the
+        // hand-editable footage estimate for the report's summary table.
+        resultsWithMaterial = sampleResults.map((s) => (materials[s.fieldCode] ? { ...s, material: materials[s.fieldCode] } : s));
         const existingByCode = new Map((job.sample_findings ?? []).map((f) => [f.fieldCode, f]));
         const findings = sampleResults
           .filter((s) => /%/.test(s.result))
@@ -1265,6 +1271,7 @@ async function processMatchedLabEmail(params: {
           });
         if (findings.length > 0) update.sample_findings = findings;
       }
+      update.sample_results = resultsWithMaterial;
     }
   }
   // Per Tim, 2026-08-27 — isMoldLabReport's own "fungal" keyword is the

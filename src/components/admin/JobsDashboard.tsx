@@ -3497,50 +3497,55 @@ export function ProjectDetailDialog({
                                     {(() => {
                                       const results = job.sample_results;
                                       return results && results.length > 0 ? (
-                                        <div className="mt-1.5 w-full rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs">
+                                        <div className="mt-1.5 w-full rounded-lg border border-slate-200 bg-slate-50 text-xs">
+                                          {/* Per Tim, 2026-09-01 — "list out ... all the details for
+                                              each one of them" now that Sample Results spans the full
+                                              width: every row gets its own line (field code, material,
+                                              result, footage for positives) laid out left-to-right
+                                              instead of the old stacked mini-card. Material is only
+                                              ever populated for Crystal Analytical reports (see
+                                              extractCrystalAnalyticalMaterialDescriptions) — every other
+                                              lab's rows just show field code + result, same as before. */}
                                           {results.map((s, i) => {
                                             const isPositive = /%/.test(s.result);
                                             const finding = findingFor(s.fieldCode);
-                                            const showFinding = isPositive && group.domain === "asbestos";
+                                            const showFootageInput = isPositive && group.domain === "asbestos";
+                                            const material = s.material || (showFootageInput ? finding.material : undefined);
                                             return (
-                                              <div key={i} className={i > 0 ? "mt-2 border-t border-slate-200 pt-2" : ""}>
-                                                {/* Per Tim, 2026-08-31 — material (pulled from the lab report
-                                                    itself, not typed in here) sits above its result, footage
-                                                    goes directly to the right of the result in a plain bordered
-                                                    cell — not red, matching the rest of the row's text size.
-                                                    Same font as the rest of the page (no font-mono) per Tim,
-                                                    2026-08-31. Footage is a small number field plus its own
-                                                    unit dropdown (square feet / linear feet) rather than one free-text
-                                                    box the admin has to spell the unit into by hand. */}
-                                                {showFinding && (
-                                                  <div className="text-slate-500">
-                                                    {finding.material || <span className="italic text-slate-400">Material not available</span>}
-                                                  </div>
-                                                )}
-                                                <div className={isPositive ? "text-red-600" : "text-slate-900"}>
-                                                  {s.fieldCode}: {s.result}
-                                                  {showFinding && (
-                                                    <span className="ml-2 inline-flex items-center gap-1">
-                                                      <input
-                                                        className="w-12 rounded border border-slate-300 bg-white px-1.5 py-0.5 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-400"
-                                                        value={finding.estimated_quantity}
-                                                        onChange={(e) => updateFinding(s.fieldCode, { estimated_quantity: e.target.value })}
-                                                      />
-                                                      <select
-                                                        className="rounded border border-slate-300 bg-white px-1 py-0.5 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-400"
-                                                        value={finding.unit || "sq_ft"}
-                                                        onChange={(e) => updateFinding(s.fieldCode, { unit: e.target.value === "linear_ft" ? "linear_ft" : "sq_ft" })}
-                                                      >
-                                                        <option value="sq_ft">square feet</option>
-                                                        <option value="linear_ft">linear feet</option>
-                                                      </select>
-                                                    </span>
-                                                  )}
+                                              <div
+                                                key={i}
+                                                className={`flex flex-wrap items-center gap-x-4 gap-y-1 px-3 py-2 ${i > 0 ? "border-t border-slate-200" : ""}`}
+                                              >
+                                                <div className="w-14 shrink-0 font-semibold text-slate-700">{s.fieldCode}</div>
+                                                <div className="min-w-[10rem] flex-1 text-slate-600">
+                                                  {material ? (
+                                                    material
+                                                  ) : showFootageInput ? (
+                                                    <span className="italic text-slate-400">Material not available</span>
+                                                  ) : null}
                                                 </div>
+                                                <div className={`shrink-0 font-medium ${isPositive ? "text-red-600" : "text-slate-900"}`}>{s.result}</div>
+                                                {showFootageInput && (
+                                                  <span className="shrink-0 inline-flex items-center gap-1">
+                                                    <input
+                                                      className="w-12 rounded border border-slate-300 bg-white px-1.5 py-0.5 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-400"
+                                                      value={finding.estimated_quantity}
+                                                      onChange={(e) => updateFinding(s.fieldCode, { estimated_quantity: e.target.value })}
+                                                    />
+                                                    <select
+                                                      className="rounded border border-slate-300 bg-white px-1 py-0.5 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-400"
+                                                      value={finding.unit || "sq_ft"}
+                                                      onChange={(e) => updateFinding(s.fieldCode, { unit: e.target.value === "linear_ft" ? "linear_ft" : "sq_ft" })}
+                                                    >
+                                                      <option value="sq_ft">square feet</option>
+                                                      <option value="linear_ft">linear feet</option>
+                                                    </select>
+                                                  </span>
+                                                )}
                                               </div>
                                             );
                                           })}
-                                          <div className="mt-1.5 border-t border-slate-200 pt-1.5 font-semibold text-slate-500">
+                                          <div className="border-t border-slate-200 px-3 py-2 font-semibold text-slate-500">
                                             Total: {results.length} sample{results.length === 1 ? "" : "s"}
                                           </div>
                                         </div>

@@ -178,13 +178,17 @@ export const POST = withApiErrors(async (
         }
         const sampleResults = extractSampleResults(text, positionOrderedText);
         if (sampleResults.length > 0) {
-          update.sample_results = sampleResults;
           // Per Tim, 2026-08-31 — see the matching comment in lab-email.ts
           // (the automated-email upload path) for why this merges rather
           // than replaces, and why it's Crystal-Analytical-only for now.
           const labName = (labInfo?.labName ?? jobRow.lab_name ?? "").toLowerCase();
+          let resultsWithMaterial = sampleResults;
           if (positionOrderedText && labName.includes("crystal analytical")) {
             const materials = extractCrystalAnalyticalMaterialDescriptions(positionOrderedText);
+            // Per Tim, 2026-09-01 — material shown for every sample row now,
+            // not just positive ones — see the matching comment in
+            // lab-email.ts.
+            resultsWithMaterial = sampleResults.map((s) => (materials[s.fieldCode] ? { ...s, material: materials[s.fieldCode] } : s));
             const existingByCode = new Map((jobRow.sample_findings ?? []).map((f) => [f.fieldCode, f]));
             const findings = sampleResults
               .filter((s) => /%/.test(s.result))
@@ -199,6 +203,7 @@ export const POST = withApiErrors(async (
               });
             if (findings.length > 0) update.sample_findings = findings;
           }
+          update.sample_results = resultsWithMaterial;
         }
       }
 

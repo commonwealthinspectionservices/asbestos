@@ -322,8 +322,8 @@ export interface Job {
   asbestos_result: "positive" | "negative" | null;
   /** Set by hand on the Final Report tab's Positive/Negative toggle (no auto-detection — lead labs aren't EMSL-format). Null until set. */
   lead_result: "positive" | "negative" | null;
-  /** Per-sample field code + result text, pulled from the same uploaded lab report — plain-text reference for the admin, not billing data. */
-  sample_results: { fieldCode: string; result: string }[];
+  /** Per-sample field code + result text, pulled from the same uploaded lab report — plain-text reference for the admin, not billing data. material is Crystal-Analytical-only (see extractCrystalAnalyticalMaterialDescriptions) and freshly overwritten on every re-parse, unlike sample_findings' own hand-editable material copy for positive samples. */
+  sample_results: { fieldCode: string; result: string; material?: string }[];
   /** Mold's own version of sample_results, separate so an asbestos+mold job's two lab uploads don't clobber each other's per-sample list. serviceType (e.g. "Mold Air Sampling") tags which label a row belongs to, so the admin UI can show each label only its own samples — optional since rows recorded before this field existed don't have it. */
   mold_sample_results: { fieldCode: string; result: string; serviceType?: string }[];
   /** Per Tim, 2026-08-31 — "list out the approximate linear or square footage of each positive material identified," for Limited Inspection jobs (Full Inspection jobs already have this via full_inspection_materials/estimated_quantity). One row per positive sample, hand-typed material + approximate footage, matched to sample_results by fieldCode for display — kept as its own field rather than added directly onto sample_results, since that array gets fully overwritten every time a lab report is (re)parsed (see lab-email.ts/documents route) and would silently wipe out anything typed in here. */

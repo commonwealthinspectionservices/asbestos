@@ -967,4 +967,18 @@ BIO-SOP-002
       { fieldCode: "1", result: "Analyzed", serviceType: "Mold Bulk Sampling" },
     ]);
   });
+
+  it("also recognizes a colon-separated Direct Analysis row, not just the space-padded dash", () => {
+    // Confirmed live 2026-09-02 (26-0002.1, lab ID 2601003707) — Crystal's
+    // own tape-lift table sometimes punctuates the sample number with a
+    // colon instead of " - ", which the dash-only pattern missed entirely
+    // (reported 0 samples on a real 1-sample report).
+    const REPORT = `
+1: Drywall - Across from Entrance to Containment (Inside Containment)basidiosporesTraceNone
+BIO-SOP-002
+`;
+    expect(extractMoldSampleResults(REPORT, "Mold Bulk Sampling")).toEqual([
+      { fieldCode: "1", result: "Analyzed", serviceType: "Mold Bulk Sampling" },
+    ]);
+  });
 });

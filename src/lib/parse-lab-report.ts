@@ -359,12 +359,16 @@ const CRYSTAL_SPORE_TRAP_COUNT_PATTERN = /(?<!\d)((?:\d{4}\s*){2,})Count\s*\n?\s
 // structure name with zero space ("...unitCladosporium"), so this only
 // pulls out the leading sample number, the same "count + stand-in label"
 // approach as crystalSporeTrapFieldCodes above, not the full location text.
-// The space-padded dash (" - ") is the load-bearing part of the pattern —
-// checked against every other page of both real reports on file and it
-// never appears anywhere else: the debris/spore-load scale's own dash
-// ranges ("0-5%", "25-75%", "1000-9999") never have surrounding spaces, so
-// they can't false-positive into this.
-const CRYSTAL_DIRECT_ANALYSIS_SAMPLE_PATTERN = /(?<!\d)(\d{1,2}) - [A-Z]/g;
+// Confirmed live 2026-09-02 (26-0002.1, lab ID 2601003707) — Crystal's own
+// tape-lift table sometimes uses a colon instead of the space-padded dash
+// ("1: Drywall - Across from Entrance..."), which the dash-only pattern
+// missed entirely (0 samples extracted from a real 1-sample report).
+// Both separators are the load-bearing part of the pattern — checked
+// against every report on file and neither appears anywhere else: the
+// debris/spore-load scale's own dash ranges ("0-5%", "25-75%",
+// "1000-9999") never have surrounding spaces, and nothing else in either
+// format has a 1-2 digit number immediately followed by ": ".
+const CRYSTAL_DIRECT_ANALYSIS_SAMPLE_PATTERN = /(?<!\d)(\d{1,2})(?:\s-\s|:\s)[A-Z]/g;
 
 function crystalDirectAnalysisFieldCodes(pdfText: string): string[] {
   const matches = [...pdfText.matchAll(CRYSTAL_DIRECT_ANALYSIS_SAMPLE_PATTERN)];

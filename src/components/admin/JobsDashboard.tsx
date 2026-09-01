@@ -968,24 +968,37 @@ export default function JobsDashboard() {
         </div>
       </div>
 
-      <div className="mt-4 hidden flex-wrap items-center gap-2 sm:flex">
-        <span className="shrink-0 text-sm font-medium text-slate-500">Sort by:</span>
+      {/* Per Tim, 2026-09-02 — each button here must be the exact same size
+          as, and sit directly above, the matching Search by cell beneath it:
+          the label gets a fixed width (matching "Search by:"'s own, wider
+          than "Sort by:"'s), and the four interactive elements share the
+          Search by inputs' own flex-1/flex-1/flex-1/w-36 column widths
+          instead of shrinking to fit their own label text. */}
+      <div className="mt-4 hidden flex-wrap items-center gap-2 sm:flex sm:flex-nowrap">
+        <span className="shrink-0 text-sm font-medium text-slate-500 sm:w-20">Sort by:</span>
+        {/* Per Tim, 2026-09-02 — a <button> as a direct flex item won't
+            shrink below its own content width here even with min-w-0 (a
+            real browser quirk with form controls in flex layouts), unlike
+            a <div>, which is why Status/Service Type below (already
+            div-wrapped for their dropdown) lined up but these two didn't.
+            Wrapping in a div sidesteps it the same way. */}
         {SORT_FIELDS.map((f) => (
-          <button
-            key={f.key}
-            onClick={() => toggleSort(f.key)}
-            className={`shrink-0 rounded-lg border border-transparent px-1.5 py-0.5 text-xs font-medium sm:px-2.5 sm:py-1 sm:text-sm ${sortEnabled && sortBy === f.key ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
-          >
-            {f.label}{sortEnabled && sortBy === f.key ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
-          </button>
+          <div key={f.key} className="w-full min-w-0 sm:w-0 sm:flex-1">
+            <button
+              onClick={() => toggleSort(f.key)}
+              className={`w-full rounded-lg border border-slate-300 px-1.5 py-0.5 text-xs font-medium sm:px-2.5 sm:py-1 sm:text-sm ${sortEnabled && sortBy === f.key ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
+            >
+              {f.label}{sortEnabled && sortBy === f.key ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
+            </button>
+          </div>
         ))}
         <div
-          className="relative shrink-0"
+          className="relative w-full min-w-0 sm:w-0 sm:flex-1"
           onMouseEnter={openStatusFilter}
           onMouseLeave={closeStatusFilter}
         >
           <button
-            className={`shrink-0 rounded-lg border border-transparent px-1.5 py-0.5 text-xs font-medium sm:px-2.5 sm:py-1 sm:text-sm ${statusFilter.size > 0 ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
+            className={`w-full rounded-lg border border-slate-300 px-1.5 py-0.5 text-xs font-medium sm:px-2.5 sm:py-1 sm:text-sm ${statusFilter.size > 0 ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
           >
             Status{statusFilter.size > 0 ? ` (${statusFilter.size})` : ""} ▾
           </button>
@@ -1026,12 +1039,12 @@ export default function JobsDashboard() {
           )}
         </div>
         <div
-          className="relative shrink-0"
+          className="relative w-full shrink-0 sm:w-36"
           onMouseEnter={openServiceTypeFilter}
           onMouseLeave={closeServiceTypeFilter}
         >
           <button
-            className={`shrink-0 rounded-lg border border-transparent px-1.5 py-0.5 text-xs font-medium sm:px-2.5 sm:py-1 sm:text-sm ${serviceTypeFilter.size > 0 ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
+            className={`w-full rounded-lg border border-slate-300 px-1.5 py-0.5 text-xs font-medium sm:px-2.5 sm:py-1 sm:text-sm ${serviceTypeFilter.size > 0 ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
           >
             <span className="sm:hidden">Service</span>
             <span className="hidden sm:inline">Service Type</span>
@@ -1067,24 +1080,24 @@ export default function JobsDashboard() {
 
       {/* Desktop only now — mobile uses the single search box above instead. */}
       <div className="mt-4 hidden gap-2 sm:flex sm:flex-row sm:flex-nowrap sm:items-center">
-            <span className="shrink-0 text-sm font-medium text-slate-500">Search by:</span>
+            <span className="shrink-0 text-sm font-medium text-slate-500 sm:w-20">Search by:</span>
             <input
               value={projectNumberQuery}
               onChange={(e) => setProjectNumberQuery(e.target.value)}
               placeholder="Project #"
-              className="w-full min-w-0 rounded-lg border border-slate-300 px-2.5 py-1 text-sm sm:w-0 sm:flex-1"
+              className="w-full min-w-0 rounded-lg border border-slate-300 bg-slate-100 px-2.5 py-1 text-sm text-slate-600 placeholder:text-slate-600 sm:w-0 sm:flex-1"
             />
             <input
               value={companyQuery}
               onChange={(e) => setCompanyQuery(e.target.value)}
               placeholder="Company"
-              className="w-full min-w-0 rounded-lg border border-slate-300 px-2.5 py-1 text-sm sm:w-0 sm:flex-1"
+              className="w-full min-w-0 rounded-lg border border-slate-300 bg-slate-100 px-2.5 py-1 text-sm text-slate-600 placeholder:text-slate-600 sm:w-0 sm:flex-1"
             />
             <input
               value={addressQuery}
               onChange={(e) => setAddressQuery(e.target.value)}
               placeholder="Address"
-              className="w-full min-w-0 rounded-lg border border-slate-300 px-2.5 py-1 text-sm sm:w-0 sm:flex-1"
+              className="w-full min-w-0 rounded-lg border border-slate-300 bg-slate-100 px-2.5 py-1 text-sm text-slate-600 placeholder:text-slate-600 sm:w-0 sm:flex-1"
             />
             {/* Per Tim — the browser's own "mm/dd/yyyy" for an empty date
                 input isn't a real placeholder (date inputs don't support
@@ -1097,7 +1110,7 @@ export default function JobsDashboard() {
               type="date"
               value={dateQuery}
               onChange={(e) => setDateQuery(e.target.value)}
-              className={`w-full shrink-0 rounded-lg border border-slate-300 px-2.5 py-1 text-sm sm:w-36 ${dateQuery ? "text-slate-900" : "text-slate-400"}`}
+              className={`w-full shrink-0 rounded-lg border border-slate-300 bg-slate-100 px-2.5 py-1 text-sm sm:w-36 ${dateQuery ? "text-slate-900" : "text-slate-600"}`}
             />
             {dateQuery && (
               <button onClick={() => setDateQuery("")} className="shrink-0 text-xs text-brand-600 underline">

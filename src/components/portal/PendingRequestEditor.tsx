@@ -11,7 +11,6 @@ interface ServiceTypeOption {
   key: string;
   label: string;
   rateLabel: string;
-  perSampleLabel: string;
 }
 
 // toISOString() reports the UTC date, not the browser's local one — in US
@@ -375,7 +374,12 @@ export default function PendingRequestEditor({
                           how they were and make the price on its own line
                           in top right": its own row now, not overlaid on
                           the title/description below. */}
-                      <span className="block text-right text-xs text-slate-400">{s.perSampleLabel}</span>
+                      {/* Per Tim, 2026-09-02 (follow-up) — "they need to
+                          know when booking the base fee what that is based
+                          on their address": rateLabel already includes the
+                          zone-adjusted base fee (see handleAddress in
+                          /api/book), not just the per-sample rate. */}
+                      <span className="block text-right text-xs text-slate-400">{s.rateLabel}</span>
                       <span className="flex items-start gap-2">
                         <input
                           type="checkbox"

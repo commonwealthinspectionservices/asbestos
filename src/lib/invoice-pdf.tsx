@@ -53,6 +53,7 @@ const styles = StyleSheet.create({
   totalLabel: { flex: 4, fontSize: 11, fontWeight: 700, color: "#166534" },
   totalAmount: { flex: 1, fontSize: 11, fontWeight: 700, color: "#166534", textAlign: "right" },
   notesBlock: { fontSize: 10, lineHeight: 1.5, color: "#334155", marginTop: 16 },
+  revisitNote: { fontSize: 9, color: "#64748b", marginTop: 8 },
   footer: { position: "absolute", bottom: 30, left: 40, right: 40, fontSize: 8, color: "#94a3b8", borderTopWidth: 1, borderTopColor: "#e2e8f0", paddingTop: 8 },
 });
 
@@ -174,6 +175,14 @@ function InvoiceDocument({ job, customer, company, settings }: InvoiceData) {
               <Text style={styles.totalAmount}>{formatCents(totalCents)}</Text>
             </View>
           </View>
+          {/* Per Tim, 2026-09-02 — every revisit job's own invoice ("26-0002.1"
+              for a revisit to "26-0002", see is_revisit's own comment in
+              types.ts) carries this note so it's clear at a glance why the
+              invoice has no separate base fee line — resolveBaseFeeCents
+              already returns 0 for a revisit, this just says why. */}
+          {job.is_revisit && (
+            <Text style={styles.revisitNote}>Note: Site re-visit, no base fee charged.</Text>
+          )}
         </View>
 
         <Text style={styles.notesBlock}>

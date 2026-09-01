@@ -47,13 +47,11 @@ export function parseWindowStartTime24h(windowText: string | null | undefined): 
 // (portal_booking/email_intake, or subcontractor — e.g. the admin entered
 // it directly via Add Project and left it unscheduled on purpose).
 //
-// Subcontractor jobs get the same accept-checkmark, but two things differ:
-// there's no client-facing portal for a subcontracting company's contact to
-// see a date/time in, so schedule_visible_to_customer is left off — it's
-// simply unused for this source; and there's no Chat tab for these jobs (see
-// JobsDashboard.tsx), so the red X opens the Edit dialog instead of chat —
-// for picking a real date/time by hand when the requested window doesn't
-// work as-is, via onEditManually.
+// Subcontractor jobs get the same accept-checkmark, but schedule_visible_to_customer
+// is left off — there's no client-facing portal for a subcontracting
+// company's contact to see a date/time in, so it's simply unused for this
+// source. The red X opens the Edit dialog for picking a real date/time by
+// hand when the requested window doesn't work as-is, via onEditManually.
 export function AcceptScheduleControl({
   job, onAccept, onEditManually, variant, stopPropagation,
 }: {

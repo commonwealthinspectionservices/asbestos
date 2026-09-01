@@ -622,24 +622,6 @@ alter table jobs add column if not exists billing_contact_id uuid references cus
 -- tied to a particular sample. Stored in the "job-photos" bucket.
 alter table jobs add column if not exists photos jsonb not null default '[]'::jsonb;
 
--- Per-project chat between the admin and the client (customer account),
--- shown as its own tab on the project detail view on both sides. A
--- separate table (not a jsonb column on jobs, unlike documents/photos)
--- since it's an append-only log that can grow unbounded and doesn't need
--- to be read back as a whole on every job fetch — see /api/admin/jobs/[id]/
--- messages and /api/portal/projects/[id]/messages.
-create table if not exists job_messages (
-  id uuid primary key default gen_random_uuid(),
-  job_id uuid not null references jobs (id) on delete cascade,
-  sender_role text not null check (sender_role in ('admin', 'customer')),
-  sender_name text not null,
-  body text not null,
-  created_at timestamptz not null default now(),
-  read_by_admin boolean not null default false,
-  read_by_customer boolean not null default false
-);
-create index if not exists job_messages_job_id_idx on job_messages (job_id, created_at);
-
 -- "Ray's Library" — a reference-only catalog of materials/locations/results
 -- seen across real past full-inspection asbestos reports (all inspected by
 -- Raymond Leger at the owner's prior company), kept for the owner's own
@@ -682,7 +664,6 @@ alter table daily_routes enable row level security;
 alter table settings enable row level security;
 alter table companies enable row level security;
 alter table gmail_connection enable row level security;
-alter table job_messages enable row level security;
 alter table rays_library enable row level security;
 alter table rays_library_photos enable row level security;
 
@@ -1042,3 +1023,11 @@ alter table jobs add column if not exists sample_findings jsonb not null default
 -- shown on the FLI-branded report's "FLI Project #:" line instead of this
 -- app's own project_number there.
 alter table jobs add column if not exists fli_project_number text;
+
+-- Per Tim, 2026-08-31 — "let's delete the chat feature entirely." Removes
+-- the per-project Chat tab's table (see its own original comment, now
+-- deleted, right above where this table used to be created) along with
+-- every UI/API touchpoint for it. drop, not just deleting the create
+-- statement above, since this file is a cumulative migration log run
+-- against an already-live database that already has this table.
+drop table if exists job_messages;

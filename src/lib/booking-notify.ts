@@ -69,7 +69,7 @@ export async function sendNewBookingRequestEmail(params: {
  * Auto-sent to the customer the moment they submit a request — added
  * 2026-08-15 per explicit owner request, a deliberate addition to the
  * small set of emails this app is allowed to auto-send (previously just
- * chat replies, portal invites, signup confirmation, password reset).
+ * portal invites, signup confirmation, password reset).
  * Confirms receipt only — nothing is actually scheduled yet.
  *
  * Also the root of this job's email thread (see lib/email-thread.ts) — it

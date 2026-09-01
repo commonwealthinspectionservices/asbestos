@@ -182,7 +182,6 @@ export default function ScheduleView() {
   const [anchorDate, setAnchorDate] = useState(() => new Date());
   const [selectedDate, setSelectedDate] = useState(() => toISO(new Date()));
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
-  const [selectedJobInitialTab, setSelectedJobInitialTab] = useState<"info" | "chat">("info");
   const [editingJobId, setEditingJobId] = useState<string | null>(null);
   const dateInputRef = useRef<HTMLInputElement>(null);
 
@@ -381,7 +380,7 @@ export default function ScheduleView() {
                         dayJobs.map((job) => <JobCard
                           key={job.id}
                           job={job}
-                          onOpen={() => { setSelectedJobInitialTab("info"); setSelectedJobId(job.id); }}
+                          onOpen={() => setSelectedJobId(job.id)}
                         />)
                       )}
                     </div>
@@ -401,7 +400,7 @@ export default function ScheduleView() {
                   selectedJobs.map((job) => <JobCard
                           key={job.id}
                           job={job}
-                          onOpen={() => { setSelectedJobInitialTab("info"); setSelectedJobId(job.id); }}
+                          onOpen={() => setSelectedJobId(job.id)}
                         />)
                 )}
               </div>
@@ -420,7 +419,6 @@ export default function ScheduleView() {
             onChanged={() => loadJobs()}
             onEdit={() => setEditingJobId(detailJob.id)}
             onStatusChange={(status) => patchJob(detailJob, { status })}
-            initialTab={selectedJobInitialTab}
           />
         );
       })()}

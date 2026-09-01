@@ -5,7 +5,6 @@ import type { Customer, Job } from "@/lib/types";
 import { googleMapsUrl, expandAddress } from "@/lib/address";
 import PdfPreview from "@/components/shared/PdfPreview";
 import JobRecipients from "@/components/portal/JobRecipients";
-import JobChat from "@/components/shared/JobChat";
 import PendingRequestEditor from "@/components/portal/PendingRequestEditor";
 import { jobReportDomains } from "@/lib/report-findings";
 import { formatDateMDY } from "@/lib/date-format";
@@ -13,10 +12,7 @@ import { formatPhoneNumber } from "@/lib/phone";
 
 const REPORT_DOMAIN_LABEL: Record<string, string> = { asbestos: "Asbestos", lead: "Lead", mold: "Mold" };
 
-type Tab = "info" | "report" | "invoice" | "chat";
-
-const PORTAL_ACTION_BUTTON =
-  "inline-flex h-[22px] items-center border-[3px] border-brand-700 bg-brand-50 px-4 pt-0.5 text-sm font-extrabold uppercase leading-none text-brand-700 hover:bg-yellow-100 disabled:opacity-50 sm:h-[29px]";
+type Tab = "info" | "report" | "invoice";
 
 const REPORT_READY_STATUSES = new Set(["completed", "invoiced", "ready_to_send", "report_invoice_sent", "paid"]);
 
@@ -208,7 +204,6 @@ export default function ProjectDetailModal({
             ["info", "Project Information"],
             ["report", "Final Report"],
             ["invoice", "Invoice"],
-            ["chat", "Chat"],
           ] as const).map(([key, label]) => (
             <button
               key={key}
@@ -430,18 +425,8 @@ export default function ProjectDetailModal({
             </div>
           )}
 
-          {tab === "chat" && (
-            <JobChat
-              endpoint={`/api/portal/projects/${job.id}/messages`}
-              photoUploadEndpoint={`/api/portal/projects/${job.id}/photos`}
-              photoViewEndpointBase={`/api/portal/projects/${job.id}/photos`}
-              senderRole="customer"
-              sendButtonClassName={PORTAL_ACTION_BUTTON}
-            />
-          )}
         </div>
 
-        {tab !== "chat" && (
         <div className="border-t border-slate-200 px-5 py-4">
           {job.status === "cancelled" ? (
             <div className="flex h-2.5 items-center rounded-full bg-red-500">
@@ -470,7 +455,6 @@ export default function ProjectDetailModal({
             )}
           </div>
         </div>
-        )}
       </div>
 
       {showCancelConfirm && (

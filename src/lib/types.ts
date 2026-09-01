@@ -216,18 +216,6 @@ export interface JobPhoto {
   uploaded_by: "admin" | "customer";
 }
 
-/** A single message in a project's Chat tab (job_messages table) — not embedded on Job since it's an unbounded, append-only log fetched separately. */
-export interface JobMessage {
-  id: string;
-  job_id: string;
-  sender_role: "admin" | "customer";
-  sender_name: string;
-  body: string;
-  created_at: string;
-  read_by_admin: boolean;
-  read_by_customer: boolean;
-}
-
 /** A manually-entered invoice line — total is quantity * unit_cost_cents, not stored separately. */
 export interface InvoiceLineItem {
   description: string;

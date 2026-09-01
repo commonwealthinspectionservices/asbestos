@@ -67,7 +67,6 @@ export default function PortalNav({ isIndividual = false }: { isIndividual?: boo
 
         <div className="hidden shrink-0 items-center gap-0.5 whitespace-nowrap sm:flex md:gap-1">
           <Link href="/portal/dashboard" className={linkClass("/portal/dashboard")}>{projectsLabel}</Link>
-          <Link href="/portal/chat" className={linkClass("/portal/chat")}>Chat</Link>
           <div className="group relative shrink-0">
             <button type="button" className={linkClass("/services")}>
               Services
@@ -113,7 +112,6 @@ export default function PortalNav({ isIndividual = false }: { isIndividual?: boo
       {menuOpen && (
         <div className="absolute left-0 top-full z-20 w-full border-b-4 border-brand-700 bg-brand-50 px-4 py-2 shadow-md sm:hidden">
           <Link href="/portal/dashboard" className={mobileLinkClass("/portal/dashboard")}>{projectsLabel}</Link>
-          <Link href="/portal/chat" className={mobileLinkClass("/portal/chat")}>Chat</Link>
           <div className="px-1 py-2 text-sm font-bold uppercase text-slate-400">Services</div>
           {SERVICE_LINKS.map((service) => (
             <Link key={service.href} href={service.href} className={`${mobileLinkClass(service.href)} pl-4`}>

@@ -10,7 +10,6 @@ import { joinName, splitFullName, toTitleCase } from "@/lib/name";
 import { telHref } from "@/lib/phone";
 import type { AddressFields } from "@/lib/address";
 import AddressAutocompleteInput from "@/components/shared/AddressAutocompleteInput";
-import JobChat from "@/components/shared/JobChat";
 import JobPhotos from "@/components/shared/JobPhotos";
 import { AcceptScheduleControl, extractTimeRange, parseWindowStartTime24h } from "@/components/admin/AcceptScheduleControl";
 import { ContactForm } from "@/components/admin/ContactDetailDialog";
@@ -587,7 +586,6 @@ export default function JobsDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
-  const [selectedJobInitialTab, setSelectedJobInitialTab] = useState<"info" | "chat">("info");
   const [editingJobId, setEditingJobId] = useState<string | null>(null);
   const [statusView, setStatusView] = useState<"open" | "closed" | "all">("open");
   const [statusFilter, setStatusFilter] = useState<Set<string>>(new Set());
@@ -1127,8 +1125,7 @@ export default function JobsDashboard() {
               <JobRow
                 key={job.id}
                 job={job}
-                onOpen={() => { setSelectedJobInitialTab("info"); setSelectedJobId(job.id); }}
-                onOpenChat={() => { setSelectedJobInitialTab("chat"); setSelectedJobId(job.id); }}
+                onOpen={() => setSelectedJobId(job.id)}
                 onEdit={() => setEditingJobId(job.id)}
                 onFieldChange={(patch) => patchJob(job, patch)}
               />
@@ -1147,7 +1144,6 @@ export default function JobsDashboard() {
             onChanged={() => loadJobs()}
             onEdit={() => setEditingJobId(detailJob.id)}
             onStatusChange={(status) => patchJob(detailJob, { status })}
-            initialTab={selectedJobInitialTab}
           />
         );
       })()}
@@ -1178,11 +1174,10 @@ export default function JobsDashboard() {
 }
 
 function JobRow({
-  job, onOpen, onOpenChat, onEdit, onFieldChange,
+  job, onOpen, onEdit, onFieldChange,
 }: {
   job: JobWithCustomer;
   onOpen: () => void;
-  onOpenChat: () => void;
   onEdit: () => void;
   onFieldChange: (patch: Record<string, unknown>) => void;
 }) {
@@ -1887,9 +1882,9 @@ export function ProjectDetailDialog({
   onChanged: () => void;
   onEdit: () => void;
   onStatusChange: (status: string) => void;
-  initialTab?: "info" | "report" | "invoice" | "chat" | "photos";
+  initialTab?: "info" | "report" | "invoice" | "photos";
 }) {
-  const [tab, setTab] = useState<"info" | "report" | "invoice" | "chat" | "photos" | "shipping" | "compensation">(initialTab ?? "info");
+  const [tab, setTab] = useState<"info" | "report" | "invoice" | "photos" | "shipping" | "compensation">(initialTab ?? "info");
   // Per Tim, 2026-08-31 — this dialog is only ever mounted while it should
   // be showing (the parent list decides that), so it locks the page behind
   // it for its whole lifetime, not conditionally.
@@ -2710,7 +2705,6 @@ export function ProjectDetailDialog({
                   onSelect: () => { setTab("report"); setReportDomainTab(domain); },
                 })),
                 { value: "invoice", label: "Invoice", onSelect: () => setTab("invoice") },
-                { value: "chat", label: "Chat", onSelect: () => setTab("chat") },
                 { value: "photos", label: "Photos", onSelect: () => setTab("photos") },
               ];
           const selectedValue = tab === "report" ? `report:${reportDomainTab}` : tab;
@@ -2764,12 +2758,6 @@ export function ProjectDetailDialog({
                       className={`flex-1 whitespace-nowrap px-0.5 py-1.5 text-center text-[11px] font-bold uppercase sm:flex-none sm:px-3 sm:text-sm ${tab === "invoice" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
                     >
                       Invoice
-                    </button>
-                    <button
-                      onClick={() => setTab("chat")}
-                      className={`flex-1 whitespace-nowrap px-0.5 py-1.5 text-center text-[11px] font-bold uppercase sm:flex-none sm:px-3 sm:text-sm ${tab === "chat" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
-                    >
-                      Chat
                     </button>
                     <button
                       onClick={() => setTab("photos")}
@@ -2930,10 +2918,10 @@ export function ProjectDetailDialog({
                       {/* Per Tim — a quick way to jump to this job's whole
                           email conversation in Gmail (the same thread every
                           automated + drafted email for this job lands in,
-                          see lib/email-thread.ts) without digging through
-                          the Chat tab or searching Gmail by hand. Only shown
-                          once a thread actually exists — a brand-new job
-                          with no emails yet has nothing to link to. */}
+                          see lib/email-thread.ts) without searching Gmail by
+                          hand. Only shown once a thread actually exists — a
+                          brand-new job with no emails yet has nothing to
+                          link to. */}
                       {job.email_gmail_thread_id && (
                         <a
                           href={`https://mail.google.com/mail/u/0/#all/${job.email_gmail_thread_id}`}
@@ -3881,18 +3869,6 @@ export function ProjectDetailDialog({
           )
         )}
 
-        {tab === "chat" && job.source !== "subcontractor" && (
-          <div className="mt-4">
-            <JobChat
-              endpoint={`/api/admin/jobs/${job.id}/messages`}
-              photoUploadEndpoint={`/api/admin/jobs/${job.id}/photos`}
-              photoViewEndpointBase={`/api/admin/jobs/${job.id}/photos`}
-              onPhotoSent={onChanged}
-              senderRole="admin"
-              sendButtonClassName="rounded-lg bg-brand-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
-            />
-          </div>
-        )}
 
         {tab === "photos" && job.source !== "subcontractor" && (
           <div className="mt-4">

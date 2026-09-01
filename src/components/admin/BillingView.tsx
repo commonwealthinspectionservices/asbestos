@@ -29,11 +29,11 @@ type InvoiceStatus = "ready_to_send" | "sent" | "overdue" | "paid";
 
 // Per Tim, 2026-08-28 — ready_to_send/sent match the exact same wording as
 // the real job.status pipeline's own labels (JobsDashboard.tsx's
-// STATUS_LABEL: ready_to_send → "Report and Invoice Ready", report_invoice_sent
+// STATUS_LABEL: ready_to_send → "Ready for Review", report_invoice_sent
 // → "Payment Pending") rather than this view's own separate phrasing, so a
 // job reads the same status whichever page you're looking at it from.
 const STATUS_LABEL: Record<InvoiceStatus, string> = {
-  ready_to_send: "Report and Invoice Ready",
+  ready_to_send: "Ready for Review",
   sent: "Payment Pending",
   overdue: "Overdue",
   paid: "Paid",

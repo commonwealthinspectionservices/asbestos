@@ -18,7 +18,7 @@ const STATUS_LABEL: Record<string, string> = {
   pending_lab_results: "Pending Lab Results",
   completed: "Report Ready",
   invoiced: "Invoiced",
-  ready_to_send: "Report and Invoice Ready",
+  ready_to_send: "Ready for Review",
   report_invoice_sent: "Payment Pending",
   paid: "Paid",
   cancelled: "Cancelled",

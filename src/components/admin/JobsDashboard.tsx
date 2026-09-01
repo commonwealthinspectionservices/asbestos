@@ -110,7 +110,7 @@ const TRACKER_SEGMENTS: TrackerSegment[] = [
   { key: "needs_scheduling", label: <>To Be<br />Scheduled</>, plainLabel: "To Be Scheduled", status: "needs_scheduling", done: (_job, i) => i >= 0 },
   { key: "scheduled", label: "Scheduled", plainLabel: "Scheduled", status: "scheduled", done: (_job, i) => i >= 1 },
   { key: "pending_lab_results", label: <>Pending<br />Lab Results</>, plainLabel: "Pending Lab Results", status: "pending_lab_results", done: (_job, i) => i >= 2 },
-  { key: "ready_to_send", label: <>Report and<br />Invoice Ready</>, plainLabel: "Report and Invoice Ready", status: "ready_to_send", done: (_job, i) => i >= 3 },
+  { key: "ready_to_send", label: <>Ready for<br />Review</>, plainLabel: "Ready for Review", status: "ready_to_send", done: (_job, i) => i >= 3 },
   { key: "report_invoice_sent", label: <>Payment<br />Pending</>, plainLabel: "Payment Pending", status: "report_invoice_sent", done: (_job, i) => i >= 4 },
   { key: "paid", label: "Paid", plainLabel: "Paid", status: "paid", done: (_job, i) => i >= 5 },
 ];
@@ -133,7 +133,7 @@ export const STATUS_LABEL: Record<string, string> = {
   pending_lab_results: "Pending Lab Results",
   completed: "Report Ready",
   invoiced: "Invoiced",
-  ready_to_send: "Report and Invoice Ready",
+  ready_to_send: "Ready for Review",
   report_invoice_sent: "Payment Pending",
   paid: "Paid",
   cancelled: "Cancelled",
@@ -1199,7 +1199,7 @@ function JobRow({
   // reportIsComplete/invoice_total_cents. Those two are still checked too
   // (a job can reach this point before its status label formally catches
   // up), but "ready_to_send" or later on its own must always be enough —
-  // confirmed live: a job manually set to Report and Invoice Ready didn't
+  // confirmed live: a job manually set to Ready for Review didn't
   // reliably show these lines when only the older two-flag check ran.
   const showReportInvoice = job.source !== "subcontractor" && (
     job.status === "ready_to_send" || job.status === "report_invoice_sent"
@@ -2598,7 +2598,7 @@ export function ProjectDetailDialog({
   // status is the authoritative signal for "this job is at the report/
   // invoice stage," not just a same-instant side effect of reportComplete/
   // invoice_total_cents — those can lag behind a status the admin already
-  // set to Report and Invoice Ready by hand.
+  // set to Ready for Review by hand.
   const showSentStatus = job.source !== "subcontractor" && (
     job.status === "ready_to_send" || job.status === "report_invoice_sent"
     || (reportComplete && job.invoice_total_cents != null)

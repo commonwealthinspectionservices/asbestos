@@ -1041,3 +1041,15 @@ drop table if exists job_messages;
 -- client's own mailing address, hand-typed by Tim, read by the FLI report
 -- template's recipient block instead of customer.billing_address.
 alter table jobs add column if not exists subcontractor_client_address text;
+
+-- Per Tim, 2026-08-31 — an FLI job can genuinely have three distinct
+-- contacts: whoever's physically at the job site (site_contact_name/phone,
+-- same meaning as on every other job), Dave MacDonald (FLI's own internal
+-- contact, not stored per-job — he's just the customer record), and the
+-- end client's own business contact (e.g. an office admin at RestoreNOW
+-- LLC — name/phone/email/PO#, from their own billing-info sheet). These
+-- three columns are that third one — distinct from site_contact_name/phone,
+-- which used to double as this before the distinction was drawn.
+alter table jobs add column if not exists subcontractor_client_contact_name text;
+alter table jobs add column if not exists subcontractor_client_contact_phone text;
+alter table jobs add column if not exists subcontractor_client_contact_email text;

@@ -1773,6 +1773,22 @@ function DetailField({ label, value, nowrap, trailing }: { label: string; value:
   );
 }
 
+// Per Tim, 2026-08-31 — "All addresses should be in this format": street on
+// its own line, then town/state/zip on the line below — matches how Job
+// site address has always rendered. Every other DetailField showing a full
+// address string (Billing address, wherever it appears) uses this too now,
+// instead of the whole thing run together on one line.
+function addressLines(address: string | null | undefined): React.ReactNode {
+  if (!address || !address.trim()) return null;
+  const { street, cityStateZip } = splitAddress(address);
+  return (
+    <>
+      <span className="block">{expandAddress(street)}</span>
+      {cityStateZip && <span className="block">{expandAddress(cityStateZip)}</span>}
+    </>
+  );
+}
+
 // Shared by the Final Report tab's invoice and report rows — same
 // create-draft / confirm-before-duplicate / live Gmail-status pattern,
 // just pointed at a different pair of *_drafted_at/*_sent_at fields and a
@@ -2945,6 +2961,26 @@ export function ProjectDetailDialog({
                       )
                     }
                   />
+                  {/* Per Tim, 2026-08-31 — "Job site address needs to be
+                      second on the list under company for FLI jobs": moved
+                      up here for FLI specifically (see the non-FLI copy
+                      further down, in its usual spot after the
+                      cancellation/payment-reversed banners). */}
+                  {isFliJob && (
+                    <DetailField
+                      label="Job site address"
+                      value={job.service_address ? (() => {
+                        const { street, cityStateZip } = splitAddress(job.service_address);
+                        return (
+                          <a href={googleMapsUrl(job.service_address)} target="_blank" rel="noreferrer" className="hover:underline">
+                            <span className="block">{expandAddress(street)}</span>
+                            {cityStateZip && <span className="block">{expandAddress(cityStateZip)}</span>}
+                          </a>
+                        );
+                      })() : null}
+                      nowrap
+                    />
+                  )}
                   {/* Edit stays inline next to Project # on mobile only now (see the absolutely-positioned desktop copy above); the portal badge (subcontractor jobs only) sits beside it there too, same as always. Per Tim, 2026-08-31 — the Gmail-thread mail icon moved up next to that same desktop Edit copy, so its own instance here is mobile-only now too (sm:hidden) — sm:pr-28 (desktop only) still reserves clearance under the pinned Edit+icon block for the portal badge, which does stay visible on desktop. */}
                   <div className="relative flex items-center justify-between gap-2 sm:pr-28">
                     <DetailField label="Project #" value={job.project_number} />
@@ -3011,22 +3047,26 @@ export function ProjectDetailDialog({
                 )}
               </div>
             )}
-            <DetailField
-              label="Job site address"
-              value={job.service_address ? (() => {
-                const { street, cityStateZip } = splitAddress(job.service_address);
-                return (
-                  <a href={googleMapsUrl(job.service_address)} target="_blank" rel="noreferrer" className="hover:underline">
-                    {/* Per Tim, 2026-08-28 — street, then town/state/zip on
-                        its own line below it, same on desktop as mobile
-                        now (used to be one line on desktop). */}
-                    <span className="block">{expandAddress(street)}</span>
-                    {cityStateZip && <span className="block">{expandAddress(cityStateZip)}</span>}
-                  </a>
-                );
-              })() : null}
-              nowrap
-            />
+            {/* Per Tim, 2026-08-31 — moved up for FLI jobs (see the other
+                copy right after Company) — not shown twice. */}
+            {!isFliJob && (
+              <DetailField
+                label="Job site address"
+                value={job.service_address ? (() => {
+                  const { street, cityStateZip } = splitAddress(job.service_address);
+                  return (
+                    <a href={googleMapsUrl(job.service_address)} target="_blank" rel="noreferrer" className="hover:underline">
+                      {/* Per Tim, 2026-08-28 — street, then town/state/zip on
+                          its own line below it, same on desktop as mobile
+                          now (used to be one line on desktop). */}
+                      <span className="block">{expandAddress(street)}</span>
+                      {cityStateZip && <span className="block">{expandAddress(cityStateZip)}</span>}
+                    </a>
+                  );
+                })() : null}
+                nowrap
+              />
+            )}
           </div>
           <div className="space-y-4 sm:space-y-2">
             {job.source === "subcontractor" ? (
@@ -3144,34 +3184,75 @@ export function ProjectDetailDialog({
               top (same row as Company/Project # on the left) rather than
               paired lower down with the Requested/Scheduled date block. */}
           <div className="space-y-6 sm:space-y-8">
-          <div className="space-y-4 sm:space-y-2">
-            <h4 className="text-sm font-bold tracking-wide text-black underline">
-              {isSubcontractingFor ? "Their client" : "Job site contact"}
-            </h4>
-            {(isSubcontractingFor || isFliJob) && (
-              <DetailField label="Company" value={job.subcontractor_client_company ?? "—"} nowrap />
-            )}
-            <DetailField label="Name" value={job.site_contact_name ? toTitleCase(job.site_contact_name) : "—"} />
-            <DetailField
-              label="Phone"
-              value={
-                job.site_contact_phone ? (
-                  <a href={telHref(job.site_contact_phone)} className="text-brand-700 hover:underline">
-                    {formatPhoneInput(job.site_contact_phone)}
-                  </a>
-                ) : "—"
-              }
-            />
-            <DetailField label="Email" value={job.site_contact_email} nowrap />
-            {/* Per Tim, 2026-08-31 — "all i meant was add billing address
-                here": a plain field alongside Name/Phone/Email, not its
-                own separate section — the end client's own mailing
-                address (see subcontractor_client_address's own comment in
-                types.ts), FLI-only. */}
-            {isFliJob && (
-              <DetailField label="Billing address" value={job.subcontractor_client_address ? expandAddress(job.subcontractor_client_address) : undefined} nowrap />
-            )}
-          </div>
+          {isFliJob ? (
+            // Per Tim, 2026-08-31 — "the fli jobs may have 3 contacts...
+            // job site contact whoever it is, dave from fli and then the
+            // company contact from who FLI's client is": genuinely
+            // separate sections now — Job site contact (whoever's
+            // physically there) and the end client's own business info
+            // (company/billing address/PO#/their own contact person),
+            // distinct from each other and from Dave MacDonald (FLI's own
+            // internal contact, shown further down as "FLI Environmental
+            // information").
+            <>
+              <div className="space-y-4 sm:space-y-2">
+                <h4 className="text-sm font-bold tracking-wide text-black underline">Job site contact</h4>
+                <DetailField label="Name" value={job.site_contact_name ? toTitleCase(job.site_contact_name) : "—"} />
+                <DetailField
+                  label="Phone"
+                  value={
+                    job.site_contact_phone ? (
+                      <a href={telHref(job.site_contact_phone)} className="text-brand-700 hover:underline">
+                        {formatPhoneInput(job.site_contact_phone)}
+                      </a>
+                    ) : "—"
+                  }
+                />
+                <DetailField label="Email" value={job.site_contact_email} nowrap />
+              </div>
+              <div className="space-y-4 sm:space-y-2">
+                <h4 className="text-sm font-bold tracking-wide text-black underline">
+                  {job.subcontractor_client_company?.trim() || "Their"}&apos;s client
+                </h4>
+                <DetailField label="Company" value={job.subcontractor_client_company} nowrap />
+                <DetailField label="Billing address" value={addressLines(job.subcontractor_client_address)} nowrap />
+                <DetailField label="PO #" value={job.po_number} />
+                <DetailField label="Name" value={job.subcontractor_client_contact_name ? toTitleCase(job.subcontractor_client_contact_name) : undefined} />
+                <DetailField
+                  label="Phone"
+                  value={
+                    job.subcontractor_client_contact_phone ? (
+                      <a href={telHref(job.subcontractor_client_contact_phone)} className="text-brand-700 hover:underline">
+                        {formatPhoneInput(job.subcontractor_client_contact_phone)}
+                      </a>
+                    ) : undefined
+                  }
+                />
+                <DetailField label="Email" value={job.subcontractor_client_contact_email} nowrap />
+              </div>
+            </>
+          ) : (
+            <div className="space-y-4 sm:space-y-2">
+              <h4 className="text-sm font-bold tracking-wide text-black underline">
+                {isSubcontractingFor ? "Their client" : "Job site contact"}
+              </h4>
+              {isSubcontractingFor && (
+                <DetailField label="Company" value={job.subcontractor_client_company ?? "—"} nowrap />
+              )}
+              <DetailField label="Name" value={job.site_contact_name ? toTitleCase(job.site_contact_name) : "—"} />
+              <DetailField
+                label="Phone"
+                value={
+                  job.site_contact_phone ? (
+                    <a href={telHref(job.site_contact_phone)} className="text-brand-700 hover:underline">
+                      {formatPhoneInput(job.site_contact_phone)}
+                    </a>
+                  ) : "—"
+                }
+              />
+              <DetailField label="Email" value={job.site_contact_email} nowrap />
+            </div>
+          )}
           {job.report_emails && job.report_emails.trim() && (
             <div className="space-y-4 sm:space-y-2">
               <h4 className="text-sm font-bold tracking-wide text-black underline">Email results to</h4>
@@ -3248,7 +3329,7 @@ export function ProjectDetailDialog({
                 />
               )}
               {isFliJob && (
-                <DetailField label="Billing address" value={expandAddress(job.customers?.companies?.billing_address)} nowrap />
+                <DetailField label="Billing address" value={addressLines(job.customers?.companies?.billing_address)} nowrap />
               )}
             </div>
             {!isFliJob && !job.customers?.is_individual && job.customers?.companies && (
@@ -3274,7 +3355,7 @@ export function ProjectDetailDialog({
                   label="Phone"
                   value={job.customers.companies.phone ? <a href={telHref(job.customers.companies.phone)} className="text-brand-700 hover:underline">{formatPhoneInput(job.customers.companies.phone)}</a> : undefined}
                 />
-                <DetailField label="Billing address" value={expandAddress(job.customers.companies.billing_address)} nowrap />
+                <DetailField label="Billing address" value={addressLines(job.customers.companies.billing_address)} nowrap />
               </div>
             )}
           </div>
@@ -3290,12 +3371,15 @@ export function ProjectDetailDialog({
               </ul>
             </div>
           )}
-          {(job.job_classification || job.payment_method || job.po_number || job.invoice_number) && (
+          {(job.job_classification || job.payment_method || (!isFliJob && job.po_number) || job.invoice_number) && (
             <div className="space-y-4 sm:space-y-2">
               <h4 className="text-sm font-bold tracking-wide text-black underline">Job details</h4>
               <DetailField label="Classification" value={job.job_classification} />
               <DetailField label="Payment method" value={job.payment_method} />
-              <DetailField label="PO #" value={job.po_number} />
+              {/* Per Tim, 2026-08-31 — for FLI jobs, PO # already shows in
+                  the client's own info block above (their own PO#) — no
+                  need to repeat it down here too. */}
+              {!isFliJob && <DetailField label="PO #" value={job.po_number} />}
               <DetailField label="Invoice #" value={job.invoice_number} />
             </div>
           )}
@@ -4701,8 +4785,27 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
   const [endClientCompany, setEndClientCompany] = useState("");
   // Per Tim, 2026-08-31 — the end client's own mailing address, needed
   // because the FLI report is addressed to them, not to Dave MacDonald
-  // (see subcontractor_client_address's own comment in types.ts).
-  const [endClientAddress, setEndClientAddress] = useState("");
+  // (see subcontractor_client_address's own comment in types.ts). Per Tim,
+  // same day — "should be this exact same format" (matching Job site
+  // address's own street+unit / town+state+zip layout): structured fields
+  // here too, joined into the one stored string via buildBillingAddress on
+  // submit, same as service_address already does.
+  const [endClientStreet, setEndClientStreet] = useState("");
+  const [endClientUnit, setEndClientUnit] = useState("");
+  const [endClientCity, setEndClientCity] = useState("");
+  const [endClientState, setEndClientState] = useState("");
+  const [endClientZip, setEndClientZip] = useState("");
+  // Per Tim, 2026-08-31 — the end client's own business contact (e.g. an
+  // office admin at RestoreNOW LLC) — genuinely a different person from
+  // siteContactName/Phone below, which is whoever's physically at the job
+  // site (see subcontractor_client_contact_name's own comment in types.ts).
+  const [endClientContactName, setEndClientContactName] = useState("");
+  const [endClientContactPhone, setEndClientContactPhone] = useState("");
+  const [endClientContactEmail, setEndClientContactEmail] = useState("");
+  // Reuses the job's own generic po_number column — FLI's client sometimes
+  // gives a PO# on their own billing-info sheet; not shown/editable for any
+  // other job type (see the read-only "Job details" block's own comment).
+  const [poNumber, setPoNumber] = useState("");
   // Per Tim, 2026-08-31 — "obviously I should be able to add that in when
   // I make the job": FLI's own project number, settable up front here
   // instead of only after the fact via the Asbestos Report tab's inline
@@ -4877,7 +4980,13 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
           siteContactName: siteContactName.trim() || undefined,
           siteContactPhone: siteContactPhone.trim() || undefined,
           subcontractorClientCompany: endClientCompany.trim() || undefined,
-          subcontractorClientAddress: endClientAddress.trim() || undefined,
+          subcontractorClientAddress: buildBillingAddress({
+            street: endClientStreet, unit: endClientUnit, city: endClientCity, state: endClientState, zip: endClientZip,
+          }) || undefined,
+          subcontractorClientContactName: endClientContactName.trim() || undefined,
+          subcontractorClientContactPhone: endClientContactPhone.trim() || undefined,
+          subcontractorClientContactEmail: endClientContactEmail.trim() || undefined,
+          poNumber: poNumber.trim() || undefined,
           fliProjectNumber: fliProjectNumber.trim() || undefined,
           serviceTypeKeys: selectedServiceTypeKeys,
           customServiceType: customServiceType.trim() || undefined,
@@ -4941,7 +5050,13 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
   );
   const contactFields = (
     <>
-      <label className="mt-3 block text-sm font-medium text-slate-700">Company contact</label>
+      {/* Per Tim, 2026-08-31 — "this should be 'FLI Environmental
+          contact'": disambiguates from the newer "FLI Environmental's
+          client"/"Job site contact" sections — this one is specifically
+          Dave MacDonald, the Directory contact this job is filed under. */}
+      <label className="mt-3 block text-sm font-medium text-slate-700">
+        {isFliEnvironmental ? "FLI Environmental contact" : "Company contact"}
+      </label>
       <div className="mt-1 flex gap-2">
         <div className="w-0 flex-1">{nameField}</div>
         <div className="w-0 flex-1">{phoneField}</div>
@@ -5161,7 +5276,106 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
           <ZipInput street={serviceStreet} city={serviceCity} state={serviceState} zip={serviceZip} setZip={setServiceZip} />
         </div>
 
-        {(isSubcontractingFor || isFliEnvironmental) ? (
+        {isFliEnvironmental ? (
+          // Per Tim, 2026-08-31 — "the fli jobs may have 3 contacts...
+          // job site contact whoever it is, dave from fli and then the
+          // company contact from who FLI's client is": this block is that
+          // third contact — the end client's own business office (e.g.
+          // RestoreNOW LLC's own billing-info sheet: company, billing
+          // address, PO#, and a real contact person's name/phone/email).
+          // Genuinely distinct from Job site contact below (whoever's
+          // physically at the job site) and from Dave MacDonald (FLI's
+          // own internal contact, not stored per-job).
+          <>
+            <label className="mt-3 block text-sm font-medium text-slate-700">
+              {companyName.trim() || "Their"}&apos;s client
+            </label>
+            <input
+              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              value={endClientCompany}
+              onChange={(e) => setEndClientCompany(e.target.value)}
+              placeholder="Company name"
+            />
+            <div className="mt-1.5 flex flex-col gap-1.5 sm:flex-row">
+              <div className="min-w-0 sm:w-0 sm:flex-1">
+                <AddressAutocompleteInput
+                  apiBase="/api/admin"
+                  value={endClientStreet}
+                  onChange={setEndClientStreet}
+                  onSelectAddress={(fields) => {
+                    setEndClientStreet(fields.street);
+                    setEndClientUnit(fields.unit);
+                    setEndClientCity(fields.city);
+                    setEndClientState(fields.state);
+                    setEndClientZip(fields.zip);
+                  }}
+                  placeholder="Billing street address"
+                  townHint={endClientCity}
+                />
+              </div>
+              <input
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm sm:w-28 sm:shrink-0"
+                placeholder="Unit #"
+                value={endClientUnit}
+                onChange={(e) => setEndClientUnit(e.target.value)}
+              />
+            </div>
+            <div className="mt-1.5 grid grid-cols-1 gap-1.5 sm:grid-cols-3">
+              <AddressAutocompleteInput
+                apiBase="/api/admin"
+                value={endClientCity}
+                onChange={(v) => {
+                  setEndClientCity(v);
+                  if (!v.trim()) setEndClientZip("");
+                }}
+                mode="city"
+                onSelectAddress={(fields) => {
+                  setEndClientCity(fields.city);
+                  setEndClientState(fields.state);
+                  setEndClientZip(fields.zip);
+                }}
+                placeholder="Town"
+              />
+              <input
+                className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                placeholder="State"
+                value={endClientState}
+                onChange={(e) => setEndClientState(e.target.value)}
+              />
+              <ZipInput street={endClientStreet} city={endClientCity} state={endClientState} zip={endClientZip} setZip={setEndClientZip} />
+            </div>
+            <input
+              className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm sm:w-40"
+              value={poNumber}
+              onChange={(e) => setPoNumber(e.target.value)}
+              placeholder="PO #"
+            />
+            <div className="mt-1.5 flex flex-col gap-2 sm:flex-row">
+              <div className="min-w-0 sm:w-0 sm:flex-1">
+                <input
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  value={endClientContactName}
+                  onChange={(e) => setEndClientContactName(e.target.value)}
+                  placeholder="Their contact's name"
+                />
+              </div>
+              <div className="min-w-0 sm:w-0 sm:flex-1">
+                <input
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  placeholder="Their contact's phone"
+                  value={endClientContactPhone}
+                  onChange={(e) => setEndClientContactPhone(formatPhoneInput(e.target.value))}
+                />
+              </div>
+            </div>
+            <input
+              className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              value={endClientContactEmail}
+              onChange={(e) => setEndClientContactEmail(e.target.value)}
+              placeholder="Their contact's email"
+            />
+          </>
+        ) : isSubcontractingFor ? (
           // Per Tim, 2026-08-30 — "I want Restore1 on there somewhere...
           // I'm not always sure going in who I'm subcontracting the job
           // for, it should just be a note" then "FLI's client should be
@@ -5172,18 +5386,12 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
           // (site_contact_name/phone — same field the automated email
           // intake already uses for this exact purpose, see
           // subcontractor-intake.ts). All optional/freeform — a note, not
-          // a full contact record. Per Tim, 2026-08-31 — FLI Environmental
-          // still needs this 3-line entry even though it no longer gets
-          // isSubcontractingFor's other cosmetic treatment (see
-          // FLI_ENVIRONMENTAL_COMPANY_ID's own comment).
+          // a full contact record. Unchanged for Fast Mold Testing —
+          // FLI's own richer 3-contact model (above) doesn't apply here.
           <>
             <label className="mt-3 block text-sm font-medium text-slate-700">
               {companyName.trim() || "Their"}&apos;s client
             </label>
-            {/* Per Tim, 2026-08-31 — "i dont like how all these cells are
-                connected make them seperated like the rest": back to each
-                field as its own separately-boxed input (the combined,
-                divided-box treatment tried earlier is reverted). */}
             <input
               className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
               value={endClientCompany}
@@ -5211,19 +5419,6 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
                 />
               </div>
             </div>
-            {isFliEnvironmental && (
-              // Per Tim, 2026-08-31 — the FLI report is addressed to
-              // this end client (their own contact above), never to
-              // Dave MacDonald, so it needs their real mailing address
-              // too — Dave's own on-file billing address is just "MA",
-              // not usable for this.
-              <input
-                className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                value={endClientAddress}
-                onChange={(e) => setEndClientAddress(e.target.value)}
-                placeholder="Contact billing address"
-              />
-            )}
           </>
         ) : (
           <>
@@ -5234,6 +5429,36 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
                     the homeowner, essentially never one of the
                     company/individual contacts already on file, so
                     suggesting matches from that list is just noise here. */}
+                <input
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  value={siteContactName}
+                  onChange={(e) => { setSiteContactName(e.target.value); setSiteContactSameAsContact(false); }}
+                  placeholder="Name"
+                />
+              </div>
+              <div className="min-w-0 sm:w-0 sm:flex-1">
+                <input
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  placeholder="Phone"
+                  value={siteContactPhone}
+                  onChange={(e) => {
+                    setSiteContactPhone(formatPhoneInput(e.target.value));
+                    setSiteContactSameAsContact(false);
+                  }}
+                />
+              </div>
+            </div>
+          </>
+        )}
+
+        {isFliEnvironmental && (
+          // Per Tim, 2026-08-31 — the genuine job site contact (whoever's
+          // physically there, distinct from FLI's client's own business
+          // contact above) — same plain fields every other job type gets.
+          <>
+            <label className="mt-3 block text-sm font-medium text-slate-700">Job site contact</label>
+            <div className="mt-1 flex flex-col gap-2 sm:flex-row">
+              <div className="min-w-0 sm:w-0 sm:flex-1">
                 <input
                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
                   value={siteContactName}
@@ -5494,7 +5719,16 @@ export function EditProjectDialog({
   // directly rather than re-deriving from typed/picked state like Add does.
   const isFliEnvironmental = job.customers?.company_id === FLI_ENVIRONMENTAL_COMPANY_ID;
   const [endClientCompany, setEndClientCompany] = useState(job.subcontractor_client_company ?? "");
-  const [endClientAddress, setEndClientAddress] = useState(job.subcontractor_client_address ?? "");
+  const endClientAddressInit = useMemo(() => parseAddressToFields(job.subcontractor_client_address), [job.subcontractor_client_address]);
+  const [endClientStreet, setEndClientStreet] = useState(endClientAddressInit.street);
+  const [endClientUnit, setEndClientUnit] = useState(endClientAddressInit.unit);
+  const [endClientCity, setEndClientCity] = useState(endClientAddressInit.city);
+  const [endClientState, setEndClientState] = useState(endClientAddressInit.state);
+  const [endClientZip, setEndClientZip] = useState(endClientAddressInit.zip);
+  const [endClientContactName, setEndClientContactName] = useState(job.subcontractor_client_contact_name ?? "");
+  const [endClientContactPhone, setEndClientContactPhone] = useState(job.subcontractor_client_contact_phone ?? "");
+  const [endClientContactEmail, setEndClientContactEmail] = useState(job.subcontractor_client_contact_email ?? "");
+  const [poNumber, setPoNumber] = useState(job.po_number ?? "");
   const [fliProjectNumber, setFliProjectNumber] = useState(job.fli_project_number ?? "");
   const [selectedServiceTypeKeys, setSelectedServiceTypeKeys] = useState<string[]>([]);
   const [customServiceType, setCustomServiceType] = useState("");
@@ -5701,7 +5935,13 @@ export function EditProjectDialog({
             site_contact_name: siteContactName.trim() || null,
             site_contact_phone: siteContactPhone || null,
             subcontractor_client_company: endClientCompany.trim() || null,
-            subcontractor_client_address: endClientAddress.trim() || null,
+            subcontractor_client_address: buildBillingAddress({
+              street: endClientStreet, unit: endClientUnit, city: endClientCity, state: endClientState, zip: endClientZip,
+            }) || null,
+            subcontractor_client_contact_name: endClientContactName.trim() || null,
+            subcontractor_client_contact_phone: endClientContactPhone.trim() || null,
+            subcontractor_client_contact_email: endClientContactEmail.trim() || null,
+            po_number: poNumber.trim() || null,
             fli_project_number: fliProjectNumber.trim() || null,
             service_address: serviceAddress || null,
             service_type: serviceTypeLabel || null,
@@ -5757,7 +5997,7 @@ export function EditProjectDialog({
     projectNumber, status, companyName, companyId, customerId, contactName, email, phone,
     additionalReportEmails,
     serviceStreet, serviceUnit, serviceCity, serviceState, serviceZip,
-    siteContactName, siteContactPhone, endClientCompany, endClientAddress, fliProjectNumber, selectedServiceTypeKeys, customServiceType, scopeOfWork,
+    siteContactName, siteContactPhone, endClientCompany, endClientStreet, endClientUnit, endClientCity, endClientState, endClientZip, endClientContactName, endClientContactPhone, endClientContactEmail, poNumber, fliProjectNumber, selectedServiceTypeKeys, customServiceType, scopeOfWork,
     confirmedDate, confirmedTime, paidDate, dueDate, notes, paymentType, isRevisit,
   ]);
 
@@ -6012,23 +6252,104 @@ export function EditProjectDialog({
           onChange={(e) => setScopeOfWork(e.target.value)}
         />
 
-        {(isSubcontractingFor || isFliEnvironmental) ? (
+        {isFliEnvironmental ? (
+          // Per Tim, 2026-08-31 — "the fli jobs may have 3 contacts...
+          // job site contact whoever it is, dave from fli and then the
+          // company contact from who FLI's client is": this block is that
+          // third contact — the end client's own business office (e.g.
+          // RestoreNOW LLC's own billing-info sheet: company, billing
+          // address, PO#, and a real contact person's name/phone/email).
+          // Genuinely distinct from Job site contact below (whoever's
+          // physically at the job site) and from Dave MacDonald (FLI's
+          // own internal contact, not stored per-job).
+          <>
+            <label className="mt-3 block text-sm font-medium text-slate-700">
+              {companyName.trim() || "Their"}&apos;s client
+            </label>
+            <input
+              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              value={endClientCompany}
+              onChange={(e) => setEndClientCompany(e.target.value)}
+              placeholder="Company name"
+            />
+            <div className="mt-1.5 flex gap-1.5">
+              <div className="w-0 flex-1">
+                <input
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  placeholder="Billing street address"
+                  value={endClientStreet}
+                  onChange={(e) => setEndClientStreet(e.target.value)}
+                />
+              </div>
+              <input
+                className="w-28 shrink-0 rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                placeholder="Unit #"
+                value={endClientUnit}
+                onChange={(e) => setEndClientUnit(e.target.value)}
+              />
+            </div>
+            <div className="mt-1.5 grid grid-cols-3 gap-1.5">
+              <input
+                className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                placeholder="Town"
+                value={endClientCity}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setEndClientCity(v);
+                  if (!v.trim()) setEndClientZip("");
+                }}
+              />
+              <input
+                className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                placeholder="State"
+                value={endClientState}
+                onChange={(e) => setEndClientState(e.target.value)}
+              />
+              <ZipInput street={endClientStreet} city={endClientCity} state={endClientState} zip={endClientZip} setZip={setEndClientZip} />
+            </div>
+            <input
+              className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm sm:w-40"
+              value={poNumber}
+              onChange={(e) => setPoNumber(e.target.value)}
+              placeholder="PO #"
+            />
+            <div className="mt-1.5 flex gap-2">
+              <div className="w-0 flex-1">
+                <input
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  value={endClientContactName}
+                  onChange={(e) => setEndClientContactName(e.target.value)}
+                  placeholder="Their contact's name"
+                />
+              </div>
+              <div className="w-0 flex-1">
+                <input
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  placeholder="Their contact's phone"
+                  value={endClientContactPhone}
+                  onChange={(e) => setEndClientContactPhone(formatPhoneInput(e.target.value))}
+                />
+              </div>
+            </div>
+            <input
+              className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              value={endClientContactEmail}
+              onChange={(e) => setEndClientContactEmail(e.target.value)}
+              placeholder="Their contact's email"
+            />
+          </>
+        ) : isSubcontractingFor ? (
           // Per Tim, 2026-08-30 — "FLI's client should be three lines
           // across, company name, company contact's name, company
           // contact phone number" — same layout as AddProjectDialog's own
           // section, now editable after creation too (this is how job
           // 26-0012's missing "Restore1" gets fixed once the DB column
-          // exists). Per Tim, 2026-08-31 — FLI Environmental keeps this
-          // 3-line entry even without isSubcontractingFor's other cosmetic
-          // treatment (see FLI_ENVIRONMENTAL_COMPANY_ID's own comment).
+          // exists). Unchanged for Fast Mold Testing — FLI's own richer
+          // 3-contact model (above) doesn't apply here.
           <>
             <label className="mt-3 block text-sm font-medium text-slate-700">
               {companyName.trim() || "Their"}&apos;s client
             </label>
-            {/* Per Tim, 2026-08-31 — "i dont like how all these cells are
-                connected make them seperated like the rest": back to each
-                field as its own separately-boxed input (the combined,
-                divided-box treatment tried earlier is reverted). */}
             <input
               className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
               value={endClientCompany}
@@ -6053,19 +6374,6 @@ export function EditProjectDialog({
                 />
               </div>
             </div>
-            {isFliEnvironmental && (
-              // Per Tim, 2026-08-31 — the FLI report is addressed to
-              // this end client (their own contact above), never to
-              // Dave MacDonald, so it needs their real mailing address
-              // too — Dave's own on-file billing address is just "MA",
-              // not usable for this.
-              <input
-                className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                value={endClientAddress}
-                onChange={(e) => setEndClientAddress(e.target.value)}
-                placeholder="Contact billing address"
-              />
-            )}
           </>
         ) : (
           <>
@@ -6112,7 +6420,40 @@ export function EditProjectDialog({
           </>
         )}
 
-        <label className="mt-3 block text-sm font-medium text-slate-700">{companyName.trim() ? "Company contact" : "Customer contact"}</label>
+        {isFliEnvironmental && (
+          // Per Tim, 2026-08-31 — the genuine job site contact (whoever's
+          // physically there, distinct from FLI's client's own business
+          // contact above) — same plain fields every other job type gets.
+          <>
+            <label className="mt-3 block text-sm font-medium text-slate-700">Job site contact</label>
+            <div className="mt-1 flex gap-2">
+              <div className="w-0 flex-1">
+                <input
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  value={siteContactName}
+                  onChange={(e) => setSiteContactName(e.target.value)}
+                  placeholder="Name"
+                />
+              </div>
+              <div className="w-0 flex-1">
+                <input
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  placeholder="Phone"
+                  value={siteContactPhone}
+                  onChange={(e) => setSiteContactPhone(formatPhoneInput(e.target.value))}
+                />
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Per Tim, 2026-08-31 — "this should be 'FLI Environmental
+            contact'": disambiguates from "FLI Environmental's client"/"Job
+            site contact" — this one is specifically Dave MacDonald, the
+            Directory contact this job is filed under. */}
+        <label className="mt-3 block text-sm font-medium text-slate-700">
+          {isFliEnvironmental ? "FLI Environmental contact" : companyName.trim() ? "Company contact" : "Customer contact"}
+        </label>
         <div className="mt-1 flex gap-2">
           <div className="w-0 flex-1">
             <ComboboxInput

@@ -29,7 +29,7 @@ export type MoldSampleType = "air_o_cell" | "bulk" | "swab";
 // turnaroundNote (if any) sits beside TURNAROUND, dateNeededNote (if any)
 // beside DATE NEEDED — same split blank-coc-pdf.tsx uses for its two
 // notes. Air-O-Cell has both: Spore Trap Analysis beside TURNAROUND, and
-// the fixed-75ml note beside DATE NEEDED (worth noting once rather than
+// the fixed-75L note beside DATE NEEDED (worth noting once rather than
 // on every row regardless of how many samples an actual job has). Bulk
 // and swab only have the one Direct Examination note, and it goes beside
 // DATE NEEDED — TURNAROUND renders alone (see the signature row below).
@@ -41,7 +41,7 @@ export type MoldSampleType = "air_o_cell" | "bulk" | "swab";
 // continuation page either — 10 rows is already more than a real mold
 // job needs, unlike the asbestos form's own two-page design.
 // thirdColumnLabel is null for Air-O-Cell — every sample is the same
-// fixed 75ml (see dateNeededNote below), so a per-row VOLUME column would
+// fixed 75L (see dateNeededNote below), so a per-row VOLUME column would
 // just repeat that on every line. Table collapses to SAMPLE #/LOCATION
 // only, with LOCATION taking the full remaining width.
 const SAMPLE_TYPE_CONFIG: Record<MoldSampleType, { title: string; thirdColumnLabel: string | null; turnaroundNote: string | null; dateNeededNote: string | null; rowCount: number }> = {
@@ -49,7 +49,7 @@ const SAMPLE_TYPE_CONFIG: Record<MoldSampleType, { title: string; thirdColumnLab
     title: "MOLD AIR-O-CELL SAMPLE CHAIN OF CUSTODY",
     thirdColumnLabel: null,
     turnaroundNote: "*Samples for analysis by Spore Trap Analysis",
-    dateNeededNote: "*The volume for all Air-O-Cell samples is 75ml",
+    dateNeededNote: "*The volume for all Air-O-Cell samples is 75L",
     rowCount: 10,
   },
   bulk: {

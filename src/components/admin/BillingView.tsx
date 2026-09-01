@@ -600,10 +600,20 @@ export default function BillingView() {
         {/* Per Tim, 2026-09-02 — plain text, sitting right below Weekly
             Revenue rather than in its own bordered card like the two
             tables above. Gross Revenue leads on the left, Gross Profit
-            trails on the right, same line. */}
-        <div className="flex w-full items-baseline justify-between text-sm text-slate-600">
-          <span>All-Time Gross Revenue: {formatCents(allTimeTotal.grossCents)}</span>
-          <span>All-Time Gross Profit: {formatCents(allTimeTotal.netCents)}</span>
+            trails on the right, same line on desktop. sm:col-span-2 — per
+            Tim's follow-up ("on desktop these should be one line across"),
+            the longer "All-Time " labels were wrapping because this row
+            was still confined to this grid's single half-width column on
+            desktop; spanning both columns gives each span the full row
+            width to stay on one line. Per Tim, same follow-up — stacked
+            (flex-col) on mobile instead of squeezed side by side
+            (justify-between forced both onto one overflowing line there,
+            same nowrap-overflow problem "one line across" was fixing on
+            desktop, just worse on a narrower screen), and text-xs to match
+            "make all of this the same size text" as the rest of the page. */}
+        <div className="flex w-full flex-col gap-0.5 text-xs text-slate-500 sm:col-span-2 sm:flex-row sm:items-baseline sm:justify-between sm:gap-2 sm:text-sm">
+          <span className="whitespace-nowrap">All-Time Gross Revenue: {formatCents(allTimeTotal.grossCents)}</span>
+          <span className="whitespace-nowrap">All-Time Gross Profit: {formatCents(allTimeTotal.netCents)}</span>
         </div>
       </div>
 
@@ -754,13 +764,28 @@ export default function BillingView() {
             // follow-up — "but this part must be 1 line across": same
             // text-xs-on-mobile/whitespace-nowrap treatment as the Weekly
             // Revenue row labels use for the same reason.
-            <div className="mt-3 flex flex-col items-start gap-2 text-sm text-slate-500">
-              <span className="whitespace-nowrap text-xs sm:text-sm">
-                Showing invoices from <span className="font-semibold text-slate-800">{periodFilter.label}</span>
-                {" — "}
-                {formatCents(rows.reduce((sum, { job }) => sum + (job.invoice_total_cents ?? 0), 0))}
-              </span>
-              <button onClick={() => setPeriodFilter(null)} className="-m-1.5 p-1.5 text-brand-600 underline">
+            <div className="mt-3 flex flex-col items-start gap-2 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+              {/* Per Tim, 2026-09-02 (follow-up) — "for mobile do this part
+                  on one line and the dollar amount on its own line below"
+                  but "on desktop it should all be one line across": stacked
+                  on mobile (flex-col), side by side on sm+ (flex-row) —
+                  same two pieces of text either way. Also "instead of a -
+                  use a :" — the dash before the amount is a colon now,
+                  trailing the date range instead of leading the amount. */}
+              <div className="flex flex-col sm:flex-row sm:items-baseline sm:gap-1">
+                <div className="whitespace-nowrap text-xs sm:text-sm">
+                  Showing invoices from <span className="font-semibold text-slate-800">{periodFilter.label}</span>:
+                </div>
+                <div className="whitespace-nowrap text-xs sm:text-sm">
+                  {formatCents(rows.reduce((sum, { job }) => sum + (job.invoice_total_cents ?? 0), 0))}
+                </div>
+              </div>
+              {/* Per Tim, 2026-09-02 (follow-up) — "on desktop this should
+                  be on same line as Showing invoices from... and it should
+                  be aligned all the way right": sm:justify-between above
+                  pushes Clear to the far right of that same row on desktop;
+                  mobile keeps it stacked below on its own line. */}
+              <button onClick={() => setPeriodFilter(null)} className="-m-1.5 shrink-0 p-1.5 text-brand-600 underline">
                 Clear
               </button>
             </div>

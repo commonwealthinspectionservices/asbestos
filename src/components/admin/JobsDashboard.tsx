@@ -3184,7 +3184,16 @@ export function ProjectDetailDialog({
             </div>
           )}
           {/* Per Tim, 2026-08-28 — dropped the 2-column grid here too, same
-              single evenly-spaced left-aligned list at every width. */}
+              single evenly-spaced left-aligned list at every width. Per
+              Tim, 2026-08-31 — "this should all be combine and instead of
+              company contact call it FLI Environmental information or
+              something": for FLI jobs specifically, Company contact and
+              Company info collapse into one block under one heading —
+              Dave MacDonald (FLI's internal contact) and FLI's own company
+              phone/billing address are really one unit of information
+              about FLI, the same way isFliJob combined the client fields
+              above it. Every other company (Boston Harbor, Newton, a
+              regular one-off company) keeps the original two-block layout. */}
           <div className="space-y-6">
             <div className="space-y-4 sm:space-y-2">
               {/* Per Tim, 2026-08-28 — "Company contact" once this job's
@@ -3194,7 +3203,7 @@ export function ProjectDetailDialog({
                   company to be a contact for, so that case keeps the
                   generic "Customer contact" label. */}
               <h4 className="text-sm font-bold tracking-wide text-black underline">
-                {job.customers?.is_individual ? "Customer contact" : "Company contact"}
+                {isFliJob ? "FLI Environmental information" : job.customers?.is_individual ? "Customer contact" : "Company contact"}
               </h4>
               <DetailField
                 label="Name"
@@ -3216,8 +3225,31 @@ export function ProjectDetailDialog({
                 value={job.customers?.phone ? <a href={telHref(job.customers.phone)} className="text-brand-700 hover:underline">{formatPhoneInput(job.customers.phone)}</a> : undefined}
               />
               <DetailField label="Email" value={job.customers?.email} nowrap />
+              {isFliJob && job.customers?.companies?.billing_contact && (
+                <DetailField
+                  label="Billing contact"
+                  value={
+                    <a
+                      href={`/admin/customers?tab=contacts&contactId=${job.customers.companies.billing_contact.id}`}
+                      className="hover:underline"
+                    >
+                      {toTitleCase(job.customers.companies.billing_contact.name)}
+                    </a>
+                  }
+                  nowrap
+                />
+              )}
+              {isFliJob && (
+                <DetailField
+                  label="Company phone"
+                  value={job.customers?.companies?.phone ? <a href={telHref(job.customers.companies.phone)} className="text-brand-700 hover:underline">{formatPhoneInput(job.customers.companies.phone)}</a> : undefined}
+                />
+              )}
+              {isFliJob && (
+                <DetailField label="Billing address" value={expandAddress(job.customers?.companies?.billing_address)} nowrap />
+              )}
             </div>
-            {!job.customers?.is_individual && job.customers?.companies && (
+            {!isFliJob && !job.customers?.is_individual && job.customers?.companies && (
               job.customers.companies.billing_contact || job.customers.companies.phone || job.customers.companies.billing_address
             ) && (
               <div className="space-y-4 sm:space-y-2">
@@ -4966,36 +4998,16 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
           <p className="mt-2 text-sm font-medium text-brand-700">Subcontractor job</p>
         )}
 
-        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:gap-4">
-          <div className="shrink-0">
-            <label className="block text-sm font-medium text-slate-700">Project Number</label>
-            <div className="mt-1 flex gap-1.5">
-              <button
-                onClick={getNextNumber}
-                disabled={fetchingNumber}
-                className="shrink-0 rounded-lg border border-brand-700 bg-brand-100 px-2 py-2 text-xs font-bold text-brand-700 disabled:opacity-50"
-              >
-                {fetchingNumber ? "…" : "#"}
-              </button>
-              <input className="w-full rounded-lg border border-slate-300 px-2 py-2 text-sm sm:w-20" value={projectNumber} onChange={(e) => setProjectNumber(e.target.value)} />
-            </div>
-          </div>
-          {customerKind === "individual" ? (
-            <>
-              <div className="min-w-0 sm:flex-1">
-                <label className="block text-sm font-medium text-slate-700">Customer name</label>
-                <div className="mt-1">{nameField}</div>
-              </div>
-              <div className="min-w-0 sm:flex-1">
-                <label className="block text-sm font-medium text-slate-700">Phone</label>
-                <div className="mt-1">{phoneField}</div>
-              </div>
-            </>
-          ) : (
-            <div className="min-w-0 sm:flex-1">
-              <label className="block text-sm font-medium text-slate-700">
-                {isSubcontractingFor ? "Subcontracting for" : "Company"}
-              </label>
+        {isFliEnvironmental ? (
+          // Per Tim, 2026-08-31 — "these should be on the same row taking
+          // up half each under company fli environmental cell": Company
+          // gets its own full-width row so Project Number and FLI Project #
+          // can share the row right under it instead of squeezing in next
+          // to Company. Individual mode never applies here (isFliEnvironmental
+          // is company-only), so the plain Company field always applies.
+          <>
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-slate-700">Company</label>
               <div className="mt-1">
                 <ComboboxInput
                   value={companyName}
@@ -5007,8 +5019,76 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
                 />
               </div>
             </div>
-          )}
-        </div>
+            <div className="mt-3 flex gap-3">
+              <div className="min-w-0 flex-1">
+                <label className="block text-sm font-medium text-slate-700">Project Number</label>
+                <div className="mt-1 flex gap-1.5">
+                  <button
+                    onClick={getNextNumber}
+                    disabled={fetchingNumber}
+                    className="shrink-0 rounded-lg border border-brand-700 bg-brand-100 px-2 py-2 text-xs font-bold text-brand-700 disabled:opacity-50"
+                  >
+                    {fetchingNumber ? "…" : "#"}
+                  </button>
+                  <input className="w-full rounded-lg border border-slate-300 px-2 py-2 text-sm" value={projectNumber} onChange={(e) => setProjectNumber(e.target.value)} />
+                </div>
+              </div>
+              <div className="min-w-0 flex-1">
+                <label className="block text-sm font-medium text-slate-700">FLI Project #</label>
+                <input
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-2 text-sm"
+                  value={fliProjectNumber}
+                  onChange={(e) => setFliProjectNumber(e.target.value)}
+                  placeholder="e.g. 26-3115"
+                />
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:gap-4">
+            <div className="shrink-0">
+              <label className="block text-sm font-medium text-slate-700">Project Number</label>
+              <div className="mt-1 flex gap-1.5">
+                <button
+                  onClick={getNextNumber}
+                  disabled={fetchingNumber}
+                  className="shrink-0 rounded-lg border border-brand-700 bg-brand-100 px-2 py-2 text-xs font-bold text-brand-700 disabled:opacity-50"
+                >
+                  {fetchingNumber ? "…" : "#"}
+                </button>
+                <input className="w-full rounded-lg border border-slate-300 px-2 py-2 text-sm sm:w-20" value={projectNumber} onChange={(e) => setProjectNumber(e.target.value)} />
+              </div>
+            </div>
+            {customerKind === "individual" ? (
+              <>
+                <div className="min-w-0 sm:flex-1">
+                  <label className="block text-sm font-medium text-slate-700">Customer name</label>
+                  <div className="mt-1">{nameField}</div>
+                </div>
+                <div className="min-w-0 sm:flex-1">
+                  <label className="block text-sm font-medium text-slate-700">Phone</label>
+                  <div className="mt-1">{phoneField}</div>
+                </div>
+              </>
+            ) : (
+              <div className="min-w-0 sm:flex-1">
+                <label className="block text-sm font-medium text-slate-700">
+                  {isSubcontractingFor ? "Subcontracting for" : "Company"}
+                </label>
+                <div className="mt-1">
+                  <ComboboxInput
+                    value={companyName}
+                    onChange={(v) => { setCompanyName(v); setCompanyId(""); setCompanyNameBlurred(false); }}
+                    fetchOptions={searchCompanies}
+                    getLabel={(c) => c.name}
+                    onSelect={selectCompany}
+                    onBlur={() => setCompanyNameBlurred(true)}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {noContactWarning}
 
@@ -5107,18 +5187,18 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
                 className="w-full px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-inset focus:ring-slate-400"
                 value={endClientCompany}
                 onChange={(e) => setEndClientCompany(e.target.value)}
-                placeholder="e.g. Restore1"
+                placeholder="Company name"
               />
               <div className="flex flex-col divide-y divide-slate-300 sm:flex-row sm:divide-y-0 sm:divide-x">
                 <input
                   className="w-full px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-inset focus:ring-slate-400 sm:flex-1"
                   value={siteContactName}
                   onChange={(e) => { setSiteContactName(e.target.value); setSiteContactSameAsContact(false); }}
-                  placeholder="Their contact's name"
+                  placeholder="Contact name"
                 />
                 <input
                   className="w-full px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-inset focus:ring-slate-400 sm:flex-1"
-                  placeholder="Their contact's phone"
+                  placeholder="Contact phone number"
                   value={siteContactPhone}
                   onChange={(e) => {
                     setSiteContactPhone(formatPhoneInput(e.target.value));
@@ -5136,21 +5216,10 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
                   className="w-full px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-inset focus:ring-slate-400"
                   value={endClientAddress}
                   onChange={(e) => setEndClientAddress(e.target.value)}
-                  placeholder="Their billing address, e.g. 100 Main Street, Boston, MA 02101"
+                  placeholder="Contact billing address"
                 />
               )}
             </div>
-            {isFliEnvironmental && (
-              <>
-                <label className="mt-3 block text-sm font-medium text-slate-700">FLI Project #</label>
-                <input
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                  value={fliProjectNumber}
-                  onChange={(e) => setFliProjectNumber(e.target.value)}
-                  placeholder="e.g. 26-3115"
-                />
-              </>
-            )}
           </>
         ) : (
           <>
@@ -5711,34 +5780,71 @@ export function EditProjectDialog({
 
         {error && <div className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
 
-        {/* Per Tim, 2026-08-27 — Project # and Company each get their own
-            full-width line on mobile instead of squeezing side by side;
-            desktop keeps the original row layout, unchanged. */}
-        <div className="mt-4 flex flex-col gap-4 sm:flex-row">
-          <div className="w-full sm:w-28 sm:shrink-0">
-            <label className="block text-sm font-medium text-slate-700">Project #</label>
-            <input className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-2 text-sm" value={projectNumber} onChange={(e) => setProjectNumber(e.target.value)} />
-          </div>
-          <div className="min-w-0 flex-1">
-            {/* Per Tim, 2026-08-30 — "by the time I'm editing the project
-                it should know already at that point that it's not an
-                individual job": is_individual is fixed at creation (like
-                source), so there's no ambiguity left to hint about here —
-                just label it for whichever this job already is. */}
-            <label className="block text-sm font-medium text-slate-700">
-              {job.is_individual ? "Customer name" : isSubcontractingFor ? "Subcontracting for" : "Company"}
-            </label>
-            <div className="mt-1">
-              <ComboboxInput
-                value={companyName}
-                onChange={(v) => { setCompanyName(v); setCompanyId(""); }}
-                fetchOptions={searchCompanies}
-                getLabel={(c) => c.name}
-                onSelect={selectCompany}
-              />
+        {isFliEnvironmental ? (
+          // Per Tim, 2026-08-31 — "these should be on the same row taking
+          // up half each under company fli environmental cell": Company
+          // gets its own full-width row so Project # and FLI Project # can
+          // share the row right under it instead of squeezing in next to
+          // Company.
+          <>
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-slate-700">Company</label>
+              <div className="mt-1">
+                <ComboboxInput
+                  value={companyName}
+                  onChange={(v) => { setCompanyName(v); setCompanyId(""); }}
+                  fetchOptions={searchCompanies}
+                  getLabel={(c) => c.name}
+                  onSelect={selectCompany}
+                />
+              </div>
+            </div>
+            <div className="mt-3 flex gap-3">
+              <div className="min-w-0 flex-1">
+                <label className="block text-sm font-medium text-slate-700">Project #</label>
+                <input className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-2 text-sm" value={projectNumber} onChange={(e) => setProjectNumber(e.target.value)} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <label className="block text-sm font-medium text-slate-700">FLI Project #</label>
+                <input
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-2 text-sm"
+                  value={fliProjectNumber}
+                  onChange={(e) => setFliProjectNumber(e.target.value)}
+                  placeholder="e.g. 26-3115"
+                />
+              </div>
+            </div>
+          </>
+        ) : (
+          // Per Tim, 2026-08-27 — Project # and Company each get their own
+          // full-width line on mobile instead of squeezing side by side;
+          // desktop keeps the original row layout, unchanged.
+          <div className="mt-4 flex flex-col gap-4 sm:flex-row">
+            <div className="w-full sm:w-28 sm:shrink-0">
+              <label className="block text-sm font-medium text-slate-700">Project #</label>
+              <input className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-2 text-sm" value={projectNumber} onChange={(e) => setProjectNumber(e.target.value)} />
+            </div>
+            <div className="min-w-0 flex-1">
+              {/* Per Tim, 2026-08-30 — "by the time I'm editing the project
+                  it should know already at that point that it's not an
+                  individual job": is_individual is fixed at creation (like
+                  source), so there's no ambiguity left to hint about here —
+                  just label it for whichever this job already is. */}
+              <label className="block text-sm font-medium text-slate-700">
+                {job.is_individual ? "Customer name" : isSubcontractingFor ? "Subcontracting for" : "Company"}
+              </label>
+              <div className="mt-1">
+                <ComboboxInput
+                  value={companyName}
+                  onChange={(v) => { setCompanyName(v); setCompanyId(""); }}
+                  fetchOptions={searchCompanies}
+                  getLabel={(c) => c.name}
+                  onSelect={selectCompany}
+                />
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         <label className="mt-3 block text-sm font-medium text-slate-700">Job site address</label>
         <div className="mt-1 flex flex-col gap-1.5 sm:flex-row">
@@ -5924,18 +6030,18 @@ export function EditProjectDialog({
                 className="w-full px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-inset focus:ring-slate-400"
                 value={endClientCompany}
                 onChange={(e) => setEndClientCompany(e.target.value)}
-                placeholder="e.g. Restore1"
+                placeholder="Company name"
               />
               <div className="flex divide-x divide-slate-300">
                 <input
                   className="w-0 flex-1 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-inset focus:ring-slate-400"
                   value={siteContactName}
                   onChange={(e) => setSiteContactName(e.target.value)}
-                  placeholder="Their contact's name"
+                  placeholder="Contact name"
                 />
                 <input
                   className="w-0 flex-1 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-inset focus:ring-slate-400"
-                  placeholder="Their contact's phone"
+                  placeholder="Contact phone number"
                   value={siteContactPhone}
                   onChange={(e) => setSiteContactPhone(formatPhoneInput(e.target.value))}
                 />
@@ -5950,21 +6056,10 @@ export function EditProjectDialog({
                   className="w-full px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-inset focus:ring-slate-400"
                   value={endClientAddress}
                   onChange={(e) => setEndClientAddress(e.target.value)}
-                  placeholder="Their billing address, e.g. 100 Main Street, Boston, MA 02101"
+                  placeholder="Contact billing address"
                 />
               )}
             </div>
-            {isFliEnvironmental && (
-              <>
-                <label className="mt-3 block text-sm font-medium text-slate-700">FLI Project #</label>
-                <input
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                  value={fliProjectNumber}
-                  onChange={(e) => setFliProjectNumber(e.target.value)}
-                  placeholder="e.g. 26-3115"
-                />
-              </>
-            )}
           </>
         ) : (
           <>

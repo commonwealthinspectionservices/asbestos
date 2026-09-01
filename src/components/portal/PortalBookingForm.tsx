@@ -391,17 +391,12 @@ export default function PortalBookingForm({ isIndividual }: { isIndividual: bool
             {Array.from(new Set(serviceTypes.filter((s) => s.key !== "mold_swab").map((s) => categoryKeyOf(s.key)))).map((c) => {
               const subtypes = serviceTypes.filter((s) => categoryKeyOf(s.key) === c && s.key !== "mold_swab");
               return (
-                // Per Tim, 2026-09-02 — Lead Paint Sampling drops down with
-                // some extra breathing room, set apart from Mold Inspection
-                // above it, now that it has no header of its own to mark
-                // the category change.
-                <div key={c} className={c === "lead" ? "mt-12" : undefined}>
-                  {/* Per Tim, 2026-09-02 — "the lead paint sampling title
-                      should just be removed": Lead Paint Sampling is the
-                      only item in this category, and the box itself now
-                      says that (see serviceTypeDisplayLabel above), so the
-                      header would just repeat it. */}
-                  {c !== "lead" && <div className="text-sm font-medium uppercase text-slate-700">{categoryLabelOf(c)}</div>}
+                // Per Tim, 2026-09-02 — back to its own normal section
+                // (header + box, same as every other category) — a margin
+                // tweak alone wasn't reading as clearly "off on its own" as
+                // an actual section does.
+                <div key={c}>
+                  <div className="text-sm font-medium uppercase text-slate-700">{categoryLabelOf(c)}</div>
                   <div className="mt-2 space-y-2">
                     {subtypes.map((s) => (
                       <label

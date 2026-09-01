@@ -5098,24 +5098,26 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
             <label className="mt-3 block text-sm font-medium text-slate-700">
               {companyName.trim() || "Their"}&apos;s client
             </label>
-            <input
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-              value={endClientCompany}
-              onChange={(e) => setEndClientCompany(e.target.value)}
-              placeholder="e.g. Restore1"
-            />
-            <div className="mt-1.5 flex flex-col gap-2 sm:flex-row">
-              <div className="min-w-0 sm:w-0 sm:flex-1">
+            {/* Per Tim, 2026-08-31 — "this should all be combined kind of":
+                one bordered group with internal dividers instead of each
+                field as its own separately-boxed, separately-labeled
+                field — these four all describe the one same end client. */}
+            <div className="mt-1 divide-y divide-slate-300 overflow-hidden rounded-lg border border-slate-300">
+              <input
+                className="w-full px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-inset focus:ring-slate-400"
+                value={endClientCompany}
+                onChange={(e) => setEndClientCompany(e.target.value)}
+                placeholder="e.g. Restore1"
+              />
+              <div className="flex flex-col divide-y divide-slate-300 sm:flex-row sm:divide-y-0 sm:divide-x">
                 <input
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  className="w-full px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-inset focus:ring-slate-400 sm:flex-1"
                   value={siteContactName}
                   onChange={(e) => { setSiteContactName(e.target.value); setSiteContactSameAsContact(false); }}
                   placeholder="Their contact's name"
                 />
-              </div>
-              <div className="min-w-0 sm:w-0 sm:flex-1">
                 <input
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  className="w-full px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-inset focus:ring-slate-400 sm:flex-1"
                   placeholder="Their contact's phone"
                   value={siteContactPhone}
                   onChange={(e) => {
@@ -5124,23 +5126,22 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
                   }}
                 />
               </div>
+              {isFliEnvironmental && (
+                // Per Tim, 2026-08-31 — the FLI report is addressed to
+                // this end client (their own contact above), never to
+                // Dave MacDonald, so it needs their real mailing address
+                // too — Dave's own on-file billing address is just "MA",
+                // not usable for this.
+                <input
+                  className="w-full px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-inset focus:ring-slate-400"
+                  value={endClientAddress}
+                  onChange={(e) => setEndClientAddress(e.target.value)}
+                  placeholder="Their billing address, e.g. 100 Main Street, Boston, MA 02101"
+                />
+              )}
             </div>
             {isFliEnvironmental && (
               <>
-                {/* Per Tim, 2026-08-31 — the FLI report is addressed to
-                    this end client (their own contact above), never to
-                    Dave MacDonald, so it needs their real mailing address
-                    too — Dave's own on-file billing address is just "MA",
-                    not usable for this. */}
-                <label className="mt-3 block text-sm font-medium text-slate-700">
-                  {endClientCompany.trim() || "Their"}&apos;s billing address
-                </label>
-                <input
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                  value={endClientAddress}
-                  onChange={(e) => setEndClientAddress(e.target.value)}
-                  placeholder="e.g. 100 Main Street, Boston, MA 02101"
-                />
                 <label className="mt-3 block text-sm font-medium text-slate-700">FLI Project #</label>
                 <input
                   className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
@@ -5914,46 +5915,47 @@ export function EditProjectDialog({
             <label className="mt-3 block text-sm font-medium text-slate-700">
               {companyName.trim() || "Their"}&apos;s client
             </label>
-            <input
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-              value={endClientCompany}
-              onChange={(e) => setEndClientCompany(e.target.value)}
-              placeholder="e.g. Restore1"
-            />
-            <div className="mt-1.5 flex gap-2">
-              <div className="w-0 flex-1">
+            {/* Per Tim, 2026-08-31 — "this should all be combined kind of":
+                one bordered group with internal dividers instead of each
+                field as its own separately-boxed, separately-labeled
+                field — these four all describe the one same end client. */}
+            <div className="mt-1 divide-y divide-slate-300 overflow-hidden rounded-lg border border-slate-300">
+              <input
+                className="w-full px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-inset focus:ring-slate-400"
+                value={endClientCompany}
+                onChange={(e) => setEndClientCompany(e.target.value)}
+                placeholder="e.g. Restore1"
+              />
+              <div className="flex divide-x divide-slate-300">
                 <input
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  className="w-0 flex-1 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-inset focus:ring-slate-400"
                   value={siteContactName}
                   onChange={(e) => setSiteContactName(e.target.value)}
                   placeholder="Their contact's name"
                 />
-              </div>
-              <div className="w-0 flex-1">
                 <input
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  className="w-0 flex-1 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-inset focus:ring-slate-400"
                   placeholder="Their contact's phone"
                   value={siteContactPhone}
                   onChange={(e) => setSiteContactPhone(formatPhoneInput(e.target.value))}
                 />
               </div>
+              {isFliEnvironmental && (
+                // Per Tim, 2026-08-31 — the FLI report is addressed to
+                // this end client (their own contact above), never to
+                // Dave MacDonald, so it needs their real mailing address
+                // too — Dave's own on-file billing address is just "MA",
+                // not usable for this.
+                <input
+                  className="w-full px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-inset focus:ring-slate-400"
+                  value={endClientAddress}
+                  onChange={(e) => setEndClientAddress(e.target.value)}
+                  placeholder="Their billing address, e.g. 100 Main Street, Boston, MA 02101"
+                />
+              )}
             </div>
             {isFliEnvironmental && (
               <>
-                {/* Per Tim, 2026-08-31 — the FLI report is addressed to
-                    this end client (their own contact above), never to
-                    Dave MacDonald, so it needs their real mailing address
-                    too — Dave's own on-file billing address is just "MA",
-                    not usable for this. */}
-                <label className="mt-3 block text-sm font-medium text-slate-700">
-                  {endClientCompany.trim() || "Their"}&apos;s billing address
-                </label>
-                <input
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                  value={endClientAddress}
-                  onChange={(e) => setEndClientAddress(e.target.value)}
-                  placeholder="e.g. 100 Main Street, Boston, MA 02101"
-                />
                 <label className="mt-3 block text-sm font-medium text-slate-700">FLI Project #</label>
                 <input
                   className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"

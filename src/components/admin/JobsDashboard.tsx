@@ -3164,6 +3164,16 @@ export function ProjectDetailDialog({
             />
             <DetailField label="Email" value={job.site_contact_email} nowrap />
           </div>
+          {/* Per Tim, 2026-08-31 — "add billing address section under job
+              site contact": the end client's own mailing address (see
+              subcontractor_client_address's own comment in types.ts) —
+              captured in Add/Edit Project but never shown here until now. */}
+          {(isSubcontractingFor || isFliJob) && job.subcontractor_client_address && job.subcontractor_client_address.trim() && (
+            <div className="space-y-4 sm:space-y-2">
+              <h4 className="text-sm font-bold tracking-wide text-black underline">Billing address</h4>
+              <div className="text-sm text-black">{expandAddress(job.subcontractor_client_address)}</div>
+            </div>
+          )}
           {job.report_emails && job.report_emails.trim() && (
             <div className="space-y-4 sm:space-y-2">
               <h4 className="text-sm font-bold tracking-wide text-black underline">Email results to</h4>

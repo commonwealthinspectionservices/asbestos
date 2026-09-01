@@ -11,6 +11,7 @@ interface ServiceTypeOption {
   key: string;
   label: string;
   rateLabel: string;
+  perSampleLabel: string;
 }
 
 // toISOString() reports the UTC date, not the browser's local one — in US
@@ -46,7 +47,7 @@ function serviceTypeSubtext(key: string): string | null {
   if (key === "asbestos_pre_reno") return "Sampling of materials prior to a renovation project";
   if (key === "asbestos_pre_demo") return "Sampling of materials prior to a demolition project";
   if (key === "mold_air") return "Sampling of indoor air quality";
-  if (key === "mold_bulk") return "Sampling of mold growing on walls, ceilings, or other surfaces";
+  if (key === "mold_bulk") return "Sampling of mold growing on walls, ceilings, etc.";
   if (key === "mold_swab") return "Sampling of surfaces";
   return null;
 }
@@ -333,15 +334,24 @@ export default function PendingRequestEditor({
         <label className="block text-sm font-medium text-slate-700">Service types</label>
         <div className="mt-2 space-y-3">
           {/* Per Tim, 2026-09-02 — "delete mold swab sampling as an option
-              in the booking screen": not newly selectable here, same
-              scoping as serviceTypeDisplayLabel above (this booking form
-              only — still a normal service_types entry admins can pick for
-              a job from the admin dashboard). A request that already had it
-              selected before this change keeps showing it, so editing an
-              existing request never silently drops a selection the
-              customer can't see or uncheck. */}
-          {Array.from(new Set(serviceTypes.filter((s) => s.key !== "mold_swab" || selectedKeys.has(s.key)).map((s) => categoryKeyOf(s.key)))).map((c) => {
-            const subtypes = serviceTypes.filter((s) => categoryKeyOf(s.key) === c && (s.key !== "mold_swab" || selectedKeys.has(s.key)));
+              in the booking screen" and (same day, separately) "delete this
+              [lead paint sampling] from the booking screen for now": not
+              newly selectable here, same scoping as serviceTypeDisplayLabel
+              above (this booking form only — still a normal service_types
+              entry admins can pick for a job from the admin dashboard). A
+              request that already had one selected before this change keeps
+              showing it, so editing an existing request never silently
+              drops a selection the customer can't see or uncheck. */}
+          {Array.from(
+            new Set(
+              serviceTypes
+                .filter((s) => (s.key !== "mold_swab" && s.key !== "lead_bulk") || selectedKeys.has(s.key))
+                .map((s) => categoryKeyOf(s.key))
+            )
+          ).map((c) => {
+            const subtypes = serviceTypes.filter(
+              (s) => categoryKeyOf(s.key) === c && ((s.key !== "mold_swab" && s.key !== "lead_bulk") || selectedKeys.has(s.key))
+            );
             return (
               // Per Tim, 2026-09-02 — back to its own normal section
               // (header + box, same as every other category) — a margin
@@ -353,21 +363,34 @@ export default function PendingRequestEditor({
                   {subtypes.map((s) => (
                     <label
                       key={s.key}
-                      className={`flex w-full cursor-pointer items-start gap-2 rounded-lg border px-3 py-2 text-sm ${
+                      className={`flex w-full cursor-pointer flex-col gap-0.5 rounded-lg border px-3 py-2 text-sm ${
                         selectedKeys.has(s.key) ? "border-brand-600 bg-brand-50" : "border-slate-300"
                       }`}
                     >
-                      <input
-                        type="checkbox"
-                        checked={selectedKeys.has(s.key)}
-                        onChange={() => toggleServiceType(s.key)}
-                        className="mt-0.5 shrink-0 accent-brand-700"
-                      />
-                      <span>
-                        <span className="block">{serviceTypeDisplayLabel(s.key, s.label)}</span>
-                        {serviceTypeSubtext(s.key) && (
-                          <span className="block text-xs text-slate-500">{serviceTypeSubtext(s.key)}</span>
-                        )}
+                      {/* Per Tim, 2026-09-02 — "it needs to explain the
+                          standard sample price for each service type in
+                          that cell... as simple as having '$__/per sample'
+                          in the very top right" then "that looks nice but
+                          it overlaps on some so keep all the descriptions
+                          how they were and make the price on its own line
+                          in top right": its own row now, not overlaid on
+                          the title/description below. */}
+                      <span className="block text-right text-xs text-slate-400">{s.perSampleLabel}</span>
+                      <span className="flex items-start gap-2">
+                        <input
+                          type="checkbox"
+                          checked={selectedKeys.has(s.key)}
+                          onChange={() => toggleServiceType(s.key)}
+                          className="mt-0.5 shrink-0 accent-brand-700"
+                        />
+                        <span>
+                          {/* Per Tim, 2026-09-02 — "all titles and subtexts
+                              should be one line across". */}
+                          <span className="block whitespace-nowrap">{serviceTypeDisplayLabel(s.key, s.label)}</span>
+                          {serviceTypeSubtext(s.key) && (
+                            <span className="block whitespace-nowrap text-xs text-slate-500">{serviceTypeSubtext(s.key)}</span>
+                          )}
+                        </span>
                       </span>
                     </label>
                   ))}

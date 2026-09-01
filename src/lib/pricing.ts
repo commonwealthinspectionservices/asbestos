@@ -13,6 +13,15 @@ export function serviceRateLabel(service: ServiceType): string {
   return `${formatCents(service.base_fee_cents)} base + ${formatCents(service.per_sample_cents)}/sample`;
 }
 
+// Per Tim, 2026-09-02 — "when someone signs up for a job it needs to
+// explain the standard sample price for each service type in that cell...
+// as simple as having '$__/per sample' in the very top right": just the
+// per-sample rate, not the fuller base+per-sample serviceRateLabel above
+// (that one's still used later, on the booking flow's own review step).
+export function perSampleRateLabel(service: ServiceType): string {
+  return `${formatCents(service.per_sample_cents)}/sample`;
+}
+
 /**
  * Revenue minus lab cost minus the real Stripe processing fee, all in
  * cents. Shared by the per-job Profit line (JobsDashboard's

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSettings } from "@/lib/settings";
 import { geocodeAddress, isWithinServiceArea, isWithinServiceStates, GeocodeError, isGoogleApiFailure, logGeocodeFailure } from "@/lib/geocode";
 import { isDateFull, findNextAvailableDate } from "@/lib/capacity";
-import { serviceRateLabel } from "@/lib/pricing";
+import { serviceRateLabel, perSampleRateLabel } from "@/lib/pricing";
 import { resolveZoneBaseFeeCents } from "@/lib/pricing-zones";
 
 // Shared address/capacity checks behind the portal booking flow
@@ -80,7 +80,7 @@ async function handleAddress(body: { address?: string }) {
     formattedAddress: geo.formattedAddress,
     serviceTypes: settings.service_types.map((s) => {
       const effective = zoneBaseFeeCents != null ? { ...s, base_fee_cents: zoneBaseFeeCents } : s;
-      return { ...effective, rateLabel: serviceRateLabel(effective) };
+      return { ...effective, rateLabel: serviceRateLabel(effective), perSampleLabel: perSampleRateLabel(effective) };
     }),
   });
 }

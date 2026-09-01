@@ -13,6 +13,14 @@ import type { Customer, Job, Settings } from "@/lib/types";
 // reasoning as credentials-document/route.ts's own — there's only the one
 // FLI Environmental relationship, so no Settings UI for this one.
 const FLI_CREDENTIALS_STORAGE_PATH = "_settings/credentials-fli.pdf";
+// Per Tim, 2026-09-01 — but his own personal inspector license (he's the
+// one who actually did the inspection, regardless of whose consulting
+// certificate covers the job) must still lead, ahead of FLI's own
+// certificate — split out once from settings.credentials_document_path's
+// own first page (that combined PDF's page order is owner's personal
+// license, then Commonwealth's own consulting certificate) into this own
+// standing file, same "re-uploading replaces it" convention.
+const PERSONAL_LICENSE_STORAGE_PATH = "_settings/personal-license.pdf";
 
 // Per Tim, 2026-08-27 — a daily audit isn't fast enough (reports go out
 // the moment lab results land, not on a schedule), so this is a hard stop
@@ -73,7 +81,7 @@ export async function buildFinalReportPacket(job: Job, customer: Customer, setti
     ]),
     ...(domain === "asbestos"
       ? customer.company_id === FLI_ENVIRONMENTAL_COMPANY_ID
-        ? [FLI_CREDENTIALS_STORAGE_PATH]
+        ? [PERSONAL_LICENSE_STORAGE_PATH, FLI_CREDENTIALS_STORAGE_PATH]
         : settings.credentials_document_path
           ? [settings.credentials_document_path]
           : []

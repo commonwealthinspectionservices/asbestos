@@ -86,7 +86,7 @@ export function ContactForm({
 
   useAutoZip(street, city, addrState, setZip, "/api/admin");
 
-  const canSubmit = firstName.trim() && lastName.trim() && email.trim() && (!isCompany || company.trim());
+  const canSubmit = firstName.trim() && lastName.trim() && (!isCompany || company.trim());
 
   async function searchCompanies(q: string): Promise<Company[]> {
     const res = await fetch(`/api/admin/companies?q=${encodeURIComponent(q)}`);
@@ -120,7 +120,7 @@ export function ContactForm({
           // upsertCompany's fuzzy name match.
           ...(isCompany ? (companyId ? { companyId } : {}) : { companyId: null }),
           is_individual: !isCompany,
-          email: email.trim(),
+          email: email.trim() || null,
           phone: phone.trim(),
           billingAddress: billingAddress.trim() || null,
           billing_address: billingAddress.trim() || null,
@@ -190,7 +190,7 @@ export function ContactForm({
 
         <div className="mt-3 flex gap-2">
           <div className="flex-1">
-            <label className="block text-sm font-medium text-slate-700">Email *</label>
+            <label className="block text-sm font-medium text-slate-700">Email</label>
             <input type="email" className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value={email} onChange={(e) => setEmail(e.target.value)} />
           </div>
           <div className="flex-1">

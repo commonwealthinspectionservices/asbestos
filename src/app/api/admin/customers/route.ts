@@ -41,12 +41,14 @@ export const POST = withApiErrors(async (req: NextRequest) => {
   if (unauthorized) return unauthorized;
 
   const body = await req.json().catch(() => null);
-  const email = body?.email?.trim()?.toLowerCase();
+  // Per Tim, 2026-09-01 — email is often genuinely unknown for a company
+  // contact (e.g. an FLI job's own site contact, saved from just a name and
+  // phone), so it's optional here — null, never "", since customers.email
+  // is only a plain unique index (see schema.sql), and a blank string would
+  // collide with the next contact saved the same way.
+  const email = body?.email?.trim()?.toLowerCase() || null;
   const isIndividual = body?.is_individual === true;
   let name = body?.name?.trim();
-  if (!email) {
-    return NextResponse.json({ error: "Email is required" }, { status: 400 });
-  }
   if (isIndividual && !name) {
     return NextResponse.json({ error: "Name is required" }, { status: 400 });
   }
@@ -55,8 +57,13 @@ export const POST = withApiErrors(async (req: NextRequest) => {
   // this admin-created row is indistinguishable from one Joe invited
   // himself: OnboardingForm's hasKnownName check treats name === email as
   // "not actually known yet" and lets the invited person fill in their own
-  // name (and phone) instead of an admin typing it in for them.
-  if (!name) name = email;
+  // name (and phone) instead of an admin typing it in for them. Only
+  // applies when there's an email to use as that sentinel — with neither
+  // name nor email, there's nothing to identify this contact by at all.
+  if (!name && email) name = email;
+  if (!name) {
+    return NextResponse.json({ error: "Name or email is required" }, { status: 400 });
+  }
 
   const companyId = body?.companyId?.trim() || null;
   const companyName = body?.company?.trim() || null;
@@ -83,18 +90,20 @@ export const POST = withApiErrors(async (req: NextRequest) => {
   // that specific case and point at the "search existing contacts" picker
   // instead, which links by id rather than guessing from typed text.
   const resolvedCompanyId = company?.id ?? null;
-  const { data: existingByEmail } = await supabase
-    .from("customers")
-    .select("id, name, company, company_id")
-    .eq("email", email)
-    .maybeSingle();
-  if (existingByEmail && existingByEmail.company_id !== resolvedCompanyId) {
-    return NextResponse.json(
-      {
-        error: `${email} already belongs to an existing contact (${existingByEmail.name}${existingByEmail.company ? ` at ${existingByEmail.company}` : ""}). Search for them by name instead of typing a new one.`,
-      },
-      { status: 409 }
-    );
+  if (email) {
+    const { data: existingByEmail } = await supabase
+      .from("customers")
+      .select("id, name, company, company_id")
+      .eq("email", email)
+      .maybeSingle();
+    if (existingByEmail && existingByEmail.company_id !== resolvedCompanyId) {
+      return NextResponse.json(
+        {
+          error: `${email} already belongs to an existing contact (${existingByEmail.name}${existingByEmail.company ? ` at ${existingByEmail.company}` : ""}). Search for them by name instead of typing a new one.`,
+        },
+        { status: 409 }
+      );
+    }
   }
 
   const { data, error } = await supabase

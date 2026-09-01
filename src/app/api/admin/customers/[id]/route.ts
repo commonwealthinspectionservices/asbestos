@@ -36,7 +36,7 @@ export const GET = withApiErrors(async (
   // ContactDetailDialog can offer "Link existing portal account" instead
   // of a dead-end "No portal login yet."
   let hasUnlinkedAuthAccount = false;
-  if (!customer.auth_user_id) {
+  if (!customer.auth_user_id && customer.email) {
     const { data: usersData } = await supabase.auth.admin.listUsers();
     hasUnlinkedAuthAccount = (usersData?.users ?? []).some(
       (u) => (u.email ?? "").toLowerCase() === customer.email.toLowerCase()
@@ -62,7 +62,11 @@ export const PATCH = withApiErrors(async (
   for (const field of EDITABLE_FIELDS) {
     if (field in body) patch[field] = body[field];
   }
-  if (typeof patch.email === "string") patch.email = patch.email.toLowerCase();
+  // Per Tim, 2026-09-01 — null, never "", for a blank email: customers.email
+  // is only a plain unique index (see schema.sql), so a second contact also
+  // saved with "" would collide on it, while Postgres allows any number of
+  // NULLs there.
+  if (typeof patch.email === "string") patch.email = patch.email.trim().toLowerCase() || null;
 
   const supabase = getSupabaseAdmin();
 

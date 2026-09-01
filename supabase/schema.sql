@@ -1053,3 +1053,13 @@ alter table jobs add column if not exists subcontractor_client_address text;
 alter table jobs add column if not exists subcontractor_client_contact_name text;
 alter table jobs add column if not exists subcontractor_client_contact_phone text;
 alter table jobs add column if not exists subcontractor_client_contact_email text;
+
+-- Per Tim, 2026-09-01 — a company contact (e.g. an FLI job's site contact,
+-- often someone whose email nobody on file actually has) shouldn't be
+-- blocked from being saved as a real Directory contact just because email
+-- is unknown. customers_email_idx (see above) is a plain unique index, so
+-- this alone is enough — Postgres already allows any number of NULLs under
+-- a unique index (NULL is never equal to NULL), unlike duplicate empty
+-- strings, which is exactly why the app must store a blank email as NULL,
+-- never "".
+alter table customers alter column email drop not null;

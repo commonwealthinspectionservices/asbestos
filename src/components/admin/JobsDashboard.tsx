@@ -2883,17 +2883,17 @@ export function ProjectDetailDialog({
 
         {tab === "info" && (
         <>
-        <div className="mt-6 grid grid-cols-1 gap-y-6 sm:relative sm:gap-y-8">
-          {/* Per Tim, 2026-08-28 — Edit moved back out of the Project #
-              row: on desktop it now sits pinned to the very top-right
-              corner of this whole tab (anchored to this sm:relative
-              wrapper), not inline with any particular field. Mobile is
-              unaffected — its own copy stays inline with Project #, same
-              as before. Per Tim, 2026-08-31 — the Gmail-thread mail icon
-              moved up here too, directly next to Edit, instead of sitting
-              off by itself near Project #; same hidden-on-mobile/
-              shown-on-desktop split as Edit's own two copies. */}
-          <div className="hidden shrink-0 items-center gap-2 sm:absolute sm:right-0 sm:top-0 sm:flex">
+        <div className="relative mt-6 grid grid-cols-1 gap-y-6 pt-10 sm:gap-y-8 sm:pt-0">
+          {/* Per Tim, 2026-08-28 — Edit sits pinned to the very top-right
+              corner of this whole tab (anchored to this relative wrapper),
+              not inline with any particular field. Per Tim, 2026-08-31 —
+              the Gmail-thread mail icon moved up here too, directly next
+              to Edit. Per Tim, same day — "the edit button should be all
+              the way in the top right" on mobile too: this pinned copy is
+              now the only one, shown at every width (previously
+              desktop-only, with a separate mobile-only inline copy next to
+              Project # — that copy is gone, see its own removed comment). */}
+          <div className="absolute right-0 top-0 flex shrink-0 items-center gap-2">
             {job.email_gmail_thread_id && (
               <a
                 href={`https://mail.google.com/mail/u/0/#all/${job.email_gmail_thread_id}`}
@@ -2981,36 +2981,15 @@ export function ProjectDetailDialog({
                       nowrap
                     />
                   )}
-                  {/* Edit stays inline next to Project # on mobile only now (see the absolutely-positioned desktop copy above); the portal badge (subcontractor jobs only) sits beside it there too, same as always. Per Tim, 2026-08-31 — the Gmail-thread mail icon moved up next to that same desktop Edit copy, so its own instance here is mobile-only now too (sm:hidden) — sm:pr-28 (desktop only) still reserves clearance under the pinned Edit+icon block for the portal badge, which does stay visible on desktop. */}
-                  <div className="relative flex items-center justify-between gap-2 sm:pr-28">
+                  {/* Per Tim, 2026-08-31 — "the edit button should be all
+                      the way in the top right" on mobile: Edit and the mail
+                      icon no longer have a separate inline mobile copy here
+                      (see the always-visible pinned copy at the top of the
+                      tab) — this row is just Project # and the portal
+                      badge (subcontractor jobs only) now. */}
+                  <div className="flex items-center justify-between gap-2">
                     <DetailField label="Project #" value={job.project_number} />
-                    <div className="flex shrink-0 items-center gap-2">
-                      <span className="hidden sm:inline-flex">{portalBadge}</span>
-                      {/* Per Tim — a quick way to jump to this job's whole
-                          email conversation in Gmail (the same thread every
-                          automated + drafted email for this job lands in,
-                          see lib/email-thread.ts) without searching Gmail by
-                          hand. Only shown once a thread actually exists — a
-                          brand-new job with no emails yet has nothing to
-                          link to. */}
-                      {job.email_gmail_thread_id && (
-                        <a
-                          href={`https://mail.google.com/mail/u/0/#all/${job.email_gmail_thread_id}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          title="Open this job's email conversation in Gmail"
-                          className="shrink-0 rounded-lg border border-slate-300 p-2 text-slate-600 hover:bg-slate-50 sm:hidden"
-                        >
-                          <svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <rect x="2" y="4" width="16" height="12" rx="2" stroke="currentColor" strokeWidth="1.5" />
-                            <path d="M3 5.5L10 11L17 5.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
-                        </a>
-                      )}
-                      <button onClick={onEdit} className="shrink-0 rounded-lg border border-slate-300 px-3.5 py-1.5 text-sm font-bold uppercase hover:underline sm:hidden">
-                        Edit
-                      </button>
-                    </div>
+                    <span className="hidden shrink-0 sm:inline-flex">{portalBadge}</span>
                   </div>
                   {isFliJob && <DetailField label="FLI Project #" value={job.fli_project_number} />}
                   <DetailField label="Status" value={statusLabelForJob(job, job.status)} />
@@ -3168,6 +3147,78 @@ export function ProjectDetailDialog({
                 field on this tab, not the small muted text it had before. */}
             <DetailField label="Confirmation Sent" value={job.confirmation_sent_at ? formatDateTime(job.confirmation_sent_at) : null} />
             <DetailField label="Reminder Sent" value={job.reminder_sent_at ? formatDateTime(job.reminder_sent_at) : null} />
+            {/* Per Tim, 2026-08-31 — "this part should be aligned left":
+                moved from the right column (which had grown much taller
+                than this one) down here, in the open space below Scope of
+                Work/Confirmation Sent/Reminder Sent. */}
+            {isFliJob && (
+              <>
+                <h4 className="mt-5 text-sm font-bold tracking-wide text-black underline">FLI Environmental information</h4>
+                <DetailField
+                  label="Name"
+                  value={job.customer_id && job.customers?.name ? (
+                    <a href={`/admin/customers?tab=contacts&contactId=${job.customer_id}`} className="hover:underline">
+                      {toTitleCase(job.customers.name)}
+                    </a>
+                  ) : job.customers?.name ? toTitleCase(job.customers.name) : undefined}
+                  nowrap
+                />
+                <DetailField
+                  label="Phone"
+                  value={job.customers?.phone ? <a href={telHref(job.customers.phone)} className="text-brand-700 hover:underline">{formatPhoneInput(job.customers.phone)}</a> : undefined}
+                />
+                <DetailField label="Email" value={job.customers?.email} nowrap />
+                {job.customers?.companies?.billing_contact && (
+                  <DetailField
+                    label="Billing contact"
+                    value={
+                      <a
+                        href={`/admin/customers?tab=contacts&contactId=${job.customers.companies.billing_contact.id}`}
+                        className="hover:underline"
+                      >
+                        {toTitleCase(job.customers.companies.billing_contact.name)}
+                      </a>
+                    }
+                    nowrap
+                  />
+                )}
+                <DetailField
+                  label="Company phone"
+                  value={job.customers?.companies?.phone ? <a href={telHref(job.customers.companies.phone)} className="text-brand-700 hover:underline">{formatPhoneInput(job.customers.companies.phone)}</a> : undefined}
+                />
+                <DetailField label="Billing address" value={addressLines(job.customers?.companies?.billing_address)} nowrap />
+              </>
+            )}
+            {/* Per Tim, 2026-08-31 — "align this all the way left": same
+                move as FLI Environmental information above, now for every
+                other company job too — Company info moves down here out
+                of the right column, Company contact stays put. */}
+            {!isFliJob && !job.customers?.is_individual && job.customers?.companies && (
+              job.customers.companies.billing_contact || job.customers.companies.phone || job.customers.companies.billing_address
+            ) && (
+              <>
+                <h4 className="mt-5 text-sm font-bold tracking-wide text-black underline">Company info</h4>
+                {job.customers.companies.billing_contact && (
+                  <DetailField
+                    label="Billing contact"
+                    value={
+                      <a
+                        href={`/admin/customers?tab=contacts&contactId=${job.customers.companies.billing_contact.id}`}
+                        className="hover:underline"
+                      >
+                        {toTitleCase(job.customers.companies.billing_contact.name)}
+                      </a>
+                    }
+                    nowrap
+                  />
+                )}
+                <DetailField
+                  label="Phone"
+                  value={job.customers.companies.phone ? <a href={telHref(job.customers.companies.phone)} className="text-brand-700 hover:underline">{formatPhoneInput(job.customers.companies.phone)}</a> : undefined}
+                />
+                <DetailField label="Billing address" value={addressLines(job.customers.companies.billing_address)} nowrap />
+              </>
+            )}
             {job.subcontractor_sample_types.length > 0 && (
               <div className="flex flex-col gap-0.5 text-sm sm:flex-row sm:items-start sm:gap-2">
                 <span className="font-bold text-black sm:w-48 sm:shrink-0 sm:whitespace-nowrap">Samples</span>
@@ -3279,88 +3330,44 @@ export function ProjectDetailDialog({
               about FLI, the same way isFliJob combined the client fields
               above it. Every other company (Boston Harbor, Newton, a
               regular one-off company) keeps the original two-block layout. */}
-          <div className="space-y-6">
-            <div className="space-y-4 sm:space-y-2">
-              {/* Per Tim, 2026-08-28 — "Company contact" once this job's
-                  customer actually belongs to a company, matching the
-                  naming style everywhere else on this tab (Job site
-                  contact, Company info) — an individual homeowner has no
-                  company to be a contact for, so that case keeps the
-                  generic "Customer contact" label. */}
-              <h4 className="text-sm font-bold tracking-wide text-black underline">
-                {isFliJob ? "FLI Environmental information" : job.customers?.is_individual ? "Customer contact" : "Company contact"}
-              </h4>
-              <DetailField
-                label="Name"
-                value={job.customer_id && job.customers?.name ? (
-                  // A plain <a> (not next/link) — Next's client-side router
-                  // doesn't always remount CustomersDirectory on a
-                  // searchParams-only navigation to the same pathname, which
-                  // left the Directory reading stale ?tab=/?contactId=
-                  // values from before the click. A full navigation always
-                  // mounts fresh and reads the real URL.
-                  <a href={`/admin/customers?tab=contacts&contactId=${job.customer_id}`} className="hover:underline">
-                    {toTitleCase(job.customers.name)}
-                  </a>
-                ) : job.customers?.name ? toTitleCase(job.customers.name) : undefined}
-                nowrap
-              />
-              <DetailField
-                label="Phone"
-                value={job.customers?.phone ? <a href={telHref(job.customers.phone)} className="text-brand-700 hover:underline">{formatPhoneInput(job.customers.phone)}</a> : undefined}
-              />
-              <DetailField label="Email" value={job.customers?.email} nowrap />
-              {isFliJob && job.customers?.companies?.billing_contact && (
+          {/* Per Tim, 2026-08-31 — "this part should be aligned left": for
+              FLI jobs, this whole block moved to the left column (see its
+              own comment there) — nothing to render here for those. */}
+          {!isFliJob && (
+            <div className="space-y-6">
+              <div className="space-y-4 sm:space-y-2">
+                {/* Per Tim, 2026-08-28 — "Company contact" once this job's
+                    customer actually belongs to a company, matching the
+                    naming style everywhere else on this tab (Job site
+                    contact, Company info) — an individual homeowner has no
+                    company to be a contact for, so that case keeps the
+                    generic "Customer contact" label. */}
+                <h4 className="text-sm font-bold tracking-wide text-black underline">
+                  {job.customers?.is_individual ? "Customer contact" : "Company contact"}
+                </h4>
                 <DetailField
-                  label="Billing contact"
-                  value={
-                    <a
-                      href={`/admin/customers?tab=contacts&contactId=${job.customers.companies.billing_contact.id}`}
-                      className="hover:underline"
-                    >
-                      {toTitleCase(job.customers.companies.billing_contact.name)}
+                  label="Name"
+                  value={job.customer_id && job.customers?.name ? (
+                    // A plain <a> (not next/link) — Next's client-side router
+                    // doesn't always remount CustomersDirectory on a
+                    // searchParams-only navigation to the same pathname, which
+                    // left the Directory reading stale ?tab=/?contactId=
+                    // values from before the click. A full navigation always
+                    // mounts fresh and reads the real URL.
+                    <a href={`/admin/customers?tab=contacts&contactId=${job.customer_id}`} className="hover:underline">
+                      {toTitleCase(job.customers.name)}
                     </a>
-                  }
+                  ) : job.customers?.name ? toTitleCase(job.customers.name) : undefined}
                   nowrap
                 />
-              )}
-              {isFliJob && (
-                <DetailField
-                  label="Company phone"
-                  value={job.customers?.companies?.phone ? <a href={telHref(job.customers.companies.phone)} className="text-brand-700 hover:underline">{formatPhoneInput(job.customers.companies.phone)}</a> : undefined}
-                />
-              )}
-              {isFliJob && (
-                <DetailField label="Billing address" value={addressLines(job.customers?.companies?.billing_address)} nowrap />
-              )}
-            </div>
-            {!isFliJob && !job.customers?.is_individual && job.customers?.companies && (
-              job.customers.companies.billing_contact || job.customers.companies.phone || job.customers.companies.billing_address
-            ) && (
-              <div className="space-y-4 sm:space-y-2">
-                <h4 className="text-sm font-bold tracking-wide text-black underline">Company info</h4>
-                {job.customers.companies.billing_contact && (
-                  <DetailField
-                    label="Billing contact"
-                    value={
-                      <a
-                        href={`/admin/customers?tab=contacts&contactId=${job.customers.companies.billing_contact.id}`}
-                        className="hover:underline"
-                      >
-                        {toTitleCase(job.customers.companies.billing_contact.name)}
-                      </a>
-                    }
-                    nowrap
-                  />
-                )}
                 <DetailField
                   label="Phone"
-                  value={job.customers.companies.phone ? <a href={telHref(job.customers.companies.phone)} className="text-brand-700 hover:underline">{formatPhoneInput(job.customers.companies.phone)}</a> : undefined}
+                  value={job.customers?.phone ? <a href={telHref(job.customers.phone)} className="text-brand-700 hover:underline">{formatPhoneInput(job.customers.phone)}</a> : undefined}
                 />
-                <DetailField label="Billing address" value={addressLines(job.customers.companies.billing_address)} nowrap />
+                <DetailField label="Email" value={job.customers?.email} nowrap />
               </div>
-            )}
-          </div>
+            </div>
+          )}
           </div>
           </div>
           {job.notes && job.notes.trim() && (
@@ -6126,15 +6133,25 @@ export function EditProjectDialog({
           />
         </div>
         <div className="mt-1.5 grid grid-cols-1 gap-1.5 sm:grid-cols-3">
-          <input
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-            placeholder="Town"
+          {/* Per Tim, 2026-08-31 — "all other address entry points should
+              have the auto suggesting capability": this Town field was a
+              plain input, the one address field in the app without
+              autocomplete — every other Town field (AddProjectDialog,
+              portal forms, CompaniesDirectory, etc.) already uses this. */}
+          <AddressAutocompleteInput
+            apiBase="/api/admin"
             value={serviceCity}
-            onChange={(e) => {
-              const v = e.target.value;
+            onChange={(v) => {
               setServiceCity(v);
               if (!v.trim()) setServiceZip("");
             }}
+            mode="city"
+            onSelectAddress={(fields) => {
+              setServiceCity(fields.city);
+              setServiceState("MA");
+              setServiceZip(fields.zip);
+            }}
+            placeholder="Town"
           />
           <input
             className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
@@ -6284,11 +6301,22 @@ export function EditProjectDialog({
             />
             <div className="mt-1.5 flex gap-1.5">
               <div className="w-0 flex-1">
-                <input
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                  placeholder="Billing street address"
+                {/* Per Tim, 2026-08-31 — "all other address entry points
+                    should have the auto suggesting capability": matches
+                    Job site address's own Street/Town fields now. */}
+                <AddressAutocompleteInput
+                  apiBase="/api/admin"
                   value={endClientStreet}
-                  onChange={(e) => setEndClientStreet(e.target.value)}
+                  onChange={setEndClientStreet}
+                  onSelectAddress={(fields) => {
+                    setEndClientStreet(fields.street);
+                    setEndClientUnit(fields.unit);
+                    setEndClientCity(fields.city);
+                    setEndClientState(fields.state);
+                    setEndClientZip(fields.zip);
+                  }}
+                  placeholder="Billing street address"
+                  townHint={endClientCity}
                 />
               </div>
               <input
@@ -6299,15 +6327,20 @@ export function EditProjectDialog({
               />
             </div>
             <div className="mt-1.5 grid grid-cols-3 gap-1.5">
-              <input
-                className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                placeholder="Town"
+              <AddressAutocompleteInput
+                apiBase="/api/admin"
                 value={endClientCity}
-                onChange={(e) => {
-                  const v = e.target.value;
+                onChange={(v) => {
                   setEndClientCity(v);
                   if (!v.trim()) setEndClientZip("");
                 }}
+                mode="city"
+                onSelectAddress={(fields) => {
+                  setEndClientCity(fields.city);
+                  setEndClientState(fields.state);
+                  setEndClientZip(fields.zip);
+                }}
+                placeholder="Town"
               />
               <input
                 className="rounded-lg border border-slate-300 px-3 py-2 text-sm"

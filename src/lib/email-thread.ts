@@ -23,17 +23,18 @@ import { getValidAccessToken, sendMessage, getMessageIdHeader } from "@/lib/gmai
 import { inspectionReportSubjectPrefix } from "@/lib/report-findings";
 import { expandAddress } from "@/lib/address";
 
-// "Asbestos + Mold Inspection Report 36 Drummer Rd, Acton, MA" — kept
-// stable across the whole chain (request received -> confirmed -> final
-// report draft) so every email in a job's thread shares one subject, per
-// Tim. serviceType drives the domain prefix; omitted (or empty) falls back
-// to the bare address rather than guessing a domain that isn't known yet.
-// expandAddress — per Tim, no abbreviation ("St", "Dr", "Rd", ...)
-// anywhere on the system.
+// "Asbestos Inspection Report - 36 Drummer Road, Acton, MA" — kept stable
+// across the whole chain (request received -> confirmed -> final report
+// draft) so every email in a job's thread shares one subject, per Tim.
+// serviceType drives the domain prefix; omitted (or empty) falls back to
+// the bare address rather than guessing a domain that isn't known yet. Per
+// Tim, 2026-08-31 — the prefix and address must be separated by " - ", not
+// just a space. expandAddress — per Tim, no abbreviation ("St", "Dr",
+// "Rd", ...) anywhere on the system.
 export function threadSubject(address: string, serviceType: string | null | undefined): string {
   const fullAddress = expandAddress(address);
   if (!serviceType) return fullAddress;
-  return `${inspectionReportSubjectPrefix(serviceType)} ${fullAddress}`;
+  return `${inspectionReportSubjectPrefix(serviceType)} - ${fullAddress}`;
 }
 
 // In-Reply-To is just the immediately previous message; References is the

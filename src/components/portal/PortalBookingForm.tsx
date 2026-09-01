@@ -63,6 +63,10 @@ function serviceTypeSubtext(key: string): string | null {
 // key/label from settings.service_types is unchanged.
 function serviceTypeDisplayLabel(key: string, fallbackLabel: string): string {
   if (key === "mold_bulk") return "Mold Surface Sampling";
+  // Per Tim, 2026-09-02 — "lead bulk sampling box should just say lead
+  // paint sampling" (its category header is hidden below since it's the
+  // only item in that category and would otherwise just repeat this).
+  if (key === "lead_bulk") return "Lead Paint Sampling";
   return fallbackLabel;
 }
 
@@ -387,8 +391,17 @@ export default function PortalBookingForm({ isIndividual }: { isIndividual: bool
             {Array.from(new Set(serviceTypes.filter((s) => s.key !== "mold_swab").map((s) => categoryKeyOf(s.key)))).map((c) => {
               const subtypes = serviceTypes.filter((s) => categoryKeyOf(s.key) === c && s.key !== "mold_swab");
               return (
-                <div key={c}>
-                  <div className="text-sm font-medium uppercase text-slate-700">{categoryLabelOf(c)}</div>
+                // Per Tim, 2026-09-02 — Lead Paint Sampling drops down with
+                // some extra breathing room, set apart from Mold Inspection
+                // above it, now that it has no header of its own to mark
+                // the category change.
+                <div key={c} className={c === "lead" ? "mt-6" : undefined}>
+                  {/* Per Tim, 2026-09-02 — "the lead paint sampling title
+                      should just be removed": Lead Paint Sampling is the
+                      only item in this category, and the box itself now
+                      says that (see serviceTypeDisplayLabel above), so the
+                      header would just repeat it. */}
+                  {c !== "lead" && <div className="text-sm font-medium uppercase text-slate-700">{categoryLabelOf(c)}</div>}
                   <div className="mt-2 space-y-2">
                     {subtypes.map((s) => (
                       <label

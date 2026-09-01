@@ -3078,18 +3078,6 @@ export function ProjectDetailDialog({
                 <DetailField label="Turnaround" value={job.lab_turnaround === "Rush" ? "Rush" : "Standard"} />
               </>
             )}
-            {job.confirmation_sent_at && (
-              <div className="flex flex-col gap-0.5 text-xs text-slate-400 sm:flex-row sm:items-start sm:gap-2">
-                <span className="uppercase font-bold sm:w-32 sm:shrink-0">Confirmation Sent</span>
-                <span className="break-words sm:min-w-0 sm:flex-1">{formatDateTime(job.confirmation_sent_at)}</span>
-              </div>
-            )}
-            {job.reminder_sent_at && (
-              <div className="flex flex-col gap-0.5 text-xs text-slate-400 sm:flex-row sm:items-start sm:gap-2">
-                <span className="uppercase font-bold sm:w-32 sm:shrink-0">Reminder Sent</span>
-                <span className="break-words sm:min-w-0 sm:flex-1">{formatDateTime(job.reminder_sent_at)}</span>
-              </div>
-            )}
             {job.status === "needs_scheduling" && job.source !== "subcontractor" && job.source !== "email_intake" && (
               <AcceptScheduleControl job={job} variant="panel" onAccept={acceptSchedule} onEditManually={onEdit} />
             )}
@@ -3109,6 +3097,21 @@ export function ProjectDetailDialog({
               <span className="font-bold text-black sm:w-48 sm:shrink-0 sm:whitespace-nowrap">Scope of Work</span>
               <span className="break-words text-black sm:min-w-0 sm:flex-1">{job.scope_of_work || "—"}</span>
             </div>
+            {/* Per Tim, 2026-08-31 — moved down here (the open space below
+                Scope of Work) instead of cramped in with the date/time
+                fields above. */}
+            {job.confirmation_sent_at && (
+              <div className="flex flex-col gap-0.5 text-xs text-slate-400 sm:flex-row sm:items-start sm:gap-2">
+                <span className="uppercase font-bold sm:w-32 sm:shrink-0">Confirmation Sent</span>
+                <span className="break-words sm:min-w-0 sm:flex-1">{formatDateTime(job.confirmation_sent_at)}</span>
+              </div>
+            )}
+            {job.reminder_sent_at && (
+              <div className="flex flex-col gap-0.5 text-xs text-slate-400 sm:flex-row sm:items-start sm:gap-2">
+                <span className="uppercase font-bold sm:w-32 sm:shrink-0">Reminder Sent</span>
+                <span className="break-words sm:min-w-0 sm:flex-1">{formatDateTime(job.reminder_sent_at)}</span>
+              </div>
+            )}
             {job.subcontractor_sample_types.length > 0 && (
               <div className="flex flex-col gap-0.5 text-sm sm:flex-row sm:items-start sm:gap-2">
                 <span className="font-bold text-black sm:w-48 sm:shrink-0 sm:whitespace-nowrap">Samples</span>

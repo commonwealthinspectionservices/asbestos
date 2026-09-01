@@ -259,16 +259,14 @@ function PeriodHistoryTable({
   isSelected?: (label: string) => boolean;
   onSelectRow?: (label: string) => void;
 }) {
-  // Per Tim, 2026-08-30 — "make sure the net numbers are lined up
-  // vertically": gross/net used to trail right after the label as one
-  // inline string, so the "net" column landed at a different x per row
-  // depending on that row's own gross value's width. A 3-column grid
-  // (label / gross / net) gives gross and net each their own fixed
-  // column, aligned down every row.
+  // Per Tim, 2026-09-02 — "take out the net number": just the gross
+  // dollar figure per period now, no more "net $X" second column. A
+  // 2-column grid (label / gross) still keeps the gross figures aligned
+  // down every row, same reasoning as the 3-column version this replaced.
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-3 text-sm">
       <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">{title}</div>
-      <div className="mt-2 grid grid-cols-[1fr_auto_auto] items-baseline gap-x-3 gap-y-1">
+      <div className="mt-2 grid grid-cols-[1fr_auto] items-baseline gap-x-3 gap-y-1">
         {rows.map((r) => {
           const selected = isSelected?.(r.label) ?? false;
           const content = (
@@ -281,7 +279,6 @@ function PeriodHistoryTable({
                   fit a full date-range on one line instead of wrapping. */}
               <span className={`whitespace-nowrap text-xs sm:text-sm ${selected ? "font-semibold text-brand-700" : "text-slate-500"}`}>{r.label}</span>
               <span className="whitespace-nowrap text-right text-slate-800">{formatCents(r.grossCents)}</span>
-              <span className="whitespace-nowrap text-right text-slate-400">net {formatCents(r.netCents)}</span>
             </>
           );
           return onSelectRow ? (
@@ -611,7 +608,20 @@ export default function BillingView() {
             same nowrap-overflow problem "one line across" was fixing on
             desktop, just worse on a narrower screen), and text-xs to match
             "make all of this the same size text" as the rest of the page. */}
-        <div className="flex w-full flex-col gap-0.5 text-xs text-slate-500 sm:col-span-2 sm:flex-row sm:items-baseline sm:justify-between sm:gap-2 sm:text-sm">
+        {/* Per Tim, 2026-09-02 (follow-up) — "these numbers should be
+            directly aligned": on mobile (stacked), a 2-column grid lines
+            up both dollar figures regardless of "Revenue"/"Profit" being
+            different lengths — the same reason PeriodHistoryTable itself
+            uses a grid. Desktop keeps the single-row/opposite-ends layout,
+            where the two labels are never meant to line up under each
+            other in the first place. */}
+        <div className="grid w-full grid-cols-[auto_auto] justify-start gap-x-1.5 gap-y-0.5 text-sm text-slate-500 sm:hidden">
+          <span>All-Time Gross Revenue:</span>
+          <span>{formatCents(allTimeTotal.grossCents)}</span>
+          <span>All-Time Gross Profit:</span>
+          <span>{formatCents(allTimeTotal.netCents)}</span>
+        </div>
+        <div className="hidden w-full items-baseline justify-between gap-2 text-sm text-slate-500 sm:col-span-2 sm:flex">
           <span className="whitespace-nowrap">All-Time Gross Revenue: {formatCents(allTimeTotal.grossCents)}</span>
           <span className="whitespace-nowrap">All-Time Gross Profit: {formatCents(allTimeTotal.netCents)}</span>
         </div>
@@ -715,7 +725,7 @@ export default function BillingView() {
               value={mobileSearch}
               onChange={(e) => setMobileSearch(e.target.value)}
               placeholder="Search…"
-              className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-700"
             />
           </div>
 
@@ -754,37 +764,21 @@ export default function BillingView() {
               Pending with that period's own total and a way back to the
               normal status-filtered view. */}
           {periodFilter ? (
-            // Per Tim, 2026-09-02 (follow-up) — "this should be its own
-            // line, clear button can be on its own if needed" then
-            // "nevermind, just make clear plain text like it was not a
-            // button": Clear is back to plain underlined text (not a
-            // filled pill), but still its own line with some padding
-            // around it for a real tap target, not bare inline text
-            // squeezed against a wrapping summary line. Per Tim, same
-            // follow-up — "but this part must be 1 line across": same
-            // text-xs-on-mobile/whitespace-nowrap treatment as the Weekly
-            // Revenue row labels use for the same reason.
-            <div className="mt-3 flex flex-col items-start gap-2 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-              {/* Per Tim, 2026-09-02 (follow-up) — "for mobile do this part
-                  on one line and the dollar amount on its own line below"
-                  but "on desktop it should all be one line across": stacked
-                  on mobile (flex-col), side by side on sm+ (flex-row) —
-                  same two pieces of text either way. Also "instead of a -
-                  use a :" — the dash before the amount is a colon now,
-                  trailing the date range instead of leading the amount. */}
-              <div className="flex flex-col sm:flex-row sm:items-baseline sm:gap-1">
-                <div className="whitespace-nowrap text-xs sm:text-sm">
-                  Showing invoices from <span className="font-semibold text-slate-800">{periodFilter.label}</span>:
-                </div>
-                <div className="whitespace-nowrap text-xs sm:text-sm">
-                  {formatCents(rows.reduce((sum, { job }) => sum + (job.invoice_total_cents ?? 0), 0))}
-                </div>
-              </div>
-              {/* Per Tim, 2026-09-02 (follow-up) — "on desktop this should
-                  be on same line as Showing invoices from... and it should
-                  be aligned all the way right": sm:justify-between above
-                  pushes Clear to the far right of that same row on desktop;
-                  mobile keeps it stacked below on its own line. */}
+            // Per Tim, 2026-09-02 (follow-up) — "delete this part [Showing
+            // invoices from] and just show the date and the price on one
+            // line across... it seems like all this text can be a little
+            // bit bigger, it should all be the same size as... these
+            // numbers [the Weekly/Monthly Revenue rows' own text-sm]" and
+            // "clear can be on same line as date and $ amount for mobile":
+            // one plain row at every width now — period label + total on
+            // the left (same text-sm as the rest of the page, no more
+            // mobile-only shrinking), Clear on the right.
+            <div className="mt-3 flex items-baseline justify-between gap-2 text-sm text-slate-500">
+              <span className="whitespace-nowrap">
+                <span className="font-semibold text-slate-800">{periodFilter.label}</span>
+                {"  "}
+                {formatCents(rows.reduce((sum, { job }) => sum + (job.invoice_total_cents ?? 0), 0))}
+              </span>
               <button onClick={() => setPeriodFilter(null)} className="-m-1.5 shrink-0 p-1.5 text-brand-600 underline">
                 Clear
               </button>

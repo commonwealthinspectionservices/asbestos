@@ -1507,13 +1507,8 @@ async function draftInvoiceEmailForJob(params: {
   // the Gmail draft itself — the draft is the part that matters, the Pay
   // Now link is a bonus when Stripe cooperates. Skipped entirely for a
   // check-paid job (job.payment_type) — no Stripe invoice needed at all.
-  // Per Tim, 2026-09-02 — Newton Fire & Flood too, going forward: "we are
-  // not going to send a link to pay... only send the attachments" — same
-  // full skip as a check-paid job, regardless of this job's own
-  // payment_type, so it applies to every Newton job without relying on an
-  // admin remembering to set it per job.
   let payNowUrl: string | null = null;
-  if (pricedJob.payment_type !== "check" && pricedJob.customers.company_id !== NEWTON_FIRE_FLOOD_COMPANY_ID) {
+  if (pricedJob.payment_type !== "check") {
     try {
       const { hostedInvoiceUrl } = await createStripeInvoiceForJob(pricedJob, toCustomer);
       payNowUrl = hostedInvoiceUrl;
@@ -1521,6 +1516,15 @@ async function draftInvoiceEmailForJob(params: {
       console.error(`Failed to create Stripe invoice for job ${job.id}:`, e);
     }
   }
+  // Per Tim, 2026-09-02 — Newton Fire & Flood: "I still want a normal
+  // stripe job to be created for every Newton Fire and Flood job" — he
+  // charges the card directly himself, so the Stripe invoice/payment link
+  // still gets created exactly as normal above (clarifying an earlier,
+  // wrong reading of "we are not going to send a link to pay" as "skip
+  // Stripe entirely"). Only the emailed link itself is what he doesn't
+  // want — this separate variable keeps payNowUrl's own real value
+  // available for the update below while never reaching the email body.
+  const payNowUrlForEmail = pricedJob.customers.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID ? null : payNowUrl;
 
   // Recreating a draft (the admin already had one, is now clicking
   // "Recreate Invoice Draft") replaces it rather than leaving the stale
@@ -1540,7 +1544,7 @@ async function draftInvoiceEmailForJob(params: {
     // Per Tim, 2026-08-27 — always exactly this, regardless of service
     // type(s) on the job.
     subject: `Inspection Invoice - ${expandAddress(pricedJob.service_address)}`,
-    bodyHtml: invoiceDraftBodyHtml(pricedJob, settings, payNowUrl),
+    bodyHtml: invoiceDraftBodyHtml(pricedJob, settings, payNowUrlForEmail),
     attachments: [
       // Per Tim, 2026-08-27 — every PDF filename starts with the job
       // number, not the document type.
@@ -1802,9 +1806,8 @@ async function draftCombinedEmailForJob(params: {
   // Best-effort, same as the standalone invoice draft — a Stripe hiccup
   // must never block the Gmail draft itself. Skipped entirely for a
   // check-paid job (job.payment_type) — no Stripe invoice needed at all.
-  // Newton Fire & Flood too — see draftInvoiceEmailForJob's own comment.
   let payNowUrl: string | null = null;
-  if (pricedJob.payment_type !== "check" && pricedJob.customers.company_id !== NEWTON_FIRE_FLOOD_COMPANY_ID) {
+  if (pricedJob.payment_type !== "check") {
     try {
       const { hostedInvoiceUrl } = await createStripeInvoiceForJob(pricedJob, toCustomer);
       payNowUrl = hostedInvoiceUrl;
@@ -1812,6 +1815,10 @@ async function draftCombinedEmailForJob(params: {
       console.error(`Failed to create Stripe invoice for job ${job.id}:`, e);
     }
   }
+  // Newton Fire & Flood — see draftInvoiceEmailForJob's own comment: the
+  // Stripe invoice/link still gets created normally above, only the emailed
+  // link itself is withheld.
+  const payNowUrlForEmail = pricedJob.customers.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID ? null : payNowUrl;
 
   // Recreating (the admin already had a draft, is clicking again) replaces
   // whatever's there rather than leaving stale copies sitting in Gmail —
@@ -1841,7 +1848,7 @@ async function draftCombinedEmailForJob(params: {
     subject: threadSubject(pricedJob.service_address, pricedJob.service_type),
     headers: threadHeaders(existingThreadIds),
     threadId: pricedJob.email_gmail_thread_id ?? undefined,
-    bodyHtml: combinedDraftBodyHtml(pricedJob, settings, totalCents, payNowUrl),
+    bodyHtml: combinedDraftBodyHtml(pricedJob, settings, totalCents, payNowUrlForEmail),
     attachments: [
       ...reportPackets.map(({ domain, buffer }) => ({
         filename: reportEmailAttachmentFilename(pricedJob, job.id, domain),

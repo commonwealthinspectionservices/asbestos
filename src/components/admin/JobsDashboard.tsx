@@ -3255,9 +3255,9 @@ export function ProjectDetailDialog({
                 <h4 className="text-sm font-bold tracking-wide text-black underline">FLI Environmental&apos;s client</h4>
                 <DetailField label="Company" value={job.subcontractor_client_company} nowrap />
                 <DetailField label="Billing address" value={addressLines(job.subcontractor_client_address)} nowrap />
-                <DetailField label="Name" value={job.subcontractor_client_contact_name ? toTitleCase(job.subcontractor_client_contact_name) : undefined} />
+                <DetailField label="Contact name" value={job.subcontractor_client_contact_name ? toTitleCase(job.subcontractor_client_contact_name) : undefined} />
                 <DetailField
-                  label="Phone"
+                  label="Contact phone"
                   value={
                     job.subcontractor_client_contact_phone ? (
                       <a href={telHref(job.subcontractor_client_contact_phone)} className="text-brand-700 hover:underline">
@@ -3266,7 +3266,7 @@ export function ProjectDetailDialog({
                     ) : undefined
                   }
                 />
-                <DetailField label="Email" value={job.subcontractor_client_contact_email} nowrap />
+                <DetailField label="Contact email" value={job.subcontractor_client_contact_email} nowrap />
               </div>
               <div className="space-y-4 sm:space-y-2">
                 <h4 className="text-sm font-bold tracking-wide text-black underline">Job site contact</h4>

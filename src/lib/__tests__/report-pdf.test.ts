@@ -556,7 +556,7 @@ describe("renderProjectReportPdf", () => {
       expect(text).not.toContain("Asbestos Inspector License #");
     });
 
-    it("addresses the report to the job site contact, not FLI's own internal contact", async () => {
+    it("addresses the report to FLI's own client contact, not the job site contact or FLI's own internal contact", async () => {
       const pdf = await renderProjectReportPdfForDomain({
         job: {
           ...job,
@@ -564,12 +564,14 @@ describe("renderProjectReportPdf", () => {
           site_contact_name: "Chris Bromley",
           subcontractor_client_company: "Restore1",
           subcontractor_client_address: "100 Main Street, Boston, MA 02101",
+          subcontractor_client_contact_name: "Olivia Werner",
         },
         customer: fliCustomer,
         settings,
       }, "asbestos");
       const { text } = await pdfParse(pdf);
-      expect(text).toContain("Dear Chris Bromley");
+      expect(text).toContain("Dear Olivia Werner");
+      expect(text).not.toContain("Dear Chris Bromley");
       expect(text).toContain("Restore1");
       expect(text).toContain("100 Main Street");
       expect(text).toContain("Boston, MA 02101");

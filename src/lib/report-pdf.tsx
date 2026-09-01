@@ -605,16 +605,18 @@ function FliAsbestosReportDocument({ job, customer, settings }: ProjectReportDat
   const { dateText, serviceStreet, service } = commonLetterFields(job, customer, settings, job.lab_date_sampled ?? job.confirmed_date ?? job.requested_date);
   const positiveMaterialRows = computePositiveMaterialRows(job);
 
-  // Per Tim, 2026-08-31 — an FLI-subcontracted report is addressed to the
-  // end client's own contact (the job site contact, e.g. Restore1's Chris
-  // Bromley), never to Dave MacDonald — he's FLI's own internal contact who
-  // submits the job on their client's behalf, not who the report is for.
-  // Dave's on-file customer.billing_address is unreliable freeform text
-  // (just "MA" as of this writing), so this reads the end client's own
-  // address (subcontractor_client_address) instead — commonLetterFields'
-  // own billingStreet/billing (customer.billing_address-derived) go unused
-  // here, still returned for the other three templates that share it.
-  const knownCustomerName = job.site_contact_name?.trim() || null;
+  // Per Tim, 2026-09-01 — an FLI-subcontracted report is addressed to FLI's
+  // own client's contact (subcontractor_client_contact_name, e.g. RestoreONE
+  // LLC's Olivia Werner) — never to Dave MacDonald (FLI's own internal
+  // contact, who the email itself still goes to) and never to the job site
+  // contact (whoever happened to be on-site, a separate role — see
+  // site_contact_name elsewhere). Dave's on-file customer.billing_address is
+  // also unreliable freeform text (just "MA" as of this writing), so this
+  // reads the end client's own address (subcontractor_client_address)
+  // instead — commonLetterFields' own billingStreet/billing (customer.
+  // billing_address-derived) go unused here, still returned for the other
+  // three templates that share it.
+  const knownCustomerName = job.subcontractor_client_contact_name?.trim() || null;
   const clientCompany = job.subcontractor_client_company?.trim() || null;
   const clientAddressRaw = splitAddress(job.subcontractor_client_address);
   const clientBillingStreet = expandAddress(clientAddressRaw.locationName ? `${clientAddressRaw.locationName} ${clientAddressRaw.street}` : clientAddressRaw.street);

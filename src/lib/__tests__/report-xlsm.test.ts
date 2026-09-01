@@ -62,6 +62,7 @@ const job: Job = {
   subcontractor_preferred_window: null,
   subcontractor_sample_types: [],
   subcontractor_client_company: null,
+  subcontractor_client_address: null,
   sample_counts: { "Limited Asbestos Inspection": 10 },
   lab_name: "EMSL Analytical, Inc.",
   lab_cost_cents: 12000,

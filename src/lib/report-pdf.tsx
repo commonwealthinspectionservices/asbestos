@@ -602,8 +602,23 @@ function FliAsbestosReportDocument({ job, customer, settings }: ProjectReportDat
     remarks.push(job.report_summary);
   }
 
-  const { knownCustomerName, dateText, billingStreet, billing, serviceStreet, service } = commonLetterFields(job, customer, settings, job.lab_date_sampled ?? job.confirmed_date ?? job.requested_date);
+  const { dateText, serviceStreet, service } = commonLetterFields(job, customer, settings, job.lab_date_sampled ?? job.confirmed_date ?? job.requested_date);
   const positiveMaterialRows = computePositiveMaterialRows(job);
+
+  // Per Tim, 2026-08-31 — an FLI-subcontracted report is addressed to the
+  // end client's own contact (the job site contact, e.g. Restore1's Chris
+  // Bromley), never to Dave MacDonald — he's FLI's own internal contact who
+  // submits the job on their client's behalf, not who the report is for.
+  // Dave's on-file customer.billing_address is unreliable freeform text
+  // (just "MA" as of this writing), so this reads the end client's own
+  // address (subcontractor_client_address) instead — commonLetterFields'
+  // own billingStreet/billing (customer.billing_address-derived) go unused
+  // here, still returned for the other three templates that share it.
+  const knownCustomerName = job.site_contact_name?.trim() || null;
+  const clientCompany = job.subcontractor_client_company?.trim() || null;
+  const clientAddressRaw = splitAddress(job.subcontractor_client_address);
+  const clientBillingStreet = expandAddress(clientAddressRaw.locationName ? `${clientAddressRaw.locationName} ${clientAddressRaw.street}` : clientAddressRaw.street);
+  const clientCityStateZip = expandAddress(clientAddressRaw.cityStateZip);
 
   return (
     <Document title={`Bulk Sample Analytical Results — ${expandAddress(job.service_address)}`}>
@@ -641,9 +656,9 @@ function FliAsbestosReportDocument({ job, customer, settings }: ProjectReportDat
 
         <RecipientBlock
           knownCustomerName={knownCustomerName}
-          customer={customer}
-          billingStreet={billingStreet}
-          billingCityStateZip={billing.cityStateZip}
+          customer={{ ...customer, company: clientCompany }}
+          billingStreet={clientBillingStreet}
+          billingCityStateZip={clientCityStateZip}
         />
 
         <Text style={styles.salutation}>Dear <ValueOrBlank style={styles.salutation} value={knownCustomerName} inline />:</Text>
@@ -1468,9 +1483,9 @@ function RecipientBlock({
       ) : (
         <ValueOrBlank style={styles.recipient} value={knownCustomerName} />
       )}
-      {customer.company && <Text style={styles.recipient}>{customer.company}</Text>}
-      {billingStreet && <Text style={styles.recipient}>{billingStreet}</Text>}
-      {billingCityStateZip && <Text style={styles.recipient}>{billingCityStateZip}</Text>}
+      {customer.company ? <Text style={styles.recipient}>{customer.company}</Text> : null}
+      {billingStreet ? <Text style={styles.recipient}>{billingStreet}</Text> : null}
+      {billingCityStateZip ? <Text style={styles.recipient}>{billingCityStateZip}</Text> : null}
     </View>
   );
 }

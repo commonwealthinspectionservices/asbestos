@@ -76,6 +76,7 @@ const baseJob: Job = {
   subcontractor_preferred_window: null,
   subcontractor_sample_types: [],
   subcontractor_client_company: null,
+  subcontractor_client_address: null,
   fli_project_number: null,
   service_type: "Limited Asbestos Inspection",
   scope_of_work: null,

@@ -1031,3 +1031,13 @@ alter table jobs add column if not exists fli_project_number text;
 -- statement above, since this file is a cumulative migration log run
 -- against an already-live database that already has this table.
 drop table if exists job_messages;
+
+-- Per Tim, 2026-08-31 — an FLI-subcontracted report must be addressed to
+-- the end client's own contact (job site contact — see site_contact_name/
+-- subcontractor_client_company's own comments), never to Dave MacDonald
+-- (FLI's own internal contact who submits the job on their client's
+-- behalf) — Dave's own on-file "billing_address" is unreliable freeform
+-- text ("MA"), not a real mailing address for anyone. This is that end
+-- client's own mailing address, hand-typed by Tim, read by the FLI report
+-- template's recipient block instead of customer.billing_address.
+alter table jobs add column if not exists subcontractor_client_address text;

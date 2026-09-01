@@ -71,6 +71,7 @@ const job: Job = {
   subcontractor_preferred_window: null,
   subcontractor_sample_types: [],
   subcontractor_client_company: null,
+  subcontractor_client_address: null,
   fli_project_number: null,
   service_type: "asbestos",
   scope_of_work: null,
@@ -550,6 +551,27 @@ describe("renderProjectReportPdf", () => {
       expect(text).toContain("(781) 251-0040");
       expect(text).not.toContain(settings.business_name);
       expect(text).not.toContain("Asbestos Inspector License #");
+    });
+
+    it("addresses the report to the job site contact, not FLI's own internal contact", async () => {
+      const pdf = await renderProjectReportPdfForDomain({
+        job: {
+          ...job,
+          service_type: "Limited Asbestos Inspection",
+          site_contact_name: "Chris Bromley",
+          subcontractor_client_company: "Restore1",
+          subcontractor_client_address: "100 Main Street, Boston, MA 02101",
+        },
+        customer: fliCustomer,
+        settings,
+      }, "asbestos");
+      const { text } = await pdfParse(pdf);
+      expect(text).toContain("Dear Chris Bromley");
+      expect(text).toContain("Restore1");
+      expect(text).toContain("100 Main Street");
+      expect(text).toContain("Boston, MA 02101");
+      expect(text).not.toContain(fliCustomer.name);
+      expect(text).not.toContain(fliCustomer.billing_address ?? " never-matches");
     });
 
     it("shows FLI's own assigned project number, not this app's internal one, when set", async () => {

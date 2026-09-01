@@ -247,9 +247,17 @@ function MoneyGrid({
 // net right-aligned, no borders per row, no click targets — a glance-able
 // table, not another browsable view.
 function PeriodHistoryTable({
-  title, rows,
+  title, rows, isSelected, onSelectRow,
 }: {
-  title: string; rows: { label: string; grossCents: number; netCents: number }[];
+  title: string;
+  rows: { label: string; grossCents: number; netCents: number }[];
+  // Per Tim, 2026-09-02 — "I want to be able to break down jobs week by
+  // week, month by month": clicking a row filters the job list below to
+  // that period instead of the current status filter (see periodFilter's
+  // own comment). isSelected/onSelectRow are undefined for the rare caller
+  // that doesn't want rows clickable at all.
+  isSelected?: (label: string) => boolean;
+  onSelectRow?: (label: string) => void;
 }) {
   // Per Tim, 2026-08-30 — "make sure the net numbers are lined up
   // vertically": gross/net used to trail right after the label as one
@@ -261,19 +269,29 @@ function PeriodHistoryTable({
     <div className="rounded-lg border border-slate-200 bg-white p-3 text-sm">
       <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">{title}</div>
       <div className="mt-2 grid grid-cols-[1fr_auto_auto] items-baseline gap-x-3 gap-y-1">
-        {rows.map((r) => (
-          <Fragment key={r.label}>
-            {/* Per Tim, 2026-08-31 — "for weekly, we can make it smaller if
-                needed, but all weeks like August 31st to September 6th
-                must be one line across... not stretch onto two lines":
-                text-xs on mobile (desktop keeps text-sm from the parent)
-                plus whitespace-nowrap shrinks the label just enough to
-                fit a full date-range on one line instead of wrapping. */}
-            <span className="whitespace-nowrap text-xs text-slate-500 sm:text-sm">{r.label}</span>
-            <span className="whitespace-nowrap text-right text-slate-800">{formatCents(r.grossCents)}</span>
-            <span className="whitespace-nowrap text-right text-slate-400">net {formatCents(r.netCents)}</span>
-          </Fragment>
-        ))}
+        {rows.map((r) => {
+          const selected = isSelected?.(r.label) ?? false;
+          const content = (
+            <>
+              {/* Per Tim, 2026-08-31 — "for weekly, we can make it smaller if
+                  needed, but all weeks like August 31st to September 6th
+                  must be one line across... not stretch onto two lines":
+                  text-xs on mobile (desktop keeps text-sm from the parent)
+                  plus whitespace-nowrap shrinks the label just enough to
+                  fit a full date-range on one line instead of wrapping. */}
+              <span className={`whitespace-nowrap text-xs sm:text-sm ${selected ? "font-semibold text-brand-700" : "text-slate-500"}`}>{r.label}</span>
+              <span className="whitespace-nowrap text-right text-slate-800">{formatCents(r.grossCents)}</span>
+              <span className="whitespace-nowrap text-right text-slate-400">net {formatCents(r.netCents)}</span>
+            </>
+          );
+          return onSelectRow ? (
+            <button key={r.label} onClick={() => onSelectRow(r.label)} className="contents text-left">
+              {content}
+            </button>
+          ) : (
+            <Fragment key={r.label}>{content}</Fragment>
+          );
+        })}
       </div>
     </div>
   );
@@ -319,6 +337,17 @@ export default function BillingView() {
   // were sent out at by default": most-recently-sent first.
   const [sortBy, setSortBy] = useState<SortField>("sent_date");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  // Per Tim, 2026-09-02 — "I want to be able to break down jobs week by
+  // week, month by month": clicking a row in the Weekly/Monthly Revenue
+  // table below narrows the list to just that period's jobs, replacing
+  // (not adding to) the Payment Pending/Overdue/Paid status filter — still
+  // one flat list at a time, never multiple period sections stacked at
+  // once (see the top-of-file comment on why a standing "group by" was
+  // tried and explicitly rejected before). Cleared by picking a status
+  // filter pill, or its own Clear control.
+  const [periodFilter, setPeriodFilter] = useState<
+    { type: "week"; label: string; startStr: string; endStr: string } | { type: "month"; label: string; key: string } | null
+  >(null);
   const [projectNumberQuery, setProjectNumberQuery] = useState("");
   const [companyQuery, setCompanyQuery] = useState("");
   const [addressQuery, setAddressQuery] = useState("");
@@ -383,7 +412,18 @@ export default function BillingView() {
   }, [jobs.length]);
 
   const rows = useMemo(() => {
-    let result = invoicedJobs.map((job) => ({ job, status: invoiceStatus(job) })).filter(({ status }) => status === filter);
+    let result = invoicedJobs.map((job) => ({ job, status: invoiceStatus(job) }));
+    if (periodFilter) {
+      result = result.filter(({ job }) => {
+        const bucketDate = billingDateFor(job);
+        if (!bucketDate) return false;
+        return periodFilter.type === "week"
+          ? bucketDate >= periodFilter.startStr && bucketDate <= periodFilter.endStr
+          : bucketDate.slice(0, 7) === periodFilter.key;
+      });
+    } else {
+      result = result.filter(({ status }) => status === filter);
+    }
 
     if (projectNumberQuery.trim()) {
       result = result.filter(({ job }) => matchesAnyWord(job.project_number ?? "", projectNumberQuery));
@@ -417,7 +457,7 @@ export default function BillingView() {
       const bDue = dueDateFor(b.job) ?? "9999-99-99";
       return dir * aDue.localeCompare(bDue);
     });
-  }, [invoicedJobs, filter, projectNumberQuery, companyQuery, addressQuery, mobileSearch, sortBy, sortDir]);
+  }, [invoicedJobs, filter, periodFilter, projectNumberQuery, companyQuery, addressQuery, mobileSearch, sortBy, sortDir]);
 
   const listSummary = useMemo(() => {
     let awaitingPaymentCents = 0;
@@ -533,15 +573,37 @@ export default function BillingView() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <PeriodHistoryTable title="Weekly Revenue" rows={periodHistory.weekly} />
-        <PeriodHistoryTable title="Monthly Revenue" rows={periodHistory.monthly} />
+        <PeriodHistoryTable
+          title="Weekly Revenue"
+          rows={periodHistory.weekly}
+          isSelected={(label) => periodFilter?.type === "week" && periodFilter.label === label}
+          onSelectRow={(label) => {
+            setPeriodFilter((prev) => {
+              if (prev?.type === "week" && prev.label === label) return null;
+              const row = periodHistory.weekly.find((w) => w.label === label);
+              return row ? { type: "week", label: row.label, startStr: row.startStr, endStr: row.endStr } : prev;
+            });
+          }}
+        />
+        <PeriodHistoryTable
+          title="Monthly Revenue"
+          rows={periodHistory.monthly}
+          isSelected={(label) => periodFilter?.type === "month" && periodFilter.label === label}
+          onSelectRow={(label) => {
+            setPeriodFilter((prev) => {
+              if (prev?.type === "month" && prev.label === label) return null;
+              const row = periodHistory.monthly.find((m) => m.label === label);
+              return row ? { type: "month", label: row.label, key: row.key } : prev;
+            });
+          }}
+        />
         {/* Per Tim, 2026-09-02 — plain text, sitting right below Weekly
             Revenue rather than in its own bordered card like the two
             tables above. Gross Revenue leads on the left, Gross Profit
             trails on the right, same line. */}
         <div className="flex w-full items-baseline justify-between text-sm text-slate-600">
-          <span>Gross Revenue: {formatCents(allTimeTotal.grossCents)}</span>
-          <span>Gross Profit: {formatCents(allTimeTotal.netCents)}</span>
+          <span>All-Time Gross Revenue: {formatCents(allTimeTotal.grossCents)}</span>
+          <span>All-Time Gross Profit: {formatCents(allTimeTotal.netCents)}</span>
         </div>
       </div>
 
@@ -562,7 +624,7 @@ export default function BillingView() {
           <div className="relative mt-10 sm:hidden">
             <select
               value={filter}
-              onChange={(e) => setFilter(e.target.value as FilterKey)}
+              onChange={(e) => { setFilter(e.target.value as FilterKey); setPeriodFilter(null); }}
               className="w-full appearance-none rounded-lg border border-slate-300 bg-white py-2 pl-3 pr-10 text-sm font-medium text-slate-700"
             >
               {FILTERS.map((f) => (
@@ -585,7 +647,7 @@ export default function BillingView() {
               mobile dropdown's comment above. */}
           <div className="mt-10 hidden items-center justify-between gap-x-4 gap-y-2 sm:flex sm:flex-wrap">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="shrink-0 text-sm font-medium text-gray-400">Sort by:</span>
+              <span className="shrink-0 text-sm font-medium text-slate-500">Sort by:</span>
               {SORT_FIELDS.map((f) => (
                 <button
                   key={f.key}
@@ -610,8 +672,8 @@ export default function BillingView() {
               {FILTERS.map((f) => (
                 <button
                   key={f.key}
-                  onClick={() => setFilter(f.key)}
-                  className={`shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium ${filter === f.key ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}
+                  onClick={() => { setFilter(f.key); setPeriodFilter(null); }}
+                  className={`shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium ${!periodFilter && filter === f.key ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}
                 >
                   {f.label}
                 </button>
@@ -676,10 +738,28 @@ export default function BillingView() {
               renamed from "Payment Pending" (too easy to confuse with
               the filter pill/status pill of the same name), and now only
               shows for the sent/Payment Pending filter. */}
-          {filter === "sent" && (
-            <div className="mt-3 text-sm text-slate-500">
-              Total Amount Pending <span className="font-semibold text-slate-800">{formatCents(listSummary.awaitingPaymentCents)}</span>
+          {/* Per Tim, 2026-09-02 — "I want to be able to break down jobs
+              week by week, month by month": while a period's selected
+              (see periodFilter's own comment), this replaces Total Amount
+              Pending with that period's own total and a way back to the
+              normal status-filtered view. */}
+          {periodFilter ? (
+            <div className="mt-3 flex items-center justify-between gap-2 text-sm text-slate-500">
+              <span>
+                Showing invoices from <span className="font-semibold text-slate-800">{periodFilter.label}</span>
+                {" — "}
+                {formatCents(rows.reduce((sum, { job }) => sum + (job.invoice_total_cents ?? 0), 0))}
+              </span>
+              <button onClick={() => setPeriodFilter(null)} className="shrink-0 whitespace-nowrap text-brand-600 underline">
+                Clear
+              </button>
             </div>
+          ) : (
+            filter === "sent" && (
+              <div className="mt-3 text-sm text-slate-500">
+                Total Amount Pending <span className="font-semibold text-slate-800">{formatCents(listSummary.awaitingPaymentCents)}</span>
+              </div>
+            )
           )}
 
           {rows.length > 0 && (

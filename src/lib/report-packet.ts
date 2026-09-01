@@ -1,8 +1,18 @@
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { renderProjectReportPdfForDomain } from "@/lib/report-pdf";
 import { mergePdfBuffers } from "@/lib/pdf-merge";
-import { jobReportDomains, domainForServiceTypeLabel, type ReportDomain } from "@/lib/report-findings";
+import { jobReportDomains, domainForServiceTypeLabel, FLI_ENVIRONMENTAL_COMPANY_ID, type ReportDomain } from "@/lib/report-findings";
 import type { Customer, Job, Settings } from "@/lib/types";
+
+// Per Tim, 2026-09-01 — FLI Environmental's own reports carry FLI's own DLS
+// Asbestos Consulting Service Provider Certificate on the trailing page,
+// never Commonwealth's own (settings.credentials_document_path below) —
+// they're a different license holder, so Commonwealth's certificate
+// wouldn't even be accurate for their client to see. One fixed path, same
+// "single-owner business, one standing file, re-uploading replaces it"
+// reasoning as credentials-document/route.ts's own — there's only the one
+// FLI Environmental relationship, so no Settings UI for this one.
+const FLI_CREDENTIALS_STORAGE_PATH = "_settings/credentials-fli.pdf";
 
 // Per Tim, 2026-08-27 — a daily audit isn't fast enough (reports go out
 // the moment lab results land, not on a schedule), so this is a hard stop
@@ -61,7 +71,13 @@ export async function buildFinalReportPacket(job: Job, customer: Customer, setti
       ...documents.filter((d) => d.kind === "lab_report").map((d) => d.storage_path),
       ...documents.filter((d) => d.kind === "coc").map((d) => d.storage_path),
     ]),
-    ...(domain === "asbestos" && settings.credentials_document_path ? [settings.credentials_document_path] : []),
+    ...(domain === "asbestos"
+      ? customer.company_id === FLI_ENVIRONMENTAL_COMPANY_ID
+        ? [FLI_CREDENTIALS_STORAGE_PATH]
+        : settings.credentials_document_path
+          ? [settings.credentials_document_path]
+          : []
+      : []),
   ];
 
   const attachmentBuffers: Buffer[] = [];

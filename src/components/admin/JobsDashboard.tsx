@@ -3163,18 +3163,15 @@ export function ProjectDetailDialog({
               }
             />
             <DetailField label="Email" value={job.site_contact_email} nowrap />
+            {/* Per Tim, 2026-08-31 — "all i meant was add billing address
+                here": a plain field alongside Name/Phone/Email, not its
+                own separate section — the end client's own mailing
+                address (see subcontractor_client_address's own comment in
+                types.ts), FLI-only. */}
+            {isFliJob && (
+              <DetailField label="Billing address" value={job.subcontractor_client_address ? expandAddress(job.subcontractor_client_address) : undefined} nowrap />
+            )}
           </div>
-          {/* Per Tim, 2026-08-31 — "add billing address section under job
-              site contact" then "just for fli jobs": the end client's own
-              mailing address (see subcontractor_client_address's own
-              comment in types.ts) — FLI-only, not Fast Mold Testing's
-              isSubcontractingFor jobs. */}
-          {isFliJob && job.subcontractor_client_address && job.subcontractor_client_address.trim() && (
-            <div className="space-y-4 sm:space-y-2">
-              <h4 className="text-sm font-bold tracking-wide text-black underline">Billing address</h4>
-              <div className="text-sm text-black">{expandAddress(job.subcontractor_client_address)}</div>
-            </div>
-          )}
           {job.report_emails && job.report_emails.trim() && (
             <div className="space-y-4 sm:space-y-2">
               <h4 className="text-sm font-bold tracking-wide text-black underline">Email results to</h4>
@@ -5183,26 +5180,28 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
             <label className="mt-3 block text-sm font-medium text-slate-700">
               {companyName.trim() || "Their"}&apos;s client
             </label>
-            {/* Per Tim, 2026-08-31 — "this should all be combined kind of":
-                one bordered group with internal dividers instead of each
-                field as its own separately-boxed, separately-labeled
-                field — these four all describe the one same end client. */}
-            <div className="mt-1 divide-y divide-slate-300 overflow-hidden rounded-lg border border-slate-300">
-              <input
-                className="w-full px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-inset focus:ring-slate-400"
-                value={endClientCompany}
-                onChange={(e) => setEndClientCompany(e.target.value)}
-                placeholder="Company name"
-              />
-              <div className="flex flex-col divide-y divide-slate-300 sm:flex-row sm:divide-y-0 sm:divide-x">
+            {/* Per Tim, 2026-08-31 — "i dont like how all these cells are
+                connected make them seperated like the rest": back to each
+                field as its own separately-boxed input (the combined,
+                divided-box treatment tried earlier is reverted). */}
+            <input
+              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              value={endClientCompany}
+              onChange={(e) => setEndClientCompany(e.target.value)}
+              placeholder="Company name"
+            />
+            <div className="mt-1.5 flex flex-col gap-2 sm:flex-row">
+              <div className="min-w-0 sm:w-0 sm:flex-1">
                 <input
-                  className="w-full px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-inset focus:ring-slate-400 sm:flex-1"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
                   value={siteContactName}
                   onChange={(e) => { setSiteContactName(e.target.value); setSiteContactSameAsContact(false); }}
                   placeholder="Contact name"
                 />
+              </div>
+              <div className="min-w-0 sm:w-0 sm:flex-1">
                 <input
-                  className="w-full px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-inset focus:ring-slate-400 sm:flex-1"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
                   placeholder="Contact phone number"
                   value={siteContactPhone}
                   onChange={(e) => {
@@ -5211,20 +5210,20 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
                   }}
                 />
               </div>
-              {isFliEnvironmental && (
-                // Per Tim, 2026-08-31 — the FLI report is addressed to
-                // this end client (their own contact above), never to
-                // Dave MacDonald, so it needs their real mailing address
-                // too — Dave's own on-file billing address is just "MA",
-                // not usable for this.
-                <input
-                  className="w-full px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-inset focus:ring-slate-400"
-                  value={endClientAddress}
-                  onChange={(e) => setEndClientAddress(e.target.value)}
-                  placeholder="Contact billing address"
-                />
-              )}
             </div>
+            {isFliEnvironmental && (
+              // Per Tim, 2026-08-31 — the FLI report is addressed to
+              // this end client (their own contact above), never to
+              // Dave MacDonald, so it needs their real mailing address
+              // too — Dave's own on-file billing address is just "MA",
+              // not usable for this.
+              <input
+                className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                value={endClientAddress}
+                onChange={(e) => setEndClientAddress(e.target.value)}
+                placeholder="Contact billing address"
+              />
+            )}
           </>
         ) : (
           <>
@@ -6026,45 +6025,47 @@ export function EditProjectDialog({
             <label className="mt-3 block text-sm font-medium text-slate-700">
               {companyName.trim() || "Their"}&apos;s client
             </label>
-            {/* Per Tim, 2026-08-31 — "this should all be combined kind of":
-                one bordered group with internal dividers instead of each
-                field as its own separately-boxed, separately-labeled
-                field — these four all describe the one same end client. */}
-            <div className="mt-1 divide-y divide-slate-300 overflow-hidden rounded-lg border border-slate-300">
-              <input
-                className="w-full px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-inset focus:ring-slate-400"
-                value={endClientCompany}
-                onChange={(e) => setEndClientCompany(e.target.value)}
-                placeholder="Company name"
-              />
-              <div className="flex divide-x divide-slate-300">
+            {/* Per Tim, 2026-08-31 — "i dont like how all these cells are
+                connected make them seperated like the rest": back to each
+                field as its own separately-boxed input (the combined,
+                divided-box treatment tried earlier is reverted). */}
+            <input
+              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              value={endClientCompany}
+              onChange={(e) => setEndClientCompany(e.target.value)}
+              placeholder="Company name"
+            />
+            <div className="mt-1.5 flex gap-2">
+              <div className="w-0 flex-1">
                 <input
-                  className="w-0 flex-1 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-inset focus:ring-slate-400"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
                   value={siteContactName}
                   onChange={(e) => setSiteContactName(e.target.value)}
                   placeholder="Contact name"
                 />
+              </div>
+              <div className="w-0 flex-1">
                 <input
-                  className="w-0 flex-1 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-inset focus:ring-slate-400"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
                   placeholder="Contact phone number"
                   value={siteContactPhone}
                   onChange={(e) => setSiteContactPhone(formatPhoneInput(e.target.value))}
                 />
               </div>
-              {isFliEnvironmental && (
-                // Per Tim, 2026-08-31 — the FLI report is addressed to
-                // this end client (their own contact above), never to
-                // Dave MacDonald, so it needs their real mailing address
-                // too — Dave's own on-file billing address is just "MA",
-                // not usable for this.
-                <input
-                  className="w-full px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-inset focus:ring-slate-400"
-                  value={endClientAddress}
-                  onChange={(e) => setEndClientAddress(e.target.value)}
-                  placeholder="Contact billing address"
-                />
-              )}
             </div>
+            {isFliEnvironmental && (
+              // Per Tim, 2026-08-31 — the FLI report is addressed to
+              // this end client (their own contact above), never to
+              // Dave MacDonald, so it needs their real mailing address
+              // too — Dave's own on-file billing address is just "MA",
+              // not usable for this.
+              <input
+                className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                value={endClientAddress}
+                onChange={(e) => setEndClientAddress(e.target.value)}
+                placeholder="Contact billing address"
+              />
+            )}
           </>
         ) : (
           <>

@@ -1505,8 +1505,13 @@ async function draftInvoiceEmailForJob(params: {
   // the Gmail draft itself — the draft is the part that matters, the Pay
   // Now link is a bonus when Stripe cooperates. Skipped entirely for a
   // check-paid job (job.payment_type) — no Stripe invoice needed at all.
+  // Per Tim, 2026-09-02 — Newton Fire & Flood too, going forward: "we are
+  // not going to send a link to pay... only send the attachments" — same
+  // full skip as a check-paid job, regardless of this job's own
+  // payment_type, so it applies to every Newton job without relying on an
+  // admin remembering to set it per job.
   let payNowUrl: string | null = null;
-  if (pricedJob.payment_type !== "check") {
+  if (pricedJob.payment_type !== "check" && pricedJob.customers.company_id !== NEWTON_FIRE_FLOOD_COMPANY_ID) {
     try {
       const { hostedInvoiceUrl } = await createStripeInvoiceForJob(pricedJob, toCustomer);
       payNowUrl = hostedInvoiceUrl;
@@ -1795,8 +1800,9 @@ async function draftCombinedEmailForJob(params: {
   // Best-effort, same as the standalone invoice draft — a Stripe hiccup
   // must never block the Gmail draft itself. Skipped entirely for a
   // check-paid job (job.payment_type) — no Stripe invoice needed at all.
+  // Newton Fire & Flood too — see draftInvoiceEmailForJob's own comment.
   let payNowUrl: string | null = null;
-  if (pricedJob.payment_type !== "check") {
+  if (pricedJob.payment_type !== "check" && pricedJob.customers.company_id !== NEWTON_FIRE_FLOOD_COMPANY_ID) {
     try {
       const { hostedInvoiceUrl } = await createStripeInvoiceForJob(pricedJob, toCustomer);
       payNowUrl = hostedInvoiceUrl;

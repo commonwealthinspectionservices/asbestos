@@ -1515,6 +1515,23 @@ function JobRow({
               <div className="truncate whitespace-nowrap text-sm text-slate-500">{street}</div>
               {cityStateZip && <div className="truncate whitespace-nowrap text-sm text-slate-500">{cityStateZip}</div>}
             </div>
+            {/* Per Tim, 2026-09-02 — "aligned all the way left, same size
+                text as everything else, directly across from Scheduled
+                time on that same line and not below it at all": moved out
+                of the right-hand date/time column (was small, muted, right-
+                aligned, stacked below Scheduled date/time there) into this
+                left column instead, same text-sm/slate-500 styling as the
+                address above it. */}
+            {!isUnscheduled && job.status === "scheduled" && job.confirmed_date && !isSubcontractor && (job.confirmation_sent_at || job.reminder_sent_at) && (
+              <div className="mt-1 flex flex-col items-start gap-0.5">
+                {job.confirmation_sent_at && (
+                  <div className="whitespace-nowrap text-sm text-slate-500">Confirmation sent {formatDateTime(job.confirmation_sent_at)}</div>
+                )}
+                {job.reminder_sent_at && (
+                  <div className="whitespace-nowrap text-sm text-slate-500">Reminder sent {formatDateTime(job.reminder_sent_at)}</div>
+                )}
+              </div>
+            )}
             {showMapMenu && (
               <div
                 className="absolute z-10 mt-1 w-48 rounded-lg border border-slate-200 bg-white p-1 shadow-lg sm:hidden"
@@ -1740,20 +1757,6 @@ function JobRow({
                   </>
                 )}
               </div>
-              {!isUnscheduled && job.status === "scheduled" && job.confirmed_date && !isSubcontractor && (job.confirmation_sent_at || job.reminder_sent_at) && (
-                <div className="flex flex-col items-end gap-0.5">
-                  {job.confirmation_sent_at && (
-                    <span className="whitespace-nowrap text-[10px] text-slate-400">
-                      Confirmation sent {formatDateTime(job.confirmation_sent_at)}
-                    </span>
-                  )}
-                  {job.reminder_sent_at && (
-                    <span className="whitespace-nowrap text-[10px] text-slate-400">
-                      Reminder sent {formatDateTime(job.reminder_sent_at)}
-                    </span>
-                  )}
-                </div>
-              )}
             </div>
           )}
         </div>

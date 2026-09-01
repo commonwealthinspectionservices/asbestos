@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireCronAuth, withCronAlert } from "@/lib/cron-auth";
 import { withApiErrors } from "@/lib/api-handler";
 import { getSupabaseAdmin } from "@/lib/supabase";
-import { checkDraftSentStatus } from "@/lib/lab-email";
+import { checkDraftSentStatus, checkForBouncedSends } from "@/lib/lab-email";
 
 // Reads req.headers (via requireCronAuth) — without this, Next tries to
 // statically render the route at build time and throws "Dynamic server
@@ -42,5 +42,11 @@ export const GET = withApiErrors(withCronAlert("check-sent-drafts", async (req: 
     }
   }
 
-  return NextResponse.json({ checked: jobs?.length ?? 0, newlySent: results });
+  // Per Tim, 2026-09-01 — same 15-minute cadence catches a real bounce
+  // (Gmail's own Mail Delivery Subsystem notice) for something this app
+  // just marked sent above, and undoes the sent status/tracker advance —
+  // see checkForBouncedSends's own comment.
+  const bounces = await checkForBouncedSends();
+
+  return NextResponse.json({ checked: jobs?.length ?? 0, newlySent: results, bounces });
 }));

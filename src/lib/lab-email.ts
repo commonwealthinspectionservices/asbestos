@@ -16,6 +16,7 @@ import {
   getDraftStatus,
   getHeader,
   getMessage,
+  getMessageBodyText,
   getOrCreateLabelId,
   getSentMessageInfo,
   getValidAccessToken,
@@ -385,6 +386,153 @@ export async function checkDraftSentStatus(
   }
 
   return { status: "none" };
+}
+
+const BOUNCE_PROCESSED_LABEL = "cis-bounce-processed";
+
+// Detects a real Gmail bounce (Mail Delivery Subsystem's "Delivery Status
+// Notification (Failure)") for a report/invoice this app already marked
+// sent, and undoes that — report_sent_at/invoice_sent_at (and the status
+// advance that follows from them, see checkDraftSentStatus above) only
+// ever meant "Gmail showed this as sent," which happens the instant Tim
+// hits Send regardless of whether the address behind it actually exists.
+// Per Tim, 2026-09-01 — confirmed live on job 26-0011
+// (dave@flienvironmental.com — the whole domain doesn't resolve, NXDOMAIN):
+// the tracker had already advanced to "Payment Pending" for an email
+// nobody ever received. Matches the bounce back to its original send via
+// Gmail's own rfc822msgid search on the bounce's In-Reply-To header —
+// confirmed live to be far more reliable than this app's own stored
+// *_draft_gmail_message_id columns, which go stale the moment Gmail
+// assigns the sent copy a new message id on send (exactly what happened
+// here) — then to a job via the address in that original message's own
+// subject line (every report/invoice/combined draft's subject is "<label>
+// - <service address>", see threadSubject).
+export async function checkForBouncedSends(): Promise<{
+  checked: number;
+  reverted: { projectNumber: string | null; jobId: string; bouncedAddress: string }[];
+}> {
+  const accessToken = await getValidAccessToken();
+  if (!accessToken) throw new Error("Gmail is not connected");
+  const supabase = getSupabaseAdmin();
+  const processedLabelId = await getOrCreateLabelId(accessToken, BOUNCE_PROCESSED_LABEL);
+
+  // in:anywhere — confirmed live 2026-09-01 that Gmail (or Tim, reading it)
+  // can leave a bounce notice sitting in Trash rather than the inbox; a
+  // rare, specific sender like mailer-daemon makes searching that broadly
+  // safe here, unlike the wide-open lab-report candidate search elsewhere.
+  const candidates = await listMessagesByQuery(accessToken, `from:mailer-daemon newer_than:14d in:anywhere`);
+  const reverted: { projectNumber: string | null; jobId: string; bouncedAddress: string }[] = [];
+
+  for (const candidate of candidates) {
+    try {
+      const message = await getMessage(accessToken, candidate.id);
+      if (message.labelIds?.includes(processedLabelId)) continue;
+
+      const subject = getHeader(message, "Subject") ?? "";
+      if (!/delivery status notification|undeliverable|delivery.*fail/i.test(subject)) {
+        await addLabelToMessage(accessToken, candidate.id, processedLabelId);
+        continue;
+      }
+
+      const body = getMessageBodyText(message);
+      const addressMatch =
+        body.match(/wasn't delivered to ([^\s]+@[^\s]+?) because/i) ??
+        body.match(/message to ([^\s]+@[^\s]+?) (?:couldn't|could not) be delivered/i);
+      const bouncedAddress = addressMatch?.[1]?.replace(/[.,]+$/, "").toLowerCase() ?? null;
+
+      const inReplyTo = getHeader(message, "In-Reply-To") ?? getHeader(message, "References")?.trim().split(/\s+/).pop() ?? null;
+
+      if (!bouncedAddress || !inReplyTo) {
+        await addLabelToMessage(accessToken, candidate.id, processedLabelId);
+        continue;
+      }
+
+      const rawMsgId = inReplyTo.replace(/^<|>$/g, "");
+      const originalCandidates = await listMessagesByQuery(accessToken, `rfc822msgid:${rawMsgId} in:anywhere`);
+      const original = originalCandidates[0];
+      if (!original) {
+        await addLabelToMessage(accessToken, candidate.id, processedLabelId);
+        continue;
+      }
+      const originalMessage = await getMessage(accessToken, original.id);
+      const originalSubject = getHeader(originalMessage, "Subject") ?? "";
+      const addressPart = originalSubject.includes(" - ") ? originalSubject.split(" - ").slice(1).join(" - ") : null;
+      if (!addressPart) {
+        await addLabelToMessage(accessToken, candidate.id, processedLabelId);
+        continue;
+      }
+
+      const normalizedTarget = normalizeAddressForMatch(addressPart);
+      const { data: sentJobs } = await supabase
+        .from("jobs")
+        .select("*, customers!customer_id(*, companies!company_id(*))")
+        .or("report_sent_at.not.is.null,invoice_sent_at.not.is.null");
+      const matches = (sentJobs ?? []).filter((j) => {
+        const normalizedService = normalizeAddressForMatch(j.service_address ?? "");
+        return normalizedService.startsWith(normalizedTarget) || normalizedTarget.startsWith(normalizedService);
+      });
+
+      if (matches.length !== 1) {
+        if (matches.length > 1) {
+          console.error(`checkForBouncedSends: bounce for "${addressPart}" matched more than one recently-sent job (${matches.map((j) => j.project_number).join(", ")}) — needs a human to sort out, not guessing.`);
+        }
+        await addLabelToMessage(accessToken, candidate.id, processedLabelId);
+        continue;
+      }
+      const job = matches[0] as unknown as Job & { customers: Customer & { companies: Company | null } };
+
+      // Confirm the bounced address actually plausibly belongs to this
+      // job's own send before touching anything — the address match above
+      // narrows to one job, this confirms it's the right *email*, not just
+      // the right property.
+      const knownAddresses = [job.customers?.email, ...(job.report_emails?.split(",") ?? []), job.subcontractor_client_contact_email]
+        .filter((e): e is string => Boolean(e))
+        .map((e) => e.trim().toLowerCase());
+      if (!knownAddresses.includes(bouncedAddress)) {
+        await addLabelToMessage(accessToken, candidate.id, processedLabelId);
+        continue;
+      }
+
+      // A combined draft (createCombinedDraftForJob — see checkDraftSentStatus's
+      // own comment) writes the same Gmail draft id into both report_draft_gmail_id
+      // and invoice_draft_gmail_id — one send covers both, so one bounce means
+      // neither actually arrived.
+      const wasCombined = Boolean(job.report_draft_gmail_id) && job.report_draft_gmail_id === job.invoice_draft_gmail_id;
+      const update: Record<string, unknown> = {};
+      if (job.report_sent_at) {
+        update.report_sent_at = null;
+        update.report_draft_gmail_id = null;
+        update.report_draft_gmail_message_id = null;
+        update.report_drafted_at = null;
+      }
+      if (wasCombined && job.invoice_sent_at) {
+        update.invoice_sent_at = null;
+        update.invoice_draft_gmail_id = null;
+        update.invoice_draft_gmail_message_id = null;
+        update.invoice_drafted_at = null;
+      }
+      if (job.status === "report_invoice_sent" && (wasCombined || !job.invoice_sent_at)) {
+        update.status = "ready_to_send";
+      }
+      await supabase.from("jobs").update(update).eq("id", job.id);
+
+      await sendEmail({
+        to: process.env.OWNER_EMAIL!,
+        subject: `Email bounced — ${job.project_number ?? job.id} was NOT actually delivered`,
+        html: emailShell(`
+          <p style="font-size:15px;"><strong>${escapeHtml(bouncedAddress)}</strong> doesn't exist — the report/invoice you sent for this job never reached anyone.</p>
+          <p>This job's status has been reverted back to "Ready for Review" so it doesn't look like it went out, and the old draft has been cleared. Fix the recipient's email address, then create a fresh draft and resend.</p>
+        `),
+      }).catch(() => {});
+
+      reverted.push({ projectNumber: job.project_number, jobId: job.id, bouncedAddress });
+      await addLabelToMessage(accessToken, candidate.id, processedLabelId);
+    } catch (e) {
+      console.error(`checkForBouncedSends: failed to process bounce candidate ${candidate.id}:`, e);
+    }
+  }
+
+  return { checked: candidates.length, reverted };
 }
 
 // Collapses an address down to just its letters/digits (drops punctuation,

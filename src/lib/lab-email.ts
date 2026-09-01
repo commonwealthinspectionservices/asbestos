@@ -561,6 +561,29 @@ export async function checkForLabResultEmails(): Promise<LabEmailCheckResult> {
               .ilike("project_number", projectNumber)
               .maybeSingle();
             job = data as unknown as (Job & { customers: Customer & { companies: Company | null } }) | null;
+            // Per Tim, 2026-08-31 — a report's own printed project number is
+            // whatever was written on the physical COC form when the sample
+            // was submitted, which for a revisit (Tim's own "26-0002.1" for
+            // a revisit to "26-0002" — see is_revisit's own comment in
+            // types.ts) is often just the base number, not the ".1" suffix.
+            // Confirmed live: 26-0002.1's own mold results landed on
+            // 26-0002 instead — already fully sent 4 days earlier — which
+            // re-triggered a fresh, wrong auto-draft on a job whose story
+            // was already over. An exact match that's already closed
+            // (report_sent_at set) can't sanely be who new lab data is
+            // for, so prefer an open revisit of it when one exists, over
+            // the closed exact match.
+            if (job?.report_sent_at) {
+              const { data: revisit } = await supabase
+                .from("jobs")
+                .select("*, customers!customer_id(*, companies!company_id(*))")
+                .ilike("project_number", `${projectNumber}.%`)
+                .is("report_sent_at", null)
+                .order("created_at", { ascending: false })
+                .limit(1)
+                .maybeSingle();
+              if (revisit) job = revisit as unknown as (Job & { customers: Customer & { companies: Company | null } });
+            }
           }
           // Per Tim, 2026-08-31 — a report never resolving to a match here
           // even with a projectNumber extracted isn't necessarily "no such
@@ -1220,6 +1243,27 @@ async function processMatchedLabEmail(params: {
         const { data: freshDocuments } = await supabase.from("jobs").select("documents").eq("id", job.id).single();
         if (freshDocuments) updatedJob.documents = freshDocuments.documents;
       }
+    }
+
+    // Per Tim, 2026-08-31 — "if a job includes mold at all, an automatic
+    // draft should never be created because there's always manual work
+    // that I need to do for mold": mixed or mold-only, no invoice or
+    // report auto-drafts here — assertMoldReportReady already blocked the
+    // report half (mold_report_notes is never filled in yet at this
+    // point), but the invoice half had no such gate and was drafting
+    // unconditionally regardless of mold. Just file the results and
+    // notify; the manual "Create Invoice Draft"/"Create Report Draft"
+    // buttons are the only path to a draft from here for any mold job.
+    if (jobReportDomains(updatedJob.service_type).includes("mold")) {
+      await sendEmail({
+        to: process.env.OWNER_EMAIL!,
+        subject: `Lab results landed (mold job — no auto-draft) — ${updatedJob.project_number ?? updatedJob.id}`,
+        html: emailShell(`
+          <p style="font-size:15px;">Lab results just came in and were filed on this job. No invoice or report was auto-drafted — this job includes mold, which always needs your own Conclusions &amp; Recommendations added by hand first.</p>
+          <p>Add that on the job's Final Report tab, then use "Create Invoice Draft" / "Create Report Draft" when it's ready.</p>
+        `),
+      }).catch(() => {});
+      return;
     }
 
     // Invoice always goes out the moment lab results land. Invoice pricing

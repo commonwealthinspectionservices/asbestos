@@ -301,8 +301,9 @@ function formatPhoneInput(value: string): string {
 
 // report_drafted_at/report_sent_at are full timestamptz values (unlike the
 // plain "date" columns formatDate handles) — shown with a time so the admin
-// can tell two same-day drafts apart, not just the date.
-function formatDateTime(iso: string | null | undefined): string {
+// can tell two same-day drafts apart, not just the date. Exported for
+// BillingView.tsx's own "Sent {date} at {time}" line.
+export function formatDateTime(iso: string | null | undefined): string {
   if (!iso) return "";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";

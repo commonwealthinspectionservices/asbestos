@@ -3,7 +3,7 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import type { JobWithCustomer } from "@/lib/types";
 import { formatCents, computeMarginCents } from "@/lib/pricing";
-import { ProjectDetailDialog, EditProjectDialog } from "@/components/admin/JobsDashboard";
+import { ProjectDetailDialog, EditProjectDialog, formatDateTime } from "@/components/admin/JobsDashboard";
 import { formatDateMDY } from "@/lib/date-format";
 import { NEWTON_FIRE_FLOOD_COMPANY_ID } from "@/lib/report-findings";
 import { dueDateFor } from "@/lib/invoice-due-date";
@@ -169,7 +169,13 @@ function JobRow({
         </span>
       </div>
       <div className="flex w-full flex-wrap items-start justify-between gap-x-4 gap-y-1.5">
-        <AddressLines address={job.service_address} />
+        <div>
+          <AddressLines address={job.service_address} />
+          {/* Per Tim, 2026-09-02 — "these need to show when the invoice
+              was sent... directly below address... add time in that sent
+              line... make it all italics". */}
+          {job.invoice_sent_at && <div className="mt-0.5 text-xs italic text-slate-500">Sent {formatDateTime(job.invoice_sent_at)}</div>}
+        </div>
         {right}
       </div>
       {below && <div className="w-full text-left">{below}</div>}

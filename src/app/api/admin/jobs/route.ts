@@ -234,5 +234,17 @@ export const POST = withApiErrors(async (req: NextRequest) => {
     throw new Error(`Failed to create project: ${jobError?.message}`);
   }
 
+  // Per Tim, 2026-09-02 — "when i enter in a job myself i want it to give
+  // me the same option of sending email notification": same
+  // admin-triggered, checkbox-gated pattern as jobs/[id]/route.ts's own
+  // notifySchedule (`notifyOnCreate: true` only when he's checked the box
+  // in Add Project — never implied by starting status alone).
+  if (body.notifyOnCreate === true) {
+    const { sendJobCreatedScheduledNotification } = await import("@/lib/booking-notify");
+    await sendJobCreatedScheduledNotification(job.id).catch((e) =>
+      console.error(`Failed to send created-scheduled notification for job ${job.id}:`, e)
+    );
+  }
+
   return NextResponse.json({ job });
 });

@@ -280,6 +280,48 @@ export async function sendJobConfirmedEmailIfDue(jobId: string): Promise<void> {
  * "deliberate, reviewed send" reasoning above is exactly why this is the
  * one place that's safe to turn on.
  */
+// Per Tim, 2026-09-02 — "when i enter in a job myself i want it to give me
+// the same option of sending email notification but show me what it'd
+// say": the HTML-building split out from sendJobScheduledNotification below
+// so a preview endpoint (see /api/admin/preview-scheduled-email) can render
+// the exact same markup the real send would use, from the Add Project
+// form's own in-progress values — no separate, driftable copy of this
+// markup anywhere else.
+export function buildJobScheduledEmailHtml(params: {
+  projectNumber: string | null;
+  serviceAddress: string;
+  confirmedDate: string;
+  confirmedTime: string | null;
+}): string {
+  // Per Tim, 2026-08-30 (follow-up, after seeing a preview) — "delete the
+  // line with service... list it out as scheduled date on one line and
+  // scheduled time on the next line below it. Also, delete the part where
+  // it says let us know if anything changes, and also delete my
+  // information at the bottom": wants this one genuinely tiny, not the
+  // fuller confirmation-email format sendJobConfirmedEmailIfDue uses.
+  const rows = [
+    ["Address", expandAddress(params.serviceAddress)],
+    ["Scheduled date", formatDateMDY(params.confirmedDate) ?? ""],
+    ["Scheduled time", (params.confirmedTime ? formatRequestedTime(params.confirmedTime) : "") ?? ""],
+  ];
+  if (params.projectNumber) rows.unshift(["Project #", params.projectNumber]);
+
+  const tableRows = rows
+    .map(
+      ([label, value]) =>
+        `<tr><td style="padding:4px 8px 4px 0; color:#64748b; white-space:nowrap; vertical-align:top;">${escapeHtml(label)}</td><td>${escapeHtml(value ?? "")}</td></tr>`
+    )
+    .join("");
+
+  return emailShell(
+    `
+      <p style="font-size:15px;">This job is now scheduled:</p>
+      <table style="width:100%; font-size:14px; color:#16213a;">${tableRows}</table>
+    `,
+    { signature: false }
+  );
+}
+
 export async function sendJobScheduledNotification(jobId: string): Promise<void> {
   const supabase = getSupabaseAdmin();
   const { data: job } = await supabase
@@ -292,25 +334,58 @@ export async function sendJobScheduledNotification(jobId: string): Promise<void>
   const { data: customer } = await supabase.from("customers").select("email").eq("id", job.customer_id).maybeSingle();
   if (!customer?.email) return;
 
-  // Per Tim, 2026-08-30 (follow-up, after seeing a preview) — "delete the
-  // line with service... list it out as scheduled date on one line and
-  // scheduled time on the next line below it. Also, delete the part where
-  // it says let us know if anything changes, and also delete my
-  // information at the bottom": wants this one genuinely tiny, not the
-  // fuller confirmation-email format sendJobConfirmedEmailIfDue uses.
-  const rows = [
-    ["Address", expandAddress(job.service_address)],
-    ["Scheduled date", formatDateMDY(job.confirmed_date) ?? ""],
-    ["Scheduled time", (job.confirmed_time ? formatRequestedTime(job.confirmed_time) : "") ?? ""],
-  ];
-  if (job.project_number) rows.unshift(["Project #", job.project_number]);
+  const existingIds: string[] = Array.isArray(job.email_thread_message_ids) ? job.email_thread_message_ids : [];
+  const result = await sendThreadedEmail({
+    to: customer.email,
+    subject: threadSubject(job.service_address, job.service_type),
+    existingMessageIds: existingIds,
+    gmailThreadId: job.email_gmail_thread_id,
+    replyAllFromThread: true,
+    html: buildJobScheduledEmailHtml({
+      projectNumber: job.project_number,
+      serviceAddress: job.service_address,
+      confirmedDate: job.confirmed_date,
+      confirmedTime: job.confirmed_time,
+    }),
+  });
+  if (result.ok) {
+    await supabase
+      .from("jobs")
+      .update({
+        email_thread_message_ids: result.messageId ? [...existingIds, result.messageId] : existingIds,
+        email_gmail_thread_id: result.gmailThreadId ?? job.email_gmail_thread_id,
+        confirmation_sent_at: new Date().toISOString(),
+      })
+      .eq("id", job.id);
+  }
+}
 
-  const tableRows = rows
-    .map(
-      ([label, value]) =>
-        `<tr><td style="padding:4px 8px 4px 0; color:#64748b; white-space:nowrap; vertical-align:top;">${escapeHtml(label)}</td><td>${escapeHtml(value ?? "")}</td></tr>`
-    )
-    .join("");
+/**
+ * Per Tim, 2026-09-02 — "when i enter in a job myself i want it to give me
+ * the same option of sending email notification": the Add Project
+ * counterpart to sendJobScheduledNotification above, for a job the admin
+ * is entering with a "Scheduled" starting status (fieldwork already
+ * arranged, e.g. over the phone) rather than moving there later from "To
+ * Be Scheduled". Reads requested_date/requested_time, not
+ * confirmed_date/confirmed_time — the create route (api/admin/jobs)
+ * deliberately leaves confirmed_date/confirmed_time null at creation
+ * regardless of starting status (see its own comment), so
+ * sendJobScheduledNotification's confirmed_date requirement would never
+ * be satisfied here. Same underlying email (buildJobScheduledEmailHtml),
+ * same "deliberate, reviewed send" reasoning for replyAllFromThread — the
+ * admin is choosing to send this right now, same as the other one.
+ */
+export async function sendJobCreatedScheduledNotification(jobId: string): Promise<void> {
+  const supabase = getSupabaseAdmin();
+  const { data: job } = await supabase
+    .from("jobs")
+    .select("id, project_number, service_address, service_type, requested_date, requested_time, email_thread_message_ids, email_gmail_thread_id, customer_id")
+    .eq("id", jobId)
+    .maybeSingle();
+  if (!job || !job.requested_date) return;
+
+  const { data: customer } = await supabase.from("customers").select("email").eq("id", job.customer_id).maybeSingle();
+  if (!customer?.email) return;
 
   const existingIds: string[] = Array.isArray(job.email_thread_message_ids) ? job.email_thread_message_ids : [];
   const result = await sendThreadedEmail({
@@ -319,13 +394,12 @@ export async function sendJobScheduledNotification(jobId: string): Promise<void>
     existingMessageIds: existingIds,
     gmailThreadId: job.email_gmail_thread_id,
     replyAllFromThread: true,
-    html: emailShell(
-      `
-      <p style="font-size:15px;">This job is now scheduled:</p>
-      <table style="width:100%; font-size:14px; color:#16213a;">${tableRows}</table>
-    `,
-      { signature: false }
-    ),
+    html: buildJobScheduledEmailHtml({
+      projectNumber: job.project_number,
+      serviceAddress: job.service_address,
+      confirmedDate: job.requested_date,
+      confirmedTime: job.requested_time,
+    }),
   });
   if (result.ok) {
     await supabase

@@ -4866,6 +4866,14 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
   const [startingStatus, setStartingStatus] = useState<"needs_scheduling" | "scheduled" | "pending_lab_results">("needs_scheduling");
   const [requestedDate, setRequestedDate] = useState("");
   const [requestedTime, setRequestedTime] = useState("");
+  // Per Tim, 2026-09-02 — "when i enter in a job myself i want it to give
+  // me the same option of sending email notification but show me what
+  // it'd say": same notifyOnSchedule pattern as the "move to Scheduled"
+  // prompt (JobRow), plus a live preview of the exact email.
+  const [notifyOnCreate, setNotifyOnCreate] = useState(true);
+  const [showEmailPreview, setShowEmailPreview] = useState(false);
+  const [emailPreviewHtml, setEmailPreviewHtml] = useState<string | null>(null);
+  const [loadingEmailPreview, setLoadingEmailPreview] = useState(false);
   const [notes, setNotes] = useState("");
   const [paymentType, setPaymentType] = useState<"online" | "check">("online");
   const [submitting, setSubmitting] = useState(false);
@@ -4988,6 +4996,36 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
     }
   }
 
+  // Per Tim, 2026-09-02 — "show me what it'd say": fetches the exact HTML
+  // sendJobCreatedScheduledNotification would send, from the form's own
+  // in-progress values — the job doesn't exist yet at this point.
+  async function previewEmail() {
+    setShowEmailPreview(true);
+    setLoadingEmailPreview(true);
+    setEmailPreviewHtml(null);
+    try {
+      const serviceAddress = buildBillingAddress({
+        street: serviceStreet, unit: serviceUnit, city: serviceCity, state: serviceState, zip: serviceZip,
+      });
+      const res = await fetch("/api/admin/preview-scheduled-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectNumber: projectNumber.trim() || null,
+          serviceAddress,
+          confirmedDate: requestedDate,
+          confirmedTime: requestedTime || null,
+        }),
+      });
+      const data = await res.json();
+      setEmailPreviewHtml(res.ok ? data.html : `<p>Couldn't load preview: ${data.error ?? "unknown error"}</p>`);
+    } catch (e) {
+      setEmailPreviewHtml(`<p>Couldn't load preview: ${e instanceof Error ? e.message : "unknown error"}</p>`);
+    } finally {
+      setLoadingEmailPreview(false);
+    }
+  }
+
   async function submit() {
     // Every job needs a real Directory contact behind it — the inline
     // "Create contact"/"Create company" prompt right above these fields is
@@ -5036,6 +5074,7 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
           notes: notes.trim() || undefined,
           paymentType,
           source: isSubcontractor ? "subcontractor" : undefined,
+          notifyOnCreate: startingStatus === "scheduled" && !!requestedDate && notifyOnCreate,
         }),
       });
       const data = await res.json();
@@ -5621,6 +5660,46 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
                   <option key={t} value={t}>{formatTime(t)}</option>
                 ))}
               </select>
+            </div>
+          </div>
+        )}
+
+        {/* Per Tim, 2026-09-02 — "when i enter in a job myself i want it
+            to give me the same option of sending email notification but
+            show me what it'd say": same checkbox as the "move to
+            Scheduled" prompt (JobRow's confirmingSchedule modal), only
+            shown once there's actually a date to tell them about. */}
+        {startingStatus === "scheduled" && requestedDate && (
+          <div className="mt-3 flex flex-col gap-1.5 rounded-lg border border-slate-200 p-3">
+            <label className="flex items-start gap-2 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={notifyOnCreate}
+                onChange={(e) => setNotifyOnCreate(e.target.checked)}
+                className="mt-0.5 h-4 w-4 accent-brand-600"
+              />
+              Email them that it&apos;s scheduled
+            </label>
+            <button type="button" onClick={previewEmail} className="self-start text-xs text-brand-600 underline">
+              Preview email
+            </button>
+          </div>
+        )}
+
+        {showEmailPreview && (
+          <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/40 px-4" onClick={() => setShowEmailPreview(false)}>
+            <div className="max-h-[85vh] w-full max-w-lg overflow-hidden rounded-xl bg-white" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+                <h3 className="text-sm font-semibold text-slate-800">Email preview</h3>
+                <button type="button" onClick={() => setShowEmailPreview(false)} className="text-slate-400 hover:text-slate-600">✕</button>
+              </div>
+              <div className="max-h-[70vh] overflow-y-auto p-4">
+                {loadingEmailPreview ? (
+                  <p className="text-sm text-slate-500">Loading…</p>
+                ) : (
+                  <iframe title="Email preview" srcDoc={emailPreviewHtml ?? ""} className="h-96 w-full rounded-lg border border-slate-200" />
+                )}
+              </div>
             </div>
           </div>
         )}

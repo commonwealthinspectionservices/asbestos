@@ -3123,35 +3123,13 @@ export function ProjectDetailDialog({
                 field on this tab, not the small muted text it had before. */}
             <DetailField label="Confirmation Sent" value={job.confirmation_sent_at ? formatDateTime(job.confirmation_sent_at) : null} />
             <DetailField label="Reminder Sent" value={job.reminder_sent_at ? formatDateTime(job.reminder_sent_at) : null} />
-            {job.subcontractor_sample_types.length > 0 && (
-              <div className="flex flex-col gap-0.5 text-sm sm:flex-row sm:items-start sm:gap-2">
-                <span className="font-bold text-black sm:w-48 sm:shrink-0 sm:whitespace-nowrap">Samples</span>
-                <ul className="list-disc break-words pl-4 text-black sm:min-w-0 sm:flex-1 sm:space-y-0.5">
-                  {job.subcontractor_sample_types.map((s, i) => <li key={i}>{s}</li>)}
-                </ul>
-              </div>
-            )}
-          </div>
-          </div>
-          {/* Per Tim, 2026-08-28 — Job site contact / Email results to /
-              Company contact / Company info together make up the right
-              column now (see the grid opened above) — Job site contact
-              stays right above Customer contact within that column. */}
-          <div className="space-y-6 sm:space-y-8">
-          <div className="space-y-4 sm:space-y-2">
-            {/* Per Tim, 2026-08-30 — "FLI's client should be three lines
-                across, company name, company contact's name, company
-                contact phone number": mirrors AddProjectDialog's own
-                relabeled section for a subcontractor job — the end
-                client's company name gets its own line above the usual
-                Name/Phone (that end client's own contact person).
-                Per Tim, 2026-08-31 — FLI Environmental jobs still need this
-                company-name line even though they no longer get the rest
-                of isSubcontractingFor's cosmetic treatment (heading stays
-                "Job site contact", not "Their client") — see
-                FLI_ENVIRONMENTAL_COMPANY_ID's own comment for why FLI now
-                has its own real workflow instead of that label. */}
-            <h4 className="text-sm font-bold tracking-wide text-black underline">
+            {/* Per Tim, 2026-08-31 — "move this below confirmation sent and
+                align left": moved out of the right column (see its own
+                comment below, still describing Email results to / Company
+                contact / Company info) and down into this left column,
+                same plain left-aligned DetailField styling as everything
+                else here instead of sitting on its own on the right. */}
+            <h4 className="mt-2 text-sm font-bold tracking-wide text-black underline">
               {isSubcontractingFor ? "Their client" : "Job site contact"}
             </h4>
             {(isSubcontractingFor || isFliJob) && (
@@ -3169,7 +3147,22 @@ export function ProjectDetailDialog({
               }
             />
             <DetailField label="Email" value={job.site_contact_email} nowrap />
+            {job.subcontractor_sample_types.length > 0 && (
+              <div className="flex flex-col gap-0.5 text-sm sm:flex-row sm:items-start sm:gap-2">
+                <span className="font-bold text-black sm:w-48 sm:shrink-0 sm:whitespace-nowrap">Samples</span>
+                <ul className="list-disc break-words pl-4 text-black sm:min-w-0 sm:flex-1 sm:space-y-0.5">
+                  {job.subcontractor_sample_types.map((s, i) => <li key={i}>{s}</li>)}
+                </ul>
+              </div>
+            )}
           </div>
+          </div>
+          {/* Per Tim, 2026-08-31 — "move this below confirmation sent and
+              align left": Job site contact moved out of this right column
+              and down into the left column, right after Confirmation
+              Sent/Reminder Sent (see its own comment there) — this column
+              now starts with Email results to instead. */}
+          <div className="space-y-6 sm:space-y-8">
           {job.report_emails && job.report_emails.trim() && (
             <div className="space-y-4 sm:space-y-2">
               <h4 className="text-sm font-bold tracking-wide text-black underline">Email results to</h4>

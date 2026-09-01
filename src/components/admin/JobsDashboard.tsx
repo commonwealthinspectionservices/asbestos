@@ -3204,7 +3204,6 @@ export function ProjectDetailDialog({
                 <h4 className="text-sm font-bold tracking-wide text-black underline">FLI Environmental&apos;s client</h4>
                 <DetailField label="Company" value={job.subcontractor_client_company} nowrap />
                 <DetailField label="Billing address" value={addressLines(job.subcontractor_client_address)} nowrap />
-                <DetailField label="PO #" value={job.po_number} />
                 <DetailField label="Name" value={job.subcontractor_client_contact_name ? toTitleCase(job.subcontractor_client_contact_name) : undefined} />
                 <DetailField
                   label="Phone"
@@ -3374,15 +3373,12 @@ export function ProjectDetailDialog({
               </ul>
             </div>
           )}
-          {(job.job_classification || job.payment_method || (!isFliJob && job.po_number) || job.invoice_number) && (
+          {(job.job_classification || job.payment_method || job.po_number || job.invoice_number) && (
             <div className="space-y-4 sm:space-y-2">
               <h4 className="text-sm font-bold tracking-wide text-black underline">Job details</h4>
               <DetailField label="Classification" value={job.job_classification} />
               <DetailField label="Payment method" value={job.payment_method} />
-              {/* Per Tim, 2026-08-31 — for FLI jobs, PO # already shows in
-                  the client's own info block above (their own PO#) — no
-                  need to repeat it down here too. */}
-              {!isFliJob && <DetailField label="PO #" value={job.po_number} />}
+              <DetailField label="PO #" value={job.po_number} />
               <DetailField label="Invoice #" value={job.invoice_number} />
             </div>
           )}
@@ -4802,13 +4798,12 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
   // office admin at RestoreNOW LLC) — genuinely a different person from
   // siteContactName/Phone below, which is whoever's physically at the job
   // site (see subcontractor_client_contact_name's own comment in types.ts).
-  const [endClientContactName, setEndClientContactName] = useState("");
+  // Per Tim, same day — "first name cell and the last name cell": two
+  // inputs, joined into that one stored column on submit.
+  const [endClientContactFirstName, setEndClientContactFirstName] = useState("");
+  const [endClientContactLastName, setEndClientContactLastName] = useState("");
   const [endClientContactPhone, setEndClientContactPhone] = useState("");
   const [endClientContactEmail, setEndClientContactEmail] = useState("");
-  // Reuses the job's own generic po_number column — FLI's client sometimes
-  // gives a PO# on their own billing-info sheet; not shown/editable for any
-  // other job type (see the read-only "Job details" block's own comment).
-  const [poNumber, setPoNumber] = useState("");
   // Per Tim, 2026-08-31 — "obviously I should be able to add that in when
   // I make the job": FLI's own project number, settable up front here
   // instead of only after the fact via the Asbestos Report tab's inline
@@ -4986,10 +4981,9 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
           subcontractorClientAddress: buildBillingAddress({
             street: endClientStreet, unit: endClientUnit, city: endClientCity, state: endClientState, zip: endClientZip,
           }) || undefined,
-          subcontractorClientContactName: endClientContactName.trim() || undefined,
+          subcontractorClientContactName: [endClientContactFirstName.trim(), endClientContactLastName.trim()].filter(Boolean).join(" ") || undefined,
           subcontractorClientContactPhone: endClientContactPhone.trim() || undefined,
           subcontractorClientContactEmail: endClientContactEmail.trim() || undefined,
-          poNumber: poNumber.trim() || undefined,
           fliProjectNumber: fliProjectNumber.trim() || undefined,
           serviceTypeKeys: selectedServiceTypeKeys,
           customServiceType: customServiceType.trim() || undefined,
@@ -5347,36 +5341,42 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
               />
               <ZipInput street={endClientStreet} city={endClientCity} state={endClientState} zip={endClientZip} setZip={setEndClientZip} />
             </div>
-            <input
-              className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm sm:w-40"
-              value={poNumber}
-              onChange={(e) => setPoNumber(e.target.value)}
-              placeholder="PO #"
-            />
             <div className="mt-1.5 flex flex-col gap-2 sm:flex-row">
               <div className="min-w-0 sm:w-0 sm:flex-1">
                 <input
                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                  value={endClientContactName}
-                  onChange={(e) => setEndClientContactName(e.target.value)}
-                  placeholder="Their contact's name"
+                  value={endClientContactFirstName}
+                  onChange={(e) => setEndClientContactFirstName(e.target.value)}
+                  placeholder="First name"
                 />
               </div>
               <div className="min-w-0 sm:w-0 sm:flex-1">
                 <input
                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                  placeholder="Their contact's phone"
+                  value={endClientContactLastName}
+                  onChange={(e) => setEndClientContactLastName(e.target.value)}
+                  placeholder="Last name"
+                />
+              </div>
+            </div>
+            <div className="mt-1.5 flex flex-col gap-2 sm:flex-row">
+              <div className="min-w-0 sm:w-0 sm:flex-1">
+                <input
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  placeholder="Contact's phone"
                   value={endClientContactPhone}
                   onChange={(e) => setEndClientContactPhone(formatPhoneInput(e.target.value))}
                 />
               </div>
+              <div className="min-w-0 sm:w-0 sm:flex-1">
+                <input
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  value={endClientContactEmail}
+                  onChange={(e) => setEndClientContactEmail(e.target.value)}
+                  placeholder="Contact's email"
+                />
+              </div>
             </div>
-            <input
-              className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-              value={endClientContactEmail}
-              onChange={(e) => setEndClientContactEmail(e.target.value)}
-              placeholder="Their contact's email"
-            />
           </>
         ) : isSubcontractingFor ? (
           // Per Tim, 2026-08-30 — "I want Restore1 on there somewhere...
@@ -5728,10 +5728,18 @@ export function EditProjectDialog({
   const [endClientCity, setEndClientCity] = useState(endClientAddressInit.city);
   const [endClientState, setEndClientState] = useState(endClientAddressInit.state);
   const [endClientZip, setEndClientZip] = useState(endClientAddressInit.zip);
-  const [endClientContactName, setEndClientContactName] = useState(job.subcontractor_client_contact_name ?? "");
+  // Per Tim, 2026-08-31 — "first name cell and the last name cell": still
+  // just one stored column (subcontractor_client_contact_name) — split on
+  // the first space to prefill these two inputs from it.
+  const endClientContactNameInit = useMemo(() => {
+    const full = (job.subcontractor_client_contact_name ?? "").trim();
+    const spaceIdx = full.indexOf(" ");
+    return spaceIdx === -1 ? { first: full, last: "" } : { first: full.slice(0, spaceIdx), last: full.slice(spaceIdx + 1) };
+  }, [job.subcontractor_client_contact_name]);
+  const [endClientContactFirstName, setEndClientContactFirstName] = useState(endClientContactNameInit.first);
+  const [endClientContactLastName, setEndClientContactLastName] = useState(endClientContactNameInit.last);
   const [endClientContactPhone, setEndClientContactPhone] = useState(job.subcontractor_client_contact_phone ?? "");
   const [endClientContactEmail, setEndClientContactEmail] = useState(job.subcontractor_client_contact_email ?? "");
-  const [poNumber, setPoNumber] = useState(job.po_number ?? "");
   const [fliProjectNumber, setFliProjectNumber] = useState(job.fli_project_number ?? "");
   const [selectedServiceTypeKeys, setSelectedServiceTypeKeys] = useState<string[]>([]);
   const [customServiceType, setCustomServiceType] = useState("");
@@ -5941,10 +5949,9 @@ export function EditProjectDialog({
             subcontractor_client_address: buildBillingAddress({
               street: endClientStreet, unit: endClientUnit, city: endClientCity, state: endClientState, zip: endClientZip,
             }) || null,
-            subcontractor_client_contact_name: endClientContactName.trim() || null,
+            subcontractor_client_contact_name: [endClientContactFirstName.trim(), endClientContactLastName.trim()].filter(Boolean).join(" ") || null,
             subcontractor_client_contact_phone: endClientContactPhone.trim() || null,
             subcontractor_client_contact_email: endClientContactEmail.trim() || null,
-            po_number: poNumber.trim() || null,
             fli_project_number: fliProjectNumber.trim() || null,
             service_address: serviceAddress || null,
             service_type: serviceTypeLabel || null,
@@ -6000,7 +6007,7 @@ export function EditProjectDialog({
     projectNumber, status, companyName, companyId, customerId, contactName, email, phone,
     additionalReportEmails,
     serviceStreet, serviceUnit, serviceCity, serviceState, serviceZip,
-    siteContactName, siteContactPhone, endClientCompany, endClientStreet, endClientUnit, endClientCity, endClientState, endClientZip, endClientContactName, endClientContactPhone, endClientContactEmail, poNumber, fliProjectNumber, selectedServiceTypeKeys, customServiceType, scopeOfWork,
+    siteContactName, siteContactPhone, endClientCompany, endClientStreet, endClientUnit, endClientCity, endClientState, endClientZip, endClientContactFirstName, endClientContactLastName, endClientContactPhone, endClientContactEmail, fliProjectNumber, selectedServiceTypeKeys, customServiceType, scopeOfWork,
     confirmedDate, confirmedTime, paidDate, dueDate, notes, paymentType, isRevisit,
   ]);
 
@@ -6310,36 +6317,42 @@ export function EditProjectDialog({
               />
               <ZipInput street={endClientStreet} city={endClientCity} state={endClientState} zip={endClientZip} setZip={setEndClientZip} />
             </div>
-            <input
-              className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm sm:w-40"
-              value={poNumber}
-              onChange={(e) => setPoNumber(e.target.value)}
-              placeholder="PO #"
-            />
             <div className="mt-1.5 flex gap-2">
               <div className="w-0 flex-1">
                 <input
                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                  value={endClientContactName}
-                  onChange={(e) => setEndClientContactName(e.target.value)}
-                  placeholder="Their contact's name"
+                  value={endClientContactFirstName}
+                  onChange={(e) => setEndClientContactFirstName(e.target.value)}
+                  placeholder="First name"
                 />
               </div>
               <div className="w-0 flex-1">
                 <input
                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                  placeholder="Their contact's phone"
+                  value={endClientContactLastName}
+                  onChange={(e) => setEndClientContactLastName(e.target.value)}
+                  placeholder="Last name"
+                />
+              </div>
+            </div>
+            <div className="mt-1.5 flex gap-2">
+              <div className="w-0 flex-1">
+                <input
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  placeholder="Contact's phone"
                   value={endClientContactPhone}
                   onChange={(e) => setEndClientContactPhone(formatPhoneInput(e.target.value))}
                 />
               </div>
+              <div className="w-0 flex-1">
+                <input
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  value={endClientContactEmail}
+                  onChange={(e) => setEndClientContactEmail(e.target.value)}
+                  placeholder="Contact's email"
+                />
+              </div>
             </div>
-            <input
-              className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-              value={endClientContactEmail}
-              onChange={(e) => setEndClientContactEmail(e.target.value)}
-              placeholder="Their contact's email"
-            />
           </>
         ) : isSubcontractingFor ? (
           // Per Tim, 2026-08-30 — "FLI's client should be three lines

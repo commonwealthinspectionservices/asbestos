@@ -252,8 +252,11 @@ function combinedDraftBodyHtml(job: Job, settings: Settings, totalCents: number,
 // ever got to them, which silently and permanently dropped them out of an
 // is:unread search with no error, no retry, and no trace. A label only
 // this pipeline ever sets can't be defeated by the owner's own reading
-// habits the way is:unread can.
-const PROCESSED_LABEL = "cis-lab-email-processed";
+// habits the way is:unread can. Per Tim, 2026-09-02 — "name them what they
+// are": renamed from the old flat "cis-lab-email-processed" — see
+// job-intake.ts's matching comment for why (nesting, and that old-labeled
+// messages keep their old label untouched).
+const PROCESSED_LABEL = "Processed/Lab Reports";
 
 // Per Tim — every report/invoice this app detects as sent also gets his
 // own "Sent Reports"/"Sent Invoices" Gmail label applied, so they're easy
@@ -390,7 +393,11 @@ export async function checkDraftSentStatus(
   return { status: "none" };
 }
 
-const BOUNCE_PROCESSED_LABEL = "cis-bounce-processed";
+// Per Tim, 2026-09-02 — "name them what they are": renamed from the old
+// flat "cis-bounce-processed" — see job-intake.ts's matching comment on
+// PROCESSED_LABEL for why (nesting, and that old-labeled messages keep
+// their old label untouched).
+const BOUNCE_PROCESSED_LABEL = "Processed/Bounces";
 
 // Detects a real Gmail bounce (Mail Delivery Subsystem's "Delivery Status
 // Notification (Failure)") for a report/invoice this app already marked

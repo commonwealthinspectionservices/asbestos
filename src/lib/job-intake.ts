@@ -38,8 +38,16 @@ import {
 
 // Applied to every message this pipeline actually processes (success or
 // alerted failure) — see getOrCreateLabelId's own comment for why this,
-// not is:unread, is what candidacy is filtered on below.
-const PROCESSED_LABEL = "cis-job-intake-processed";
+// not is:unread, is what candidacy is filtered on below. Per Tim,
+// 2026-09-02 — "name them what they are": nested under a "Processed"
+// parent label (Gmail treats "/" as a folder separator) instead of the
+// old flat "cis-job-intake-processed" name, so it reads clearly and
+// groups with the other two processed-labels in the sidebar instead of
+// three separate cryptic entries. Renaming here only changes what NEW
+// messages get labeled going forward — any already-labeled with the old
+// name keep that old label untouched (harmless; delete it from Gmail's
+// own label settings if the leftover clutters the sidebar).
+const PROCESSED_LABEL = "Processed/Job Requests";
 
 interface JobIntakeSender {
   /**

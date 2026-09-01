@@ -5133,7 +5133,7 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
                     too — Dave's own on-file billing address is just "MA",
                     not usable for this. */}
                 <label className="mt-3 block text-sm font-medium text-slate-700">
-                  {endClientCompany.trim() || "Their"}&apos;s address
+                  {endClientCompany.trim() || "Their"}&apos;s billing address
                 </label>
                 <input
                   className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
@@ -5946,7 +5946,7 @@ export function EditProjectDialog({
                     too — Dave's own on-file billing address is just "MA",
                     not usable for this. */}
                 <label className="mt-3 block text-sm font-medium text-slate-700">
-                  {endClientCompany.trim() || "Their"}&apos;s address
+                  {endClientCompany.trim() || "Their"}&apos;s billing address
                 </label>
                 <input
                   className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"

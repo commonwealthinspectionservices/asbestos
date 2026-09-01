@@ -969,12 +969,12 @@ export default function JobsDashboard() {
       </div>
 
       <div className="mt-4 hidden flex-wrap items-center gap-2 sm:flex">
-        <span className="shrink-0 text-sm font-medium text-gray-400">Sort by:</span>
+        <span className="shrink-0 text-sm font-medium text-slate-500">Sort by:</span>
         {SORT_FIELDS.map((f) => (
           <button
             key={f.key}
             onClick={() => toggleSort(f.key)}
-            className={`shrink-0 rounded-lg px-1.5 py-0.5 text-xs font-medium sm:px-2.5 sm:py-1 sm:text-sm ${sortEnabled && sortBy === f.key ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
+            className={`shrink-0 rounded-lg border border-transparent px-1.5 py-0.5 text-xs font-medium sm:px-2.5 sm:py-1 sm:text-sm ${sortEnabled && sortBy === f.key ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
           >
             {f.label}{sortEnabled && sortBy === f.key ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
           </button>
@@ -985,7 +985,7 @@ export default function JobsDashboard() {
           onMouseLeave={closeStatusFilter}
         >
           <button
-            className={`shrink-0 rounded-lg px-1.5 py-0.5 text-xs font-medium sm:px-2.5 sm:py-1 sm:text-sm ${statusFilter.size > 0 ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
+            className={`shrink-0 rounded-lg border border-transparent px-1.5 py-0.5 text-xs font-medium sm:px-2.5 sm:py-1 sm:text-sm ${statusFilter.size > 0 ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
           >
             Status{statusFilter.size > 0 ? ` (${statusFilter.size})` : ""} ▾
           </button>
@@ -1031,7 +1031,7 @@ export default function JobsDashboard() {
           onMouseLeave={closeServiceTypeFilter}
         >
           <button
-            className={`shrink-0 rounded-lg px-1.5 py-0.5 text-xs font-medium sm:px-2.5 sm:py-1 sm:text-sm ${serviceTypeFilter.size > 0 ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
+            className={`shrink-0 rounded-lg border border-transparent px-1.5 py-0.5 text-xs font-medium sm:px-2.5 sm:py-1 sm:text-sm ${serviceTypeFilter.size > 0 ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
           >
             <span className="sm:hidden">Service</span>
             <span className="hidden sm:inline">Service Type</span>

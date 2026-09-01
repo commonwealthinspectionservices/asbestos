@@ -43,11 +43,18 @@ import {
 // parent label (Gmail treats "/" as a folder separator) instead of the
 // old flat "cis-job-intake-processed" name, so it reads clearly and
 // groups with the other two processed-labels in the sidebar instead of
-// three separate cryptic entries. Renaming here only changes what NEW
-// messages get labeled going forward — any already-labeled with the old
-// name keep that old label untouched (harmless; delete it from Gmail's
-// own label settings if the leftover clutters the sidebar).
+// three separate cryptic entries.
 const PROCESSED_LABEL = "Processed/Job Requests";
+// Confirmed live 2026-09-02: renaming PROCESSED_LABEL above (from the old
+// "cis-job-intake-processed") silently broke the "already handled this
+// one" check for every message processed under the old name — the
+// `-label:` search excludes by the CURRENT name only, so a real 8/25 order
+// email, already turned into job 26-0006 weeks earlier, matched as a fresh
+// candidate again and created a duplicate job (26-0015). Still excluding
+// the legacy name too keeps any future rename from doing this again —
+// this is the last time a rename here should need code changes, since old
+// AND new are both always checked from now on.
+const LEGACY_PROCESSED_LABEL = "cis-job-intake-processed";
 
 interface JobIntakeSender {
   /**
@@ -221,8 +228,12 @@ export async function checkForJobIntakeEmails(): Promise<JobIntakeResult> {
     // right away, often before the next poll, which silently made
     // is:unread drop a message this pipeline had never actually gotten to.
     // PROCESSED_LABEL is only ever set by this pipeline (see below), so it
-    // can't be defeated by the owner's own reading habits.
-    const query = `newer_than:14d -label:${PROCESSED_LABEL} (subject:"${sender.subjectHint}" OR from:${sender.domain})`;
+    // can't be defeated by the owner's own reading habits. Also excludes
+    // LEGACY_PROCESSED_LABEL — see its own comment. Quoted: a label name
+    // with a space (like "Processed/Job Requests") needs quotes in Gmail's
+    // search syntax, or "Requests" gets parsed as a separate bare search
+    // term instead of part of the label name.
+    const query = `newer_than:14d -label:"${PROCESSED_LABEL}" -label:${LEGACY_PROCESSED_LABEL} (subject:"${sender.subjectHint}" OR from:${sender.domain})`;
     const candidates = await listMessagesByQuery(accessToken, query);
 
     for (const candidate of candidates) {

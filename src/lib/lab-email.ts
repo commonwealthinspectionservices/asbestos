@@ -253,10 +253,17 @@ function combinedDraftBodyHtml(job: Job, settings: Settings, totalCents: number,
 // is:unread search with no error, no retry, and no trace. A label only
 // this pipeline ever sets can't be defeated by the owner's own reading
 // habits the way is:unread can. Per Tim, 2026-09-02 — "name them what they
-// are": renamed from the old flat "cis-lab-email-processed" — see
-// job-intake.ts's matching comment for why (nesting, and that old-labeled
-// messages keep their old label untouched).
+// are": renamed from the old flat "cis-lab-email-processed".
 const PROCESSED_LABEL = "Processed/Lab Reports";
+// Confirmed live 2026-09-02: the PROCESSED_LABEL rename above silently
+// broke the "already handled" check for every message labeled under the
+// old name — checkForLabResultEmails below only ever compared a message's
+// labelIds against the CURRENT name's label id, so real, already-drafted
+// lab emails for jobs 26-0002/26-0007/26-0008 matched as fresh candidates
+// again and re-fired their "landed" notifications. Checking both the old
+// and new label id from now on means a future rename here can't do this
+// again — see job-intake.ts's matching LEGACY_PROCESSED_LABEL comment.
+const LEGACY_PROCESSED_LABEL = "cis-lab-email-processed";
 
 // Per Tim — every report/invoice this app detects as sent also gets his
 // own "Sent Reports"/"Sent Invoices" Gmail label applied, so they're easy
@@ -394,10 +401,11 @@ export async function checkDraftSentStatus(
 }
 
 // Per Tim, 2026-09-02 — "name them what they are": renamed from the old
-// flat "cis-bounce-processed" — see job-intake.ts's matching comment on
-// PROCESSED_LABEL for why (nesting, and that old-labeled messages keep
-// their old label untouched).
+// flat "cis-bounce-processed".
 const BOUNCE_PROCESSED_LABEL = "Processed/Bounces";
+// See PROCESSED_LABEL's own LEGACY_PROCESSED_LABEL comment above — same
+// rename bug, same fix, applied here too.
+const LEGACY_BOUNCE_PROCESSED_LABEL = "cis-bounce-processed";
 
 // Detects a real Gmail bounce (Mail Delivery Subsystem's "Delivery Status
 // Notification (Failure)") for a report/invoice this app already marked
@@ -424,6 +432,7 @@ export async function checkForBouncedSends(): Promise<{
   if (!accessToken) throw new Error("Gmail is not connected");
   const supabase = getSupabaseAdmin();
   const processedLabelId = await getOrCreateLabelId(accessToken, BOUNCE_PROCESSED_LABEL);
+  const legacyProcessedLabelId = await getOrCreateLabelId(accessToken, LEGACY_BOUNCE_PROCESSED_LABEL);
 
   // in:anywhere — confirmed live 2026-09-01 that Gmail (or Tim, reading it)
   // can leave a bounce notice sitting in Trash rather than the inbox; a
@@ -435,7 +444,7 @@ export async function checkForBouncedSends(): Promise<{
   for (const candidate of candidates) {
     try {
       const message = await getMessage(accessToken, candidate.id);
-      if (message.labelIds?.includes(processedLabelId)) continue;
+      if (message.labelIds?.includes(processedLabelId) || message.labelIds?.includes(legacyProcessedLabelId)) continue;
 
       const subject = getHeader(message, "Subject") ?? "";
       if (!/delivery status notification|undeliverable|delivery.*fail/i.test(subject)) {
@@ -615,6 +624,7 @@ export async function checkForLabResultEmails(): Promise<LabEmailCheckResult> {
   const supabase = getSupabaseAdmin();
   const settings = await getSettings();
   const processedLabelId = await getOrCreateLabelId(accessToken, PROCESSED_LABEL);
+  const legacyProcessedLabelId = await getOrCreateLabelId(accessToken, LEGACY_PROCESSED_LABEL);
   // -from:me — confirmed live 2026-08-25 as the real root cause behind
   // repeated duplicate lab_report/lab_invoice documents: this app's own
   // outgoing drafts (report, invoice, combined) carry a PDF attachment
@@ -657,7 +667,7 @@ export async function checkForLabResultEmails(): Promise<LabEmailCheckResult> {
       // are authoritative — no search index involved, so no lag and no
       // risk of the index wrongly flagging an unlabeled message as a match
       // the way it did for #6497/#6498.
-      if (message.labelIds?.includes(processedLabelId)) continue;
+      if (message.labelIds?.includes(processedLabelId) || message.labelIds?.includes(legacyProcessedLabelId)) continue;
       const pdfParts = findPdfParts(message.payload);
 
       let matchedJob: (Job & { customers: Customer & { companies: Company | null } }) | null = null;

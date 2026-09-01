@@ -493,6 +493,20 @@ export default function BillingView() {
     return { weekly, monthly };
   }, [invoicedJobs]);
 
+  // Per Tim, 2026-09-02 — all-time total, not just what the capped
+  // weekly/monthly tables above happen to show (periodHistory only ever
+  // covers the last few weeks/months). Every invoiced job counts, same
+  // gross/net computation as each period bucket above.
+  const allTimeTotal = useMemo(() => {
+    let grossCents = 0;
+    let netCents = 0;
+    for (const job of invoicedJobs) {
+      grossCents += job.invoice_total_cents ?? 0;
+      netCents += computeMarginCents(job.invoice_total_cents ?? 0, job.lab_cost_cents ?? 0, job.stripe_fee_cents ?? 0);
+    }
+    return { grossCents, netCents };
+  }, [invoicedJobs]);
+
   async function patchJob(job: JobWithCustomer, patch: Record<string, unknown>) {
     const res = await fetch(`/api/admin/jobs/${job.id}`, {
       method: "PATCH",
@@ -507,6 +521,14 @@ export default function BillingView() {
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <PeriodHistoryTable title="Weekly Revenue" rows={periodHistory.weekly} />
         <PeriodHistoryTable title="Monthly Revenue" rows={periodHistory.monthly} />
+        {/* Per Tim, 2026-09-02 — plain text, sitting right below Weekly
+            Revenue rather than in its own bordered card like the two
+            tables above. Gross Revenue leads on the left, Gross Profit
+            trails on the right, same line. */}
+        <div className="flex w-full items-baseline justify-between text-sm text-slate-600">
+          <span>Gross Revenue: {formatCents(allTimeTotal.grossCents)}</span>
+          <span>Gross Profit: {formatCents(allTimeTotal.netCents)}</span>
+        </div>
       </div>
 
       {error && <div className="mt-3 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>}

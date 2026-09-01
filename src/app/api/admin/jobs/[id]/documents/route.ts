@@ -219,12 +219,21 @@ export const POST = withApiErrors(async (
       // runs its own numbering the same way, so every such upload would
       // otherwise get flagged as a false mismatch). Compare against
       // fli_project_number when the job has one on file instead.
+      // Per Tim, 2026-09-02 — confirmed wrong live on 26-0002.1: a revisit's
+      // own physical paperwork almost always carries just the base project
+      // number ("26-0002"), never the ".1" suffix this app appends on its
+      // own (see is_revisit's own comment in types.ts and the matching
+      // "prefer an open revisit" logic in lab-email.ts) — the lab has no
+      // way to know a revisit happened, so that's expected, not a real
+      // mismatch. Accept either form.
       const reportProjectNumber = extractReportProjectNumber(text);
       const expectedProjectNumber = jobRow.fli_project_number || jobRow.project_number;
+      const expectedBaseProjectNumber = expectedProjectNumber?.split(".")[0];
       if (
         reportProjectNumber &&
         expectedProjectNumber &&
-        reportProjectNumber.toLowerCase() !== expectedProjectNumber.toLowerCase()
+        reportProjectNumber.toLowerCase() !== expectedProjectNumber.toLowerCase() &&
+        reportProjectNumber.toLowerCase() !== expectedBaseProjectNumber?.toLowerCase()
       ) {
         projectNumberMismatch = reportProjectNumber;
       }

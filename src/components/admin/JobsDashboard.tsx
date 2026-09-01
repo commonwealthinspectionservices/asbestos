@@ -1523,14 +1523,9 @@ function JobRow({
                 aligned, stacked below Scheduled date/time there) into this
                 left column instead, same text-sm/slate-500 styling as the
                 address above it. */}
-            {!isUnscheduled && job.status === "scheduled" && job.confirmed_date && !isSubcontractor && (job.confirmation_sent_at || job.reminder_sent_at) && (
+            {!isUnscheduled && job.status === "scheduled" && job.confirmed_date && !isSubcontractor && job.confirmation_sent_at && (
               <div className="mt-1 flex flex-col items-start gap-0.5">
-                {job.confirmation_sent_at && (
-                  <div className="whitespace-nowrap text-sm text-slate-500">Confirmation sent {formatDateTime(job.confirmation_sent_at)}</div>
-                )}
-                {job.reminder_sent_at && (
-                  <div className="whitespace-nowrap text-sm text-slate-500">Reminder sent {formatDateTime(job.reminder_sent_at)}</div>
-                )}
+                <div className="whitespace-nowrap text-sm text-slate-500">Confirmation sent {formatDateTime(job.confirmation_sent_at)}</div>
               </div>
             )}
             {showMapMenu && (
@@ -3169,11 +3164,10 @@ export function ProjectDetailDialog({
                 visible, plain fallback text" treatment as Scope of Work
                 right above (job.scope_of_work || "—"). */}
             <DetailField label="Confirmation Sent" value={job.confirmation_sent_at ? formatDateTime(job.confirmation_sent_at) : "Not sent"} />
-            <DetailField label="Reminder Sent" value={job.reminder_sent_at ? formatDateTime(job.reminder_sent_at) : "Not sent"} />
             {/* Per Tim, 2026-08-31 — "this part should be aligned left":
                 moved from the right column (which had grown much taller
                 than this one) down here, in the open space below Scope of
-                Work/Confirmation Sent/Reminder Sent. */}
+                Work/Confirmation Sent. */}
             {isFliJob && (
               <>
                 <h4 className="mt-5 text-sm font-bold tracking-wide text-black underline">FLI Environmental information</h4>

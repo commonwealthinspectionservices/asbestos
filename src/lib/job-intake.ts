@@ -505,10 +505,10 @@ export async function createJobFromIntake(params: {
       // necessarily who should be getting results.
       report_emails: extractOtherRecipients(message).join(",") || null,
       // Seeds this job's own email thread with the client's original
-      // message, so the later confirmed/reminder/report emails (see
-      // lib/booking-notify.ts, lib/job-reminders.ts) all join the exact
-      // same conversation Boston Harbor started, not a new one the app
-      // started — the whole point of this feature.
+      // message, so the later confirmed/report emails (see
+      // lib/booking-notify.ts) all join the exact same conversation
+      // Boston Harbor started, not a new one the app started — the whole
+      // point of this feature.
       email_gmail_thread_id: message.threadId,
       email_thread_message_ids: rfcMessageId ? [rfcMessageId] : [],
     })

@@ -4776,6 +4776,14 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [creatingContact, setCreatingContact] = useState(false);
+  // Per Tim, 2026-09-01 — an FLI job's site contact is often someone at a
+  // real company (e.g. a restoration company's own rep), not a homeowner,
+  // but was only ever saved as plain text on the job — with nothing in the
+  // Directory, that contact silently fell into the (jobs-derived) virtual
+  // Homeowners list. This opens the same "Add contact" form the Directory
+  // itself uses, prefilled as a company contact, so picking it saves a real
+  // Directory row instead.
+  const [savingSiteContactAsCompany, setSavingSiteContactAsCompany] = useState(false);
   const [serviceStreet, setServiceStreet] = useState("");
   const [serviceUnit, setServiceUnit] = useState("");
   const [serviceCity, setServiceCity] = useState("");
@@ -5488,6 +5496,15 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
                 />
               </div>
             </div>
+            {siteContactName.trim() && (
+              <button
+                type="button"
+                onClick={() => setSavingSiteContactAsCompany(true)}
+                className="mt-1.5 text-xs font-medium text-brand-600 underline"
+              >
+                + Save {siteContactName.trim()} as a company contact (not a homeowner)
+              </button>
+            )}
           </>
         )}
 
@@ -5671,6 +5688,18 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
         }}
       />
     )}
+    {savingSiteContactAsCompany && (
+      <ContactForm
+        onClose={() => setSavingSiteContactAsCompany(false)}
+        prefill={{
+          isCompany: true,
+          name: siteContactName.trim(),
+          company: endClientCompany.trim() || undefined,
+          phone: siteContactPhone.trim() || undefined,
+        }}
+        onDone={() => setSavingSiteContactAsCompany(false)}
+      />
+    )}
     </>
   );
 }
@@ -5714,6 +5743,8 @@ export function EditProjectDialog({
   const [siteContactName, setSiteContactName] = useState(job.site_contact_name ?? "");
   const [siteContactPhone, setSiteContactPhone] = useState(job.site_contact_phone ?? "");
   const [siteContactSameAsContact, setSiteContactSameAsContact] = useState(false);
+  // See AddProjectDialog's own comment on this same state name.
+  const [savingSiteContactAsCompany, setSavingSiteContactAsCompany] = useState(false);
   // Per Tim, 2026-08-30 — a subcontractor job's source is fixed at
   // creation (see AddProjectDialog's own isSubcontractor comment); this
   // dialog only needs to know it to relabel/expand the client fields,
@@ -6493,6 +6524,15 @@ export function EditProjectDialog({
                 />
               </div>
             </div>
+            {siteContactName.trim() && (
+              <button
+                type="button"
+                onClick={() => setSavingSiteContactAsCompany(true)}
+                className="mt-1.5 text-xs font-medium text-brand-600 underline"
+              >
+                + Save {siteContactName.trim()} as a company contact (not a homeowner)
+              </button>
+            )}
           </>
         )}
 
@@ -6671,6 +6711,18 @@ export function EditProjectDialog({
           </div>
         </div>
       </div>
+    )}
+    {savingSiteContactAsCompany && (
+      <ContactForm
+        onClose={() => setSavingSiteContactAsCompany(false)}
+        prefill={{
+          isCompany: true,
+          name: siteContactName.trim(),
+          company: endClientCompany.trim() || undefined,
+          phone: siteContactPhone.trim() || undefined,
+        }}
+        onDone={() => setSavingSiteContactAsCompany(false)}
+      />
     )}
     </>
   );

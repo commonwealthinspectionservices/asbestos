@@ -47,7 +47,7 @@ import { formatCents } from "@/lib/pricing";
 import { createStripeInvoiceForJob, tagInvoiceEmailed, getStripe } from "@/lib/stripe";
 import { splitTrailingCocPages } from "@/lib/split-lab-report-coc";
 import { extractPositionOrderedText } from "@/lib/pdf-position-text";
-import { jobReportDomains, ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, NEWTON_FIRE_FLOOD_COMPANY_ID, BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID, reportEmailAttachmentFilename, type ReportDomain } from "@/lib/report-findings";
+import { jobReportDomains, ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, NEWTON_FIRE_FLOOD_COMPANY_ID, BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID, reportEmailAttachmentFilename, effectiveProjectNumber, type ReportDomain } from "@/lib/report-findings";
 import { sendEmail, emailShell } from "@/lib/email";
 import { getAppUrl } from "@/lib/app-url";
 import { escapeHtml } from "@/lib/html";
@@ -1389,7 +1389,7 @@ async function draftInvoiceEmailForJob(params: {
     attachments: [
       // Per Tim, 2026-08-27 — every PDF filename starts with the job
       // number, not the document type.
-      { filename: `${pricedJob.project_number ?? job.id} Invoice.pdf`, mimeType: "application/pdf", content: invoicePdf },
+      { filename: `${effectiveProjectNumber(pricedJob) ?? job.id} Invoice.pdf`, mimeType: "application/pdf", content: invoicePdf },
     ],
   });
 
@@ -1561,7 +1561,7 @@ async function draftReportEmailForJob(params: {
     threadId: job.email_gmail_thread_id ?? undefined,
     bodyHtml: reportDraftBodyHtml(job, settings),
     attachments: reportPackets.map(({ domain, buffer }) => ({
-      filename: reportEmailAttachmentFilename(job.project_number, job.id, domain),
+      filename: reportEmailAttachmentFilename(job, job.id, domain),
       mimeType: "application/pdf",
       content: buffer,
     })),
@@ -1688,11 +1688,11 @@ async function draftCombinedEmailForJob(params: {
     bodyHtml: combinedDraftBodyHtml(pricedJob, settings, totalCents, payNowUrl),
     attachments: [
       ...reportPackets.map(({ domain, buffer }) => ({
-        filename: reportEmailAttachmentFilename(pricedJob.project_number, job.id, domain),
+        filename: reportEmailAttachmentFilename(pricedJob, job.id, domain),
         mimeType: "application/pdf",
         content: buffer,
       })),
-      { filename: `${pricedJob.project_number ?? job.id} Invoice.pdf`, mimeType: "application/pdf", content: invoicePdf },
+      { filename: `${effectiveProjectNumber(pricedJob) ?? job.id} Invoice.pdf`, mimeType: "application/pdf", content: invoicePdf },
     ],
   });
 

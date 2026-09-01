@@ -163,17 +163,38 @@ export function inspectionReportSubjectPrefix(serviceType: string | null | undef
   return `${labels.join(" + ")} Inspection Report`;
 }
 
+// Which project number a PDF filename should show — FLI Environmental's own
+// number (job.fli_project_number) for FLI Environmental jobs, since those
+// PDFs travel back to FLI and need to match FLI's own numbering, not
+// Commonwealth's internal 26-XXXX. Per Tim, 2026-08-31. Every other job
+// keeps using its normal project_number, unchanged.
+export function effectiveProjectNumber(job: {
+  project_number: string | null;
+  fli_project_number?: string | null;
+  customers?: { company_id: string | null } | null;
+}): string | null {
+  if (job.customers?.company_id === FLI_ENVIRONMENTAL_COMPANY_ID && job.fli_project_number) {
+    return job.fli_project_number;
+  }
+  return job.project_number;
+}
+
 // Downloaded report filename: "[job #] [service type] [address].pdf" —
 // same for every caller (admin and portal report routes) so a report saved
 // from either place is identifiable without opening it. Strips characters
 // that are unsafe in a filename on any OS rather than just the ones that
 // happen to show up in a Massachusetts street address today.
 export function reportDownloadFilename(
-  job: { project_number: string | null; service_address: string },
+  job: {
+    project_number: string | null;
+    service_address: string;
+    fli_project_number?: string | null;
+    customers?: { company_id: string | null } | null;
+  },
   domain: ReportDomain,
   fallbackId: string
 ): string {
-  const projectNumber = job.project_number ?? fallbackId;
+  const projectNumber = effectiveProjectNumber(job) ?? fallbackId;
   const raw = `${projectNumber} ${REPORT_DOMAIN_FILENAME_LABEL[domain]} ${expandAddress(job.service_address)}`;
   return raw.replace(/[\\/:*?"<>|]/g, "").replace(/\s+/g, " ").trim();
 }
@@ -181,14 +202,21 @@ export function reportDownloadFilename(
 // The emailed report attachment's own filename — "26-0005 Asbestos
 // Inspection Report.pdf" — per Tim: project number, then which kind of
 // report it is, nothing else (distinct from reportDownloadFilename above,
-// which also carries the address for the admin/portal download links —
-// unchanged, not what Tim was asking about here). A job spanning more
-// than one domain still gets one PDF per domain (see
+// which also carries the address for the admin/portal download links).
+// A job spanning more than one domain still gets one PDF per domain (see
 // buildAllFinalReportPackets), so each file names only its own domain —
 // two attachments sharing one "Asbestos + Mold" name would be
 // indistinguishable in an inbox.
-export function reportEmailAttachmentFilename(projectNumber: string | null, fallbackId: string, domain: ReportDomain): string {
-  return `${projectNumber ?? fallbackId} ${REPORT_DOMAIN_FILENAME_LABEL[domain]} Inspection Report.pdf`;
+export function reportEmailAttachmentFilename(
+  job: {
+    project_number: string | null;
+    fli_project_number?: string | null;
+    customers?: { company_id: string | null } | null;
+  },
+  fallbackId: string,
+  domain: ReportDomain
+): string {
+  return `${effectiveProjectNumber(job) ?? fallbackId} ${REPORT_DOMAIN_FILENAME_LABEL[domain]} Inspection Report.pdf`;
 }
 
 // Which mold sample types are actually on a job — derived from

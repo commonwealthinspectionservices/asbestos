@@ -744,13 +744,23 @@ export default function BillingView() {
               Pending with that period's own total and a way back to the
               normal status-filtered view. */}
           {periodFilter ? (
-            <div className="mt-3 flex items-center justify-between gap-2 text-sm text-slate-500">
-              <span>
+            // Per Tim, 2026-09-02 (follow-up) — "this should be its own
+            // line, clear button can be on its own if needed" then
+            // "nevermind, just make clear plain text like it was not a
+            // button": Clear is back to plain underlined text (not a
+            // filled pill), but still its own line with some padding
+            // around it for a real tap target, not bare inline text
+            // squeezed against a wrapping summary line. Per Tim, same
+            // follow-up — "but this part must be 1 line across": same
+            // text-xs-on-mobile/whitespace-nowrap treatment as the Weekly
+            // Revenue row labels use for the same reason.
+            <div className="mt-3 flex flex-col items-start gap-2 text-sm text-slate-500">
+              <span className="whitespace-nowrap text-xs sm:text-sm">
                 Showing invoices from <span className="font-semibold text-slate-800">{periodFilter.label}</span>
                 {" — "}
                 {formatCents(rows.reduce((sum, { job }) => sum + (job.invoice_total_cents ?? 0), 0))}
               </span>
-              <button onClick={() => setPeriodFilter(null)} className="shrink-0 whitespace-nowrap text-brand-600 underline">
+              <button onClick={() => setPeriodFilter(null)} className="-m-1.5 p-1.5 text-brand-600 underline">
                 Clear
               </button>
             </div>

@@ -271,13 +271,15 @@ function PeriodHistoryTable({
           const selected = isSelected?.(r.label) ?? false;
           const content = (
             <>
-              {/* Per Tim, 2026-08-31 — "for weekly, we can make it smaller if
-                  needed, but all weeks like August 31st to September 6th
-                  must be one line across... not stretch onto two lines":
-                  text-xs on mobile (desktop keeps text-sm from the parent)
-                  plus whitespace-nowrap shrinks the label just enough to
-                  fit a full date-range on one line instead of wrapping. */}
-              <span className={`whitespace-nowrap text-xs sm:text-sm ${selected ? "font-semibold text-brand-700" : "text-slate-500"}`}>{r.label}</span>
+              {/* Per Tim, 2026-09-02 — "all of the text in weekly revenue
+                  should be made to be the size of the dollar amounts":
+                  text-sm at every width now, matching the gross figure
+                  (which has always just inherited text-sm from the
+                  container) — was text-xs on mobile only, to guarantee a
+                  full date range like "August 31st - September 6th" never
+                  wrapped to two lines; whitespace-nowrap alone still
+                  covers that at the larger size. */}
+              <span className={`whitespace-nowrap text-sm ${selected ? "font-semibold text-brand-700" : "text-slate-500"}`}>{r.label}</span>
               <span className="whitespace-nowrap text-right text-slate-800">{formatCents(r.grossCents)}</span>
             </>
           );

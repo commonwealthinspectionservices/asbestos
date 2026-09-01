@@ -3197,7 +3197,7 @@ export function ProjectDetailDialog({
               job.customers.companies.billing_contact || job.customers.companies.phone || job.customers.companies.billing_address
             ) && (
               <>
-                <h4 className="mt-5 text-sm font-bold tracking-wide text-black underline">Company info</h4>
+                <h4 className="mt-8 text-sm font-bold tracking-wide text-black underline">Company info</h4>
                 {job.customers.companies.billing_contact && (
                   <DetailField
                     label="Billing contact"

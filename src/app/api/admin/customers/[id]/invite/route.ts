@@ -120,7 +120,12 @@ export const POST = withApiErrors(async (
       "",
       `Click here to set up your login: ${inviteLink}`,
       "",
-      `Should you have any questions, please contact our office at ${settings.business_phone}.`,
+      `Should you have any questions, please contact me at ${settings.business_phone}.`,
+      "",
+      "Tim Hall",
+      settings.business_phone,
+      settings.business_name,
+      "www.commonwealthinspectionservices.com",
     ].join("\n"),
     attachments: [],
   });

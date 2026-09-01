@@ -300,8 +300,9 @@ function matchesAnyWord(target: string, query: string): boolean {
   return words.every((w) => t.includes(w));
 }
 
-type SortField = "project_number" | "due_date";
+type SortField = "project_number" | "due_date" | "sent_date";
 const SORT_FIELDS: { key: SortField; label: string }[] = [
+  { key: "sent_date", label: "Sent date" },
   { key: "project_number", label: "Project #" },
   { key: "due_date", label: "Due date" },
 ];
@@ -314,7 +315,9 @@ export default function BillingView() {
   const [editingJobId, setEditingJobId] = useState<string | null>(null);
 
   const [filter, setFilter] = useState<FilterKey>("sent");
-  const [sortBy, setSortBy] = useState<SortField>("project_number");
+  // Per Tim, 2026-09-02 — "they should be organized based off of when they
+  // were sent out at by default": most-recently-sent first.
+  const [sortBy, setSortBy] = useState<SortField>("sent_date");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [projectNumberQuery, setProjectNumberQuery] = useState("");
   const [companyQuery, setCompanyQuery] = useState("");
@@ -404,6 +407,11 @@ export default function BillingView() {
     return result.sort((a, b) => {
       if (sortBy === "project_number") {
         return dir * (a.job.project_number ?? "").localeCompare(b.job.project_number ?? "");
+      }
+      if (sortBy === "sent_date") {
+        const aSent = a.job.invoice_sent_at ?? "";
+        const bSent = b.job.invoice_sent_at ?? "";
+        return dir * aSent.localeCompare(bSent);
       }
       const aDue = dueDateFor(a.job) ?? "9999-99-99";
       const bDue = dueDateFor(b.job) ?? "9999-99-99";

@@ -51,9 +51,19 @@ function serviceTypeSubtext(key: string): string | null {
   if (key === "asbestos_pre_reno") return "Sampling of materials prior to a renovation project";
   if (key === "asbestos_pre_demo") return "Sampling of materials prior to a demolition project";
   if (key === "mold_air") return "Sampling of indoor air quality";
-  if (key === "mold_bulk") return "Sampling of specific materials";
+  if (key === "mold_bulk") return "Sampling of mold growing on walls, ceilings, or other surfaces";
   if (key === "mold_swab") return "Sampling of surfaces";
   return null;
+}
+
+// Per Tim, 2026-09-02 — "mold_bulk" should read "Mold Surface Sampling" on
+// this booking form specifically, not "Mold Bulk Sampling" (the settings-
+// editable label used everywhere else — admin, invoices, reports). Display-
+// only override, same pattern as serviceTypeSubtext above; the underlying
+// key/label from settings.service_types is unchanged.
+function serviceTypeDisplayLabel(key: string, fallbackLabel: string): string {
+  if (key === "mold_bulk") return "Mold Surface Sampling";
+  return fallbackLabel;
 }
 
 // Groups the underlying per-sample-type service types (see
@@ -369,8 +379,13 @@ export default function PortalBookingForm({ isIndividual }: { isIndividual: bool
           <p className="text-sm text-slate-600">{address}</p>
           <label className="block text-base font-medium text-slate-700">Service types</label>
           <div className="space-y-4">
-            {Array.from(new Set(serviceTypes.map((s) => categoryKeyOf(s.key)))).map((c) => {
-              const subtypes = serviceTypes.filter((s) => categoryKeyOf(s.key) === c);
+            {/* Per Tim, 2026-09-02 — "delete mold swab sampling as an option
+                in the booking screen": not offered here, same scoping as
+                serviceTypeDisplayLabel above (this booking form only —
+                still a normal service_types entry admins can pick for a
+                job from the admin dashboard). */}
+            {Array.from(new Set(serviceTypes.filter((s) => s.key !== "mold_swab").map((s) => categoryKeyOf(s.key)))).map((c) => {
+              const subtypes = serviceTypes.filter((s) => categoryKeyOf(s.key) === c && s.key !== "mold_swab");
               return (
                 <div key={c}>
                   <div className="text-sm font-medium uppercase text-slate-700">{categoryLabelOf(c)}</div>
@@ -389,7 +404,7 @@ export default function PortalBookingForm({ isIndividual }: { isIndividual: bool
                           className="mt-1 shrink-0 accent-brand-700"
                         />
                         <span>
-                          <span className="block">{s.label}</span>
+                          <span className="block">{serviceTypeDisplayLabel(s.key, s.label)}</span>
                           {serviceTypeSubtext(s.key) && (
                             <span className="block text-xs font-normal text-slate-500">{serviceTypeSubtext(s.key)}</span>
                           )}
@@ -579,7 +594,7 @@ export default function PortalBookingForm({ isIndividual }: { isIndividual: bool
                   <div className="space-y-2">
                     {selected.map((s) => (
                       <div key={s.key}>
-                        <div className="text-slate-700">{s.label}</div>
+                        <div className="text-slate-700">{serviceTypeDisplayLabel(s.key, s.label)}</div>
                         {serviceTypeSubtext(s.key) && (
                           <div className="text-xs text-slate-500">{serviceTypeSubtext(s.key)}</div>
                         )}

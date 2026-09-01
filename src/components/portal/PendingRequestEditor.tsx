@@ -46,9 +46,19 @@ function serviceTypeSubtext(key: string): string | null {
   if (key === "asbestos_pre_reno") return "Sampling of materials prior to a renovation project";
   if (key === "asbestos_pre_demo") return "Sampling of materials prior to a demolition project";
   if (key === "mold_air") return "Sampling of indoor air quality";
-  if (key === "mold_bulk") return "Sampling of specific materials";
+  if (key === "mold_bulk") return "Sampling of mold growing on walls, ceilings, or other surfaces";
   if (key === "mold_swab") return "Sampling of surfaces";
   return null;
+}
+
+// Per Tim, 2026-09-02 — "mold_bulk" should read "Mold Surface Sampling" on
+// this booking form specifically, not "Mold Bulk Sampling" (the settings-
+// editable label used everywhere else — admin, invoices, reports). Display-
+// only override, same pattern as serviceTypeSubtext above; the underlying
+// key/label from settings.service_types is unchanged.
+function serviceTypeDisplayLabel(key: string, fallbackLabel: string): string {
+  if (key === "mold_bulk") return "Mold Surface Sampling";
+  return fallbackLabel;
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -318,8 +328,16 @@ export default function PendingRequestEditor({
       <div>
         <label className="block text-sm font-medium text-slate-700">Service types</label>
         <div className="mt-2 space-y-3">
-          {Array.from(new Set(serviceTypes.map((s) => categoryKeyOf(s.key)))).map((c) => {
-            const subtypes = serviceTypes.filter((s) => categoryKeyOf(s.key) === c);
+          {/* Per Tim, 2026-09-02 — "delete mold swab sampling as an option
+              in the booking screen": not newly selectable here, same
+              scoping as serviceTypeDisplayLabel above (this booking form
+              only — still a normal service_types entry admins can pick for
+              a job from the admin dashboard). A request that already had it
+              selected before this change keeps showing it, so editing an
+              existing request never silently drops a selection the
+              customer can't see or uncheck. */}
+          {Array.from(new Set(serviceTypes.filter((s) => s.key !== "mold_swab" || selectedKeys.has(s.key)).map((s) => categoryKeyOf(s.key)))).map((c) => {
+            const subtypes = serviceTypes.filter((s) => categoryKeyOf(s.key) === c && (s.key !== "mold_swab" || selectedKeys.has(s.key)));
             return (
               <div key={c}>
                 <div className="text-sm font-medium text-slate-700">{categoryLabelOf(c)}</div>
@@ -338,7 +356,7 @@ export default function PendingRequestEditor({
                         className="mt-0.5 shrink-0 accent-brand-700"
                       />
                       <span>
-                        <span className="block">{s.label}</span>
+                        <span className="block">{serviceTypeDisplayLabel(s.key, s.label)}</span>
                         {serviceTypeSubtext(s.key) && (
                           <span className="block text-xs text-slate-500">{serviceTypeSubtext(s.key)}</span>
                         )}

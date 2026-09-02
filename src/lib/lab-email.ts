@@ -53,7 +53,7 @@ import { sendEmail, emailShell } from "@/lib/email";
 import { getAppUrl } from "@/lib/app-url";
 import { escapeHtml } from "@/lib/html";
 import { expandAddress, splitAddress } from "@/lib/address";
-import type { Company, Customer, Job, JobDocument, JobWithCustomer, Settings } from "@/lib/types";
+import type { Company, Customer, InvoiceLineItem, Job, JobDocument, JobWithCustomer, PricingZone, ServiceType, Settings } from "@/lib/types";
 
 // @react-pdf/renderer (report-pdf.tsx / invoice-pdf.ts) is imported
 // dynamically, not statically, and only after this module's pdf-parse
@@ -1484,6 +1484,41 @@ async function processMatchedLabEmail(params: {
   }
 }
 
+// Shared by draftInvoiceEmailForJob and draftCombinedEmailForJob below.
+// Per Tim, 2026-09-02 — "we shouldn't need this new cell" (re: a
+// short-lived separate "Samples Taken" input on the Invoice tab, since
+// removed): he can already type a sample count, or add a line item
+// entirely by hand — e.g. to invoice a homeowner job before lab results
+// even land — directly in the Invoice tab's line-item editor, which
+// flips invoice_auto to false the moment he does (see saveInvoice in
+// JobsDashboard.tsx). Both callers used to always recompute from
+// job.sample_counts and force invoice_auto back to true regardless, which
+// silently discarded whatever he'd just typed in the instant either
+// drafted. Respecting an existing manual edit here instead — recomputing
+// only when the invoice is still on its system-computed default — is what
+// actually makes hand-editing the line items a real alternative to a
+// dedicated input.
+async function priceAndPersistInvoice(
+  job: JobWithCustomer,
+  settingsRow: { service_types: ServiceType[] | null; pricing_zones: PricingZone[] | null } | null
+): Promise<{ lineItems: InvoiceLineItem[]; totalCents: number }> {
+  const supabase = getSupabaseAdmin();
+  const hasManualLineItems = job.invoice_auto === false && (job.invoice_line_items?.length ?? 0) > 0;
+  const lineItems = hasManualLineItems
+    ? job.invoice_line_items!
+    : defaultInvoiceLineItems(job, settingsRow?.service_types ?? [], settingsRow?.pricing_zones ?? []);
+  const totalCents = invoiceLineItemsTotalCents(lineItems);
+  await supabase
+    .from("jobs")
+    .update({
+      invoice_line_items: lineItems,
+      invoice_total_cents: totalCents,
+      ...(hasManualLineItems ? {} : { invoice_auto: true }),
+    })
+    .eq("id", job.id);
+  return { lineItems, totalCents };
+}
+
 // Invoice half of the split — called the moment lab results land (see
 // processMatchedLabEmail above) and from the manual "Create Invoice Draft"
 // button. Prices the invoice fresh (same shared computation as the Invoice
@@ -1497,16 +1532,7 @@ async function draftInvoiceEmailForJob(params: {
   const supabase = getSupabaseAdmin();
 
   const { data: settingsRow } = await supabase.from("settings").select("service_types, pricing_zones").eq("id", 1).single();
-  const lineItems = defaultInvoiceLineItems(
-    job as JobWithCustomer,
-    settingsRow?.service_types ?? [],
-    settingsRow?.pricing_zones ?? []
-  );
-  const totalCents = invoiceLineItemsTotalCents(lineItems);
-  await supabase
-    .from("jobs")
-    .update({ invoice_line_items: lineItems, invoice_total_cents: totalCents, invoice_auto: true })
-    .eq("id", job.id);
+  const { lineItems, totalCents } = await priceAndPersistInvoice(job as JobWithCustomer, settingsRow);
   const pricedJob = { ...job, invoice_line_items: lineItems, invoice_total_cents: totalCents };
 
   const customer = withCompanyBillingAddress(pricedJob.customers, pricedJob.customers.companies);
@@ -1803,16 +1829,7 @@ async function draftCombinedEmailForJob(params: {
   const supabase = getSupabaseAdmin();
 
   const { data: settingsRow } = await supabase.from("settings").select("service_types, pricing_zones").eq("id", 1).single();
-  const lineItems = defaultInvoiceLineItems(
-    job as JobWithCustomer,
-    settingsRow?.service_types ?? [],
-    settingsRow?.pricing_zones ?? []
-  );
-  const totalCents = invoiceLineItemsTotalCents(lineItems);
-  await supabase
-    .from("jobs")
-    .update({ invoice_line_items: lineItems, invoice_total_cents: totalCents, invoice_auto: true })
-    .eq("id", job.id);
+  const { lineItems, totalCents } = await priceAndPersistInvoice(job as JobWithCustomer, settingsRow);
   const pricedJob = { ...job, invoice_line_items: lineItems, invoice_total_cents: totalCents };
 
   const customer = withCompanyBillingAddress(pricedJob.customers, pricedJob.customers.companies);

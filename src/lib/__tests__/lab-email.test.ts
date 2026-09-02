@@ -1,5 +1,17 @@
 import { describe, it, expect } from "vitest";
-import { extractProjectNumberFromCocSubject, normalizeAddressForMatch, isMoldLabReport } from "@/lib/lab-email";
+import { extractProjectNumberFromCocSubject, normalizeAddressForMatch, isMoldLabReport, hasLabReportForEveryDomain } from "@/lib/lab-email";
+import type { JobDocument } from "@/lib/types";
+
+function labReportDoc(serviceType: string): JobDocument {
+  return {
+    id: "doc-1",
+    kind: "lab_report",
+    service_type: serviceType,
+    file_name: "report.pdf",
+    storage_path: "job-1/report.pdf",
+    uploaded_at: "2026-09-02T00:00:00.000Z",
+  };
+}
 
 describe("extractProjectNumberFromCocSubject", () => {
   it("extracts the project number from a real EMSL receipt-confirmation subject", () => {
@@ -64,5 +76,39 @@ describe("isMoldLabReport", () => {
 
   it("treats a real asbestos PLM report subject as not mold", () => {
     expect(isMoldLabReport("Final Analysis Report for 2601003647 - 690 Blue Hill Ave, Dorchester, MA", "")).toBe(false);
+  });
+});
+
+// Per Tim, 2026-09-02 — a homeowner job can now be invoiced and paid
+// before lab results exist (manual sample-count entry on the Invoice
+// tab), so autoDraftReportIfJustPaid can no longer assume "just paid"
+// means "the lab report PDF is already filed." These lock in the guard
+// that stops it from drafting an incomplete report (no lab results
+// pages) the moment a job with no lab_report document yet is marked paid.
+describe("hasLabReportForEveryDomain", () => {
+  it("is false when no documents have been filed yet", () => {
+    expect(hasLabReportForEveryDomain({ documents: null, service_type: "Limited Asbestos Inspection" })).toBe(false);
+    expect(hasLabReportForEveryDomain({ documents: [], service_type: "Limited Asbestos Inspection" })).toBe(false);
+  });
+
+  it("is true once a matching-domain lab_report document is filed", () => {
+    const job = { documents: [labReportDoc("Limited Asbestos Inspection")], service_type: "Limited Asbestos Inspection" };
+    expect(hasLabReportForEveryDomain(job)).toBe(true);
+  });
+
+  it("is false for a mixed-domain job missing one domain's lab report", () => {
+    const job = {
+      documents: [labReportDoc("Limited Asbestos Inspection")],
+      service_type: "Limited Asbestos Inspection, Mold Air Sampling",
+    };
+    expect(hasLabReportForEveryDomain(job)).toBe(false);
+  });
+
+  it("is true once every domain on a mixed job has its own lab report", () => {
+    const job = {
+      documents: [labReportDoc("Limited Asbestos Inspection"), labReportDoc("Mold Air Sampling")],
+      service_type: "Limited Asbestos Inspection, Mold Air Sampling",
+    };
+    expect(hasLabReportForEveryDomain(job)).toBe(true);
   });
 });

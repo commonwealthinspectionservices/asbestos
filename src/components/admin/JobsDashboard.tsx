@@ -2022,6 +2022,23 @@ export function ProjectDetailDialog({
   });
   const [invoiceLineItems, setInvoiceLineItems] = useState<LineItemRowState[]>(() => defaultLineItems(job, serviceTypeSettings, pricingZones));
   const [savingInvoice, setSavingInvoice] = useState(false);
+  // Per Tim, 2026-09-02 — "I need to be able to just enter in the amount
+  // of samples that I took" so an invoice can go out before lab results
+  // land (see the Invoice tab below): one editable count per service-type
+  // label, feeding job.sample_counts — the exact same field
+  // defaultInvoiceLineItems already prices per-sample lines from. Local
+  // string state (not tied to invoiceLineItems above, which is only the
+  // free-form line-item editor) so a field can sit momentarily blank
+  // mid-edit rather than fighting a numeric value.
+  const sampleCountLabels = (job.service_type ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+  const [sampleCountInputs, setSampleCountInputs] = useState<Record<string, string>>(() =>
+    Object.fromEntries(sampleCountLabels.map((label) => [label, job.sample_counts?.[label] ? String(job.sample_counts[label]) : ""]))
+  );
+  function saveSampleCount(label: string, value: string) {
+    setSampleCountInputs((prev) => ({ ...prev, [label]: value }));
+    const n = Math.max(0, Math.round(Number(value)) || 0);
+    saveJobField({ sample_counts: { ...job.sample_counts, [label]: n } });
+  }
   // Full-inspection (Pre-Renovation/Pre-Demolition) asbestos jobs only —
   // see MaterialsEditor.
   const [fullInspectionMaterials, setFullInspectionMaterials] = useState<FullInspectionMaterial[]>(job.full_inspection_materials ?? []);
@@ -3862,6 +3879,34 @@ export function ProjectDetailDialog({
                   {job.po_number && <DetailField label="PO #" value={job.po_number} />}
                   {job.invoice_number && <DetailField label="Invoice #" value={job.invoice_number} />}
                 </div>
+
+                {/* Per Tim, 2026-09-02 — "I need to be able to just enter in
+                    the amount of samples that I took" so an invoice can go
+                    out (and get paid) before lab results come back, not
+                    just after — normally sample_counts only ever gets
+                    filled in automatically once a lab report PDF is filed.
+                    Not shown for FLI jobs — they're billed base-fee-only,
+                    with no per-sample line at all (see
+                    defaultInvoiceLineItems' own FLI branch). */}
+                {!isFliJob && sampleCountLabels.length > 0 && (
+                  <div className="mb-4 space-y-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3">
+                    <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Samples Taken</p>
+                    {sampleCountLabels.map((label) => (
+                      <div key={label} className="flex items-center justify-between gap-3">
+                        <span className="text-sm text-slate-700">{label}</span>
+                        <input
+                          type="number"
+                          min={0}
+                          inputMode="numeric"
+                          value={sampleCountInputs[label] ?? ""}
+                          onChange={(e) => saveSampleCount(label, e.target.value)}
+                          placeholder="0"
+                          className="w-20 rounded-lg border border-slate-300 px-2 py-1 text-right text-sm"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 <LineItemsEditor
                   items={invoiceLineItems}

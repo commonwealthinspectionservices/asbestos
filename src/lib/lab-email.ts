@@ -48,7 +48,7 @@ import { formatCents } from "@/lib/pricing";
 import { createStripeInvoiceForJob, tagInvoiceEmailed, getStripe } from "@/lib/stripe";
 import { splitTrailingCocPages } from "@/lib/split-lab-report-coc";
 import { extractPositionOrderedText } from "@/lib/pdf-position-text";
-import { jobReportDomains, ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, NEWTON_FIRE_FLOOD_COMPANY_ID, BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID, reportEmailAttachmentFilename, type ReportDomain } from "@/lib/report-findings";
+import { jobReportDomains, domainForServiceTypeLabel, ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, NEWTON_FIRE_FLOOD_COMPANY_ID, BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID, reportEmailAttachmentFilename, type ReportDomain } from "@/lib/report-findings";
 import { sendEmail, emailShell } from "@/lib/email";
 import { getAppUrl } from "@/lib/app-url";
 import { escapeHtml } from "@/lib/html";
@@ -1440,18 +1440,33 @@ async function processMatchedLabEmail(params: {
       return;
     }
 
-    // Invoice always goes out the moment lab results land. Invoice pricing
-    // happens inside draftInvoiceEmailForJob — shared with the manual
-    // "Create Invoice Draft" button so both paths price and persist the
-    // invoice exactly the same way.
-    await draftInvoiceEmailForJob({ job: updatedJob, settings, accessToken });
+    // Invoice always goes out the moment lab results land — unless it's
+    // already paid. Per Tim, 2026-09-02 — an individual/homeowner job can
+    // now be invoiced and paid before lab results even exist (manual
+    // sample-count entry on the Invoice tab), specifically so the report
+    // can go out the moment results land instead of waiting on payment
+    // then. A paid job doesn't need a second invoice redrafted/resent, and
+    // recomputing invoice_line_items from the just-landed real sample
+    // count here would silently drift invoice_total_cents away from what
+    // was actually charged — createStripeInvoiceForJob never touches an
+    // already-paid Stripe invoice (see its own comment), so redrafting
+    // would leave the invoice PDF quoting a different total than what the
+    // customer actually paid. Invoice pricing happens inside
+    // draftInvoiceEmailForJob — shared with the manual "Create Invoice
+    // Draft" button so both paths price and persist the invoice exactly
+    // the same way.
+    if (updatedJob.status !== "paid") {
+      await draftInvoiceEmailForJob({ job: updatedJob, settings, accessToken });
+    }
     // The report follows immediately too, unless this job is flagged
-    // individual-billed (job.is_individual) — those are held back until
-    // autoDraftReportIfJustPaid releases them once the job is marked Paid.
-    // The customer isn't just left to wonder, though — they get their own
-    // short notice instead, saying the report is ready and waiting on
-    // payment.
-    if (!updatedJob.is_individual) {
+    // individual-billed (job.is_individual) and not already paid — those
+    // are normally held back until autoDraftReportIfJustPaid releases them
+    // once the job is marked Paid, with the customer getting a short
+    // notice instead, saying the report is ready and waiting on payment.
+    // If it's already paid by the time results land (the early-invoice
+    // flow above), release the report right now instead — a stale "pay to
+    // receive it" reminder would be wrong for someone who's already paid.
+    if (!updatedJob.is_individual || updatedJob.status === "paid") {
       await draftReportEmailForJob({ job: updatedJob, settings, accessToken });
     } else {
       await draftPaymentReminderForIndividual({ job: updatedJob, settings, accessToken });
@@ -1966,14 +1981,36 @@ export async function createCombinedDraftForJob(jobId: string): Promise<{ messag
  */
 export async function autoDraftReportIfJustPaid(jobId: string): Promise<void> {
   const supabase = getSupabaseAdmin();
-  const { data } = await supabase.from("jobs").select("report_drafted_at").eq("id", jobId).maybeSingle();
+  const { data } = await supabase.from("jobs").select("report_drafted_at, documents, service_type").eq("id", jobId).maybeSingle();
   if (data?.report_drafted_at) return;
+  // Per Tim, 2026-09-02 — an individual/homeowner job can now be invoiced
+  // and paid before the lab results even land (manual sample-count entry
+  // on the Invoice tab, so the invoice is ready to go out the moment
+  // results come in). buildFinalReportPacket doesn't error on a missing
+  // lab_report document — it just silently omits it — so drafting here
+  // without this check would ship an incomplete report (no lab results
+  // pages, no real findings) and permanently block the real one, since
+  // report_drafted_at above would already be set by then. Skip for now;
+  // processMatchedLabEmail's own is_individual+paid branch drafts the real
+  // report the moment results actually land.
+  if (data && !hasLabReportForEveryDomain(data)) return;
 
   try {
     await createReportDraftForJob(jobId);
   } catch (e) {
     console.error(`autoDraftReportIfJustPaid: failed to auto-draft report for job ${jobId}:`, e);
   }
+}
+
+// Shared by autoDraftReportIfJustPaid above — mirrors buildFinalReportPacket's
+// own per-domain document filtering (report-packet.ts) so this check can
+// never disagree with what that function would actually find.
+export function hasLabReportForEveryDomain(job: { documents: JobDocument[] | null; service_type: string | null }): boolean {
+  const domains = jobReportDomains(job.service_type);
+  const documents = job.documents ?? [];
+  return domains.every((domain) =>
+    documents.some((d) => d.kind === "lab_report" && domainForServiceTypeLabel(d.service_type) === domain)
+  );
 }
 
 /**

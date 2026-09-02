@@ -35,9 +35,13 @@ export default function PortalConfirmPage() {
       return;
     }
     const supabase = createSupabaseBrowserClient();
+    // jobId rides in the query string (not the hash, which Supabase owns
+    // for the session tokens above) — set by signup/page.tsx's own
+    // emailRedirectTo when this link started from a deep-linked email.
+    const jobId = new URLSearchParams(window.location.search).get("jobId");
     supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken }).then(({ data }) => {
       if (data.session) {
-        router.push("/portal/onboarding");
+        router.push(jobId ? `/portal/onboarding?jobId=${jobId}` : "/portal/onboarding");
         router.refresh();
       } else {
         setReady(false);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
@@ -11,6 +11,18 @@ export default function PortalLoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  // Carried over from a deep link (e.g. the "job is now scheduled" email's
+  // portal button — see ProjectsList.tsx) via dashboard/page.tsx's own
+  // redirect, so signing in still lands back on that specific job instead
+  // of just the general dashboard. Read in an effect, not a useState
+  // initializer, since the initializer also runs during SSR (no window
+  // there) and would trip a hydration mismatch.
+  const [jobId, setJobId] = useState<string | null>(null);
+  useEffect(() => {
+    setJobId(new URLSearchParams(window.location.search).get("jobId"));
+  }, []);
+  const dashboardUrl = jobId ? `/portal/dashboard?jobId=${jobId}` : "/portal/dashboard";
+  const signupUrl = jobId ? `/portal/signup?jobId=${jobId}` : "/portal/signup";
 
   async function login() {
     setLoading(true);
@@ -23,7 +35,7 @@ export default function PortalLoginPage() {
       // resumes onboarding (see src/app/portal/page.tsx). An explicit sign-in
       // still needs to route a mid-onboarding account back to onboarding,
       // which the dashboard route's own redirect already handles.
-      router.push("/portal/dashboard");
+      router.push(dashboardUrl);
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Sign in failed");
@@ -69,7 +81,7 @@ export default function PortalLoginPage() {
         <Link href="/portal/forgot-password" className="text-brand-600 underline">Forgot password?</Link>
       </p>
       <p className="mt-2 text-center text-base text-slate-500">
-        New here? <Link href="/portal/signup" className="text-brand-600 underline">Create an account</Link>
+        New here? <Link href={signupUrl} className="text-brand-600 underline">Create an account</Link>
       </p>
     </div>
   );

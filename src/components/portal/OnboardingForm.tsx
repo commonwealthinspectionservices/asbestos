@@ -16,6 +16,7 @@ export default function OnboardingForm({
   email,
   customer,
   companyName,
+  jobId,
 }: {
   accountType: "company" | "individual" | null;
   email: string | undefined;
@@ -37,6 +38,11 @@ export default function OnboardingForm({
   // whatever company_id an existing row already has, regardless of what's
   // typed here), so this is display-only, never a source of truth to edit.
   companyName: string | null;
+  // From a deep-linked email (see onboarding/page.tsx's own comment) —
+  // forwarded to the dashboard redirect below once the profile's saved, so
+  // the job that started this whole signup/onboarding trip is what they
+  // actually land on.
+  jobId: string | null;
 }) {
   // Stub rows from the on_auth_user_created trigger (schema.sql) always
   // have name === email and phone === '' — this is what tells a genuinely
@@ -109,7 +115,7 @@ export default function OnboardingForm({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to save profile");
-      router.push("/portal/dashboard");
+      router.push(jobId ? `/portal/dashboard?jobId=${jobId}` : "/portal/dashboard");
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to save profile");

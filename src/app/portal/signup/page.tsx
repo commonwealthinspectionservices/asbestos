@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createSupabaseEmailLinkClient } from "@/lib/supabase-browser";
 
@@ -10,6 +10,13 @@ export default function PortalSignupPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [checkEmail, setCheckEmail] = useState(false);
+  // Carried over from a deep link (see login/page.tsx's own comment) so the
+  // confirmation email's link, then onboarding, then the final redirect all
+  // keep pointing at the same job instead of losing it along the way.
+  const [jobId, setJobId] = useState<string | null>(null);
+  useEffect(() => {
+    setJobId(new URLSearchParams(window.location.search).get("jobId"));
+  }, []);
 
   async function signUp() {
     setLoading(true);
@@ -38,7 +45,7 @@ export default function PortalSignupPage() {
           // query param — /portal/confirm reads it client-side (a server
           // route structurally can't) and forwards to onboarding once a
           // real session exists. See its comment.
-          emailRedirectTo: `${window.location.origin}/portal/confirm`,
+          emailRedirectTo: `${window.location.origin}/portal/confirm${jobId ? `?jobId=${jobId}` : ""}`,
         },
       });
       if (signUpError) throw signUpError;
@@ -124,7 +131,7 @@ export default function PortalSignupPage() {
       </button>
 
       <p className="mt-4 text-center text-sm text-slate-500">
-        Already have an account? <Link href="/portal/login" className="text-brand-600 underline">Sign in</Link>
+        Already have an account? <Link href={jobId ? `/portal/login?jobId=${jobId}` : "/portal/login"} className="text-brand-600 underline">Sign in</Link>
       </p>
     </div>
   );

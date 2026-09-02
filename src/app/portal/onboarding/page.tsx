@@ -5,9 +5,18 @@ import OnboardingForm from "@/components/portal/OnboardingForm";
 
 export const dynamic = "force-dynamic";
 
-export default async function PortalOnboardingPage() {
+export default async function PortalOnboardingPage({
+  searchParams,
+}: {
+  searchParams: { jobId?: string };
+}) {
+  // Carried through from a deep-linked email (see dashboard/page.tsx and
+  // confirm/page.tsx's own comments) so OnboardingForm can forward it to
+  // the final dashboard redirect once the profile's actually saved.
+  const jobId = searchParams.jobId ?? null;
+  const jobIdSuffix = jobId ? `?jobId=${jobId}` : "";
   const session = await getContractorSession();
-  if (!session) redirect("/portal/login");
+  if (!session) redirect(`/portal/login${jobIdSuffix}`);
   // A customers row existing isn't proof onboarding actually finished — the
   // on_auth_user_created trigger (schema.sql) creates one the instant
   // someone signs up, and an admin Invite can pre-fill a real name/phone on
@@ -18,7 +27,7 @@ export default async function PortalOnboardingPage() {
   // auth.users.encrypted_password directly (tried that first; turns out
   // Supabase doesn't leave it empty for OTP-only accounts, so that check
   // returned true for accounts that never set a password at all).
-  if (session.customer?.onboarding_completed_at) redirect("/portal/dashboard");
+  if (session.customer?.onboarding_completed_at) redirect(`/portal/dashboard${jobIdSuffix}`);
 
   // A teammate invited via another portal user's own "Teammates" section
   // (POST /api/portal/contacts) has company_id set but never the free-text
@@ -43,6 +52,7 @@ export default async function PortalOnboardingPage() {
       email={session.email}
       customer={session.customer}
       companyName={companyName}
+      jobId={jobId}
     />
   );
 }

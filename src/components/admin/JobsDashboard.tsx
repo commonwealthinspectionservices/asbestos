@@ -3096,6 +3096,13 @@ export function ProjectDetailDialog({
               </>
             ) : (
               <>
+                {/* Per Tim, 2026-09-02 — "must be on the project info page,
+                    towards the top": moved ahead of Requested/Scheduled
+                    date/time (was last, after Scheduled time). Still a
+                    plain field here like everything else on this tab, not
+                    the Standard/Rush button pair (still used as-is on the
+                    Invoice tab) — per Tim, 2026-08-27. */}
+                <DetailField label="Turnaround" value={job.lab_turnaround === "Rush" ? "Rush" : "Standard"} />
                 {/* Per Tim, 2026-08-28 — Boston Harbor Water Restoration
                     never actually requests a specific date/time (they just
                     send a request and Tim schedules it — see
@@ -3128,10 +3135,6 @@ export function ProjectDetailDialog({
                       : formatTime(job.confirmed_time ?? job.requested_time) || "—"
                   }
                 />
-                {/* Per Tim, 2026-08-27 — listed as a plain field here like
-                    everything else on this tab, not the Standard/Rush
-                    button pair (still used as-is on the Invoice tab). */}
-                <DetailField label="Turnaround" value={job.lab_turnaround === "Rush" ? "Rush" : "Standard"} />
               </>
             )}
             {job.status === "needs_scheduling" && job.source !== "subcontractor" && job.source !== "email_intake" && (

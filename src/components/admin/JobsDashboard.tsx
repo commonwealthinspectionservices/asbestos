@@ -3102,7 +3102,20 @@ export function ProjectDetailDialog({
                     plain field here like everything else on this tab, not
                     the Standard/Rush button pair (still used as-is on the
                     Invoice tab) — per Tim, 2026-08-27. */}
-                <DetailField label="Turnaround" value={job.lab_turnaround === "Rush" ? "Rush" : "Standard"} />
+                <DetailField
+                  label="Turnaround"
+                  value={
+                    job.lab_turnaround === "Rush" ? (
+                      // Per Tim, 2026-09-02 — "should be highlighted yellow
+                      // when it is a rush": same bg-yellow-100/text-slate-600
+                      // pill as the Rush button's own active state
+                      // (turnaroundControl above), not plain text.
+                      <span className="rounded bg-yellow-100 px-2 py-0.5 text-xs font-bold uppercase text-slate-600">Rush</span>
+                    ) : (
+                      "Standard"
+                    )
+                  }
+                />
                 {/* Per Tim, 2026-08-28 — Boston Harbor Water Restoration
                     never actually requests a specific date/time (they just
                     send a request and Tim schedules it — see

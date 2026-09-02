@@ -185,6 +185,16 @@ export default function ProjectsList() {
 
   useEffect(load, []);
 
+  // Lets an email link straight to one project (e.g. the "job is now
+  // scheduled" notification) via /portal/dashboard?jobId=<id> — mirrors the
+  // admin dashboard's own deep-link pattern. Read in an effect, not a
+  // useState initializer, since the initializer also runs during SSR (no
+  // window there) and would trip a hydration mismatch.
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("jobId");
+    if (id) setSelectedId(id);
+  }, []);
+
   // Derived from the live `projects` array (not a separately-held copy) so
   // JobRecipients' edits (Send results to / Billing contact) show up in the
   // open modal immediately after `load()` refetches, instead of needing to

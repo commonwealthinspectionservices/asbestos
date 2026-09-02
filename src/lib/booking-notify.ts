@@ -288,6 +288,7 @@ export async function sendJobConfirmedEmailIfDue(jobId: string): Promise<void> {
 // form's own in-progress values — no separate, driftable copy of this
 // markup anywhere else.
 export function buildJobScheduledEmailHtml(params: {
+  jobId?: string | null;
   projectNumber: string | null;
   serviceAddress: string;
   confirmedDate: string;
@@ -313,10 +314,20 @@ export function buildJobScheduledEmailHtml(params: {
     )
     .join("");
 
+  // Per Tim, 2026-09-02 — "it should also give them a link to view the job
+  // in their client portal": mirrors sendNewBookingRequestEmail's own
+  // "Review and confirm" button, pointed at the customer-facing
+  // /portal/dashboard?jobId= deep link (see ProjectsList.tsx) instead of
+  // the admin one. No jobId (e.g. this preview being built from Add
+  // Project's in-progress form, before the job exists) just omits it.
+  const appUrl = getAppUrl();
+  const portalUrl = appUrl && params.jobId ? `${appUrl}/portal/dashboard?jobId=${params.jobId}` : null;
+
   return emailShell(
     `
       <p style="font-size:15px;">This job is now scheduled:</p>
       <table style="width:100%; font-size:14px; color:#16213a;">${tableRows}</table>
+      ${portalUrl ? `<p style="margin-top:16px;"><a href="${portalUrl}" style="display:inline-block; background:#193466; color:#fff; padding:10px 16px; border-radius:8px; text-decoration:none; font-size:14px;">View in your client portal</a></p>` : ""}
     `,
     { signature: false }
   );
@@ -342,6 +353,7 @@ export async function sendJobScheduledNotification(jobId: string): Promise<void>
     gmailThreadId: job.email_gmail_thread_id,
     replyAllFromThread: true,
     html: buildJobScheduledEmailHtml({
+      jobId: job.id,
       projectNumber: job.project_number,
       serviceAddress: job.service_address,
       confirmedDate: job.confirmed_date,
@@ -395,6 +407,7 @@ export async function sendJobCreatedScheduledNotification(jobId: string): Promis
     gmailThreadId: job.email_gmail_thread_id,
     replyAllFromThread: true,
     html: buildJobScheduledEmailHtml({
+      jobId: job.id,
       projectNumber: job.project_number,
       serviceAddress: job.service_address,
       confirmedDate: job.requested_date,

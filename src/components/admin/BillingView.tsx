@@ -609,16 +609,18 @@ export default function BillingView() {
   // real "last month" or "the week before" when the company didn't exist
   // yet, so the table just grows one row at a time as real weeks/months
   // pass.
-  // Per Tim, 2026-09-04 — the lab only sends its own invoice once a week
-  // (Fridays), so a job billed to the customer this week almost always
-  // still shows $0 real lab cost even though the lab work already
-  // happened and will get billed eventually. Estimate what a
-  // still-unbilled job's lab cost will likely be from the average
-  // $/sample across every job that DOES have a real lab invoice in —
-  // rough (one blended rate across every service type, not broken out by
-  // asbestos/mold/lead), but enough to avoid a nasty Friday surprise.
-  // Shared by periodHistory and allTimeTotal below so both apply the
-  // exact same rate.
+  // Per Tim, 2026-09-04 — the lab invoiced weekly (Fridays) when this was
+  // written, so a job billed to the customer that week almost always
+  // still showed $0 real lab cost even though the lab work already
+  // happened. As of the same day the lab switched to a daily recap
+  // instead, which shrinks the gap this estimate is covering but doesn't
+  // remove it — same-day jobs can still show up here before that day's
+  // recap comes in. Estimate what a still-unbilled job's lab cost will
+  // likely be from the average $/sample across every job that DOES have a
+  // real lab invoice in — rough (one blended rate across every service
+  // type, not broken out by asbestos/mold/lead), but enough to avoid a
+  // surprise once the real invoice lands. Shared by periodHistory and
+  // allTimeTotal below so both apply the exact same rate.
   const avgLabCostPerSampleCents = useMemo(() => {
     let totalCents = 0;
     let totalSamples = 0;
@@ -825,10 +827,11 @@ export default function BillingView() {
             });
           }}
         />
-        {/* Per Tim, 2026-09-04 — the lab only invoices weekly (Fridays), so
-            a job billed to the customer this week likely has no real lab
-            cost posted yet; "≈" marks a figure that includes an estimate
-            for that gap rather than a confirmed one. */}
+        {/* Per Tim, 2026-09-04 — the lab has since switched to a daily
+            recap instead of weekly (Fridays), so this gap should mostly
+            close within a day now rather than lingering a full week;
+            "≈" marks a figure that still includes an estimate for
+            whatever hasn't posted yet rather than a confirmed one. */}
         <div className="grid w-full grid-cols-[auto_auto] justify-start gap-x-1.5 gap-y-0.5 text-sm text-slate-500 sm:hidden">
           <span>All-Time Lab Costs:</span>
           <span className={allTimeTotal.estimatedLabCostCents > 0 ? "italic" : ""}>

@@ -220,11 +220,13 @@ const styles = StyleSheet.create({
   // rather than stretching or cropping it).
   roomHeading: { fontWeight: 700, marginTop: STANDARD_GAP, marginBottom: TIGHT_GAP, textDecoration: "underline", fontSize: 13 },
   // Photo left, its number + note right — each row sized to roughly half a
-  // page tall so two photos land per page instead of one, per Tim.
-  photoRow: { flexDirection: "row", marginBottom: STANDARD_GAP + 14 },
+  // page tall so two photos land per page instead of one, per Tim. Text
+  // column vertically centered against the photo's own height (alignItems:
+  // "center" on the row), not pinned to its top.
+  photoRow: { flexDirection: "row", alignItems: "center", marginBottom: STANDARD_GAP + 14 },
   photoImageCol: { width: 210, marginRight: 18 },
   photoImage: { width: 210, height: 300, objectFit: "contain" },
-  photoTextCol: { flex: 1, paddingTop: 4 },
+  photoTextCol: { flex: 1 },
   photoNumber: { fontWeight: 700, fontSize: 10, marginBottom: TIGHT_GAP },
   photoCaption: { fontSize: 10, color: "#444444", fontStyle: "italic" },
 });

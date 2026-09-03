@@ -335,6 +335,20 @@ export async function checkDraftSentStatus(
 
   const sentAt = job?.[sentAtCol];
   if (sentAt) {
+    // Reconcile status every time this is called, not just on the
+    // just-detected-sent transition below — that one-shot advance can lose
+    // a race against JobsDashboard.tsx's own "bump to ready_to_send once
+    // reportComplete" effect (fires whenever the dialog opens, regardless
+    // of send state) if the invoice was confirmed sent by this function
+    // while status was still earlier than "ready_to_send" (e.g. caught by
+    // the cron before anyone had opened the job to advance it that far).
+    // That left jobs like 26-0017 permanently stuck showing "Ready for
+    // Review" even after both report and invoice were actually sent — see
+    // project_tech_decisions memory. Safe to re-check unconditionally.
+    const invoiceAlreadySent = kind === "invoice" ? true : Boolean(job?.[otherSentAtCol]);
+    if (invoiceAlreadySent && job?.status === "ready_to_send") {
+      await supabase.from("jobs").update({ status: "report_invoice_sent" }).eq("id", jobId);
+    }
     return { status: "sent", sentAt };
   }
   const gmailId = job?.[gmailIdCol];

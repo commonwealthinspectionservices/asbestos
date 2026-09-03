@@ -2796,10 +2796,17 @@ export function ProjectDetailDialog({
       job.invoice_total_cents != null &&
       (job.status === "needs_scheduling" || job.status === "scheduled" || job.status === "pending_lab_results")
     ) {
-      onStatusChange("ready_to_send");
+      // Per the 26-0017 bug — the invoice can already be confirmed sent
+      // (checkDraftSentStatus in lib/lab-email.ts) by the time this effect
+      // finally runs, if that happened before status had reached
+      // "ready_to_send" in the first place. Landing on "ready_to_send" here
+      // would silently undo that already-further-along state, showing
+      // "Ready for Review" on a job that's actually done and awaiting
+      // payment.
+      onStatusChange(job.invoice_sent_at ? "report_invoice_sent" : "ready_to_send");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reportComplete, job.invoice_total_cents, job.status]);
+  }, [reportComplete, job.invoice_total_cents, job.status, job.invoice_sent_at]);
   const invoiceRevision = JSON.stringify({
     invoice_line_items: job.invoice_line_items,
     invoice_total_cents: job.invoice_total_cents,

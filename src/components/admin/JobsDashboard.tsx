@@ -2701,6 +2701,13 @@ export function ProjectDetailDialog({
   // exception still withheld from the combined option everyone else now
   // gets.
   const combinedReady = reportReady && invoiceReady && job.customers?.company_id !== BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID;
+  // Per Tim, 2026-09-04 — "this report will need a red button in the
+  // header like any other asbestos or mold report would have": the
+  // Moisture Mapping report has no Gmail draft/send step of its own (it's
+  // just a downloadable PDF), so it gets its own red header pill styled to
+  // match DraftLinkControl's sent state, rather than going through that
+  // control. Ready as soon as there's at least one photo to report on.
+  const moistureMappingReady = isMoistureMappingJob && job.source !== "subcontractor" && (job.photos?.length ?? 0) > 0;
   // Per Tim — the report/invoice sent-status lines. Two renderings, not one
   // responsive one: on desktop an absolute overlay across from Job site
   // address (see the Project Info tab body below), on mobile a plain block
@@ -2947,7 +2954,7 @@ export function ProjectDetailDialog({
                   on mobile (see above) with no room to also fit this
                   inline, so mobile keeps the wrapped-row version below.
                   Same control either way — see its own comment there. */}
-              {(reportReady || invoiceReady) && (
+              {(reportReady || invoiceReady || moistureMappingReady) && (
                 <div className="hidden shrink-0 items-center gap-3 sm:flex">
                   {reportReady && (
                     <DraftLinkControl label="Report" hook={reportOnlyDraft} messageId={job.report_draft_gmail_message_id} draftedAt={job.report_drafted_at} sentAt={job.report_sent_at} />
@@ -2963,6 +2970,16 @@ export function ProjectDetailDialog({
                       draftedAt={job.invoice_drafted_at}
                       sentAt={job.invoice_sent_at}
                     />
+                  )}
+                  {moistureMappingReady && (
+                    <a
+                      href={`/api/admin/jobs/${job.id}/moisture-mapping-report?download`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="rounded-lg border border-red-600 bg-white px-3 py-1 text-xs font-bold uppercase text-red-600 hover:underline"
+                    >
+                      Moisture Mapping Report ↗
+                    </a>
                   )}
                 </div>
               )}
@@ -2997,7 +3014,7 @@ export function ProjectDetailDialog({
             stacked with a line between them. Boston Harbor's two separate
             controls stack full-width too, each the same size as the
             dropdown, rather than sitting side by side at half width. */}
-        {(reportReady || invoiceReady) && (
+        {(reportReady || invoiceReady || moistureMappingReady) && (
           <div className="flex shrink-0 flex-col gap-1.5 border-b border-slate-200 bg-white px-3 pb-2 sm:hidden">
             {reportReady && (
               <DraftLinkControl label="Report" hook={reportOnlyDraft} messageId={job.report_draft_gmail_message_id} draftedAt={job.report_drafted_at} sentAt={job.report_sent_at} fullWidth />
@@ -3014,6 +3031,16 @@ export function ProjectDetailDialog({
                 sentAt={job.invoice_sent_at}
                 fullWidth
               />
+            )}
+            {moistureMappingReady && (
+              <a
+                href={`/api/admin/jobs/${job.id}/moisture-mapping-report?download`}
+                target="_blank"
+                rel="noreferrer"
+                className="flex h-9 w-full items-center justify-center rounded-lg border border-red-600 bg-white px-2 text-center text-sm font-bold uppercase text-red-600 hover:underline"
+              >
+                Moisture Mapping Report ↗
+              </a>
             )}
           </div>
         )}
@@ -4225,18 +4252,6 @@ export function ProjectDetailDialog({
               editEndpointBase={`/api/admin/jobs/${job.id}/photos`}
               onChanged={onChanged}
               uploadButtonClassName="rounded-lg bg-brand-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
-              headerExtra={
-                (job.photos?.length ?? 0) > 0 && (
-                  <a
-                    href={`/api/admin/jobs/${job.id}/moisture-mapping-report?download`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-block rounded-lg bg-brand-600 px-4 py-2 text-sm font-bold text-white"
-                  >
-                    Download Moisture Mapping Report
-                  </a>
-                )
-              }
             />
           </div>
         )}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type ReactNode } from "react";
+import { useRef, useState } from "react";
 import type { JobPhoto } from "@/lib/types";
 
 // Shared between the admin dashboard and the client portal — a drag-and-
@@ -14,7 +14,6 @@ export default function JobPhotos({
   editEndpointBase,
   onChanged,
   uploadButtonClassName,
-  headerExtra,
 }: {
   photos: JobPhoto[];
   /** POST target for a new upload, e.g. /api/admin/jobs/{id}/photos */
@@ -30,17 +29,37 @@ export default function JobPhotos({
   editEndpointBase?: string;
   onChanged: () => void;
   uploadButtonClassName: string;
-  /** Per Tim, 2026-09-04 — "all these buttons should be on one line
-      straight across": room-editor mode only, rendered at the left of the
-      same row as "Choose photos"/"+ Add room" — the Moisture Mapping tab's
-      "Download Report" link lives here instead of sitting on its own line
-      above, via JobsDashboard.tsx. */
-  headerExtra?: ReactNode;
 }) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Per Tim, 2026-09-04 — "the page scrolls when i need to drag a photo a
+  // long way": with many rooms, the target row is often off-screen, and
+  // native HTML5 drag doesn't auto-scroll on its own. Walks up from this
+  // root to whichever ancestor actually scrolls (the dialog's tab-content
+  // area in the admin case) rather than assuming a fixed structure, so this
+  // works wherever JobPhotos ends up mounted.
+  const roomEditorRef = useRef<HTMLDivElement>(null);
+  function autoScrollOnDragOver(e: React.DragEvent) {
+    const root = roomEditorRef.current;
+    if (!root) return;
+    let scrollEl: HTMLElement | null = root.parentElement;
+    while (scrollEl) {
+      const style = window.getComputedStyle(scrollEl);
+      if (/(auto|scroll)/.test(style.overflowY) && scrollEl.scrollHeight > scrollEl.clientHeight) break;
+      scrollEl = scrollEl.parentElement;
+    }
+    if (!scrollEl) return;
+    const rect = scrollEl.getBoundingClientRect();
+    const EDGE = 80;
+    const SPEED = 18;
+    if (e.clientY < rect.top + EDGE) {
+      scrollEl.scrollTop -= SPEED;
+    } else if (e.clientY > rect.bottom - EDGE) {
+      scrollEl.scrollTop += SPEED;
+    }
+  }
   // Local draft per photo so typing doesn't fight the `photos` prop (which
   // only reflects the last save) — keyed by photo id, seeded from the
   // photo's own current value the first time it's touched.
@@ -227,10 +246,8 @@ export default function JobPhotos({
           }
 
           return (
-            <div className="mt-4">
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <div>{headerExtra}</div>
-                <div className="flex items-center gap-2">
+            <div className="mt-4" ref={roomEditorRef} onDragOver={autoScrollOnDragOver}>
+              <div className="mb-3 flex flex-wrap items-center justify-end gap-2">
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   disabled={uploading}
@@ -276,7 +293,6 @@ export default function JobPhotos({
                     + Add room
                   </button>
                 )}
-                </div>
               </div>
 
               {photos.length === 0 ? (

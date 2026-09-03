@@ -329,27 +329,35 @@ export default function JobPhotos({
                             return (
                               <div
                                 key={photo.id}
-                                draggable
-                                onDragStart={(e) => e.dataTransfer.setData("text/plain", photo.id)}
-                                className="group flex cursor-move items-center gap-2 rounded-lg border border-slate-200 bg-white p-2"
+                                className="group flex items-center gap-2 rounded-lg border border-slate-200 bg-white p-2"
                               >
-                                {/* Drag handle — draggable is set on the whole row, so
-                                    this is really just a visible affordance telling
-                                    the user the row can be dragged, not the only spot
-                                    that works. */}
-                                <span className="flex-shrink-0 select-none text-slate-300" aria-hidden="true">
+                                {/* Per Tim, 2026-09-04 (follow-up: "i cant view the
+                                    images now it only allows me to drag") — draggable
+                                    used to be set on the WHOLE row, which meant any
+                                    click on the thumbnail below (even a stray pixel of
+                                    mouse movement) was captured as a drag-start instead
+                                    of a click, so the lightbox never got a chance to
+                                    open. Scoping draggable to just this handle leaves
+                                    the rest of the row free for normal clicks. */}
+                                <span
+                                  draggable
+                                  onDragStart={(e) => e.dataTransfer.setData("text/plain", photo.id)}
+                                  className="flex-shrink-0 cursor-move select-none text-slate-300"
+                                  aria-hidden="true"
+                                >
                                   ⠿
                                 </span>
                                 <button
                                   type="button"
                                   onClick={() => setPreviewPhoto(photo)}
-                                  className="relative h-12 w-12 flex-shrink-0 cursor-zoom-in"
+                                  className="relative h-20 w-32 flex-shrink-0 cursor-zoom-in"
                                   aria-label="View larger"
                                 >
                                   {/* eslint-disable-next-line @next/next/no-img-element */}
                                   <img
                                     src={`${viewEndpointBase}/${photo.id}`}
                                     alt={photo.file_name}
+                                    draggable={false}
                                     className="h-full w-full rounded object-cover"
                                   />
                                   <span className="absolute -left-1 -top-1 rounded bg-black/60 px-1 py-0.5 text-[10px] font-bold leading-none text-white">

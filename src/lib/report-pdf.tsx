@@ -1743,13 +1743,14 @@ function MoistureMappingReportDocument({
             is long there's no leftover space to distribute and this is a
             no-op — it only ever expands existing gaps, never adds height,
             so it can't cause the letter to spill onto a second page. */}
-        {/* Per Tim, 2026-09-04 (follow-up: "make all of this evenly
-            spaced") — 4 groups instead of 3, so the leftover space splits
-            into 3 roughly-equal gaps spread across the page instead of 2
-            uneven ones. Salutation stays glued to its own paragraph (real
-            letters don't put daylight between "Dear X:" and what follows)
-            — the extra boundary is between the RE/recipient block and the
-            salutation instead. */}
+        {/* Per Tim, 2026-09-04 (follow-up: "we need this evenly spaced it
+            looks funny still") — 5 groups instead of 4: the RE block and
+            RecipientBlock used to share one group, so the gap right below
+            the RE block was the tight default spacing while every other
+            section boundary got a big distributed gap — an inconsistent
+            rhythm even though the 3 distributed gaps were themselves even.
+            Splitting them into their own groups gives every major section
+            boundary the same treatment. */}
         <View style={{ flexGrow: 1, flexDirection: "column", justifyContent: "space-between" }}>
           <View>
             <View style={styles.reBlock}>
@@ -1774,7 +1775,9 @@ function MoistureMappingReportDocument({
                 <ValueOrBlank style={styles.reValue} value={job.project_number} inline />
               </View>
             </View>
+          </View>
 
+          <View>
             <RecipientBlock
               knownCustomerName={knownCustomerName}
               customer={customer}
@@ -1837,7 +1840,7 @@ function MoistureMappingReportDocument({
               {pagePhotos.map((photo) => (
                 <View key={photo.number} style={styles.photoCard} wrap={false}>
                   <Image src={{ data: photo.buffer, format: photo.format }} style={styles.photoImage} />
-                  <Text style={styles.photoNumber}>Photo {photo.number} — {photo.room}</Text>
+                  <Text style={styles.photoNumber}>{photo.room} (Photo {photo.number})</Text>
                   {photo.caption && <Text style={styles.photoCaption}>{photo.caption}</Text>}
                 </View>
               ))}

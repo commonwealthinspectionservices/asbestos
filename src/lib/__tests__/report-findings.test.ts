@@ -58,6 +58,21 @@ describe("jobReportDomains", () => {
     expect(jobReportDomains("")).toEqual(["asbestos"]);
     expect(jobReportDomains("  ,  ")).toEqual(["asbestos"]);
   });
+
+  // Per Tim, 2026-09-04 — a job combining Moisture Mapping with a real
+  // lab-sample service used to pick up a spurious extra domain, since
+  // domainForServiceTypeLabel's fallback for anything unmatched is
+  // "asbestos" — Moisture Mapping isn't a lab-sample domain at all, so it
+  // was showing an "Asbestos Report" tab on a mold-only job with zero
+  // asbestos work.
+  it("excludes Moisture Mapping from domain matching entirely", () => {
+    expect(jobReportDomains("Mold Bulk Sampling, Moisture Mapping")).toEqual(["mold"]);
+    expect(jobReportDomains("Moisture Mapping, Limited Asbestos Inspection")).toEqual(["asbestos"]);
+  });
+
+  it("returns no domains for a Moisture-Mapping-only job (not the asbestos fallback)", () => {
+    expect(jobReportDomains("Moisture Mapping")).toEqual([]);
+  });
 });
 
 describe("isFullInspectionAsbestosJob", () => {

@@ -1961,7 +1961,7 @@ export function ProjectDetailDialog({
   onStatusChange: (status: string) => void;
   initialTab?: "info" | "report" | "invoice" | "photos";
 }) {
-  const [tab, setTab] = useState<"info" | "report" | "invoice" | "photos" | "shipping" | "compensation">(initialTab ?? "info");
+  const [tab, setTab] = useState<"info" | "report" | "invoice" | "photos" | "moisture_mapping" | "shipping" | "compensation">(initialTab ?? "info");
   // Per Tim, 2026-08-31 — this dialog is only ever mounted while it should
   // be showing (the parent list decides that), so it locks the page behind
   // it for its whole lifetime, not conditionally.
@@ -2846,6 +2846,7 @@ export function ProjectDetailDialog({
                   onSelect: () => { setTab("report"); setReportDomainTab(domain); },
                 })),
                 { value: "invoice", label: "Invoice", onSelect: () => setTab("invoice") },
+                ...(isMoistureMappingJob ? [{ value: "moisture_mapping", label: "Moisture Mapping", onSelect: () => setTab("moisture_mapping") }] : []),
                 { value: "photos", label: "Photos", onSelect: () => setTab("photos") },
               ];
           const selectedValue = tab === "report" ? `report:${reportDomainTab}` : tab;
@@ -2900,6 +2901,14 @@ export function ProjectDetailDialog({
                     >
                       Invoice
                     </button>
+                    {isMoistureMappingJob && (
+                      <button
+                        onClick={() => setTab("moisture_mapping")}
+                        className={`flex-1 whitespace-nowrap px-0.5 py-1.5 text-center text-[11px] font-bold uppercase sm:flex-none sm:px-3 sm:text-sm ${tab === "moisture_mapping" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
+                      >
+                        Moisture Mapping
+                      </button>
+                    )}
                     <button
                       onClick={() => setTab("photos")}
                       className={`flex-1 whitespace-nowrap px-0.5 py-1.5 text-center text-[11px] font-bold uppercase sm:flex-none sm:px-3 sm:text-sm ${tab === "photos" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
@@ -4182,7 +4191,26 @@ export function ProjectDetailDialog({
 
         {tab === "photos" && job.source !== "subcontractor" && (
           <div className="mt-4">
-            {isMoistureMappingJob && (job.photos?.length ?? 0) > 0 && (
+            <JobPhotos
+              photos={job.photos ?? []}
+              uploadEndpoint={`/api/admin/jobs/${job.id}/photos`}
+              viewEndpointBase={`/api/admin/jobs/${job.id}/photos`}
+              deleteEndpointBase={`/api/admin/jobs/${job.id}/photos`}
+              onChanged={onChanged}
+              uploadButtonClassName="rounded-lg bg-brand-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+            />
+          </div>
+        )}
+
+        {/* Per Tim, 2026-09-04 — "this tab should be moisture mapping w
+            the tool that i built": the room-bucket photo organizer and
+            report download used to live inside the generic Photos tab,
+            gated on isMoistureMappingJob — moved to its own tab so it's
+            not buried, and Photos goes back to being a plain gallery for
+            every job (moisture-mapping ones included). */}
+        {tab === "moisture_mapping" && isMoistureMappingJob && job.source !== "subcontractor" && (
+          <div className="mt-4">
+            {(job.photos?.length ?? 0) > 0 && (
               <a
                 href={`/api/admin/jobs/${job.id}/moisture-mapping-report?download`}
                 target="_blank"
@@ -4197,7 +4225,7 @@ export function ProjectDetailDialog({
               uploadEndpoint={`/api/admin/jobs/${job.id}/photos`}
               viewEndpointBase={`/api/admin/jobs/${job.id}/photos`}
               deleteEndpointBase={`/api/admin/jobs/${job.id}/photos`}
-              editEndpointBase={isMoistureMappingJob ? `/api/admin/jobs/${job.id}/photos` : undefined}
+              editEndpointBase={`/api/admin/jobs/${job.id}/photos`}
               onChanged={onChanged}
               uploadButtonClassName="rounded-lg bg-brand-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
             />

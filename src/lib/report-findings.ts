@@ -153,8 +153,18 @@ export const FULL_INSPECTION_ACM_PLAN_DISCLAIMER_REMARK =
 // priority (report-pdf.tsx, report-packet.ts, lab-email.ts,
 // JobsDashboard.tsx) — those all silently dropped whichever domain lost.
 export function jobReportDomains(serviceType: string | null | undefined): ReportDomain[] {
-  const labels = (serviceType ?? "").split(",").map((s) => s.trim()).filter(Boolean);
-  if (labels.length === 0) return ["asbestos"];
+  const rawLabels = (serviceType ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+  if (rawLabels.length === 0) return ["asbestos"];
+  // Per Tim, 2026-09-04 — Moisture Mapping isn't a lab-sample domain at
+  // all (see report-pdf.tsx's own comment on why it's deliberately
+  // outside ReportDomain entirely) — domainForServiceTypeLabel's default
+  // fallback of "asbestos" for anything unmatched was producing a
+  // spurious "Asbestos Report" tab on a mold+Moisture-Mapping job with no
+  // asbestos work whatsoever. Excluded here before domain-matching, not
+  // in domainForServiceTypeLabel itself — that fallback is still correct
+  // for a genuinely unmatched legacy asbestos label.
+  const labels = rawLabels.filter((l) => !l.toLowerCase().includes("moisture mapping"));
+  if (labels.length === 0) return [];
   const domains: ReportDomain[] = [];
   for (const label of labels) {
     const domain = domainForServiceTypeLabel(label);

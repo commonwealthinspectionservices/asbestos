@@ -510,7 +510,7 @@ export default function BillingView() {
         start.getMonth() === end.getMonth()
           ? `${MONTH_NAMES[start.getMonth()]} ${ordinal(start.getDate())} - ${ordinal(end.getDate())}`
           : `${MONTH_NAMES[start.getMonth()]} ${ordinal(start.getDate())} - ${MONTH_NAMES[end.getMonth()]} ${ordinal(end.getDate())}`;
-      return { label, startStr: ymd(start), endStr: ymd(end), grossCents: 0, netCents: 0 };
+      return { label, startStr: ymd(start), endStr: ymd(end), grossCents: 0, netCents: 0, labCostCents: 0 };
     }).filter((b) => b.endStr >= COMPANY_START_DATE);
 
     // Per Tim, 2026-08-30 — "instead of This Month, it should say August
@@ -520,19 +520,21 @@ export default function BillingView() {
       const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
       const label = `${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`;
-      return { label, key, grossCents: 0, netCents: 0 };
+      return { label, key, grossCents: 0, netCents: 0, labCostCents: 0 };
     }).filter((b) => b.key >= COMPANY_START_DATE.slice(0, 7));
 
     for (const job of invoicedJobs) {
       const bucketDate = billingDateFor(job);
       if (!bucketDate) continue;
       const grossCents = job.invoice_total_cents ?? 0;
-      const netCents = computeMarginCents(grossCents, job.lab_cost_cents ?? 0, job.stripe_fee_cents ?? 0);
+      const labCostCents = job.lab_cost_cents ?? 0;
+      const netCents = computeMarginCents(grossCents, labCostCents, job.stripe_fee_cents ?? 0);
 
       const w = weekly.find((b) => bucketDate >= b.startStr && bucketDate <= b.endStr);
       if (w) {
         w.grossCents += grossCents;
         w.netCents += netCents;
+        w.labCostCents += labCostCents;
       }
 
       const monthKey = bucketDate.slice(0, 7);
@@ -540,6 +542,7 @@ export default function BillingView() {
       if (m) {
         m.grossCents += grossCents;
         m.netCents += netCents;
+        m.labCostCents += labCostCents;
       }
     }
 
@@ -552,10 +555,12 @@ export default function BillingView() {
   // gross computation as each period bucket above.
   const allTimeTotal = useMemo(() => {
     let grossCents = 0;
+    let labCostCents = 0;
     for (const job of invoicedJobs) {
       grossCents += job.invoice_total_cents ?? 0;
+      labCostCents += job.lab_cost_cents ?? 0;
     }
-    return { grossCents };
+    return { grossCents, labCostCents };
   }, [invoicedJobs]);
 
   async function patchJob(job: JobWithCustomer, patch: Record<string, unknown>) {
@@ -604,6 +609,29 @@ export default function BillingView() {
         </div>
         <div className="hidden w-full items-baseline justify-between gap-2 text-sm text-slate-500 sm:col-span-2 sm:flex">
           <span className="whitespace-nowrap">All-Time Gross Revenue: {formatCents(allTimeTotal.grossCents)}</span>
+        </div>
+      </div>
+
+      {/* Per Tim, 2026-09-04 — same layout as Weekly/Monthly Revenue above,
+          copied exactly, for lab costs instead of revenue. Not clickable
+          (no isSelected/onSelectRow) — the period filter above already
+          filters by revenue period, and clicking one of these would just
+          silently do nothing without its own filter wired up. */}
+      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <PeriodHistoryTable
+          title="Weekly Lab Costs"
+          rows={periodHistory.weekly.map((w) => ({ label: w.label, grossCents: w.labCostCents, netCents: 0 }))}
+        />
+        <PeriodHistoryTable
+          title="Monthly Lab Costs"
+          rows={periodHistory.monthly.map((m) => ({ label: m.label, grossCents: m.labCostCents, netCents: 0 }))}
+        />
+        <div className="grid w-full grid-cols-[auto_auto] justify-start gap-x-1.5 gap-y-0.5 text-sm text-slate-500 sm:hidden">
+          <span>All-Time Lab Costs:</span>
+          <span>{formatCents(allTimeTotal.labCostCents)}</span>
+        </div>
+        <div className="hidden w-full items-baseline justify-between gap-2 text-sm text-slate-500 sm:col-span-2 sm:flex">
+          <span className="whitespace-nowrap">All-Time Lab Costs: {formatCents(allTimeTotal.labCostCents)}</span>
         </div>
       </div>
 

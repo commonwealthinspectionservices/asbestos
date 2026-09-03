@@ -182,7 +182,6 @@ export default function CareerInterestForm() {
       />
 
       <label className="mt-3 block text-sm font-medium text-slate-700">Resume (optional)</label>
-      <p className="mt-0.5 text-xs text-slate-500">Not required — attach one if you have it handy.</p>
       <input
         type="file"
         accept=".pdf,.doc,.docx"

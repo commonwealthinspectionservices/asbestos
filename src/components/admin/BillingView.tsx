@@ -269,7 +269,7 @@ function MoneyGrid({
         {labCostCents != null
           ? formatCents(labCostCents)
           : estimatedLabCostCents
-            ? <><span className="text-slate-400">≈ </span>{formatCents(estimatedLabCostCents)}</>
+            ? <span className="italic"><span className="text-slate-400">≈ </span>{formatCents(estimatedLabCostCents)}</span>
             : "—"}
       </span>
       {stripeFeeCents !== 0 && (
@@ -285,7 +285,7 @@ function MoneyGrid({
           // Per Tim, 2026-09-04 — same estimate as Lab Cost above, carried
           // through to Margin too rather than leaving it blank just
           // because the real lab invoice hasn't come in yet.
-          if (estimatedLabCostCents) return <><span className="text-slate-400">≈ </span>{formatCents(revenueCents - estimatedLabCostCents - stripeFeeCents)}</>;
+          if (estimatedLabCostCents) return <span className="italic"><span className="text-slate-400">≈ </span>{formatCents(revenueCents - estimatedLabCostCents - stripeFeeCents)}</span>;
           return "—";
         })()}
       </span>
@@ -347,7 +347,7 @@ function PeriodHistoryTable({
                   wrapped to two lines; whitespace-nowrap alone still
                   covers that at the larger size. */}
               <span className={`whitespace-nowrap text-sm ${selected ? "font-semibold text-brand-700" : "text-slate-500"}`}>{r.label}</span>
-              <span className="whitespace-nowrap text-right text-slate-800">
+              <span className={`whitespace-nowrap text-right text-slate-800 ${r.estimated ? "italic" : ""}`}>
                 {r.estimated && <span className="text-slate-400">≈ </span>}
                 {formatCents(r.grossCents)}
               </span>
@@ -396,7 +396,7 @@ function MarginHistoryTable({
           const content = (
             <>
               <span className={`whitespace-nowrap text-sm ${selected ? "font-semibold text-brand-700" : "text-slate-500"}`}>{r.label}</span>
-              <span className={`whitespace-nowrap text-right ${r.marginPercent != null && r.marginPercent < 0 ? "text-red-600" : "text-slate-800"}`}>
+              <span className={`whitespace-nowrap text-right ${r.marginPercent != null && r.marginPercent < 0 ? "text-red-600" : "text-slate-800"} ${r.estimated ? "italic" : ""}`}>
                 {r.marginPercent != null ? <>{r.estimated && <span className="text-slate-400">≈ </span>}{r.marginPercent.toFixed(1)}%</> : "—"}
               </span>
             </>
@@ -831,11 +831,16 @@ export default function BillingView() {
             for that gap rather than a confirmed one. */}
         <div className="grid w-full grid-cols-[auto_auto] justify-start gap-x-1.5 gap-y-0.5 text-sm text-slate-500 sm:hidden">
           <span>All-Time Lab Costs:</span>
-          <span>{allTimeTotal.estimatedLabCostCents > 0 && "≈ "}{formatCents(allTimeTotal.labCostCents + allTimeTotal.estimatedLabCostCents)}</span>
+          <span className={allTimeTotal.estimatedLabCostCents > 0 ? "italic" : ""}>
+            {allTimeTotal.estimatedLabCostCents > 0 && "≈ "}{formatCents(allTimeTotal.labCostCents + allTimeTotal.estimatedLabCostCents)}
+          </span>
         </div>
         <div className="hidden w-full items-baseline justify-between gap-2 text-sm text-slate-500 sm:col-span-2 sm:flex">
           <span className="whitespace-nowrap">
-            All-Time Lab Costs: {allTimeTotal.estimatedLabCostCents > 0 && "≈ "}{formatCents(allTimeTotal.labCostCents + allTimeTotal.estimatedLabCostCents)}
+            All-Time Lab Costs:{" "}
+            <span className={allTimeTotal.estimatedLabCostCents > 0 ? "italic" : ""}>
+              {allTimeTotal.estimatedLabCostCents > 0 && "≈ "}{formatCents(allTimeTotal.labCostCents + allTimeTotal.estimatedLabCostCents)}
+            </span>
           </span>
         </div>
       </div>
@@ -874,16 +879,18 @@ export default function BillingView() {
           const allTimeMarginPercent = allTimeTotal.grossCents > 0
             ? ((allTimeTotal.grossCents - allTimeTotal.labCostCents - allTimeTotal.estimatedLabCostCents - allTimeTotal.stripeFeeCents) / allTimeTotal.grossCents) * 100
             : null;
-          const prefix = allTimeTotal.estimatedLabCostCents > 0 ? "≈ " : "";
+          const isEstimated = allTimeTotal.estimatedLabCostCents > 0;
+          const prefix = isEstimated ? "≈ " : "";
           const text = allTimeMarginPercent != null ? `${prefix}${allTimeMarginPercent.toFixed(1)}%` : "—";
+          const valueClass = isEstimated ? "italic" : "";
           return (
             <>
               <div className="grid w-full grid-cols-[auto_auto] justify-start gap-x-1.5 gap-y-0.5 text-sm text-slate-500 sm:hidden">
                 <span>All-Time Margin:</span>
-                <span>{text}</span>
+                <span className={valueClass}>{text}</span>
               </div>
               <div className="hidden w-full items-baseline justify-between gap-2 text-sm text-slate-500 sm:col-span-2 sm:flex">
-                <span className="whitespace-nowrap">All-Time Margin: {text}</span>
+                <span className="whitespace-nowrap">All-Time Margin: <span className={valueClass}>{text}</span></span>
               </div>
             </>
           );

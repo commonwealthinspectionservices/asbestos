@@ -93,8 +93,38 @@ export const PATCH = withApiErrors(async (
     if ("error" in parsed) {
       return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
-    patch.invoice_line_items = parsed.items;
-    patch.invoice_total_cents = lineItemsTotalCents(parsed.items);
+    // Confirmed live 2026-09-02 (26-0014) — the Invoice tab's own
+    // auto-recompute effect (JobsDashboard.tsx) can fire this exact PATCH
+    // shape (invoice_auto: true, a freshly-recomputed default) from a
+    // stale `job` snapshot after an out-of-order refetch race, silently
+    // reverting a real hand-entered invoice back to its auto-computed
+    // default. invoice_auto specifically marks "the admin edited this by
+    // hand, stop recomputing" (see priceAndPersistInvoice in lab-email.ts
+    // for the same contract on the drafting side) — a request claiming
+    // invoice_auto: true can never be a genuine hand edit by definition,
+    // so it must never be allowed to downgrade a row that's already
+    // manually primed. A real user edit always sends invoice_auto: false
+    // (see saveInvoice in JobsDashboard.tsx), which is untouched by this
+    // guard — only ever reads the current row when the incoming request
+    // itself claims invoice_auto: true, so a genuine manual edit costs no
+    // extra query.
+    let blockedByManualInvoiceGuard = false;
+    if (body.invoice_auto === true) {
+      const { data: currentRow } = await getSupabaseAdminFresh()
+        .from("jobs")
+        .select("invoice_auto, invoice_line_items")
+        .eq("id", params.id)
+        .maybeSingle();
+      blockedByManualInvoiceGuard = currentRow?.invoice_auto === false
+        && Array.isArray(currentRow.invoice_line_items)
+        && currentRow.invoice_line_items.length > 0;
+    }
+    if (blockedByManualInvoiceGuard) {
+      delete patch.invoice_auto;
+    } else {
+      patch.invoice_line_items = parsed.items;
+      patch.invoice_total_cents = lineItemsTotalCents(parsed.items);
+    }
   }
 
   // sample_count is its own editable field (see EDITABLE_FIELDS) — settable

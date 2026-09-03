@@ -107,6 +107,18 @@ function billingDateFor(job: JobWithCustomer): string | null {
   return job.paid_date ?? job.confirmed_date ?? job.requested_date ?? null;
 }
 
+// Per Tim, 2026-09-04 — Lab Costs deliberately uses a DIFFERENT week/month
+// than Revenue above: a job sampled last week but not invoiced to the
+// customer until this week still shows its lab cost under last week,
+// since that's when the lab work (and lab's own cost) actually happened —
+// the lab's own weekly billing cycle runs off this date, not off whenever
+// Tim gets around to billing the customer. billingDateFor is only a
+// last-resort fallback for a job missing both confirmed_date and
+// requested_date.
+function labCostDateFor(job: JobWithCustomer): string | null {
+  return job.confirmed_date ?? job.requested_date ?? billingDateFor(job);
+}
+
 // Per-type counts are the modern source; sample_count is only a fallback
 // for jobs from before per-type tracking existed. Same pattern used for
 // pricing in invoice-defaults.ts.
@@ -579,47 +591,45 @@ export default function BillingView() {
     }).filter((b) => b.key >= COMPANY_START_DATE.slice(0, 7));
 
     for (const job of invoicedJobs) {
-      const bucketDate = billingDateFor(job);
-      if (!bucketDate) continue;
-      const grossCents = job.invoice_total_cents ?? 0;
+      // Revenue buckets by invoice date (billingDateFor); lab cost buckets
+      // by job date (labCostDateFor) — deliberately different dates, so a
+      // job sampled last week but invoiced to the customer this week
+      // shows its revenue under this week and its lab cost under last
+      // week. See labCostDateFor's own comment for why.
+      const revenueDate = billingDateFor(job);
+      const laborDate = labCostDateFor(job);
       const labCostCents = job.lab_cost_cents ?? 0;
-      const netCents = computeMarginCents(grossCents, labCostCents, job.stripe_fee_cents ?? 0);
       // Only estimate for a job with no real lab invoice yet — once the
       // real one comes in, labCostCents above already has it and this
       // stays 0 so it's never added on top of the real figure.
       const estimatedCents = job.lab_cost_cents == null ? totalSampleCount(job) * avgLabCostPerSampleCents : 0;
 
-      const w = weekly.find((b) => bucketDate >= b.startStr && bucketDate <= b.endStr);
-      if (w) {
-        w.grossCents += grossCents;
-        w.netCents += netCents;
-        w.labCostCents += labCostCents;
+      if (revenueDate) {
+        const grossCents = job.invoice_total_cents ?? 0;
+        const netCents = computeMarginCents(grossCents, labCostCents, job.stripe_fee_cents ?? 0);
+        const w = weekly.find((b) => revenueDate >= b.startStr && revenueDate <= b.endStr);
+        if (w) {
+          w.grossCents += grossCents;
+          w.netCents += netCents;
+        }
+        const m = monthly.find((b) => b.key === revenueDate.slice(0, 7));
+        if (m) {
+          m.grossCents += grossCents;
+          m.netCents += netCents;
+        }
       }
 
-      const monthKey = bucketDate.slice(0, 7);
-      const m = monthly.find((b) => b.key === monthKey);
-      if (m) {
-        m.grossCents += grossCents;
-        m.netCents += netCents;
-        m.labCostCents += labCostCents;
-      }
-
-      // Per Tim, 2026-09-04 — "it needs to calculate all the jobs from
-      // last week too that were billed this week": the lab's own Friday
-      // invoice doesn't respect Tim's customer-billing weeks — a job
-      // invoiced to the customer last week (or earlier) but still
-      // unbilled by the lab lands on THIS Friday's invoice right
-      // alongside this week's own jobs. So every still-unbilled job's
-      // estimate rolls into the current (first/most recent) bucket
-      // specifically, regardless of which week/month its own real
-      // revenue counts toward — not just the ones whose billingDateFor
-      // happens to fall in the current period. Only weekly[0]/monthly[0]
-      // ever carry an estimate; every older bucket shows real dollars
-      // only (unresolved a week+ later would be a stale lab invoice
-      // worth chasing, not a routine estimate to fold in quietly).
-      if (job.lab_cost_cents == null) {
-        if (weekly[0]) weekly[0].estimatedLabCostCents += estimatedCents;
-        if (monthly[0]) monthly[0].estimatedLabCostCents += estimatedCents;
+      if (laborDate) {
+        const w = weekly.find((b) => laborDate >= b.startStr && laborDate <= b.endStr);
+        if (w) {
+          w.labCostCents += labCostCents;
+          w.estimatedLabCostCents += estimatedCents;
+        }
+        const m = monthly.find((b) => b.key === laborDate.slice(0, 7));
+        if (m) {
+          m.labCostCents += labCostCents;
+          m.estimatedLabCostCents += estimatedCents;
+        }
       }
     }
 

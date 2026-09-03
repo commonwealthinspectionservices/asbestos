@@ -594,7 +594,6 @@ export default function BillingView() {
         w.grossCents += grossCents;
         w.netCents += netCents;
         w.labCostCents += labCostCents;
-        w.estimatedLabCostCents += estimatedCents;
       }
 
       const monthKey = bucketDate.slice(0, 7);
@@ -603,7 +602,24 @@ export default function BillingView() {
         m.grossCents += grossCents;
         m.netCents += netCents;
         m.labCostCents += labCostCents;
-        m.estimatedLabCostCents += estimatedCents;
+      }
+
+      // Per Tim, 2026-09-04 — "it needs to calculate all the jobs from
+      // last week too that were billed this week": the lab's own Friday
+      // invoice doesn't respect Tim's customer-billing weeks — a job
+      // invoiced to the customer last week (or earlier) but still
+      // unbilled by the lab lands on THIS Friday's invoice right
+      // alongside this week's own jobs. So every still-unbilled job's
+      // estimate rolls into the current (first/most recent) bucket
+      // specifically, regardless of which week/month its own real
+      // revenue counts toward — not just the ones whose billingDateFor
+      // happens to fall in the current period. Only weekly[0]/monthly[0]
+      // ever carry an estimate; every older bucket shows real dollars
+      // only (unresolved a week+ later would be a stale lab invoice
+      // worth chasing, not a routine estimate to fold in quietly).
+      if (job.lab_cost_cents == null) {
+        if (weekly[0]) weekly[0].estimatedLabCostCents += estimatedCents;
+        if (monthly[0]) monthly[0].estimatedLabCostCents += estimatedCents;
       }
     }
 

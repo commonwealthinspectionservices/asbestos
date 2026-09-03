@@ -198,9 +198,15 @@ function JobRow({
 // $0. Same size/format for every row per Tim's follow-up — Margin isn't
 // visually singled out, just colored red if it's negative.
 function MoneyGrid({
-  revenueCents, labCostCents, stripeFeeCents, marginCents, invoiceHref, labInvoiceHref,
+  revenueCents, labCostCents, estimatedLabCostCents, stripeFeeCents, marginCents, invoiceHref, labInvoiceHref,
 }: {
-  revenueCents: number; labCostCents: number | null; stripeFeeCents: number; marginCents: number | null;
+  revenueCents: number; labCostCents: number | null;
+  /** Per Tim, 2026-09-04 — shown (with "≈") in place of "—" when the lab
+      hasn't invoiced this job yet (labCostCents null) but there's enough
+      to estimate from (see avgLabCostPerSampleCents), so a job card
+      matches the same "≈" figure feeding Weekly/Monthly Lab Costs above. */
+  estimatedLabCostCents?: number;
+  stripeFeeCents: number; marginCents: number | null;
   invoiceHref?: string | null; labInvoiceHref?: string | null;
 }) {
   // Per Tim, 2026-08-30 — "the text should all start in the same point,
@@ -235,7 +241,13 @@ function MoneyGrid({
       {invoiceLabel}
       <span className="whitespace-nowrap text-right text-slate-700">{formatCents(revenueCents)}</span>
       {labCostLabel}
-      <span className="whitespace-nowrap text-right text-slate-700">{labCostCents != null ? formatCents(labCostCents) : "—"}</span>
+      <span className="whitespace-nowrap text-right text-slate-700">
+        {labCostCents != null
+          ? formatCents(labCostCents)
+          : estimatedLabCostCents
+            ? <><span className="text-slate-400">≈ </span>{formatCents(estimatedLabCostCents)}</>
+            : "—"}
+      </span>
       {stripeFeeCents !== 0 && (
         <>
           <span className="text-left text-slate-400">Stripe Fee</span>
@@ -664,10 +676,14 @@ export default function BillingView() {
       </div>
 
       {/* Per Tim, 2026-09-04 — same layout as Weekly/Monthly Revenue above,
-          copied exactly, for lab costs instead of revenue. Not clickable
-          (no isSelected/onSelectRow) — the period filter above already
-          filters by revenue period, and clicking one of these would just
-          silently do nothing without its own filter wired up. */}
+          copied exactly, for lab costs instead of revenue. Clickable the
+          same way too — "we need to break it down per job per week" — so
+          a figure that looks off can be checked against the actual job
+          list below (each job card's own Lab Cost line shows the same
+          "≈" estimate feeding this total, via MoneyGrid). Shares the same
+          periodFilter state as Weekly/Monthly Revenue, not a second one —
+          only one period is ever filtered at a time regardless of which
+          table it was clicked from. */}
       <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <PeriodHistoryTable
           title="Weekly Lab Costs"
@@ -677,6 +693,14 @@ export default function BillingView() {
             netCents: 0,
             estimated: w.estimatedLabCostCents > 0,
           }))}
+          isSelected={(label) => periodFilter?.type === "week" && periodFilter.label === label}
+          onSelectRow={(label) => {
+            setPeriodFilter((prev) => {
+              if (prev?.type === "week" && prev.label === label) return null;
+              const row = periodHistory.weekly.find((w) => w.label === label);
+              return row ? { type: "week", label: row.label, startStr: row.startStr, endStr: row.endStr } : prev;
+            });
+          }}
         />
         <PeriodHistoryTable
           title="Monthly Lab Costs"
@@ -686,6 +710,14 @@ export default function BillingView() {
             netCents: 0,
             estimated: m.estimatedLabCostCents > 0,
           }))}
+          isSelected={(label) => periodFilter?.type === "month" && periodFilter.label === label}
+          onSelectRow={(label) => {
+            setPeriodFilter((prev) => {
+              if (prev?.type === "month" && prev.label === label) return null;
+              const row = periodHistory.monthly.find((m) => m.label === label);
+              return row ? { type: "month", label: row.label, key: row.key } : prev;
+            });
+          }}
         />
         {/* Per Tim, 2026-09-04 — the lab only invoices weekly (Fridays), so
             a job billed to the customer this week likely has no real lab
@@ -880,6 +912,7 @@ export default function BillingView() {
                       <MoneyGrid
                         revenueCents={job.invoice_total_cents ?? 0}
                         labCostCents={job.lab_cost_cents}
+                        estimatedLabCostCents={job.lab_cost_cents == null ? totalSampleCount(job) * avgLabCostPerSampleCents : undefined}
                         stripeFeeCents={job.stripe_fee_cents ?? 0}
                         marginCents={job.lab_cost_cents != null ? computeMarginCents(job.invoice_total_cents ?? 0, job.lab_cost_cents, job.stripe_fee_cents ?? 0) : null}
                         invoiceHref={job.invoice_total_cents != null ? `/api/admin/jobs/${job.id}/invoice` : null}

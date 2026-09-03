@@ -534,7 +534,15 @@ function hasCompletedFieldwork(status: string): boolean {
 function commonReportChecklist(job: JobWithCustomer): { label: string; done: boolean }[] {
   return [
     { label: "Customer", done: Boolean(job.customers?.name && job.customers.name !== "Unknown contact") },
-    { label: "Billing address", done: Boolean(job.customers?.billing_address) },
+    // Per Tim, 2026-09-04 (26-0014) — an individual with no billing_address
+    // of their own on file is being billed at the property being serviced;
+    // report-pdf.tsx's commonLetterFields already falls back to the job
+    // site address for exactly that case, so this checklist should count
+    // it as satisfied too, not silently hide the Report/Invoice header
+    // buttons for an otherwise fully-ready job. A company customer still
+    // needs a real billing_address — its blank state should never quietly
+    // default to some job site that isn't the company's own address.
+    { label: "Billing address", done: Boolean(job.customers?.billing_address || job.customers?.is_individual) },
     { label: "Job site address", done: Boolean(job.service_address) },
     { label: "Project #", done: Boolean(job.project_number) },
     // confirmed_date too — Boston Harbor Water Restoration never carries a

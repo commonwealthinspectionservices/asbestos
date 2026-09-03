@@ -468,9 +468,26 @@ const SORT_FIELDS: { key: SortField; label: string }[] = [
 // not in CLOSED_STATUSES either, so it only surfaces via that dedicated
 // filter or All Projects, not Open or Closed.
 const OPEN_STATUSES = new Set(["needs_scheduling", "scheduled", "fieldwork_in_progress", "awaiting_lab_results", "needs_report", "pending_lab_results", "completed", "invoiced", "ready_to_send"]);
-const CLOSED_STATUSES = new Set(["paid", "cancelled"]);
+const CLOSED_STATUSES = new Set(["cancelled"]);
 // Schedule/notes stay editable for any job that isn't closed out yet.
 const EDITABLE_STATUSES = OPEN_STATUSES;
+
+// Per Tim, 2026-09-04 — "it still should not be considered closed until
+// it's finally sent off... the final report has not been sent": a
+// homeowner job can be paid before its report is ready or sent (the
+// early-invoice feature — see showReportInvoice's own comment), and being
+// paid alone shouldn't make it disappear into Closed Projects while a
+// report is still owed. "paid" only counts as closed once report_sent_at
+// is actually set; until then it's still open. "cancelled" is always
+// closed outright — no report is ever owed on a cancelled job.
+function isClosedJob(job: JobWithCustomer): boolean {
+  if (CLOSED_STATUSES.has(job.status)) return true;
+  return job.status === "paid" && job.report_sent_at != null;
+}
+function isOpenJob(job: JobWithCustomer): boolean {
+  if (OPEN_STATUSES.has(job.status)) return true;
+  return job.status === "paid" && !job.report_sent_at;
+}
 
 function lineItemsTotalCents(items: InvoiceLineItem[]): number {
   return items.reduce((total, item) => total + Math.round(item.quantity * item.unit_cost_cents), 0);
@@ -773,8 +790,8 @@ export default function JobsDashboard() {
     let result = jobs;
     if (statusFilter.has("overdue")) result = result.filter((j) => daysOverdue(j) !== null);
     else if (statusFilter.size > 0) result = result.filter((j) => statusFilter.has(j.status));
-    else if (statusView === "open") result = result.filter((j) => OPEN_STATUSES.has(j.status));
-    else if (statusView === "closed") result = result.filter((j) => CLOSED_STATUSES.has(j.status));
+    else if (statusView === "open") result = result.filter((j) => isOpenJob(j));
+    else if (statusView === "closed") result = result.filter((j) => isClosedJob(j));
 
     if (serviceTypeFilter.size > 0) {
       result = result.filter((j) => {
@@ -1216,7 +1233,7 @@ function JobRow({
   // confirmed live: a job manually set to Ready for Review didn't
   // reliably show these lines when only the older two-flag check ran.
   const showReportInvoice = job.source !== "subcontractor" && (
-    job.status === "ready_to_send" || job.status === "report_invoice_sent"
+    job.status === "ready_to_send" || job.status === "report_invoice_sent" || job.status === "paid"
     || (reportIsComplete(job) && job.invoice_total_cents != null)
   );
   // Per Tim, 2026-09-02 — a homeowner job's invoice can now be priced (and
@@ -1397,7 +1414,7 @@ function JobRow({
               {overdueDays} day{overdueDays === 1 ? "" : "s"} overdue
             </span>
           )}
-          {CLOSED_STATUSES.has(job.status) ? (
+          {isClosedJob(job) ? (
             // Per Tim, 2026-08-27 — min-w-0 so this actually holds w-60
             // regardless of label length: inline-flex items default to
             // min-width:auto, which otherwise lets a long label ("Report
@@ -1604,7 +1621,7 @@ function JobRow({
               or Pending Lab Results, same reasoning: fieldwork's already
               done, nothing left to call the homeowner about. */}
           {job.status !== "report_invoice_sent" && job.status !== "pending_lab_results" && siteContactNode}
-          {CLOSED_STATUSES.has(job.status) ? (
+          {isClosedJob(job) ? (
             <div className="flex flex-col items-start gap-0.5 px-1.5 py-1 text-xs text-slate-500 sm:items-end">
               <span>Date of Project: {formatDate(job.requested_date) || "—"}</span>
               <span>Date of Payment: {formatDate(job.paid_date) || "—"}</span>

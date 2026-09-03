@@ -300,7 +300,14 @@ function PeriodHistoryTable({
   // down every row, same reasoning as the 3-column version this replaced.
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-3 text-sm">
-      <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">{title}</div>
+      <div className="flex items-baseline gap-1.5">
+        <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">{title}</span>
+        {/* Per Tim, 2026-09-04 — "in small subtext... can just say based
+            off invoice date": so the date basis is visible right on the
+            page, not just in a code comment, next time the question
+            comes up. */}
+        <span className="text-xs italic text-slate-400">(by invoice date)</span>
+      </div>
       <div className="mt-2 grid grid-cols-[1fr_auto] items-baseline gap-x-3 gap-y-1">
         {rows.map((r) => {
           const selected = isSelected?.(r.label) ?? false;

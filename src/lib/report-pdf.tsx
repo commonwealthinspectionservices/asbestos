@@ -237,16 +237,17 @@ const styles = StyleSheet.create({
   // (except a shorter final page), not however many happen to fit.
   photoGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" },
   photoCard: { width: "47%", marginBottom: 24 },
-  // Per Tim, 2026-09-04 (follow-up) — "all text should be aligned w the
-  // left edge of the image": "contain" was letterboxing these (mostly
-  // portrait phone photos) inside a roughly-square box, so the visible
-  // photo was inset from the box's own left edge while the text below
-  // started right at it. "cover" fills the box edge-to-edge (cropping
-  // top/bottom as needed instead of adding bars), so the image's real
-  // left edge always lines up with the text's. Also "one line of space
-  // between the photo and the title below it" — marginTop bumped from a
-  // TIGHT_GAP nudge to a full line at this text's own size/line-height.
-  photoImage: { width: "100%", height: 220, objectFit: "cover" },
+  // Per Tim, 2026-09-04 (follow-up: "the full photos need to be in the
+  // report not cropped at all") — back to "contain" (shows the whole
+  // photo, never crops) instead of "cover". Left-edge alignment with the
+  // text below is handled by objectPositionX: "0%" instead — react-pdf
+  // centers a "contain"-fit image within its box by default, which is
+  // what caused the earlier misalignment; pinning it to the box's own
+  // left edge fixes that without cropping anything. Also "one line of
+  // space between the photo and the title below it" — marginTop bumped
+  // from a TIGHT_GAP nudge to a full line at this text's own size/
+  // line-height.
+  photoImage: { width: "100%", height: 220, objectFit: "contain", objectPositionX: "0%" },
   photoNumber: { fontWeight: 700, fontSize: 9, marginTop: 11, marginBottom: TIGHT_GAP },
   photoCaption: { fontSize: 9, color: "#444444", fontStyle: "italic" },
 });

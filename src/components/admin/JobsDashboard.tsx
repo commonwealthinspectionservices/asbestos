@@ -6833,6 +6833,14 @@ export function EditProjectDialog({
                   const next = e.target.value;
                   setReportEmailsList((emails) => emails.map((v, j) => (j === i ? next : v)));
                 }}
+                // Per Tim, 2026-09-03 — "I still can only add and not
+                // edit": the field was always editable, but clicking in
+                // just places the cursor, so typing inserted into the
+                // existing address instead of replacing it — looked
+                // exactly like "add-only" from the outside. Selecting
+                // everything on focus makes typing overwrite it instead,
+                // the way editing a short single-value field should feel.
+                onFocus={(e) => e.target.select()}
               />
               <button
                 type="button"
@@ -6875,6 +6883,7 @@ export function EditProjectDialog({
                   const next = e.target.value;
                   setInvoiceEmailsList((emails) => emails.map((v, j) => (j === i ? next : v)));
                 }}
+                onFocus={(e) => e.target.select()}
               />
               <button
                 type="button"

@@ -237,8 +237,17 @@ const styles = StyleSheet.create({
   // (except a shorter final page), not however many happen to fit.
   photoGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" },
   photoCard: { width: "47%", marginBottom: 24 },
-  photoImage: { width: "100%", height: 220, objectFit: "contain" },
-  photoNumber: { fontWeight: 700, fontSize: 9, marginTop: TIGHT_GAP + 1, marginBottom: TIGHT_GAP },
+  // Per Tim, 2026-09-04 (follow-up) — "all text should be aligned w the
+  // left edge of the image": "contain" was letterboxing these (mostly
+  // portrait phone photos) inside a roughly-square box, so the visible
+  // photo was inset from the box's own left edge while the text below
+  // started right at it. "cover" fills the box edge-to-edge (cropping
+  // top/bottom as needed instead of adding bars), so the image's real
+  // left edge always lines up with the text's. Also "one line of space
+  // between the photo and the title below it" — marginTop bumped from a
+  // TIGHT_GAP nudge to a full line at this text's own size/line-height.
+  photoImage: { width: "100%", height: 220, objectFit: "cover" },
+  photoNumber: { fontWeight: 700, fontSize: 9, marginTop: 11, marginBottom: TIGHT_GAP },
   photoCaption: { fontSize: 9, color: "#444444", fontStyle: "italic" },
 });
 

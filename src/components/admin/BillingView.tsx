@@ -430,6 +430,11 @@ export default function BillingView() {
   const [error, setError] = useState<string | null>(null);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [editingJobId, setEditingJobId] = useState<string | null>(null);
+  // Per Tim, 2026-09-04 — "make all this hidden by a dropdown": the
+  // Revenue/Lab Costs/Margin summary (6 cards + 3 All-Time lines) got long
+  // once Lab Costs and Margin joined the original Revenue pair — starts
+  // collapsed so the job list is what's actually visible on load.
+  const [showSummary, setShowSummary] = useState(false);
 
   const [filter, setFilter] = useState<FilterKey>("sent");
   // Per Tim, 2026-09-02 — "they should be organized based off of when they
@@ -711,7 +716,16 @@ export default function BillingView() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <button
+        onClick={() => setShowSummary((v) => !v)}
+        className="flex w-full items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700"
+      >
+        Revenue &amp; Margin Summary
+        <span className={`text-slate-400 transition-transform ${showSummary ? "rotate-180" : ""}`}>▾</span>
+      </button>
+      {showSummary && (
+      <>
+      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <PeriodHistoryTable
           title="Weekly Revenue"
           rows={periodHistory.weekly}
@@ -857,6 +871,8 @@ export default function BillingView() {
           );
         })()}
       </div>
+      </>
+      )}
 
       {error && <div className="mt-3 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>}
       {loading && <p className="mt-6 text-sm text-slate-500">Loading…</p>}

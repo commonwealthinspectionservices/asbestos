@@ -48,7 +48,7 @@ import { formatCents } from "@/lib/pricing";
 import { createStripeInvoiceForJob, tagInvoiceEmailed, getStripe } from "@/lib/stripe";
 import { splitTrailingCocPages } from "@/lib/split-lab-report-coc";
 import { extractPositionOrderedText } from "@/lib/pdf-position-text";
-import { jobReportDomains, domainForServiceTypeLabel, ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, NEWTON_FIRE_FLOOD_COMPANY_ID, BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID, reportEmailAttachmentFilename, type ReportDomain } from "@/lib/report-findings";
+import { jobReportDomains, domainForServiceTypeLabel, ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, NEWTON_FIRE_FLOOD_COMPANY_ID, reportEmailAttachmentFilename, type ReportDomain } from "@/lib/report-findings";
 import { sendEmail, emailShell } from "@/lib/email";
 import { getAppUrl } from "@/lib/app-url";
 import { escapeHtml } from "@/lib/html";
@@ -1539,34 +1539,26 @@ async function draftInvoiceEmailForJob(params: {
   const { renderInvoicePdf } = await import("@/lib/invoice-pdf");
   const invoicePdf = await renderInvoicePdf({ job: pricedJob, customer, company: pricedJob.customers.companies, settings });
 
-  // A company can designate a specific contact (e.g. its AP person) as who
-  // invoices go to, distinct from whichever contact this job itself is tied
-  // to — see the `billing_contact_id` column comment. This specific job's
-  // own override (set from the portal's "Billing contact for this project"
-  // selector) wins over the company-wide default when both are set. Falls
-  // back to the job's own contact when neither is set, so most jobs are
-  // unaffected; when one is set, the job's own contact is Cc'd rather than
-  // dropped.
-  const billingContactId = pricedJob.billing_contact_id ?? pricedJob.customers.companies?.billing_contact_id;
-  const billingContact = billingContactId
-    ? (await supabase.from("customers").select("*").eq("id", billingContactId).maybeSingle()).data
-    : null;
-  const toCustomer = billingContact ?? customer;
-
-  const ccRecipients = [
-    ...(billingContact ? [customer.email] : []),
-    ...(pricedJob.invoice_emails?.split(",") ?? []),
-    // Per Tim, 2026-08-28 — every Boston Harbor Water Restoration invoice
-    // must also reach Jake, alongside whichever billing contact/job contact
-    // already land above — not a per-job invoice_emails entry, since it
-    // should apply company-wide without relying on it being typed in each
-    // time.
-    ...(pricedJob.customers.companies?.id === BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID
-      ? ["jake@bostonharborwater.com"]
-      : []),
-  ]
+  // Per Tim, 2026-09-03 — "invoice should only send to the emails listed
+  // here": used to default to a billing_contact_id override (or the job's
+  // own contact) with invoice_emails only ever added as an extra Cc —
+  // exactly the "goes to someone different than who's typically listed"
+  // confusion he flagged. invoice_emails is now the sole, authoritative
+  // recipient list (already defaulted to the job's own contact email at
+  // creation — see AddProjectDialog/api/admin/jobs — and editable per job
+  // on Project Info), so whoever's listed there is exactly who gets it,
+  // nothing implicitly added or substituted. Stripe's own customer record
+  // (for payment tracking, not email routing) still uses the job's own
+  // contact regardless — that's a separate concern from who the email
+  // reaches.
+  const invoiceToAddresses = (pricedJob.invoice_emails ?? "")
+    .split(",")
     .map((e) => e.trim())
-    .filter((e) => e && e !== toCustomer.email);
+    .filter(Boolean);
+  // Should never actually be empty — invoice_emails is defaulted at
+  // creation for every job now — but never send a draft with no
+  // recipient at all if it somehow is.
+  const invoiceTo = (invoiceToAddresses.length > 0 ? invoiceToAddresses : [customer.email]).join(", ");
 
   // Best-effort: a Stripe hiccup (bad key, network blip) must never block
   // the Gmail draft itself — the draft is the part that matters, the Pay
@@ -1575,7 +1567,7 @@ async function draftInvoiceEmailForJob(params: {
   let payNowUrl: string | null = null;
   if (pricedJob.payment_type !== "check") {
     try {
-      const { hostedInvoiceUrl } = await createStripeInvoiceForJob(pricedJob, toCustomer);
+      const { hostedInvoiceUrl } = await createStripeInvoiceForJob(pricedJob, customer);
       payNowUrl = hostedInvoiceUrl;
     } catch (e) {
       console.error(`Failed to create Stripe invoice for job ${job.id}:`, e);
@@ -1604,8 +1596,7 @@ async function draftInvoiceEmailForJob(params: {
   }
 
   const draft = await createDraft(accessToken, {
-    to: toCustomer.email,
-    cc: [...new Set(ccRecipients)].join(", ") || undefined,
+    to: invoiceTo,
     // Per Tim, 2026-08-27 — always exactly this, regardless of service
     // type(s) on the job.
     subject: `Inspection Invoice - ${expandAddress(pricedJob.service_address)}`,
@@ -1842,22 +1833,16 @@ async function draftCombinedEmailForJob(params: {
   // this same single draft.
   const reportPackets = await buildAllFinalReportPackets(pricedJob, customer, settings);
 
-  // Same billing-contact-aware "to" as the standalone invoice draft (see
-  // its own comment) — whoever the invoice reaches should also be who
-  // gets the report, since this is now one email covering both.
-  const billingContactId = pricedJob.billing_contact_id ?? pricedJob.customers.companies?.billing_contact_id;
-  const billingContact = billingContactId
-    ? (await supabase.from("customers").select("*").eq("id", billingContactId).maybeSingle()).data
-    : null;
-  const toCustomer = billingContact ?? customer;
-
-  const ccRecipients = [
-    ...(billingContact ? [customer.email] : []),
-    ...(pricedJob.invoice_emails?.split(",") ?? []),
-    ...(pricedJob.report_emails?.split(",") ?? []),
-  ]
+  // Per Tim, 2026-09-03 — "invoice should only send to the emails listed
+  // here": same reasoning as the standalone invoice draft (see its own
+  // comment) — this one email covers both the report and invoice, but
+  // still only goes out to invoice_emails, nothing implicitly substituted
+  // or added from a billing-contact override.
+  const invoiceToAddresses = (pricedJob.invoice_emails ?? "")
+    .split(",")
     .map((e) => e.trim())
-    .filter((e) => e && e !== toCustomer.email);
+    .filter(Boolean);
+  const invoiceTo = (invoiceToAddresses.length > 0 ? invoiceToAddresses : [customer.email]).join(", ");
 
   // Best-effort, same as the standalone invoice draft — a Stripe hiccup
   // must never block the Gmail draft itself. Skipped entirely for a
@@ -1865,7 +1850,7 @@ async function draftCombinedEmailForJob(params: {
   let payNowUrl: string | null = null;
   if (pricedJob.payment_type !== "check") {
     try {
-      const { hostedInvoiceUrl } = await createStripeInvoiceForJob(pricedJob, toCustomer);
+      const { hostedInvoiceUrl } = await createStripeInvoiceForJob(pricedJob, customer);
       payNowUrl = hostedInvoiceUrl;
     } catch (e) {
       console.error(`Failed to create Stripe invoice for job ${job.id}:`, e);
@@ -1899,8 +1884,7 @@ async function draftCombinedEmailForJob(params: {
   // becomes its own thread's root instead — same call either way.
   const existingThreadIds: string[] = Array.isArray(pricedJob.email_thread_message_ids) ? pricedJob.email_thread_message_ids : [];
   const draft = await createDraft(accessToken, {
-    to: toCustomer.email,
-    cc: [...new Set(ccRecipients)].join(", ") || undefined,
+    to: invoiceTo,
     subject: threadSubject(pricedJob.service_address, pricedJob.service_type),
     headers: threadHeaders(existingThreadIds),
     threadId: pricedJob.email_gmail_thread_id ?? undefined,

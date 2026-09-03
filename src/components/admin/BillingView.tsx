@@ -113,6 +113,13 @@ function billingDateFor(job: JobWithCustomer): string | null {
   return job.invoice_sent_at ? ymd(new Date(job.invoice_sent_at)) : null;
 }
 
+// netCents already includes the same lab cost estimate as Lab Costs above
+// (see the periodHistory loop) — null when there's no revenue yet to
+// divide by, rather than a misleading 0%.
+function marginPercentOf(bucket: { grossCents: number; netCents: number }): number | null {
+  return bucket.grossCents > 0 ? (bucket.netCents / bucket.grossCents) * 100 : null;
+}
+
 // Per-type counts are the modern source; sample_count is only a fallback
 // for jobs from before per-type tracking existed. Same pattern used for
 // pricing in invoice-defaults.ts.
@@ -325,6 +332,54 @@ function PeriodHistoryTable({
               <span className="whitespace-nowrap text-right text-slate-800">
                 {r.estimated && <span className="text-slate-400">≈ </span>}
                 {formatCents(r.grossCents)}
+              </span>
+            </>
+          );
+          return onSelectRow ? (
+            <button key={r.label} onClick={() => onSelectRow(r.label)} className="contents text-left">
+              {content}
+            </button>
+          ) : (
+            <Fragment key={r.label}>{content}</Fragment>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// Per Tim, 2026-09-04 — its own card pair (not a third column on Revenue/
+// Lab Costs, which got added and then pulled back out) so an exact,
+// unrounded percentage has room without crowding the dollar figures.
+function MarginHistoryTable({
+  title, rows, isSelected, onSelectRow,
+}: {
+  title: string;
+  rows: {
+    label: string;
+    marginPercent: number | null;
+    /** True when this row's margin includes an estimate for a job the lab
+        hasn't invoiced yet (see avgLabCostPerSampleCents) — an actual
+        dollar figure is never estimated here, only the % itself. */
+    estimated?: boolean;
+  }[];
+  isSelected?: (label: string) => boolean;
+  onSelectRow?: (label: string) => void;
+}) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white p-3 text-sm">
+      <div className="flex items-baseline gap-1.5">
+        <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">{title}</span>
+        <span className="text-xs italic text-slate-400">(by invoice date)</span>
+      </div>
+      <div className="mt-2 grid grid-cols-[1fr_auto] items-baseline gap-x-3 gap-y-1">
+        {rows.map((r) => {
+          const selected = isSelected?.(r.label) ?? false;
+          const content = (
+            <>
+              <span className={`whitespace-nowrap text-sm ${selected ? "font-semibold text-brand-700" : "text-slate-500"}`}>{r.label}</span>
+              <span className={`whitespace-nowrap text-right ${r.marginPercent != null && r.marginPercent < 0 ? "text-red-600" : "text-slate-800"}`}>
+                {r.marginPercent != null ? <>{r.estimated && <span className="text-slate-400">≈ </span>}{r.marginPercent.toFixed(1)}%</> : "—"}
               </span>
             </>
           );
@@ -596,11 +651,15 @@ export default function BillingView() {
       if (!bucketDate) continue;
       const grossCents = job.invoice_total_cents ?? 0;
       const labCostCents = job.lab_cost_cents ?? 0;
-      const netCents = computeMarginCents(grossCents, labCostCents, job.stripe_fee_cents ?? 0);
       // Only estimate for a job with no real lab invoice yet — once the
       // real one comes in, labCostCents above already has it and this
       // stays 0 so it's never added on top of the real figure.
       const estimatedCents = job.lab_cost_cents == null ? totalSampleCount(job) * avgLabCostPerSampleCents : 0;
+      // Per Tim, 2026-09-04 — feeds Weekly/Monthly Margin below; includes
+      // the same lab cost estimate Lab Costs itself shows, not just real
+      // dollars — otherwise a week full of still-unbilled jobs would show
+      // an inflated, misleading margin.
+      const netCents = computeMarginCents(grossCents, labCostCents + estimatedCents, job.stripe_fee_cents ?? 0);
 
       const w = weekly.find((b) => bucketDate >= b.startStr && bucketDate <= b.endStr);
       if (w) {
@@ -631,12 +690,14 @@ export default function BillingView() {
     let grossCents = 0;
     let labCostCents = 0;
     let estimatedLabCostCents = 0;
+    let stripeFeeCents = 0;
     for (const job of invoicedJobs) {
       grossCents += job.invoice_total_cents ?? 0;
       labCostCents += job.lab_cost_cents ?? 0;
+      stripeFeeCents += job.stripe_fee_cents ?? 0;
       if (job.lab_cost_cents == null) estimatedLabCostCents += totalSampleCount(job) * avgLabCostPerSampleCents;
     }
-    return { grossCents, labCostCents, estimatedLabCostCents };
+    return { grossCents, labCostCents, estimatedLabCostCents, stripeFeeCents };
   }, [invoicedJobs, avgLabCostPerSampleCents]);
 
   async function patchJob(job: JobWithCustomer, patch: Record<string, unknown>) {
@@ -745,6 +806,56 @@ export default function BillingView() {
             All-Time Lab Costs: {allTimeTotal.estimatedLabCostCents > 0 && "≈ "}{formatCents(allTimeTotal.labCostCents + allTimeTotal.estimatedLabCostCents)}
           </span>
         </div>
+      </div>
+
+      {/* Per Tim, 2026-09-04 — "one more set of cells for weekly and
+          monthly margins... an exact %": its own card pair, not a column
+          on Revenue/Lab Costs above (tried that, pulled it back out —
+          crowded the dollar figures). Same periodFilter, same click-to-
+          filter behavior as the other two pairs. */}
+      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <MarginHistoryTable
+          title="Weekly Margin"
+          rows={periodHistory.weekly.map((w) => ({ label: w.label, marginPercent: marginPercentOf(w), estimated: w.estimatedLabCostCents > 0 }))}
+          isSelected={(label) => periodFilter?.type === "week" && periodFilter.label === label}
+          onSelectRow={(label) => {
+            setPeriodFilter((prev) => {
+              if (prev?.type === "week" && prev.label === label) return null;
+              const row = periodHistory.weekly.find((w) => w.label === label);
+              return row ? { type: "week", label: row.label, startStr: row.startStr, endStr: row.endStr } : prev;
+            });
+          }}
+        />
+        <MarginHistoryTable
+          title="Monthly Margin"
+          rows={periodHistory.monthly.map((m) => ({ label: m.label, marginPercent: marginPercentOf(m), estimated: m.estimatedLabCostCents > 0 }))}
+          isSelected={(label) => periodFilter?.type === "month" && periodFilter.label === label}
+          onSelectRow={(label) => {
+            setPeriodFilter((prev) => {
+              if (prev?.type === "month" && prev.label === label) return null;
+              const row = periodHistory.monthly.find((m) => m.label === label);
+              return row ? { type: "month", label: row.label, key: row.key } : prev;
+            });
+          }}
+        />
+        {(() => {
+          const allTimeMarginPercent = allTimeTotal.grossCents > 0
+            ? ((allTimeTotal.grossCents - allTimeTotal.labCostCents - allTimeTotal.estimatedLabCostCents - allTimeTotal.stripeFeeCents) / allTimeTotal.grossCents) * 100
+            : null;
+          const prefix = allTimeTotal.estimatedLabCostCents > 0 ? "≈ " : "";
+          const text = allTimeMarginPercent != null ? `${prefix}${allTimeMarginPercent.toFixed(1)}%` : "—";
+          return (
+            <>
+              <div className="grid w-full grid-cols-[auto_auto] justify-start gap-x-1.5 gap-y-0.5 text-sm text-slate-500 sm:hidden">
+                <span>All-Time Margin:</span>
+                <span>{text}</span>
+              </div>
+              <div className="hidden w-full items-baseline justify-between gap-2 text-sm text-slate-500 sm:col-span-2 sm:flex">
+                <span className="whitespace-nowrap">All-Time Margin: {text}</span>
+              </div>
+            </>
+          );
+        })()}
       </div>
 
       {error && <div className="mt-3 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>}

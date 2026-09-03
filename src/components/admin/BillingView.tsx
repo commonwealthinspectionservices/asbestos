@@ -93,30 +93,23 @@ function invoiceStatus(job: JobWithCustomer): InvoiceStatus {
   return "ready_to_send";
 }
 
-// Per Tim, 2026-08-30 — "some jobs get sampled Thursday or Friday but
-// might not get billed until the next week... we need to decide a
-// specific system on where jobs are getting placed historically": the
-// week/month a job's gross/net counts toward is the week/month its
-// invoice actually went out (invoice_sent_at), not the day it was
-// sampled — a Friday job invoiced the following Monday lands in the
-// Monday week. This is what "which week is this revenue in" means for a
-// billing page. paid_date/confirmed_date/requested_date are only
-// fallbacks for the rare job missing invoice_sent_at.
-function billingDateFor(job: JobWithCustomer): string | null {
-  if (job.invoice_sent_at) return ymd(new Date(job.invoice_sent_at));
-  return job.paid_date ?? job.confirmed_date ?? job.requested_date ?? null;
-}
-
-// Per Tim, 2026-09-04 — Lab Costs deliberately uses a DIFFERENT week/month
-// than Revenue above: a job sampled last week but not invoiced to the
-// customer until this week still shows its lab cost under last week,
-// since that's when the lab work (and lab's own cost) actually happened —
-// the lab's own weekly billing cycle runs off this date, not off whenever
-// Tim gets around to billing the customer. billingDateFor is only a
-// last-resort fallback for a job missing both confirmed_date and
+// Per Tim, 2026-09-04 — Revenue and Lab Costs share this one date so a
+// job's own revenue and lab cost (real or estimated) always land in the
+// same week/month bucket, making margin easy to eyeball per period. The
+// job's own date (when the work actually happened) leads — a job sampled
+// last week but not invoiced to the customer until this week counts as
+// last week's, for both cards. invoice_sent_at/paid_date are only
+// fallbacks for the rare job missing both confirmed_date and
 // requested_date.
-function labCostDateFor(job: JobWithCustomer): string | null {
-  return job.confirmed_date ?? job.requested_date ?? billingDateFor(job);
+//
+// (Earlier version of this used invoice_sent_at first instead — per
+// Tim, 2026-08-30: "some jobs get sampled Thursday or Friday but might
+// not get billed until the next week... we need to decide a specific
+// system on where jobs are getting placed historically." Revisited and
+// replaced, 2026-09-04, once Lab Costs made the mismatch between "when
+// the work happened" and "when it was billed" visible.)
+function billingDateFor(job: JobWithCustomer): string | null {
+  return job.confirmed_date ?? job.requested_date ?? (job.invoice_sent_at ? ymd(new Date(job.invoice_sent_at)) : job.paid_date) ?? null;
 }
 
 // Per-type counts are the modern source; sample_count is only a fallback
@@ -515,8 +508,8 @@ export default function BillingView() {
   // and gross for weeks and months over time": a plain, non-interactive
   // table of the last few weeks and last few months — not the browsable
   // grouped view he'd already had removed once for being too much.
-  // Bucketed by billingDateFor (see its own comment for why that's
-  // invoice_sent_at, not the sampling date).
+  // Bucketed by billingDateFor (see its own comment — the job's own
+  // date, shared with Lab Costs below).
   //
   // Per Tim, 2026-08-30 (follow-up) — "I don't want the weekly and
   // monthly at the top to get too crowded": capped at 4 rows each
@@ -591,45 +584,31 @@ export default function BillingView() {
     }).filter((b) => b.key >= COMPANY_START_DATE.slice(0, 7));
 
     for (const job of invoicedJobs) {
-      // Revenue buckets by invoice date (billingDateFor); lab cost buckets
-      // by job date (labCostDateFor) — deliberately different dates, so a
-      // job sampled last week but invoiced to the customer this week
-      // shows its revenue under this week and its lab cost under last
-      // week. See labCostDateFor's own comment for why.
-      const revenueDate = billingDateFor(job);
-      const laborDate = labCostDateFor(job);
+      const bucketDate = billingDateFor(job);
+      if (!bucketDate) continue;
+      const grossCents = job.invoice_total_cents ?? 0;
       const labCostCents = job.lab_cost_cents ?? 0;
+      const netCents = computeMarginCents(grossCents, labCostCents, job.stripe_fee_cents ?? 0);
       // Only estimate for a job with no real lab invoice yet — once the
       // real one comes in, labCostCents above already has it and this
       // stays 0 so it's never added on top of the real figure.
       const estimatedCents = job.lab_cost_cents == null ? totalSampleCount(job) * avgLabCostPerSampleCents : 0;
 
-      if (revenueDate) {
-        const grossCents = job.invoice_total_cents ?? 0;
-        const netCents = computeMarginCents(grossCents, labCostCents, job.stripe_fee_cents ?? 0);
-        const w = weekly.find((b) => revenueDate >= b.startStr && revenueDate <= b.endStr);
-        if (w) {
-          w.grossCents += grossCents;
-          w.netCents += netCents;
-        }
-        const m = monthly.find((b) => b.key === revenueDate.slice(0, 7));
-        if (m) {
-          m.grossCents += grossCents;
-          m.netCents += netCents;
-        }
+      const w = weekly.find((b) => bucketDate >= b.startStr && bucketDate <= b.endStr);
+      if (w) {
+        w.grossCents += grossCents;
+        w.netCents += netCents;
+        w.labCostCents += labCostCents;
+        w.estimatedLabCostCents += estimatedCents;
       }
 
-      if (laborDate) {
-        const w = weekly.find((b) => laborDate >= b.startStr && laborDate <= b.endStr);
-        if (w) {
-          w.labCostCents += labCostCents;
-          w.estimatedLabCostCents += estimatedCents;
-        }
-        const m = monthly.find((b) => b.key === laborDate.slice(0, 7));
-        if (m) {
-          m.labCostCents += labCostCents;
-          m.estimatedLabCostCents += estimatedCents;
-        }
+      const monthKey = bucketDate.slice(0, 7);
+      const m = monthly.find((b) => b.key === monthKey);
+      if (m) {
+        m.grossCents += grossCents;
+        m.netCents += netCents;
+        m.labCostCents += labCostCents;
+        m.estimatedLabCostCents += estimatedCents;
       }
     }
 

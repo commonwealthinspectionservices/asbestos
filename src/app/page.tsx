@@ -199,9 +199,18 @@ export default function HomePage() {
         </section>
       )}
 
-      <div className="mx-auto flex max-w-4xl justify-start px-4 pt-10">
+      <div className="mx-auto flex max-w-4xl flex-col items-center gap-4 px-4 pt-10 text-center sm:flex-row sm:items-center sm:justify-between sm:text-right">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/marketing/icon-inspector-ppe.png" alt="" className="h-40 w-auto" />
+        <div className="sm:max-w-xs">
+          <p className="font-bold text-brand-700">Interested in fieldwork?</p>
+          <p className="mt-1 text-sm text-slate-600">
+            We&apos;re building a talent pool for on-site inspection work.
+          </p>
+          <Link href="/careers" className="mt-2 inline-block text-sm font-bold text-brand-600 hover:underline">
+            Join Our Talent Pool →
+          </Link>
+        </div>
       </div>
 
       <MarketingFooter />

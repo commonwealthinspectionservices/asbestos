@@ -2,27 +2,71 @@
 
 import { useState } from "react";
 
+const MAX_RESUME_BYTES = 8 * 1024 * 1024; // 8MB
+
+function readFileAsBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      // Strip the "data:<mime>;base64," prefix — server just needs the raw base64.
+      resolve(result.split(",")[1] ?? "");
+    };
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function CareerInterestForm() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [location, setLocation] = useState("");
   const [isFirefighter, setIsFirefighter] = useState(false);
   const [firefighterDepartment, setFirefighterDepartment] = useState("");
   const [availabilityNotes, setAvailabilityNotes] = useState("");
+  const [extraNotes, setExtraNotes] = useState("");
+  const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [website, setWebsite] = useState(""); // honeypot
   const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  function handleResumeChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0] ?? null;
+    if (file && file.size > MAX_RESUME_BYTES) {
+      setError("That resume is too large (8MB max) — try a smaller file.");
+      e.target.value = "";
+      setResumeFile(null);
+      return;
+    }
+    setError(null);
+    setResumeFile(file);
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
     setError(null);
     try {
+      const resume = resumeFile
+        ? { resumeFilename: resumeFile.name, resumeBase64: await readFileAsBase64(resumeFile) }
+        : {};
       const res = await fetch("/api/careers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, phone, isFirefighter, firefighterDepartment, availabilityNotes, website }),
+        body: JSON.stringify({
+          name,
+          email,
+          phone,
+          location,
+          isFirefighter,
+          firefighterDepartment,
+          availabilityNotes,
+          extraNotes,
+          website,
+          ...resume,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to send your info");
@@ -94,6 +138,15 @@ export default function CareerInterestForm() {
         </div>
       </div>
 
+      <label className="mt-3 block text-sm font-medium text-slate-700">Where are you based?</label>
+      <p className="mt-0.5 text-xs text-slate-500">City/town is fine — helps us figure out what&apos;s actually reachable for you.</p>
+      <input
+        autoComplete="address-level2"
+        className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+        value={location}
+        onChange={(e) => setLocation(e.target.value)}
+      />
+
       <label className="mt-4 flex items-center gap-2 text-sm font-medium text-slate-700">
         <input
           type="checkbox"
@@ -116,7 +169,7 @@ export default function CareerInterestForm() {
       )}
 
       <label className="mt-3 block text-sm font-medium text-slate-700">
-        Tell me about your schedule / availability
+        Tell us about your schedule / availability
       </label>
       <p className="mt-0.5 text-xs text-slate-500">
         Shift rotation, days off, how much time you&apos;d realistically have — whatever&apos;s
@@ -127,6 +180,23 @@ export default function CareerInterestForm() {
         className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
         value={availabilityNotes}
         onChange={(e) => setAvailabilityNotes(e.target.value)}
+      />
+
+      <label className="mt-3 block text-sm font-medium text-slate-700">Resume (optional)</label>
+      <p className="mt-0.5 text-xs text-slate-500">Not required — attach one if you have it handy.</p>
+      <input
+        type="file"
+        accept=".pdf,.doc,.docx"
+        onChange={handleResumeChange}
+        className="mt-1 w-full text-sm text-slate-700 file:mr-3 file:rounded-lg file:border file:border-slate-300 file:bg-white file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-slate-700"
+      />
+
+      <label className="mt-3 block text-sm font-medium text-slate-700">Anything else you want to mention?</label>
+      <textarea
+        rows={3}
+        className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+        value={extraNotes}
+        onChange={(e) => setExtraNotes(e.target.value)}
       />
 
       <button

@@ -35,6 +35,7 @@ export async function sendEmail(opts: {
   // — e.g. a self-assigned Message-ID, or In-Reply-To/References linking
   // this email to an earlier one in the same job's thread.
   headers?: Record<string, string>;
+  attachments?: { filename: string; content: Buffer }[];
 }): Promise<boolean> {
   try {
     const resend = getResend();
@@ -45,6 +46,7 @@ export async function sendEmail(opts: {
       html: opts.html,
       ...(opts.bcc ? { bcc: opts.bcc } : {}),
       ...(opts.headers ? { headers: opts.headers } : {}),
+      ...(opts.attachments ? { attachments: opts.attachments } : {}),
     });
     if (error) {
       console.error("Resend send failed:", error);

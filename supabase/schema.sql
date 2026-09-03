@@ -1064,19 +1064,24 @@ alter table jobs add column if not exists subcontractor_client_contact_email tex
 -- never "".
 alter table customers alter column email drop not null;
 
--- Per Tim, 2026-09-04 — the public /careers interest form, aimed at
--- off-duty firefighters. Same "internal-only owner notification, no
--- auto-reply, admin follows up manually" pattern as api/contact/route.ts
--- — no admin UI for this table yet (Tim reviews via the notification
--- email), same minimal-first approach as that form.
+-- Per Tim, 2026-09-04 — the public /careers "talent pool" interest form,
+-- aimed particularly at firefighters. Same "internal-only owner
+-- notification, no auto-reply, admin follows up manually" pattern as
+-- api/contact/route.ts — no admin UI for this table yet (Tim reviews via
+-- the notification email), same minimal-first approach as that form. The
+-- resume itself is only ever attached to the notification email, never
+-- stored, so only its filename is kept here for reference.
 create table if not exists career_interest_submissions (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   email text not null,
   phone text not null,
+  location text,
   is_firefighter boolean not null default false,
   firefighter_department text,
   availability_notes text,
+  extra_notes text,
+  resume_filename text,
   created_at timestamptz not null default now()
 );
 alter table career_interest_submissions enable row level security;

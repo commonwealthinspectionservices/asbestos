@@ -4,8 +4,8 @@ import MarketingFooter from "@/components/marketing/MarketingFooter";
 import CareerInterestForm from "@/components/marketing/CareerInterestForm";
 
 export const metadata: Metadata = {
-  title: "Careers | Commonwealth Inspection Services, LLC.",
-  description: "Interested in working with Commonwealth Inspection Services? Learn what asbestos, mold, lead, and moisture inspections actually involve and let us know you're interested.",
+  title: "Join Our Talent Pool | Commonwealth Inspection Services, LLC.",
+  description: "Interested in fieldwork with Commonwealth Inspection Services? Learn what asbestos and mold inspections actually involve, what a day in the field looks like, and let us know you're interested.",
 };
 
 export default function CareersPage() {
@@ -13,21 +13,20 @@ export default function CareersPage() {
     <div className="min-h-screen bg-white">
       <MarketingNav />
       <div className="mx-auto max-w-2xl px-4 py-10">
-        <h1 className="text-2xl font-bold uppercase text-brand-700">Work With Us</h1>
+        <h1 className="text-2xl font-bold uppercase text-brand-700">Join Our Talent Pool</h1>
         <p className="mt-3 text-slate-700">
           Commonwealth Inspection Services is a Massachusetts-based independent testing
-          company — asbestos, mold, and lead paint inspections, plus moisture mapping. We
-          test materials and report what&apos;s actually there; we don&apos;t sell removal or
-          repair work, so there&apos;s never a conflict of interest in what we find.
+          company — asbestos and mold inspections, plus moisture mapping.
         </p>
         <p className="mt-3 text-slate-700">
-          We&apos;re looking for people to help with fieldwork — on-site sample collection,
-          documentation, and getting samples to the lab. If you&apos;re a firefighter, this
-          kind of work tends to fit well: you&apos;re already comfortable in occupied
-          buildings, moving carefully around a work site, and following a strict procedure
-          exactly — which is most of what this job actually is. Below is what each service
-          involves, so you know what you&apos;d actually be doing before you tell us
-          you&apos;re interested.
+          We&apos;re building a talent pool of people we can call on for fieldwork — on-site
+          sample collection, documentation, and getting samples to the lab. It&apos;s a
+          particularly good fit for firefighters: you&apos;re already comfortable working in
+          occupied buildings, moving carefully around an active site, and following a strict
+          procedure exactly — and it works well alongside a shift-based schedule, since jobs
+          are typically a few hours, scheduled ahead of time. Below is what each service
+          involves and what a typical day looks like, so you know what you&apos;d actually be
+          doing before you tell us you&apos;re interested.
         </p>
 
         <div className="mt-8 flex flex-col gap-4">
@@ -58,11 +57,32 @@ export default function CareersPage() {
               custody form (more on that below) before it goes to the lab, which tests it
               under a microscope for asbestos fibers.
             </p>
+            <p className="mt-2 text-slate-700">
+              This side of the work does require a license — asbestos inspection is
+              EPA-regulated. Getting there means a 3-day (24-hour) &ldquo;Asbestos
+              Inspector&rdquo; course — we use the{" "}
+              <a
+                href="https://ieetraining.com/CLASSES_at_the_Institute.php"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-brand-600 underline hover:text-brand-700"
+              >
+                Institute for Environmental Education (IEE)
+              </a>{" "}
+              in Wilmington, MA — covering building records review, visual inspection
+              procedures, bulk sampling protocols, PPE, and report writing, followed by a
+              short annual refresher to keep the credential current. We can talk through
+              timing and cost as part of getting you started.
+            </p>
           </div>
 
           <div className="rounded-lg border border-slate-200 p-4">
             <h3 className="font-bold text-brand-700">Mold Inspections</h3>
-            <p className="mt-1 text-slate-700">There are three ways we sample for mold, and a job might use one or all three:</p>
+            <p className="mt-1 text-slate-700">
+              No license required for this one in Massachusetts — it&apos;s a more
+              accessible starting point than asbestos.
+            </p>
+            <p className="mt-2 text-slate-700">There are three ways we sample for mold, and a job might use one or all three:</p>
             <ul className="mt-2 list-disc space-y-1 pl-5 text-slate-700">
               <li>
                 <strong>Air sampling</strong> — a pump draws air through a small cassette for
@@ -84,16 +104,13 @@ export default function CareersPage() {
               Same as asbestos — everything gets logged and shipped to the lab, which
               identifies and counts what&apos;s actually present under a microscope.
             </p>
-          </div>
-
-          <div className="rounded-lg border border-slate-200 p-4">
-            <h3 className="font-bold text-brand-700">Lead Paint Inspections</h3>
-            <p className="mt-1 text-slate-700">
-              For homes built before 1978, we take paint chip samples — cutting down through
-              all the layers of paint on a surface — from walls, trim, windows, or siding
-              that a renovation project is about to sand, scrape, or demolish. Samples are
-              logged and shipped to the lab the same way, which tests for total lead content.
-              This is usually part of a permitting process before work can start.
+            <p className="mt-2 text-slate-700">
+              A lot of this work is real, everyday homeowner situations — a basement floods,
+              a pipe bursts, or there&apos;s water/smoke damage after a fire, and mold shows
+              up in the aftermath. The final report isn&apos;t just paperwork: it&apos;s what
+              insurance companies require to process a claim, and often what the town
+              building department requires before repair or renovation work can move
+              forward.
             </p>
           </div>
 
@@ -106,6 +123,12 @@ export default function CareersPage() {
               with blue painter&apos;s tape and photograph it, room by room. It&apos;s a
               same-day, non-destructive way to document how far water damage has actually
               spread.
+            </p>
+            <p className="mt-2 text-slate-700">
+              This is usually the same kind of call as mold — a flooded basement or a burst
+              pipe — just earlier in the process, right after the water event. Same deal on
+              the report: it&apos;s what insurance and the building department end up
+              relying on.
             </p>
           </div>
 
@@ -132,9 +155,111 @@ export default function CareersPage() {
             </ol>
             <p className="mt-2 text-slate-700">
               The lab turns results around, we write up the report, and it goes out to the
-              client. That whole process — collection through report — is what a field
-              technician here is actually responsible for.
+              contractor, property manager, or homeowner who requested it. That whole
+              process — collection through report — is what a field technician here is
+              actually responsible for.
             </p>
+          </div>
+
+          <div className="rounded-lg border border-slate-200 p-4">
+            <h3 className="font-bold text-brand-700">What a Day in the Field Looks Like</h3>
+            <p className="mt-1 text-slate-700">
+              Jobs are scheduled ahead of time, usually a few hours each, so it fits around a
+              rotating schedule. A typical day might look like:
+            </p>
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-slate-700">
+              <li>
+                Arrive at the property, check in with the owner or contractor, and walk the
+                space to see what&apos;s actually there before touching anything.
+              </li>
+              <li>
+                Collect samples per the job&apos;s scope — cutting a small piece of material,
+                running an air pump, wiping a swab, or reading a moisture meter, depending on
+                the service.
+              </li>
+              <li>
+                Log everything on the chain of custody form as you go — field code, location,
+                time — not from memory afterward.
+              </li>
+              <li>
+                Bag, seal, and label each sample, then get it to the lab (or shipped) the same
+                day or next, along with the signed COC form.
+              </li>
+              <li>
+                Move on to the next site, or wrap for the day — no on-call nights, no
+                emergency response.
+              </li>
+            </ul>
+          </div>
+
+          <div className="rounded-lg border border-slate-200 p-4">
+            <h3 className="font-bold text-brand-700">Training &amp; Getting You Up to Speed</h3>
+            <p className="mt-1 text-slate-700">
+              You won&apos;t be dropped into a job cold. We&apos;ll put in real training time
+              on sampling technique, chain of custody, and how to move through a site — plus
+              walk through actual past reports together so you can see exactly what the
+              finished product looks like and what it takes to get there before you&apos;re
+              out on your own.
+            </p>
+          </div>
+
+          <div className="rounded-lg border border-slate-200 p-4">
+            <h3 className="font-bold text-brand-700">Useful Links</h3>
+            <p className="mt-1 text-slate-700">
+              Some background if you want to read more before you apply:
+            </p>
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-slate-700">
+              <li>
+                <a href="/services/asbestos" className="text-brand-600 underline hover:text-brand-700">
+                  Our Asbestos Inspection services
+                </a>
+              </li>
+              <li>
+                <a href="/services/mold" className="text-brand-600 underline hover:text-brand-700">
+                  Our Mold Inspection services
+                </a>
+              </li>
+              <li>
+                <a
+                  href="https://ieetraining.com/CLASSES_at_the_Institute.php"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-brand-600 underline hover:text-brand-700"
+                >
+                  IEE — Asbestos Inspector course (Wilmington, MA)
+                </a>
+              </li>
+              <li>
+                <a
+                  href="https://www.mass.gov/asbestos-safety-program"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-brand-600 underline hover:text-brand-700"
+                >
+                  Massachusetts Asbestos Safety Program (mass.gov)
+                </a>
+              </li>
+              <li>
+                <a
+                  href="https://www.osha.gov/asbestos/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-brand-600 underline hover:text-brand-700"
+                >
+                  OSHA — Asbestos overview
+                </a>
+              </li>
+              <li>
+                <a
+                  href="https://www.epa.gov/mold/learn-about-mold"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-brand-600 underline hover:text-brand-700"
+                >
+                  EPA — Learn About Mold
+                </a>
+              </li>
+            </ul>
           </div>
         </div>
 

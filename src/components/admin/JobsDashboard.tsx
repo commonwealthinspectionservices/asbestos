@@ -4217,16 +4217,6 @@ export function ProjectDetailDialog({
             every job (moisture-mapping ones included). */}
         {tab === "moisture_mapping" && isMoistureMappingJob && job.source !== "subcontractor" && (
           <div className="mt-4">
-            {(job.photos?.length ?? 0) > 0 && (
-              <a
-                href={`/api/admin/jobs/${job.id}/moisture-mapping-report?download`}
-                target="_blank"
-                rel="noreferrer"
-                className="mb-3 inline-block rounded-lg bg-brand-600 px-4 py-2 text-sm font-bold text-white"
-              >
-                Download Moisture Mapping Report
-              </a>
-            )}
             <JobPhotos
               photos={job.photos ?? []}
               uploadEndpoint={`/api/admin/jobs/${job.id}/photos`}
@@ -4235,6 +4225,18 @@ export function ProjectDetailDialog({
               editEndpointBase={`/api/admin/jobs/${job.id}/photos`}
               onChanged={onChanged}
               uploadButtonClassName="rounded-lg bg-brand-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+              headerExtra={
+                (job.photos?.length ?? 0) > 0 && (
+                  <a
+                    href={`/api/admin/jobs/${job.id}/moisture-mapping-report?download`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-block rounded-lg bg-brand-600 px-4 py-2 text-sm font-bold text-white"
+                  >
+                    Download Moisture Mapping Report
+                  </a>
+                )
+              }
             />
           </div>
         )}

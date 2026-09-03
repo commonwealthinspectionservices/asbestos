@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import type { JobPhoto } from "@/lib/types";
 
 // Shared between the admin dashboard and the client portal — a drag-and-
@@ -14,6 +14,7 @@ export default function JobPhotos({
   editEndpointBase,
   onChanged,
   uploadButtonClassName,
+  headerExtra,
 }: {
   photos: JobPhoto[];
   /** POST target for a new upload, e.g. /api/admin/jobs/{id}/photos */
@@ -29,6 +30,12 @@ export default function JobPhotos({
   editEndpointBase?: string;
   onChanged: () => void;
   uploadButtonClassName: string;
+  /** Per Tim, 2026-09-04 — "all these buttons should be on one line
+      straight across": room-editor mode only, rendered at the left of the
+      same row as "Choose photos"/"+ Add room" — the Moisture Mapping tab's
+      "Download Report" link lives here instead of sitting on its own line
+      above, via JobsDashboard.tsx. */
+  headerExtra?: ReactNode;
 }) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -221,7 +228,9 @@ export default function JobPhotos({
 
           return (
             <div className="mt-4">
-              <div className="mb-3 flex items-center justify-end gap-2">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <div>{headerExtra}</div>
+                <div className="flex items-center gap-2">
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   disabled={uploading}
@@ -267,6 +276,7 @@ export default function JobPhotos({
                     + Add room
                   </button>
                 )}
+                </div>
               </div>
 
               {photos.length === 0 ? (

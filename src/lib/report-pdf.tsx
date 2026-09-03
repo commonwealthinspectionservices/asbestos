@@ -1787,9 +1787,17 @@ function MoistureMappingReportDocument({
             />
           </View>
 
+          {/* Per Tim, 2026-09-04 (follow-up: "same with this line ... always
+              halfway between the lines above and below") — same treatment
+              as the closing paragraph below: its own group, so the
+              salutation gets an equal gap above (from the recipient block)
+              and below (from the intro paragraph) instead of sitting glued
+              to the paragraph with all the slack pushed above it. */}
           <View>
             <Text style={styles.salutation}>Dear <ValueOrBlank style={styles.salutation} value={knownCustomerName} inline />:</Text>
+          </View>
 
+          <View>
             <Text style={styles.paragraph}>
               {settings.business_name} performed this moisture mapping assessment at the address noted above using a
               Tramex Moisture Encounter ME5, a non-invasive, pinless moisture meter that electronically senses relative
@@ -1814,16 +1822,23 @@ function MoistureMappingReportDocument({
             </View>
           </View>
 
-          {/* Per Tim — the letter itself (through the signature) is the
-              cover page; photos start fresh on their own page after it. */}
+          {/* Per Tim, 2026-09-04 (follow-up: "make this line exactly
+              halfway between sincerely and the water damage line above
+              it") — its own group, separate from SignatureBlock below, so
+              the closing paragraph gets an equal-sized gap both above (from
+              the remarks section) and below (from "Sincerely,"), landing it
+              exactly centered in that space instead of sitting glued to the
+              signature with all the slack pushed above it. */}
           <View>
             <Text style={styles.paragraph}>
               Should you have any questions or need additional information, please contact {primaryInspector(settings).name}
               {settings.business_phone ? ` at ${settings.business_phone}` : ""}.
             </Text>
-
-            <SignatureBlock settings={settings} showLicense={false} />
           </View>
+
+          {/* Per Tim — the letter itself (through the signature) is the
+              cover page; photos start fresh on their own page after it. */}
+          <SignatureBlock settings={settings} showLicense={false} />
         </View>
 
         {/* Per Tim, 2026-09-04 (follow-up: "do a standard format of 4 per

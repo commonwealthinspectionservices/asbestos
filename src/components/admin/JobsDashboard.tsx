@@ -5001,6 +5001,13 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
   // typing anything) sticks instead of immediately reverting — typing
   // still checks it automatically either way.
   const [otherChecked, setOtherChecked] = useState(false);
+  // Per Tim, 2026-09-04 — Moisture Mapping got its own fixed checkbox
+  // instead of having to be typed into the "Other" box every time. Only
+  // shown while it isn't yet a real Settings service type (see
+  // hasConfiguredMoistureMapping below) — once Tim adds it there, it
+  // shows up as an ordinary checkbox in the grid like anything else and
+  // this fixed one steps aside rather than duplicating it.
+  const [moistureMappingChecked, setMoistureMappingChecked] = useState(false);
   const [scopeOfWork, setScopeOfWork] = useState("");
   const [startingStatus, setStartingStatus] = useState<"needs_scheduling" | "scheduled" | "pending_lab_results">("needs_scheduling");
   const [requestedDate, setRequestedDate] = useState("");
@@ -5206,7 +5213,7 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
           subcontractorClientContactEmail: endClientContactEmail.trim() || undefined,
           fliProjectNumber: fliProjectNumber.trim() || undefined,
           serviceTypeKeys: selectedServiceTypeKeys,
-          customServiceType: customServiceType.trim() || undefined,
+          customServiceType: [moistureMappingChecked ? "Moisture Mapping" : null, customServiceType.trim() || null].filter(Boolean).join(", ") || undefined,
           scopeOfWork: scopeOfWork.trim() || undefined,
           requestedDate: requestedDate || undefined,
           requestedTime: requestedTime || undefined,
@@ -5739,6 +5746,16 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
                 {s.label}
               </label>
             ))}
+            {!serviceTypes.some((s) => s.label === "Moisture Mapping") && (
+              <label className="flex items-center gap-1.5 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={moistureMappingChecked}
+                  onChange={(e) => setMoistureMappingChecked(e.target.checked)}
+                />
+                Moisture Mapping
+              </label>
+            )}
             <label className="flex items-center gap-1.5 text-sm text-slate-700">
               <input
                 type="checkbox"
@@ -6048,6 +6065,15 @@ export function EditProjectDialog({
   // typing anything) sticks instead of immediately reverting — typing
   // still checks it automatically either way.
   const [otherChecked, setOtherChecked] = useState(false);
+  // Per Tim, 2026-09-04 — Moisture Mapping got its own fixed checkbox
+  // instead of having to be typed into the "Other" box every time. Only
+  // shown while it isn't yet a real Settings service type (see
+  // hasConfiguredMoistureMapping below) — once Tim adds it there, it
+  // shows up as an ordinary checkbox in the grid like anything else and
+  // this fixed one steps aside rather than duplicating it. Initialized
+  // from job.service_type in the settings-load effect below, same as
+  // the other checkboxes.
+  const [moistureMappingChecked, setMoistureMappingChecked] = useState(false);
   // job.service_type can carry a legacy label that matches none of the
   // currently configured checkboxes (e.g. "Asbestos Inspection" predates the
   // more specific labels in Settings) — shown and edited via the "Other"
@@ -6139,7 +6165,13 @@ export function EditProjectDialog({
         // types plus free text — split it back into checkboxes + remainder.
         const parts = (job.service_type ?? "").split(",").map((p) => p.trim()).filter(Boolean);
         const matchedKeys = types.filter((t) => parts.includes(t.label)).map((t) => t.key);
-        const unmatched = parts.filter((p) => !types.some((t) => t.label === p));
+        const hasConfiguredMoistureMapping = types.some((t) => t.label === "Moisture Mapping");
+        // "Moisture Mapping" gets its own fixed checkbox (see state above)
+        // rather than falling into "Other" as an unmatched legacy label,
+        // unless it's already a real Settings type — then it's just an
+        // ordinary matched checkbox like anything else.
+        setMoistureMappingChecked(!hasConfiguredMoistureMapping && parts.includes("Moisture Mapping"));
+        const unmatched = parts.filter((p) => !types.some((t) => t.label === p) && !(p === "Moisture Mapping" && !hasConfiguredMoistureMapping));
         setSelectedServiceTypeKeys(matchedKeys);
         const legacyLabel = unmatched.join(", ");
         legacyServiceTypeRef.current = legacyLabel;
@@ -6195,7 +6227,7 @@ export function EditProjectDialog({
     try {
       const matchedLabels = serviceTypes.filter((t) => selectedServiceTypeKeys.includes(t.key)).map((t) => t.label);
       const customPart = customServiceType.trim() || legacyServiceTypeRef.current;
-      const serviceTypeLabel = [...matchedLabels, customPart].filter(Boolean).join(", ");
+      const serviceTypeLabel = [...matchedLabels, moistureMappingChecked ? "Moisture Mapping" : null, customPart].filter(Boolean).join(", ");
       const serviceAddress = buildBillingAddress({
         street: serviceStreet, unit: serviceUnit, city: serviceCity, state: serviceState, zip: serviceZip,
       });
@@ -6313,7 +6345,7 @@ export function EditProjectDialog({
     projectNumber, status, companyName, companyId, customerId, contactName, email, phone,
     reportEmailsList, invoiceEmailsList,
     serviceStreet, serviceUnit, serviceCity, serviceState, serviceZip,
-    siteContactName, siteContactPhone, endClientCompany, endClientStreet, endClientUnit, endClientCity, endClientState, endClientZip, endClientContactFirstName, endClientContactLastName, endClientContactPhone, endClientContactEmail, fliProjectNumber, selectedServiceTypeKeys, customServiceType, scopeOfWork,
+    siteContactName, siteContactPhone, endClientCompany, endClientStreet, endClientUnit, endClientCity, endClientState, endClientZip, endClientContactFirstName, endClientContactLastName, endClientContactPhone, endClientContactEmail, fliProjectNumber, selectedServiceTypeKeys, customServiceType, moistureMappingChecked, scopeOfWork,
     confirmedDate, confirmedTime, paidDate, dueDate, notes, paymentType, isRevisit,
   ]);
 
@@ -6548,6 +6580,16 @@ export function EditProjectDialog({
                 {s.label}
               </label>
             ))}
+            {!serviceTypes.some((s) => s.label === "Moisture Mapping") && (
+              <label className="flex items-center gap-1.5 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={moistureMappingChecked}
+                  onChange={(e) => setMoistureMappingChecked(e.target.checked)}
+                />
+                Moisture Mapping
+              </label>
+            )}
             <label className="flex items-center gap-1.5 text-sm text-slate-700">
               <input
                 type="checkbox"

@@ -138,6 +138,19 @@ export function defaultInvoiceLineItems(
     // job — one inspector, one title line, same as before this change.
     const hasMold = serviceTypeLabels.some((l) => l.toLowerCase().includes("mold"));
     const baseFeeTitle = hasAsbestos ? "Licensed Asbestos Inspector" : hasMold ? "Mold Inspector" : null;
+    // Per Tim, 2026-09-04 — Moisture Mapping riding along with a billable
+    // service (asbestos/mold/lead sampling that already carries its own
+    // base fee) is a free add-on: left out of the base fee's own bullet
+    // list here and given its own $0 line below instead, so it still shows
+    // up on the invoice without looking like it was charged twice. When
+    // it's the *only* service type on the job, it's priced normally (its
+    // own configured base fee, no title line) — the existing fallback
+    // below already does that with no special-casing needed.
+    const hasMoistureMapping = serviceTypeLabels.some((l) => l.toLowerCase().includes("moisture mapping"));
+    const bundledWithMoistureMapping = hasMoistureMapping && serviceTypeLabels.length > 1;
+    const bulletLabels = bundledWithMoistureMapping
+      ? serviceTypeLabels.filter((l) => !l.toLowerCase().includes("moisture mapping"))
+      : serviceTypeLabels;
     // Per Tim, 2026-08-27 — every service type gets its own line instead of
     // being comma-joined onto one (which, for a job with several labels,
     // wrapped mid-phrase in both the invoice PDF and the admin textarea),
@@ -152,14 +165,22 @@ export function defaultInvoiceLineItems(
       serviceTypeLabels.length === 0
         ? "Licensed Asbestos Inspector"
         : baseFeeTitle
-          ? [baseFeeTitle, ...serviceTypeLabels.map((l) => `• ${l}`)].join("\n")
-          : serviceTypeLabels.map((l) => `• ${l}`).join("\n");
+          ? [baseFeeTitle, ...bulletLabels.map((l) => `• ${l}`)].join("\n")
+          : bulletLabels.map((l) => `• ${l}`).join("\n");
     rows.push({
       description: baseFeeDescription,
       quantity: 1,
       billing_unit: "Base Fee",
       unit_cost_cents: baseFeeCents,
     });
+    if (bundledWithMoistureMapping) {
+      rows.push({
+        description: "Moisture Mapping",
+        quantity: 1,
+        billing_unit: "Included",
+        unit_cost_cents: 0,
+      });
+    }
   }
 
   // Per Tim, 2026-08-31 — FLI Environmental subcontract jobs: Commonwealth

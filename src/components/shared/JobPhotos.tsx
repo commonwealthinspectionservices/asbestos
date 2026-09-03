@@ -129,7 +129,7 @@ export default function JobPhotos({
         // gates that on the job actually having this service type) — every
         // other job keeps the plain bare-thumbnail grid below.
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
-          {photos.map((photo) => {
+          {photos.map((photo, index) => {
             const draft = drafts[photo.id];
             const room = draft?.room ?? photo.room ?? "";
             const caption = draft?.caption ?? photo.caption ?? "";
@@ -142,6 +142,9 @@ export default function JobPhotos({
                     alt={photo.file_name}
                     className="h-full w-full object-cover"
                   />
+                  <span className="absolute left-1 top-1 rounded bg-black/60 px-1.5 py-0.5 text-xs font-bold text-white">
+                    Photo {index + 1}
+                  </span>
                   {deleteEndpointBase && (
                     <button
                       onClick={() => deletePhoto(photo.id)}

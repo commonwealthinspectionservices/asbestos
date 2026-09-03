@@ -27,6 +27,14 @@ const moldBulk: ServiceType = {
   rush_fee_cents: 0,
 };
 
+const moistureMapping: ServiceType = {
+  key: "moisture_mapping",
+  label: "Moisture Mapping",
+  base_fee_cents: 35000,
+  per_sample_cents: 0,
+  rush_fee_cents: 0,
+};
+
 function baseJob(overrides: Partial<JobWithCustomer> = {}): JobWithCustomer {
   return {
     id: "job-1",
@@ -223,6 +231,49 @@ describe("defaultInvoiceLineItems", () => {
     expect(defaultInvoiceLineItems(job, [asbestosBulk, moldBulk], [])[0].description).toBe(
       "Licensed Asbestos Inspector\n• Limited Asbestos Inspection\n• Mold Bulk Sampling"
     );
+  });
+
+  // Per Tim, 2026-09-04 — Moisture Mapping as the only service on a job is
+  // priced and billed normally, just like any other standalone service.
+  it("prices a moisture-mapping-only job like any other single service", () => {
+    const job = baseJob({ service_type: "Moisture Mapping" });
+    const items = defaultInvoiceLineItems(job, [moistureMapping], []);
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      description: "• Moisture Mapping",
+      billing_unit: "Base Fee",
+      quantity: 1,
+      unit_cost_cents: 35000,
+    });
+  });
+
+  // Per Tim, 2026-09-04 — riding along with a billable service (asbestos,
+  // mold, lead), Moisture Mapping is a free add-on: no separate charge, but
+  // still shown as its own $0 line so it's visible on the invoice.
+  it("adds a $0 Moisture Mapping line, not a second base fee, when bundled with asbestos", () => {
+    const job = baseJob({ service_type: "Limited Asbestos Inspection, Moisture Mapping" });
+    const items = defaultInvoiceLineItems(job, [asbestosBulk, moistureMapping], []);
+    expect(items[0]).toMatchObject({
+      description: "Licensed Asbestos Inspector\n• Limited Asbestos Inspection",
+      billing_unit: "Base Fee",
+      unit_cost_cents: 45000,
+    });
+    expect(items[1]).toMatchObject({
+      description: "Moisture Mapping",
+      billing_unit: "Included",
+      quantity: 1,
+      unit_cost_cents: 0,
+    });
+  });
+
+  it("adds a $0 Moisture Mapping line when bundled with mold", () => {
+    const job = baseJob({ service_type: "Mold Bulk Sampling, Moisture Mapping" });
+    const items = defaultInvoiceLineItems(job, [moldBulk, moistureMapping], []);
+    expect(items[0]).toMatchObject({
+      description: "Mold Inspector\n• Mold Bulk Sampling",
+      billing_unit: "Base Fee",
+    });
+    expect(items[1]).toMatchObject({ description: "Moisture Mapping", unit_cost_cents: 0 });
   });
 
   it("falls back to the job's own sample_count/per_sample_cents when sample_counts is empty", () => {

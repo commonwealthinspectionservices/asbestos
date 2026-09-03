@@ -221,6 +221,7 @@ const styles = StyleSheet.create({
   roomHeading: { fontWeight: 700, marginTop: STANDARD_GAP, marginBottom: TIGHT_GAP, textDecoration: "underline", fontSize: 13 },
   photoBlock: { marginBottom: STANDARD_GAP + 6 },
   photoImage: { maxWidth: 380, maxHeight: 480, objectFit: "contain", marginBottom: TIGHT_GAP },
+  photoNumber: { fontWeight: 700, fontSize: 10, marginBottom: TIGHT_GAP },
   photoCaption: { fontSize: 10, color: "#444444", fontStyle: "italic" },
 });
 
@@ -1637,11 +1638,16 @@ function MoistureMappingReportDocument({
   const { knownCustomerName, dateText, billingStreet, billing, serviceStreet, service } =
     commonLetterFields(job, customer, settings, job.confirmed_date ?? job.requested_date);
 
+  // Numbered in upload order, before grouping, so "Photo 4" always means
+  // the same photo regardless of which room it's grouped under — Tim
+  // references these by number in his own notes/conversations with clients.
+  const numberedPhotos = photos.map((photo, i) => ({ ...photo, number: i + 1 }));
+
   // Groups appear in first-seen order, except MOISTURE_MAPPING_UNGROUPED_ROOM
   // (an untagged photo) always sorts last regardless of when it was
   // uploaded, so it never interrupts the named rooms.
-  const groups: { room: string; photos: MoistureMappingPhotoData[] }[] = [];
-  for (const photo of photos) {
+  const groups: { room: string; photos: (MoistureMappingPhotoData & { number: number })[] }[] = [];
+  for (const photo of numberedPhotos) {
     const room = photo.room?.trim() || MOISTURE_MAPPING_UNGROUPED_ROOM;
     let group = groups.find((g) => g.room === room);
     if (!group) {
@@ -1653,6 +1659,12 @@ function MoistureMappingReportDocument({
   groups.sort((a, b) =>
     a.room === MOISTURE_MAPPING_UNGROUPED_ROOM ? 1 : b.room === MOISTURE_MAPPING_UNGROUPED_ROOM ? -1 : 0
   );
+
+  const remarks = [
+    "Moisture readings reflect conditions at the specific locations tested at the time of this assessment only. Moisture conditions within a building can change over time, and additional testing may be warranted if conditions change or new evidence of water intrusion is observed.",
+    "This assessment is limited to identifying elevated moisture using a non-destructive moisture meter. No destructive testing, mold sampling, or laboratory analysis was performed as part of this scope of work.",
+    "The boundary marked with blue tape in each photograph represents the approximate extent of elevated moisture identified at the time of testing and should not be interpreted as a precise or permanent demarcation of water damage.",
+  ];
 
   return (
     <Document title={`Moisture Mapping Report — ${expandAddress(job.service_address)}`}>
@@ -1700,10 +1712,21 @@ function MoistureMappingReportDocument({
 
         <Text style={styles.paragraph}>
           {settings.business_name} performed a moisture mapping assessment at the address noted above using a
-          non-destructive moisture meter. Blue tape marks the mapped boundary of elevated moisture readings in each
-          photograph below; areas outside the taped boundary returned readings within the normal range for the
-          material tested.
+          non-destructive moisture meter to identify areas of elevated moisture within the materials tested. The
+          boundary of each elevated-moisture area identified was marked with blue tape at the time of the assessment
+          and photographed for reference; areas outside the taped boundary returned readings within the normal range
+          for the material tested. The numbered photographs below document each taped area.
         </Text>
+
+        <Text style={styles.sectionTitle}>Remarks and Limitations:</Text>
+        <View style={styles.listBlock}>
+          {remarks.map((text, i) => (
+            <View style={styles.listItem} key={i} wrap={false}>
+              <Text style={styles.listIndex}>{i + 1}.</Text>
+              <Text style={styles.listText}>{text}</Text>
+            </View>
+          ))}
+        </View>
 
         {groups.map((group) => (
           <View key={group.room}>
@@ -1713,12 +1736,14 @@ function MoistureMappingReportDocument({
               <Text style={styles.roomHeading}>{group.room}</Text>
               <View style={styles.photoBlock}>
                 <Image src={{ data: group.photos[0].buffer, format: group.photos[0].format }} style={styles.photoImage} />
+                <Text style={styles.photoNumber}>Photo {group.photos[0].number}</Text>
                 {group.photos[0].caption && <Text style={styles.photoCaption}>{group.photos[0].caption}</Text>}
               </View>
             </View>
-            {group.photos.slice(1).map((photo, i) => (
-              <View key={i} style={styles.photoBlock} wrap={false}>
+            {group.photos.slice(1).map((photo) => (
+              <View key={photo.number} style={styles.photoBlock} wrap={false}>
                 <Image src={{ data: photo.buffer, format: photo.format }} style={styles.photoImage} />
+                <Text style={styles.photoNumber}>Photo {photo.number}</Text>
                 {photo.caption && <Text style={styles.photoCaption}>{photo.caption}</Text>}
               </View>
             ))}

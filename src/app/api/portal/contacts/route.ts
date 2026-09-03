@@ -55,6 +55,22 @@ export const POST = withApiErrors(async (req: NextRequest) => {
     return NextResponse.json({ error: "Email is required" }, { status: 400 });
   }
 
+  // Per Tim, 2026-09-04 — a real "Adina Koch" row in the companies table,
+  // created by exactly this path: TeammatesSection is hidden for
+  // individuals client-side (see AccountForm's `!isIndividual` check), but
+  // that's UI-only gating and this route never checked is_individual
+  // itself, so anything reaching it anyway (client/server account-type
+  // flags can drift out of sync — session.accountType comes from Supabase
+  // Auth metadata, is_individual from the customers row, set in different
+  // places) would lazily provision a company named after the individual
+  // and merge their own name/company fields — the exact shape of that bug.
+  // "Add a contact" is a company-account concept (other people sharing
+  // that company's jobs/invoices); an individual has no company to add
+  // one to. Mirrors the admin invite route's own guard.
+  if (auth.customer.is_individual) {
+    return NextResponse.json({ error: "Individuals don't have contacts to add — that's a company account feature." }, { status: 400 });
+  }
+
   const supabase = getSupabaseAdmin();
 
   // Lazily provisions the company on the first contact ever added — most

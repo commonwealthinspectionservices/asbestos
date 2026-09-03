@@ -113,13 +113,6 @@ function billingDateFor(job: JobWithCustomer): string | null {
   return job.invoice_sent_at ? ymd(new Date(job.invoice_sent_at)) : null;
 }
 
-// netCents already includes the same lab cost estimate as Lab Costs above
-// (see the periodHistory loop) — null when there's no revenue yet to
-// divide by, rather than a misleading 0%.
-function marginPercentOf(bucket: { grossCents: number; netCents: number }): number | null {
-  return bucket.grossCents > 0 ? (bucket.netCents / bucket.grossCents) * 100 : null;
-}
-
 // Per-type counts are the modern source; sample_count is only a fallback
 // for jobs from before per-type tracking existed. Same pattern used for
 // pricing in invoice-defaults.ts.
@@ -287,22 +280,11 @@ function PeriodHistoryTable({
     label: string;
     grossCents: number;
     netCents: number;
-    /** Per Tim, 2026-09-04 — Weekly/Monthly Lab Costs only: true when
-        grossCents itself includes an estimate for a job the lab hasn't
-        invoiced yet (see avgLabCostPerSampleCents), so the dollar figure
-        reads as rough, not confirmed. Revenue's own grossCents is never
-        an estimate — real invoiced dollars — so this stays false there
-        even on a row whose margin % is estimated (see marginEstimated). */
+    /** Per Tim, 2026-09-04 — Weekly/Monthly Lab Costs: true when this row's
+        figure includes an estimate for a job the lab hasn't invoiced yet
+        (see avgLabCostPerSampleCents), so it reads as a rough number, not
+        a confirmed one. */
     estimated?: boolean;
-    /** Per Tim, 2026-09-04 — "add a margin % column to each week card":
-        (revenue - lab cost - Stripe fee) / revenue for that period, null
-        when there's no revenue to divide by. */
-    marginPercent?: number | null;
-    /** True when marginPercent's own lab-cost side includes an estimate —
-        independent of `estimated` above, since Revenue's dollar figure is
-        always real even when its margin % isn't (a still-unbilled job's
-        lab cost is a guess either way). */
-    marginEstimated?: boolean;
   }[];
   // Per Tim, 2026-09-02 — "I want to be able to break down jobs week by
   // week, month by month": clicking a row filters the job list below to
@@ -312,10 +294,10 @@ function PeriodHistoryTable({
   isSelected?: (label: string) => boolean;
   onSelectRow?: (label: string) => void;
 }) {
-  // Per Tim, 2026-09-02 — "take out the net number": no more a dollar
-  // "net $X" column — 2026-09-04 brought margin back as a % instead (see
-  // marginPercent), which reads at a glance without needing its own
-  // dollar figure to parse.
+  // Per Tim, 2026-09-02 — "take out the net number": just the gross
+  // dollar figure per period now, no more "net $X" second column. A
+  // 2-column grid (label / gross) still keeps the gross figures aligned
+  // down every row, same reasoning as the 3-column version this replaced.
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-3 text-sm">
       <div className="flex items-baseline gap-1.5">
@@ -326,7 +308,7 @@ function PeriodHistoryTable({
             comes up. */}
         <span className="text-xs italic text-slate-400">(by invoice date)</span>
       </div>
-      <div className="mt-2 grid grid-cols-[1fr_auto_auto] items-baseline gap-x-3 gap-y-1">
+      <div className="mt-2 grid grid-cols-[1fr_auto] items-baseline gap-x-3 gap-y-1">
         {rows.map((r) => {
           const selected = isSelected?.(r.label) ?? false;
           const content = (
@@ -343,9 +325,6 @@ function PeriodHistoryTable({
               <span className="whitespace-nowrap text-right text-slate-800">
                 {r.estimated && <span className="text-slate-400">≈ </span>}
                 {formatCents(r.grossCents)}
-              </span>
-              <span className={`whitespace-nowrap text-right text-xs ${r.marginPercent != null && r.marginPercent < 0 ? "text-red-600" : "text-slate-400"}`}>
-                {r.marginPercent != null ? <>{r.marginEstimated && "≈"}{Math.round(r.marginPercent)}%</> : "—"}
               </span>
             </>
           );
@@ -617,16 +596,11 @@ export default function BillingView() {
       if (!bucketDate) continue;
       const grossCents = job.invoice_total_cents ?? 0;
       const labCostCents = job.lab_cost_cents ?? 0;
+      const netCents = computeMarginCents(grossCents, labCostCents, job.stripe_fee_cents ?? 0);
       // Only estimate for a job with no real lab invoice yet — once the
       // real one comes in, labCostCents above already has it and this
       // stays 0 so it's never added on top of the real figure.
       const estimatedCents = job.lab_cost_cents == null ? totalSampleCount(job) * avgLabCostPerSampleCents : 0;
-      // Per Tim, 2026-09-04 — "add a margin % column": netCents (feeding
-      // that %) includes the same lab cost estimate Weekly/Monthly Lab
-      // Costs already shows, not just real dollars — otherwise a week
-      // full of still-unbilled jobs would show an inflated, misleading
-      // margin.
-      const netCents = computeMarginCents(grossCents, labCostCents + estimatedCents, job.stripe_fee_cents ?? 0);
 
       const w = weekly.find((b) => bucketDate >= b.startStr && bucketDate <= b.endStr);
       if (w) {
@@ -679,7 +653,7 @@ export default function BillingView() {
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <PeriodHistoryTable
           title="Weekly Revenue"
-          rows={periodHistory.weekly.map((w) => ({ ...w, marginPercent: marginPercentOf(w), marginEstimated: w.estimatedLabCostCents > 0 }))}
+          rows={periodHistory.weekly}
           isSelected={(label) => periodFilter?.type === "week" && periodFilter.label === label}
           onSelectRow={(label) => {
             setPeriodFilter((prev) => {
@@ -691,7 +665,7 @@ export default function BillingView() {
         />
         <PeriodHistoryTable
           title="Monthly Revenue"
-          rows={periodHistory.monthly.map((m) => ({ ...m, marginPercent: marginPercentOf(m), marginEstimated: m.estimatedLabCostCents > 0 }))}
+          rows={periodHistory.monthly}
           isSelected={(label) => periodFilter?.type === "month" && periodFilter.label === label}
           onSelectRow={(label) => {
             setPeriodFilter((prev) => {
@@ -731,8 +705,6 @@ export default function BillingView() {
             grossCents: w.labCostCents + w.estimatedLabCostCents,
             netCents: 0,
             estimated: w.estimatedLabCostCents > 0,
-            marginPercent: marginPercentOf(w),
-            marginEstimated: w.estimatedLabCostCents > 0,
           }))}
           isSelected={(label) => periodFilter?.type === "week" && periodFilter.label === label}
           onSelectRow={(label) => {
@@ -750,8 +722,6 @@ export default function BillingView() {
             grossCents: m.labCostCents + m.estimatedLabCostCents,
             netCents: 0,
             estimated: m.estimatedLabCostCents > 0,
-            marginPercent: marginPercentOf(m),
-            marginEstimated: m.estimatedLabCostCents > 0,
           }))}
           isSelected={(label) => periodFilter?.type === "month" && periodFilter.label === label}
           onSelectRow={(label) => {

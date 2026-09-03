@@ -208,6 +208,23 @@ describe("defaultInvoiceLineItems", () => {
     );
   });
 
+  // Per Tim, 2026-09-03 — a mold-only job's base fee used to just repeat
+  // the bare service-type label ("Mold Bulk Sampling") with no title line
+  // at all, unlike asbestos's "Licensed Asbestos Inspector" above.
+  it("leads a mold-only job's base fee with \"Mold Inspector\", not just the bare service type", () => {
+    const job = baseJob({ service_type: "Mold Bulk Sampling" });
+    expect(defaultInvoiceLineItems(job, [moldBulk], [])[0].description).toBe(
+      "Mold Inspector\n• Mold Bulk Sampling"
+    );
+  });
+
+  it("still leads with the asbestos title, not mold, on a mixed asbestos+mold job", () => {
+    const job = baseJob({ service_type: "Limited Asbestos Inspection, Mold Bulk Sampling" });
+    expect(defaultInvoiceLineItems(job, [asbestosBulk, moldBulk], [])[0].description).toBe(
+      "Licensed Asbestos Inspector\n• Limited Asbestos Inspection\n• Mold Bulk Sampling"
+    );
+  });
+
   it("falls back to the job's own sample_count/per_sample_cents when sample_counts is empty", () => {
     const job = baseJob({
       service_type: "Limited Asbestos Inspection",

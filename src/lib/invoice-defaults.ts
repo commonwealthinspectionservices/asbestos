@@ -130,6 +130,14 @@ export function defaultInvoiceLineItems(
   const serviceTypeLabels = (job.service_type ?? "").split(",").map((s) => s.trim()).filter(Boolean);
   if (baseFeeCents != null) {
     const hasAsbestos = serviceTypeLabels.some((l) => l.toLowerCase().includes("asbestos"));
+    // Per Tim, 2026-09-03 — a mold-only job's base fee line should lead
+    // with "Mold Inspector" the same way an asbestos job leads with
+    // "Licensed Asbestos Inspector" below, not just repeat the bare
+    // service-type label ("Mold Bulk Sampling") as if that were the
+    // inspector's own title. Asbestos still wins on a mixed asbestos+mold
+    // job — one inspector, one title line, same as before this change.
+    const hasMold = serviceTypeLabels.some((l) => l.toLowerCase().includes("mold"));
+    const baseFeeTitle = hasAsbestos ? "Licensed Asbestos Inspector" : hasMold ? "Mold Inspector" : null;
     // Per Tim, 2026-08-27 — every service type gets its own line instead of
     // being comma-joined onto one (which, for a job with several labels,
     // wrapped mid-phrase in both the invoice PDF and the admin textarea),
@@ -143,8 +151,8 @@ export function defaultInvoiceLineItems(
     const baseFeeDescription =
       serviceTypeLabels.length === 0
         ? "Licensed Asbestos Inspector"
-        : hasAsbestos
-          ? ["Licensed Asbestos Inspector", ...serviceTypeLabels.map((l) => `• ${l}`)].join("\n")
+        : baseFeeTitle
+          ? [baseFeeTitle, ...serviceTypeLabels.map((l) => `• ${l}`)].join("\n")
           : serviceTypeLabels.map((l) => `• ${l}`).join("\n");
     rows.push({
       description: baseFeeDescription,

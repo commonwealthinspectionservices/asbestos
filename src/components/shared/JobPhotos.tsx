@@ -38,6 +38,13 @@ export default function JobPhotos({
   // only reflects the last save) — keyed by photo id, seeded from the
   // photo's own current value the first time it's touched.
   const [drafts, setDrafts] = useState<Record<string, { room?: string; caption?: string }>>({});
+  // Room buckets a user has created via "+ Add room" but hasn't dragged a
+  // photo into yet — session-only, not persisted anywhere (nothing on the
+  // job stores an empty room list). Once a photo lands in one, the bucket
+  // also derives naturally from that photo's own room field, same as any
+  // other bucket.
+  const [pendingRooms, setPendingRooms] = useState<string[]>([]);
+  const [newRoomName, setNewRoomName] = useState("");
 
   async function savePhotoField(photoId: string, patch: { room?: string; caption?: string }) {
     if (!editEndpointBase) return;
@@ -123,60 +130,145 @@ export default function JobPhotos({
       {photos.length === 0 ? (
         <p className="mt-4 text-sm text-slate-500">No photos yet.</p>
       ) : editEndpointBase ? (
-        // Per Tim, 2026-09-03 — Moisture Mapping: Room groups photos into
-        // headings on the report, Note prints underneath each photo. Only
-        // ever rendered when editEndpointBase is passed in (JobsDashboard.tsx
-        // gates that on the job actually having this service type) — every
-        // other job keeps the plain bare-thumbnail grid below.
-        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
-          {photos.map((photo, index) => {
-            const draft = drafts[photo.id];
-            const room = draft?.room ?? photo.room ?? "";
-            const caption = draft?.caption ?? photo.caption ?? "";
-            return (
-              <div key={photo.id} className="group relative overflow-hidden rounded-lg border border-slate-200">
-                <div className="relative aspect-square">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={`${viewEndpointBase}/${photo.id}`}
-                    alt={photo.file_name}
-                    className="h-full w-full object-cover"
-                  />
-                  <span className="absolute left-1 top-1 rounded bg-black/60 px-1.5 py-0.5 text-xs font-bold text-white">
-                    Photo {index + 1}
-                  </span>
-                  {deleteEndpointBase && (
-                    <button
-                      onClick={() => deletePhoto(photo.id)}
-                      className="absolute right-1 top-1 hidden rounded-full bg-black/60 px-1.5 py-0.5 text-xs font-bold text-white group-hover:block"
-                      aria-label="Delete photo"
-                    >
-                      ✕
-                    </button>
-                  )}
-                </div>
-                <div className="space-y-1 p-1.5">
+        // Per Tim, 2026-09-03/2026-09-04 — Moisture Mapping: drag each photo
+        // into the room bucket it belongs to (report-pdf.tsx groups photos
+        // under these as headings); an "Unassigned" bucket holds anything
+        // not yet sorted. Only ever rendered when editEndpointBase is passed
+        // in (JobsDashboard.tsx gates that on the job actually having this
+        // service type) — every other job keeps the plain bare-thumbnail
+        // grid below.
+        (() => {
+          const UNASSIGNED = "Unassigned";
+          const roomOf = (photo: JobPhoto) => (drafts[photo.id]?.room ?? photo.room ?? "").trim();
+          const roomsFromPhotos: string[] = [];
+          for (const photo of photos) {
+            const room = roomOf(photo);
+            if (room && !roomsFromPhotos.includes(room)) roomsFromPhotos.push(room);
+          }
+          const rooms = [...roomsFromPhotos, ...pendingRooms.filter((r) => !roomsFromPhotos.includes(r))];
+          const bucketNames = [UNASSIGNED, ...rooms];
+
+          function movePhotoToRoom(photoId: string, room: string) {
+            const value = room === UNASSIGNED ? "" : room;
+            setDrafts((d) => ({ ...d, [photoId]: { ...d[photoId], room: value } }));
+            savePhotoField(photoId, { room: value });
+          }
+
+          function addPendingRoom() {
+            const name = newRoomName.trim();
+            if (!name || bucketNames.includes(name)) return;
+            setPendingRooms((r) => [...r, name]);
+            setNewRoomName("");
+          }
+
+          return (
+            <div className="mt-4 flex flex-wrap gap-3">
+              {bucketNames.map((bucket) => {
+                const bucketPhotos = photos.filter((photo) => (bucket === UNASSIGNED ? !roomOf(photo) : roomOf(photo) === bucket));
+                const isRemovablePending = bucket !== UNASSIGNED && bucketPhotos.length === 0 && pendingRooms.includes(bucket);
+                return (
+                  <div
+                    key={bucket}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const photoId = e.dataTransfer.getData("text/plain");
+                      if (photoId) movePhotoToRoom(photoId, bucket);
+                    }}
+                    className="w-full flex-shrink-0 rounded-lg border border-slate-200 bg-slate-50 p-2 sm:w-56"
+                  >
+                    <div className="mb-2 flex items-center justify-between">
+                      <h4 className="text-sm font-bold text-slate-700">{bucket}</h4>
+                      {isRemovablePending && (
+                        <button
+                          onClick={() => setPendingRooms((r) => r.filter((x) => x !== bucket))}
+                          className="text-xs text-slate-400 hover:text-red-500"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                    {bucketPhotos.length === 0 && (
+                      <p className="text-xs text-slate-400">Drag photos here</p>
+                    )}
+                    <div className="space-y-2">
+                      {bucketPhotos.map((photo) => {
+                        const number = photos.findIndex((p) => p.id === photo.id) + 1;
+                        const caption = drafts[photo.id]?.caption ?? photo.caption ?? "";
+                        return (
+                          <div
+                            key={photo.id}
+                            draggable
+                            onDragStart={(e) => e.dataTransfer.setData("text/plain", photo.id)}
+                            className="group cursor-move rounded-lg border border-slate-200 bg-white p-1.5"
+                          >
+                            <div className="relative aspect-square">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={`${viewEndpointBase}/${photo.id}`}
+                                alt={photo.file_name}
+                                className="h-full w-full rounded object-cover"
+                              />
+                              <span className="absolute left-1 top-1 rounded bg-black/60 px-1.5 py-0.5 text-xs font-bold text-white">
+                                Photo {number}
+                              </span>
+                              {deleteEndpointBase && (
+                                <button
+                                  onClick={() => deletePhoto(photo.id)}
+                                  className="absolute right-1 top-1 hidden rounded-full bg-black/60 px-1.5 py-0.5 text-xs font-bold text-white group-hover:block"
+                                  aria-label="Delete photo"
+                                >
+                                  ✕
+                                </button>
+                              )}
+                            </div>
+                            <textarea
+                              placeholder="Note"
+                              value={caption}
+                              rows={2}
+                              onChange={(e) => setDrafts((d) => ({ ...d, [photo.id]: { ...d[photo.id], caption: e.target.value } }))}
+                              onBlur={(e) => savePhotoField(photo.id, { caption: e.target.value })}
+                              className="mt-1 w-full resize-none rounded border border-slate-300 px-1.5 py-1 text-xs"
+                            />
+                            {/* Select fallback for room reassignment — dragging is the
+                                primary interaction but doesn't work on touch devices,
+                                so this keeps sorting usable from a phone/tablet too. */}
+                            <select
+                              value={bucket}
+                              onChange={(e) => movePhotoToRoom(photo.id, e.target.value)}
+                              className="mt-1 w-full rounded border border-slate-300 px-1.5 py-1 text-xs"
+                            >
+                              {bucketNames.map((name) => (
+                                <option key={name} value={name}>{name}</option>
+                              ))}
+                            </select>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+
+              <div className="w-full flex-shrink-0 rounded-lg border border-dashed border-slate-300 p-2 sm:w-56">
+                <h4 className="mb-2 text-sm font-bold text-slate-500">Add room</h4>
+                <div className="flex gap-1">
                   <input
                     type="text"
-                    placeholder="Room / area"
-                    value={room}
-                    onChange={(e) => setDrafts((d) => ({ ...d, [photo.id]: { ...d[photo.id], room: e.target.value } }))}
-                    onBlur={(e) => savePhotoField(photo.id, { room: e.target.value })}
+                    placeholder="e.g. Kitchen"
+                    value={newRoomName}
+                    onChange={(e) => setNewRoomName(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && addPendingRoom()}
                     className="w-full rounded border border-slate-300 px-1.5 py-1 text-xs"
                   />
-                  <input
-                    type="text"
-                    placeholder="Note"
-                    value={caption}
-                    onChange={(e) => setDrafts((d) => ({ ...d, [photo.id]: { ...d[photo.id], caption: e.target.value } }))}
-                    onBlur={(e) => savePhotoField(photo.id, { caption: e.target.value })}
-                    className="w-full rounded border border-slate-300 px-1.5 py-1 text-xs"
-                  />
+                  <button onClick={addPendingRoom} className="rounded bg-slate-200 px-2 text-xs font-bold text-slate-700">
+                    Add
+                  </button>
                 </div>
               </div>
-            );
-          })}
-        </div>
+            </div>
+          );
+        })()
       ) : (
         <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-4">
           {photos.map((photo) => (

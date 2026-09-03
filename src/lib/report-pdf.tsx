@@ -77,6 +77,13 @@ const styles = StyleSheet.create({
   pageAsbestos: { fontSize: ASBESTOS_FONT_SIZE, paddingBottom: 26, lineHeight: 1.22 },
   // Full-inspection only — extra breathing room at the very top of the page.
   pageFullInspection: { paddingTop: 58 },
+  // Per Tim, 2026-09-04 — the default paddingTop above sat the logo/header
+  // too close to the top edge specifically on this report; bumped down for
+  // Moisture Mapping only, not touched on the other (already-approved)
+  // templates that share the default `page` style. Kept modest (not the
+  // 58 pageFullInspection uses) — page 1 also has to hold the full letter
+  // through the signature with only a few pt of margin to spare.
+  pageMoistureMapping: { paddingTop: 36 },
   header: { flexDirection: "row", alignItems: "center", marginBottom: 22, paddingBottom: 12, borderBottomWidth: 2, borderBottomColor: "#193466" },
   // Logo and email size to their own natural width; the phone number sits
   // centered in whatever's left between them via two equal flexGrow
@@ -219,13 +226,14 @@ const styles = StyleSheet.create({
   // photo's own orientation (objectFit: "contain" scales within the box
   // rather than stretching or cropping it).
   roomHeading: { fontWeight: 700, marginTop: STANDARD_GAP, marginBottom: TIGHT_GAP, textDecoration: "underline", fontSize: 13 },
-  // Photo left, its number + note right — each row sized to roughly half a
-  // page tall so two photos land per page instead of one, per Tim. Text
+  // Photo left, its number + note right — sized small enough that several
+  // pack onto one page (however many actually fit, via react-pdf's own
+  // pagination — not a hand-picked count) without feeling cramped. Text
   // column vertically centered against the photo's own height (alignItems:
   // "center" on the row), not pinned to its top.
-  photoRow: { flexDirection: "row", alignItems: "center", marginBottom: STANDARD_GAP + 14 },
-  photoImageCol: { width: 210, marginRight: 18 },
-  photoImage: { width: 210, height: 300, objectFit: "contain" },
+  photoRow: { flexDirection: "row", alignItems: "center", marginBottom: STANDARD_GAP + 6 },
+  photoImageCol: { width: 180, marginRight: 16 },
+  photoImage: { width: 180, height: 165, objectFit: "contain" },
   photoTextCol: { flex: 1 },
   photoNumber: { fontWeight: 700, fontSize: 10, marginBottom: TIGHT_GAP },
   photoCaption: { fontSize: 10, color: "#444444", fontStyle: "italic" },
@@ -1672,9 +1680,20 @@ function MoistureMappingReportDocument({
     "The boundary marked with blue tape in each photograph represents the approximate extent of elevated moisture identified at the time of testing and should not be interpreted as a precise or permanent demarcation of water damage.",
   ];
 
+  // Flattened across rooms (each entry still knows whether it's the first
+  // photo of a newly-starting room, so its own heading renders right above
+  // it) — per Tim, one page per room: a `break` forced only at each room's
+  // first photo, then its remaining photos pack in as densely as they
+  // naturally fit (react-pdf's own pagination, not a hand-picked count) —
+  // rare oversized room spills onto a second page rather than sharing a
+  // page with the next room.
+  const flatRows = groups.flatMap((group) =>
+    group.photos.map((photo, i) => ({ photo, roomLabel: i === 0 ? group.room : null, isFirstOfRoom: i === 0 }))
+  );
+
   return (
     <Document title={`Moisture Mapping Report — ${expandAddress(job.service_address)}`}>
-      <Page size="LETTER" style={styles.page}>
+      <Page size="LETTER" style={[styles.page, styles.pageMoistureMapping]}>
         <LetterHeader
           settings={settings}
           reTitle="Moisture Mapping Report"
@@ -1737,42 +1756,33 @@ function MoistureMappingReportDocument({
           ))}
         </View>
 
-        {groups.map((group) => (
-          <View key={group.room}>
-            {/* Heading glued to the first photo so it can't be orphaned alone at
-                a page bottom with its photo pushed to the next page. */}
-            <View wrap={false}>
-              <Text style={styles.roomHeading}>{group.room}</Text>
-              <View style={styles.photoRow}>
-                <View style={styles.photoImageCol}>
-                  <Image src={{ data: group.photos[0].buffer, format: group.photos[0].format }} style={styles.photoImage} />
-                </View>
-                <View style={styles.photoTextCol}>
-                  <Text style={styles.photoNumber}>Photo {group.photos[0].number}</Text>
-                  {group.photos[0].caption && <Text style={styles.photoCaption}>{group.photos[0].caption}</Text>}
-                </View>
-              </View>
-            </View>
-            {group.photos.slice(1).map((photo) => (
-              <View key={photo.number} style={styles.photoRow} wrap={false}>
-                <View style={styles.photoImageCol}>
-                  <Image src={{ data: photo.buffer, format: photo.format }} style={styles.photoImage} />
-                </View>
-                <View style={styles.photoTextCol}>
-                  <Text style={styles.photoNumber}>Photo {photo.number}</Text>
-                  {photo.caption && <Text style={styles.photoCaption}>{photo.caption}</Text>}
-                </View>
-              </View>
-            ))}
-          </View>
-        ))}
-
+        {/* Per Tim — the letter itself (through the signature) is the cover
+            page; photos start fresh on their own page after it. */}
         <Text style={styles.paragraph}>
           Should you have any questions or need additional information, please contact {primaryInspector(settings).name}
           {settings.business_phone ? ` at ${settings.business_phone}` : ""}.
         </Text>
 
         <SignatureBlock settings={settings} showLicense={false} />
+
+        {flatRows.map((row) => (
+          // break on a room's first photo starts that room on its own fresh
+          // page (this also covers pushing photos off the cover page, since
+          // the very first room's first photo is also "first of room").
+          // wrap={false} keeps a room heading glued to its own first photo.
+          <View key={row.photo.number} wrap={false} break={row.isFirstOfRoom}>
+            {row.roomLabel && <Text style={styles.roomHeading}>{row.roomLabel}</Text>}
+            <View style={styles.photoRow}>
+              <View style={styles.photoImageCol}>
+                <Image src={{ data: row.photo.buffer, format: row.photo.format }} style={styles.photoImage} />
+              </View>
+              <View style={styles.photoTextCol}>
+                <Text style={styles.photoNumber}>Photo {row.photo.number}</Text>
+                {row.photo.caption && <Text style={styles.photoCaption}>{row.photo.caption}</Text>}
+              </View>
+            </View>
+          </View>
+        ))}
       </Page>
     </Document>
   );

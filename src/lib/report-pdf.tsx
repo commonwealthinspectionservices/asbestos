@@ -1609,12 +1609,21 @@ function commonLetterFields(job: Job, customer: Customer, settings: Settings, sa
   // billing address and the job site address get the same treatment.
   // expandAddress on every piece — per Tim, no abbreviation ("St", "Dr",
   // "Rd", ...) anywhere on the system, always fully spelled out.
-  const billingRaw = splitAddress(customer.billing_address);
-  const billing = { ...billingRaw, cityStateZip: expandAddress(billingRaw.cityStateZip) };
-  const billingStreet = expandAddress(billingRaw.locationName ? `${billingRaw.locationName} ${billingRaw.street}` : billingRaw.street);
   const serviceRaw = splitAddress(job.service_address);
   const service = { ...serviceRaw, cityStateZip: expandAddress(serviceRaw.cityStateZip) };
   const serviceStreet = expandAddress(serviceRaw.locationName ? `${serviceRaw.locationName} ${serviceRaw.street}` : serviceRaw.street);
+
+  // Per Tim, 2026-09-04 — "make sure to include her address that we have
+  // as her billing address": an individual homeowner with no separate
+  // billing address on file is being billed at the property being
+  // serviced — that's the address we actually have for them, so it
+  // belongs in the recipient block instead of the letter just omitting an
+  // address line entirely. Never falls back for a company customer (its
+  // billing_address, if blank, should stay blank — a job site is
+  // frequently someone else's property, not the company's own address).
+  const billingRaw = !customer.billing_address && customer.is_individual ? serviceRaw : splitAddress(customer.billing_address);
+  const billing = { ...billingRaw, cityStateZip: expandAddress(billingRaw.cityStateZip) };
+  const billingStreet = expandAddress(billingRaw.locationName ? `${billingRaw.locationName} ${billingRaw.street}` : billingRaw.street);
 
   return { knownCustomerName, dateText, billingStreet, billing, serviceStreet, service };
 }
@@ -1734,6 +1743,13 @@ function MoistureMappingReportDocument({
             is long there's no leftover space to distribute and this is a
             no-op — it only ever expands existing gaps, never adds height,
             so it can't cause the letter to spill onto a second page. */}
+        {/* Per Tim, 2026-09-04 (follow-up: "make all of this evenly
+            spaced") — 4 groups instead of 3, so the leftover space splits
+            into 3 roughly-equal gaps spread across the page instead of 2
+            uneven ones. Salutation stays glued to its own paragraph (real
+            letters don't put daylight between "Dear X:" and what follows)
+            — the extra boundary is between the RE/recipient block and the
+            salutation instead. */}
         <View style={{ flexGrow: 1, flexDirection: "column", justifyContent: "space-between" }}>
           <View>
             <View style={styles.reBlock}>
@@ -1765,7 +1781,9 @@ function MoistureMappingReportDocument({
               billingStreet={billingStreet}
               billingCityStateZip={billing.cityStateZip}
             />
+          </View>
 
+          <View>
             <Text style={styles.salutation}>Dear <ValueOrBlank style={styles.salutation} value={knownCustomerName} inline />:</Text>
 
             <Text style={styles.paragraph}>

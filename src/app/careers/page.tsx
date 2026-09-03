@@ -3,9 +3,34 @@ import MarketingNav from "@/components/marketing/MarketingNav";
 import MarketingFooter from "@/components/marketing/MarketingFooter";
 import CareerInterestForm from "@/components/marketing/CareerInterestForm";
 
+const TITLE = "Join Our Talent Pool | Commonwealth Inspection Services, LLC.";
+const DESCRIPTION =
+  "Interested in fieldwork with Commonwealth Inspection Services? Learn what asbestos and mold inspections actually involve, what a day in the field looks like, and let us know you're interested.";
+
+// Root layout's own openGraph/twitter blocks don't merge FIELD BY FIELD
+// with this page's — Next replaces the whole nested object wholesale once
+// a route declares its own (confirmed live: declaring just title/
+// description here dropped the image/url/siteName entirely) — so
+// url/siteName/images/type/card need repeating here too, not just the
+// title/description this page actually wants to override.
 export const metadata: Metadata = {
-  title: "Join Our Talent Pool | Commonwealth Inspection Services, LLC.",
-  description: "Interested in fieldwork with Commonwealth Inspection Services? Learn what asbestos and mold inspections actually involve, what a day in the field looks like, and let us know you're interested.",
+  title: TITLE,
+  description: DESCRIPTION,
+  openGraph: {
+    title: TITLE,
+    description: DESCRIPTION,
+    url: "https://www.commonwealthinspectionservices.com/careers",
+    siteName: "Commonwealth Inspection Services, LLC.",
+    images: ["/logo.png"],
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary",
+    title: TITLE,
+    description: DESCRIPTION,
+    images: ["/logo.png"],
+  },
 };
 
 export default function CareersPage() {

@@ -18,6 +18,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/services/lead",
     "/mold-testing",
     "/realtors",
+    "/careers",
   ].map((path) => ({
     url: `${BASE_URL}${path}`,
     changeFrequency: "monthly" as const,

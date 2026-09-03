@@ -11,6 +11,11 @@ const SCHEMA = {
   url: "https://www.commonwealthinspectionservices.com",
   telephone: "+1-617-390-4778",
   email: "tim@commonwealthinspectionservices.com",
+  // Points search engines at the Google Business Profile listing — real
+  // local-SEO signal (helps tie this site to that listing's own reviews/
+  // map-pack presence). Link is Tim's own GBP share link, confirmed
+  // 2026-09-03.
+  sameAs: ["https://maps.app.goo.gl/3nKEpZnvNkvNJ2rYA"],
   areaServed: {
     "@type": "State",
     name: "Massachusetts",

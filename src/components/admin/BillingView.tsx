@@ -97,21 +97,20 @@ function invoiceStatus(job: JobWithCustomer): InvoiceStatus {
 // might not get billed until the next week... we need to decide a
 // specific system on where jobs are getting placed historically": the
 // week/month a job counts toward is the week/month its invoice actually
-// went out (invoice_sent_at), not the day it was sampled — a Friday job
-// invoiced the following Monday lands in the Monday week. Shared by
+// went out (invoice_sent_at), not the day it was sampled. Shared by
 // Revenue and Lab Costs (both real and estimated) so a job's own numbers
-// always land in the same bucket on both cards. paid_date/confirmed_date/
-// requested_date are only fallbacks for the rare job missing
-// invoice_sent_at.
+// always land in the same bucket on both cards.
 //
-// (Briefly switched to the job's own date first instead, 2026-09-04,
-// once Lab Costs made the "when the work happened" vs. "when it was
-// billed" gap visible — reverted the same day back to invoice date for
-// both, per Tim: "we need to just go back to going off of... based off
-// of when the job is invoiced.")
+// Per Tim, 2026-09-04 (follow-up) — "I just want the weekly revenue to
+// directly match [invoice date, no fallback dates]": a job with no
+// invoice_sent_at yet just doesn't count toward any week/month row
+// (still counted in All-Time, which doesn't bucket by date at all) —
+// no falling back to paid_date/confirmed_date/requested_date, which
+// could put a job in a different week than its own invoice actually
+// shows and make the weekly total impossible to verify by eye against
+// the job list below.
 function billingDateFor(job: JobWithCustomer): string | null {
-  if (job.invoice_sent_at) return ymd(new Date(job.invoice_sent_at));
-  return job.paid_date ?? job.confirmed_date ?? job.requested_date ?? null;
+  return job.invoice_sent_at ? ymd(new Date(job.invoice_sent_at)) : null;
 }
 
 // Per-type counts are the modern source; sample_count is only a fallback

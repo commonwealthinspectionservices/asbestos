@@ -171,8 +171,16 @@ export function extractWeeklySummaryTotalCents(pdfText: string): number | null {
 
 // The report's own printed billing period ("August 23-29, 2026") — sits on
 // its own line directly under the "Commonwealth Inspection Weekly Report"
-// heading, confirmed against a real example.
-const REPORT_DATE_RANGE_PATTERN = /Commonwealth Inspection Weekly Report\s*\n?\s*([A-Za-z]+\s+\d{1,2}\s*-\s*\d{1,2},\s*\d{4})/;
+// heading, confirmed against a real example. A period that crosses a month
+// boundary prints the second month's name too ("August 30-September 5,
+// 2026") — confirmed live 2026-09-03 against the first real report to span
+// one since the lab moved to daily invoicing: the day-count didn't change
+// (still a 7-day window each report), but daily emails make a
+// month-crossing window come up far more often than it did as a once-a-week
+// report, and the original digits-only day2 pattern silently failed to
+// match it, leaving report_date_range null on every transaction from that
+// report — the optional second month name group here fixes that.
+const REPORT_DATE_RANGE_PATTERN = /Commonwealth Inspection Weekly Report\s*\n?\s*([A-Za-z]+\s+\d{1,2}\s*-\s*(?:[A-Za-z]+\s+)?\d{1,2},\s*\d{4})/;
 
 export function extractWeeklySummaryDateRangeLabel(pdfText: string): string | null {
   const match = pdfText.match(REPORT_DATE_RANGE_PATTERN);

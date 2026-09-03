@@ -82,7 +82,6 @@ export default function CareerInterestForm() {
     return (
       <div className="rounded-lg border border-slate-200 p-4 text-center">
         <p className="font-bold text-brand-700">Thanks — you&apos;re on the list</p>
-        <p className="mt-1 text-slate-700">Tim will reach out to you directly to talk next steps.</p>
       </div>
     );
   }

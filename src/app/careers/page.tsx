@@ -206,7 +206,7 @@ export default function CareersPage() {
           <div className="rounded-lg border border-slate-200 p-4">
             <h3 className="font-bold text-brand-700">Useful Links</h3>
             <p className="mt-1 text-slate-700">
-              Some background if you want to read more before you apply:
+              Some background if you want to read more before you join:
             </p>
             <ul className="mt-2 list-disc space-y-1 pl-5 text-slate-700">
               <li>

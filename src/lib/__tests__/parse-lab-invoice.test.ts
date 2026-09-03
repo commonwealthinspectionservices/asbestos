@@ -363,6 +363,20 @@ describe("extractWeeklySummaryDateRangeLabel", () => {
   it("returns null for a document that isn't a weekly summary", () => {
     expect(extractWeeklySummaryDateRangeLabel(QUICKBOOKS_INVOICE)).toBeNull();
   });
+
+  // Real report text confirmed live 2026-09-03 — daily invoicing makes a
+  // period crossing a month boundary come up far more often than it did
+  // as a once-a-week report, and the original pattern silently returned
+  // null for one of these (recorded lab costs correctly, but with no
+  // report_date_range, breaking BillingView's grouping).
+  it("reads a billing period that crosses a month boundary", () => {
+    const monthCrossing = `Cash Basis  Thursday, September 03, 2026 05:00 PM GMT-04:00
+Crystal Analytical LLC
+Commonwealth Inspection Weekly Report
+August 30-September 5, 2026
+Transaction dateTransaction typeNum...`;
+    expect(extractWeeklySummaryDateRangeLabel(monthCrossing)).toBe("August 30-September 5, 2026");
+  });
 });
 
 describe("invoice PDFs still parse fine with the existing results-report helpers", () => {

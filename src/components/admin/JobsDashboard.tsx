@@ -1219,7 +1219,25 @@ function JobRow({
     job.status === "ready_to_send" || job.status === "report_invoice_sent"
     || (reportIsComplete(job) && job.invoice_total_cents != null)
   );
-  const invoiceStatus = showReportInvoice && (
+  // Per Tim, 2026-09-02 — a homeowner job's invoice can now be priced (and
+  // sent) before the report is anywhere near ready — see the Invoice tab's
+  // line-item editor and invoiceEarlyReady in ProjectDetailDialog. For
+  // these, an unsent invoice needs the same warning as showReportInvoice
+  // already gives once both are ready — it should be going out "as soon as
+  // sampling is done," not waiting on lab results. Report status stays out
+  // of it — the report genuinely isn't ready yet, flagging it here would
+  // be wrong. Company jobs don't hit this in the normal flow (their
+  // invoice is only ever priced once lab results land), so this stays
+  // scoped to individuals. Gated on invoice_auto === false (a real manual
+  // edit happened), not just invoice_total_cents != null — confirmed live
+  // 2026-09-02 that merely opening a job's Project Info tab silently
+  // prices+saves a base-fee-only invoice in the background (the Invoice
+  // tab's own line-item state/autosave effect runs regardless of which
+  // tab is active), which would otherwise false-positive this warning for
+  // every individual job the instant anyone opens it, samples or not.
+  const showInvoiceOnly = job.source !== "subcontractor" && job.is_individual && !showReportInvoice
+    && job.invoice_auto === false && job.invoice_line_items.length > 0;
+  const invoiceStatus = (showReportInvoice || showInvoiceOnly) && (
     <span className="flex shrink-0 items-center gap-1 text-sm text-slate-500">
       {job.invoice_sent_at ? `Invoice: Sent ${formatDateTime(job.invoice_sent_at)}` : "Invoice: Not sent"}
       {!job.invoice_sent_at && <HazardIcon />}
@@ -1512,6 +1530,11 @@ function JobRow({
                 {reportStatus}
               </div>
             )}
+            {showInvoiceOnly && (
+              <div className="mt-1 flex flex-col items-start sm:hidden">
+                {invoiceStatus}
+              </div>
+            )}
             <div className="hidden sm:block">
               <div className="truncate whitespace-nowrap text-sm text-slate-500">{street}</div>
               {cityStateZip && <div className="truncate whitespace-nowrap text-sm text-slate-500">{cityStateZip}</div>}
@@ -1728,6 +1751,15 @@ function JobRow({
                 <div className="hidden w-full flex-col items-end gap-0.5 text-sm text-slate-500 sm:flex">
                   {invoiceStatus}
                   {reportStatus}
+                </div>
+              )}
+              {/* Report's genuinely not ready yet here (unlike
+                  showReportInvoice above), so this doesn't replace the
+                  Scheduled/Completed date block below — still relevant info
+                  at this stage — just adds the invoice line above it. */}
+              {showInvoiceOnly && (
+                <div className="hidden w-full flex-col items-end gap-0.5 text-sm text-slate-500 sm:flex">
+                  {invoiceStatus}
                 </div>
               )}
               <div className={`w-full text-sm text-slate-500 sm:text-right ${showReportInvoice ? "hidden" : ""}`}>
@@ -2014,7 +2046,15 @@ export function ProjectDetailDialog({
   const invoiceOnlyDraft = useDraftTracking({
     kind: "invoice",
     createKind: "invoice",
-    active: draftControlActive,
+    // Per Tim, 2026-09-02 — a homeowner job can now be invoiced (and
+    // paid) before the report's anywhere near ready (see the Invoice
+    // tab's line-item editor), so this can't wait on reportComplete like
+    // draftControlActive above — invoice_total_cents alone is enough.
+    // Harmless for Boston Harbor's own use of this same hook: its invoice
+    // and report normally become ready at the same moment anyway (lab
+    // results landing), so this only ever activates it earlier, never
+    // incorrectly.
+    active: job.invoice_total_cents != null,
     jobId: job.id,
     draftedAt: job.invoice_drafted_at,
     sentAt: job.invoice_sent_at,
@@ -2598,6 +2638,25 @@ export function ProjectDetailDialog({
   // Simpler to just not render a report preview at all until every field
   // it needs is actually filled in, rather than showing a part-blank letter.
   const reportComplete = reportIsComplete(job);
+  // Per Tim, 2026-09-02 — a homeowner job's invoice can now go out before
+  // the report is anywhere near ready (hand-edit the line items on the
+  // Invoice tab, so payment clears before lab results even land — see
+  // lab-email.ts's processMatchedLabEmail). The header's normal draft
+  // control only ever shows once report+invoice are BOTH ready
+  // (draftControlActive above), which would hide the invoice draft button
+  // for exactly this case. This is the standalone fallback: invoice
+  // priced, report not there yet, individual-billed — company jobs don't
+  // hit this in the normal flow (their invoice is still only ever priced
+  // once lab results land), so this stays scoped to individuals rather
+  // than opening it up generally. Gated on invoice_auto === false (a real
+  // manual edit happened), not just invoice_total_cents != null —
+  // confirmed live that merely opening a job's Project Info tab silently
+  // prices+saves a base-fee-only invoice in the background regardless of
+  // which tab is active, which would otherwise auto-fire a real Gmail
+  // draft + Stripe invoice for a zero-sample invoice the instant any
+  // individual job's modal is opened at all.
+  const invoiceEarlyReady = job.source !== "subcontractor" && job.is_individual && !reportComplete
+    && job.invoice_auto === false && job.invoice_line_items.length > 0;
   // Per Tim — the report/invoice sent-status lines. Two renderings, not one
   // responsive one: on desktop an absolute overlay across from Job site
   // address (see the Project Info tab body below), on mobile a plain block
@@ -2672,6 +2731,19 @@ export function ProjectDetailDialog({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reportComplete, job.invoice_total_cents, job.invoice_draft_gmail_message_id, job.report_draft_gmail_message_id, isSeparateDraftsCompany]);
+  // Same auto-fire idea as the effect above, for invoiceEarlyReady's own
+  // standalone header button (see its own comment) — DraftLinkControl has
+  // no manual "create the first draft" click of its own (it only ever
+  // shows "Create Draft" for a *re*-draft, once messageId already exists —
+  // see its own `if (!messageId) return "Creating draft…"` fallback), so
+  // without this, that button would just sit stuck on that fallback text
+  // forever instead of ever actually creating anything.
+  useEffect(() => {
+    if (invoiceEarlyReady && !job.invoice_draft_gmail_message_id && !invoiceOnlyDraft.creating) {
+      invoiceOnlyDraft.createDraft();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [invoiceEarlyReady, job.invoice_draft_gmail_message_id]);
   // Same idea, one step earlier in the pipeline: once both are actually
   // ready, the status itself should already say so — only moves it forward
   // from one of the three earlier steps, never backward and never past
@@ -2744,7 +2816,7 @@ export function ProjectDetailDialog({
           // unaffected (sm:border-b always applies there — that button
           // sits inline in the tab row on desktop, not its own row).
           return (
-            <div className={`flex shrink-0 items-center gap-2 bg-white px-3 pt-3 pb-2 sm:gap-1 sm:border-b sm:border-slate-200 sm:px-5 sm:pt-5 sm:pb-1 ${job.source !== "subcontractor" && reportComplete && job.invoice_total_cents != null ? "" : "border-b border-slate-200"}`}>
+            <div className={`flex shrink-0 items-center gap-2 bg-white px-3 pt-3 pb-2 sm:gap-1 sm:border-b sm:border-slate-200 sm:px-5 sm:pt-5 sm:pb-1 ${(job.source !== "subcontractor" && reportComplete && job.invoice_total_cents != null) || invoiceEarlyReady ? "" : "border-b border-slate-200"}`}>
               {/* Mobile: a single dropdown instead of the tab row below —
                   the row wrapped/overflowed illegibly on a narrow screen
                   (e.g. "Photos" clipped to "PHOT"), and a select is much
@@ -2838,6 +2910,19 @@ export function ProjectDetailDialog({
                       sentAt={job.invoice_sent_at}
                     />
                   )}
+                </div>
+              )}
+              {/* Per Tim, 2026-09-02 — a homeowner job needs its own
+                  "Create Invoice Draft" reachable before the report's
+                  ready (see invoiceEarlyReady's own comment) — the normal
+                  control right above stays hidden until both are ready,
+                  so this is the standalone fallback for just the invoice
+                  half. Same DraftLinkControl the Boston Harbor "separate
+                  drafts" branch above already uses for its own invoice
+                  half — no new button component needed. */}
+              {invoiceEarlyReady && (
+                <div className="hidden shrink-0 items-center gap-3 sm:flex">
+                  <DraftLinkControl label="Invoice" hook={invoiceOnlyDraft} messageId={job.invoice_draft_gmail_message_id} draftedAt={job.invoice_drafted_at} sentAt={job.invoice_sent_at} />
                 </div>
               )}
               {/* p-2 -m-2 (mobile only) grows the tap target without

@@ -120,12 +120,23 @@ function marginPercentOf(bucket: { grossCents: number; netCents: number }): numb
   return bucket.grossCents > 0 ? (bucket.netCents / bucket.grossCents) * 100 : null;
 }
 
-// Per-type counts are the modern source; sample_count is only a fallback
-// for jobs from before per-type tracking existed. Same pattern used for
-// pricing in invoice-defaults.ts.
+// Per Tim, 2026-09-04 — "estimate a lab cost based off of the number of
+// samples I entered on the invoice": sample_counts only ever gets
+// populated by parsing an actual uploaded lab report, so a job still
+// waiting on results (like 26-0014 — 3 mold samples typed onto its
+// invoice by hand, no lab report yet) had no sample count to estimate
+// from at all. Falls back to summing the invoice's own "Sample"
+// line-item quantities — the real number the admin already entered when
+// building the invoice, not a new field to keep in sync. sample_counts
+// (from a real lab report) still wins whenever it exists; sample_count is
+// the older single-field fallback for jobs from before per-type tracking.
 function totalSampleCount(job: JobWithCustomer): number {
   const fromCounts = Object.values(job.sample_counts ?? {}).reduce((sum, n) => sum + (n || 0), 0);
-  return fromCounts > 0 ? fromCounts : job.sample_count ?? 0;
+  if (fromCounts > 0) return fromCounts;
+  if (job.sample_count) return job.sample_count;
+  return (job.invoice_line_items ?? [])
+    .filter((li) => li.billing_unit === "Sample")
+    .reduce((sum, li) => sum + (li.quantity || 0), 0);
 }
 
 // Per Tim, 2026-08-30 — "invoice and lab costs should be links to the
@@ -269,7 +280,14 @@ function MoneyGrid({
       )}
       <span className="text-left text-slate-400">Margin</span>
       <span className={`whitespace-nowrap text-right ${marginCents != null && marginCents < 0 ? "text-red-600" : "text-slate-700"}`}>
-        {marginCents != null ? formatCents(marginCents) : "—"}
+        {(() => {
+          if (marginCents != null) return formatCents(marginCents);
+          // Per Tim, 2026-09-04 — same estimate as Lab Cost above, carried
+          // through to Margin too rather than leaving it blank just
+          // because the real lab invoice hasn't come in yet.
+          if (estimatedLabCostCents) return <><span className="text-slate-400">≈ </span>{formatCents(revenueCents - estimatedLabCostCents - stripeFeeCents)}</>;
+          return "—";
+        })()}
       </span>
     </div>
   );

@@ -379,6 +379,29 @@ describe("defaultInvoiceLineItems", () => {
     expect(items.filter((i) => i.description.includes("Rush Fee"))).toHaveLength(1);
   });
 
+  // Per Tim, 2026-09-04 — Newton's 20% used to always land on top of the
+  // normal $25/sample rate even on an actual Rush job, since Newton was
+  // excluded from the standard flat rush rate entirely. Now a Rush Newton
+  // job gets the same $50/sample flat rate as everyone else, with the 20%
+  // still layered on top of that (not replacing it) — a non-Rush Newton
+  // job is unaffected, still normal rate + 20% (see the test above this
+  // one's sibling below).
+  it("charges $50/sample plus 20% on top for a Rush Newton Fire & Flood job", () => {
+    const job = baseJob({
+      service_type: "Limited Asbestos Inspection",
+      sample_counts: { "Limited Asbestos Inspection": 6 },
+      lab_turnaround: "Rush",
+      customers: newtonCustomer,
+    });
+    const items = defaultInvoiceLineItems(job, [asbestosBulk], []);
+
+    const sampleRow = items.find((i) => i.billing_unit === "Sample");
+    expect(sampleRow).toMatchObject({ unit_cost_cents: 5000, quantity: 6 });
+    expect(sampleRow?.description).toContain("(Rush)");
+    // Base fee 45000 + 6 * 5000 = 75000 subtotal -> 20% = 15000
+    expect(items.find((i) => i.description.includes("Rush Fee"))?.unit_cost_cents).toBe(15000);
+  });
+
   it("never invents a sample line when no sample data exists at all", () => {
     const job = baseJob({ service_type: "Limited Asbestos Inspection" });
     const items = defaultInvoiceLineItems(job, [asbestosBulk], []);
@@ -405,13 +428,14 @@ describe("defaultInvoiceLineItems", () => {
     });
   });
 
-  // Per Tim, 2026-09-02 (26-0015) — PuroClean of Wakefield's own rush
-  // arrangement: unlike every other company, their rush jobs price
-  // samples at the normal per-sample rate (not the $50/$100 flat rush
-  // rates above) and add Newton's same 20%-of-everything-else fee
-  // instead — but only when the job is actually marked Rush, unlike
-  // Newton's unconditional surcharge.
-  it("charges the standard per-sample rate plus a 20% rush fee for a Rush PuroClean of Wakefield job", () => {
+  // Per Tim, 2026-09-04 — PuroClean of Wakefield's old 20%-of-subtotal
+  // rush deal quietly undercharged on high-sample-count jobs (20% of the
+  // normal $25/sample rate falls behind the standard $50/sample rush rate
+  // past ~4-5 samples, and kept falling further behind as sample count
+  // grew — a real 30-sample job billed $510 less than standard rush
+  // pricing would have). Dropped entirely: PuroClean now prices exactly
+  // like any other rush customer, standard flat rush rate, no 20% fee.
+  it("charges the standard flat rush rate for a Rush PuroClean of Wakefield job, no 20% fee", () => {
     const job = baseJob({
       service_type: "Limited Asbestos Inspection",
       sample_counts: { "Limited Asbestos Inspection": 6 },
@@ -421,11 +445,9 @@ describe("defaultInvoiceLineItems", () => {
     const items = defaultInvoiceLineItems(job, [asbestosBulk], []);
 
     const sampleRow = items.find((i) => i.billing_unit === "Sample");
-    expect(sampleRow).toMatchObject({ unit_cost_cents: 2500, quantity: 6 });
-    expect(sampleRow?.description).not.toContain("(Rush)");
-    // Base fee 45000 + 6 * 2500 = 60000 subtotal -> 20% = 12000
-    expect(items.filter((i) => i.description.includes("Rush Fee"))).toHaveLength(1);
-    expect(items.find((i) => i.description.includes("Rush Fee"))?.unit_cost_cents).toBe(12000);
+    expect(sampleRow).toMatchObject({ unit_cost_cents: 5000, quantity: 6 });
+    expect(sampleRow?.description).toContain("(Rush)");
+    expect(items.some((i) => i.description.includes("Rush Fee"))).toBe(false);
   });
 
   it("charges the standard rate with no rush fee for a non-Rush PuroClean of Wakefield job", () => {

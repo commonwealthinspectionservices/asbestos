@@ -137,4 +137,12 @@ describe("invoiceDraftBodyHtml", () => {
     const html = invoiceDraftBodyHtml(job, settings, null);
     expect(html).toContain("the asbestos and mold inspection completed at");
   });
+
+  // Per Tim, 2026-09-03 — a review-link line under the signature on every
+  // invoice and report email.
+  it("includes the Google review link", () => {
+    const job = { service_address: "85 Child St, Boston, MA 02130", service_type: "Mold Bulk Sampling" } as Job;
+    const html = invoiceDraftBodyHtml(job, settings, null);
+    expect(html).toContain('<a href="https://g.page/r/CXrf5GqjFZJjECE/review">Leave a review</a>');
+  });
 });

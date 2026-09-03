@@ -109,6 +109,12 @@ function formatDateMMDDYYYY(date: string | null): string {
 // text match. Two lines side-steps that shape without dropping any info
 // the reader doesn't already have right above it.
 const SIGNATURE_LINES = ["Tim Hall", "Commonwealth Inspection Services"];
+// Per Tim, 2026-09-03 — a review-link line under the signature on every
+// report and invoice email (reportDraftBodyHtml, invoiceDraftBodyHtml,
+// combinedDraftBodyHtml below), not the payment-reminder note further
+// down — that one goes out before anything's actually been delivered,
+// so asking for a review there would be premature.
+const REVIEW_LINK_LINE = '<a href="https://g.page/r/CXrf5GqjFZJjECE/review">Leave a review</a>';
 
 // Per Tim, 2026-08-26 — replaces the old FLI-inherited template with his
 // own wording: domain-labeled ("final asbestos inspection report", not a
@@ -162,6 +168,8 @@ function reportDraftBodyHtml(job: Job, settings: Settings): string {
     `If you have any questions, call me at <span style="white-space:nowrap;">${escapeHtml(settings.business_phone)}</span>.`,
     "",
     ...SIGNATURE_LINES,
+    "",
+    REVIEW_LINK_LINE,
   ].join("<br>");
 }
 
@@ -200,6 +208,8 @@ export function invoiceDraftBodyHtml(job: Job, settings: Settings, payNowUrl: st
     `If you have any questions, please call me at <span style="white-space:nowrap;">${escapeHtml(settings.business_phone)}</span>`,
     "",
     ...SIGNATURE_LINES,
+    "",
+    REVIEW_LINK_LINE,
   ].join("<br>");
 }
 
@@ -244,6 +254,8 @@ function combinedDraftBodyHtml(job: Job, settings: Settings, totalCents: number,
     `Should you have any questions or need additional information, please contact me at <span style="white-space:nowrap;">${escapeHtml(settings.business_phone)}</span>.`,
     "",
     ...SIGNATURE_LINES,
+    "",
+    REVIEW_LINK_LINE,
   ].join("<br>");
 }
 

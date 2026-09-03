@@ -2657,6 +2657,27 @@ export function ProjectDetailDialog({
   // individual job's modal is opened at all.
   const invoiceEarlyReady = job.source !== "subcontractor" && job.is_individual && !reportComplete
     && job.invoice_auto === false && job.invoice_line_items.length > 0;
+  // Per Tim, 2026-09-02 — "maybe 3 buttons, one invoice, one report, one
+  // combined": the header used to show either Boston Harbor's two
+  // separate controls or everyone else's single "Create Draft" combined
+  // control, never both — but processMatchedLabEmail already drafts
+  // report and invoice as two independent Gmail drafts the moment lab
+  // results land, for every company, not just Boston Harbor. The single
+  // combined button was a third, different mechanism (createCombinedDraftForJob)
+  // that — if clicked on a job whose report/invoice were already drafted
+  // separately, e.g. 26-0015 with its report already sent — would delete
+  // the still-needed separate invoice draft and build a brand-new
+  // combined one that also re-attaches the already-sent report. Now all
+  // three are just independently offered whenever each one's own data is
+  // actually ready, so recreating one never has to touch the other.
+  const reportReady = job.source !== "subcontractor" && reportComplete;
+  const invoiceReady = job.source !== "subcontractor" && ((reportComplete && job.invoice_total_cents != null) || invoiceEarlyReady);
+  // Boston Harbor's report must never carry invoice/payment content (see
+  // isSeparateDraftsCompany's own history, further down) — a deliberate,
+  // stated compliance rule, not just a preference, so they're the one
+  // exception still withheld from the combined option everyone else now
+  // gets.
+  const combinedReady = reportReady && invoiceReady && job.customers?.company_id !== BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID;
   // Per Tim — the report/invoice sent-status lines. Two renderings, not one
   // responsive one: on desktop an absolute overlay across from Job site
   // address (see the Project Info tab body below), on mobile a plain block
@@ -2708,29 +2729,26 @@ export function ProjectDetailDialog({
   );
   // No manual "Create Draft" step — the moment both the report and invoice
   // are actually ready (and nothing's been drafted yet), fire it off on its
-  // own. combinedDraft.creating guards against double-firing while the
-  // request is in flight; once it lands, job.invoice_draft_gmail_message_id
-  // flips true via onChanged() and this condition goes false for good.
-  // Boston Harbor gets its own branch here — confirmed live 2026-08-26:
-  // this used to always call combinedDraft.createDraft() (kind=combined),
-  // which create-draft/route.ts's own Boston Harbor branch turns into
-  // creating BOTH the report and invoice regardless of which one was
-  // actually missing, so clicking "Create Report Draft" a moment later
-  // looked like it had also created the invoice — it hadn't; this effect
-  // had already done it, silently, before the click. Each half now
-  // auto-creates independently and only when that specific half is
-  // actually missing, matching what the two header buttons themselves do.
-  const isSeparateDraftsCompany = job.customers?.company_id === BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID;
+  // own. Each half auto-creates independently and only when that specific
+  // half is actually missing, matching what the two header buttons
+  // themselves do, and matching what processMatchedLabEmail (lab-email.ts)
+  // already does server-side the moment lab results land — this client
+  // effect is really just the catch-up path for whenever that didn't run
+  // (Gmail not connected yet, an admin-entered job that never went through
+  // email intake, etc.). Per Tim, 2026-09-02 — used to default to a single
+  // combined draft for every company except Boston Harbor; now that the
+  // header always offers Report/Invoice/Combined independently (see
+  // reportReady/invoiceReady/combinedReady above), auto-firing the combined
+  // one by default would silently create (and, on a later "Create Report
+  // Draft" click, delete/rebuild) a third draft nobody asked for — so this
+  // only ever auto-creates the two separate halves, for every company.
+  // Combined stays a deliberate manual choice, never automatic.
   useEffect(() => {
     if (!reportComplete || job.invoice_total_cents == null) return;
-    if (isSeparateDraftsCompany) {
-      if (!job.report_draft_gmail_message_id && !reportOnlyDraft.creating) reportOnlyDraft.createDraft();
-      if (!job.invoice_draft_gmail_message_id && !invoiceOnlyDraft.creating) invoiceOnlyDraft.createDraft();
-    } else if (!job.invoice_draft_gmail_message_id && !combinedDraft.creating) {
-      combinedDraft.createDraft();
-    }
+    if (!job.report_draft_gmail_message_id && !reportOnlyDraft.creating) reportOnlyDraft.createDraft();
+    if (!job.invoice_draft_gmail_message_id && !invoiceOnlyDraft.creating) invoiceOnlyDraft.createDraft();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reportComplete, job.invoice_total_cents, job.invoice_draft_gmail_message_id, job.report_draft_gmail_message_id, isSeparateDraftsCompany]);
+  }, [reportComplete, job.invoice_total_cents, job.invoice_draft_gmail_message_id, job.report_draft_gmail_message_id]);
   // Same auto-fire idea as the effect above, for invoiceEarlyReady's own
   // standalone header button (see its own comment) — DraftLinkControl has
   // no manual "create the first draft" click of its own (it only ever
@@ -2816,7 +2834,7 @@ export function ProjectDetailDialog({
           // unaffected (sm:border-b always applies there — that button
           // sits inline in the tab row on desktop, not its own row).
           return (
-            <div className={`flex shrink-0 items-center gap-2 bg-white px-3 pt-3 pb-2 sm:gap-1 sm:border-b sm:border-slate-200 sm:px-5 sm:pt-5 sm:pb-1 ${(job.source !== "subcontractor" && reportComplete && job.invoice_total_cents != null) || invoiceEarlyReady ? "" : "border-b border-slate-200"}`}>
+            <div className={`flex shrink-0 items-center gap-2 bg-white px-3 pt-3 pb-2 sm:gap-1 sm:border-b sm:border-slate-200 sm:px-5 sm:pt-5 sm:pb-1 ${reportReady || invoiceReady ? "" : "border-b border-slate-200"}`}>
               {/* Mobile: a single dropdown instead of the tab row below —
                   the row wrapped/overflowed illegibly on a narrow screen
                   (e.g. "Photos" clipped to "PHOT"), and a select is much
@@ -2890,39 +2908,23 @@ export function ProjectDetailDialog({
                   on mobile (see above) with no room to also fit this
                   inline, so mobile keeps the wrapped-row version below.
                   Same control either way — see its own comment there. */}
-              {job.source !== "subcontractor" && reportComplete && job.invoice_total_cents != null && (
+              {(reportReady || invoiceReady) && (
                 <div className="hidden shrink-0 items-center gap-3 sm:flex">
-                  {isSeparateDraftsCompany ? (
-                    <>
-                      <div className="flex items-center gap-2">
-                        <DraftLinkControl label="Asbestos Inspection Report" hook={reportOnlyDraft} messageId={job.report_draft_gmail_message_id} draftedAt={job.report_drafted_at} sentAt={job.report_sent_at} />
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <DraftLinkControl label="Invoice" hook={invoiceOnlyDraft} messageId={job.invoice_draft_gmail_message_id} draftedAt={job.invoice_drafted_at} sentAt={job.invoice_sent_at} />
-                      </div>
-                    </>
-                  ) : (
+                  {reportReady && (
+                    <DraftLinkControl label="Report" hook={reportOnlyDraft} messageId={job.report_draft_gmail_message_id} draftedAt={job.report_drafted_at} sentAt={job.report_sent_at} />
+                  )}
+                  {invoiceReady && (
+                    <DraftLinkControl label="Invoice" hook={invoiceOnlyDraft} messageId={job.invoice_draft_gmail_message_id} draftedAt={job.invoice_drafted_at} sentAt={job.invoice_sent_at} />
+                  )}
+                  {combinedReady && (
                     <DraftLinkControl
-                      label={job.customers?.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID ? "Final Report and Invoice" : undefined}
+                      label={job.customers?.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID ? "Final Report and Invoice" : "Combined"}
                       hook={combinedDraft}
                       messageId={job.invoice_draft_gmail_message_id}
                       draftedAt={job.invoice_drafted_at}
                       sentAt={job.invoice_sent_at}
                     />
                   )}
-                </div>
-              )}
-              {/* Per Tim, 2026-09-02 — a homeowner job needs its own
-                  "Create Invoice Draft" reachable before the report's
-                  ready (see invoiceEarlyReady's own comment) — the normal
-                  control right above stays hidden until both are ready,
-                  so this is the standalone fallback for just the invoice
-                  half. Same DraftLinkControl the Boston Harbor "separate
-                  drafts" branch above already uses for its own invoice
-                  half — no new button component needed. */}
-              {invoiceEarlyReady && (
-                <div className="hidden shrink-0 items-center gap-3 sm:flex">
-                  <DraftLinkControl label="Invoice" hook={invoiceOnlyDraft} messageId={job.invoice_draft_gmail_message_id} draftedAt={job.invoice_drafted_at} sentAt={job.invoice_sent_at} />
                 </div>
               )}
               {/* p-2 -m-2 (mobile only) grows the tap target without
@@ -2956,16 +2958,17 @@ export function ProjectDetailDialog({
             stacked with a line between them. Boston Harbor's two separate
             controls stack full-width too, each the same size as the
             dropdown, rather than sitting side by side at half width. */}
-        {job.source !== "subcontractor" && reportComplete && job.invoice_total_cents != null && (
+        {(reportReady || invoiceReady) && (
           <div className="flex shrink-0 flex-col gap-1.5 border-b border-slate-200 bg-white px-3 pb-2 sm:hidden">
-            {isSeparateDraftsCompany ? (
-              <>
-                <DraftLinkControl label="Asbestos Inspection Report" hook={reportOnlyDraft} messageId={job.report_draft_gmail_message_id} draftedAt={job.report_drafted_at} sentAt={job.report_sent_at} fullWidth />
-                <DraftLinkControl label="Invoice" hook={invoiceOnlyDraft} messageId={job.invoice_draft_gmail_message_id} draftedAt={job.invoice_drafted_at} sentAt={job.invoice_sent_at} fullWidth />
-              </>
-            ) : (
+            {reportReady && (
+              <DraftLinkControl label="Report" hook={reportOnlyDraft} messageId={job.report_draft_gmail_message_id} draftedAt={job.report_drafted_at} sentAt={job.report_sent_at} fullWidth />
+            )}
+            {invoiceReady && (
+              <DraftLinkControl label="Invoice" hook={invoiceOnlyDraft} messageId={job.invoice_draft_gmail_message_id} draftedAt={job.invoice_drafted_at} sentAt={job.invoice_sent_at} fullWidth />
+            )}
+            {combinedReady && (
               <DraftLinkControl
-                label={job.customers?.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID ? "Final Report and Invoice" : undefined}
+                label={job.customers?.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID ? "Final Report and Invoice" : "Combined"}
                 hook={combinedDraft}
                 messageId={job.invoice_draft_gmail_message_id}
                 draftedAt={job.invoice_drafted_at}
@@ -7380,14 +7383,21 @@ function LineItemsEditor({
         </button>
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <p className="text-base font-bold uppercase text-emerald-600">Invoice total: {currency(total)}</p>
+      <div className="mt-3 flex flex-wrap items-start justify-between gap-2">
+        {/* Per Tim, 2026-09-02 — "make it so all the numbers align": a grid
+            instead of three independent lines, so the dollar figures all
+            start at the same x position regardless of how long each label
+            is ("Invoice total" vs "Lab fees" vs "Profit"). */}
+        <div className="grid grid-cols-[max-content_max-content] gap-x-2">
+          <p className="text-base font-bold uppercase text-emerald-600">Invoice total:</p>
+          <p className="text-base font-bold uppercase text-emerald-600">{currency(total)}</p>
+          <p className="text-base font-bold uppercase text-red-600">Lab fees:</p>
           <p className="text-base font-bold uppercase text-red-600">
-            Lab fees: {labCostCents != null ? currency(labCostCents / 100) : "Not yet billed"}
+            {labCostCents != null ? currency(labCostCents / 100) : "Not yet billed"}
           </p>
+          <p className="text-base font-bold uppercase text-slate-400">Profit:</p>
           <p className="text-base font-bold uppercase text-slate-400">
-            Profit: {labCostCents != null ? currency(computeMarginCents(Math.round(total * 100), labCostCents, stripeFeeCents ?? 0) / 100) : "—"}
+            {labCostCents != null ? currency(computeMarginCents(Math.round(total * 100), labCostCents, stripeFeeCents ?? 0) / 100) : "—"}
           </p>
         </div>
         <div className="flex items-center gap-2">

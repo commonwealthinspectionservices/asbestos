@@ -549,15 +549,13 @@ export default function BillingView() {
   // Per Tim, 2026-09-02 — all-time total, not just what the capped
   // weekly/monthly tables above happen to show (periodHistory only ever
   // covers the last few weeks/months). Every invoiced job counts, same
-  // gross/net computation as each period bucket above.
+  // gross computation as each period bucket above.
   const allTimeTotal = useMemo(() => {
     let grossCents = 0;
-    let netCents = 0;
     for (const job of invoicedJobs) {
       grossCents += job.invoice_total_cents ?? 0;
-      netCents += computeMarginCents(job.invoice_total_cents ?? 0, job.lab_cost_cents ?? 0, job.stripe_fee_cents ?? 0);
     }
-    return { grossCents, netCents };
+    return { grossCents };
   }, [invoicedJobs]);
 
   async function patchJob(job: JobWithCustomer, patch: Record<string, unknown>) {
@@ -598,34 +596,14 @@ export default function BillingView() {
         />
         {/* Per Tim, 2026-09-02 — plain text, sitting right below Weekly
             Revenue rather than in its own bordered card like the two
-            tables above. Gross Revenue leads on the left, Gross Profit
-            trails on the right, same line on desktop. sm:col-span-2 — per
-            Tim's follow-up ("on desktop these should be one line across"),
-            the longer "All-Time " labels were wrapping because this row
-            was still confined to this grid's single half-width column on
-            desktop; spanning both columns gives each span the full row
-            width to stay on one line. Per Tim, same follow-up — stacked
-            (flex-col) on mobile instead of squeezed side by side
-            (justify-between forced both onto one overflowing line there,
-            same nowrap-overflow problem "one line across" was fixing on
-            desktop, just worse on a narrower screen), and text-xs to match
-            "make all of this the same size text" as the rest of the page. */}
-        {/* Per Tim, 2026-09-02 (follow-up) — "these numbers should be
-            directly aligned": on mobile (stacked), a 2-column grid lines
-            up both dollar figures regardless of "Revenue"/"Profit" being
-            different lengths — the same reason PeriodHistoryTable itself
-            uses a grid. Desktop keeps the single-row/opposite-ends layout,
-            where the two labels are never meant to line up under each
-            other in the first place. */}
+            tables above. sm:col-span-2 spans both grid columns so the
+            "All-Time " label doesn't wrap on desktop. */}
         <div className="grid w-full grid-cols-[auto_auto] justify-start gap-x-1.5 gap-y-0.5 text-sm text-slate-500 sm:hidden">
           <span>All-Time Gross Revenue:</span>
           <span>{formatCents(allTimeTotal.grossCents)}</span>
-          <span>All-Time Gross Profit:</span>
-          <span>{formatCents(allTimeTotal.netCents)}</span>
         </div>
         <div className="hidden w-full items-baseline justify-between gap-2 text-sm text-slate-500 sm:col-span-2 sm:flex">
           <span className="whitespace-nowrap">All-Time Gross Revenue: {formatCents(allTimeTotal.grossCents)}</span>
-          <span className="whitespace-nowrap">All-Time Gross Profit: {formatCents(allTimeTotal.netCents)}</span>
         </div>
       </div>
 

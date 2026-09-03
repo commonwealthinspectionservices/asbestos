@@ -44,6 +44,18 @@ export const NEWTON_FIRE_FLOOD_STANDARD_MOLD_CONCLUSION = `• Based on visual i
 export const BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID = "4a76d165-fc9d-4088-8b4e-b7094a8dcedc";
 export const BOSTON_HARBOR_WATER_RESTORATION_REPORT_CONTACT_ID = "6f702e5c-0ae4-41c5-b0d9-7264331c16a2";
 export const BOSTON_HARBOR_WATER_RESTORATION_REPORT_CONTACT_NAME = "Joe Kline";
+// Per Tim, 2026-09-03 — "the same Boston Harbor water people are all on...
+// for invoices. That should not have been changed at all": every invoice
+// still reaches all three, same as before invoice_emails became the
+// literal, sole recipient list every job now uses (see
+// draftInvoiceEmailForJob in lab-email.ts) — Joe Kline (the job's own
+// report contact above), Nazli Toffie (companies.billing_contact_id, who
+// typically sends the intake order emails), and Jake, who has no contact
+// record of his own on file. Set as this company's invoice_emails default
+// at job creation (job-intake.ts) and backfilled onto every existing
+// Boston Harbor job — a real, visible value on the job like any other
+// company's, not a hidden special case in the send logic.
+export const BOSTON_HARBOR_WATER_RESTORATION_INVOICE_EMAILS = "joe@bostonharborwater.com, nazli@bostonharborwater.com, jake@bostonharborwater.com";
 
 // Per Tim, 2026-08-31 — a new, heavier subcontracting arrangement with FLI
 // Environmental: Tim runs the whole job himself but writes the final report

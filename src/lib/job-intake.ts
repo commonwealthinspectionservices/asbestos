@@ -34,6 +34,7 @@ import type { Settings } from "@/lib/types";
 import {
   BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID,
   BOSTON_HARBOR_WATER_RESTORATION_REPORT_CONTACT_ID,
+  BOSTON_HARBOR_WATER_RESTORATION_INVOICE_EMAILS,
 } from "@/lib/report-findings";
 
 // Applied to every message this pipeline actually processes (success or
@@ -504,6 +505,15 @@ export async function createJobFromIntake(params: {
       // contact (customer.id above), who's who invoices go to, not
       // necessarily who should be getting results.
       report_emails: extractOtherRecipients(message).join(",") || null,
+      // Per Tim, 2026-09-03 — invoice_emails is now the literal, sole
+      // recipient list every invoice draft sends to (see
+      // draftInvoiceEmailForJob in lab-email.ts); Boston Harbor's own
+      // standing three (see the constant's own comment) needs setting
+      // here at creation, same as every other company now gets its own
+      // contact's email defaulted in (AddProjectDialog/api/admin/jobs).
+      invoice_emails: company.id === BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID
+        ? BOSTON_HARBOR_WATER_RESTORATION_INVOICE_EMAILS
+        : null,
       // Seeds this job's own email thread with the client's original
       // message, so the later confirmed/report emails (see
       // lib/booking-notify.ts) all join the exact same conversation

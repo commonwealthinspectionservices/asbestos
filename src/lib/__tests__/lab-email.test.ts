@@ -145,4 +145,20 @@ describe("invoiceDraftBodyHtml", () => {
     const html = invoiceDraftBodyHtml(job, settings, null);
     expect(html).toContain('<a href="https://g.page/r/CXrf5GqjFZJjECE/review">Leave a review</a>');
   });
+
+  // Per Tim, 2026-09-03 — individual/homeowner jobs only, since payment
+  // only ever gates the report for those (see the homeowner payment
+  // gate) — a company job's report is never held on payment at all, so
+  // the note would just be wrong there.
+  it("includes the payment-gates-results note for an individual job", () => {
+    const job = { service_address: "85 Child St, Boston, MA 02130", service_type: "Mold Bulk Sampling", is_individual: true } as Job;
+    const html = invoiceDraftBodyHtml(job, settings, null);
+    expect(html).toContain("<em>Payment must be completed in order for results to be sent out.</em>");
+  });
+
+  it("omits the payment-gates-results note for a company job", () => {
+    const job = { service_address: "85 Child St, Boston, MA 02130", service_type: "Mold Bulk Sampling", is_individual: false } as Job;
+    const html = invoiceDraftBodyHtml(job, settings, null);
+    expect(html).not.toContain("Payment must be completed");
+  });
 });

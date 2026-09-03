@@ -199,6 +199,12 @@ export function invoiceDraftBodyHtml(job: Job, settings: Settings, payNowUrl: st
     "",
     escapeHtml(expandAddress(street)),
     escapeHtml(expandAddress(cityStateZip)),
+    // Per Tim, 2026-09-03 — individual/homeowner jobs only: this invoice
+    // can go out well before the report does (see the homeowner payment
+    // gate — autoDraftReportIfJustPaid/processMatchedLabEmail), unlike a
+    // company job, where payment never gates the report at all. Never
+    // shown on a company invoice — it would just be wrong there.
+    ...(job.is_individual ? ["", "<em>Payment must be completed in order for results to be sent out.</em>"] : []),
     // No "Total due" dollar figure in the email body itself (the attached
     // PDF and the pay link both already show it); "Link to pay", not
     // all-caps.

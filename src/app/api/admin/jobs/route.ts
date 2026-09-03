@@ -197,6 +197,7 @@ export const POST = withApiErrors(async (req: NextRequest) => {
     paid_date: body.paidDate || null,
     payment_due_date: body.paymentDueDate || null,
     report_emails: body.reportEmails || null,
+    invoice_emails: body.invoiceEmails || null,
     disclaimer_ack: true,
     // Defaults from the customer's portal-signup account type (see
     // customers.is_individual); the Invoice tab checkbox still lets the

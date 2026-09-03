@@ -5174,6 +5174,7 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
           email: email.trim() || undefined,
           phone: phone.trim() || undefined,
           reportEmails: email.trim() || undefined,
+          invoiceEmails: email.trim() || undefined,
           serviceAddress: buildBillingAddress({
             street: serviceStreet, unit: serviceUnit, city: serviceCity, state: serviceState, zip: serviceZip,
           }) || undefined,

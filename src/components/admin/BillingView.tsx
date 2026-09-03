@@ -93,23 +93,25 @@ function invoiceStatus(job: JobWithCustomer): InvoiceStatus {
   return "ready_to_send";
 }
 
-// Per Tim, 2026-09-04 — Revenue and Lab Costs share this one date so a
-// job's own revenue and lab cost (real or estimated) always land in the
-// same week/month bucket, making margin easy to eyeball per period. The
-// job's own date (when the work actually happened) leads — a job sampled
-// last week but not invoiced to the customer until this week counts as
-// last week's, for both cards. invoice_sent_at/paid_date are only
-// fallbacks for the rare job missing both confirmed_date and
-// requested_date.
+// Per Tim, 2026-08-30 — "some jobs get sampled Thursday or Friday but
+// might not get billed until the next week... we need to decide a
+// specific system on where jobs are getting placed historically": the
+// week/month a job counts toward is the week/month its invoice actually
+// went out (invoice_sent_at), not the day it was sampled — a Friday job
+// invoiced the following Monday lands in the Monday week. Shared by
+// Revenue and Lab Costs (both real and estimated) so a job's own numbers
+// always land in the same bucket on both cards. paid_date/confirmed_date/
+// requested_date are only fallbacks for the rare job missing
+// invoice_sent_at.
 //
-// (Earlier version of this used invoice_sent_at first instead — per
-// Tim, 2026-08-30: "some jobs get sampled Thursday or Friday but might
-// not get billed until the next week... we need to decide a specific
-// system on where jobs are getting placed historically." Revisited and
-// replaced, 2026-09-04, once Lab Costs made the mismatch between "when
-// the work happened" and "when it was billed" visible.)
+// (Briefly switched to the job's own date first instead, 2026-09-04,
+// once Lab Costs made the "when the work happened" vs. "when it was
+// billed" gap visible — reverted the same day back to invoice date for
+// both, per Tim: "we need to just go back to going off of... based off
+// of when the job is invoiced.")
 function billingDateFor(job: JobWithCustomer): string | null {
-  return job.confirmed_date ?? job.requested_date ?? (job.invoice_sent_at ? ymd(new Date(job.invoice_sent_at)) : job.paid_date) ?? null;
+  if (job.invoice_sent_at) return ymd(new Date(job.invoice_sent_at));
+  return job.paid_date ?? job.confirmed_date ?? job.requested_date ?? null;
 }
 
 // Per-type counts are the modern source; sample_count is only a fallback
@@ -508,8 +510,8 @@ export default function BillingView() {
   // and gross for weeks and months over time": a plain, non-interactive
   // table of the last few weeks and last few months — not the browsable
   // grouped view he'd already had removed once for being too much.
-  // Bucketed by billingDateFor (see its own comment — the job's own
-  // date, shared with Lab Costs below).
+  // Bucketed by billingDateFor (see its own comment — invoice date,
+  // shared with Lab Costs below).
   //
   // Per Tim, 2026-08-30 (follow-up) — "I don't want the weekly and
   // monthly at the top to get too crowded": capped at 4 rows each

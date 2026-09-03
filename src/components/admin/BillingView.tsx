@@ -107,6 +107,14 @@ function billingDateFor(job: JobWithCustomer): string | null {
   return job.paid_date ?? job.confirmed_date ?? job.requested_date ?? null;
 }
 
+// Per-type counts are the modern source; sample_count is only a fallback
+// for jobs from before per-type tracking existed. Same pattern used for
+// pricing in invoice-defaults.ts.
+function totalSampleCount(job: JobWithCustomer): number {
+  const fromCounts = Object.values(job.sample_counts ?? {}).reduce((sum, n) => sum + (n || 0), 0);
+  return fromCounts > 0 ? fromCounts : job.sample_count ?? 0;
+}
+
 // Per Tim, 2026-08-30 — "invoice and lab costs should be links to the
 // PDF invoices": a job can have more than one lab_invoice document
 // (partial billing across weekly reports) — links to the most recently
@@ -250,7 +258,16 @@ function PeriodHistoryTable({
   title, rows, isSelected, onSelectRow,
 }: {
   title: string;
-  rows: { label: string; grossCents: number; netCents: number }[];
+  rows: {
+    label: string;
+    grossCents: number;
+    netCents: number;
+    /** Per Tim, 2026-09-04 — Weekly/Monthly Lab Costs: true when this row's
+        figure includes an estimate for a job the lab hasn't invoiced yet
+        (see avgLabCostPerSampleCents), so it reads as a rough number, not
+        a confirmed one. */
+    estimated?: boolean;
+  }[];
   // Per Tim, 2026-09-02 — "I want to be able to break down jobs week by
   // week, month by month": clicking a row filters the job list below to
   // that period instead of the current status filter (see periodFilter's
@@ -280,7 +297,10 @@ function PeriodHistoryTable({
                   wrapped to two lines; whitespace-nowrap alone still
                   covers that at the larger size. */}
               <span className={`whitespace-nowrap text-sm ${selected ? "font-semibold text-brand-700" : "text-slate-500"}`}>{r.label}</span>
-              <span className="whitespace-nowrap text-right text-slate-800">{formatCents(r.grossCents)}</span>
+              <span className="whitespace-nowrap text-right text-slate-800">
+                {r.estimated && <span className="text-slate-400">≈ </span>}
+                {formatCents(r.grossCents)}
+              </span>
             </>
           );
           return onSelectRow ? (
@@ -486,6 +506,29 @@ export default function BillingView() {
   // real "last month" or "the week before" when the company didn't exist
   // yet, so the table just grows one row at a time as real weeks/months
   // pass.
+  // Per Tim, 2026-09-04 — the lab only sends its own invoice once a week
+  // (Fridays), so a job billed to the customer this week almost always
+  // still shows $0 real lab cost even though the lab work already
+  // happened and will get billed eventually. Estimate what a
+  // still-unbilled job's lab cost will likely be from the average
+  // $/sample across every job that DOES have a real lab invoice in —
+  // rough (one blended rate across every service type, not broken out by
+  // asbestos/mold/lead), but enough to avoid a nasty Friday surprise.
+  // Shared by periodHistory and allTimeTotal below so both apply the
+  // exact same rate.
+  const avgLabCostPerSampleCents = useMemo(() => {
+    let totalCents = 0;
+    let totalSamples = 0;
+    for (const job of invoicedJobs) {
+      if (job.lab_cost_cents == null || job.lab_cost_cents <= 0) continue;
+      const samples = totalSampleCount(job);
+      if (samples <= 0) continue;
+      totalCents += job.lab_cost_cents;
+      totalSamples += samples;
+    }
+    return totalSamples > 0 ? totalCents / totalSamples : 0;
+  }, [invoicedJobs]);
+
   const periodHistory = useMemo(() => {
     const today = new Date();
 
@@ -510,7 +553,7 @@ export default function BillingView() {
         start.getMonth() === end.getMonth()
           ? `${MONTH_NAMES[start.getMonth()]} ${ordinal(start.getDate())} - ${ordinal(end.getDate())}`
           : `${MONTH_NAMES[start.getMonth()]} ${ordinal(start.getDate())} - ${MONTH_NAMES[end.getMonth()]} ${ordinal(end.getDate())}`;
-      return { label, startStr: ymd(start), endStr: ymd(end), grossCents: 0, netCents: 0, labCostCents: 0 };
+      return { label, startStr: ymd(start), endStr: ymd(end), grossCents: 0, netCents: 0, labCostCents: 0, estimatedLabCostCents: 0 };
     }).filter((b) => b.endStr >= COMPANY_START_DATE);
 
     // Per Tim, 2026-08-30 — "instead of This Month, it should say August
@@ -520,7 +563,7 @@ export default function BillingView() {
       const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
       const label = `${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`;
-      return { label, key, grossCents: 0, netCents: 0, labCostCents: 0 };
+      return { label, key, grossCents: 0, netCents: 0, labCostCents: 0, estimatedLabCostCents: 0 };
     }).filter((b) => b.key >= COMPANY_START_DATE.slice(0, 7));
 
     for (const job of invoicedJobs) {
@@ -529,12 +572,17 @@ export default function BillingView() {
       const grossCents = job.invoice_total_cents ?? 0;
       const labCostCents = job.lab_cost_cents ?? 0;
       const netCents = computeMarginCents(grossCents, labCostCents, job.stripe_fee_cents ?? 0);
+      // Only estimate for a job with no real lab invoice yet — once the
+      // real one comes in, labCostCents above already has it and this
+      // stays 0 so it's never added on top of the real figure.
+      const estimatedCents = job.lab_cost_cents == null ? totalSampleCount(job) * avgLabCostPerSampleCents : 0;
 
       const w = weekly.find((b) => bucketDate >= b.startStr && bucketDate <= b.endStr);
       if (w) {
         w.grossCents += grossCents;
         w.netCents += netCents;
         w.labCostCents += labCostCents;
+        w.estimatedLabCostCents += estimatedCents;
       }
 
       const monthKey = bucketDate.slice(0, 7);
@@ -543,11 +591,12 @@ export default function BillingView() {
         m.grossCents += grossCents;
         m.netCents += netCents;
         m.labCostCents += labCostCents;
+        m.estimatedLabCostCents += estimatedCents;
       }
     }
 
     return { weekly, monthly };
-  }, [invoicedJobs]);
+  }, [invoicedJobs, avgLabCostPerSampleCents]);
 
   // Per Tim, 2026-09-02 — all-time total, not just what the capped
   // weekly/monthly tables above happen to show (periodHistory only ever
@@ -556,12 +605,14 @@ export default function BillingView() {
   const allTimeTotal = useMemo(() => {
     let grossCents = 0;
     let labCostCents = 0;
+    let estimatedLabCostCents = 0;
     for (const job of invoicedJobs) {
       grossCents += job.invoice_total_cents ?? 0;
       labCostCents += job.lab_cost_cents ?? 0;
+      if (job.lab_cost_cents == null) estimatedLabCostCents += totalSampleCount(job) * avgLabCostPerSampleCents;
     }
-    return { grossCents, labCostCents };
-  }, [invoicedJobs]);
+    return { grossCents, labCostCents, estimatedLabCostCents };
+  }, [invoicedJobs, avgLabCostPerSampleCents]);
 
   async function patchJob(job: JobWithCustomer, patch: Record<string, unknown>) {
     const res = await fetch(`/api/admin/jobs/${job.id}`, {
@@ -620,18 +671,34 @@ export default function BillingView() {
       <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <PeriodHistoryTable
           title="Weekly Lab Costs"
-          rows={periodHistory.weekly.map((w) => ({ label: w.label, grossCents: w.labCostCents, netCents: 0 }))}
+          rows={periodHistory.weekly.map((w) => ({
+            label: w.label,
+            grossCents: w.labCostCents + w.estimatedLabCostCents,
+            netCents: 0,
+            estimated: w.estimatedLabCostCents > 0,
+          }))}
         />
         <PeriodHistoryTable
           title="Monthly Lab Costs"
-          rows={periodHistory.monthly.map((m) => ({ label: m.label, grossCents: m.labCostCents, netCents: 0 }))}
+          rows={periodHistory.monthly.map((m) => ({
+            label: m.label,
+            grossCents: m.labCostCents + m.estimatedLabCostCents,
+            netCents: 0,
+            estimated: m.estimatedLabCostCents > 0,
+          }))}
         />
+        {/* Per Tim, 2026-09-04 — the lab only invoices weekly (Fridays), so
+            a job billed to the customer this week likely has no real lab
+            cost posted yet; "≈" marks a figure that includes an estimate
+            for that gap rather than a confirmed one. */}
         <div className="grid w-full grid-cols-[auto_auto] justify-start gap-x-1.5 gap-y-0.5 text-sm text-slate-500 sm:hidden">
           <span>All-Time Lab Costs:</span>
-          <span>{formatCents(allTimeTotal.labCostCents)}</span>
+          <span>{allTimeTotal.estimatedLabCostCents > 0 && "≈ "}{formatCents(allTimeTotal.labCostCents + allTimeTotal.estimatedLabCostCents)}</span>
         </div>
         <div className="hidden w-full items-baseline justify-between gap-2 text-sm text-slate-500 sm:col-span-2 sm:flex">
-          <span className="whitespace-nowrap">All-Time Lab Costs: {formatCents(allTimeTotal.labCostCents)}</span>
+          <span className="whitespace-nowrap">
+            All-Time Lab Costs: {allTimeTotal.estimatedLabCostCents > 0 && "≈ "}{formatCents(allTimeTotal.labCostCents + allTimeTotal.estimatedLabCostCents)}
+          </span>
         </div>
       </div>
 

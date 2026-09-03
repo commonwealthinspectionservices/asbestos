@@ -175,14 +175,19 @@ function reportDraftBodyHtml(job: Job, settings: Settings): string {
 // Harbor Water Restoration (see isSeparateDraftsCompany/
 // BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID) — everyone else's invoice
 // goes out folded into combinedDraftBodyHtml instead.
-function invoiceDraftBodyHtml(job: Job, settings: Settings, payNowUrl: string | null): string {
+export function invoiceDraftBodyHtml(job: Job, settings: Settings, payNowUrl: string | null): string {
   // Street on its own line, city/state/zip on the next — same split
   // JobsDashboard.tsx's own mobile address rendering uses.
   const { street, cityStateZip } = splitAddress(job.service_address);
+  // Confirmed live 2026-09-03 (26-0014, a mold-only job) — this always
+  // said "the asbestos inspection" regardless of what the job actually
+  // was. reportDraftBodyHtml above already derives this correctly from
+  // the job's real service type(s); this just never matched it.
+  const domainPhrase = reportDomainListPhrase(jobReportDomains(job.service_type));
   return [
     "Hi,",
     "",
-    "Please find attached the invoice for the asbestos inspection completed at:",
+    `Please find attached the invoice for the ${domainPhrase} inspection completed at:`,
     "",
     escapeHtml(expandAddress(street)),
     escapeHtml(expandAddress(cityStateZip)),

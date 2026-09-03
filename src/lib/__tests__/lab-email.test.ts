@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { extractProjectNumberFromCocSubject, normalizeAddressForMatch, isMoldLabReport, hasLabReportForEveryDomain } from "@/lib/lab-email";
-import type { JobDocument } from "@/lib/types";
+import { extractProjectNumberFromCocSubject, normalizeAddressForMatch, isMoldLabReport, hasLabReportForEveryDomain, invoiceDraftBodyHtml } from "@/lib/lab-email";
+import type { Job, JobDocument, Settings } from "@/lib/types";
 
 function labReportDoc(serviceType: string): JobDocument {
   return {
@@ -110,5 +110,31 @@ describe("hasLabReportForEveryDomain", () => {
       service_type: "Limited Asbestos Inspection, Mold Air Sampling",
     };
     expect(hasLabReportForEveryDomain(job)).toBe(true);
+  });
+});
+
+// Confirmed live 2026-09-03 (26-0014, mold-only) — this always said "the
+// asbestos inspection" regardless of the job's real service type. Locks in
+// that it now matches reportDraftBodyHtml's own domain-aware phrasing.
+describe("invoiceDraftBodyHtml", () => {
+  const settings = { business_phone: "781-486-3200" } as Settings;
+
+  it("names mold, not asbestos, for a mold-only job", () => {
+    const job = { service_address: "85 Child St, Boston, MA 02130", service_type: "Mold Bulk Sampling" } as Job;
+    const html = invoiceDraftBodyHtml(job, settings, null);
+    expect(html).toContain("the mold inspection completed at");
+    expect(html).not.toContain("asbestos");
+  });
+
+  it("names asbestos for an asbestos-only job", () => {
+    const job = { service_address: "1 Main St, Boston, MA 02130", service_type: "Limited Asbestos Inspection" } as Job;
+    const html = invoiceDraftBodyHtml(job, settings, null);
+    expect(html).toContain("the asbestos inspection completed at");
+  });
+
+  it("names both domains for a mixed asbestos+mold job", () => {
+    const job = { service_address: "1 Main St, Boston, MA 02130", service_type: "Limited Asbestos Inspection, Mold Air Sampling" } as Job;
+    const html = invoiceDraftBodyHtml(job, settings, null);
+    expect(html).toContain("the asbestos and mold inspection completed at");
   });
 });

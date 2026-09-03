@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireContractorApi, getCompanyCustomerIds } from "@/lib/contractor-api";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { withApiErrors } from "@/lib/api-handler";
+import { normalizePhotoUpload } from "@/lib/photo-upload";
 import type { Job, JobPhoto } from "@/lib/types";
 
 export const POST = withApiErrors(async (
@@ -33,22 +34,24 @@ export const POST = withApiErrors(async (
   const jobRow = job as unknown as Job;
 
   const photoId = randomUUID();
-  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+  const { fileName, buffer: fileBuffer, contentType } = await normalizePhotoUpload(
+    file.name,
+    Buffer.from(await file.arrayBuffer()),
+    file.type || "application/octet-stream"
+  );
+  const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
   const storagePath = `${params.id}/${photoId}-${safeName}`;
-  const fileBuffer = Buffer.from(await file.arrayBuffer());
 
   const { error: uploadError } = await supabase.storage
     .from("job-photos")
-    .upload(storagePath, fileBuffer, {
-      contentType: file.type || "application/octet-stream",
-    });
+    .upload(storagePath, fileBuffer, { contentType });
   if (uploadError) {
     throw new Error(`Failed to upload photo: ${uploadError.message}`);
   }
 
   const photo: JobPhoto = {
     id: photoId,
-    file_name: file.name,
+    file_name: fileName,
     storage_path: storagePath,
     uploaded_at: new Date().toISOString(),
     uploaded_by: "customer",

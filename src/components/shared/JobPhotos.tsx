@@ -46,6 +46,11 @@ export default function JobPhotos({
   const [pendingRooms, setPendingRooms] = useState<string[]>([]);
   const [newRoomName, setNewRoomName] = useState("");
   const [addingRoom, setAddingRoom] = useState(false);
+  const [editingBucket, setEditingBucket] = useState<string | null>(null);
+  // Per Tim, 2026-09-04 — "click onto them to make them bigger": a plain
+  // full-screen preview, not a full carousel — click a thumbnail, click
+  // anywhere (or the ✕) to dismiss.
+  const [previewPhoto, setPreviewPhoto] = useState<JobPhoto | null>(null);
 
   async function savePhotoField(photoId: string, patch: { room?: string; caption?: string }) {
     if (!editEndpointBase) return;
@@ -194,6 +199,26 @@ export default function JobPhotos({
             setPendingRooms((r) => r.filter((x) => x !== bucket));
           }
 
+          // Per Tim, 2026-09-04 — "where it says 'unassigned' needs to be
+          // the room title": every room heading, including "Unassigned"
+          // itself, is click-to-edit — typing a new name there bulk-moves
+          // every photo currently in that bucket to the new room, which
+          // doubles as the fast path for turning a pile of just-uploaded
+          // photos into a named room without dragging them one at a time.
+          // Blurring without changing anything is a no-op, so clicking in
+          // and out of "Unassigned" can never accidentally rename it.
+          function renameBucket(bucket: string, newNameRaw: string) {
+            const newName = newNameRaw.trim();
+            setEditingBucket(null);
+            if (!newName || newName === bucket || bucketNames.includes(newName)) return;
+            const affected = photos.filter((p) => (bucket === UNASSIGNED ? !roomOf(p) : roomOf(p) === bucket));
+            affected.forEach((p) => movePhotoToRoom(p.id, newName));
+            setPendingRooms((r) => {
+              const withoutOld = r.filter((x) => x !== bucket);
+              return affected.length === 0 ? [...withoutOld, newName] : withoutOld;
+            });
+          }
+
           return (
             <div className="mt-4">
               <div className="mb-3 flex items-center justify-end gap-2">
@@ -262,7 +287,27 @@ export default function JobPhotos({
                       className="w-full rounded-lg border border-slate-200 bg-slate-50 p-3"
                     >
                       <div className="mb-2 flex items-center justify-between">
-                        <h4 className="text-sm font-bold text-slate-700">{bucket}</h4>
+                        {editingBucket === bucket ? (
+                          <input
+                            autoFocus
+                            type="text"
+                            defaultValue={bucket === UNASSIGNED ? "" : bucket}
+                            placeholder={UNASSIGNED}
+                            onBlur={(e) => renameBucket(bucket, e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                              if (e.key === "Escape") setEditingBucket(null);
+                            }}
+                            className="rounded border border-slate-300 px-2 py-0.5 text-sm font-bold text-slate-700"
+                          />
+                        ) : (
+                          <h4
+                            onClick={() => setEditingBucket(bucket)}
+                            className="cursor-text rounded px-1 text-sm font-bold text-slate-700 hover:bg-slate-100"
+                          >
+                            {bucket}
+                          </h4>
+                        )}
                         {bucket !== UNASSIGNED && (
                           <button onClick={() => deleteRoom(bucket)} className="text-xs text-slate-400 hover:text-red-500">
                             Delete room
@@ -286,9 +331,21 @@ export default function JobPhotos({
                                 key={photo.id}
                                 draggable
                                 onDragStart={(e) => e.dataTransfer.setData("text/plain", photo.id)}
-                                className="group flex cursor-move items-center gap-3 rounded-lg border border-slate-200 bg-white p-2"
+                                className="group flex cursor-move items-center gap-2 rounded-lg border border-slate-200 bg-white p-2"
                               >
-                                <div className="relative h-12 w-12 flex-shrink-0">
+                                {/* Drag handle — draggable is set on the whole row, so
+                                    this is really just a visible affordance telling
+                                    the user the row can be dragged, not the only spot
+                                    that works. */}
+                                <span className="flex-shrink-0 select-none text-slate-300" aria-hidden="true">
+                                  ⠿
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => setPreviewPhoto(photo)}
+                                  className="relative h-12 w-12 flex-shrink-0 cursor-zoom-in"
+                                  aria-label="View larger"
+                                >
                                   {/* eslint-disable-next-line @next/next/no-img-element */}
                                   <img
                                     src={`${viewEndpointBase}/${photo.id}`}
@@ -298,7 +355,7 @@ export default function JobPhotos({
                                   <span className="absolute -left-1 -top-1 rounded bg-black/60 px-1 py-0.5 text-[10px] font-bold leading-none text-white">
                                     {number}
                                   </span>
-                                </div>
+                                </button>
                                 <input
                                   type="text"
                                   placeholder="Note"
@@ -347,12 +404,19 @@ export default function JobPhotos({
         <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-4">
           {photos.map((photo) => (
             <div key={photo.id} className="group relative aspect-square overflow-hidden rounded-lg border border-slate-200">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={`${viewEndpointBase}/${photo.id}`}
-                alt={photo.file_name}
-                className="h-full w-full object-cover"
-              />
+              <button
+                type="button"
+                onClick={() => setPreviewPhoto(photo)}
+                className="h-full w-full cursor-zoom-in"
+                aria-label="View larger"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={`${viewEndpointBase}/${photo.id}`}
+                  alt={photo.file_name}
+                  className="h-full w-full object-cover"
+                />
+              </button>
               {deleteEndpointBase && (
                 <button
                   onClick={() => deletePhoto(photo.id)}
@@ -364,6 +428,28 @@ export default function JobPhotos({
               )}
             </div>
           ))}
+        </div>
+      )}
+
+      {previewPhoto && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          onClick={() => setPreviewPhoto(null)}
+        >
+          <button
+            onClick={() => setPreviewPhoto(null)}
+            className="absolute right-4 top-4 rounded-full bg-black/60 px-3 py-1.5 text-sm font-bold text-white"
+            aria-label="Close"
+          >
+            ✕
+          </button>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={`${viewEndpointBase}/${previewPhoto.id}`}
+            alt={previewPhoto.file_name}
+            className="max-h-full max-w-full rounded object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
         </div>
       )}
     </div>

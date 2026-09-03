@@ -80,10 +80,17 @@ const styles = StyleSheet.create({
   // Per Tim, 2026-09-04 — the default paddingTop above sat the logo/header
   // too close to the top edge specifically on this report; bumped down for
   // Moisture Mapping only, not touched on the other (already-approved)
-  // templates that share the default `page` style. Kept modest (not the
-  // 58 pageFullInspection uses) — page 1 also has to hold the full letter
-  // through the signature with only a few pt of margin to spare.
-  pageMoistureMapping: { paddingTop: 36 },
+  // templates that share the default `page` style.
+  // Per Tim, 2026-09-04 (follow-up) — "make all of the cover ALWAYS fit
+  // onto one page": the letter (through the signature) was landing right
+  // at the edge of one page and regularly spilling the signature onto its
+  // own page 2. Same fix as pageAsbestos above (smaller font + tighter
+  // line-height) rather than trimming margins further, which reclaims
+  // real headroom instead of shaving it to "just barely" again. Only
+  // affects text using the page's inherited font size — photoNumber/
+  // photoCaption below both set their own fixed fontSize, so the photo
+  // pages are untouched.
+  pageMoistureMapping: { paddingTop: 36, fontSize: ASBESTOS_FONT_SIZE, lineHeight: 1.22 },
   header: { flexDirection: "row", alignItems: "center", marginBottom: 22, paddingBottom: 12, borderBottomWidth: 2, borderBottomColor: "#193466" },
   // Logo and email size to their own natural width; the phone number sits
   // centered in whatever's left between them via two equal flexGrow
@@ -221,22 +228,18 @@ const styles = StyleSheet.create({
   positiveMaterialsColSample: { width: "16%", paddingRight: 4 },
   positiveMaterialsColMaterial: { width: "54%", paddingRight: 4 },
   positiveMaterialsColQuantity: { width: "30%" },
-  // Moisture Mapping report only — one room/area heading per group of
-  // photos, each photo boxed to fit the page regardless of the source
-  // photo's own orientation (objectFit: "contain" scales within the box
-  // rather than stretching or cropping it).
-  roomHeading: { fontWeight: 700, marginTop: STANDARD_GAP, marginBottom: TIGHT_GAP, textDecoration: "underline", fontSize: 13 },
-  // Photo left, its number + note right — sized small enough that several
-  // pack onto one page (however many actually fit, via react-pdf's own
-  // pagination — not a hand-picked count) without feeling cramped. Text
-  // column vertically centered against the photo's own height (alignItems:
-  // "center" on the row), not pinned to its top.
-  photoRow: { flexDirection: "row", alignItems: "center", marginBottom: STANDARD_GAP + 6 },
-  photoImageCol: { width: 180, marginRight: 16 },
-  photoImage: { width: 180, height: 165, objectFit: "contain" },
-  photoTextCol: { flex: 1 },
-  photoNumber: { fontWeight: 700, fontSize: 10, marginBottom: TIGHT_GAP },
-  photoCaption: { fontSize: 10, color: "#444444", fontStyle: "italic" },
+  // Per Tim, 2026-09-04 — "a standard format of 4 per page ... one image
+  // in each quadrant w the captions below them": a fixed 2x2 grid, image
+  // boxed to fit its quadrant regardless of the source photo's own
+  // orientation (objectFit: "contain" scales within the box rather than
+  // stretching or cropping it). Each page's worth is chunked in the
+  // component itself (photoPages) so every photo page holds exactly 4
+  // (except a shorter final page), not however many happen to fit.
+  photoGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" },
+  photoCard: { width: "47%", marginBottom: 24 },
+  photoImage: { width: "100%", height: 220, objectFit: "contain" },
+  photoNumber: { fontWeight: 700, fontSize: 9, marginTop: TIGHT_GAP + 1, marginBottom: TIGHT_GAP },
+  photoCaption: { fontSize: 9, color: "#444444", fontStyle: "italic" },
 });
 
 export interface ProjectReportData {
@@ -1508,7 +1511,15 @@ function RecipientBlock({
       ) : (
         <ValueOrBlank style={styles.recipient} value={knownCustomerName} />
       )}
-      {customer.company ? <Text style={styles.recipient}>{customer.company}</Text> : null}
+      {/* Per Tim, 2026-09-04 — "it says Adina Koch twice": for an
+          individual customer, `company` is just a copy of their own name
+          (see the customers table), so this used to repeat the line above
+          verbatim. A real company customer still gets both lines — contact
+          name, then the actual company name — which is the whole point of
+          this block. */}
+      {customer.company && customer.company.trim() !== (knownCustomerName ?? "").trim() ? (
+        <Text style={styles.recipient}>{customer.company}</Text>
+      ) : null}
       {billingStreet ? <Text style={styles.recipient}>{billingStreet}</Text> : null}
       {billingCityStateZip ? <Text style={styles.recipient}>{billingCityStateZip}</Text> : null}
     </View>
@@ -1674,22 +1685,24 @@ function MoistureMappingReportDocument({
     a.room === MOISTURE_MAPPING_UNGROUPED_ROOM ? 1 : b.room === MOISTURE_MAPPING_UNGROUPED_ROOM ? -1 : 0
   );
 
+  // Per Tim, 2026-09-04 — "a standard format of 4 per page": flattened
+  // back out of the room groups (each photo keeps its own room name for
+  // the label under it) and chunked into fixed pages of 4, rather than
+  // giving each room its own grid — a room with an odd photo count no
+  // longer leaves a hole in the grid next to the last item, and every
+  // photo page is exactly as full as the next.
+  const flatPhotos = groups.flatMap((group) => group.photos.map((photo) => ({ ...photo, room: group.room })));
+  const photoPages: (MoistureMappingPhotoData & { number: number; room: string })[][] = [];
+  for (let i = 0; i < flatPhotos.length; i += 4) {
+    photoPages.push(flatPhotos.slice(i, i + 4));
+  }
+
   const remarks = [
     "Moisture readings reflect conditions at the specific locations tested at the time of this assessment only. Moisture conditions within a building can change over time, and additional testing may be warranted if conditions change or new evidence of water intrusion is observed.",
     "This assessment is limited to identifying elevated moisture using a non-destructive moisture meter. No destructive testing, mold sampling, or laboratory analysis was performed as part of this scope of work.",
     "The boundary marked with blue tape in each photograph represents the approximate extent of elevated moisture identified at the time of testing and should not be interpreted as a precise or permanent demarcation of water damage.",
   ];
 
-  // Flattened across rooms (each entry still knows whether it's the first
-  // photo of a newly-starting room, so its own heading renders right above
-  // it) — per Tim, one page per room: a `break` forced only at each room's
-  // first photo, then its remaining photos pack in as densely as they
-  // naturally fit (react-pdf's own pagination, not a hand-picked count) —
-  // rare oversized room spills onto a second page rather than sharing a
-  // page with the next room.
-  const flatRows = groups.flatMap((group) =>
-    group.photos.map((photo, i) => ({ photo, roomLabel: i === 0 ? group.room : null, isFirstOfRoom: i === 0 }))
-  );
 
   return (
     <Document title={`Moisture Mapping Report — ${expandAddress(job.service_address)}`}>
@@ -1703,83 +1716,104 @@ function MoistureMappingReportDocument({
           dateText={dateText}
         />
 
-        <View style={styles.reBlock}>
-          <View style={styles.reRowTop}>
-            <View style={styles.reTopLeft}>
-              <Text style={styles.reLabel}>RE:</Text>
-              <Text>Moisture Mapping Report</Text>
+        {/* Per Tim, 2026-09-04 — "the cover should fill out the whole first
+            page": rather than shrinking text further (already at
+            ASBESTOS_FONT_SIZE below to guarantee the one-page fit) or
+            leaving dead space at the bottom, the letter body splits into 3
+            groups and this flex container distributes any leftover page
+            height as extra breathing room between them. When the content
+            is long there's no leftover space to distribute and this is a
+            no-op — it only ever expands existing gaps, never adds height,
+            so it can't cause the letter to spill onto a second page. */}
+        <View style={{ flexGrow: 1, flexDirection: "column", justifyContent: "space-between" }}>
+          <View>
+            <View style={styles.reBlock}>
+              <View style={styles.reRowTop}>
+                <View style={styles.reTopLeft}>
+                  <Text style={styles.reLabel}>RE:</Text>
+                  <Text>Moisture Mapping Report</Text>
+                </View>
+                <Text style={styles.dateLine}>{dateText}</Text>
+              </View>
+              <View style={styles.reRow}>
+                <Text style={styles.reLabel} />
+                <ValueOrBlank style={styles.reValue} value={serviceStreet} inline />
+              </View>
+              <View style={styles.reRow}>
+                <Text style={styles.reLabel} />
+                <ValueOrBlank style={styles.reValue} value={service.cityStateZip} inline />
+              </View>
+              <View style={styles.reRow}>
+                <Text style={styles.reLabel} />
+                <Text style={styles.reProjectLabel}>Project #:</Text>
+                <ValueOrBlank style={styles.reValue} value={job.project_number} inline />
+              </View>
             </View>
-            <Text style={styles.dateLine}>{dateText}</Text>
+
+            <RecipientBlock
+              knownCustomerName={knownCustomerName}
+              customer={customer}
+              billingStreet={billingStreet}
+              billingCityStateZip={billing.cityStateZip}
+            />
+
+            <Text style={styles.salutation}>Dear <ValueOrBlank style={styles.salutation} value={knownCustomerName} inline />:</Text>
+
+            <Text style={styles.paragraph}>
+              {settings.business_name} performed this moisture mapping assessment at the address noted above using a
+              Tramex Moisture Encounter ME5, a non-invasive, pinless moisture meter that electronically senses relative
+              moisture content within building materials without penetrating or damaging the surface. The meter was
+              passed over the walls, ceilings, and floors in the affected areas; starting from the wettest point
+              identified, it was moved outward in each direction until the reading returned to a normal, dry level, and
+              that transition point was marked with blue painter&apos;s tape. The result is a taped outline on each
+              surface showing the approximate boundary of the moisture intrusion at the time of testing. The numbered
+              photographs below document each taped area.
+            </Text>
           </View>
-          <View style={styles.reRow}>
-            <Text style={styles.reLabel} />
-            <ValueOrBlank style={styles.reValue} value={serviceStreet} inline />
+
+          <View>
+            <Text style={styles.sectionTitle}>Remarks and Limitations:</Text>
+            <View style={styles.listBlock}>
+              {remarks.map((text, i) => (
+                <View style={styles.listItem} key={i} wrap={false}>
+                  <Text style={styles.listIndex}>{i + 1}.</Text>
+                  <Text style={styles.listText}>{text}</Text>
+                </View>
+              ))}
+            </View>
           </View>
-          <View style={styles.reRow}>
-            <Text style={styles.reLabel} />
-            <ValueOrBlank style={styles.reValue} value={service.cityStateZip} inline />
-          </View>
-          <View style={styles.reRow}>
-            <Text style={styles.reLabel} />
-            <Text style={styles.reProjectLabel}>Project #:</Text>
-            <ValueOrBlank style={styles.reValue} value={job.project_number} inline />
+
+          {/* Per Tim — the letter itself (through the signature) is the
+              cover page; photos start fresh on their own page after it. */}
+          <View>
+            <Text style={styles.paragraph}>
+              Should you have any questions or need additional information, please contact {primaryInspector(settings).name}
+              {settings.business_phone ? ` at ${settings.business_phone}` : ""}.
+            </Text>
+
+            <SignatureBlock settings={settings} showLicense={false} />
           </View>
         </View>
 
-        <RecipientBlock
-          knownCustomerName={knownCustomerName}
-          customer={customer}
-          billingStreet={billingStreet}
-          billingCityStateZip={billing.cityStateZip}
-        />
-
-        <Text style={styles.salutation}>Dear <ValueOrBlank style={styles.salutation} value={knownCustomerName} inline />:</Text>
-
-        <Text style={styles.paragraph}>
-          {settings.business_name} performed this moisture mapping assessment at the address noted above using a
-          Tramex Moisture Encounter ME5, a non-invasive, pinless moisture meter that electronically senses relative
-          moisture content within building materials without penetrating or damaging the surface. The meter was
-          passed over the walls, ceilings, and floors in the affected areas; starting from the wettest point
-          identified, it was moved outward in each direction until the reading returned to a normal, dry level, and
-          that transition point was marked with blue painter&apos;s tape. The result is a taped outline on each
-          surface showing the approximate boundary of the moisture intrusion at the time of testing. The numbered
-          photographs below document each taped area.
-        </Text>
-
-        <Text style={styles.sectionTitle}>Remarks and Limitations:</Text>
-        <View style={styles.listBlock}>
-          {remarks.map((text, i) => (
-            <View style={styles.listItem} key={i} wrap={false}>
-              <Text style={styles.listIndex}>{i + 1}.</Text>
-              <Text style={styles.listText}>{text}</Text>
-            </View>
-          ))}
-        </View>
-
-        {/* Per Tim — the letter itself (through the signature) is the cover
-            page; photos start fresh on their own page after it. */}
-        <Text style={styles.paragraph}>
-          Should you have any questions or need additional information, please contact {primaryInspector(settings).name}
-          {settings.business_phone ? ` at ${settings.business_phone}` : ""}.
-        </Text>
-
-        <SignatureBlock settings={settings} showLicense={false} />
-
-        {flatRows.map((row) => (
-          // break on a room's first photo starts that room on its own fresh
-          // page (this also covers pushing photos off the cover page, since
-          // the very first room's first photo is also "first of room").
-          // wrap={false} keeps a room heading glued to its own first photo.
-          <View key={row.photo.number} wrap={false} break={row.isFirstOfRoom}>
-            {row.roomLabel && <Text style={styles.roomHeading}>{row.roomLabel}</Text>}
-            <View style={styles.photoRow}>
-              <View style={styles.photoImageCol}>
-                <Image src={{ data: row.photo.buffer, format: row.photo.format }} style={styles.photoImage} />
-              </View>
-              <View style={styles.photoTextCol}>
-                <Text style={styles.photoNumber}>Photo {row.photo.number}</Text>
-                {row.photo.caption && <Text style={styles.photoCaption}>{row.photo.caption}</Text>}
-              </View>
+        {/* Per Tim, 2026-09-04 (follow-up: "do a standard format of 4 per
+            page ... one image in each quadrant w the captions below them")
+            — a fixed 2x2 grid, not react-pdf's own organic wrapping: each
+            page's quadrant sizing is constant regardless of how many photos
+            land on it, so every photo page reliably fills out rather than
+            some pages being denser than others depending on room
+            boundaries. Photos stay in room order (see groups/sort above),
+            with the room printed on each photo's own label instead of a
+            separate heading that would otherwise break up the grid. */}
+        {photoPages.map((pagePhotos, pageIndex) => (
+          <View key={pageIndex} break>
+            <View wrap={false} style={styles.photoGrid}>
+              {pagePhotos.map((photo) => (
+                <View key={photo.number} style={styles.photoCard} wrap={false}>
+                  <Image src={{ data: photo.buffer, format: photo.format }} style={styles.photoImage} />
+                  <Text style={styles.photoNumber}>Photo {photo.number} — {photo.room}</Text>
+                  {photo.caption && <Text style={styles.photoCaption}>{photo.caption}</Text>}
+                </View>
+              ))}
             </View>
           </View>
         ))}

@@ -5957,24 +5957,29 @@ export function EditProjectDialog({
   const [contactName, setContactName] = useState(job.customers?.name ?? "");
   const [email, setEmail] = useState(job.customers?.email ?? "");
   const [phone, setPhone] = useState(job.customers?.phone ?? "");
-  const [additionalReportEmails, setAdditionalReportEmails] = useState<string[]>(() =>
-    (job.report_emails ?? "")
-      .split(",")
-      .map((e) => e.trim())
-      .filter((e) => e && e !== job.customers?.email)
-  );
+  // Per Tim, 2026-09-03 — "I need to be able to edit these and add to
+  // these, not just add to these": every row here is a plain editable/
+  // removable entry, including whichever one started out matching the
+  // customer contact's own email — it's just this list's own starting
+  // value, not a permanently-locked mirror of the Contact section above
+  // (editing it here no longer touches the contact's own stored email).
+  // Falls back to the contact's current email as a single starting row
+  // only when the job has no report_emails on file yet at all (a brand
+  // new job), so the field isn't just a blank list with nothing to edit.
+  const [reportEmailsList, setReportEmailsList] = useState<string[]>(() => {
+    const existing = (job.report_emails ?? "").split(",").map((e) => e.trim()).filter(Boolean);
+    return existing.length > 0 ? existing : job.customers?.email ? [job.customers.email] : [""];
+  });
   // Per Tim, 2026-09-02 — "these results have to be emailed to someone
   // different than who's typically listed" (re: the invoice specifically,
   // not the report): invoice_emails already existed as a column and was
   // already read as an extra CC by draftInvoiceEmailForJob (lab-email.ts)
   // — it just had no UI to ever set it. Same editor pattern as Email
   // results to above.
-  const [additionalInvoiceEmails, setAdditionalInvoiceEmails] = useState<string[]>(() =>
-    (job.invoice_emails ?? "")
-      .split(",")
-      .map((e) => e.trim())
-      .filter((e) => e && e !== job.customers?.email)
-  );
+  const [invoiceEmailsList, setInvoiceEmailsList] = useState<string[]>(() => {
+    const existing = (job.invoice_emails ?? "").split(",").map((e) => e.trim()).filter(Boolean);
+    return existing.length > 0 ? existing : job.customers?.email ? [job.customers.email] : [""];
+  });
   const serviceInit = useMemo(() => parseAddressToFields(job.service_address), [job.service_address]);
   const [serviceStreet, setServiceStreet] = useState(serviceInit.street);
   const [serviceUnit, setServiceUnit] = useState(serviceInit.unit);
@@ -6177,11 +6182,11 @@ export function EditProjectDialog({
       const serviceAddress = buildBillingAddress({
         street: serviceStreet, unit: serviceUnit, city: serviceCity, state: serviceState, zip: serviceZip,
       });
-      const reportEmails = [email, ...additionalReportEmails]
+      const reportEmails = reportEmailsList
         .map((e) => e.trim())
         .filter((e, i, arr) => e && arr.indexOf(e) === i)
         .join(", ");
-      const invoiceEmails = [email, ...additionalInvoiceEmails]
+      const invoiceEmails = invoiceEmailsList
         .map((e) => e.trim())
         .filter((e, i, arr) => e && arr.indexOf(e) === i)
         .join(", ");
@@ -6289,7 +6294,7 @@ export function EditProjectDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     projectNumber, status, companyName, companyId, customerId, contactName, email, phone,
-    additionalReportEmails, additionalInvoiceEmails,
+    reportEmailsList, invoiceEmailsList,
     serviceStreet, serviceUnit, serviceCity, serviceState, serviceZip,
     siteContactName, siteContactPhone, endClientCompany, endClientStreet, endClientUnit, endClientCity, endClientState, endClientZip, endClientContactFirstName, endClientContactLastName, endClientContactPhone, endClientContactEmail, fliProjectNumber, selectedServiceTypeKeys, customServiceType, scopeOfWork,
     confirmedDate, confirmedTime, paidDate, dueDate, notes, paymentType, isRevisit,
@@ -6811,26 +6816,13 @@ export function EditProjectDialog({
           </div>
         </div>
 
+        {/* Per Tim, 2026-09-03 — "I need to be able to edit these and add
+            to these, not just add to these": every row is a plain
+            editable/removable email, not a locked first row mirroring the
+            Contact section above plus free-form additions underneath it. */}
         <label className="mt-3 block text-sm font-medium text-slate-700">Email results to:</label>
         <div className="mt-1 space-y-1.5">
-          <div className="flex gap-1.5">
-            <input
-              type="email"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:bg-white disabled:text-slate-800 disabled:opacity-100"
-              placeholder="Email"
-              value={email}
-              disabled
-              title="Always the customer contact's own email — edit it above."
-            />
-            <button
-              type="button"
-              onClick={() => setAdditionalReportEmails((emails) => [...emails, ""])}
-              className="w-9 shrink-0 rounded-lg border border-slate-300 text-sm text-slate-500"
-            >
-              +
-            </button>
-          </div>
-          {additionalReportEmails.map((addr, i) => (
+          {reportEmailsList.map((addr, i) => (
             <div key={i} className="flex gap-1.5">
               <input
                 type="email"
@@ -6839,19 +6831,19 @@ export function EditProjectDialog({
                 value={addr}
                 onChange={(e) => {
                   const next = e.target.value;
-                  setAdditionalReportEmails((emails) => emails.map((v, j) => (j === i ? next : v)));
+                  setReportEmailsList((emails) => emails.map((v, j) => (j === i ? next : v)));
                 }}
               />
               <button
                 type="button"
-                onClick={() => setAdditionalReportEmails((emails) => [...emails, ""])}
+                onClick={() => setReportEmailsList((emails) => [...emails, ""])}
                 className="w-9 shrink-0 rounded-lg border border-slate-300 text-sm text-slate-500"
               >
                 +
               </button>
               <button
                 type="button"
-                onClick={() => setAdditionalReportEmails((emails) => emails.filter((_, j) => j !== i))}
+                onClick={() => setReportEmailsList((emails) => (emails.length > 1 ? emails.filter((_, j) => j !== i) : [""]))}
                 className="w-9 shrink-0 rounded-lg border border-slate-300 text-sm text-slate-500"
               >
                 ✕
@@ -6872,24 +6864,7 @@ export function EditProjectDialog({
             in lab-email.ts), independent of who the report goes to. */}
         <label className="mt-3 block text-sm font-medium text-slate-700">Email invoice to:</label>
         <div className="mt-1 space-y-1.5">
-          <div className="flex gap-1.5">
-            <input
-              type="email"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:bg-white disabled:text-slate-800 disabled:opacity-100"
-              placeholder="Email"
-              value={email}
-              disabled
-              title="Always the customer contact's own email — edit it above."
-            />
-            <button
-              type="button"
-              onClick={() => setAdditionalInvoiceEmails((emails) => [...emails, ""])}
-              className="w-9 shrink-0 rounded-lg border border-slate-300 text-sm text-slate-500"
-            >
-              +
-            </button>
-          </div>
-          {additionalInvoiceEmails.map((addr, i) => (
+          {invoiceEmailsList.map((addr, i) => (
             <div key={i} className="flex gap-1.5">
               <input
                 type="email"
@@ -6898,19 +6873,19 @@ export function EditProjectDialog({
                 value={addr}
                 onChange={(e) => {
                   const next = e.target.value;
-                  setAdditionalInvoiceEmails((emails) => emails.map((v, j) => (j === i ? next : v)));
+                  setInvoiceEmailsList((emails) => emails.map((v, j) => (j === i ? next : v)));
                 }}
               />
               <button
                 type="button"
-                onClick={() => setAdditionalInvoiceEmails((emails) => [...emails, ""])}
+                onClick={() => setInvoiceEmailsList((emails) => [...emails, ""])}
                 className="w-9 shrink-0 rounded-lg border border-slate-300 text-sm text-slate-500"
               >
                 +
               </button>
               <button
                 type="button"
-                onClick={() => setAdditionalInvoiceEmails((emails) => emails.filter((_, j) => j !== i))}
+                onClick={() => setInvoiceEmailsList((emails) => (emails.length > 1 ? emails.filter((_, j) => j !== i) : [""]))}
                 className="w-9 shrink-0 rounded-lg border border-slate-300 text-sm text-slate-500"
               >
                 ✕

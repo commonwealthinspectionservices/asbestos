@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApi } from "@/lib/admin-api";
 import { withApiErrors } from "@/lib/api-handler";
 import { getSupabaseAdmin } from "@/lib/supabase";
-import { createCombinedDraftForJob, createInvoiceDraftForJob, createReportDraftForJob } from "@/lib/lab-email";
-import { BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID } from "@/lib/report-findings";
+import { createCombinedDraftForJob, createInvoiceDraftForJob, createReportDraftForJob, createSelectedDraftForJob } from "@/lib/lab-email";
+import { BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID, type ReportDomain } from "@/lib/report-findings";
 
 // Backing the Email tab's "View Draft" buttons — same draft-creation
 // path the automatic Gmail check and markJobPaid use, callable on demand
@@ -32,6 +32,18 @@ export const POST = withApiErrors(async (
   }
   if (kind === "report") {
     const { messageId } = await createReportDraftForJob(params.id);
+    return NextResponse.json({ ok: true, messageId });
+  }
+  // The Email tab's checklist — any combination of report domain(s)/
+  // Invoice/Moisture Mapping Report, read from the request body instead
+  // of always sending everything the job has (see createSelectedDraftForJob).
+  if (kind === "custom") {
+    const body = await req.json().catch(() => null);
+    const domains: ReportDomain[] = Array.isArray(body?.domains) ? body.domains : [];
+    const includeInvoice = Boolean(body?.includeInvoice);
+    const includeMoistureMapping = Boolean(body?.includeMoistureMapping);
+    const subject = typeof body?.subject === "string" ? body.subject : undefined;
+    const { messageId } = await createSelectedDraftForJob(params.id, { domains, includeInvoice, includeMoistureMapping, subject });
     return NextResponse.json({ ok: true, messageId });
   }
 

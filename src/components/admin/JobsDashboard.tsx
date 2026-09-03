@@ -392,6 +392,166 @@ function DraftLinkControl({
   );
 }
 
+// Per Tim, 2026-09-04 — "i just need an email tab with a checklist that i
+// can do": replaces the old Report/Invoice/Combined header buttons, whose
+// fixed all-or-nothing combinations (and a "Combined" label that showed as
+// sent purely because the invoice had gone out, even with the report never
+// drafted at all — 26-0014) actively misled him. Check whatever documents
+// this send should include, in any combination, then create one Gmail
+// draft with exactly those attachments — see createSelectedDraftForJob in
+// lib/lab-email.ts for how that combination maps onto the existing
+// report_*/invoice_* sent-tracking columns.
+function EmailChecklistPanel({ job, onChanged }: { job: JobWithCustomer; onChanged: () => void }) {
+  const domains = jobReportDomains(job.service_type);
+  const isMoistureMappingJob = (job.service_type ?? "").toLowerCase().includes("moisture mapping");
+  const hasPhotos = (job.photos?.length ?? 0) > 0;
+
+  // Defaults to checked only for whatever hasn't gone out yet — once
+  // something's already sent, defaulting it to checked risked a stray
+  // click re-drafting (and possibly re-sending) content that already
+  // reached the customer. Nothing here prevents deliberately re-checking
+  // a sent item to resend it — just not as the default.
+  const [selectedDomains, setSelectedDomains] = useState<Set<ReportDomain>>(
+    new Set(job.report_sent_at ? [] : domains)
+  );
+  const [includeInvoice, setIncludeInvoice] = useState(job.invoice_total_cents != null && !job.invoice_sent_at);
+  const [includeMoistureMapping, setIncludeMoistureMapping] = useState(
+    isMoistureMappingJob && hasPhotos && !job.report_sent_at
+  );
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  function toggleDomain(domain: ReportDomain) {
+    setSelectedDomains((prev) => {
+      const next = new Set(prev);
+      if (next.has(domain)) next.delete(domain); else next.add(domain);
+      return next;
+    });
+  }
+
+  const nothingSelected = selectedDomains.size === 0 && !includeInvoice && !includeMoistureMapping;
+
+  // Per Tim, 2026-09-04 — "it should show what the subject will be so
+  // that it will auto fill based to whatever is selected and then like i
+  // can easily edit it if needed too": recomputes as the checklist
+  // changes, right up until the admin actually types into the field —
+  // subjectTouched then latches so their edit is never silently
+  // overwritten by a later checkbox click.
+  const defaultSubject = (() => {
+    const address = expandAddress(job.service_address);
+    const labels = DOMAIN_SUBJECT_ORDER.filter((d) => selectedDomains.has(d)).map((d) => REPORT_DOMAIN_LABEL[d]);
+    if (includeMoistureMapping) labels.push("Moisture Mapping");
+    if (labels.length === 0) return includeInvoice ? `Inspection Invoice - ${address}` : address;
+    return `${labels.join(" + ")} Inspection Report - ${address}`;
+  })();
+  const [subject, setSubject] = useState(defaultSubject);
+  const [subjectTouched, setSubjectTouched] = useState(false);
+  useEffect(() => {
+    if (!subjectTouched) setSubject(defaultSubject);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [defaultSubject, subjectTouched]);
+
+  async function createDraft() {
+    setCreating(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/jobs/${job.id}/create-draft?kind=custom`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          domains: [...selectedDomains],
+          includeInvoice,
+          includeMoistureMapping,
+          subject,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to create draft");
+      onChanged();
+      if (data.messageId) {
+        window.open(gmailMessageUrl(data.messageId, false), "_blank");
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to create draft");
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  const rowClassName = "flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm";
+
+  return (
+    <div className="mt-4 flex flex-col gap-6 sm:flex-row">
+      <div className="max-w-md flex-1">
+        <h3 className="mb-2 text-xs font-bold uppercase text-slate-500">What should this email include?</h3>
+        <div className="space-y-2">
+          {domains.map((domain) => (
+            <label key={domain} className={rowClassName}>
+              <input type="checkbox" checked={selectedDomains.has(domain)} onChange={() => toggleDomain(domain)} />
+              <span className="flex-1">{REPORT_DOMAIN_LABEL[domain]} Report</span>
+              <span className="text-xs text-slate-400">
+                {domain === "mold" && !job.mold_report_notes?.trim()
+                  ? "Missing Conclusions & Recommendations"
+                  : job.report_sent_at ? `Sent ${formatDateMDY(job.report_sent_at)}` : job.report_drafted_at ? "Drafted, not sent" : "Not drafted"}
+              </span>
+            </label>
+          ))}
+          {isMoistureMappingJob && (
+            <label className={rowClassName}>
+              <input
+                type="checkbox"
+                checked={includeMoistureMapping}
+                disabled={!hasPhotos}
+                onChange={(e) => setIncludeMoistureMapping(e.target.checked)}
+              />
+              <span className="flex-1">Moisture Mapping Report</span>
+              <span className="text-xs text-slate-400">{hasPhotos ? "" : "No photos yet"}</span>
+            </label>
+          )}
+          {job.source !== "subcontractor" && (
+            <label className={rowClassName}>
+              <input type="checkbox" checked={includeInvoice} onChange={(e) => setIncludeInvoice(e.target.checked)} />
+              <span className="flex-1">Invoice</span>
+              <span className="text-xs text-slate-400">
+                {job.invoice_sent_at ? `Sent ${formatDateMDY(job.invoice_sent_at)}` : job.invoice_drafted_at ? "Drafted, not sent" : "Not drafted"}
+              </span>
+            </label>
+          )}
+        </div>
+        {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+        <button
+          onClick={createDraft}
+          disabled={nothingSelected || creating}
+          className="mt-4 rounded-lg bg-brand-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+        >
+          {creating ? "Creating draft…" : "Create Draft ↗"}
+        </button>
+      </div>
+      <div className="max-w-md flex-1">
+        <h3 className="mb-2 text-xs font-bold uppercase text-slate-500">Subject</h3>
+        <input
+          type="text"
+          value={subject}
+          onChange={(e) => {
+            setSubject(e.target.value);
+            setSubjectTouched(true);
+          }}
+          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+        />
+        {subjectTouched && (
+          <button
+            type="button"
+            onClick={() => setSubjectTouched(false)}
+            className="mt-1 text-xs text-slate-400 hover:text-slate-600"
+          >
+            Reset to auto-filled subject
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // Shared by Conclusions & Recommendations and every Discussion of Results
 // cell (air/bulk/swab) — Per Tim, 2026-08-27, these two buttons belong on
 // all of them, not just Conclusions & Recommendations.
@@ -521,6 +681,11 @@ function daysOverdue(job: JobWithCustomer): number | null {
 // domain's report to distinguish (see jobReportDomains); a single-type job
 // still just sees the plain "Final Report" tile it always has.
 const REPORT_DOMAIN_LABEL: Record<ReportDomain, string> = { asbestos: "Asbestos", lead: "Lead", mold: "Mold" };
+// Matches inspectionReportSubjectPrefix's own fixed ordering
+// (report-findings.ts) — a combo always reads "Asbestos + Mold + Lead",
+// regardless of which order the domains were selected in on the Email
+// tab's checklist.
+const DOMAIN_SUBJECT_ORDER: ReportDomain[] = ["asbestos", "mold", "lead"];
 
 // Once a job reaches Pending Lab Results or later, the confirmed date/time
 // describe a completed appointment, not a future one — label it that way
@@ -1969,7 +2134,7 @@ export function ProjectDetailDialog({
   onStatusChange: (status: string) => void;
   initialTab?: "info" | "report" | "invoice" | "photos";
 }) {
-  const [tab, setTab] = useState<"info" | "report" | "invoice" | "photos" | "moisture_mapping" | "shipping" | "compensation">(initialTab ?? "info");
+  const [tab, setTab] = useState<"info" | "report" | "invoice" | "photos" | "moisture_mapping" | "shipping" | "compensation" | "email">(initialTab ?? "info");
   // Per Tim, 2026-08-31 — this dialog is only ever mounted while it should
   // be showing (the parent list decides that), so it locks the page behind
   // it for its whole lifetime, not conditionally.
@@ -2031,34 +2196,24 @@ export function ProjectDetailDialog({
     if (!domains.includes(reportDomainTab)) setReportDomainTab(domains[0] ?? "asbestos");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [job.service_type]);
-  // Active whenever the header's own draft control (always visible now,
-  // not tied to which inner tab is open) would actually render — see its
-  // render site below. reportIsComplete(job) recomputed here rather than
+  // Feeds the auto-fire-on-completion effects below (reportOnlyDraft/
+  // invoiceOnlyDraft), which silently create the first draft of each the
+  // moment its own data is ready — independent of the Email tab's manual
+  // checklist send. reportIsComplete(job) recomputed here rather than
   // reusing the `reportComplete` local further down, since these hooks
   // have to be declared before it (rules of hooks — no conditional/late
   // declarations) and it's a cheap pure function of `job` either way.
   const draftControlActive = reportIsComplete(job) && job.invoice_total_cents != null;
-  const combinedDraft = useDraftTracking({
-    kind: "invoice",
-    createKind: "combined",
-    active: draftControlActive,
-    jobId: job.id,
-    draftedAt: job.invoice_drafted_at,
-    sentAt: job.invoice_sent_at,
-    onChanged,
-  });
   // Boston Harbor Water Restoration's report and invoice are two
   // genuinely separate Gmail drafts (see create-draft/route.ts's own
   // BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID branch), each sent on its
   // own schedule — job.report_draft_gmail_message_id and
   // job.invoice_draft_gmail_message_id differ once that's happened. These
   // two hooks track/create each independently (createKind matches kind,
-  // not "combined") so the header control below can show — and act on —
-  // each one on its own, rather than one "create" click risking a
-  // duplicate re-draft of whichever half was already sent. Unused (and
-  // harmless) for every other company, where the two message ids are
-  // always identical and the single combinedDraft control above still
-  // covers it exactly as before.
+  // not "combined") so the auto-fire effects below can create each on its
+  // own, rather than risking a duplicate re-draft of whichever half was
+  // already sent. Harmless for every other company, where the two message
+  // ids are always identical.
   const reportOnlyDraft = useDraftTracking({
     kind: "report",
     createKind: "report",
@@ -2304,6 +2459,31 @@ export function ProjectDetailDialog({
       />
     </div>
   );
+  // Per Tim, 2026-09-04 — asbestos-only "# of samples" cell: auto-fills
+  // from sample_counts (the lab-parsed per-service-type breakdown) or
+  // sample_results.length as a raw fallback, but job.sample_count — once
+  // set — always wins, so a manual correction sticks even if the lab
+  // report gets re-parsed later. Deliberately small (w-20, not the full
+  // row width the other fields use) — it's one short number, not a name
+  // or date.
+  const autoAsbestosSampleCount =
+    Object.entries(job.sample_counts ?? {})
+      .filter(([label]) => domainForServiceTypeLabel(label) === "asbestos")
+      .reduce((sum, [, n]) => sum + (n || 0), 0) || job.sample_results.length || 0;
+  const sampleCountInput = (
+    <div className="flex w-full items-center gap-2 text-sm">
+      <span className="w-28 shrink-0 text-xs font-semibold uppercase text-slate-400"># of Samples</span>
+      <input
+        type="number"
+        min={0}
+        placeholder={String(autoAsbestosSampleCount)}
+        className="h-9 w-20 min-w-0 rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+        defaultValue={job.sample_count ?? ""}
+        key={job.sample_count ?? "auto"}
+        onBlur={(e) => saveSampleCount(e.target.value)}
+      />
+    </div>
+  );
   // Per Tim, 2026-08-31 — "track both mine and theirs": FLI Environmental
   // assigns their own project number to a subcontracted job, separate from
   // (and shown instead of) this app's own project_number on the FLI-
@@ -2504,6 +2684,24 @@ export function ProjectDetailDialog({
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(patch),
+    });
+    onChanged();
+  }
+
+  // Per Tim, 2026-09-04 — "a very small editable cell for # of samples
+  // that auto fills but can be edited as needed": job.sample_count
+  // already exists exactly for this ("row count of sample_items by
+  // default, but independently settable by hand once the lab's results
+  // are in" — types.ts) but had no editable UI anywhere. An empty value
+  // clears the override back to null (falls back to the auto-computed
+  // count again), matching the date/lab fields' own "blank clears it"
+  // convention just above.
+  async function saveSampleCount(value: string) {
+    const parsed = value.trim() === "" ? null : Number(value);
+    await fetch(`/api/admin/jobs/${job.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sample_count: parsed !== null && Number.isFinite(parsed) ? parsed : null }),
     });
     onChanged();
   }
@@ -2870,6 +3068,7 @@ export function ProjectDetailDialog({
                 { value: "invoice", label: "Invoice", onSelect: () => setTab("invoice") },
                 ...(isMoistureMappingJob ? [{ value: "moisture_mapping", label: "Moisture Mapping", onSelect: () => setTab("moisture_mapping") }] : []),
                 { value: "photos", label: "Photos", onSelect: () => setTab("photos") },
+                { value: "email", label: "Email", onSelect: () => setTab("email") },
               ];
           const selectedValue = tab === "report" ? `report:${reportDomainTab}` : tab;
           // Per Tim, 2026-08-27 — no border-b here on mobile when the
@@ -2937,6 +3136,12 @@ export function ProjectDetailDialog({
                     >
                       Photos
                     </button>
+                    <button
+                      onClick={() => setTab("email")}
+                      className={`flex-1 whitespace-nowrap px-0.5 py-1.5 text-center text-[11px] font-bold uppercase sm:flex-none sm:px-3 sm:text-sm ${tab === "email" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
+                    >
+                      Email
+                    </button>
                   </>
                 )}
                 {job.source === "subcontractor" && (
@@ -2956,41 +3161,6 @@ export function ProjectDetailDialog({
                   </>
                 )}
               </div>
-              {/* Per Tim: belongs right here in the tab row, aligned with
-                  the other header buttons, not on a line of its own —
-                  desktop only, the tab row itself is select-dropdown-only
-                  on mobile (see above) with no room to also fit this
-                  inline, so mobile keeps the wrapped-row version below.
-                  Same control either way — see its own comment there. */}
-              {(reportReady || invoiceReady || moistureMappingReady) && (
-                <div className="hidden shrink-0 items-center gap-3 sm:flex">
-                  {reportReady && (
-                    <DraftLinkControl label="Report" hook={reportOnlyDraft} messageId={job.report_draft_gmail_message_id} draftedAt={job.report_drafted_at} sentAt={job.report_sent_at} />
-                  )}
-                  {invoiceReady && (
-                    <DraftLinkControl label="Invoice" hook={invoiceOnlyDraft} messageId={job.invoice_draft_gmail_message_id} draftedAt={job.invoice_drafted_at} sentAt={job.invoice_sent_at} />
-                  )}
-                  {combinedReady && (
-                    <DraftLinkControl
-                      label={job.customers?.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID ? "Final Report and Invoice" : "Combined"}
-                      hook={combinedDraft}
-                      messageId={job.invoice_draft_gmail_message_id}
-                      draftedAt={job.invoice_drafted_at}
-                      sentAt={job.invoice_sent_at}
-                    />
-                  )}
-                  {moistureMappingReady && (
-                    <a
-                      href={`/api/admin/jobs/${job.id}/moisture-mapping-report?download`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="rounded-lg border border-red-600 bg-white px-3 py-1 text-xs font-bold uppercase text-red-600 hover:underline"
-                    >
-                      Moisture Mapping Report ↗
-                    </a>
-                  )}
-                </div>
-              )}
               {/* p-2 -m-2 (mobile only) grows the tap target without
                   shifting the glyph, and ml-1 adds real visual separation
                   from the tab dropdown right next to it — per Tim, this X
@@ -3001,57 +3171,16 @@ export function ProjectDetailDialog({
           );
         })()}
 
-        {/* Mobile-only duplicate of the header control above — the tab row
-            is a select dropdown on mobile with no room to fit this inline,
-            so it wraps to its own row here instead. Per Tim: "View Draft"
-            belongs up here, next to the tabs, not buried inside the
-            Report/Invoice tab content — it's the same one Gmail draft
-            regardless of which tab is open, so it shouldn't require
-            switching tabs (or scrolling) to reach. Boston Harbor's report
-            and invoice are two separate drafts sent on their own
-            schedules, so it splits into two independent controls here —
-            every other company still has one link, exactly as before.
-            isSeparateDraftsCompany (company-based, not "do the two
-            message ids happen to differ") so a brand-new job with
-            neither drafted yet still gets the right two-button layout
-            from the start, not just after one exists. */}
-        {/* Per Tim, 2026-08-27 — no divider between the tab dropdown above
-            and this button: same border-b border-slate-200 bg-white px-3
-            styling as that header row, just without its own pb/pt, so the
-            two visually read as one continuous block instead of two boxes
-            stacked with a line between them. Boston Harbor's two separate
-            controls stack full-width too, each the same size as the
-            dropdown, rather than sitting side by side at half width. */}
-        {(reportReady || invoiceReady || moistureMappingReady) && (
-          <div className="flex shrink-0 flex-col gap-1.5 border-b border-slate-200 bg-white px-3 pb-2 sm:hidden">
-            {reportReady && (
-              <DraftLinkControl label="Report" hook={reportOnlyDraft} messageId={job.report_draft_gmail_message_id} draftedAt={job.report_drafted_at} sentAt={job.report_sent_at} fullWidth />
-            )}
-            {invoiceReady && (
-              <DraftLinkControl label="Invoice" hook={invoiceOnlyDraft} messageId={job.invoice_draft_gmail_message_id} draftedAt={job.invoice_drafted_at} sentAt={job.invoice_sent_at} fullWidth />
-            )}
-            {combinedReady && (
-              <DraftLinkControl
-                label={job.customers?.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID ? "Final Report and Invoice" : "Combined"}
-                hook={combinedDraft}
-                messageId={job.invoice_draft_gmail_message_id}
-                draftedAt={job.invoice_drafted_at}
-                sentAt={job.invoice_sent_at}
-                fullWidth
-              />
-            )}
-            {moistureMappingReady && (
-              <a
-                href={`/api/admin/jobs/${job.id}/moisture-mapping-report?download`}
-                target="_blank"
-                rel="noreferrer"
-                className="flex h-9 w-full items-center justify-center rounded-lg border border-red-600 bg-white px-2 text-center text-sm font-bold uppercase text-red-600 hover:underline"
-              >
-                Moisture Mapping Report ↗
-              </a>
-            )}
-          </div>
-        )}
+        {/* Per Tim, 2026-09-04 — "these buttons are bad i just need an
+            email tab with a checklist that i can do": the Report/Invoice/
+            Combined/Moisture-Mapping-download buttons that used to live
+            here (both this mobile row and the desktop tab-row equivalent
+            above) actively misled him on 26-0014 — "Combined" showed as
+            already sent because the invoice had gone out, even though the
+            mold report itself had never been drafted at all. Replaced by
+            the Email tab (see `tab === "email"` below), which shows real
+            per-document sent/not-sent state instead of one ambiguous
+            "Combined" label. */}
 
         <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-3 pb-3 sm:px-5 sm:pb-5">
 
@@ -3652,6 +3781,7 @@ export function ProjectDetailDialog({
                               <div className="mb-4 space-y-2">
                                 {labDropdown(group.domain)}
                                 {dateSampledInput(group.domain)}
+                                {group.domain === "asbestos" && sampleCountInput}
                                 {isFliJob && group.domain === "asbestos" && fliProjectNumberInput}
                               </div>
                             )}
@@ -4242,6 +4372,10 @@ export function ProjectDetailDialog({
               uploadButtonClassName="rounded-lg bg-brand-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
             />
           </div>
+        )}
+
+        {tab === "email" && job.source !== "subcontractor" && (
+          <EmailChecklistPanel job={job} onChanged={onChanged} />
         )}
 
         {/* Per Tim, 2026-09-04 — "this tab should be moisture mapping w

@@ -5,7 +5,7 @@ import { getSettings } from "@/lib/settings";
 import { withApiErrors } from "@/lib/api-handler";
 import { withCompanyBillingAddress } from "@/lib/customer-billing";
 import { expandAddress } from "@/lib/address";
-import { renderMoistureMappingReportPdf, moistureMappingPhotoFormat } from "@/lib/report-pdf";
+import { buildMoistureMappingReportBuffer } from "@/lib/report-packet";
 import type { Company, Customer, Job } from "@/lib/types";
 
 // Deliberately outside the report/[id] route above (which only ever
@@ -34,34 +34,12 @@ export const GET = withApiErrors(async (
   const customer = withCompanyBillingAddress(jobRow.customers, jobRow.customers.companies);
   const settings = await getSettings();
 
-  const jobPhotos = jobRow.photos ?? [];
-  if (jobPhotos.length === 0) {
-    return NextResponse.json({ error: "This job has no photos yet" }, { status: 400 });
+  let pdf: Buffer;
+  try {
+    pdf = await buildMoistureMappingReportBuffer(jobRow, customer, settings);
+  } catch (e) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : "Failed to build report" }, { status: 400 });
   }
-
-  const photos = await Promise.all(
-    jobPhotos.map(async (photo) => {
-      const { data: blob, error: downloadError } = await supabase.storage
-        .from("job-photos")
-        .download(photo.storage_path);
-      if (downloadError || !blob) {
-        console.error(`Skipping missing moisture mapping photo ${photo.storage_path}:`, downloadError);
-        return null;
-      }
-      return {
-        room: photo.room ?? null,
-        caption: photo.caption ?? null,
-        buffer: Buffer.from(await blob.arrayBuffer()),
-        format: moistureMappingPhotoFormat(photo.file_name),
-      };
-    })
-  );
-  const resolvedPhotos = photos.filter((p): p is NonNullable<typeof p> => p !== null);
-  if (resolvedPhotos.length === 0) {
-    return NextResponse.json({ error: "None of this job's photos could be loaded" }, { status: 500 });
-  }
-
-  const pdf = await renderMoistureMappingReportPdf({ job: jobRow, customer, settings, photos: resolvedPhotos });
 
   const disposition = req.nextUrl.searchParams.get("download") != null ? "attachment" : "inline";
   const filename = `${jobRow.project_number ?? params.id} Moisture Mapping Report ${expandAddress(jobRow.service_address)}`

@@ -102,10 +102,50 @@ export async function buildFinalReportPacket(job: Job, customer: Customer, setti
 }
 
 // One packet per domain actually present on the job — for the email
-// draft's multiple report attachments (see lab-email.ts).
+// draft's multiple report attachments (see lab-email.ts). `onlyDomains`
+// (the Email tab's checklist — see lab-email.ts's createSelectedDraftForJob)
+// narrows that down to a chosen subset; omitted, every domain on the job
+// is included, same as before this parameter existed.
 export async function buildAllFinalReportPackets(
-  job: Job, customer: Customer, settings: Settings
+  job: Job, customer: Customer, settings: Settings, onlyDomains?: ReportDomain[]
 ): Promise<{ domain: ReportDomain; buffer: Buffer }[]> {
-  const domains = jobReportDomains(job.service_type);
+  const domains = jobReportDomains(job.service_type).filter((d) => !onlyDomains || onlyDomains.includes(d));
   return Promise.all(domains.map(async (domain) => ({ domain, buffer: await buildFinalReportPacket(job, customer, settings, domain) })));
+}
+
+// Per Tim, 2026-09-04 — factored out of the standalone download route
+// (api/admin/jobs/[id]/moisture-mapping-report) so the Email tab's
+// checklist-driven draft builder (lab-email.ts) can attach the same PDF
+// to a Gmail draft without duplicating the photo-download logic.
+export async function buildMoistureMappingReportBuffer(
+  job: Job, customer: Customer, settings: Settings
+): Promise<Buffer> {
+  const { renderMoistureMappingReportPdf, moistureMappingPhotoFormat } = await import("@/lib/report-pdf");
+  const supabase = getSupabaseAdmin();
+  const jobPhotos = job.photos ?? [];
+  if (jobPhotos.length === 0) {
+    throw new Error("This job has no photos yet");
+  }
+  const photos = await Promise.all(
+    jobPhotos.map(async (photo) => {
+      const { data: blob, error: downloadError } = await supabase.storage
+        .from("job-photos")
+        .download(photo.storage_path);
+      if (downloadError || !blob) {
+        console.error(`Skipping missing moisture mapping photo ${photo.storage_path}:`, downloadError);
+        return null;
+      }
+      return {
+        room: photo.room ?? null,
+        caption: photo.caption ?? null,
+        buffer: Buffer.from(await blob.arrayBuffer()),
+        format: moistureMappingPhotoFormat(photo.file_name),
+      };
+    })
+  );
+  const resolvedPhotos = photos.filter((p): p is NonNullable<typeof p> => p !== null);
+  if (resolvedPhotos.length === 0) {
+    throw new Error("None of this job's photos could be loaded");
+  }
+  return renderMoistureMappingReportPdf({ job, customer, settings, photos: resolvedPhotos });
 }

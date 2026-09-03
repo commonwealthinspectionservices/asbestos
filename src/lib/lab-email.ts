@@ -1959,6 +1959,152 @@ async function draftCombinedEmailForJob(params: {
   return { messageId: draft.messageId };
 }
 
+// Per Tim, 2026-09-04 — "these buttons are bad i just need an email tab
+// with a checklist that i can do": backs the Email tab's checklist
+// (Report per domain / Invoice / Moisture Mapping Report, any combo),
+// replacing the old fixed report-only/invoice-only/combined trio with one
+// à la carte builder. Still only ever produces one Gmail draft and still
+// only ever writes to the existing report_*/invoice_* column pairs
+// (moisture mapping rides along as an extra attachment on whichever of
+// those is also selected, rather than getting its own tracked "sent"
+// state — there's no moisture_mapping_sent_at column, and adding one
+// would also mean teaching checkDraftSentStatus/the check-sent-drafts
+// cron/checkForBouncedSends about a third kind) — see draftCombinedEmailForJob
+// above for why pointing both column pairs at the same draft id is safe.
+// Selecting neither a report domain nor Invoice (moisture mapping alone)
+// still writes the report column pair, the closest existing "non-invoice
+// document" slot — no dedicated tracking, but nothing else breaks either.
+async function draftSelectedEmailForJob(params: {
+  job: Job & { customers: Customer & { companies: Company | null } };
+  settings: Settings;
+  accessToken: string;
+  domains: ReportDomain[];
+  includeInvoice: boolean;
+  includeMoistureMapping: boolean;
+  /** Per Tim, 2026-09-04 — the Email tab's editable subject field; falls
+      back to the same computed default the tab itself shows when omitted
+      or blank. */
+  subject?: string;
+}): Promise<{ messageId: string }> {
+  const { job, settings, accessToken, domains, includeInvoice, includeMoistureMapping, subject: customSubject } = params;
+  if (domains.includes("mold")) assertMoldReportReady(job);
+  const supabase = getSupabaseAdmin();
+
+  let pricedJob = job;
+  let totalCents = job.invoice_total_cents ?? 0;
+  let payNowUrlForEmail: string | null = null;
+  if (includeInvoice) {
+    const { data: settingsRow } = await supabase.from("settings").select("service_types, pricing_zones").eq("id", 1).single();
+    const { lineItems, totalCents: freshTotalCents } = await priceAndPersistInvoice(job as JobWithCustomer, settingsRow);
+    pricedJob = { ...job, invoice_line_items: lineItems, invoice_total_cents: freshTotalCents };
+    totalCents = freshTotalCents;
+  }
+  const customer = withCompanyBillingAddress(pricedJob.customers, pricedJob.customers.companies);
+
+  const { buildAllFinalReportPackets, buildMoistureMappingReportBuffer } = await import("@/lib/report-packet");
+  const reportPackets = domains.length > 0 ? await buildAllFinalReportPackets(pricedJob, customer, settings, domains) : [];
+  const moistureMappingBuffer = includeMoistureMapping ? await buildMoistureMappingReportBuffer(pricedJob, customer, settings) : null;
+
+  let invoicePdf: Buffer | null = null;
+  if (includeInvoice) {
+    const { renderInvoicePdf } = await import("@/lib/invoice-pdf");
+    invoicePdf = await renderInvoicePdf({ job: pricedJob, customer, company: pricedJob.customers.companies, settings });
+    if (pricedJob.payment_type !== "check") {
+      try {
+        const { hostedInvoiceUrl } = await createStripeInvoiceForJob(pricedJob, customer);
+        payNowUrlForEmail = pricedJob.customers.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID ? null : hostedInvoiceUrl;
+      } catch (e) {
+        console.error(`Failed to create Stripe invoice for job ${job.id}:`, e);
+      }
+    }
+  }
+
+  // Same "invoice_emails only when the invoice is actually included, else
+  // fall back to report_emails/customer.email" split the three older
+  // functions each hard-coded separately.
+  let recipients: string;
+  if (includeInvoice) {
+    const invoiceToAddresses = (pricedJob.invoice_emails ?? "").split(",").map((e) => e.trim()).filter(Boolean);
+    recipients = (invoiceToAddresses.length > 0 ? invoiceToAddresses : [customer.email]).join(", ");
+  } else {
+    recipients = [...new Set(
+      [customer.email, ...(job.report_emails?.split(",") ?? [])]
+        .map((e) => e.trim().toLowerCase())
+        .filter(Boolean)
+    )].join(", ");
+  }
+
+  const staleDraftIds = new Set(
+    [
+      (domains.length > 0 || includeMoistureMapping) ? job.report_draft_gmail_id : null,
+      includeInvoice ? job.invoice_draft_gmail_id : null,
+    ].filter((id): id is string => Boolean(id))
+  );
+  for (const id of staleDraftIds) {
+    try {
+      await deleteDraft(accessToken, id);
+    } catch (e) {
+      console.error(`Failed to delete previous draft ${id} for job ${job.id}:`, e);
+    }
+  }
+
+  // Body copy: reuses the three existing templates rather than writing a
+  // fourth — closest match to what's actually attached. Note these two
+  // still describe *every* domain on the job (jobReportDomains(job.service_type)
+  // internally), not just the ones actually selected here — fine for a
+  // job with one domain (today's real case), a mismatch worth revisiting
+  // if a multi-domain job ever sends less than all of its domains at once.
+  const bodyHtml = includeInvoice
+    ? (domains.length > 0 ? combinedDraftBodyHtml(pricedJob, settings, totalCents, payNowUrlForEmail) : invoiceDraftBodyHtml(pricedJob, settings, payNowUrlForEmail))
+    : reportDraftBodyHtml(pricedJob, settings);
+
+  const existingThreadIds: string[] = Array.isArray(pricedJob.email_thread_message_ids) ? pricedJob.email_thread_message_ids : [];
+  const draft = await createDraft(accessToken, {
+    to: recipients,
+    subject: customSubject?.trim() || (includeInvoice && domains.length === 0
+      ? `Inspection Invoice - ${expandAddress(pricedJob.service_address)}`
+      : threadSubject(pricedJob.service_address, pricedJob.service_type)),
+    headers: threadHeaders(existingThreadIds),
+    threadId: pricedJob.email_gmail_thread_id ?? undefined,
+    bodyHtml,
+    attachments: [
+      ...reportPackets.map(({ domain, buffer }) => ({
+        filename: reportEmailAttachmentFilename(pricedJob, job.id, domain),
+        mimeType: "application/pdf",
+        content: buffer,
+      })),
+      ...(moistureMappingBuffer
+        ? [{
+            filename: `${pricedJob.project_number ?? job.id} Moisture Mapping Report.pdf`,
+            mimeType: "application/pdf",
+            content: moistureMappingBuffer,
+          }]
+        : []),
+      ...(invoicePdf
+        ? [{ filename: `${pricedJob.project_number ?? job.id} Invoice.pdf`, mimeType: "application/pdf", content: invoicePdf }]
+        : []),
+    ],
+  });
+
+  const draftedAt = new Date().toISOString();
+  const update: Record<string, string> = {};
+  if (domains.length > 0 || includeMoistureMapping) {
+    update.report_drafted_at = draftedAt;
+    update.report_draft_gmail_id = draft.id;
+    update.report_draft_gmail_message_id = draft.messageId;
+  }
+  if (includeInvoice) {
+    update.invoice_drafted_at = draftedAt;
+    update.invoice_draft_gmail_id = draft.id;
+    update.invoice_draft_gmail_message_id = draft.messageId;
+  }
+  if (Object.keys(update).length > 0) {
+    await supabase.from("jobs").update(update).eq("id", job.id);
+  }
+
+  return { messageId: draft.messageId };
+}
+
 async function loadJobForDraft(jobId: string): Promise<{
   job: Job & { customers: Customer & { companies: Company | null } };
   settings: Settings;
@@ -2002,6 +2148,14 @@ export async function createPaymentReminderDraftForJob(jobId: string): Promise<v
 /** The Email tab's one "View Draft" button — final report + invoice as two attachments on a single Gmail draft, with a payment link. Returns the new draft's own Gmail message id so the caller can jump straight to it. */
 export async function createCombinedDraftForJob(jobId: string): Promise<{ messageId: string }> {
   return draftCombinedEmailForJob(await loadJobForDraft(jobId));
+}
+
+/** The Email tab's checklist button — any combination of report domain(s)/Invoice/Moisture Mapping Report as one Gmail draft. */
+export async function createSelectedDraftForJob(
+  jobId: string,
+  selection: { domains: ReportDomain[]; includeInvoice: boolean; includeMoistureMapping: boolean; subject?: string }
+): Promise<{ messageId: string }> {
+  return draftSelectedEmailForJob({ ...(await loadJobForDraft(jobId)), ...selection });
 }
 
 /**

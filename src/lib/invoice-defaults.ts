@@ -1,5 +1,5 @@
 import { resolveZoneBaseFeeCents } from "@/lib/pricing-zones";
-import { NEWTON_FIRE_FLOOD_COMPANY_ID, FLI_ENVIRONMENTAL_COMPANY_ID } from "@/lib/report-findings";
+import { NEWTON_FIRE_FLOOD_COMPANY_ID, FLI_ENVIRONMENTAL_COMPANY_ID, PUROCLEAN_WAKEFIELD_COMPANY_ID } from "@/lib/report-findings";
 import type { InvoiceLineItem, JobWithCustomer, PricingZone, ServiceType } from "@/lib/types";
 
 // Single source of truth for "what should this invoice look like before
@@ -164,6 +164,7 @@ export function defaultInvoiceLineItems(
 
   const isRush = job.lab_turnaround === "Rush";
   const isNewton = job.customers?.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID;
+  const isPuroCleanWakefield = job.customers?.company_id === PUROCLEAN_WAKEFIELD_COMPANY_ID;
 
   // Per Tim, 2026-08-28 (confirmed against a real Boston Harbor Water
   // Restoration invoice, 26-0009) — "when it's a rush job, you just charge
@@ -177,16 +178,16 @@ export function defaultInvoiceLineItems(
   // Surface (Bulk) Sampling, matching asbestos, and $100/sample for
   // Air-O-Cell. Lead and mold swab have no rush rate — a job's rush flag
   // simply doesn't change their line's price, same as before this change.
-  // Newton Fire & Flood is the one exception across all of these: their own
-  // standing arrangement is a flat 20% surcharge on the whole invoice
-  // (below), not a per-sample rate change, so none of these rush rates
-  // ever apply to them.
+  // Newton Fire & Flood and PuroClean of Wakefield are the exceptions
+  // across all of these: their own standing arrangements are a flat 20%
+  // surcharge on the whole invoice (below), not a per-sample rate change,
+  // so none of these rush rates ever apply to them.
   const RUSH_SAMPLE_CENTS: Record<string, number> = {
     "Bulk Samples for Asbestos Analysis by PLM": 5000,
     "Bulk Samples for Mold Analysis": 5000,
     "Air-O-Cell Samples for Mold Analysis": 10000,
   };
-  const rushRateApplies = isRush && !isNewton;
+  const rushRateApplies = isRush && !isNewton && !isPuroCleanWakefield;
 
   for (const label of serviceTypeLabels) {
     const count = job.sample_counts?.[label];
@@ -228,6 +229,21 @@ export function defaultInvoiceLineItems(
   // NEWTON_FIRE_FLOOD_COMPANY_ID's own comment). Skipped on a $0 invoice
   // (nothing priced yet) rather than adding a $0 rush fee line.
   if (isNewton) {
+    const subtotalCents = invoiceLineItemsTotalCents(rows);
+    if (subtotalCents > 0) {
+      rows.push({
+        description: "Rush Fee (Same Day Service) - 20%",
+        quantity: 1,
+        billing_unit: "Fee",
+        unit_cost_cents: Math.round(subtotalCents * 0.2),
+      });
+    }
+  }
+
+  // Per Tim, 2026-09-02 (26-0015) — PuroClean of Wakefield ONLY: same 20%
+  // mechanism as Newton above, but only on an actual Rush job — their
+  // non-rush invoices price normally, with no surcharge at all.
+  if (isPuroCleanWakefield && isRush) {
     const subtotalCents = invoiceLineItemsTotalCents(rows);
     if (subtotalCents > 0) {
       rows.push({

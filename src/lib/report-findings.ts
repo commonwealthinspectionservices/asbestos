@@ -57,6 +57,17 @@ export const BOSTON_HARBOR_WATER_RESTORATION_REPORT_CONTACT_NAME = "Joe Kline";
 export const FLI_ENVIRONMENTAL_COMPANY_ID = "101e2de0-d65d-4ad2-b0cf-89bfb9bd8352";
 export const FLI_ENVIRONMENTAL_BUSINESS_NAME = "FLI Environmental, Inc.";
 export const FLI_ENVIRONMENTAL_ADDRESS = "69 Bridge Street, Dedham, MA 02026";
+
+// Per Tim, 2026-09-02 (26-0015) — PuroClean of Wakefield's own rush
+// arrangement doesn't fit the normal per-sample flat-rate rush pricing
+// (see RUSH_SAMPLE_CENTS in invoice-defaults.ts): their rush jobs price
+// every sample at the regular per-sample rate ($25, not the usual $50
+// mold-bulk rush rate) and instead add a flat 20% surcharge on the whole
+// invoice — same mechanism as Newton Fire & Flood's own standing rush fee
+// (see NEWTON_FIRE_FLOOD_COMPANY_ID above), except only on an actual Rush
+// job (job.lab_turnaround), not applied unconditionally the way Newton's
+// is. Matched against company_id, same reasoning as the others above.
+export const PUROCLEAN_WAKEFIELD_COMPANY_ID = "2cda02d8-6d41-4420-a5f2-7d8cd9d2fb53";
 export const FLI_ENVIRONMENTAL_PHONE = "(781) 251-0040";
 
 // Which final-report domain a single service-type label belongs to.

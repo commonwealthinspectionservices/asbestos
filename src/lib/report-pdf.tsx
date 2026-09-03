@@ -219,8 +219,12 @@ const styles = StyleSheet.create({
   // photo's own orientation (objectFit: "contain" scales within the box
   // rather than stretching or cropping it).
   roomHeading: { fontWeight: 700, marginTop: STANDARD_GAP, marginBottom: TIGHT_GAP, textDecoration: "underline", fontSize: 13 },
-  photoBlock: { marginBottom: STANDARD_GAP + 6 },
-  photoImage: { maxWidth: 380, maxHeight: 480, objectFit: "contain", marginBottom: TIGHT_GAP },
+  // Photo left, its number + note right — each row sized to roughly half a
+  // page tall so two photos land per page instead of one, per Tim.
+  photoRow: { flexDirection: "row", marginBottom: STANDARD_GAP + 14 },
+  photoImageCol: { width: 210, marginRight: 18 },
+  photoImage: { width: 210, height: 300, objectFit: "contain" },
+  photoTextCol: { flex: 1, paddingTop: 4 },
   photoNumber: { fontWeight: 700, fontSize: 10, marginBottom: TIGHT_GAP },
   photoCaption: { fontSize: 10, color: "#444444", fontStyle: "italic" },
 });
@@ -1711,11 +1715,14 @@ function MoistureMappingReportDocument({
         <Text style={styles.salutation}>Dear <ValueOrBlank style={styles.salutation} value={knownCustomerName} inline />:</Text>
 
         <Text style={styles.paragraph}>
-          {settings.business_name} performed a moisture mapping assessment at the address noted above using a
-          non-destructive moisture meter to identify areas of elevated moisture within the materials tested. The
-          boundary of each elevated-moisture area identified was marked with blue tape at the time of the assessment
-          and photographed for reference; areas outside the taped boundary returned readings within the normal range
-          for the material tested. The numbered photographs below document each taped area.
+          {settings.business_name} performed this moisture mapping assessment at the address noted above using a
+          Tramex Moisture Encounter ME5, a non-invasive, pinless moisture meter that electronically senses relative
+          moisture content within building materials without penetrating or damaging the surface. The meter was
+          passed over the walls, ceilings, and floors in the affected areas; starting from the wettest point
+          identified, it was moved outward in each direction until the reading returned to a normal, dry level, and
+          that transition point was marked with blue painter&apos;s tape. The result is a taped outline on each
+          surface showing the approximate boundary of the moisture intrusion at the time of testing. The numbered
+          photographs below document each taped area.
         </Text>
 
         <Text style={styles.sectionTitle}>Remarks and Limitations:</Text>
@@ -1734,17 +1741,25 @@ function MoistureMappingReportDocument({
                 a page bottom with its photo pushed to the next page. */}
             <View wrap={false}>
               <Text style={styles.roomHeading}>{group.room}</Text>
-              <View style={styles.photoBlock}>
-                <Image src={{ data: group.photos[0].buffer, format: group.photos[0].format }} style={styles.photoImage} />
-                <Text style={styles.photoNumber}>Photo {group.photos[0].number}</Text>
-                {group.photos[0].caption && <Text style={styles.photoCaption}>{group.photos[0].caption}</Text>}
+              <View style={styles.photoRow}>
+                <View style={styles.photoImageCol}>
+                  <Image src={{ data: group.photos[0].buffer, format: group.photos[0].format }} style={styles.photoImage} />
+                </View>
+                <View style={styles.photoTextCol}>
+                  <Text style={styles.photoNumber}>Photo {group.photos[0].number}</Text>
+                  {group.photos[0].caption && <Text style={styles.photoCaption}>{group.photos[0].caption}</Text>}
+                </View>
               </View>
             </View>
             {group.photos.slice(1).map((photo) => (
-              <View key={photo.number} style={styles.photoBlock} wrap={false}>
-                <Image src={{ data: photo.buffer, format: photo.format }} style={styles.photoImage} />
-                <Text style={styles.photoNumber}>Photo {photo.number}</Text>
-                {photo.caption && <Text style={styles.photoCaption}>{photo.caption}</Text>}
+              <View key={photo.number} style={styles.photoRow} wrap={false}>
+                <View style={styles.photoImageCol}>
+                  <Image src={{ data: photo.buffer, format: photo.format }} style={styles.photoImage} />
+                </View>
+                <View style={styles.photoTextCol}>
+                  <Text style={styles.photoNumber}>Photo {photo.number}</Text>
+                  {photo.caption && <Text style={styles.photoCaption}>{photo.caption}</Text>}
+                </View>
               </View>
             ))}
           </View>

@@ -3410,6 +3410,24 @@ export function ProjectDetailDialog({
               })}
             </div>
           )}
+          {/* Per Tim, 2026-09-02 — "these results have to be emailed to
+              someone different than who's typically listed": same display
+              as Email results to above, for the invoice's own extra
+              recipients (invoice_emails — see draftInvoiceEmailForJob in
+              lab-email.ts). */}
+          {job.invoice_emails && job.invoice_emails.trim() && (
+            <div className="space-y-4 sm:space-y-2">
+              <h4 className="text-sm font-bold tracking-wide text-black underline">Email invoice to</h4>
+              {job.invoice_emails.split(",").map((e) => e.trim()).filter(Boolean).map((addr, i) => {
+                const contact = companyContactsForDisplay.find((c) => c.email?.toLowerCase() === addr.toLowerCase());
+                return (
+                  <div key={i} className="text-sm text-black">
+                    {contact ? `${contact.name} — ${addr}` : addr}
+                  </div>
+                );
+              })}
+            </div>
+          )}
           {/* Per Tim, 2026-08-28 — dropped the 2-column grid here too, same
               single evenly-spaced left-aligned list at every width. Per
               Tim, 2026-08-31 — "this should all be combine and instead of
@@ -5944,6 +5962,18 @@ export function EditProjectDialog({
       .map((e) => e.trim())
       .filter((e) => e && e !== job.customers?.email)
   );
+  // Per Tim, 2026-09-02 — "these results have to be emailed to someone
+  // different than who's typically listed" (re: the invoice specifically,
+  // not the report): invoice_emails already existed as a column and was
+  // already read as an extra CC by draftInvoiceEmailForJob (lab-email.ts)
+  // — it just had no UI to ever set it. Same editor pattern as Email
+  // results to above.
+  const [additionalInvoiceEmails, setAdditionalInvoiceEmails] = useState<string[]>(() =>
+    (job.invoice_emails ?? "")
+      .split(",")
+      .map((e) => e.trim())
+      .filter((e) => e && e !== job.customers?.email)
+  );
   const serviceInit = useMemo(() => parseAddressToFields(job.service_address), [job.service_address]);
   const [serviceStreet, setServiceStreet] = useState(serviceInit.street);
   const [serviceUnit, setServiceUnit] = useState(serviceInit.unit);
@@ -6150,6 +6180,10 @@ export function EditProjectDialog({
         .map((e) => e.trim())
         .filter((e, i, arr) => e && arr.indexOf(e) === i)
         .join(", ");
+      const invoiceEmails = [email, ...additionalInvoiceEmails]
+        .map((e) => e.trim())
+        .filter((e, i, arr) => e && arr.indexOf(e) === i)
+        .join(", ");
 
       // Typing a contact name without selecting an existing one clears
       // customerId (see the Contact name onChange below) — in that case,
@@ -6206,6 +6240,7 @@ export function EditProjectDialog({
             scope_of_work: scopeOfWork.trim() || null,
             customer_id: targetCustomerId,
             report_emails: reportEmails || null,
+            invoice_emails: invoiceEmails || null,
             payment_type: paymentType,
             is_revisit: isRevisit,
           }),
@@ -6253,7 +6288,7 @@ export function EditProjectDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     projectNumber, status, companyName, companyId, customerId, contactName, email, phone,
-    additionalReportEmails,
+    additionalReportEmails, additionalInvoiceEmails,
     serviceStreet, serviceUnit, serviceCity, serviceState, serviceZip,
     siteContactName, siteContactPhone, endClientCompany, endClientStreet, endClientUnit, endClientCity, endClientState, endClientZip, endClientContactFirstName, endClientContactLastName, endClientContactPhone, endClientContactEmail, fliProjectNumber, selectedServiceTypeKeys, customServiceType, scopeOfWork,
     confirmedDate, confirmedTime, paidDate, dueDate, notes, paymentType, isRevisit,
@@ -6823,6 +6858,65 @@ export function EditProjectDialog({
             </div>
           ))}
           <datalist id="report-email-suggestions">
+            {companyContacts.filter((c) => c.email).map((c) => (
+              <option key={c.id} value={c.email}>{c.name}</option>
+            ))}
+          </datalist>
+        </div>
+
+        {/* Per Tim, 2026-09-02 — "these results have to be emailed to
+            someone different than who's typically listed": same editor as
+            Email results to above, for the invoice specifically — extra
+            recipients CC'd on the invoice draft (see draftInvoiceEmailForJob
+            in lab-email.ts), independent of who the report goes to. */}
+        <label className="mt-3 block text-sm font-medium text-slate-700">Email invoice to:</label>
+        <div className="mt-1 space-y-1.5">
+          <div className="flex gap-1.5">
+            <input
+              type="email"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:bg-white disabled:text-slate-800 disabled:opacity-100"
+              placeholder="Email"
+              value={email}
+              disabled
+              title="Always the customer contact's own email — edit it above."
+            />
+            <button
+              type="button"
+              onClick={() => setAdditionalInvoiceEmails((emails) => [...emails, ""])}
+              className="w-9 shrink-0 rounded-lg border border-slate-300 text-sm text-slate-500"
+            >
+              +
+            </button>
+          </div>
+          {additionalInvoiceEmails.map((addr, i) => (
+            <div key={i} className="flex gap-1.5">
+              <input
+                type="email"
+                list="invoice-email-suggestions"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                value={addr}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setAdditionalInvoiceEmails((emails) => emails.map((v, j) => (j === i ? next : v)));
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => setAdditionalInvoiceEmails((emails) => [...emails, ""])}
+                className="w-9 shrink-0 rounded-lg border border-slate-300 text-sm text-slate-500"
+              >
+                +
+              </button>
+              <button
+                type="button"
+                onClick={() => setAdditionalInvoiceEmails((emails) => emails.filter((_, j) => j !== i))}
+                className="w-9 shrink-0 rounded-lg border border-slate-300 text-sm text-slate-500"
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+          <datalist id="invoice-email-suggestions">
             {companyContacts.filter((c) => c.email).map((c) => (
               <option key={c.id} value={c.email}>{c.name}</option>
             ))}

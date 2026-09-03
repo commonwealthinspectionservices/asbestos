@@ -1063,3 +1063,20 @@ alter table jobs add column if not exists subcontractor_client_contact_email tex
 -- strings, which is exactly why the app must store a blank email as NULL,
 -- never "".
 alter table customers alter column email drop not null;
+
+-- Per Tim, 2026-09-04 — the public /careers interest form, aimed at
+-- off-duty firefighters. Same "internal-only owner notification, no
+-- auto-reply, admin follows up manually" pattern as api/contact/route.ts
+-- — no admin UI for this table yet (Tim reviews via the notification
+-- email), same minimal-first approach as that form.
+create table if not exists career_interest_submissions (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  email text not null,
+  phone text not null,
+  is_firefighter boolean not null default false,
+  firefighter_department text,
+  availability_notes text,
+  created_at timestamptz not null default now()
+);
+alter table career_interest_submissions enable row level security;

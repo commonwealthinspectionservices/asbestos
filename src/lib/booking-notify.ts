@@ -3,6 +3,7 @@ import { getAppUrl } from "@/lib/app-url";
 import { escapeHtml } from "@/lib/html";
 import { expandAddress } from "@/lib/address";
 import { formatDateMDY, formatRequestedTime, formatRequestedTimeWindow } from "@/lib/date-format";
+import { formatCents } from "@/lib/pricing";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { threadSubject, sendThreadedEmail } from "@/lib/email-thread";
 
@@ -259,6 +260,71 @@ export async function sendJobConfirmedEmailIfDue(jobId: string): Promise<void> {
       })
       .eq("id", job.id);
   }
+}
+
+/**
+ * Per Tim, 2026-09-03 — "i need to get a small email notification every
+ * time a job is paid": an owner-facing alert, same convention as
+ * sendNewBookingRequestEmail above (facts table + CTA to the admin job
+ * deep link, sent to OWNER_EMAIL). Split into build/send like
+ * buildJobScheduledEmailHtml above so a preview route can render the exact
+ * markup a real send would produce without actually sending anything.
+ */
+export function buildJobPaidEmailHtml(params: {
+  jobId?: string | null;
+  projectNumber: string | null;
+  customerName: string;
+  company?: string | null;
+  address: string;
+  amountCents: number | null;
+}): string {
+  const appUrl = getAppUrl();
+  const jobUrl = appUrl && params.jobId ? `${appUrl}/admin/dashboard?jobId=${params.jobId}` : null;
+
+  const rows: [string, string][] = [
+    ["Customer", params.company ? `${params.customerName} (${params.company})` : params.customerName],
+    ["Amount", params.amountCents != null ? formatCents(params.amountCents) : "—"],
+    ["Address", expandAddress(params.address)],
+  ];
+  if (params.projectNumber) rows.unshift(["Project #", params.projectNumber]);
+
+  const tableRows = rows
+    .map(
+      ([label, value]) =>
+        `<tr><td style="padding:4px 8px 4px 0; color:#64748b; white-space:nowrap; vertical-align:top;">${escapeHtml(label)}</td><td style="white-space:pre-wrap; overflow-wrap:anywhere;">${escapeHtml(value)}</td></tr>`
+    )
+    .join("");
+
+  return emailShell(`
+    <p style="font-size:15px;">A payment just came in.</p>
+    <table style="width:100%; font-size:14px; color:#16213a;">${tableRows}</table>
+    ${jobUrl ? `<p style="margin-top:16px;"><a href="${jobUrl}" style="display:inline-block; background:#193466; color:#fff; padding:10px 16px; border-radius:8px; text-decoration:none; font-size:14px;">View job</a></p>` : ""}
+  `);
+}
+
+export async function sendJobPaidNotification(jobId: string): Promise<void> {
+  const supabase = getSupabaseAdmin();
+  const { data: job } = await supabase
+    .from("jobs")
+    .select("project_number, service_address, invoice_total_cents, customer_id")
+    .eq("id", jobId)
+    .maybeSingle();
+  if (!job) return;
+
+  const { data: customer } = await supabase.from("customers").select("name, company").eq("id", job.customer_id).maybeSingle();
+
+  await sendEmail({
+    to: process.env.OWNER_EMAIL!,
+    subject: `Payment received${job.project_number ? ` — ${job.project_number}` : ""}`,
+    html: buildJobPaidEmailHtml({
+      jobId,
+      projectNumber: job.project_number,
+      customerName: customer?.name ?? "Customer",
+      company: customer?.company,
+      address: job.service_address,
+      amountCents: job.invoice_total_cents,
+    }),
+  });
 }
 
 /**

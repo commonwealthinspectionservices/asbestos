@@ -50,6 +50,7 @@ import { splitTrailingCocPages } from "@/lib/split-lab-report-coc";
 import { extractPositionOrderedText } from "@/lib/pdf-position-text";
 import { jobReportDomains, domainForServiceTypeLabel, ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, NEWTON_FIRE_FLOOD_COMPANY_ID, reportEmailAttachmentFilename, type ReportDomain } from "@/lib/report-findings";
 import { sendEmail, emailShell } from "@/lib/email";
+import { sendJobPaidNotification } from "@/lib/booking-notify";
 import { getAppUrl } from "@/lib/app-url";
 import { escapeHtml } from "@/lib/html";
 import { expandAddress, splitAddress } from "@/lib/address";
@@ -2123,6 +2124,9 @@ export async function markJobPaid(jobId: string, source = "unknown"): Promise<vo
   await supabase.from("jobs").update(update).eq("id", jobId);
 
   await autoDraftReportIfJustPaid(jobId);
+  await sendJobPaidNotification(jobId).catch((e) =>
+    console.error(`markJobPaid: failed to send paid notification for job ${jobId}:`, e)
+  );
 }
 
 /**

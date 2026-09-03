@@ -393,6 +393,10 @@ export const PATCH = withApiErrors(async (
     await autoDraftReportIfJustPaid(params.id).catch((e) =>
       console.error(`Failed to auto-draft report for job ${params.id}:`, e)
     );
+    const { sendJobPaidNotification } = await import("@/lib/booking-notify");
+    await sendJobPaidNotification(params.id).catch((e) =>
+      console.error(`Failed to send paid notification for job ${params.id}:`, e)
+    );
   }
 
   return NextResponse.json({ job: data });

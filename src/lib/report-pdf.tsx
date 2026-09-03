@@ -214,6 +214,14 @@ const styles = StyleSheet.create({
   positiveMaterialsColSample: { width: "16%", paddingRight: 4 },
   positiveMaterialsColMaterial: { width: "54%", paddingRight: 4 },
   positiveMaterialsColQuantity: { width: "30%" },
+  // Moisture Mapping report only — one room/area heading per group of
+  // photos, each photo boxed to fit the page regardless of the source
+  // photo's own orientation (objectFit: "contain" scales within the box
+  // rather than stretching or cropping it).
+  roomHeading: { fontWeight: 700, marginTop: STANDARD_GAP, marginBottom: TIGHT_GAP, textDecoration: "underline", fontSize: 13 },
+  photoBlock: { marginBottom: STANDARD_GAP + 6 },
+  photoImage: { maxWidth: 380, maxHeight: 480, objectFit: "contain", marginBottom: TIGHT_GAP },
+  photoCaption: { fontSize: 10, color: "#444444", fontStyle: "italic" },
 });
 
 export interface ProjectReportData {
@@ -1591,4 +1599,148 @@ export async function renderProjectReportPdfsByDomain(
 ): Promise<{ domain: ReportDomain; buffer: Buffer }[]> {
   const domains = jobReportDomains(data.job.service_type);
   return Promise.all(domains.map(async (domain) => ({ domain, buffer: await renderProjectReportPdfForDomain(data, domain) })));
+}
+
+// Per Tim, 2026-09-03 — Moisture Mapping: deliberately NOT wired into
+// ReportDomain/jobReportDomains above — every other domain is built
+// around the lab-sample workflow (chain of custody, sample counts, lab
+// results), none of which applies here. This is its own standalone
+// document, built straight from the job's own uploaded Photos (see
+// JobPhoto's room/caption fields), grouped by room the way Tim actually
+// works the job: map the extent with a moisture meter, tape off the
+// boundary, photograph each taped area.
+export interface MoistureMappingPhotoData {
+  room: string | null;
+  caption: string | null;
+  buffer: Buffer;
+  /** @react-pdf/renderer's Image needs to know the format up front for dynamic (non-file-path) image data — derived from the photo's own file extension, see moistureMappingPhotoFormat below. */
+  format: "jpg" | "png";
+}
+
+// A phone photo is almost always .jpg/.jpeg/.heic (converted to jpg on
+// upload — see the photos POST route) — anything else falls back to jpg
+// rather than failing the whole report over one oddly-named file.
+export function moistureMappingPhotoFormat(fileName: string): "jpg" | "png" {
+  return fileName.toLowerCase().endsWith(".png") ? "png" : "jpg";
+}
+
+const MOISTURE_MAPPING_UNGROUPED_ROOM = "Other Areas";
+
+function MoistureMappingReportDocument({
+  job, customer, settings, photos,
+}: {
+  job: Job;
+  customer: Customer;
+  settings: Settings;
+  photos: MoistureMappingPhotoData[];
+}) {
+  const { knownCustomerName, dateText, billingStreet, billing, serviceStreet, service } =
+    commonLetterFields(job, customer, settings, job.confirmed_date ?? job.requested_date);
+
+  // Groups appear in first-seen order, except MOISTURE_MAPPING_UNGROUPED_ROOM
+  // (an untagged photo) always sorts last regardless of when it was
+  // uploaded, so it never interrupts the named rooms.
+  const groups: { room: string; photos: MoistureMappingPhotoData[] }[] = [];
+  for (const photo of photos) {
+    const room = photo.room?.trim() || MOISTURE_MAPPING_UNGROUPED_ROOM;
+    let group = groups.find((g) => g.room === room);
+    if (!group) {
+      group = { room, photos: [] };
+      groups.push(group);
+    }
+    group.photos.push(photo);
+  }
+  groups.sort((a, b) =>
+    a.room === MOISTURE_MAPPING_UNGROUPED_ROOM ? 1 : b.room === MOISTURE_MAPPING_UNGROUPED_ROOM ? -1 : 0
+  );
+
+  return (
+    <Document title={`Moisture Mapping Report — ${expandAddress(job.service_address)}`}>
+      <Page size="LETTER" style={styles.page}>
+        <LetterHeader
+          settings={settings}
+          reTitle="Moisture Mapping Report"
+          knownCustomerName={knownCustomerName}
+          serviceAddress={expandAddress(job.service_address)}
+          projectNumber={job.project_number}
+          dateText={dateText}
+        />
+
+        <View style={styles.reBlock}>
+          <View style={styles.reRowTop}>
+            <View style={styles.reTopLeft}>
+              <Text style={styles.reLabel}>RE:</Text>
+              <Text>Moisture Mapping Report</Text>
+            </View>
+            <Text style={styles.dateLine}>{dateText}</Text>
+          </View>
+          <View style={styles.reRow}>
+            <Text style={styles.reLabel} />
+            <ValueOrBlank style={styles.reValue} value={serviceStreet} inline />
+          </View>
+          <View style={styles.reRow}>
+            <Text style={styles.reLabel} />
+            <ValueOrBlank style={styles.reValue} value={service.cityStateZip} inline />
+          </View>
+          <View style={styles.reRow}>
+            <Text style={styles.reLabel} />
+            <Text style={styles.reProjectLabel}>Project #:</Text>
+            <ValueOrBlank style={styles.reValue} value={job.project_number} inline />
+          </View>
+        </View>
+
+        <RecipientBlock
+          knownCustomerName={knownCustomerName}
+          customer={customer}
+          billingStreet={billingStreet}
+          billingCityStateZip={billing.cityStateZip}
+        />
+
+        <Text style={styles.salutation}>Dear <ValueOrBlank style={styles.salutation} value={knownCustomerName} inline />:</Text>
+
+        <Text style={styles.paragraph}>
+          {settings.business_name} performed a moisture mapping assessment at the address noted above using a
+          non-destructive moisture meter. Blue tape marks the mapped boundary of elevated moisture readings in each
+          photograph below; areas outside the taped boundary returned readings within the normal range for the
+          material tested.
+        </Text>
+
+        {groups.map((group) => (
+          <View key={group.room}>
+            {/* Heading glued to the first photo so it can't be orphaned alone at
+                a page bottom with its photo pushed to the next page. */}
+            <View wrap={false}>
+              <Text style={styles.roomHeading}>{group.room}</Text>
+              <View style={styles.photoBlock}>
+                <Image src={{ data: group.photos[0].buffer, format: group.photos[0].format }} style={styles.photoImage} />
+                {group.photos[0].caption && <Text style={styles.photoCaption}>{group.photos[0].caption}</Text>}
+              </View>
+            </View>
+            {group.photos.slice(1).map((photo, i) => (
+              <View key={i} style={styles.photoBlock} wrap={false}>
+                <Image src={{ data: photo.buffer, format: photo.format }} style={styles.photoImage} />
+                {photo.caption && <Text style={styles.photoCaption}>{photo.caption}</Text>}
+              </View>
+            ))}
+          </View>
+        ))}
+
+        <Text style={styles.paragraph}>
+          Should you have any questions or need additional information, please contact {primaryInspector(settings).name}
+          {settings.business_phone ? ` at ${settings.business_phone}` : ""}.
+        </Text>
+
+        <SignatureBlock settings={settings} showLicense={false} />
+      </Page>
+    </Document>
+  );
+}
+
+export async function renderMoistureMappingReportPdf(params: {
+  job: Job;
+  customer: Customer;
+  settings: Settings;
+  photos: MoistureMappingPhotoData[];
+}): Promise<Buffer> {
+  return renderToBuffer(<MoistureMappingReportDocument {...params} />);
 }

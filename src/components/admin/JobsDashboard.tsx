@@ -2286,6 +2286,12 @@ export function ProjectDetailDialog({
   // comment in types.ts. Only shown for FLI Environmental jobs; every other
   // job has no such second number to track.
   const isFliJob = job.customers?.company_id === FLI_ENVIRONMENTAL_COMPANY_ID;
+  // Per Tim, 2026-09-03 — Moisture Mapping is a plain Settings service
+  // type (pricing/booking only), not a report "domain" like asbestos/mold/
+  // lead — those are all built around the lab-sample workflow, which this
+  // has none of. Matched the same simple substring way hasAsbestos/hasMold
+  // already are in invoice-defaults.ts, not a new domain constant.
+  const isMoistureMappingJob = (job.service_type ?? "").toLowerCase().includes("moisture mapping");
   async function saveFliProjectNumber(value: string) {
     await fetch(`/api/admin/jobs/${job.id}`, {
       method: "PATCH",
@@ -4159,11 +4165,22 @@ export function ProjectDetailDialog({
 
         {tab === "photos" && job.source !== "subcontractor" && (
           <div className="mt-4">
+            {isMoistureMappingJob && (job.photos?.length ?? 0) > 0 && (
+              <a
+                href={`/api/admin/jobs/${job.id}/moisture-mapping-report?download`}
+                target="_blank"
+                rel="noreferrer"
+                className="mb-3 inline-block rounded-lg bg-brand-600 px-4 py-2 text-sm font-bold text-white"
+              >
+                Download Moisture Mapping Report
+              </a>
+            )}
             <JobPhotos
               photos={job.photos ?? []}
               uploadEndpoint={`/api/admin/jobs/${job.id}/photos`}
               viewEndpointBase={`/api/admin/jobs/${job.id}/photos`}
               deleteEndpointBase={`/api/admin/jobs/${job.id}/photos`}
+              editEndpointBase={isMoistureMappingJob ? `/api/admin/jobs/${job.id}/photos` : undefined}
               onChanged={onChanged}
               uploadButtonClassName="rounded-lg bg-brand-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
             />

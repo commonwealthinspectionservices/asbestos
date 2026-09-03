@@ -214,6 +214,10 @@ export interface JobPhoto {
   storage_path: string;
   uploaded_at: string;
   uploaded_by: "admin" | "customer";
+  /** Which room/area this photo documents — the Moisture Mapping report (report-pdf.tsx) groups photos under these as headings. Admin-settable only; blank for any job not using it. */
+  room?: string | null;
+  /** Free-form note describing what's shown / the extent of the affected area — printed under the photo on the Moisture Mapping report. */
+  caption?: string | null;
 }
 
 /** A manually-entered invoice line — total is quantity * unit_cost_cents, not stored separately. */

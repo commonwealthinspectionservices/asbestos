@@ -11,6 +11,7 @@ export default function JobPhotos({
   uploadEndpoint,
   viewEndpointBase,
   deleteEndpointBase,
+  editEndpointBase,
   onChanged,
   uploadButtonClassName,
 }: {
@@ -21,6 +22,11 @@ export default function JobPhotos({
   viewEndpointBase: string;
   /** DELETE base by id, e.g. /api/admin/jobs/{id}/photos — omit to hide delete (portal side) */
   deleteEndpointBase?: string;
+  /** PATCH base by id, e.g. /api/admin/jobs/{id}/photos — Room/Note fields
+      for the Moisture Mapping report (report-pdf.tsx). Omit to hide those
+      fields entirely — every other job's Photos tab stays a plain gallery,
+      and the portal side never gets this at all. */
+  editEndpointBase?: string;
   onChanged: () => void;
   uploadButtonClassName: string;
 }) {
@@ -28,6 +34,24 @@ export default function JobPhotos({
   const [error, setError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Local draft per photo so typing doesn't fight the `photos` prop (which
+  // only reflects the last save) — keyed by photo id, seeded from the
+  // photo's own current value the first time it's touched.
+  const [drafts, setDrafts] = useState<Record<string, { room?: string; caption?: string }>>({});
+
+  async function savePhotoField(photoId: string, patch: { room?: string; caption?: string }) {
+    if (!editEndpointBase) return;
+    try {
+      await fetch(`${editEndpointBase}/${photoId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch),
+      });
+      onChanged();
+    } catch {
+      setError("Failed to save");
+    }
+  }
 
   async function uploadFiles(files: FileList | File[]) {
     const imageFiles = Array.from(files).filter((f) => f.type.startsWith("image/"));
@@ -98,6 +122,58 @@ export default function JobPhotos({
 
       {photos.length === 0 ? (
         <p className="mt-4 text-sm text-slate-500">No photos yet.</p>
+      ) : editEndpointBase ? (
+        // Per Tim, 2026-09-03 — Moisture Mapping: Room groups photos into
+        // headings on the report, Note prints underneath each photo. Only
+        // ever rendered when editEndpointBase is passed in (JobsDashboard.tsx
+        // gates that on the job actually having this service type) — every
+        // other job keeps the plain bare-thumbnail grid below.
+        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+          {photos.map((photo) => {
+            const draft = drafts[photo.id];
+            const room = draft?.room ?? photo.room ?? "";
+            const caption = draft?.caption ?? photo.caption ?? "";
+            return (
+              <div key={photo.id} className="group relative overflow-hidden rounded-lg border border-slate-200">
+                <div className="relative aspect-square">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={`${viewEndpointBase}/${photo.id}`}
+                    alt={photo.file_name}
+                    className="h-full w-full object-cover"
+                  />
+                  {deleteEndpointBase && (
+                    <button
+                      onClick={() => deletePhoto(photo.id)}
+                      className="absolute right-1 top-1 hidden rounded-full bg-black/60 px-1.5 py-0.5 text-xs font-bold text-white group-hover:block"
+                      aria-label="Delete photo"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+                <div className="space-y-1 p-1.5">
+                  <input
+                    type="text"
+                    placeholder="Room / area"
+                    value={room}
+                    onChange={(e) => setDrafts((d) => ({ ...d, [photo.id]: { ...d[photo.id], room: e.target.value } }))}
+                    onBlur={(e) => savePhotoField(photo.id, { room: e.target.value })}
+                    className="w-full rounded border border-slate-300 px-1.5 py-1 text-xs"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Note"
+                    value={caption}
+                    onChange={(e) => setDrafts((d) => ({ ...d, [photo.id]: { ...d[photo.id], caption: e.target.value } }))}
+                    onBlur={(e) => savePhotoField(photo.id, { caption: e.target.value })}
+                    className="w-full rounded border border-slate-300 px-1.5 py-1 text-xs"
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
       ) : (
         <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-4">
           {photos.map((photo) => (

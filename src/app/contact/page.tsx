@@ -31,8 +31,8 @@ export default async function ContactPage() {
           <div className="rounded-lg border border-slate-200 p-4">
             <h3 className="font-bold text-brand-700">Email</h3>
             <p className="mt-1 text-slate-700">
-              <a href="mailto:maasbestos@gmail.com" className="text-brand-600 underline">
-                maasbestos@gmail.com
+              <a href={`mailto:${settings.business_email}`} className="text-brand-600 underline">
+                {settings.business_email}
               </a>
             </p>
           </div>

@@ -22,6 +22,7 @@ export const POST = withApiErrors(async (req: NextRequest) => {
   const isFirefighter = Boolean(body?.isFirefighter);
   const firefighterDepartment = body?.firefighterDepartment?.trim() || null;
   const availabilityNotes = body?.availabilityNotes?.trim() || null;
+  const desiredHourlyRate = body?.desiredHourlyRate?.trim() || null;
   const extraNotes = body?.extraNotes?.trim() || null;
   const resumeFilename = body?.resumeFilename?.trim() || null;
   const resumeBase64 = typeof body?.resumeBase64 === "string" ? body.resumeBase64 : null;
@@ -52,6 +53,7 @@ export const POST = withApiErrors(async (req: NextRequest) => {
     is_firefighter: isFirefighter,
     firefighter_department: firefighterDepartment,
     availability_notes: availabilityNotes,
+    desired_hourly_rate: desiredHourlyRate,
     extra_notes: extraNotes,
     resume_filename: resumeFilename,
   });
@@ -66,6 +68,7 @@ export const POST = withApiErrors(async (req: NextRequest) => {
     ...(location ? [["Location", location]] : []),
     ["Firefighter?", isFirefighter ? "Yes" : "No"],
     ...(isFirefighter && firefighterDepartment ? [["Department", firefighterDepartment]] : []),
+    ...(desiredHourlyRate ? [["Desired hourly rate", desiredHourlyRate]] : []),
   ];
   const tableRows = rows
     .map(

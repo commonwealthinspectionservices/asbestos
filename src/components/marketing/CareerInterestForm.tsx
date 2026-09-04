@@ -25,6 +25,7 @@ export default function CareerInterestForm() {
   const [isFirefighter, setIsFirefighter] = useState(false);
   const [firefighterDepartment, setFirefighterDepartment] = useState("");
   const [availabilityNotes, setAvailabilityNotes] = useState("");
+  const [desiredHourlyRate, setDesiredHourlyRate] = useState("");
   const [extraNotes, setExtraNotes] = useState("");
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [website, setWebsite] = useState(""); // honeypot
@@ -63,6 +64,7 @@ export default function CareerInterestForm() {
           isFirefighter,
           firefighterDepartment,
           availabilityNotes,
+          desiredHourlyRate,
           extraNotes,
           website,
           ...resume,
@@ -179,6 +181,17 @@ export default function CareerInterestForm() {
         className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
         value={availabilityNotes}
         onChange={(e) => setAvailabilityNotes(e.target.value)}
+      />
+
+      <label className="mt-3 block text-sm font-medium text-slate-700">
+        What would your hourly rate be as a part-time W2 employee?
+      </label>
+      <input
+        placeholder="e.g. $30/hr"
+        autoComplete="off"
+        className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+        value={desiredHourlyRate}
+        onChange={(e) => setDesiredHourlyRate(e.target.value)}
       />
 
       <label className="mt-3 block text-sm font-medium text-slate-700">Resume (optional)</label>

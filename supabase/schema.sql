@@ -1085,3 +1085,10 @@ create table if not exists career_interest_submissions (
   created_at timestamptz not null default now()
 );
 alter table career_interest_submissions enable row level security;
+
+-- Per Tim, 2026-09-04 — asks candidates directly what hourly rate they'd
+-- want as a part-time W2 employee, rather than Tim guessing at one (see
+-- the pay/margin model built the same session). Free text, not a number
+-- column — people naturally answer with a range ("$25-30/hr") as often as
+-- a single figure.
+alter table career_interest_submissions add column if not exists desired_hourly_rate text;

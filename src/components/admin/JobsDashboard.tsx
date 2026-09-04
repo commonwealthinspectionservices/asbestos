@@ -16,7 +16,7 @@ import { ContactForm } from "@/components/admin/ContactDetailDialog";
 import { formatDateMDY } from "@/lib/date-format";
 import { subcontractorSenderForJob, isKnownSubcontractorCompanyName, isKnownSubcontractingForName } from "@/lib/subcontractor-senders";
 import { timeSelectOptions } from "@/lib/time-options";
-import { computeMarginCents } from "@/lib/pricing";
+import { computeMarginCents, knownLabCostCentsForJob } from "@/lib/pricing";
 import { dueDateFor, paymentDueDate } from "@/lib/invoice-due-date";
 import { useLockBodyScroll } from "@/lib/use-lock-body-scroll";
 
@@ -4179,7 +4179,7 @@ export function ProjectDetailDialog({
                   serviceTypeSettings={serviceTypeSettings}
                   paymentDueDate={dueDateFor(job) || ""}
                   onPaymentDueDateChange={(v) => saveJobField({ payment_due_date: v || null })}
-                  labCostCents={job.lab_cost_cents}
+                  labCostCents={knownLabCostCentsForJob(job)}
                   stripeFeeCents={job.stripe_fee_cents}
                 />
                 {savingInvoice && <p className="mt-1 text-xs text-slate-400">Saving…</p>}

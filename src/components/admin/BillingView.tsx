@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useMemo, useState } from "react";
 import type { JobWithCustomer } from "@/lib/types";
-import { formatCents, computeMarginCents } from "@/lib/pricing";
+import { formatCents, computeMarginCents, knownLabCostCentsForJob } from "@/lib/pricing";
 import { ProjectDetailDialog, EditProjectDialog, formatDateTime } from "@/components/admin/JobsDashboard";
 import { formatDateMDY } from "@/lib/date-format";
 import { NEWTON_FIRE_FLOOD_COMPANY_ID } from "@/lib/report-findings";
@@ -139,6 +139,15 @@ function totalSampleCount(job: JobWithCustomer): number {
     .reduce((sum, li) => sum + (li.quantity || 0), 0);
 }
 
+// Confirmed live: 26-0011 (an FLI job) was showing an estimated ≈$111.74
+// lab cost — and a correspondingly understated margin — that would never
+// actually become a real charge, because the estimate didn't know to
+// treat FLI's null as already-known-zero rather than not-yet-billed.
+function estimatedLabCostCentsForJob(job: JobWithCustomer, avgLabCostPerSampleCents: number): number {
+  if (knownLabCostCentsForJob(job) != null) return 0;
+  return totalSampleCount(job) * avgLabCostPerSampleCents;
+}
+
 // Per Tim, 2026-08-30 — "invoice and lab costs should be links to the
 // PDF invoices": a job can have more than one lab_invoice document
 // (partial billing across weekly reports) — links to the most recently
@@ -222,7 +231,7 @@ function JobRow({
 // $0. Same size/format for every row per Tim's follow-up — Margin isn't
 // visually singled out, just colored red if it's negative.
 function MoneyGrid({
-  revenueCents, labCostCents, estimatedLabCostCents, stripeFeeCents, marginCents, invoiceHref, labInvoiceHref,
+  revenueCents, labCostCents, estimatedLabCostCents, stripeFeeCents, marginCents, invoiceHref, labInvoiceHref, labInvoiceFlagReason,
 }: {
   revenueCents: number; labCostCents: number | null;
   /** Per Tim, 2026-09-04 — shown (with "≈") in place of "—" when the lab
@@ -232,6 +241,8 @@ function MoneyGrid({
   estimatedLabCostCents?: number;
   stripeFeeCents: number; marginCents: number | null;
   invoiceHref?: string | null; labInvoiceHref?: string | null;
+  /** Set when any of this job's lab_invoice documents carries a lab_invoice_flag (see lib/lab-pricing.ts / the 26-0015 duplicate-charge incident, 2026-09-04) — shown as a small warning mark next to "Lab Cost" so it's visible on the billing card, not just in the alert email. */
+  labInvoiceFlagReason?: string | null;
 }) {
   // Per Tim, 2026-08-30 — "the text should all start in the same point,
   // the I, the L, and the M, but just move it far right": labels
@@ -266,6 +277,11 @@ function MoneyGrid({
       <span className="whitespace-nowrap text-right text-slate-700">{formatCents(revenueCents)}</span>
       {labCostLabel}
       <span className="whitespace-nowrap text-right text-slate-700">
+        {labInvoiceFlagReason && (
+          <span title={labInvoiceFlagReason} className="mr-1 cursor-help text-amber-500">
+            ⚠
+          </span>
+        )}
         {labCostCents != null
           ? formatCents(labCostCents)
           : estimatedLabCostCents
@@ -678,8 +694,10 @@ export default function BillingView() {
       const labCostCents = job.lab_cost_cents ?? 0;
       // Only estimate for a job with no real lab invoice yet — once the
       // real one comes in, labCostCents above already has it and this
-      // stays 0 so it's never added on top of the real figure.
-      const estimatedCents = job.lab_cost_cents == null ? totalSampleCount(job) * avgLabCostPerSampleCents : 0;
+      // stays 0 so it's never added on top of the real figure. (An FLI
+      // Environmental job never gets a real one — see
+      // estimatedLabCostCentsForJob's own comment.)
+      const estimatedCents = estimatedLabCostCentsForJob(job, avgLabCostPerSampleCents);
       // Per Tim, 2026-09-04 — feeds Weekly/Monthly Margin below; includes
       // the same lab cost estimate Lab Costs itself shows, not just real
       // dollars — otherwise a week full of still-unbilled jobs would show
@@ -720,7 +738,7 @@ export default function BillingView() {
       grossCents += job.invoice_total_cents ?? 0;
       labCostCents += job.lab_cost_cents ?? 0;
       stripeFeeCents += job.stripe_fee_cents ?? 0;
-      if (job.lab_cost_cents == null) estimatedLabCostCents += totalSampleCount(job) * avgLabCostPerSampleCents;
+      estimatedLabCostCents += estimatedLabCostCentsForJob(job, avgLabCostPerSampleCents);
     }
     return { grossCents, labCostCents, estimatedLabCostCents, stripeFeeCents };
   }, [invoicedJobs, avgLabCostPerSampleCents]);
@@ -1071,6 +1089,7 @@ export default function BillingView() {
               {rows.map(({ job, status }) => {
                 const isNewtonAutoCharge = status === "sent" && job.customers?.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID;
                 const labInvoiceDocId = latestLabInvoiceDocId(job);
+                const flaggedLabInvoiceDoc = (job.documents ?? []).find((d) => d.kind === "lab_invoice" && d.lab_invoice_flag);
                 return (
                   <JobRow
                     key={job.id}
@@ -1079,12 +1098,17 @@ export default function BillingView() {
                     right={
                       <MoneyGrid
                         revenueCents={job.invoice_total_cents ?? 0}
-                        labCostCents={job.lab_cost_cents}
-                        estimatedLabCostCents={job.lab_cost_cents == null ? totalSampleCount(job) * avgLabCostPerSampleCents : undefined}
+                        labCostCents={knownLabCostCentsForJob(job)}
+                        estimatedLabCostCents={estimatedLabCostCentsForJob(job, avgLabCostPerSampleCents) || undefined}
                         stripeFeeCents={job.stripe_fee_cents ?? 0}
-                        marginCents={job.lab_cost_cents != null ? computeMarginCents(job.invoice_total_cents ?? 0, job.lab_cost_cents, job.stripe_fee_cents ?? 0) : null}
+                        marginCents={
+                          knownLabCostCentsForJob(job) != null
+                            ? computeMarginCents(job.invoice_total_cents ?? 0, knownLabCostCentsForJob(job)!, job.stripe_fee_cents ?? 0)
+                            : null
+                        }
                         invoiceHref={job.invoice_total_cents != null ? `/api/admin/jobs/${job.id}/invoice` : null}
                         labInvoiceHref={labInvoiceDocId ? `/api/admin/jobs/${job.id}/documents/${labInvoiceDocId}` : null}
+                        labInvoiceFlagReason={flaggedLabInvoiceDoc?.lab_invoice_flag}
                       />
                     }
                     below={

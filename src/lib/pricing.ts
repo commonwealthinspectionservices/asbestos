@@ -1,4 +1,5 @@
 import type { ServiceType } from "@/lib/types";
+import { FLI_ENVIRONMENTAL_COMPANY_ID } from "@/lib/report-findings";
 
 export function formatCents(cents: number): string {
   return `$${(cents / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -22,6 +23,23 @@ export function serviceRateLabel(service: ServiceType): string {
  */
 export function computeMarginCents(revenueCents: number, labCostCents: number, stripeFeeCents: number): number {
   return revenueCents - labCostCents - stripeFeeCents;
+}
+
+/**
+ * job.lab_cost_cents itself, EXCEPT for an FLI Environmental subcontract
+ * job, where a still-null value means "correctly zero, permanently," not
+ * "not billed yet" — FLI submits samples to the lab under their own
+ * account and pays for that themselves (see invoice-defaults.ts's own
+ * FLI_ENVIRONMENTAL_COMPANY_ID comment), so Commonwealth never gets a real
+ * lab invoice for one of these jobs. Anywhere that reads job.lab_cost_cents
+ * directly to decide "do we know the real margin yet" should read this
+ * instead — confirmed live, 2026-09-04: job 26-0011 (FLI) was showing an
+ * estimated ≈$111.74 lab cost, and a correspondingly understated margin,
+ * that would never actually become a real charge.
+ */
+export function knownLabCostCentsForJob(job: { lab_cost_cents: number | null; customers?: { company_id?: string | null } | null }): number | null {
+  if (job.customers?.company_id === FLI_ENVIRONMENTAL_COMPANY_ID) return 0;
+  return job.lab_cost_cents ?? null;
 }
 
 export function computeInvoiceTotalCents(

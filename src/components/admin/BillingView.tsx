@@ -231,7 +231,7 @@ function JobRow({
 // $0. Same size/format for every row per Tim's follow-up — Margin isn't
 // visually singled out, just colored red if it's negative.
 function MoneyGrid({
-  revenueCents, labCostCents, estimatedLabCostCents, stripeFeeCents, marginCents, invoiceHref, labInvoiceHref, labInvoiceFlagReason,
+  revenueCents, labCostCents, estimatedLabCostCents, stripeFeeCents, marginCents, invoiceHref, labInvoiceHref,
 }: {
   revenueCents: number; labCostCents: number | null;
   /** Per Tim, 2026-09-04 — shown (with "≈") in place of "—" when the lab
@@ -241,8 +241,6 @@ function MoneyGrid({
   estimatedLabCostCents?: number;
   stripeFeeCents: number; marginCents: number | null;
   invoiceHref?: string | null; labInvoiceHref?: string | null;
-  /** Set when any of this job's lab_invoice documents carries a lab_invoice_flag (see lib/lab-pricing.ts / the 26-0015 duplicate-charge incident, 2026-09-04) — shown as a small warning mark next to "Lab Cost" so it's visible on the billing card, not just in the alert email. */
-  labInvoiceFlagReason?: string | null;
 }) {
   // Per Tim, 2026-08-30 — "the text should all start in the same point,
   // the I, the L, and the M, but just move it far right": labels
@@ -277,11 +275,6 @@ function MoneyGrid({
       <span className="whitespace-nowrap text-right text-slate-700">{formatCents(revenueCents)}</span>
       {labCostLabel}
       <span className="whitespace-nowrap text-right text-slate-700">
-        {labInvoiceFlagReason && (
-          <span title={labInvoiceFlagReason} className="mr-1 cursor-help text-amber-500">
-            ⚠
-          </span>
-        )}
         {labCostCents != null
           ? formatCents(labCostCents)
           : estimatedLabCostCents
@@ -1089,7 +1082,6 @@ export default function BillingView() {
               {rows.map(({ job, status }) => {
                 const isNewtonAutoCharge = status === "sent" && job.customers?.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID;
                 const labInvoiceDocId = latestLabInvoiceDocId(job);
-                const flaggedLabInvoiceDoc = (job.documents ?? []).find((d) => d.kind === "lab_invoice" && d.lab_invoice_flag);
                 return (
                   <JobRow
                     key={job.id}
@@ -1108,7 +1100,6 @@ export default function BillingView() {
                         }
                         invoiceHref={job.invoice_total_cents != null ? `/api/admin/jobs/${job.id}/invoice` : null}
                         labInvoiceHref={labInvoiceDocId ? `/api/admin/jobs/${job.id}/documents/${labInvoiceDocId}` : null}
-                        labInvoiceFlagReason={flaggedLabInvoiceDoc?.lab_invoice_flag}
                       />
                     }
                     below={

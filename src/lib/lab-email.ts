@@ -1129,20 +1129,19 @@ async function processWeeklyLabSummaryEmail(params: {
     const resolvedProjectNumber = t.projectNumber ?? (t.address ? projectByNormalizedAddress.get(normalizeAddressForMatch(t.address)) ?? null : null);
     if (!resolvedProjectNumber || !t.testDescription) continue;
 
+    // Per Tim, 2026-09-04 — keep this short. It shows as a banner on the
+    // job's own document card (JobsDashboard's DocumentStation), not just
+    // an email — a one-liner, not a paragraph.
     const priceCheck = checkLabInvoiceLineItemPrice(t.testDescription, t.unitPriceCents);
     if (!priceCheck.ok && priceCheck.expectedUnitPriceCents != null) {
-      const reason = `Billed ${formatCents(t.unitPriceCents)}/sample for "${t.testDescription}" — Crystal's own price sheet says ${formatCents(priceCheck.expectedUnitPriceCents)}/sample.`;
+      const reason = `Billed ${formatCents(t.unitPriceCents)}/sample, expected ${formatCents(priceCheck.expectedUnitPriceCents)}/sample.`;
       flagged.push({ num: t.num, projectNumber: resolvedProjectNumber, reason });
       flagReasonByNum.set(t.num, reason);
     } else if (priceCheck.expectedUnitPriceCents == null) {
-      // Per Tim, 2026-09-04 — "yes" to also flagging what the price check
-      // couldn't even verify, not just confirmed mismatches: an unfamiliar
-      // test type or turnaround-tier wording (lib/lab-pricing.ts's
-      // identifyTestFamily/identifyTurnaroundTier both came back empty)
-      // means this charge was silently skipped rather than checked —
-      // surfacing that as its own flag now, so nothing bills through
-      // completely unverified.
-      const reason = `Couldn't verify against the price sheet — unrecognized test type or turnaround tier: "${t.testDescription}" billed at ${formatCents(t.unitPriceCents)}/sample.`;
+      // "yes" to also flagging what the price check couldn't even verify,
+      // not just confirmed mismatches (lib/lab-pricing.ts's
+      // identifyTestFamily/identifyTurnaroundTier both came back empty).
+      const reason = `Unrecognized test/turnaround — price not verified (billed ${formatCents(t.unitPriceCents)}/sample).`;
       flagged.push({ num: t.num, projectNumber: resolvedProjectNumber, reason });
       flagReasonByNum.set(t.num, reason);
     }
@@ -1161,8 +1160,7 @@ async function processWeeklyLabSummaryEmail(params: {
     for (const [family, nums] of numsByFamily) {
       if (nums.size < 2) continue;
       const numList = [...nums];
-      const totalQty = entries.filter((e) => e.family === family).reduce((sum, e) => sum + e.quantity, 0);
-      const reason = `Billed for "${family}" under ${numList.length} separate lab orders (#${numList.join(", #")}) in the same report — ${totalQty} samples total. Possible duplicate charge; check the real delivered lab report's own sample count.`;
+      const reason = `Possible duplicate — same test billed under lab orders #${numList.join(", #")}.`;
       flagged.push({ num: numList.join(", "), projectNumber, reason });
       for (const num of numList) flagReasonByNum.set(num, reason);
     }

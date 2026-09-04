@@ -9,7 +9,6 @@ const BASE_URL = "https://www.commonwealthinspectionservices.com";
 export default function sitemap(): MetadataRoute.Sitemap {
   const staticRoutes = [
     "",
-    "/pricing",
     "/faq",
     "/contact",
     "/blog",

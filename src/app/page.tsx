@@ -2,7 +2,6 @@ import Link from "next/link";
 import AuthHashRedirect from "@/components/AuthHashRedirect";
 import MarketingNav from "@/components/marketing/MarketingNav";
 import MarketingFooter from "@/components/marketing/MarketingFooter";
-import PricingCalculator from "@/components/marketing/PricingCalculator";
 import Credentials from "@/components/shared/Credentials";
 import IndependentTestingBanner from "@/components/shared/IndependentTestingBanner";
 import { blogPosts } from "@/lib/blog-posts";
@@ -155,15 +154,6 @@ export default function HomePage() {
               </li>
             ))}
           </ul>
-        </div>
-      </section>
-
-      <section className="px-4">
-        <h2 className="text-center text-xl font-black uppercase text-brand-700">
-          Pricing Estimator
-        </h2>
-        <div className="mt-6">
-          <PricingCalculator />
         </div>
       </section>
 

@@ -1134,6 +1134,17 @@ async function processWeeklyLabSummaryEmail(params: {
       const reason = `Billed ${formatCents(t.unitPriceCents)}/sample for "${t.testDescription}" — Crystal's own price sheet says ${formatCents(priceCheck.expectedUnitPriceCents)}/sample.`;
       flagged.push({ num: t.num, projectNumber: resolvedProjectNumber, reason });
       flagReasonByNum.set(t.num, reason);
+    } else if (priceCheck.expectedUnitPriceCents == null) {
+      // Per Tim, 2026-09-04 — "yes" to also flagging what the price check
+      // couldn't even verify, not just confirmed mismatches: an unfamiliar
+      // test type or turnaround-tier wording (lib/lab-pricing.ts's
+      // identifyTestFamily/identifyTurnaroundTier both came back empty)
+      // means this charge was silently skipped rather than checked —
+      // surfacing that as its own flag now, so nothing bills through
+      // completely unverified.
+      const reason = `Couldn't verify against the price sheet — unrecognized test type or turnaround tier: "${t.testDescription}" billed at ${formatCents(t.unitPriceCents)}/sample.`;
+      flagged.push({ num: t.num, projectNumber: resolvedProjectNumber, reason });
+      flagReasonByNum.set(t.num, reason);
     }
 
     if (priceCheck.family) {

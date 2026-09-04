@@ -4906,6 +4906,11 @@ function DocumentStation({
                     ⚠ This doesn't look like a lab invoice — double-check it's the right file.
                   </p>
                 )}
+                {doc.lab_invoice_flag && (
+                  <p className="bg-amber-500 px-2 py-1 text-xs font-bold text-white">
+                    ⚠ {doc.lab_invoice_flag}
+                  </p>
+                )}
               </div>
             );
           })}

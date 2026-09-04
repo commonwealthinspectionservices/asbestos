@@ -42,6 +42,7 @@ import {
   extractWeeklySummaryTotalCents,
   extractWeeklySummaryDateRangeLabel,
 } from "@/lib/parse-lab-invoice";
+import { checkLabInvoiceLineItemPrice, type TestFamily } from "@/lib/lab-pricing";
 import { defaultInvoiceLineItems, invoiceLineItemsTotalCents } from "@/lib/invoice-defaults";
 import { computeLabCostCentsFromDocuments } from "@/lib/lab-cost";
 import { formatCents } from "@/lib/pricing";
@@ -74,6 +75,8 @@ export interface LabEmailCheckResult {
   cocUploaded: { projectNumber: string; jobId: string }[];
   labInvoicesRecorded: { projectNumber: string; jobId: string }[];
   unmatched: number;
+  /** Lab charges that were recorded but didn't check out against Crystal's own published pricing, or repeated the same test type under more than one lab order for the same job — see lib/lab-pricing.ts and 26-0015's real incident, 2026-09-04. */
+  flaggedLabInvoices: number;
 }
 
 // EMSL scans in the physical chain-of-custody form and emails a "receipt
@@ -689,7 +692,7 @@ export async function checkForLabResultEmails(): Promise<LabEmailCheckResult> {
   // where this search-time negation isn't.
   const candidates = await listMessagesByQuery(accessToken, `has:attachment filename:pdf newer_than:14d -from:me`);
 
-  const result: LabEmailCheckResult = { checked: 0, matched: [], cocUploaded: [], labInvoicesRecorded: [], unmatched: 0 };
+  const result: LabEmailCheckResult = { checked: 0, matched: [], cocUploaded: [], labInvoicesRecorded: [], unmatched: 0, flaggedLabInvoices: 0 };
 
   candidateLoop: for (const candidate of candidates) {
     result.checked++;
@@ -721,7 +724,7 @@ export async function checkForLabResultEmails(): Promise<LabEmailCheckResult> {
           // needs its own path checked first, same reasoning as the
           // multi-job invoice check right below it — one PDF, many jobs.
           if (isWeeklyLabSummaryText(text)) {
-            const { recorded, unmatched } = await processWeeklyLabSummaryEmail({
+            const { recorded, unmatched, flagged } = await processWeeklyLabSummaryEmail({
               accessToken,
               messageId: candidate.id,
               pdfBuffer: data,
@@ -737,6 +740,15 @@ export async function checkForLabResultEmails(): Promise<LabEmailCheckResult> {
                   .join(", ")}`
               );
               await alertUnmatchedWeeklySummaryTransactions(unmatched).catch(() => {});
+            }
+            result.flaggedLabInvoices += flagged.length;
+            if (flagged.length > 0) {
+              console.error(
+                `lab-email: weekly summary on message ${candidate.id} had suspicious charge(s): ${flagged
+                  .map((f) => `${f.projectNumber} #${f.num} — ${f.reason}`)
+                  .join("; ")}`
+              );
+              await alertSuspiciousLabInvoiceCharges(flagged).catch(() => {});
             }
             continue candidateLoop;
           }
@@ -959,6 +971,37 @@ interface UnmatchedWeeklySummaryTransaction {
   address: string | null;
 }
 
+interface SuspiciousLabInvoiceCharge {
+  num: string;
+  projectNumber: string;
+  reason: string;
+}
+
+// Per Tim, 2026-09-04, after the real 26-0015 duplicate-charge incident —
+// same "a real dollar figure deserves a page, not a console.error" reasoning
+// as alertUnmatchedWeeklySummaryTransactions below, for the other way a
+// weekly summary can be wrong: not missing a job, but charging the right
+// job an amount that doesn't check out against Crystal's own pricing (see
+// lib/lab-pricing.ts). Recorded either way — this is a "look at this,"
+// not a silent rejection — the flag also lands on the JobDocument itself
+// (lab_invoice_flag) so it's visible on the job later too.
+async function alertSuspiciousLabInvoiceCharges(flagged: SuspiciousLabInvoiceCharge[]): Promise<void> {
+  if (flagged.length === 0) return;
+  await sendEmail({
+    to: process.env.OWNER_EMAIL!,
+    subject: `Weekly lab summary: ${flagged.length} charge(s) look worth double-checking`,
+    html: emailShell(`
+      <p style="font-size:15px;">This week's Crystal Analytical weekly summary had charge(s) that didn't check out against their own published pricing, or that repeat the same test type under more than one lab order for the same job:</p>
+      <ul>
+        ${flagged
+          .map((f) => `<li>Job ${escapeHtml(f.projectNumber)}, lab order #${escapeHtml(f.num)} — ${escapeHtml(f.reason)}</li>`)
+          .join("")}
+      </ul>
+      <p>These were still recorded as real lab cost — this is a "worth a look," not something held back. Each one is also flagged on the job's own Lab Invoice document for reference.</p>
+    `),
+  }).catch(() => {});
+}
+
 // Per Tim, 2026-08-28 — real money named on a real invoice that this system
 // couldn't attach to any job deserves a page, not just a console.error
 // nobody will ever read — a weekly-summary line skipping a job silently is
@@ -1011,6 +1054,7 @@ async function processWeeklyLabSummaryEmail(params: {
 }): Promise<{
   recorded: { projectNumber: string; jobId: string; num: string }[];
   unmatched: UnmatchedWeeklySummaryTransaction[];
+  flagged: SuspiciousLabInvoiceCharge[];
 }> {
   const { accessToken, messageId, pdfBuffer, pdfText } = params;
   const supabase = getSupabaseAdmin();
@@ -1063,6 +1107,54 @@ async function processWeeklyLabSummaryEmail(params: {
     if (!byNum.has(t.num)) byNum.set(t.num, { transactionType: t.transactionType, amountCentsByProject: new Map() });
     const group = byNum.get(t.num)!;
     group.amountCentsByProject.set(resolvedProjectNumber, (group.amountCentsByProject.get(resolvedProjectNumber) ?? 0) + t.amountCents);
+  }
+
+  // Per Tim, 2026-09-04, after a real $405 duplicate charge on 26-0015
+  // sailed through unnoticed for a day: two independent checks against
+  // Crystal's own published pricing (see lib/lab-pricing.ts, transcribed
+  // from the general pricing sheet Tim sent the same day) — (1) does the
+  // per-sample rate actually billed match their rate for that test+tier,
+  // and (2) did this job get billed the same test family under more than
+  // one lab order number IN THIS SAME REPORT (26-0015's actual failure
+  // mode: #6593's 30 samples and #6602's 34 samples, both "PLM - Bulk CVE,
+  // Per-Layer," when the real delivered report only ever showed one
+  // 34-sample batch). Scoped to this one report, not a lookback across
+  // every prior week — catching it here at least means it can't sail
+  // through silently again, even though it wouldn't have caught 26-0015
+  // itself (that already happened before this code existed).
+  const flagged: SuspiciousLabInvoiceCharge[] = [];
+  const flagReasonByNum = new Map<string, string>();
+  const familyEntriesByProject = new Map<string, { family: TestFamily; num: string; quantity: number }[]>();
+  for (const t of transactions) {
+    const resolvedProjectNumber = t.projectNumber ?? (t.address ? projectByNormalizedAddress.get(normalizeAddressForMatch(t.address)) ?? null : null);
+    if (!resolvedProjectNumber || !t.testDescription) continue;
+
+    const priceCheck = checkLabInvoiceLineItemPrice(t.testDescription, t.unitPriceCents);
+    if (!priceCheck.ok && priceCheck.expectedUnitPriceCents != null) {
+      const reason = `Billed ${formatCents(t.unitPriceCents)}/sample for "${t.testDescription}" — Crystal's own price sheet says ${formatCents(priceCheck.expectedUnitPriceCents)}/sample.`;
+      flagged.push({ num: t.num, projectNumber: resolvedProjectNumber, reason });
+      flagReasonByNum.set(t.num, reason);
+    }
+
+    if (priceCheck.family) {
+      if (!familyEntriesByProject.has(resolvedProjectNumber)) familyEntriesByProject.set(resolvedProjectNumber, []);
+      familyEntriesByProject.get(resolvedProjectNumber)!.push({ family: priceCheck.family, num: t.num, quantity: t.quantity });
+    }
+  }
+  for (const [projectNumber, entries] of familyEntriesByProject) {
+    const numsByFamily = new Map<TestFamily, Set<string>>();
+    for (const e of entries) {
+      if (!numsByFamily.has(e.family)) numsByFamily.set(e.family, new Set());
+      numsByFamily.get(e.family)!.add(e.num);
+    }
+    for (const [family, nums] of numsByFamily) {
+      if (nums.size < 2) continue;
+      const numList = [...nums];
+      const totalQty = entries.filter((e) => e.family === family).reduce((sum, e) => sum + e.quantity, 0);
+      const reason = `Billed for "${family}" under ${numList.length} separate lab orders (#${numList.join(", #")}) in the same report — ${totalQty} samples total. Possible duplicate charge; check the real delivered lab report's own sample count.`;
+      flagged.push({ num: numList.join(", "), projectNumber, reason });
+      for (const num of numList) flagReasonByNum.set(num, reason);
+    }
   }
 
   const recorded: { projectNumber: string; jobId: string; num: string }[] = [];
@@ -1139,6 +1231,7 @@ async function processWeeklyLabSummaryEmail(params: {
         content_hash: contentHash,
         report_total_cents: reportTotalCents,
         report_date_range: reportDateRange,
+        lab_invoice_flag: flagReasonByNum.get(num) ?? null,
       }));
       const mergedDocuments = replaceLabInvoiceDocumentByNumber(job.documents ?? [], newDocuments, num);
 
@@ -1154,7 +1247,7 @@ async function processWeeklyLabSummaryEmail(params: {
   }
 
   await markMessageRead(accessToken, messageId);
-  return { recorded, unmatched };
+  return { recorded, unmatched, flagged };
 }
 
 // Confirmed live 2026-08-26 (jobs 26-0007/26-0008, "Final Fungal Report

@@ -205,6 +205,8 @@ export interface JobDocument {
   report_total_cents?: number | null;
   /** The weekly report's own printed billing period ("August 23-29, 2026"), verbatim — same content_hash-grouping and weekly-summary-only scope as report_total_cents above. */
   report_date_range?: string | null;
+  /** Set on a lab_invoice document processWeeklyLabSummaryEmail thinks is worth a second look — either the per-sample price didn't match Crystal's own published rate (see lib/lab-pricing.ts) or this job got billed the same test type under more than one lab order number in the same report (the real bug caught on 26-0015, 2026-09-03: a duplicate $405 charge alongside the real $510 one). Holds a short human-readable reason; null/absent when nothing looked off. Owner is emailed when this gets set (see alertSuspiciousLabInvoiceCharges) — this field is what lets a job still show the issue later without digging through email. */
+  lab_invoice_flag?: string | null;
 }
 
 /** A photo uploaded to a project's Photos tab (job-photos storage bucket) — either side can add these, unlike `documents` which is admin-only lab paperwork. */

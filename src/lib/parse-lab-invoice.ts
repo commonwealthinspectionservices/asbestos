@@ -101,6 +101,12 @@ export interface WeeklyLabSummaryTransaction {
   projectNumber: string | null;
   address: string | null;
   amountCents: number;
+  /** The line's own quantity — samples billed on this one lab order. Used for the duplicate/over-billing check in lab-email.ts, not shown to Tim directly. */
+  quantity: number;
+  /** Per-sample rate actually billed (the second of the four trailing numbers — see the row-shape comment below), in cents. Checked against lab-pricing.ts's published rates. */
+  unitPriceCents: number;
+  /** The "Product/Service full name" + description text printed before the lab order id — e.g. "Analytical Services:Asbestos Analysis:PLM - Bulk CVE, Per-Layer - 6Hr TAT". Fed to lab-pricing.ts to identify the test type and turnaround tier. Null if the row didn't have the expected lab-order-id anchor to split on. */
+  testDescription: string | null;
 }
 
 // Confirmed against a real weekly report's own pdf-parse output (no spaces
@@ -124,6 +130,12 @@ const PROJECT_NUMBER_PATTERN = /(?<!\d)(2\d-\d{3,6})(?!\d)/;
 // decimal point — anchors where the address starts; an optional trailing
 // " - <project number>" (not every line has one) marks where it ends.
 const LAB_ORDER_ADDRESS_PATTERN = /\d{8,}\s*-\s*([\s\S]*?)(?:\s*-\s*2\d-\d{3,6})?\s*$/;
+// Same lab-order-id anchor, but capturing everything BEFORE it instead —
+// the "Product/Service full name" + description cell text (e.g.
+// "Analytical Services:Asbestos Analysis:PLM - Bulk CVE, Per-Layer - 6Hr
+// TAT"), which is what identifies the test type and turnaround tier for
+// the price check in lab-pricing.ts.
+const TEST_DESCRIPTION_PATTERN = /^([\s\S]*?)\d{8,}\s*-/;
 
 export function extractWeeklyLabSummaryTransactions(pdfText: string): WeeklyLabSummaryTransaction[] {
   const transactions: WeeklyLabSummaryTransaction[] = [];
@@ -136,6 +148,7 @@ export function extractWeeklyLabSummaryTransactions(pdfText: string): WeeklyLabS
     );
     const projectMatch = body.match(PROJECT_NUMBER_PATTERN);
     const addressMatch = body.match(LAB_ORDER_ADDRESS_PATTERN);
+    const testDescMatch = body.match(TEST_DESCRIPTION_PATTERN);
     transactions.push({
       num,
       transactionType: transactionType as WeeklyLabSummaryTransaction["transactionType"],
@@ -143,6 +156,12 @@ export function extractWeeklyLabSummaryTransactions(pdfText: string): WeeklyLabS
       projectNumber: projectMatch ? projectMatch[1] : null,
       address: addressMatch ? addressMatch[1].replace(/\s+/g, " ").trim() : null,
       amountCents: amounts[2] ?? 0,
+      // amounts[0]/[1] are cents-scaled (×100) since AMOUNT_TOKEN_PATTERN
+      // always matches a 2-decimal dollar figure — quantity is a whole
+      // number on every real row seen, so divide back down.
+      quantity: (amounts[0] ?? 0) / 100,
+      unitPriceCents: amounts[1] ?? 0,
+      testDescription: testDescMatch ? testDescMatch[1].replace(/\s+/g, " ").trim() : null,
     });
   }
   return transactions;

@@ -313,6 +313,14 @@ describe("extractWeeklyLabSummaryTransactions", () => {
     });
   });
 
+  it("also reads quantity, unit price, and test description off that same row", () => {
+    expect(transactions[0]).toMatchObject({
+      quantity: 8,
+      unitPriceCents: 1200,
+      testDescription: "Analytical Services:Asbestos Analysis:PLM - Bulk CVE, Per-Layer - 24 Hr TAT",
+    });
+  });
+
   it("sums multiple line items under the same num for the same job (mold sub-methods, #6491/26-0002)", () => {
     const num6491Job0002 = transactions.filter((t) => t.num === "6491" && t.projectNumber === "26-0002");
     expect(num6491Job0002.map((t) => t.amountCents)).toEqual([14400, 8000, 2000]);
@@ -324,6 +332,7 @@ describe("extractWeeklyLabSummaryTransactions", () => {
       transactionType: "Sales Receipt",
       projectNumber: "26-0009",
       amountCents: 6000,
+      unitPriceCents: 1500,
     });
   });
 

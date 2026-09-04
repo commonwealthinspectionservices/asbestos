@@ -1,3 +1,4 @@
+import sharp from "sharp";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { renderProjectReportPdfForDomain } from "@/lib/report-pdf";
 import { mergePdfBuffers } from "@/lib/pdf-merge";
@@ -113,6 +114,23 @@ export async function buildAllFinalReportPackets(
   return Promise.all(domains.map(async (domain) => ({ domain, buffer: await buildFinalReportPacket(job, customer, settings, domain) })));
 }
 
+// Per Tim, 2026-09-04 — confirmed live: a moisture mapping report with a
+// dozen+ full-resolution phone photos (photo.buffer was embedded exactly
+// as uploaded, no resizing/compression anywhere in the pipeline) produced
+// a 24.67MB email — right at Gmail's own 25MB send cap, and past what
+// several real recipients' mail servers silently accepted (no bounce
+// notice, the attachment just never arrived). A phone camera photo is
+// routinely 3-8MB at full resolution; nothing in a report needs more than
+// screen/print resolution. Resizing to a 1600px-long-edge cap and
+// re-encoding at a reasonable quality cuts a typical photo by 80-90%
+// with no visible quality loss in a 2-per-row report grid — same format
+// in, same format out (moistureMappingPhotoFormat already only ever
+// returns "jpg" or "png"), so nothing downstream needs to change.
+async function compressPhotoForReport(buffer: Buffer, format: "jpg" | "png"): Promise<Buffer> {
+  const resized = sharp(buffer).resize({ width: 1600, height: 1600, fit: "inside", withoutEnlargement: true });
+  return format === "png" ? resized.png({ quality: 80, compressionLevel: 9 }).toBuffer() : resized.jpeg({ quality: 78 }).toBuffer();
+}
+
 // Per Tim, 2026-09-04 — factored out of the standalone download route
 // (api/admin/jobs/[id]/moisture-mapping-report) so the Email tab's
 // checklist-driven draft builder (lab-email.ts) can attach the same PDF
@@ -135,11 +153,22 @@ export async function buildMoistureMappingReportBuffer(
         console.error(`Skipping missing moisture mapping photo ${photo.storage_path}:`, downloadError);
         return null;
       }
+      const format = moistureMappingPhotoFormat(photo.file_name);
+      const rawBuffer = Buffer.from(await blob.arrayBuffer());
+      let buffer: Buffer;
+      try {
+        buffer = await compressPhotoForReport(rawBuffer, format);
+      } catch (compressError) {
+        // A malformed/corrupt upload shouldn't sink the whole report —
+        // fall back to the original bytes exactly as before this change.
+        console.error(`Failed to compress moisture mapping photo ${photo.storage_path}, using original:`, compressError);
+        buffer = rawBuffer;
+      }
       return {
         room: photo.room ?? null,
         caption: photo.caption ?? null,
-        buffer: Buffer.from(await blob.arrayBuffer()),
-        format: moistureMappingPhotoFormat(photo.file_name),
+        buffer,
+        format,
       };
     })
   );

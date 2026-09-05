@@ -508,12 +508,14 @@ export default function BillingView() {
   const [showSummary, setShowSummary] = useState(false);
 
   // Per Tim, 2026-09-05 — "I just really need to know that every job has
-  // the correct lab invoice in there": a manual, on-demand check he can run
-  // himself rather than a raw API endpoint only I could hit. Wraps the
-  // existing audit-invoices route (already scanned every job for exactly
-  // this — missing/duplicate/mismatched/uncosted lab invoices — it just had
-  // no UI), filtered here to its lab_invoice-category issues only.
-  const [showLabInvoiceCheck, setShowLabInvoiceCheck] = useState(false);
+  // the correct lab invoice in there", then same day: "I shouldn't need to
+  // run a check like this... should just be there automatically". Wraps
+  // the existing audit-invoices route (already scanned every job for
+  // exactly this — missing/duplicate/mismatched/uncosted lab invoices — it
+  // just had no UI), filtered here to its lab_invoice-category issues only,
+  // and run once on page load (see the mount useEffect below) rather than
+  // behind a button. Surfaced as a small red dot on each affected job's own
+  // card (see JobRow's issues prop) — no separate section on this page.
   const [labInvoiceCheck, setLabInvoiceCheck] = useState<
     | { status: "idle" }
     | { status: "loading" }
@@ -570,6 +572,12 @@ export default function BillingView() {
 
   useEffect(() => {
     loadJobs();
+    // Per Tim, 2026-09-05 — "I shouldn't need to run a check like this.
+    // The red dot should just be there automatically": runs once on page
+    // load rather than behind a button. Cheap — audit-invoices only reads
+    // job rows out of the database, no PDF downloads/parsing.
+    runLabInvoiceCheck();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Per Tim, 2026-08-28 — this page is only for invoices that have
@@ -986,52 +994,17 @@ export default function BillingView() {
       </>
       )}
 
-      <button
-        onClick={() => setShowLabInvoiceCheck((v) => !v)}
-        className="mt-2 flex w-full items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700"
-      >
-        Lab Invoice Check
-        <span className={`text-slate-400 transition-transform ${showLabInvoiceCheck ? "rotate-180" : ""}`}>▾</span>
-      </button>
-      {showLabInvoiceCheck && (
-        <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-sm text-slate-500">Checks every job for a missing, duplicate, mismatched, or uncosted lab invoice.</p>
-            <button
-              onClick={runLabInvoiceCheck}
-              disabled={labInvoiceCheck.status === "loading"}
-              className="shrink-0 rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
-            >
-              {labInvoiceCheck.status === "loading" ? "Checking…" : "Run Check"}
-            </button>
-          </div>
-          {labInvoiceCheck.status === "error" && (
-            <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{labInvoiceCheck.message}</p>
-          )}
-          {labInvoiceCheck.status === "done" && (
-            labInvoiceCheck.issues.length === 0 ? (
-              <p className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
-                All clear — {labInvoiceCheck.jobsScanned} jobs checked, every lab invoice looks right.
-              </p>
-            ) : (
-              // Per Tim, 2026-09-05 — "instead of this format... a small
-              // red circle... top right of the project billing card...
-              // click on that red dot, it brings up that message": the
-              // per-job breakdown now lives on each job's own card (see
-              // JobRow's issues prop) rather than as a flat list here.
-              // Only the cards in whichever tab/filter is currently showing
-              // carry a dot — a flagged job filtered out of view right now
-              // (e.g. under Overdue while viewing Payment Pending) won't
-              // show one until that tab is opened.
-              <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
-                {labInvoiceCheck.issues.length} issue{labInvoiceCheck.issues.length === 1 ? "" : "s"} found ({labInvoiceCheck.jobsScanned} jobs checked) — look for the red dot on the affected job cards below.
-              </p>
-            )
-          )}
-        </div>
-      )}
-
       {error && <div className="mt-3 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>}
+      {/* Per Tim, 2026-09-05 — "I shouldn't need to run a check like
+          this... should just be there automatically": the check itself
+          runs silently on page load (see the mount useEffect) and its
+          results show up as a red dot on each affected job's own card
+          (JobRow's issues prop) — nothing to click here unless it fails
+          outright, which is worth surfacing the same way a failed job load
+          already is, right above. */}
+      {labInvoiceCheck.status === "error" && (
+        <div className="mt-3 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">Lab invoice check failed: {labInvoiceCheck.message}</div>
+      )}
       {loading && <p className="mt-6 text-sm text-slate-500">Loading…</p>}
 
       {!loading && !error && (

@@ -9,6 +9,26 @@ import { withApiErrors } from "@/lib/api-handler";
 import { isLabInvoiceText } from "@/lib/parse-lab-invoice";
 import type { Job } from "@/lib/types";
 
+// pdf-parse (via pdfjs) occasionally throws "Invalid PDF structure" on a
+// perfectly well-formed PDF when called dozens of times in a row within
+// one function invocation — confirmed 2026-09-05 by re-parsing the exact
+// same bytes moments apart and getting success, and by seeing a different
+// document "fail" on each run against files with valid %PDF-.../%%EOF
+// bytes. The real email pipeline parses one PDF per invocation and never
+// hits this; only this batch sweep does. A couple of retries clears it.
+async function parsePdfTextWithRetry(buffer: Buffer, attempts = 3): Promise<string> {
+  let lastError: unknown;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const { text } = await pdfParse(buffer);
+      return text;
+    } catch (e) {
+      lastError = e;
+    }
+  }
+  throw lastError;
+}
+
 // Per Tim, 2026-08-28 — a one-time retroactive sweep, not a route anything
 // else calls. The new invoice_mismatch check (see documents/route.ts and
 // lib/lab-email.ts) only ever runs on a NEW upload going forward; it can't
@@ -58,7 +78,7 @@ export const GET = withApiErrors(async (req: NextRequest) => {
           .download(doc.storage_path);
         if (downloadError || !blob) throw new Error(downloadError?.message ?? "download failed");
         const buffer = Buffer.from(await blob.arrayBuffer());
-        const { text } = await pdfParse(buffer);
+        const text = await parsePdfTextWithRetry(buffer);
         if (!isLabInvoiceText(text)) {
           flagged.push({ project_number: job.project_number, file_name: doc.file_name, storage_path: doc.storage_path });
           const idx = updatedDocuments.findIndex((d) => d.id === doc.id);

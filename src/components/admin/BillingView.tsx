@@ -646,13 +646,15 @@ export default function BillingView() {
   const periodHistory = useMemo(() => {
     const today = new Date();
 
-    // Per Tim, 2026-08-30 — "we should start on Monday and go through
-    // Sunday": weeks run Mon–Sun, not the Sun–Sat weeks used before.
-    // getDay() is 0=Sun..6=Sat; (day + 6) % 7 gives days since Monday
-    // for every day including Sunday itself.
+    // Per Tim, 2026-09-05 — weeks run Sat–Fri now, not Mon–Sun: Crystal's
+    // lab work happens Mon–Fri, so by Friday a full work-week's worth of
+    // charges has landed, and that's the day our own week should close on
+    // to line lab costs up with revenue for the same stretch of work.
+    // getDay() is 0=Sun..6=Sat; (day + 1) % 7 gives days since Saturday
+    // for every day including Saturday itself.
     const currentWeekStart = new Date(today);
     currentWeekStart.setHours(0, 0, 0, 0);
-    currentWeekStart.setDate(currentWeekStart.getDate() - ((currentWeekStart.getDay() + 6) % 7));
+    currentWeekStart.setDate(currentWeekStart.getDate() - ((currentWeekStart.getDay() + 1) % 7));
 
     // Per Tim, 2026-08-30 — "instead of This Week and Last Week, it
     // should list out the actual weeks": same treatment as the Monthly

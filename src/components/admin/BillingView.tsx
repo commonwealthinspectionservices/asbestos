@@ -430,6 +430,9 @@ function MarginHistoryTable({
 // Per Tim, 2026-08-30 — "delete the All button... always default to
 // being on Payment Pending": dropped "all" entirely rather than just
 // hiding the button, so there's no lingering state nothing points to.
+type LabInvoiceCheckIssue = { project_number: string | null; company: string | null; issue: string; detail?: string };
+type AuditInvoicesIssue = LabInvoiceCheckIssue & { category: "invoice" | "lab_invoice" };
+
 type FilterKey = "sent" | "overdue" | "paid";
 const FILTERS: { key: FilterKey; label: string }[] = [
   { key: "sent", label: "Payment Pending" },
@@ -462,6 +465,33 @@ export default function BillingView() {
   // once Lab Costs and Margin joined the original Revenue pair — starts
   // collapsed so the job list is what's actually visible on load.
   const [showSummary, setShowSummary] = useState(false);
+
+  // Per Tim, 2026-09-05 — "I just really need to know that every job has
+  // the correct lab invoice in there": a manual, on-demand check he can run
+  // himself rather than a raw API endpoint only I could hit. Wraps the
+  // existing audit-invoices route (already scanned every job for exactly
+  // this — missing/duplicate/mismatched/uncosted lab invoices — it just had
+  // no UI), filtered here to its lab_invoice-category issues only.
+  const [showLabInvoiceCheck, setShowLabInvoiceCheck] = useState(false);
+  const [labInvoiceCheck, setLabInvoiceCheck] = useState<
+    | { status: "idle" }
+    | { status: "loading" }
+    | { status: "error"; message: string }
+    | { status: "done"; jobsScanned: number; issues: LabInvoiceCheckIssue[] }
+  >({ status: "idle" });
+
+  async function runLabInvoiceCheck() {
+    setLabInvoiceCheck({ status: "loading" });
+    try {
+      const res = await fetch("/api/admin/audit-invoices");
+      if (!res.ok) throw new Error(`Request failed (${res.status})`);
+      const data = await res.json();
+      const issues = (data.issues as AuditInvoicesIssue[]).filter((i) => i.category === "lab_invoice");
+      setLabInvoiceCheck({ status: "done", jobsScanned: data.jobsScanned, issues });
+    } catch (e) {
+      setLabInvoiceCheck({ status: "error", message: e instanceof Error ? e.message : "Check failed" });
+    }
+  }
 
   const [filter, setFilter] = useState<FilterKey>("sent");
   // Per Tim, 2026-09-02 — "they should be organized based off of when they
@@ -913,6 +943,52 @@ export default function BillingView() {
         })()}
       </div>
       </>
+      )}
+
+      <button
+        onClick={() => setShowLabInvoiceCheck((v) => !v)}
+        className="mt-2 flex w-full items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700"
+      >
+        Lab Invoice Check
+        <span className={`text-slate-400 transition-transform ${showLabInvoiceCheck ? "rotate-180" : ""}`}>▾</span>
+      </button>
+      {showLabInvoiceCheck && (
+        <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm text-slate-500">Checks every job for a missing, duplicate, mismatched, or uncosted lab invoice.</p>
+            <button
+              onClick={runLabInvoiceCheck}
+              disabled={labInvoiceCheck.status === "loading"}
+              className="shrink-0 rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+            >
+              {labInvoiceCheck.status === "loading" ? "Checking…" : "Run Check"}
+            </button>
+          </div>
+          {labInvoiceCheck.status === "error" && (
+            <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{labInvoiceCheck.message}</p>
+          )}
+          {labInvoiceCheck.status === "done" && (
+            labInvoiceCheck.issues.length === 0 ? (
+              <p className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+                All clear — {labInvoiceCheck.jobsScanned} jobs checked, every lab invoice looks right.
+              </p>
+            ) : (
+              <div className="mt-3 flex flex-col gap-2">
+                <p className="text-sm font-medium text-red-700">
+                  {labInvoiceCheck.issues.length} issue{labInvoiceCheck.issues.length === 1 ? "" : "s"} found ({labInvoiceCheck.jobsScanned} jobs checked)
+                </p>
+                {labInvoiceCheck.issues.map((issue, i) => (
+                  <div key={i} className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+                    <span className="font-semibold">{issue.project_number ?? "—"}</span>
+                    {issue.company && <span className="text-red-600"> · {issue.company}</span>}
+                    <div>{issue.issue}</div>
+                    {issue.detail && <div className="text-red-600">{issue.detail}</div>}
+                  </div>
+                ))}
+              </div>
+            )
+          )}
+        </div>
       )}
 
       {error && <div className="mt-3 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>}

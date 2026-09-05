@@ -181,17 +181,10 @@ function AddressLines({ address }: { address: string | null | undefined }) {
 // place to fix. `right` is whatever financial content sits beside the
 // address; `below` is whatever status/date content sits on its own row.
 function JobRow({
-  job, onOpen, right, below, issues,
+  job, onOpen, right, below,
 }: {
   job: JobWithCustomer; onOpen: () => void; right: React.ReactNode; below?: React.ReactNode;
-  /** Per Tim, 2026-09-05 — "a small red circle... top right of the
-      project billing card... click on that red dot, it brings up that
-      message": replaces the old flat list under Lab Invoice Check with a
-      per-card indicator instead — this job's own lab-invoice issues, if
-      any (see the check's own state in the parent). */
-  issues?: LabInvoiceCheckIssue[];
 }) {
-  const [showIssues, setShowIssues] = useState(false);
   return (
     <button
       onClick={onOpen}
@@ -202,40 +195,6 @@ function JobRow({
       // the card's far right edge instead of hugging the address.
       className="relative flex w-full flex-col items-start gap-1.5 rounded-lg border border-slate-200 bg-white p-3 text-left hover:border-brand-400"
     >
-      {issues && issues.length > 0 && (
-        <>
-          <span
-            role="button"
-            tabIndex={0}
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowIssues((v) => !v);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.stopPropagation();
-                e.preventDefault();
-                setShowIssues((v) => !v);
-              }
-            }}
-            className="absolute right-2 top-2 h-3 w-3 rounded-full bg-red-600"
-            aria-label={`${issues.length} lab invoice issue${issues.length === 1 ? "" : "s"}`}
-          />
-          {showIssues && (
-            <div
-              onClick={(e) => e.stopPropagation()}
-              className="absolute right-2 top-6 z-10 w-64 rounded-lg border border-red-200 bg-white p-2.5 text-xs text-red-700 shadow-lg"
-            >
-              {issues.map((issue, i) => (
-                <div key={i} className={i > 0 ? "mt-2" : ""}>
-                  <div className="font-semibold">{issue.issue}</div>
-                  {issue.detail && <div>{issue.detail}</div>}
-                </div>
-              ))}
-            </div>
-          )}
-        </>
-      )}
       {/* Per Tim, 2026-08-30 — "make sure project number and company
           name in the preview cards are directly in line on top": the
           badge's own padding made items-start (aligning box tops) read
@@ -272,7 +231,7 @@ function JobRow({
 // $0. Same size/format for every row per Tim's follow-up — Margin isn't
 // visually singled out, just colored red if it's negative.
 function MoneyGrid({
-  revenueCents, labCostCents, estimatedLabCostCents, stripeFeeCents, marginCents, invoiceHref, labInvoiceHref,
+  revenueCents, labCostCents, estimatedLabCostCents, stripeFeeCents, marginCents, invoiceHref, labInvoiceHref, labInvoiceIssues,
 }: {
   revenueCents: number; labCostCents: number | null;
   /** Per Tim, 2026-09-04 — shown (with "≈") in place of "—" when the lab
@@ -282,7 +241,15 @@ function MoneyGrid({
   estimatedLabCostCents?: number;
   stripeFeeCents: number; marginCents: number | null;
   invoiceHref?: string | null; labInvoiceHref?: string | null;
+  /** Per Tim, 2026-09-05 — "instead of it being a red dot maybe it should
+      just be this is red the link": replaces the separate red-dot badge
+      that used to sit in the card's corner (see JobRow's old issues prop)
+      — the Lab Cost label itself turns red when this job has an open Lab
+      Invoice Check issue, click it to see why. */
+  labInvoiceIssues?: LabInvoiceCheckIssue[];
 }) {
+  const [showLabIssues, setShowLabIssues] = useState(false);
+  const hasLabIssues = Boolean(labInvoiceIssues && labInvoiceIssues.length > 0);
   // Per Tim, 2026-08-30 — "the text should all start in the same point,
   // the I, the L, and the M, but just move it far right": labels
   // (Invoice/Lab Cost/Margin) left-align to a common edge; values
@@ -303,15 +270,70 @@ function MoneyGrid({
   ) : (
     <span className="text-left text-slate-400">Invoice</span>
   );
+  const labCostColorClass = hasLabIssues ? "text-red-600" : "text-slate-400";
   const labCostLabel = labInvoiceHref ? (
-    <a href={labInvoiceHref} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="text-left text-slate-400 underline hover:text-brand-600">
+    <a
+      href={labInvoiceHref}
+      target="_blank"
+      rel="noreferrer"
+      onClick={(e) => {
+        // A flagged job opens the issue popover instead of the PDF on the
+        // first click — the PDF link still works, it just takes a second
+        // click once the reason's been read, same as any other disclosure.
+        if (hasLabIssues && !showLabIssues) {
+          e.preventDefault();
+          e.stopPropagation();
+          setShowLabIssues(true);
+          return;
+        }
+        e.stopPropagation();
+      }}
+      className={`relative text-left underline hover:text-brand-600 ${labCostColorClass}`}
+    >
       Lab Cost
     </a>
+  ) : hasLabIssues ? (
+    <span
+      role="button"
+      tabIndex={0}
+      onClick={(e) => {
+        e.stopPropagation();
+        setShowLabIssues((v) => !v);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.stopPropagation();
+          e.preventDefault();
+          setShowLabIssues((v) => !v);
+        }
+      }}
+      className={`relative text-left underline ${labCostColorClass}`}
+    >
+      Lab Cost
+    </span>
   ) : (
     <span className="text-left text-slate-400">Lab Cost</span>
   );
   return (
-    <div className="grid shrink-0 grid-cols-[auto_auto] items-baseline gap-x-2 gap-y-0.5 text-xs">
+    <div className="relative grid shrink-0 grid-cols-[auto_auto] items-baseline gap-x-2 gap-y-0.5 text-xs">
+      {showLabIssues && labInvoiceIssues && (
+        // top-full (not a fixed offset) — sits fully below the grid
+        // regardless of how many rows it has, so it can never overlap the
+        // Lab Cost link/button that opened it. Without this, a second
+        // click meant to open the PDF landed on the popover instead
+        // (confirmed live 2026-09-05).
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="absolute right-0 top-full z-10 mt-1 w-64 rounded-lg border border-red-200 bg-white p-2.5 text-xs normal-case text-red-700 shadow-lg"
+        >
+          {labInvoiceIssues.map((issue, i) => (
+            <div key={i} className={i > 0 ? "mt-2" : ""}>
+              <div className="font-semibold">{issue.issue}</div>
+              {issue.detail && <div>{issue.detail}</div>}
+            </div>
+          ))}
+        </div>
+      )}
       {invoiceLabel}
       <span className="whitespace-nowrap text-right text-slate-700">{formatCents(revenueCents)}</span>
       {labCostLabel}
@@ -1181,7 +1203,6 @@ export default function BillingView() {
                   <JobRow
                     key={job.id}
                     job={job}
-                    issues={jobLabInvoiceIssues}
                     onOpen={() => setSelectedJobId(job.id)}
                     right={
                       <MoneyGrid
@@ -1196,6 +1217,7 @@ export default function BillingView() {
                         }
                         invoiceHref={job.invoice_total_cents != null ? `/api/admin/jobs/${job.id}/invoice` : null}
                         labInvoiceHref={labInvoiceDocId ? `/api/admin/jobs/${job.id}/documents/${labInvoiceDocId}` : null}
+                        labInvoiceIssues={jobLabInvoiceIssues}
                       />
                     }
                     below={

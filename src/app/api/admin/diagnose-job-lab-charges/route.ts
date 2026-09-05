@@ -40,7 +40,16 @@ export const GET = withApiErrors(async (req: NextRequest) => {
       const { text } = await pdfParse(buffer);
       const allTransactions = extractWeeklyLabSummaryTransactions(text);
       const jobLines = allTransactions.filter((t) => t.projectNumber?.toUpperCase() === typedJob.project_number?.toUpperCase());
-      results.push({ file_name: doc.file_name, lab_invoice_number: doc.lab_invoice_number, storage_path: doc.storage_path, jobLines });
+      const allNums = [...new Set(allTransactions.map((t) => t.num))];
+      results.push({
+        file_name: doc.file_name,
+        stored_lab_invoice_number: doc.lab_invoice_number,
+        stored_amount_cents: doc.amount_cents,
+        storage_path: doc.storage_path,
+        totalTransactionsInFile: allTransactions.length,
+        allNumsInFile: allNums,
+        jobLines,
+      });
     } catch (e) {
       results.push({ file_name: doc.file_name, lab_invoice_number: doc.lab_invoice_number, error: e instanceof Error ? e.message : String(e) });
     }

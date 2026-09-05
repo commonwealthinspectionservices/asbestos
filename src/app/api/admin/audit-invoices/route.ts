@@ -96,8 +96,15 @@ export const GET = withApiErrors(async (req: NextRequest) => {
       // "does this job have more than one real charge on file" — without
       // this exclusion both of those cases falsely tripped the check below,
       // confirmed live 2026-09-05 on jobs 26-0014 and 26-0015.
+      //
+      // Keyed by lab_invoice_number, not storage_path — confirmed live
+      // 2026-09-05 (job 26-0002, same root cause fixed in BillingView's
+      // weeklyLabInvoicePdfHrefs) that one uploaded PDF can bundle several
+      // distinct real charges for the same job (one weekly/daily summary
+      // covering multiple lab order numbers), all sharing one storage_path
+      // — this undercounted 4 real charges as 2.
       const distinctRealCharges = new Set(
-        labDocs.filter((d) => d.amount_cents != null && d.amount_cents > 0).map((d) => d.storage_path)
+        labDocs.filter((d) => d.amount_cents != null && d.amount_cents > 0).map((d) => d.lab_invoice_number ?? d.storage_path)
       );
       // Crystal Analytical only bills once a week (Fridays) — a job
       // sampled mid-week is *supposed* to have no lab invoice yet, that's

@@ -1492,26 +1492,36 @@ function JobRow({
   // blank card gave no hint anything was missing.
   const siteContactNode = (
     <span className="block min-w-0 truncate whitespace-nowrap text-sm text-slate-500" onClick={(e) => e.stopPropagation()}>
-      {job.site_contact_name ? toTitleCase(job.site_contact_name) : <span className="italic text-slate-400">no name</span>}
-      {" "}
-      {job.site_contact_phone ? (
-        <a href={telHref(job.site_contact_phone)} className="text-brand-700 hover:underline">
-          {formatPhoneInput(job.site_contact_phone)}
-        </a>
-      ) : <span className="italic text-slate-400">no phone number</span>}
+      {!job.site_contact_name && !job.site_contact_phone ? (
+        <span className="italic text-slate-400">no job site contact</span>
+      ) : (
+        <>
+          {job.site_contact_name ? toTitleCase(job.site_contact_name) : <span className="italic text-slate-400">no name</span>}
+          {" "}
+          {job.site_contact_phone ? (
+            <a href={telHref(job.site_contact_phone)} className="text-brand-700 hover:underline">
+              {formatPhoneInput(job.site_contact_phone)}
+            </a>
+          ) : <span className="italic text-slate-400">no phone number</span>}
+        </>
+      )}
     </span>
   );
   const overdueDays = daysOverdue(job);
-  const isEmailIntake = job.source === "email_intake";
   const isSubcontractor = job.source === "subcontractor";
-  // Boston Harbor Water's email-intake jobs never carry a real requested
-  // time — there's no accept step for them, just blank date/time cells the
-  // admin fills in directly after calling the homeowner, then an explicit
-  // Schedule click (not a submit-on-change the moment both happen to be
-  // filled — a half-picked date on mobile could otherwise fire that before
-  // the admin ever got to the time field).
-  const [manualDate, setManualDate] = useState("");
-  const [manualTime, setManualTime] = useState("");
+  // Per Tim, 2026-09-05 — "that should be the standard when the job is to
+  // be scheduled": inline date/time cells right on the card, not just for
+  // Boston Harbor Water's email-intake jobs. Pre-filled from
+  // requested_date/requested_time when a job already has one (portal
+  // bookings, subcontractor jobs that came with a preferred date) so that
+  // value stays visible and one click away from being confirmed; Boston
+  // Harbor's own jobs never carry a real requested time (no accept step,
+  // just call the homeowner and pick one), so those still start blank.
+  // Schedule is still an explicit click, not a submit-on-change the moment
+  // both happen to be filled — a half-picked date on mobile could
+  // otherwise fire that before the admin ever got to the time field.
+  const [manualDate, setManualDate] = useState(job.requested_date ?? "");
+  const [manualTime, setManualTime] = useState(job.requested_time ?? "");
   const dateInputRef = useRef<HTMLInputElement>(null);
   // Per Tim, 2026-08-30 — "when I move it from To Be Scheduled to Scheduled
   // officially, it should definitely ask me, would you like to send them an
@@ -1782,7 +1792,7 @@ function JobRow({
 
         <div
           className={`flex min-w-0 w-full flex-col items-start gap-1.5 sm:w-auto sm:flex-[0.9] sm:items-end${
-            isEmailIntake && isUnscheduled ? " sm:self-stretch sm:justify-end" : ""
+            isUnscheduled ? " sm:self-stretch sm:justify-end" : ""
           }`}
         >
           {/* Site contact (usually the homeowner) — shown regardless of
@@ -1800,16 +1810,15 @@ function JobRow({
               <span>Date of Payment: {formatDate(job.paid_date) || "—"}</span>
               <span>Date Sent: {formatDateTime(job.report_sent_at) || "—"}</span>
             </div>
-          ) : isEmailIntake && isUnscheduled ? (
-            // Boston Harbor Water's own order never carries a real
-            // appointment — there's no "requested time" to reference, only
-            // the homeowner to call and negotiate one with directly — so
-            // this gets blank editable cells right away instead of the
-            // plain requested-date/time text every other source shows. An
-            // explicit Schedule click is what schedules the job, not just
-            // filling both cells (see trySubmitManual) — that used to fire
-            // from onChange the moment the second field got a value, which
-            // on mobile could trigger off a half-picked date before the
+          ) : isUnscheduled ? (
+            // Editable date/time cells right on the card for any
+            // still-to-be-scheduled job, pre-filled from
+            // requested_date/requested_time where one already exists (see
+            // manualDate/manualTime's own init above). An explicit Schedule
+            // click is what schedules the job, not just filling both cells
+            // (see trySubmitManual) — that used to fire from onChange the
+            // moment the second field got a value, which on mobile could
+            // trigger off a half-picked date before the
             // admin ever reached the time field.
             <div className="flex w-full shrink-0 flex-col items-start gap-1.5 sm:w-auto sm:items-end" onClick={(e) => e.stopPropagation()}>
               {/* items-stretch (not items-center) so Date and Time share the
@@ -1921,11 +1930,9 @@ function JobRow({
               )}
             </div>
           ) : (
-            // No editable date/time cells for any other job source — just
-            // plain reference text, in the same label/value format either
-            // way: "Requested date/time" while still unscheduled,
-            // "Scheduled date/time" once it's not. Editing happens in the
-            // Edit dialog now, not inline here.
+            // Reached once a job is scheduled or completed (unscheduled and
+            // closed are both handled above) — plain reference text, no
+            // inline editing here. Editing happens in the Edit dialog.
             <div className="flex w-full shrink-0 flex-col items-start gap-1.5 sm:w-60 sm:items-end" onClick={(e) => e.stopPropagation()}>
               {/* Per Tim, 2026-08-27 — this column always showed
                   Completed/Scheduled date instead — stale info once the
@@ -1953,27 +1960,13 @@ function JobRow({
                 </div>
               )}
               <div className={`w-full text-sm text-slate-500 sm:text-right ${showReportInvoice ? "hidden" : ""}`}>
-                {!isUnscheduled ? (
-                  <>
-                    <div>{hasCompletedFieldwork(job.status) ? "Completed" : "Scheduled"} date: {formatDate(job.confirmed_date ?? job.requested_date) || "—"}</div>
-                    <div>
-                      {hasCompletedFieldwork(job.status) ? "Completed" : "Scheduled"} time:{" "}
-                      {isSubcontractor && job.confirmed_time && job.confirmed_time === parseWindowStartTime24h(job.subcontractor_preferred_window)
-                        ? extractTimeRange(job.subcontractor_preferred_window) ?? formatTime(job.confirmed_time)
-                        : formatTime(job.confirmed_time ?? job.requested_time) || "—"}
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div>Requested date: {formatDate(job.requested_date) || "—"}</div>
-                    <div>
-                      Requested time:{" "}
-                      {isSubcontractor
-                        ? extractTimeRange(job.subcontractor_preferred_window) ?? "—"
-                        : formatTime(job.requested_time) || "—"}
-                    </div>
-                  </>
-                )}
+                <div>{hasCompletedFieldwork(job.status) ? "Completed" : "Scheduled"} date: {formatDate(job.confirmed_date ?? job.requested_date) || "—"}</div>
+                <div>
+                  {hasCompletedFieldwork(job.status) ? "Completed" : "Scheduled"} time:{" "}
+                  {isSubcontractor && job.confirmed_time && job.confirmed_time === parseWindowStartTime24h(job.subcontractor_preferred_window)
+                    ? extractTimeRange(job.subcontractor_preferred_window) ?? formatTime(job.confirmed_time)
+                    : formatTime(job.confirmed_time ?? job.requested_time) || "—"}
+                </div>
               </div>
             </div>
           )}

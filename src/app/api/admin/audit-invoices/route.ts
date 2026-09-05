@@ -3,6 +3,7 @@ import { requireAdminApi } from "@/lib/admin-api";
 import { getSupabaseAdminFresh } from "@/lib/supabase";
 import { withApiErrors } from "@/lib/api-handler";
 import { FLI_ENVIRONMENTAL_COMPANY_ID } from "@/lib/report-findings";
+import { formatDateMDY } from "@/lib/date-format";
 import type { Company, Customer, Job } from "@/lib/types";
 
 type JobRow = Job & { customers: (Customer & { companies: Company | null }) | null };
@@ -61,7 +62,7 @@ export const GET = withApiErrors(async (req: NextRequest) => {
           project_number: label,
           company,
           issue: "Paid, then reversed — needs a human look",
-          detail: `paid ${job.paid_date}, reversed ${job.payment_reversed_at}`,
+          detail: `paid ${formatDateMDY(job.paid_date)}, reversed ${formatDateMDY(job.payment_reversed_at)}`,
           category: "invoice",
         });
       }
@@ -113,7 +114,7 @@ export const GET = withApiErrors(async (req: NextRequest) => {
         return friday.getTime() < new Date().setHours(0, 0, 0, 0);
       })();
       if (distinctStoragePaths.size === 0 && weekIsOver) {
-        issues.push({ project_number: label, company, issue: "No lab invoice on file yet", detail: `fieldwork done ${job.confirmed_date}, that week is over`, category: "lab_invoice" });
+        issues.push({ project_number: label, company, issue: "No lab invoice on file yet", detail: `fieldwork done ${formatDateMDY(job.confirmed_date)}, that week is over`, category: "lab_invoice" });
       } else if (distinctRealCharges.size > 1) {
         // Not necessarily wrong — a job spanning multiple lab submission
         // weeks normally has several real charges — worth a glance, not an

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isLabSalesReceiptText, extractLabSalesReceiptNumber, extractLabSalesReceiptLines } from "../parse-lab-invoice";
+import { isLabSalesReceiptText, isLabInvoiceText, extractLabSalesReceiptNumber, extractLabSalesReceiptLines } from "../parse-lab-invoice";
 
 // Real pdf-parse output from a real Crystal Analytical "Sales Receipt -
 // Additional Jobs" email, confirmed live 2026-09-04 — this exact document
@@ -67,6 +67,12 @@ describe("isLabSalesReceiptText", () => {
   it("does not misfire on a weekly summary or a plain results report", () => {
     expect(isLabSalesReceiptText("Commonwealth Inspection Weekly Report\nAugust 23-29, 2026")).toBe(false);
     expect(isLabSalesReceiptText("Laboratory ID: 2601003786\nTest Report for the Analysis of Asbestos")).toBe(false);
+  });
+});
+
+describe("isLabInvoiceText", () => {
+  it("also accepts a Sales Receipt, so a filed receipt never gets flagged invoice_mismatch", () => {
+    expect(isLabInvoiceText(SALES_RECEIPT)).toBe(true);
   });
 });
 

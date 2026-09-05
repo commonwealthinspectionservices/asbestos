@@ -844,30 +844,29 @@ export default function BillingView() {
   }, [invoicedJobs, avgLabCostPerSampleCents]);
 
   // Per Tim, 2026-09-05 — "a small PDF text only link... a link to the PDF
-  // for each week from Crystal": every job with a real weekly/daily
-  // summary document (report_date_range set — see JobDocument's own
-  // comment) whose covered date range overlaps a given week, deduped by
-  // content_hash — the real bytes of the uploaded PDF, i.e. one real email
-  // from Crystal, however many jobs/transactions it happens to cover. NOT
-  // storage_path (unique per upload, not per real file — the same PDF is
-  // filed as its own copy under every job it covers, confirmed live
-  // 2026-09-05: 16 links on one week that should've had far fewer) and NOT
-  // lab_invoice_number (a per-TRANSACTION id, not a per-FILE one — one real
-  // weekly/daily summary PDF covers many jobs, each its own invoice number;
-  // keying on it inflated one real email into a separate link per job it
-  // billed, confirmed live 2026-09-05: content_hash deefca3440... is a
-  // single real PDF covering 9 different invoice numbers across 9 jobs,
-  // which the previous lab_invoice_number-first key showed as 9 links
-  // instead of 1). Falls back to storage_path only for a document missing
-  // content_hash entirely (see backfill-lab-invoice-hashes). Scans every
-  // job, not just invoicedJobs — a lab PDF can arrive before Commonwealth's
-  // own invoice for that job goes out.
+  // for each week from Crystal", then "why so many, it should be one":
+  // every ACTUAL weekly/daily summary document — file_name starting
+  // "weekly-lab-summary" (see processWeeklyLabSummaryEmail's own literal
+  // `weekly-lab-summary-${num}.pdf`), not just report_date_range being set.
+  // report_date_range alone isn't a reliable "this document IS the summary
+  // PDF" signal — processWeeklyLabSummaryEmail's own backfill deliberately
+  // also writes it onto an OLDER, differently-templated single-invoice
+  // document when they happen to share a lab_invoice_number (see that
+  // backfill's own comment: "the OLDER per-invoice-email pipeline's own
+  // document, filed under Crystal's own per-invoice PDF rather than this
+  // weekly one") — confirmed live 2026-09-05, that's exactly what was
+  // still inflating one real week's single weekly-summary PDF into 5
+  // separate links. Still deduped by content_hash (the real bytes), not
+  // storage_path (unique per upload) or lab_invoice_number (a
+  // per-transaction id — one real summary PDF covers many jobs, each its
+  // own invoice number). Scans every job, not just invoicedJobs — a lab
+  // PDF can arrive before Commonwealth's own invoice for that job goes out.
   const weeklyLabInvoicePdfHrefs = useMemo(() => {
     const seenKeys = new Set<string>();
     const docs: { jobId: string; docId: string; startStr: string; endStr: string }[] = [];
     for (const job of jobs) {
       for (const doc of job.documents ?? []) {
-        if (doc.kind !== "lab_invoice" || !doc.report_date_range) continue;
+        if (doc.kind !== "lab_invoice" || !doc.report_date_range || !doc.file_name.startsWith("weekly-lab-summary")) continue;
         const key = doc.content_hash ?? doc.storage_path;
         if (seenKeys.has(key)) continue;
         const range = parseReportDateRange(doc.report_date_range);

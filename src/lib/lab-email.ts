@@ -41,6 +41,9 @@ import {
   extractWeeklyLabSummaryTransactions,
   extractWeeklySummaryTotalCents,
   extractWeeklySummaryDateRangeLabel,
+  isLabSalesReceiptText,
+  extractLabSalesReceiptNumber,
+  extractLabSalesReceiptLines,
 } from "@/lib/parse-lab-invoice";
 import { checkLabInvoiceLineItemPrice, type TestFamily } from "@/lib/lab-pricing";
 import { defaultInvoiceLineItems, invoiceLineItemsTotalCents } from "@/lib/invoice-defaults";
@@ -753,6 +756,30 @@ export async function checkForLabResultEmails(): Promise<LabEmailCheckResult> {
             continue candidateLoop;
           }
 
+          // Per Tim, 2026-09-04 — after a real "Sales Receipt - Additional
+          // Jobs" credit-card-charge email fell through both checks above
+          // and got misfiled as a fake lab_report on job 26-0013 (caught
+          // only by luck via domain_mismatch): "every single PDF that
+          // Crystal Analytical ever sends us should be tracked... and
+          // accessible." This template is a third, distinct shape (its own
+          // "SALES <n>" numbering, not the weekly summary's per-line Num or
+          // the older "Invoice no.:" template) that isLabInvoiceText below
+          // doesn't recognize. Filed under every job it covers (see
+          // processLabSalesReceiptEmail) — but never counted toward
+          // lab_cost_cents, since "the weekly summary is the sole source
+          // for lab cost tracking" (below) still holds: this receipt's own
+          // "SALES" number is a different namespace than the weekly
+          // summary's per-line Num, so counting both risks double-billing
+          // the same real charge once it shows up there too.
+          if (isLabSalesReceiptText(text)) {
+            const { flagged: receiptFlagged } = await processLabSalesReceiptEmail({ messageId: candidate.id, pdfBuffer: data, pdfText: text });
+            await addLabelToMessage(accessToken, candidate.id, processedLabelId);
+            if (receiptFlagged.length > 0) {
+              console.error(`lab-email: sales receipt on message ${candidate.id} had unmatched line(s): ${receiptFlagged.join("; ")}`);
+            }
+            continue candidateLoop;
+          }
+
           // Per Tim, 2026-08-28 — "the system should only take into
           // account the weekly invoice that I got... screw all the other
           // ones": the weekly QuickBooks summary (isWeeklyLabSummaryText
@@ -1028,6 +1055,83 @@ async function alertUnmatchedWeeklySummaryTransactions(unmatched: UnmatchedWeekl
       <p>These charges are real (they're on the invoice) but aren't reflected on any job's lab cost yet — worth checking the weekly report PDF directly to reconcile.</p>
     `),
   }).catch(() => {});
+}
+
+// Per Tim, 2026-09-04 — "every single PDF that Crystal Analytical ever
+// sends us should be tracked in my admin side and should be accessible."
+// Confirmed real: a "Sales Receipt - Additional Jobs" credit-card-charge
+// email fell through both isWeeklyLabSummaryText and isLabInvoiceText and
+// got misfiled as a fake lab_report on job 26-0013. Files a copy of the
+// receipt under every job it covers — but deliberately with
+// amount_cents: null (computeLabCostCentsFromDocuments already skips a
+// null amount, so this never touches lab_cost_cents), since this
+// receipt's own "SALES <n>" number is a different namespace than the
+// weekly summary's per-line "Num" — the weekly summary stays the sole
+// source for real dollars (see processWeeklyLabSummaryEmail below), this
+// is purely for "the actual document should be on the project page."
+async function processLabSalesReceiptEmail(params: {
+  messageId: string;
+  pdfBuffer: Buffer;
+  pdfText: string;
+}): Promise<{ recorded: { projectNumber: string; jobId: string }[]; flagged: string[] }> {
+  const { pdfBuffer, pdfText } = params;
+  const supabase = getSupabaseAdmin();
+  const salesNumber = extractLabSalesReceiptNumber(pdfText);
+  const lines = extractLabSalesReceiptLines(pdfText);
+  const contentHash = createHash("sha256").update(pdfBuffer).digest("hex");
+  // Prefixed so this can never collide with a bare weekly-summary Num,
+  // which lives in its own numbering namespace (see the comment above).
+  const labInvoiceNumber = `receipt-${salesNumber ?? contentHash.slice(0, 8)}`;
+
+  const recorded: { projectNumber: string; jobId: string }[] = [];
+  const flagged: string[] = [];
+  const uploadedStoragePathByJobId = new Map<string, string>();
+
+  for (const line of lines) {
+    if (!line.projectNumber) {
+      flagged.push(`no project number on line: "${line.testDescription}" (${line.address ?? "no address"})`);
+      continue;
+    }
+    const { data: job } = await supabase.from("jobs").select("*").ilike("project_number", line.projectNumber).maybeSingle();
+    if (!job) {
+      flagged.push(`no job found for ${line.projectNumber}`);
+      continue;
+    }
+
+    const existingDocsForNum = ((job.documents ?? []) as JobDocument[]).filter(
+      (d) => d.kind === "lab_invoice" && d.lab_invoice_number === labInvoiceNumber
+    );
+    if (existingDocsForNum.length > 0) continue; // already filed — idempotent reprocessing
+
+    let storagePath = uploadedStoragePathByJobId.get(job.id);
+    if (!storagePath) {
+      const docId = randomUUID();
+      storagePath = `${job.id}/${docId}-lab-sales-receipt.pdf`;
+      await supabase.storage.from("job-documents").upload(storagePath, pdfBuffer, { contentType: "application/pdf" });
+      uploadedStoragePathByJobId.set(job.id, storagePath);
+    }
+
+    const serviceTypeLabels = (job.service_type ?? "").split(",").map((s: string) => s.trim()).filter(Boolean);
+    const uploadedAt = new Date().toISOString();
+    const newDocuments: JobDocument[] = serviceTypeLabels.map((label: string) => ({
+      id: randomUUID(),
+      kind: "lab_invoice",
+      service_type: label,
+      file_name: `lab-sales-receipt-${salesNumber ?? "unknown"}.pdf`,
+      storage_path: storagePath as string,
+      uploaded_at: uploadedAt,
+      project_number_mismatch: null,
+      lab_invoice_number: labInvoiceNumber,
+      amount_cents: null,
+      content_hash: contentHash,
+      lab_invoice_flag: `Billing record only (Sales Receipt #${salesNumber ?? "?"}) — not counted toward lab cost.`,
+    }));
+    const mergedDocuments = replaceLabInvoiceDocumentByNumber(job.documents ?? [], newDocuments, labInvoiceNumber);
+    await supabase.from("jobs").update({ documents: mergedDocuments }).eq("id", job.id);
+    recorded.push({ projectNumber: job.project_number ?? line.projectNumber, jobId: job.id });
+  }
+
+  return { recorded, flagged };
 }
 
 // QuickBooks' own weekly rollup (see isWeeklyLabSummaryText/

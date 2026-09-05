@@ -205,3 +205,84 @@ export function extractWeeklySummaryDateRangeLabel(pdfText: string): string | nu
   const match = pdfText.match(REPORT_DATE_RANGE_PATTERN);
   return match ? match[1].replace(/\s+/g, " ").trim() : null;
 }
+
+// A third real Crystal Analytical email shape, confirmed live 2026-09-04
+// ("Sales Receipt - Additional Jobs"): a credit-card auto-charge receipt,
+// one per payment batch (not per job, and not per lab order — its own
+// "SALES <n>" number is a THIRD numbering namespace, distinct from both
+// the weekly summary's per-line "Num" and Crystal's older "Invoice no.:"
+// template), routinely covering several jobs' worth of samples at once.
+// Neither isWeeklyLabSummaryText nor isLabInvoiceText recognize this shape
+// — confirmed the real email fell through both checks and got misfiled as
+// a lab_report (fake analytical results) on job 26-0013, caught only by
+// luck via the existing domain_mismatch heuristic. "SALES" (no colon,
+// unlike "Invoice no.:") plus "BALANCE DUE" together are unique to this
+// template.
+export function isLabSalesReceiptText(pdfText: string): boolean {
+  return /\bSALES\s*\d/i.test(pdfText) && /BALANCE DUE/i.test(pdfText);
+}
+
+export function extractLabSalesReceiptNumber(pdfText: string): string | null {
+  const match = pdfText.match(/\bSALES\s*(\d+)/i);
+  return match ? match[1] : null;
+}
+
+export interface LabSalesReceiptLine {
+  date: string | null;
+  testDescription: string;
+  projectNumber: string | null;
+  address: string | null;
+  quantity: number;
+  unitPriceCents: number;
+  amountCents: number;
+}
+
+// One row per line item: "<date><description><lab-order-id> - <address>[ -
+// <project#>]\n<qty><rate>.00<amount>.00" — same lab-order-id anchor as the
+// weekly summary's own row shape, but the trailing qty/rate/amount cluster
+// prints differently here: qty has NO decimal point (just "4", "12", "3"),
+// immediately followed by rate and amount which DO ("12.0048.00"). That
+// makes the qty/rate boundary genuinely ambiguous from the digit string
+// alone ("412.0048.00" could misparse as qty=41/rate=2.00 just as easily as
+// the real qty=4/rate=12.00) — resolved by trying each plausible qty
+// length (1-3 digits) and keeping the one where quantity × rate actually
+// equals the printed amount, rather than trusting the first regex match.
+const SALES_RECEIPT_ROW_PATTERN = /(\d{2}\/\d{2}\/\d{4})([\s\S]*?)\n([\d.]+)\n/g;
+
+function splitQuantityRateAmount(tail: string): { quantity: number; unitPriceCents: number; amountCents: number } | null {
+  for (let qtyLen = 1; qtyLen <= 3 && qtyLen < tail.length; qtyLen++) {
+    const qtyStr = tail.slice(0, qtyLen);
+    const rest = tail.slice(qtyLen);
+    if (!/^\d+$/.test(qtyStr)) continue;
+    const restMatch = rest.match(/^(\d+\.\d{2})(\d+\.\d{2})$/);
+    if (!restMatch) continue;
+    const quantity = parseInt(qtyStr, 10);
+    const unitPriceCents = Math.round(parseFloat(restMatch[1]) * 100);
+    const amountCents = Math.round(parseFloat(restMatch[2]) * 100);
+    if (quantity * unitPriceCents === amountCents) {
+      return { quantity, unitPriceCents, amountCents };
+    }
+  }
+  return null;
+}
+
+export function extractLabSalesReceiptLines(pdfText: string): LabSalesReceiptLine[] {
+  const lines: LabSalesReceiptLine[] = [];
+  for (const match of pdfText.matchAll(SALES_RECEIPT_ROW_PATTERN)) {
+    const [, date, body, tail] = match;
+    const split = splitQuantityRateAmount(tail);
+    if (!split) continue;
+    const testDescMatch = body.match(TEST_DESCRIPTION_PATTERN);
+    const testDescription = testDescMatch ? testDescMatch[1].replace(/\s+/g, " ").trim() : body.replace(/\s+/g, " ").trim();
+    const addressMatch = body.match(LAB_ORDER_ADDRESS_PATTERN);
+    const projectMatch = body.match(PROJECT_NUMBER_PATTERN);
+    lines.push({
+      date,
+      testDescription,
+      projectNumber: projectMatch ? projectMatch[1] : null,
+      address: addressMatch ? addressMatch[1].replace(/\s+/g, " ").trim() : null,
+      ...split,
+    });
+  }
+  return lines;
+}

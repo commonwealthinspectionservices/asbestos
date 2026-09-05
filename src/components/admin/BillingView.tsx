@@ -847,28 +847,28 @@ export default function BillingView() {
   // for each week from Crystal": every job with a real weekly/daily
   // summary document (report_date_range set — see JobDocument's own
   // comment) whose covered date range overlaps a given week, deduped by
-  // content_hash — NOT storage_path, which is unique per upload, not per
-  // real file: the same real Crystal PDF is filed as its own copy (its
-  // own storage_path) under every job it covers, so deduping by
-  // storage_path alone showed the same real weekly/daily email as a
-  // separate "PDF" link once per job it happened to bill (confirmed live
-  // 2026-09-05 — 16 links on one week that should have had far fewer).
-  // lab_invoice_number is the primary key, not content_hash — confirmed
-  // live the same invoice number (Crystal's own real-world identity for
-  // the document) can carry two different content_hash values across its
-  // copies (backfill-lab-invoice-hashes ran clean, so it's not a missing-
-  // hash gap — the bytes genuinely differ), which still under-deduped by
-  // hash alone. Falls back to content_hash, then storage_path, only for a
-  // document missing lab_invoice_number entirely. Scans every job, not
-  // just invoicedJobs — a lab PDF can arrive before Commonwealth's own
-  // invoice for that job goes out.
+  // content_hash — the real bytes of the uploaded PDF, i.e. one real email
+  // from Crystal, however many jobs/transactions it happens to cover. NOT
+  // storage_path (unique per upload, not per real file — the same PDF is
+  // filed as its own copy under every job it covers, confirmed live
+  // 2026-09-05: 16 links on one week that should've had far fewer) and NOT
+  // lab_invoice_number (a per-TRANSACTION id, not a per-FILE one — one real
+  // weekly/daily summary PDF covers many jobs, each its own invoice number;
+  // keying on it inflated one real email into a separate link per job it
+  // billed, confirmed live 2026-09-05: content_hash deefca3440... is a
+  // single real PDF covering 9 different invoice numbers across 9 jobs,
+  // which the previous lab_invoice_number-first key showed as 9 links
+  // instead of 1). Falls back to storage_path only for a document missing
+  // content_hash entirely (see backfill-lab-invoice-hashes). Scans every
+  // job, not just invoicedJobs — a lab PDF can arrive before Commonwealth's
+  // own invoice for that job goes out.
   const weeklyLabInvoicePdfHrefs = useMemo(() => {
     const seenKeys = new Set<string>();
     const docs: { jobId: string; docId: string; startStr: string; endStr: string }[] = [];
     for (const job of jobs) {
       for (const doc of job.documents ?? []) {
         if (doc.kind !== "lab_invoice" || !doc.report_date_range) continue;
-        const key = doc.lab_invoice_number ?? doc.content_hash ?? doc.storage_path;
+        const key = doc.content_hash ?? doc.storage_path;
         if (seenKeys.has(key)) continue;
         const range = parseReportDateRange(doc.report_date_range);
         if (!range) continue;

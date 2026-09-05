@@ -16,15 +16,25 @@
 // against a real invoice (#6491, 08/25/2026): present on every invoice,
 // absent from their analytical results reports (those use "Laboratory ID:"
 // instead).
-// Also accepts the Sales Receipt template (isLabSalesReceiptText, defined
-// below) — it's filed under kind "lab_invoice" too (see
-// processLabSalesReceiptEmail in lab-email.ts), and both the manual-upload
-// mismatch check and the retroactive audit-lab-invoices sweep call this to
-// decide whether a lab_invoice document looks legitimate. Without this, a
-// real filed Sales Receipt would get flagged as a mismatch since it has
-// neither "Federal Tax ID" nor "Invoice no.:".
+// Also accepts the Sales Receipt template (isLabSalesReceiptText) and the
+// weekly/daily summary template (isWeeklyLabSummaryText, both defined
+// below) — both get filed under kind "lab_invoice" too (see
+// processLabSalesReceiptEmail and processWeeklyLabSummaryEmail in
+// lab-email.ts), and both the manual-upload mismatch check and the
+// retroactive audit-lab-invoices sweep call this to decide whether a
+// lab_invoice document looks legitimate. Without this, a real filed Sales
+// Receipt or weekly summary gets flagged as a mismatch since it has
+// neither "Federal Tax ID" nor "Invoice no.:" — confirmed live 2026-09-05,
+// audit-lab-invoices false-flagged 35 real weekly-summary documents this
+// way before this fix (see fix-weekly-summary-invoice-mismatch route for
+// the one-time cleanup of those).
 export function isLabInvoiceText(pdfText: string): boolean {
-  return /Federal Tax ID/i.test(pdfText) || /Invoice no\.\s*:/i.test(pdfText) || isLabSalesReceiptText(pdfText);
+  return (
+    /Federal Tax ID/i.test(pdfText) ||
+    /Invoice no\.\s*:/i.test(pdfText) ||
+    isLabSalesReceiptText(pdfText) ||
+    isWeeklyLabSummaryText(pdfText)
+  );
 }
 
 // Crystal Analytical's own invoice number ("Invoice no.: 6491") — confirmed

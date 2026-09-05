@@ -511,7 +511,7 @@ function MarginHistoryTable({
 // Per Tim, 2026-08-30 — "delete the All button... always default to
 // being on Payment Pending": dropped "all" entirely rather than just
 // hiding the button, so there's no lingering state nothing points to.
-type LabInvoiceCheckIssue = { project_number: string | null; company: string | null; issue: string; detail?: string; severity?: "waiting" | "warning" };
+type LabInvoiceCheckIssue = { project_number: string | null; company: string | null; issue: string; detail?: string; severity?: "waiting" | "warning" | "info" };
 type AuditInvoicesIssue = LabInvoiceCheckIssue & { category: "invoice" | "lab_invoice" };
 
 type FilterKey = "sent" | "overdue" | "paid";

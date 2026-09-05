@@ -46,7 +46,7 @@ export const GET = withApiErrors(async (req: NextRequest) => {
   // the real charge yet, nothing to act on; "warning" = worth an actual
   // look. Consumed by BillingView to decide whether a job's Lab Cost
   // label turns red at all.
-  const issues: { project_number: string | null; company: string | null; issue: string; detail?: string; category: "invoice" | "lab_invoice"; severity?: "waiting" | "warning" }[] = [];
+  const issues: { project_number: string | null; company: string | null; issue: string; detail?: string; category: "invoice" | "lab_invoice"; severity?: "waiting" | "warning" | "info" }[] = [];
 
   for (const job of jobs) {
     const label = job.project_number ?? job.id;
@@ -130,18 +130,22 @@ export const GET = withApiErrors(async (req: NextRequest) => {
       if (distinctStoragePaths.size === 0 && weekIsOver) {
         issues.push({ project_number: label, company, issue: "No lab invoice on file yet", detail: `fieldwork done ${formatDateMDY(job.confirmed_date)}, that week is over`, category: "lab_invoice", severity: "waiting" });
       } else if (distinctRealCharges.size > 1) {
-        // Not necessarily wrong — a job spanning multiple lab submission
-        // weeks normally has several real charges — worth a glance, not an
-        // alarm, hence "separate" rather than "verify not double-billed".
-        // Still "warning" severity (not "waiting") — this isn't Crystal
-        // running late, it's a real thing worth a look even if usually fine.
+        // "info", not "warning" — per Tim, 2026-09-05, after checking both
+        // 26-0002 and 26-0008 by hand: every real instance of this turned
+        // out to be legitimate (Crystal splits one job's samples across
+        // multiple lab orders — sometimes only printing the project number
+        // on one of them, resolved via processWeeklyLabSummaryEmail's own
+        // address-based fallback matching), never an actual duplicate. A
+        // finalized job with several real distinct charges isn't "something
+        // wrong" — it's just how Crystal bills sometimes. Still surfaced on
+        // hover for anyone curious, just not red.
         issues.push({
           project_number: label,
           company,
           issue: "More than one separate lab invoice charge on this job",
           detail: `${distinctRealCharges.size} distinct charges on file`,
           category: "lab_invoice",
-          severity: "warning",
+          severity: "info",
         });
       }
       if (labDocs.some((d) => d.invoice_mismatch)) {

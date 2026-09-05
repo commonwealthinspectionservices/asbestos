@@ -65,6 +65,22 @@ function ymd(d: Date): string {
 
 const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
+// Inverse of extractWeeklySummaryDateRangeLabel (parse-lab-invoice.ts) —
+// that builds "August 23-29, 2026" (or, month-crossing, "August 30-
+// September 5, 2026") from real dates when a document is recorded; this
+// reads it back so a JobDocument's own report_date_range can be matched
+// against a Weekly Lab Costs row's week bucket (see weeklyLabInvoicePdfs).
+function parseReportDateRange(range: string): { startStr: string; endStr: string } | null {
+  const m = range.match(/^([A-Za-z]+)\s+(\d{1,2})-(?:([A-Za-z]+)\s+)?(\d{1,2}),\s*(\d{4})$/);
+  if (!m) return null;
+  const [, month1, day1, month2, day2, yearStr] = m;
+  const year = Number(yearStr);
+  const monthIndex1 = MONTH_NAMES.indexOf(month1);
+  const monthIndex2 = month2 ? MONTH_NAMES.indexOf(month2) : monthIndex1;
+  if (monthIndex1 === -1 || monthIndex2 === -1) return null;
+  return { startStr: ymd(new Date(year, monthIndex1, Number(day1))), endStr: ymd(new Date(year, monthIndex2, Number(day2))) };
+}
+
 // Per Tim, 2026-08-30 — "instead of Aug 24-30 it should say August 24th
 // - 30th": full month name plus an ordinal day, used by the Weekly
 // table's date-range labels.
@@ -365,6 +381,21 @@ function MoneyGrid({
   );
 }
 
+// Per Tim, 2026-09-05 — factored out once Weekly/Monthly split into their
+// own tabs (see summaryTab) — the same All-Time line used to sit inline
+// in a shared grid next to its Weekly/Monthly pair; now each tab renders
+// its own card stack, so this renders identically underneath either one
+// instead of being written out twice.
+function AllTimeLine({ label, value, italic }: { label: string; value: string; italic?: boolean }) {
+  return (
+    <div className="mt-2 flex w-full items-baseline justify-between gap-2 text-sm text-slate-500">
+      <span className="whitespace-nowrap">
+        {label}: <span className={italic ? "italic" : ""}>{value}</span>
+      </span>
+    </div>
+  );
+}
+
 // Per Tim, 2026-08-30 — "a simple way to keep track of net and gross for
 // weeks and months over time": one plain list of period rows, gross and
 // net right-aligned, no borders per row, no click targets — a glance-able
@@ -382,6 +413,14 @@ function PeriodHistoryTable({
         (see avgLabCostPerSampleCents), so it reads as a rough number, not
         a confirmed one. */
     estimated?: boolean;
+    /** Per Tim, 2026-09-05 — "a small PDF text only link... a link to the
+        PDF for each week from Crystal": one link per distinct real
+        weekly/daily summary document (see report_date_range on
+        JobDocument) whose own covered date range overlaps this row's week
+        — Weekly Lab Costs only, every other PeriodHistoryTable caller
+        just omits this. More than one shows when the daily-invoicing
+        switch (2026-09-04) put several separate PDFs in one week. */
+    pdfHrefs?: string[];
   }[];
   // Per Tim, 2026-09-02 — "I want to be able to break down jobs week by
   // week, month by month": clicking a row filters the job list below to
@@ -418,7 +457,21 @@ function PeriodHistoryTable({
                   full date range like "August 31st - September 6th" never
                   wrapped to two lines; whitespace-nowrap alone still
                   covers that at the larger size. */}
-              <span className={`whitespace-nowrap text-sm ${selected ? "font-semibold text-brand-700" : "text-slate-500"}`}>{r.label}</span>
+              <span className={`whitespace-nowrap text-sm ${selected ? "font-semibold text-brand-700" : "text-slate-500"}`}>
+                {r.label}
+                {r.pdfHrefs?.map((href, i) => (
+                  <a
+                    key={href}
+                    href={href}
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="ml-1.5 text-xs font-normal text-brand-600 underline hover:text-brand-700"
+                  >
+                    PDF{r.pdfHrefs!.length > 1 ? i + 1 : ""}
+                  </a>
+                ))}
+              </span>
               <span className={`whitespace-nowrap text-right text-slate-800 ${r.estimated ? "italic" : ""}`}>
                 {r.estimated && <span className="text-slate-400">≈ </span>}
                 {formatCents(r.grossCents)}
@@ -528,6 +581,10 @@ export default function BillingView() {
   // once Lab Costs and Margin joined the original Revenue pair — starts
   // collapsed so the job list is what's actually visible on load.
   const [showSummary, setShowSummary] = useState(false);
+  // Per Tim, 2026-09-05 — "let's put these open to two tabs. One is weekly
+  // tab, and then one is monthly tab": replaces the old side-by-side
+  // Weekly/Monthly card pairs with one set of cards at a time.
+  const [summaryTab, setSummaryTab] = useState<"weekly" | "monthly">("weekly");
 
   // Per Tim, 2026-09-05 — "I just really need to know that every job has
   // the correct lab invoice in there", then same day: "I shouldn't need to
@@ -821,6 +878,58 @@ export default function BillingView() {
     return { weekly, monthly };
   }, [invoicedJobs, avgLabCostPerSampleCents]);
 
+  // Per Tim, 2026-09-05 — "a small PDF text only link... a link to the PDF
+  // for each week from Crystal": every job with a real weekly/daily
+  // summary document (report_date_range set — see JobDocument's own
+  // comment) whose covered date range overlaps a given week, deduped by
+  // content_hash — NOT storage_path, which is unique per upload, not per
+  // real file: the same real Crystal PDF is filed as its own copy (its
+  // own storage_path) under every job it covers, so deduping by
+  // storage_path alone showed the same real weekly/daily email as a
+  // separate "PDF" link once per job it happened to bill (confirmed live
+  // 2026-09-05 — 16 links on one week that should have had far fewer).
+  // lab_invoice_number is the primary key, not content_hash — confirmed
+  // live the same invoice number (Crystal's own real-world identity for
+  // the document) can carry two different content_hash values across its
+  // copies (backfill-lab-invoice-hashes ran clean, so it's not a missing-
+  // hash gap — the bytes genuinely differ), which still under-deduped by
+  // hash alone. Falls back to content_hash, then storage_path, only for a
+  // document missing lab_invoice_number entirely. Scans every job, not
+  // just invoicedJobs — a lab PDF can arrive before Commonwealth's own
+  // invoice for that job goes out.
+  const weeklyLabInvoicePdfHrefs = useMemo(() => {
+    const seenKeys = new Set<string>();
+    const docs: { jobId: string; docId: string; startStr: string; endStr: string }[] = [];
+    for (const job of jobs) {
+      for (const doc of job.documents ?? []) {
+        if (doc.kind !== "lab_invoice" || !doc.report_date_range) continue;
+        const key = doc.lab_invoice_number ?? doc.content_hash ?? doc.storage_path;
+        if (seenKeys.has(key)) continue;
+        const range = parseReportDateRange(doc.report_date_range);
+        if (!range) continue;
+        seenKeys.add(key);
+        docs.push({ jobId: job.id, docId: doc.id, ...range });
+      }
+    }
+    // Assigned by the document's own START date only, one bucket each —
+    // NOT by range overlap. Crystal's own reporting period runs Sun-Sat
+    // (a holdover from before the 2026-09-05 switch to Sat-Fri buckets, see
+    // feedback_week_boundary_sat_fri), so it straddles our week boundary
+    // by exactly one day, every time. Overlap-matching against both ends
+    // counted the same real document under two (or three) consecutive
+    // weeks — confirmed live 2026-09-05, one week showed 19 PDFs when the
+    // real distinct count was 7. The start date always falls inside
+    // exactly one Sat-Fri bucket, so this can't double-count.
+    const result: Record<string, string[]> = {};
+    for (const week of periodHistory.weekly) {
+      const hrefs = docs
+        .filter((d) => d.startStr >= week.startStr && d.startStr <= week.endStr)
+        .map((d) => `/api/admin/jobs/${d.jobId}/documents/${d.docId}`);
+      if (hrefs.length > 0) result[week.label] = hrefs;
+    }
+    return result;
+  }, [jobs, periodHistory.weekly]);
+
   // Per Tim, 2026-09-02 — all-time total, not just what the capped
   // weekly/monthly tables above happen to show (periodHistory only ever
   // covers the last few weeks/months). Every invoiced job counts, same
@@ -857,164 +966,133 @@ export default function BillingView() {
         Revenue &amp; Margin Summary
         <span className={`text-slate-400 transition-transform ${showSummary ? "rotate-180" : ""}`}>▾</span>
       </button>
-      {showSummary && (
-      <>
-      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <PeriodHistoryTable
-          title="Weekly Revenue"
-          rows={periodHistory.weekly}
-          isSelected={(label) => periodFilter?.type === "week" && periodFilter.label === label}
-          onSelectRow={(label) => {
-            setPeriodFilter((prev) => {
-              if (prev?.type === "week" && prev.label === label) return null;
-              const row = periodHistory.weekly.find((w) => w.label === label);
-              return row ? { type: "week", label: row.label, startStr: row.startStr, endStr: row.endStr } : prev;
-            });
-          }}
-        />
-        <PeriodHistoryTable
-          title="Monthly Revenue"
-          rows={periodHistory.monthly}
-          isSelected={(label) => periodFilter?.type === "month" && periodFilter.label === label}
-          onSelectRow={(label) => {
-            setPeriodFilter((prev) => {
-              if (prev?.type === "month" && prev.label === label) return null;
-              const row = periodHistory.monthly.find((m) => m.label === label);
-              return row ? { type: "month", label: row.label, key: row.key } : prev;
-            });
-          }}
-        />
-        {/* Per Tim, 2026-09-02 — plain text, sitting right below Weekly
-            Revenue rather than in its own bordered card like the two
-            tables above. sm:col-span-2 spans both grid columns so the
-            "All-Time " label doesn't wrap on desktop. */}
-        <div className="grid w-full grid-cols-[auto_auto] justify-start gap-x-1.5 gap-y-0.5 text-sm text-slate-500 sm:hidden">
-          <span>All-Time Gross Revenue:</span>
-          <span>{formatCents(allTimeTotal.grossCents)}</span>
-        </div>
-        <div className="hidden w-full items-baseline justify-between gap-2 text-sm text-slate-500 sm:col-span-2 sm:flex">
-          <span className="whitespace-nowrap">All-Time Gross Revenue: {formatCents(allTimeTotal.grossCents)}</span>
-        </div>
-      </div>
+      {showSummary && (() => {
+        const isWeekly = summaryTab === "weekly";
+        const periodFilterType: "week" | "month" = isWeekly ? "week" : "month";
+        const allTimeMarginPercent = allTimeTotal.grossCents > 0
+          ? ((allTimeTotal.grossCents - allTimeTotal.labCostCents - allTimeTotal.estimatedLabCostCents - allTimeTotal.stripeFeeCents) / allTimeTotal.grossCents) * 100
+          : null;
+        const isMarginEstimated = allTimeTotal.estimatedLabCostCents > 0;
+        const allTimeMarginText = allTimeMarginPercent != null ? `${isMarginEstimated ? "≈ " : ""}${allTimeMarginPercent.toFixed(1)}%` : "—";
+        return (
+          <>
+            <div className="mt-3 flex gap-2">
+              <button
+                onClick={() => setSummaryTab("weekly")}
+                className={`shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium ${isWeekly ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}
+              >
+                Weekly
+              </button>
+              <button
+                onClick={() => setSummaryTab("monthly")}
+                className={`shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium ${!isWeekly ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}
+              >
+                Monthly
+              </button>
+            </div>
 
-      {/* Per Tim, 2026-09-04 — same layout as Weekly/Monthly Revenue above,
-          copied exactly, for lab costs instead of revenue. Clickable the
-          same way too — "we need to break it down per job per week" — so
-          a figure that looks off can be checked against the actual job
-          list below (each job card's own Lab Cost line shows the same
-          "≈" estimate feeding this total, via MoneyGrid). Shares the same
-          periodFilter state as Weekly/Monthly Revenue, not a second one —
-          only one period is ever filtered at a time regardless of which
-          table it was clicked from. */}
-      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <PeriodHistoryTable
-          title="Weekly Lab Costs"
-          rows={periodHistory.weekly.map((w) => ({
-            label: w.label,
-            grossCents: w.labCostCents + w.estimatedLabCostCents,
-            netCents: 0,
-            estimated: w.estimatedLabCostCents > 0,
-          }))}
-          isSelected={(label) => periodFilter?.type === "week" && periodFilter.label === label}
-          onSelectRow={(label) => {
-            setPeriodFilter((prev) => {
-              if (prev?.type === "week" && prev.label === label) return null;
-              const row = periodHistory.weekly.find((w) => w.label === label);
-              return row ? { type: "week", label: row.label, startStr: row.startStr, endStr: row.endStr } : prev;
-            });
-          }}
-        />
-        <PeriodHistoryTable
-          title="Monthly Lab Costs"
-          rows={periodHistory.monthly.map((m) => ({
-            label: m.label,
-            grossCents: m.labCostCents + m.estimatedLabCostCents,
-            netCents: 0,
-            estimated: m.estimatedLabCostCents > 0,
-          }))}
-          isSelected={(label) => periodFilter?.type === "month" && periodFilter.label === label}
-          onSelectRow={(label) => {
-            setPeriodFilter((prev) => {
-              if (prev?.type === "month" && prev.label === label) return null;
-              const row = periodHistory.monthly.find((m) => m.label === label);
-              return row ? { type: "month", label: row.label, key: row.key } : prev;
-            });
-          }}
-        />
-        {/* Per Tim, 2026-09-04 — the lab has since switched to a daily
-            recap instead of weekly (Fridays), so this gap should mostly
-            close within a day now rather than lingering a full week;
-            "≈" marks a figure that still includes an estimate for
-            whatever hasn't posted yet rather than a confirmed one. */}
-        <div className="grid w-full grid-cols-[auto_auto] justify-start gap-x-1.5 gap-y-0.5 text-sm text-slate-500 sm:hidden">
-          <span>All-Time Lab Costs:</span>
-          <span className={allTimeTotal.estimatedLabCostCents > 0 ? "italic" : ""}>
-            {allTimeTotal.estimatedLabCostCents > 0 && "≈ "}{formatCents(allTimeTotal.labCostCents + allTimeTotal.estimatedLabCostCents)}
-          </span>
-        </div>
-        <div className="hidden w-full items-baseline justify-between gap-2 text-sm text-slate-500 sm:col-span-2 sm:flex">
-          <span className="whitespace-nowrap">
-            All-Time Lab Costs:{" "}
-            <span className={allTimeTotal.estimatedLabCostCents > 0 ? "italic" : ""}>
-              {allTimeTotal.estimatedLabCostCents > 0 && "≈ "}{formatCents(allTimeTotal.labCostCents + allTimeTotal.estimatedLabCostCents)}
-            </span>
-          </span>
-        </div>
-      </div>
+            <div className="mt-3">
+              <PeriodHistoryTable
+                title={isWeekly ? "Weekly Revenue" : "Monthly Revenue"}
+                rows={isWeekly ? periodHistory.weekly : periodHistory.monthly}
+                isSelected={(label) => periodFilter?.type === periodFilterType && periodFilter.label === label}
+                onSelectRow={(label) => {
+                  setPeriodFilter((prev) => {
+                    if (isWeekly) {
+                      if (prev?.type === "week" && prev.label === label) return null;
+                      const row = periodHistory.weekly.find((w) => w.label === label);
+                      return row ? { type: "week", label: row.label, startStr: row.startStr, endStr: row.endStr } : prev;
+                    }
+                    if (prev?.type === "month" && prev.label === label) return null;
+                    const row = periodHistory.monthly.find((m) => m.label === label);
+                    return row ? { type: "month", label: row.label, key: row.key } : prev;
+                  });
+                }}
+              />
+              <AllTimeLine label="All-Time Gross Revenue" value={formatCents(allTimeTotal.grossCents)} />
+            </div>
 
-      {/* Per Tim, 2026-09-04 — "one more set of cells for weekly and
-          monthly margins... an exact %": its own card pair, not a column
-          on Revenue/Lab Costs above (tried that, pulled it back out —
-          crowded the dollar figures). Same periodFilter, same click-to-
-          filter behavior as the other two pairs. */}
-      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <MarginHistoryTable
-          title="Weekly Margin"
-          rows={periodHistory.weekly.map((w) => ({ label: w.label, marginPercent: marginPercentOf(w), estimated: w.estimatedLabCostCents > 0 }))}
-          isSelected={(label) => periodFilter?.type === "week" && periodFilter.label === label}
-          onSelectRow={(label) => {
-            setPeriodFilter((prev) => {
-              if (prev?.type === "week" && prev.label === label) return null;
-              const row = periodHistory.weekly.find((w) => w.label === label);
-              return row ? { type: "week", label: row.label, startStr: row.startStr, endStr: row.endStr } : prev;
-            });
-          }}
-        />
-        <MarginHistoryTable
-          title="Monthly Margin"
-          rows={periodHistory.monthly.map((m) => ({ label: m.label, marginPercent: marginPercentOf(m), estimated: m.estimatedLabCostCents > 0 }))}
-          isSelected={(label) => periodFilter?.type === "month" && periodFilter.label === label}
-          onSelectRow={(label) => {
-            setPeriodFilter((prev) => {
-              if (prev?.type === "month" && prev.label === label) return null;
-              const row = periodHistory.monthly.find((m) => m.label === label);
-              return row ? { type: "month", label: row.label, key: row.key } : prev;
-            });
-          }}
-        />
-        {(() => {
-          const allTimeMarginPercent = allTimeTotal.grossCents > 0
-            ? ((allTimeTotal.grossCents - allTimeTotal.labCostCents - allTimeTotal.estimatedLabCostCents - allTimeTotal.stripeFeeCents) / allTimeTotal.grossCents) * 100
-            : null;
-          const isEstimated = allTimeTotal.estimatedLabCostCents > 0;
-          const prefix = isEstimated ? "≈ " : "";
-          const text = allTimeMarginPercent != null ? `${prefix}${allTimeMarginPercent.toFixed(1)}%` : "—";
-          const valueClass = isEstimated ? "italic" : "";
-          return (
-            <>
-              <div className="grid w-full grid-cols-[auto_auto] justify-start gap-x-1.5 gap-y-0.5 text-sm text-slate-500 sm:hidden">
-                <span>All-Time Margin:</span>
-                <span className={valueClass}>{text}</span>
-              </div>
-              <div className="hidden w-full items-baseline justify-between gap-2 text-sm text-slate-500 sm:col-span-2 sm:flex">
-                <span className="whitespace-nowrap">All-Time Margin: <span className={valueClass}>{text}</span></span>
-              </div>
-            </>
-          );
-        })()}
-      </div>
-      </>
-      )}
+            {/* Per Tim, 2026-09-04 — same layout as Revenue above, copied
+                exactly, for lab costs instead. Clickable the same way —
+                "we need to break it down per job per week" — so a figure
+                that looks off can be checked against the actual job list
+                below (each job card's own Lab Cost line shows the same
+                "≈" estimate feeding this total, via MoneyGrid). Shares the
+                same periodFilter state as Revenue, not a second one — only
+                one period is ever filtered at a time regardless of which
+                table it was clicked from. */}
+            <div className="mt-3">
+              <PeriodHistoryTable
+                title={isWeekly ? "Weekly Lab Costs" : "Monthly Lab Costs"}
+                rows={
+                  isWeekly
+                    ? periodHistory.weekly.map((w) => ({
+                        label: w.label,
+                        grossCents: w.labCostCents + w.estimatedLabCostCents,
+                        netCents: 0,
+                        estimated: w.estimatedLabCostCents > 0,
+                        pdfHrefs: weeklyLabInvoicePdfHrefs[w.label],
+                      }))
+                    : periodHistory.monthly.map((m) => ({
+                        label: m.label,
+                        grossCents: m.labCostCents + m.estimatedLabCostCents,
+                        netCents: 0,
+                        estimated: m.estimatedLabCostCents > 0,
+                      }))
+                }
+                isSelected={(label) => periodFilter?.type === periodFilterType && periodFilter.label === label}
+                onSelectRow={(label) => {
+                  setPeriodFilter((prev) => {
+                    if (isWeekly) {
+                      if (prev?.type === "week" && prev.label === label) return null;
+                      const row = periodHistory.weekly.find((w) => w.label === label);
+                      return row ? { type: "week", label: row.label, startStr: row.startStr, endStr: row.endStr } : prev;
+                    }
+                    if (prev?.type === "month" && prev.label === label) return null;
+                    const row = periodHistory.monthly.find((m) => m.label === label);
+                    return row ? { type: "month", label: row.label, key: row.key } : prev;
+                  });
+                }}
+              />
+              <AllTimeLine
+                label="All-Time Lab Costs"
+                value={`${allTimeTotal.estimatedLabCostCents > 0 ? "≈ " : ""}${formatCents(allTimeTotal.labCostCents + allTimeTotal.estimatedLabCostCents)}`}
+                italic={allTimeTotal.estimatedLabCostCents > 0}
+              />
+            </div>
+
+            {/* Per Tim, 2026-09-04 — "one more set of cells for weekly and
+                monthly margins... an exact %": its own card, not a column
+                on Revenue/Lab Costs above (tried that, pulled it back out
+                — crowded the dollar figures). Same periodFilter, same
+                click-to-filter behavior as the other two. */}
+            <div className="mt-3">
+              <MarginHistoryTable
+                title={isWeekly ? "Weekly Margin" : "Monthly Margin"}
+                rows={
+                  isWeekly
+                    ? periodHistory.weekly.map((w) => ({ label: w.label, marginPercent: marginPercentOf(w), estimated: w.estimatedLabCostCents > 0 }))
+                    : periodHistory.monthly.map((m) => ({ label: m.label, marginPercent: marginPercentOf(m), estimated: m.estimatedLabCostCents > 0 }))
+                }
+                isSelected={(label) => periodFilter?.type === periodFilterType && periodFilter.label === label}
+                onSelectRow={(label) => {
+                  setPeriodFilter((prev) => {
+                    if (isWeekly) {
+                      if (prev?.type === "week" && prev.label === label) return null;
+                      const row = periodHistory.weekly.find((w) => w.label === label);
+                      return row ? { type: "week", label: row.label, startStr: row.startStr, endStr: row.endStr } : prev;
+                    }
+                    if (prev?.type === "month" && prev.label === label) return null;
+                    const row = periodHistory.monthly.find((m) => m.label === label);
+                    return row ? { type: "month", label: row.label, key: row.key } : prev;
+                  });
+                }}
+              />
+              <AllTimeLine label="All-Time Margin" value={allTimeMarginText} italic={isMarginEstimated} />
+            </div>
+          </>
+        );
+      })()}
 
       {error && <div className="mt-3 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>}
       {/* Per Tim, 2026-09-05 — "I shouldn't need to run a check like

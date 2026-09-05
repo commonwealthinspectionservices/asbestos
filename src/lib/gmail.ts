@@ -332,6 +332,16 @@ interface GmailLabel {
   name: string;
 }
 
+// Every label in the owner's own mailbox — his own folders (e.g. "Crystal
+// Reports") included, not just the ones this app manages. Read-only,
+// added 2026-09-05 for a one-off diagnostic that needed to look up a
+// label Tim uses himself rather than one this app created.
+export async function listLabels(accessToken: string): Promise<GmailLabel[]> {
+  const res = await gmailFetch(accessToken, "/labels");
+  const data = await res.json();
+  return (data.labels as GmailLabel[] | undefined) ?? [];
+}
+
 // A label an automated pipeline (job-intake being the first) applies to a
 // message it's already handled — deliberately NOT the same signal as the
 // UNREAD system label markMessageRead touches above. Confirmed live

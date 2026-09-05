@@ -14,7 +14,6 @@ import { geocodeAddress, GeocodeError, isWithinServiceStates } from "@/lib/geoco
 import { generateProjectNumber } from "@/lib/project-number";
 import { resolveServiceSelection } from "@/lib/portal-booking";
 import { parseAcmOrderEmail, type ParsedJobIntake } from "@/lib/parse-job-intake";
-import { sendNewBookingRequestEmail } from "@/lib/booking-notify";
 import { sendEmail, emailShell } from "@/lib/email";
 import { escapeHtml } from "@/lib/html";
 import { formatDateMDY } from "@/lib/date-format";
@@ -216,6 +215,16 @@ export async function checkForJobIntakeEmails(): Promise<JobIntakeResult> {
   const processedLabelId = await getOrCreateLabelId(accessToken, PROCESSED_LABEL);
 
   for (const sender of KNOWN_SENDERS) {
+    // Per Tim, 2026-09-05 — "when these kinds of emails come in, they need
+    // to auto label as Boston Harbor water restoration": his own existing
+    // Gmail label, matched by exact name (confirmed live against his real
+    // label list) so this reuses it instead of creating a near-duplicate.
+    // Applied alongside PROCESSED_LABEL below on every real candidate from
+    // this sender, regardless of outcome — a duplicate-thread skip or a
+    // parse failure still deserves filing under the sender's own folder.
+    const senderLabelId = await getOrCreateLabelId(accessToken, sender.companyName);
+    const labelCandidate = (messageId: string) =>
+      Promise.all([addLabelToMessage(accessToken, messageId, processedLabelId), addLabelToMessage(accessToken, messageId, senderLabelId)]);
     // subject OR from:domain, not subject alone — a from:-only filter would
     // miss a forwarded order (the owner's own From header, not the
     // sender's), and a subject-only filter missed a real order whose
@@ -280,7 +289,7 @@ export async function checkForJobIntakeEmails(): Promise<JobIntakeResult> {
         .maybeSingle();
       if (existingJob) {
         await markMessageRead(accessToken, candidate.id);
-        await addLabelToMessage(accessToken, candidate.id, processedLabelId);
+        await labelCandidate(candidate.id);
         result.unmatched++;
         continue;
       }
@@ -296,7 +305,7 @@ export async function checkForJobIntakeEmails(): Promise<JobIntakeResult> {
             bodyExcerpt: bodyText,
           });
           await markMessageRead(accessToken, candidate.id);
-          await addLabelToMessage(accessToken, candidate.id, processedLabelId);
+          await labelCandidate(candidate.id);
           result.unmatched++;
           continue;
         }
@@ -310,7 +319,7 @@ export async function checkForJobIntakeEmails(): Promise<JobIntakeResult> {
         // Everything else in this conversation — including the initial
         // reply to the client — stays manual, same as it already is today.
         await markMessageRead(accessToken, candidate.id);
-        await addLabelToMessage(accessToken, candidate.id, processedLabelId);
+        await labelCandidate(candidate.id);
         result.created.push({ projectNumber: job.projectNumber, jobId: job.jobId });
       } catch (err) {
         console.error(`checkForJobIntakeEmails: failed to process message ${candidate.id}:`, err);
@@ -320,7 +329,7 @@ export async function checkForJobIntakeEmails(): Promise<JobIntakeResult> {
           bodyExcerpt: bodyText,
         });
         await markMessageRead(accessToken, candidate.id);
-        await addLabelToMessage(accessToken, candidate.id, processedLabelId);
+        await labelCandidate(candidate.id);
         result.unmatched++;
       }
     }
@@ -529,24 +538,15 @@ export async function createJobFromIntake(params: {
     throw new Error(`Failed to create job from email intake: ${error?.message}`);
   }
 
-  try {
-    await sendNewBookingRequestEmail({
-      jobId: job.id,
-      projectNumber,
-      customerName: parsed.homeownerName,
-      company: sender.companyName,
-      address: formattedAddress,
-      serviceLabel: serviceTypeLabel,
-      requestedDate: parsed.requestedDate,
-      requestedTime: null,
-      scopeOfWork: parsed.scopeOfWork,
-      notes: `Requested by ${parsed.companyContactName} (${formatPhoneNumber(parsed.companyContactPhone)})`,
-      siteContactName: parsed.homeownerName,
-      siteContactPhone: parsed.homeownerPhone,
-    });
-  } catch (err) {
-    console.error(`createJobFromIntake: owner alert failed for job ${job.id}:`, err);
-  }
+  // Per Tim, 2026-09-05 — "I don't really need a notification when Boston
+  // Harbor water restoration books a job because I already get the email
+  // from them": unlike a portal booking (no natural "here's the request"
+  // email — see book/book-guest routes, which still send this), the
+  // client's own original order email IS the notification here, and this
+  // job's own thread is seeded from it (email_gmail_thread_id above) for
+  // exactly this reason — "the whole point of this feature." A second,
+  // separate owner-notification email would be a second thread for the
+  // same job, working against "one email chain per job."
 
   return { jobId: job.id, projectNumber, serviceLabel: serviceTypeLabel, address: formattedAddress };
 }

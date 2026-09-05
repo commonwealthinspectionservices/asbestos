@@ -181,10 +181,17 @@ function AddressLines({ address }: { address: string | null | undefined }) {
 // place to fix. `right` is whatever financial content sits beside the
 // address; `below` is whatever status/date content sits on its own row.
 function JobRow({
-  job, onOpen, right, below,
+  job, onOpen, right, below, issues,
 }: {
   job: JobWithCustomer; onOpen: () => void; right: React.ReactNode; below?: React.ReactNode;
+  /** Per Tim, 2026-09-05 — "a small red circle... top right of the
+      project billing card... click on that red dot, it brings up that
+      message": replaces the old flat list under Lab Invoice Check with a
+      per-card indicator instead — this job's own lab-invoice issues, if
+      any (see the check's own state in the parent). */
+  issues?: LabInvoiceCheckIssue[];
 }) {
+  const [showIssues, setShowIssues] = useState(false);
   return (
     <button
       onClick={onOpen}
@@ -193,8 +200,42 @@ function JobRow({
       // Invoice/Lab Cost/Margin's own label column stays left-aligned to
       // a common edge (see MoneyGrid), but the whole block now sits at
       // the card's far right edge instead of hugging the address.
-      className="flex w-full flex-col items-start gap-1.5 rounded-lg border border-slate-200 bg-white p-3 text-left hover:border-brand-400"
+      className="relative flex w-full flex-col items-start gap-1.5 rounded-lg border border-slate-200 bg-white p-3 text-left hover:border-brand-400"
     >
+      {issues && issues.length > 0 && (
+        <>
+          <span
+            role="button"
+            tabIndex={0}
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowIssues((v) => !v);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.stopPropagation();
+                e.preventDefault();
+                setShowIssues((v) => !v);
+              }
+            }}
+            className="absolute right-2 top-2 h-3 w-3 rounded-full bg-red-600"
+            aria-label={`${issues.length} lab invoice issue${issues.length === 1 ? "" : "s"}`}
+          />
+          {showIssues && (
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="absolute right-2 top-6 z-10 w-64 rounded-lg border border-red-200 bg-white p-2.5 text-xs text-red-700 shadow-lg"
+            >
+              {issues.map((issue, i) => (
+                <div key={i} className={i > 0 ? "mt-2" : ""}>
+                  <div className="font-semibold">{issue.issue}</div>
+                  {issue.detail && <div>{issue.detail}</div>}
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
       {/* Per Tim, 2026-08-30 — "make sure project number and company
           name in the preview cards are directly in line on top": the
           badge's own padding made items-start (aligning box tops) read
@@ -973,19 +1014,18 @@ export default function BillingView() {
                 All clear — {labInvoiceCheck.jobsScanned} jobs checked, every lab invoice looks right.
               </p>
             ) : (
-              <div className="mt-3 flex flex-col gap-2">
-                <p className="text-sm font-medium text-red-700">
-                  {labInvoiceCheck.issues.length} issue{labInvoiceCheck.issues.length === 1 ? "" : "s"} found ({labInvoiceCheck.jobsScanned} jobs checked)
-                </p>
-                {labInvoiceCheck.issues.map((issue, i) => (
-                  <div key={i} className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
-                    <span className="font-semibold">{issue.project_number ?? "—"}</span>
-                    {issue.company && <span className="text-red-600"> · {issue.company}</span>}
-                    <div>{issue.issue}</div>
-                    {issue.detail && <div className="text-red-600">{issue.detail}</div>}
-                  </div>
-                ))}
-              </div>
+              // Per Tim, 2026-09-05 — "instead of this format... a small
+              // red circle... top right of the project billing card...
+              // click on that red dot, it brings up that message": the
+              // per-job breakdown now lives on each job's own card (see
+              // JobRow's issues prop) rather than as a flat list here.
+              // Only the cards in whichever tab/filter is currently showing
+              // carry a dot — a flagged job filtered out of view right now
+              // (e.g. under Overdue while viewing Payment Pending) won't
+              // show one until that tab is opened.
+              <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+                {labInvoiceCheck.issues.length} issue{labInvoiceCheck.issues.length === 1 ? "" : "s"} found ({labInvoiceCheck.jobsScanned} jobs checked) — look for the red dot on the affected job cards below.
+              </p>
             )
           )}
         </div>
@@ -1160,10 +1200,15 @@ export default function BillingView() {
               {rows.map(({ job, status }) => {
                 const isNewtonAutoCharge = status === "sent" && job.customers?.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID;
                 const labInvoiceDocId = latestLabInvoiceDocId(job);
+                const jobLabInvoiceIssues =
+                  labInvoiceCheck.status === "done"
+                    ? labInvoiceCheck.issues.filter((i) => i.project_number === job.project_number)
+                    : undefined;
                 return (
                   <JobRow
                     key={job.id}
                     job={job}
+                    issues={jobLabInvoiceIssues}
                     onOpen={() => setSelectedJobId(job.id)}
                     right={
                       <MoneyGrid

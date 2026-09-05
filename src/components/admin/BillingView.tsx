@@ -261,11 +261,17 @@ function MoneyGrid({
       just be this is red the link": replaces the separate red-dot badge
       that used to sit in the card's corner (see JobRow's old issues prop)
       — the Lab Cost label itself turns red when this job has an open Lab
-      Invoice Check issue, click it to see why. */
+      Invoice Check issue. Per Tim's own same-day follow-up — "it should
+      only show the reason if you hover over it... if you click on it, it
+      should still just bring up whatever it's supposed to" — the reason
+      is a plain hover title, not a click-intercepting popover; a click
+      always goes straight through (opens the real PDF when one exists,
+      otherwise falls through to the card's own onOpen like any other
+      unlinked label). */
   labInvoiceIssues?: LabInvoiceCheckIssue[];
 }) {
-  const [showLabIssues, setShowLabIssues] = useState(false);
   const hasLabIssues = Boolean(labInvoiceIssues && labInvoiceIssues.length > 0);
+  const labIssuesTitle = labInvoiceIssues?.map((i) => (i.detail ? `${i.issue} — ${i.detail}` : i.issue)).join("\n");
   // Per Tim, 2026-08-30 — "the text should all start in the same point,
   // the I, the L, and the M, but just move it far right": labels
   // (Invoice/Lab Cost/Margin) left-align to a common edge; values
@@ -292,64 +298,17 @@ function MoneyGrid({
       href={labInvoiceHref}
       target="_blank"
       rel="noreferrer"
-      onClick={(e) => {
-        // A flagged job opens the issue popover instead of the PDF on the
-        // first click — the PDF link still works, it just takes a second
-        // click once the reason's been read, same as any other disclosure.
-        if (hasLabIssues && !showLabIssues) {
-          e.preventDefault();
-          e.stopPropagation();
-          setShowLabIssues(true);
-          return;
-        }
-        e.stopPropagation();
-      }}
-      className={`relative text-left underline hover:text-brand-600 ${labCostColorClass}`}
+      onClick={(e) => e.stopPropagation()}
+      title={labIssuesTitle}
+      className={`text-left underline hover:text-brand-600 ${labCostColorClass}`}
     >
       Lab Cost
     </a>
-  ) : hasLabIssues ? (
-    <span
-      role="button"
-      tabIndex={0}
-      onClick={(e) => {
-        e.stopPropagation();
-        setShowLabIssues((v) => !v);
-      }}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.stopPropagation();
-          e.preventDefault();
-          setShowLabIssues((v) => !v);
-        }
-      }}
-      className={`relative text-left underline ${labCostColorClass}`}
-    >
-      Lab Cost
-    </span>
   ) : (
-    <span className="text-left text-slate-400">Lab Cost</span>
+    <span title={labIssuesTitle} className={`text-left ${labCostColorClass}`}>Lab Cost</span>
   );
   return (
-    <div className="relative grid shrink-0 grid-cols-[auto_auto] items-baseline gap-x-2 gap-y-0.5 text-xs">
-      {showLabIssues && labInvoiceIssues && (
-        // top-full (not a fixed offset) — sits fully below the grid
-        // regardless of how many rows it has, so it can never overlap the
-        // Lab Cost link/button that opened it. Without this, a second
-        // click meant to open the PDF landed on the popover instead
-        // (confirmed live 2026-09-05).
-        <div
-          onClick={(e) => e.stopPropagation()}
-          className="absolute right-0 top-full z-10 mt-1 w-64 rounded-lg border border-red-200 bg-white p-2.5 text-xs normal-case text-red-700 shadow-lg"
-        >
-          {labInvoiceIssues.map((issue, i) => (
-            <div key={i} className={i > 0 ? "mt-2" : ""}>
-              <div className="font-semibold">{issue.issue}</div>
-              {issue.detail && <div>{issue.detail}</div>}
-            </div>
-          ))}
-        </div>
-      )}
+    <div className="grid shrink-0 grid-cols-[auto_auto] items-baseline gap-x-2 gap-y-0.5 text-xs">
       {invoiceLabel}
       <span className="whitespace-nowrap text-right text-slate-700">{formatCents(revenueCents)}</span>
       {labCostLabel}

@@ -39,7 +39,14 @@ export const GET = withApiErrors(async (req: NextRequest) => {
   // the lab-invoice subset of this same scan without a second query — this
   // route already reads every job either way, so splitting the check
   // instead of tagging results would just double the DB read for no reason.
-  const issues: { project_number: string | null; company: string | null; issue: string; detail?: string; category: "invoice" | "lab_invoice" }[] = [];
+  // severity (lab_invoice issues only) — per Tim, 2026-09-05: "if it's
+  // waiting on crystal, it should be blue [later: 'it doesn't even need to
+  // be blue... it can just be blank']. And then if there's something
+  // wrong with it, it should be red." "waiting" = Crystal just hasn't sent
+  // the real charge yet, nothing to act on; "warning" = worth an actual
+  // look. Consumed by BillingView to decide whether a job's Lab Cost
+  // label turns red at all.
+  const issues: { project_number: string | null; company: string | null; issue: string; detail?: string; category: "invoice" | "lab_invoice"; severity?: "waiting" | "warning" }[] = [];
 
   for (const job of jobs) {
     const label = job.project_number ?? job.id;
@@ -121,24 +128,30 @@ export const GET = withApiErrors(async (req: NextRequest) => {
         return friday.getTime() < new Date().setHours(0, 0, 0, 0);
       })();
       if (distinctStoragePaths.size === 0 && weekIsOver) {
-        issues.push({ project_number: label, company, issue: "No lab invoice on file yet", detail: `fieldwork done ${formatDateMDY(job.confirmed_date)}, that week is over`, category: "lab_invoice" });
+        issues.push({ project_number: label, company, issue: "No lab invoice on file yet", detail: `fieldwork done ${formatDateMDY(job.confirmed_date)}, that week is over`, category: "lab_invoice", severity: "waiting" });
       } else if (distinctRealCharges.size > 1) {
         // Not necessarily wrong — a job spanning multiple lab submission
         // weeks normally has several real charges — worth a glance, not an
         // alarm, hence "separate" rather than "verify not double-billed".
+        // Still "warning" severity (not "waiting") — this isn't Crystal
+        // running late, it's a real thing worth a look even if usually fine.
         issues.push({
           project_number: label,
           company,
           issue: "More than one separate lab invoice charge on this job",
           detail: `${distinctRealCharges.size} distinct charges on file`,
           category: "lab_invoice",
+          severity: "warning",
         });
       }
       if (labDocs.some((d) => d.invoice_mismatch)) {
-        issues.push({ project_number: label, company, issue: "A lab invoice on file is flagged as not actually looking like an invoice", category: "lab_invoice" });
+        issues.push({ project_number: label, company, issue: "A lab invoice on file is flagged as not actually looking like an invoice", category: "lab_invoice", severity: "warning" });
       }
       if (distinctStoragePaths.size >= 1 && !job.lab_cost_cents) {
-        issues.push({ project_number: label, company, issue: "Lab invoice on file but no cost was ever recorded from it", category: "lab_invoice" });
+        // A receipt/partial document is already on file — this is Crystal's
+        // real charge still in transit, same "waiting" as no-invoice-yet
+        // above, not a real problem (confirmed live 2026-09-05 on 26-0013).
+        issues.push({ project_number: label, company, issue: "Lab invoice on file but no cost was ever recorded from it", category: "lab_invoice", severity: "waiting" });
       }
     }
   }

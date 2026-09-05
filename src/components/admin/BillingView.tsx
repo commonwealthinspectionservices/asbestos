@@ -270,7 +270,13 @@ function MoneyGrid({
       unlinked label). */
   labInvoiceIssues?: LabInvoiceCheckIssue[];
 }) {
-  const hasLabIssues = Boolean(labInvoiceIssues && labInvoiceIssues.length > 0);
+  // Per Tim, 2026-09-05 — "if it's waiting on crystal, it should be
+  // blue [then:] it doesn't even need to be blue... it can just be
+  // blank. We don't need it to be red if we're just waiting on it":
+  // only a "warning" (something actually worth a look) turns the label
+  // red — a "waiting" issue (Crystal just hasn't billed yet) still shows
+  // its reason on hover, but the label stays its normal color.
+  const hasWarningIssue = Boolean(labInvoiceIssues?.some((i) => i.severity === "warning"));
   const labIssuesTitle = labInvoiceIssues?.map((i) => (i.detail ? `${i.issue} — ${i.detail}` : i.issue)).join("\n");
   // Per Tim, 2026-08-30 — "the text should all start in the same point,
   // the I, the L, and the M, but just move it far right": labels
@@ -292,7 +298,7 @@ function MoneyGrid({
   ) : (
     <span className="text-left text-slate-400">Invoice</span>
   );
-  const labCostColorClass = hasLabIssues ? "text-red-600" : "text-slate-400";
+  const labCostColorClass = hasWarningIssue ? "text-red-600" : "text-slate-400";
   const labCostLabel = labInvoiceHref ? (
     <a
       href={labInvoiceHref}
@@ -505,7 +511,7 @@ function MarginHistoryTable({
 // Per Tim, 2026-08-30 — "delete the All button... always default to
 // being on Payment Pending": dropped "all" entirely rather than just
 // hiding the button, so there's no lingering state nothing points to.
-type LabInvoiceCheckIssue = { project_number: string | null; company: string | null; issue: string; detail?: string };
+type LabInvoiceCheckIssue = { project_number: string | null; company: string | null; issue: string; detail?: string; severity?: "waiting" | "warning" };
 type AuditInvoicesIssue = LabInvoiceCheckIssue & { category: "invoice" | "lab_invoice" };
 
 type FilterKey = "sent" | "overdue" | "paid";

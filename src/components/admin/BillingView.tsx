@@ -715,11 +715,13 @@ export default function BillingView() {
 
   const listSummary = useMemo(() => {
     let awaitingPaymentCents = 0;
+    let paidCents = 0;
     for (const job of invoicedJobs) {
       const status = invoiceStatus(job);
       if (status === "sent" || status === "overdue") awaitingPaymentCents += job.invoice_total_cents ?? 0;
+      if (status === "paid") paidCents += job.invoice_total_cents ?? 0;
     }
-    return { awaitingPaymentCents };
+    return { awaitingPaymentCents, paidCents };
   }, [invoicedJobs]);
 
   // Per Tim, 2026-08-30 — "I just want a simple way to keep track of net
@@ -1225,10 +1227,16 @@ export default function BillingView() {
               </button>
             </div>
           ) : (
-            filter === "sent" && (
+            filter === "sent" ? (
               <div className="mt-3 text-sm text-slate-500">
                 Total Amount Pending <span className="font-semibold text-slate-800">{formatCents(listSummary.awaitingPaymentCents)}</span>
               </div>
+            ) : (
+              filter === "paid" && (
+                <div className="mt-3 text-sm text-slate-500">
+                  Total Amount Paid Out <span className="font-semibold text-slate-800">{formatCents(listSummary.paidCents)}</span>
+                </div>
+              )
             )
           )}
 

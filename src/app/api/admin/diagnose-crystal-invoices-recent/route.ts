@@ -79,7 +79,7 @@ export const GET = withApiErrors(async (req: NextRequest) => {
         hits._error = [...(hits._error ?? []), `${part.filename}: ${e instanceof Error ? e.message : String(e)}`];
       }
     }
-    results.push({ subject, date, hits });
+    results.push({ id: c.id, subject, date, hits });
   }
   return NextResponse.json({ checked: results.length, results });
 });

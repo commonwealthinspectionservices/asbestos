@@ -771,15 +771,19 @@ export default function BillingView() {
   const periodHistory = useMemo(() => {
     const today = new Date();
 
-    // Per Tim, 2026-09-05 — weeks run Sat–Fri now, not Mon–Sun: Crystal's
-    // lab work happens Mon–Fri, so by Friday a full work-week's worth of
-    // charges has landed, and that's the day our own week should close on
-    // to line lab costs up with revenue for the same stretch of work.
-    // getDay() is 0=Sun..6=Sat; (day + 1) % 7 gives days since Saturday
-    // for every day including Saturday itself.
+    // Per Tim, 2026-09-08 — "this is how they measure weeks so our system
+    // should follow the exact format", from a real Crystal Analytical
+    // report header ("Commonwealth Inspection Weekly Report, September
+    // 6-12, 2026" — Sunday through Saturday). Supersedes the 2026-09-05
+    // Sat-Fri boundary — matching Crystal's own real reporting period
+    // exactly (not just approximating it) is what actually makes our
+    // Weekly Lab Costs line up one-to-one with the report Crystal sent,
+    // which is the whole point after Tim raised losing track of their
+    // charges. getDay() is already 0=Sun..6=Sat, so it IS the day count
+    // since Sunday — no offset needed.
     const currentWeekStart = new Date(today);
     currentWeekStart.setHours(0, 0, 0, 0);
-    currentWeekStart.setDate(currentWeekStart.getDate() - ((currentWeekStart.getDay() + 1) % 7));
+    currentWeekStart.setDate(currentWeekStart.getDate() - currentWeekStart.getDay());
 
     // Per Tim, 2026-08-30 — "instead of This Week and Last Week, it
     // should list out the actual weeks": same treatment as the Monthly

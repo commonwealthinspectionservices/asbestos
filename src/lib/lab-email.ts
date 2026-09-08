@@ -117,10 +117,12 @@ function formatDateMMDDYYYY(date: string | null): string {
 // the reader doesn't already have right above it.
 const SIGNATURE_LINES = ["Tim Hall", "Commonwealth Inspection Services"];
 // Per Tim, 2026-09-03 — a review-link line under the signature on every
-// report and invoice email (reportDraftBodyHtml, invoiceDraftBodyHtml,
-// combinedDraftBodyHtml below), not the payment-reminder note further
-// down — that one goes out before anything's actually been delivered,
-// so asking for a review there would be premature.
+// report email (reportDraftBodyHtml, combinedDraftBodyHtml below), not
+// the payment-reminder note further down — that one goes out before
+// anything's actually been delivered, so asking for a review there
+// would be premature. Per Tim, 2026-09-08 — dropped from
+// invoiceDraftBodyHtml: an invoice-only email (no report attached) is
+// the wrong moment to ask for a review.
 const REVIEW_LINK_LINE = '<a href="https://g.page/r/CXrf5GqjFZJjECE/review">Leave a review</a>';
 
 // Per Tim, 2026-08-26 — replaces the old FLI-inherited template with his
@@ -221,8 +223,6 @@ export function invoiceDraftBodyHtml(job: Job, settings: Settings, payNowUrl: st
     `If you have any questions, please call me at <span style="white-space:nowrap;">${escapeHtml(settings.business_phone)}</span>`,
     "",
     ...SIGNATURE_LINES,
-    "",
-    REVIEW_LINK_LINE,
   ].join("<br>");
 }
 

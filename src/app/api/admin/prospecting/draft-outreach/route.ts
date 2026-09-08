@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApi } from "@/lib/admin-api";
 import { withApiErrors } from "@/lib/api-handler";
-import { createDraft, getValidAccessToken, getOrCreateLabelId, addLabelToMessage } from "@/lib/gmail";
+import { createDraft, deleteDraft, getValidAccessToken, getOrCreateLabelId, addLabelToMessage } from "@/lib/gmail";
 
 // Reusable prospecting tool, 2026-09-08 — creates one Gmail draft per
 // contact for cold sales outreach (restoration-company SDR work), same
@@ -53,4 +53,38 @@ export const POST = withApiErrors(async (req: NextRequest) => {
   }
 
   return NextResponse.json({ ok: true, drafted, failed });
+});
+
+// Undoes a batch created above — takes the draftId list straight back
+// from that call's own response, so a batch drafted before the copy/
+// targeting was actually right (or before the whole feature was ready
+// to use) can be cleanly removed instead of left to delete by hand one
+// at a time in Gmail.
+export const DELETE = withApiErrors(async (req: NextRequest) => {
+  const unauthorized = requireAdminApi(req);
+  if (unauthorized) return unauthorized;
+
+  const body = await req.json().catch(() => null);
+  const draftIds: string[] = Array.isArray(body?.draftIds) ? body.draftIds : [];
+  if (draftIds.length === 0) {
+    return NextResponse.json({ error: "draftIds[] required" }, { status: 400 });
+  }
+
+  const accessToken = await getValidAccessToken();
+  if (!accessToken) {
+    return NextResponse.json({ error: "Gmail is not connected — connect it in Settings first" }, { status: 400 });
+  }
+
+  const deleted: string[] = [];
+  const failed: { draftId: string; error: string }[] = [];
+  for (const draftId of draftIds) {
+    try {
+      await deleteDraft(accessToken, draftId);
+      deleted.push(draftId);
+    } catch (err) {
+      failed.push({ draftId, error: err instanceof Error ? err.message : "Failed to delete draft" });
+    }
+  }
+
+  return NextResponse.json({ ok: true, deleted, failed });
 });

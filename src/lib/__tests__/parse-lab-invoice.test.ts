@@ -341,6 +341,17 @@ describe("extractWeeklyLabSummaryTransactions", () => {
     expect(refundRow).toMatchObject({ transactionType: "Refund", amountCents: -4800 });
   });
 
+  // Real text confirmed live 2026-09-08 — a genuine charge for revisit job
+  // 26-0002.1 (36 Drummer Rd, Acton, a revisit of 26-0002 at the same
+  // address) got misattributed to the parent 26-0002 instead, because
+  // PROJECT_NUMBER_PATTERN stopped at "26-0002" and dropped the ".1".
+  it("reads a revisit job's own project number, not just its parent's (26-0002.1, not 26-0002)", () => {
+    const revisitRow = `09/01/2026Sales Receipt6568Analytical Services:Asbestos Analysis:PLM - Bulk CVE, Per-Layer - 24 Hr TAT2601003706 - 36 Drummer Rd, Acton MA - 26-0002.1 6.0012.0072.000.00
+TOTAL72.00`;
+    const [transaction] = extractWeeklyLabSummaryTransactions(revisitRow);
+    expect(transaction).toMatchObject({ projectNumber: "26-0002.1", amountCents: 7200 });
+  });
+
   it("leaves projectNumber null for a line with no FLI project number printed at all", () => {
     const unmatchedRow = transactions.find((t) => t.num === "6504");
     expect(unmatchedRow?.projectNumber).toBeNull();

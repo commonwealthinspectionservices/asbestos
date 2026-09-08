@@ -142,7 +142,15 @@ export interface WeeklyLabSummaryTransaction {
 const TRANSACTION_ROW_PATTERN =
   /(\d{2}\/\d{2}\/\d{4})(Invoice|Sales Receipt|Refund)(\d+)([\s\S]*?)((?:-?[\d,]+\.\d{2}){4})(?=\s*\d{2}\/\d{2}\/\d{4}(?:Invoice|Sales Receipt|Refund)|\s*Total for|\s*TOTAL)/g;
 const AMOUNT_TOKEN_PATTERN = /-?[\d,]+\.\d{2}/g;
-const PROJECT_NUMBER_PATTERN = /(?<!\d)(2\d-\d{3,6})(?!\d)/;
+// (?:\.\d+)? — a revisit job's own project number ("26-0002.1"), not just
+// its parent's ("26-0002"). Confirmed live 2026-09-08: a real charge for
+// job 26-0002.1 (36 Drummer Rd, Acton — a revisit of 26-0002 at the same
+// address) printed "26-0002.1" on Crystal's own report, but without this
+// suffix the match stopped at "26-0002" and the charge got misattributed
+// to the parent job instead of the revisit. \.\d+ requires an actual
+// digit after the dot, so a sentence-ending period right after a plain
+// project number (no revisit) still isn't swallowed.
+const PROJECT_NUMBER_PATTERN = /(?<!\d)(2\d-\d{3,6}(?:\.\d+)?)(?!\d)/;
 // The Description cell's own lab-order id — an 8+ digit run with no
 // decimal point — anchors where the address starts; an optional trailing
 // " - <project number>" (not every line has one) marks where it ends.

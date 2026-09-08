@@ -52,7 +52,7 @@ import { formatCents } from "@/lib/pricing";
 import { createStripeInvoiceForJob, tagInvoiceEmailed, getStripe } from "@/lib/stripe";
 import { splitTrailingCocPages } from "@/lib/split-lab-report-coc";
 import { extractPositionOrderedText } from "@/lib/pdf-position-text";
-import { jobReportDomains, domainForServiceTypeLabel, ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, NEWTON_FIRE_FLOOD_COMPANY_ID, reportEmailAttachmentFilename, type ReportDomain } from "@/lib/report-findings";
+import { jobReportDomains, domainForServiceTypeLabel, ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, NEWTON_FIRE_FLOOD_COMPANY_ID, BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID, reportEmailAttachmentFilename, type ReportDomain } from "@/lib/report-findings";
 import { sendEmail, emailShell } from "@/lib/email";
 import { sendJobPaidNotification } from "@/lib/booking-notify";
 import { getAppUrl } from "@/lib/app-url";
@@ -2264,14 +2264,23 @@ async function draftSelectedEmailForJob(params: {
     ? (domains.length > 0 ? combinedDraftBodyHtml(pricedJob, settings, totalCents, payNowUrlForEmail) : invoiceDraftBodyHtml(pricedJob, settings, payNowUrlForEmail))
     : reportDraftBodyHtml(pricedJob, settings);
 
+  // Boston Harbor Water Restoration: per Tim, 2026-09-08 — the people on
+  // the original job-intake thread are the fieldworkers, not whoever
+  // actually pays, so an invoice must never land as a reply in that
+  // thread even when sent through this checklist path. Every other
+  // company still threads normally (an invoice reply staying in the same
+  // conversation as the report is the desired, existing behavior there).
+  const threadOntoOriginal = !(
+    includeInvoice && pricedJob.customers.company_id === BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID
+  );
   const existingThreadIds: string[] = Array.isArray(pricedJob.email_thread_message_ids) ? pricedJob.email_thread_message_ids : [];
   const draft = await createDraft(accessToken, {
     to: recipients,
     subject: customSubject?.trim() || (includeInvoice && domains.length === 0
       ? `Inspection Invoice - ${expandAddress(pricedJob.service_address)}`
       : threadSubject(pricedJob.service_address, pricedJob.service_type)),
-    headers: threadHeaders(existingThreadIds),
-    threadId: pricedJob.email_gmail_thread_id ?? undefined,
+    headers: threadOntoOriginal ? threadHeaders(existingThreadIds) : undefined,
+    threadId: threadOntoOriginal ? (pricedJob.email_gmail_thread_id ?? undefined) : undefined,
     bodyHtml,
     attachments: [
       ...reportPackets.map(({ domain, buffer }) => ({

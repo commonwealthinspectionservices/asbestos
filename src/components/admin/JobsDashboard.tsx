@@ -2484,6 +2484,20 @@ export function ProjectDetailDialog({
   // comment in types.ts. Only shown for FLI Environmental jobs; every other
   // job has no such second number to track.
   const isFliJob = job.customers?.company_id === FLI_ENVIRONMENTAL_COMPANY_ID;
+  // Per Tim, 2026-09-08 — "there is too much blank white space" on Project
+  // Info's right column for a job with a long Email results to/Email
+  // invoice to list (Boston Harbor, 5 + 3 recipients). This same Company
+  // contact/Company info block already got moved between columns twice
+  // before this (2026-08-31 to the left, 2026-09-01 back to the right) —
+  // each move just relocated the empty space to whichever column got
+  // shorter, since it's really the recipient count that varies per job,
+  // not a fixed layout problem. Deciding per-job instead: a long
+  // recipient list keeps this block on the left (where there's now room),
+  // a short/typical one keeps it on the right (2026-09-01's default).
+  const rightColumnContactCount =
+    (job.report_emails ? job.report_emails.split(",").map((e) => e.trim()).filter(Boolean).length : 0) +
+    (job.invoice_emails ? job.invoice_emails.split(",").map((e) => e.trim()).filter(Boolean).length : 0);
+  const companyContactBlockOnLeft = !isFliJob && rightColumnContactCount >= 5;
   // Per Tim, 2026-09-03 — Moisture Mapping is a plain Settings service
   // type (pricing/booking only), not a report "domain" like asbestos/mold/
   // lead — those are all built around the lab-sample workflow, which this
@@ -3221,6 +3235,72 @@ export function ProjectDetailDialog({
               stuff... should be viewable without having to scroll at
               all." Mobile stays exactly the same single stacked column,
               same order as before (grid-cols-1 default). */}
+          {(() => {
+            // Extracted so companyContactBlockOnLeft (see its own comment)
+            // can place this same block in either column — same JSX either
+            // way, just a different spot in the grid.
+            const companyContactInfoBlock = !isFliJob && (
+              <div className="space-y-6">
+                <div className="space-y-4 sm:space-y-2">
+                  {/* Per Tim, 2026-08-28 — "Company contact" once this job's
+                      customer actually belongs to a company, matching the
+                      naming style everywhere else on this tab (Job site
+                      contact, Company info) — an individual homeowner has no
+                      company to be a contact for, so that case keeps the
+                      generic "Customer contact" label. */}
+                  <h4 className="text-sm font-bold tracking-wide text-black underline">
+                    {job.customers?.is_individual ? "Customer contact" : "Company contact"}
+                  </h4>
+                  <DetailField
+                    label="Name"
+                    value={job.customer_id && job.customers?.name ? (
+                      // A plain <a> (not next/link) — Next's client-side router
+                      // doesn't always remount CustomersDirectory on a
+                      // searchParams-only navigation to the same pathname, which
+                      // left the Directory reading stale ?tab=/?contactId=
+                      // values from before the click. A full navigation always
+                      // mounts fresh and reads the real URL.
+                      <a href={`/admin/customers?tab=contacts&contactId=${job.customer_id}`} className="hover:underline">
+                        {toTitleCase(job.customers.name)}
+                      </a>
+                    ) : job.customers?.name ? toTitleCase(job.customers.name) : undefined}
+                    nowrap
+                  />
+                  <DetailField
+                    label="Phone"
+                    value={job.customers?.phone ? <a href={telHref(job.customers.phone)} className="text-brand-700 hover:underline">{formatPhoneInput(job.customers.phone)}</a> : undefined}
+                  />
+                  <DetailField label="Email" value={job.customers?.email} nowrap />
+                </div>
+                {!job.customers?.is_individual && job.customers?.companies && (
+                  job.customers.companies.billing_contact || job.customers.companies.phone || job.customers.companies.billing_address
+                ) && (
+                  <div className="space-y-4 sm:space-y-2">
+                    <h4 className="text-sm font-bold tracking-wide text-black underline">Company info</h4>
+                    {job.customers.companies.billing_contact && (
+                      <DetailField
+                        label="Billing contact"
+                        value={
+                          <a
+                            href={`/admin/customers?tab=contacts&contactId=${job.customers.companies.billing_contact.id}`}
+                            className="hover:underline"
+                          >
+                            {toTitleCase(job.customers.companies.billing_contact.name)}
+                          </a>
+                        }
+                        nowrap
+                      />
+                    )}
+                    <DetailField
+                      label="Phone"
+                      value={job.customers.companies.phone ? <a href={telHref(job.customers.companies.phone)} className="text-brand-700 hover:underline">{formatPhoneInput(job.customers.companies.phone)}</a> : undefined}
+                    />
+                    <DetailField label="Billing address" value={addressLines(job.customers?.companies?.billing_address)} nowrap />
+                  </div>
+                )}
+              </div>
+            );
+            return (
           <div className="grid grid-cols-1 gap-x-8 gap-y-6 sm:grid-cols-2 sm:items-start">
           <div className="space-y-6 sm:space-y-8">
           <div className="space-y-4 sm:space-y-2">
@@ -3515,6 +3595,7 @@ export function ProjectDetailDialog({
               </div>
             )}
           </div>
+          {companyContactBlockOnLeft && companyContactInfoBlock}
           </div>
           {/* Per Tim, 2026-08-31 — "move all of this all the way up": Job
               site contact / Email results to / FLI Environmental
@@ -3638,75 +3719,11 @@ export function ProjectDetailDialog({
           {/* Per Tim, 2026-08-31 — "this part should be aligned left": for
               FLI jobs, this whole block moved to the left column (see its
               own comment there) — nothing to render here for those. */}
-          {!isFliJob && (
-            <div className="space-y-6">
-              <div className="space-y-4 sm:space-y-2">
-                {/* Per Tim, 2026-08-28 — "Company contact" once this job's
-                    customer actually belongs to a company, matching the
-                    naming style everywhere else on this tab (Job site
-                    contact, Company info) — an individual homeowner has no
-                    company to be a contact for, so that case keeps the
-                    generic "Customer contact" label. */}
-                <h4 className="text-sm font-bold tracking-wide text-black underline">
-                  {job.customers?.is_individual ? "Customer contact" : "Company contact"}
-                </h4>
-                <DetailField
-                  label="Name"
-                  value={job.customer_id && job.customers?.name ? (
-                    // A plain <a> (not next/link) — Next's client-side router
-                    // doesn't always remount CustomersDirectory on a
-                    // searchParams-only navigation to the same pathname, which
-                    // left the Directory reading stale ?tab=/?contactId=
-                    // values from before the click. A full navigation always
-                    // mounts fresh and reads the real URL.
-                    <a href={`/admin/customers?tab=contacts&contactId=${job.customer_id}`} className="hover:underline">
-                      {toTitleCase(job.customers.name)}
-                    </a>
-                  ) : job.customers?.name ? toTitleCase(job.customers.name) : undefined}
-                  nowrap
-                />
-                <DetailField
-                  label="Phone"
-                  value={job.customers?.phone ? <a href={telHref(job.customers.phone)} className="text-brand-700 hover:underline">{formatPhoneInput(job.customers.phone)}</a> : undefined}
-                />
-                <DetailField label="Email" value={job.customers?.email} nowrap />
-              </div>
-              {/* Per Tim, 2026-09-01 — moved back into the right column,
-                  under Company contact (was in the left column per
-                  2026-08-31's "align this all the way left"): the left
-                  column ran much taller than the right, leaving this whole
-                  area empty — Tim wants that space used rather than the
-                  left column trimmed. */}
-              {!job.customers?.is_individual && job.customers?.companies && (
-                job.customers.companies.billing_contact || job.customers.companies.phone || job.customers.companies.billing_address
-              ) && (
-                <div className="space-y-4 sm:space-y-2">
-                  <h4 className="text-sm font-bold tracking-wide text-black underline">Company info</h4>
-                  {job.customers.companies.billing_contact && (
-                    <DetailField
-                      label="Billing contact"
-                      value={
-                        <a
-                          href={`/admin/customers?tab=contacts&contactId=${job.customers.companies.billing_contact.id}`}
-                          className="hover:underline"
-                        >
-                          {toTitleCase(job.customers.companies.billing_contact.name)}
-                        </a>
-                      }
-                      nowrap
-                    />
-                  )}
-                  <DetailField
-                    label="Phone"
-                    value={job.customers.companies.phone ? <a href={telHref(job.customers.companies.phone)} className="text-brand-700 hover:underline">{formatPhoneInput(job.customers.companies.phone)}</a> : undefined}
-                  />
-                  <DetailField label="Billing address" value={addressLines(job.customers.companies.billing_address)} nowrap />
-                </div>
-              )}
-            </div>
-          )}
+          {!companyContactBlockOnLeft && companyContactInfoBlock}
           </div>
           </div>
+            );
+          })()}
           {job.notes && job.notes.trim() && (
             <div className="space-y-4 sm:space-y-2">
               <h4 className="text-sm font-bold tracking-wide text-black underline">Notes</h4>

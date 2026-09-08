@@ -1086,6 +1086,32 @@ create table if not exists career_interest_submissions (
 );
 alter table career_interest_submissions enable row level security;
 
+-- Per Tim, 2026-09-08 — the restoration/abatement-company prospecting
+-- effort's sourcing layer: real business listings pulled from Google
+-- Places API, stored here so a repeat sweep is idempotent (upsert on
+-- google_place_id, see draft-outreach/route.ts's sibling sourcing route)
+-- instead of re-finding and re-inserting the same company every run.
+-- Deliberately just a data table — no RLS policies (perimeter pattern,
+-- same as career_interest_submissions above), only the admin API's
+-- service-role client ever touches this. status starts "new" and is
+-- advanced by hand as Tim actually works a prospect — nothing in this
+-- table ever triggers an outreach draft automatically.
+create table if not exists prospects (
+  id uuid primary key default gen_random_uuid(),
+  google_place_id text not null,
+  company_name text not null,
+  phone text,
+  address text,
+  website text,
+  category text,
+  town text,
+  status text not null default 'new',
+  discovered_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create unique index if not exists prospects_google_place_id_idx on prospects (google_place_id);
+alter table prospects enable row level security;
+
 -- Per Tim, 2026-09-04 — asks candidates directly what hourly rate they'd
 -- want as a part-time W2 employee, rather than Tim guessing at one (see
 -- the pay/margin model built the same session). Free text, not a number

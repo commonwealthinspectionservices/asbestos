@@ -75,6 +75,17 @@ export const GET = withApiErrors(async (req: NextRequest) => {
         if (drummerIdx !== -1) {
           hits._drummerContext = [...(hits._drummerContext ?? []), text.slice(Math.max(0, drummerIdx - 120), drummerIdx + 40).replace(/\s+/g, " ")];
         }
+        // Every occurrence of #6610/#6611 with wide context — checking
+        // whether these are a genuine duplicate (same test, same sample
+        // count, same day — like the real 26-0015 case) or two
+        // legitimately separate real charges for 26-0002.1.
+        for (const num of ["6610", "6611"]) {
+          let idx = text.indexOf(num);
+          while (idx !== -1) {
+            hits[`_ctx_${num}`] = [...(hits[`_ctx_${num}`] ?? []), text.slice(Math.max(0, idx - 100), idx + 60).replace(/\s+/g, " ")];
+            idx = text.indexOf(num, idx + 1);
+          }
+        }
       } catch (e) {
         hits._error = [...(hits._error ?? []), `${part.filename}: ${e instanceof Error ? e.message : String(e)}`];
       }

@@ -47,3 +47,23 @@ export const GET = withApiErrors(async (req: NextRequest) => {
 
   return NextResponse.json({ ok: true, count: result.length, prospects: result });
 });
+
+// Cleanup for a sourcing sweep run with a category that turned out not to
+// be a real target — e.g. "asbestos abatement contractor" (per Tim,
+// 2026-09-08: this sells to restoration companies, not abatement
+// contractors, even though the pitch would technically fit either).
+// Scoped to a single category on purpose, so this can't accidentally
+// wipe the whole table.
+export const DELETE = withApiErrors(async (req: NextRequest) => {
+  const unauthorized = requireAdminApi(req);
+  if (unauthorized) return unauthorized;
+
+  const category = req.nextUrl.searchParams.get("category");
+  if (!category) return NextResponse.json({ error: "category query param required" }, { status: 400 });
+
+  const supabase = getSupabaseAdminFresh();
+  const { error, count } = await supabase.from("prospects").delete({ count: "exact" }).eq("category", category);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  return NextResponse.json({ ok: true, deleted: count });
+});

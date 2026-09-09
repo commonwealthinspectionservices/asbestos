@@ -12,6 +12,7 @@ const SERVICE_LINKS = [
 
 const NAV_LINKS = [
   { href: "/", label: "Home" },
+  { href: "/equipment", label: "Equipment" },
   { href: "/blog", label: "Blog" },
   { href: "/faq", label: "FAQ" },
   { href: "/contact", label: "Contact" },

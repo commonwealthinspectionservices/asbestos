@@ -16,12 +16,16 @@ type NavLink = { href: string; label: string };
 // it's still a real page (see /admin/rays-library), just no longer
 // promoted to a top-level tab — the link now lives on the Chain of
 // Custody page instead (see ChainOfCustodyView.tsx).
+// Per Tim, 2026-09-08 — Prospecting (see ProspectingView.tsx) promoted
+// to a top-level tab right away, unlike Ray's Library above — asked for
+// explicitly rather than left at the URL-only stage.
 const NAV_LINKS: NavLink[] = [
   { href: "/admin/dashboard", label: "Projects" },
   { href: "/admin/billing", label: "Billing" },
   { href: "/admin/schedule", label: "Schedule" },
   { href: "/admin/customers", label: "Directory" },
   { href: "/admin/chain-of-custody", label: "Chain of Custody" },
+  { href: "/admin/prospecting", label: "Prospecting" },
   { href: "/admin/settings", label: "Settings" },
 ];
 

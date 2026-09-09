@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import type { AdminRole } from "@/lib/auth";
 
 type NavLink = { href: string; label: string };
 
@@ -33,10 +34,16 @@ const NAV_LINKS: NavLink[] = [
 // button on the left, uppercase underline-on-active links, a boxed CTA
 // button on the right (Client Portal there, Sign out here), collapsing into
 // a hamburger below sm instead of wrapping awkwardly.
-export default function AdminNav() {
+// Per Tim, 2026-09-09 — Joe's staff login shouldn't see Billing at all
+// (financials specifically, per his own scoping — everything else on
+// the admin side is fine for him). Every admin page.tsx now computes
+// its own role via getSessionRole() and passes it down, same pattern as
+// each page already redirecting on !hasAdminSession().
+export default function AdminNav({ role }: { role: AdminRole }) {
   const pathname = usePathname();
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
+  const navLinks = role === "staff" ? NAV_LINKS.filter((l) => l.href !== "/admin/billing") : NAV_LINKS;
 
   useEffect(() => {
     setMenuOpen(false);
@@ -97,7 +104,7 @@ export default function AdminNav() {
         </Link>
 
         <div className="hidden shrink-0 items-center gap-0.5 whitespace-nowrap sm:flex md:gap-1">
-          {NAV_LINKS.map((link) => (
+          {navLinks.map((link) => (
             <Link key={link.href} href={link.href} className={linkClass(link.href)}>{link.label}</Link>
           ))}
           <button type="button" onClick={logout} className={`ml-1 ${signOutClass}`}>
@@ -122,7 +129,7 @@ export default function AdminNav() {
 
       {menuOpen && (
         <div className="absolute left-0 top-full z-20 w-full border-b-4 border-brand-700 bg-brand-50 px-4 py-2 shadow-md sm:hidden">
-          {NAV_LINKS.map((link) => (
+          {navLinks.map((link) => (
             <Link key={link.href} href={link.href} className={mobileLinkClass(link.href)}>{link.label}</Link>
           ))}
           <button

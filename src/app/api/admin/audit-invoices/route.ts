@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdminApi } from "@/lib/admin-api";
+import { requireOwnerApi } from "@/lib/admin-api";
 import { getSupabaseAdminFresh } from "@/lib/supabase";
 import { withApiErrors } from "@/lib/api-handler";
 import { FLI_ENVIRONMENTAL_COMPANY_ID } from "@/lib/report-findings";
@@ -22,7 +22,7 @@ type JobRow = Job & { customers: (Customer & { companies: Company | null }) | nu
 // comment — so a job billed under two service-type labels doesn't read as
 // "two lab invoices" when it's really one file twice).
 export const GET = withApiErrors(async (req: NextRequest) => {
-  const unauthorized = requireAdminApi(req);
+  const unauthorized = requireOwnerApi(req);
   if (unauthorized) return unauthorized;
 
   const supabase = getSupabaseAdminFresh();

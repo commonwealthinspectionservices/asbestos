@@ -57,6 +57,8 @@ export const POST = withApiErrors(async (req: NextRequest) => {
     formattedAddress?: string;
     nationalPhoneNumber?: string;
     websiteUri?: string;
+    rating?: number;
+    userRatingCount?: number;
   };
 
   let totalFound = 0;
@@ -71,7 +73,7 @@ export const POST = withApiErrors(async (req: NextRequest) => {
           headers: {
             "Content-Type": "application/json",
             "X-Goog-Api-Key": apiKey,
-            "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress,places.nationalPhoneNumber,places.websiteUri",
+            "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress,places.nationalPhoneNumber,places.websiteUri,places.rating,places.userRatingCount",
           },
           body: JSON.stringify({ textQuery: `${category} in ${town}, MA` }),
         });
@@ -95,6 +97,8 @@ export const POST = withApiErrors(async (req: NextRequest) => {
           phone: p.nationalPhoneNumber ?? null,
           address: p.formattedAddress ?? null,
           website: p.websiteUri ?? null,
+          rating: p.rating ?? null,
+          user_rating_count: p.userRatingCount ?? null,
           category,
           town,
           updated_at: new Date().toISOString(),

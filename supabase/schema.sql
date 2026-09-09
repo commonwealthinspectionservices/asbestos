@@ -1112,6 +1112,14 @@ create table if not exists prospects (
 create unique index if not exists prospects_google_place_id_idx on prospects (google_place_id);
 alter table prospects enable row level security;
 
+-- Per Tim, 2026-09-08 — the review page needs a real "call these next"
+-- priority signal instead of an arbitrary order; Google's own rating/
+-- review-count on each listing is the only such signal Places API
+-- offers, so it's worth the two extra fields even though the original
+-- sourcing sweep didn't fetch them (see source/route.ts's fieldMask).
+alter table prospects add column if not exists rating numeric;
+alter table prospects add column if not exists user_rating_count integer;
+
 -- Per Tim, 2026-09-04 — asks candidates directly what hourly rate they'd
 -- want as a part-time W2 employee, rather than Tim guessing at one (see
 -- the pay/margin model built the same session). Free text, not a number

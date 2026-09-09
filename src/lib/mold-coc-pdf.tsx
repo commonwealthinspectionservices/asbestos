@@ -162,7 +162,7 @@ const styles = StyleSheet.create({
   // the actual time in by hand on the line itself rather than the form
   // pre-printing a slashed format for it the way it does for the date.
   // Same as blank-coc-pdf.tsx's own copy of this.
-  timeOverlay: { position: "absolute", left: 130, bottom: -13, alignItems: "center" },
+  timeOverlay: { position: "absolute", left: 165, bottom: -13, alignItems: "center" },
   timeLabel: { fontSize: 8, color: "#000000" },
 });
 

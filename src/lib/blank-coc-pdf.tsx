@@ -119,7 +119,7 @@ const styles = StyleSheet.create({
   // line same as date's own caption — just no slashes, since he fills
   // the actual time in by hand on the line itself rather than the form
   // pre-printing a slashed format for it the way it does for the date.
-  timeOverlay: { position: "absolute", left: 130, bottom: -13, alignItems: "center" },
+  timeOverlay: { position: "absolute", left: 165, bottom: -13, alignItems: "center" },
   timeLabel: { fontSize: 8, color: "#000000" },
   page2Table: { flex: 1, borderWidth: 1, borderColor: LINE_COLOR, marginTop: 4 },
   page2Footer: { flexDirection: "row", justifyContent: "flex-end", alignItems: "flex-end", marginTop: 22 },

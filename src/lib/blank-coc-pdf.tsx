@@ -105,28 +105,45 @@ const styles = StyleSheet.create({
   // pixel-identical between those two nesting depths.
   signatureLine: { width: "100%", borderBottomWidth: 0.5, borderBottomColor: LINE_COLOR },
   pageLabel: { fontSize: 11, fontWeight: 700, marginLeft: 16 },
-  // The date/time sits ON the line itself — right-anchored inside the same
-  // box the line occupies — rather than as its own element appended after
-  // the line, matching the owner's real form exactly. bottom:-11 drops the
-  // "date / time" caption below the line while the slashes above it land
-  // right at the line.
+  // The date sits ON the line itself — right-anchored inside the same box
+  // the line occupies — rather than as its own element appended after the
+  // line, matching the owner's real form exactly. bottom:-13 drops the
+  // "date" caption below the line while the slashes above it land right at
+  // the line.
   dateTimeOverlay: { position: "absolute", right: 45, bottom: -13, alignItems: "center" },
   dateTimeSlashes: { fontSize: 11, letterSpacing: 6 },
   dateTimeCaption: { fontSize: 8, color: "#000000", marginTop: 10 },
+  // Per Tim, 2026-09-09 — time gets its own spot on the line instead of
+  // being folded into the date's "time / date" caption: left-of-center
+  // (not sharing the date's right-anchored slashes), caption below the
+  // line same as date's own caption — just no slashes, since he fills
+  // the actual time in by hand on the line itself rather than the form
+  // pre-printing a slashed format for it the way it does for the date.
+  timeOverlay: { position: "absolute", left: 130, bottom: -13, alignItems: "center" },
+  timeLabel: { fontSize: 8, color: "#000000" },
   page2Table: { flex: 1, borderWidth: 1, borderColor: LINE_COLOR, marginTop: 4 },
   page2Footer: { flexDirection: "row", justifyContent: "flex-end", alignItems: "flex-end", marginTop: 22 },
   page2FieldLabel: { fontSize: 11, fontWeight: 700, marginRight: 4 },
   page2FieldValue: { width: 120, borderBottomWidth: 0.5, borderBottomColor: LINE_COLOR, marginRight: 20 },
 });
 
-// A pre-slashed date/time fill-in overlaid on a signature line, exactly
-// matching the owner's own real form (two bare "/" marks over a "date /
-// time" caption, sitting on the line itself rather than after it).
+// A pre-slashed date fill-in overlaid on a signature line, exactly
+// matching the owner's own real form (two bare "/" marks over a "date"
+// caption, sitting on the line itself rather than after it).
 function DateTimeField() {
   return (
     <View style={styles.dateTimeOverlay}>
       <Text style={styles.dateTimeSlashes}>/  /</Text>
-      <Text style={styles.dateTimeCaption}>time / date</Text>
+      <Text style={styles.dateTimeCaption}>date</Text>
+    </View>
+  );
+}
+
+// Time's own spot on the same line — see timeOverlay's own comment.
+function TimeField() {
+  return (
+    <View style={styles.timeOverlay}>
+      <Text style={styles.timeLabel}>time</Text>
     </View>
   );
 }
@@ -226,6 +243,7 @@ function BlankCocDocument({ job, customer, settings }: BlankCocData) {
             <View style={styles.signatureLineWrap}>
               <Text style={styles.signatureLine} />
               <DateTimeField />
+              <TimeField />
             </View>
           </View>
 
@@ -235,6 +253,7 @@ function BlankCocDocument({ job, customer, settings }: BlankCocData) {
               <View style={styles.signatureLineWrap}>
                 <Text style={styles.signatureLine} />
                 <DateTimeField />
+                <TimeField />
               </View>
             </View>
             <View style={styles.signatureSubRow}>

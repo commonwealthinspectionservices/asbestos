@@ -147,24 +147,42 @@ const styles = StyleSheet.create({
   // pixel-identical between those two nesting depths.
   signatureLine: { width: "100%", borderBottomWidth: 0.5, borderBottomColor: LINE_COLOR },
   pageLabel: { fontSize: 11, fontWeight: 700, marginLeft: 16 },
-  // The date/time sits ON the line itself — right-anchored inside the same
-  // box the line occupies — rather than as its own element appended after
-  // the line, matching the asbestos form exactly. bottom:-13 drops the
-  // "date / time" caption below the line while the slashes above it hover
-  // just clear of the line itself.
+  // The date sits ON the line itself — right-anchored inside the same box
+  // the line occupies — rather than as its own element appended after the
+  // line, matching the asbestos form exactly. bottom:-13 drops the "date"
+  // caption below the line while the slashes above it hover just clear of
+  // the line itself.
   dateTimeOverlay: { position: "absolute", right: 45, bottom: -13, alignItems: "center" },
   dateTimeSlashes: { fontSize: 11, letterSpacing: 6 },
   dateTimeCaption: { fontSize: 8, color: "#000000", marginTop: 10 },
+  // Per Tim, 2026-09-09 — time gets its own spot on the line instead of
+  // being folded into the date's "time / date" caption: left-of-center
+  // (not sharing the date's right-anchored slashes), caption below the
+  // line same as date's own caption — just no slashes, since he fills
+  // the actual time in by hand on the line itself rather than the form
+  // pre-printing a slashed format for it the way it does for the date.
+  // Same as blank-coc-pdf.tsx's own copy of this.
+  timeOverlay: { position: "absolute", left: 130, bottom: -13, alignItems: "center" },
+  timeLabel: { fontSize: 8, color: "#000000" },
 });
 
-// A pre-slashed date/time fill-in overlaid on a signature line, exactly
-// matching the asbestos form (two bare "/" marks over a "date / time"
-// caption, sitting on the line itself rather than after it).
+// A pre-slashed date fill-in overlaid on a signature line, exactly
+// matching the asbestos form (two bare "/" marks over a "date" caption,
+// sitting on the line itself rather than after it).
 function DateTimeField() {
   return (
     <View style={styles.dateTimeOverlay}>
       <Text style={styles.dateTimeSlashes}>/  /</Text>
-      <Text style={styles.dateTimeCaption}>time / date</Text>
+      <Text style={styles.dateTimeCaption}>date</Text>
+    </View>
+  );
+}
+
+// Time's own spot on the same line — see timeOverlay's own comment.
+function TimeField() {
+  return (
+    <View style={styles.timeOverlay}>
+      <Text style={styles.timeLabel}>time</Text>
     </View>
   );
 }
@@ -273,6 +291,7 @@ function MoldCocDocument({ job, customer, sampleType }: MoldCocData) {
               <View style={[styles.signatureLineWrap, config.turnaroundNote ? {} : { width: 240 }]}>
                 <Text style={styles.signatureLine} />
                 <DateTimeField />
+                <TimeField />
               </View>
             </View>
             {!config.turnaroundNote && (
@@ -290,6 +309,7 @@ function MoldCocDocument({ job, customer, sampleType }: MoldCocData) {
               <View style={[styles.signatureLineWrap, config.turnaroundNote ? {} : { width: 240 }]}>
                 <Text style={styles.signatureLine} />
                 <DateTimeField />
+                <TimeField />
               </View>
             </View>
             <View style={styles.signatureSubRow}>

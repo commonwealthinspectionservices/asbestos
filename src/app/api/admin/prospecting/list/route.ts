@@ -48,6 +48,33 @@ export const GET = withApiErrors(async (req: NextRequest) => {
   return NextResponse.json({ ok: true, count: result.length, prospects: result });
 });
 
+const VALID_STATUSES = ["new", "contacted", "not_a_fit", "converted"];
+
+// Lets the review page (ProspectingView.tsx) mark a prospect as worked —
+// contacted, not a fit, or converted — without that status ever being
+// touched by a rerun of the sourcing sweep (source/route.ts deliberately
+// excludes status from its upsert payload, so this is the only place it
+// ever changes).
+export const PATCH = withApiErrors(async (req: NextRequest) => {
+  const unauthorized = requireAdminApi(req);
+  if (unauthorized) return unauthorized;
+
+  const id = req.nextUrl.searchParams.get("id");
+  if (!id) return NextResponse.json({ error: "id query param required" }, { status: 400 });
+
+  const body = await req.json().catch(() => null);
+  const status = body?.status;
+  if (typeof status !== "string" || !VALID_STATUSES.includes(status)) {
+    return NextResponse.json({ error: `status must be one of: ${VALID_STATUSES.join(", ")}` }, { status: 400 });
+  }
+
+  const supabase = getSupabaseAdminFresh();
+  const { error } = await supabase.from("prospects").update({ status, updated_at: new Date().toISOString() }).eq("id", id);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  return NextResponse.json({ ok: true });
+});
+
 // Cleanup for a sourcing sweep run with a category that turned out not to
 // be a real target — e.g. "asbestos abatement contractor" (per Tim,
 // 2026-09-08: this sells to restoration companies, not abatement

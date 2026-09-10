@@ -5237,6 +5237,7 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
   const [scopeOfWork, setScopeOfWork] = useState("");
   const [startingStatus, setStartingStatus] = useState<"needs_scheduling" | "scheduled" | "pending_lab_results">("needs_scheduling");
   const [requestedDate, setRequestedDate] = useState("");
+  const requestedDateInputRef = useRef<HTMLInputElement>(null);
   const [requestedTime, setRequestedTime] = useState("");
   // Per Tim, 2026-09-02 — "when i enter in a job myself i want it to give
   // me the same option of sending email notification but show me what
@@ -6033,11 +6034,30 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
           <div className="mt-3 flex flex-col gap-2 sm:flex-row">
             <div className="sm:flex-1">
               <label className="block text-sm font-medium text-slate-700">Date</label>
-              <input type="date" className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value={requestedDate} onChange={(e) => setRequestedDate(e.target.value)} />
+              {/* Same fix as the Scheduled date/time pair below (per Tim,
+                  2026-08-27) — a plain input[type=date] renders visibly
+                  shorter than the paired <select> in Safari despite
+                  identical classes, so the visible box is a fake div and
+                  the real input sits on top at opacity-0, still tappable. */}
+              <div
+                className="relative mt-1 h-10 w-full rounded-lg border border-slate-300 bg-white"
+                onClick={() => requestedDateInputRef.current?.showPicker?.()}
+              >
+                <div className="flex h-full items-center px-3 text-sm text-slate-800">
+                  {requestedDate ? formatDateMDY(requestedDate) : <span className="text-slate-400">Date</span>}
+                </div>
+                <input
+                  ref={requestedDateInputRef}
+                  type="date"
+                  value={requestedDate}
+                  onChange={(e) => setRequestedDate(e.target.value)}
+                  className="absolute inset-0 h-full w-full opacity-0"
+                />
+              </div>
             </div>
             <div className="sm:flex-1">
               <label className="block text-sm font-medium text-slate-700">Scheduled time</label>
-              <select className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value={requestedTime} onChange={(e) => setRequestedTime(e.target.value)}>
+              <select className="mt-1 h-10 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value={requestedTime} onChange={(e) => setRequestedTime(e.target.value)}>
                 <option value="">No time</option>
                 {timeSelectOptions(requestedTime).map((t) => (
                   <option key={t} value={t}>{formatTime(t)}</option>

@@ -52,7 +52,7 @@ import { formatCents } from "@/lib/pricing";
 import { createStripeInvoiceForJob, tagInvoiceEmailed, getStripe } from "@/lib/stripe";
 import { splitTrailingCocPages } from "@/lib/split-lab-report-coc";
 import { extractPositionOrderedText } from "@/lib/pdf-position-text";
-import { jobReportDomains, domainForServiceTypeLabel, ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, NEWTON_FIRE_FLOOD_COMPANY_ID, BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID, reportEmailAttachmentFilename, type ReportDomain } from "@/lib/report-findings";
+import { jobReportDomains, domainForServiceTypeLabel, ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, LEAD_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK, NEWTON_FIRE_FLOOD_COMPANY_ID, BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID, reportEmailAttachmentFilename, type ReportDomain } from "@/lib/report-findings";
 import { sendEmail, emailShell } from "@/lib/email";
 import { sendJobPaidNotification } from "@/lib/booking-notify";
 import { getAppUrl } from "@/lib/app-url";
@@ -1966,6 +1966,27 @@ function assertMoldReportReady(job: Job & { customers: Customer }): void {
   }
 }
 
+// Per Tim, 2026-09-09 (26-0019, an asbestos+lead job) — a combined draft
+// went out with the lead report still unfinished: lead_report_summary
+// hadn't been touched past whatever report-pdf.tsx's own auto-generated
+// positive/negative remark defaults to, so nothing here caught that the
+// lead side wasn't actually reviewed yet. Same pattern as
+// assertMoldReportReady above — checking the field is merely truthy
+// wouldn't work, since selecting a canned positive/negative Overall
+// Findings sentence in the admin UI sets lead_report_summary to literal
+// LEAD_POSITIVE_REMARK/LEAD_NEGATIVE_REMARK text (see report-pdf.tsx's
+// own comment) — that's still just the boilerplate default, not Tim
+// having actually written/reviewed the sentence.
+function assertLeadReportReady(job: Job): void {
+  if (!jobReportDomains(job.service_type).includes("lead")) return;
+  const summary = job.lead_report_summary?.trim();
+  if (!summary || summary === LEAD_POSITIVE_REMARK || summary === LEAD_NEGATIVE_REMARK) {
+    throw new Error(
+      "Lead report is missing its Overall Findings sentence (lead_report_summary) — add that on the job's Final Report tab before creating a report draft."
+    );
+  }
+}
+
 async function draftReportEmailForJob(params: {
   job: Job & { customers: Customer & { companies: Company | null } };
   settings: Settings;
@@ -1973,6 +1994,7 @@ async function draftReportEmailForJob(params: {
 }): Promise<{ messageId: string }> {
   const { job, settings, accessToken } = params;
   assertMoldReportReady(job);
+  assertLeadReportReady(job);
   const supabase = getSupabaseAdmin();
 
   const customer = withCompanyBillingAddress(job.customers, job.customers.companies);
@@ -2061,6 +2083,7 @@ async function draftCombinedEmailForJob(params: {
 }): Promise<{ messageId: string }> {
   const { job, settings, accessToken } = params;
   assertMoldReportReady(job);
+  assertLeadReportReady(job);
   const supabase = getSupabaseAdmin();
 
   const { data: settingsRow } = await supabase.from("settings").select("service_types, pricing_zones").eq("id", 1).single();
@@ -2194,6 +2217,7 @@ async function draftSelectedEmailForJob(params: {
 }): Promise<{ messageId: string }> {
   const { job, settings, accessToken, domains, includeInvoice, includeMoistureMapping, subject: customSubject } = params;
   if (domains.includes("mold")) assertMoldReportReady(job);
+  if (domains.includes("lead")) assertLeadReportReady(job);
   const supabase = getSupabaseAdmin();
 
   let pricedJob = job;

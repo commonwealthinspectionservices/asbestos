@@ -52,7 +52,7 @@ import { formatCents } from "@/lib/pricing";
 import { createStripeInvoiceForJob, tagInvoiceEmailed, getStripe } from "@/lib/stripe";
 import { splitTrailingCocPages } from "@/lib/split-lab-report-coc";
 import { extractPositionOrderedText } from "@/lib/pdf-position-text";
-import { jobReportDomains, domainForServiceTypeLabel, ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, LEAD_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK, NEWTON_FIRE_FLOOD_COMPANY_ID, BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID, reportEmailAttachmentFilename, type ReportDomain } from "@/lib/report-findings";
+import { jobReportDomains, domainForServiceTypeLabel, ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, LEAD_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK, NEWTON_FIRE_FLOOD_COMPANY_ID, BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID, FLI_ENVIRONMENTAL_COMPANY_ID, reportEmailAttachmentFilename, type ReportDomain } from "@/lib/report-findings";
 import { sendEmail, emailShell } from "@/lib/email";
 import { sendJobPaidNotification } from "@/lib/booking-notify";
 import { getAppUrl } from "@/lib/app-url";
@@ -250,8 +250,16 @@ const COMBINED_DRAFT_DOMAIN_REPORT_LABEL: Record<ReportDomain, string> = {
   lead: "Lead Inspection Report",
 };
 
-function combinedDraftBodyHtml(job: Job, settings: Settings, totalCents: number, payNowUrl: string | null): string {
+// Per Tim, 2026-09-10 — FLI Environmental's combined drafts get a
+// shorter sign-off than everyone else's: no "call me with questions"
+// line, no second signature line ("Commonwealth Inspection Services"),
+// no review-link — just "Tim Hall". Dave is a working subcontract
+// relationship, not a homeowner or a new referral source being asked
+// to leave a review; confirmed against a real drafted example he
+// pointed to directly as the standard to lock in.
+function combinedDraftBodyHtml(job: Job & { customers: Customer }, settings: Settings, totalCents: number, payNowUrl: string | null): string {
   const domains = jobReportDomains(job.service_type);
+  const isFliEnvironmental = job.customers.company_id === FLI_ENVIRONMENTAL_COMPANY_ID;
   return [
     `<strong>Site:</strong> ${escapeHtml(expandAddress(job.service_address))}`,
     `<strong>Date of Sampling:</strong> ${escapeHtml(formatDateMMDDYYYY(bestSampledDate(job)))}`,
@@ -264,11 +272,15 @@ function combinedDraftBodyHtml(job: Job, settings: Settings, totalCents: number,
     "&bull; Invoice",
     ...(payNowUrl ? ["", `<a href="${escapeHtml(payNowUrl)}">Link to pay</a>`] : []),
     "",
-    `Should you have any questions or need additional information, please contact me at <span style="white-space:nowrap;">${escapeHtml(settings.business_phone)}</span>.`,
-    "",
-    ...SIGNATURE_LINES,
-    "",
-    REVIEW_LINK_LINE,
+    ...(isFliEnvironmental
+      ? ["Tim Hall"]
+      : [
+          `Should you have any questions or need additional information, please contact me at <span style="white-space:nowrap;">${escapeHtml(settings.business_phone)}</span>.`,
+          "",
+          ...SIGNATURE_LINES,
+          "",
+          REVIEW_LINK_LINE,
+        ]),
   ].join("<br>");
 }
 

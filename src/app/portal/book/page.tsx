@@ -28,10 +28,7 @@ export default async function PortalBookPage() {
         {customer.is_individual ? (
           <PortalBookingForm isIndividual />
         ) : (
-          <CompanyBookingForm
-            companyName={customer.company ?? ""}
-            isFliEnvironmental={customer.company_id === FLI_ENVIRONMENTAL_COMPANY_ID}
-          />
+          <CompanyBookingForm isFliEnvironmental={customer.company_id === FLI_ENVIRONMENTAL_COMPANY_ID} />
         )}
       </div>
     );

@@ -50,7 +50,7 @@ function serviceTypeDisplayLabel(key: string, fallbackLabel: string): string {
  * whether it's FLI specifically) comes from the session, never a choice
  * made on the form itself.
  */
-export default function CompanyBookingForm({ companyName, isFliEnvironmental }: { companyName: string; isFliEnvironmental: boolean }) {
+export default function CompanyBookingForm({ isFliEnvironmental }: { isFliEnvironmental: boolean }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -296,9 +296,7 @@ export default function CompanyBookingForm({ companyName, isFliEnvironmental }: 
             placeholder="e.g. 26-3115"
           />
 
-          <label className="mt-4 block text-sm font-medium text-slate-700">
-            {companyName || "Their"}&apos;s client
-          </label>
+          <label className="mt-4 block text-sm font-medium text-slate-700">FLI&apos;s client</label>
           <input
             className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
             value={endClientCompany}
@@ -424,7 +422,6 @@ export default function CompanyBookingForm({ companyName, isFliEnvironmental }: 
       <textarea
         className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
         rows={4}
-        placeholder="What needs to be inspected or sampled?"
         value={scopeOfWork}
         onChange={(e) => setScopeOfWork(e.target.value)}
       />
@@ -483,7 +480,6 @@ export default function CompanyBookingForm({ companyName, isFliEnvironmental }: 
       <textarea
         className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
         rows={3}
-        placeholder="Gate code, anything else we should know (optional)"
         value={notes}
         onChange={(e) => setNotes(e.target.value)}
       />

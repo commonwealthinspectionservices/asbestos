@@ -327,27 +327,18 @@ export async function backfillCompanyForExistingContacts(): Promise<{ updated: {
 // that slipped through the old narrower filter got saved as "contacts" with
 // a fabricated company, and three real Indeed job-applicant relay addresses
 // got grouped under a fake "Indeedemail" company. Per Tim, 2026-09-11 — "i
-// only want to save real people" — so this deletes the automated ones
-// outright and just strips the fake company off the real people, then
-// removes any company row left with zero contacts on it. Hardcoded to the
-// exact addresses the backfill actually created (not a general "re-scan
-// every contact" sweep) so this can't touch any other row in the table.
-const NOISE_TO_DELETE = [
-  "ads-account-noreply@google.com",
-  "ads-noreply@google.com",
-  "noreply-analytics@google.com",
-  "americanexpress@welcome.americanexpress.com",
-  "americanexpress@member.americanexpress.com",
-  "quickbooks@notification.intuit.com",
-  "invoice+statements@supabase.com",
-  "return@amazon.com",
-];
-const REAL_PEOPLE_TO_DETACH = [
-  "conversation-martinphillip-koj1c@indeedemail.com",
-  "conversation-frankruney-hapqg@indeedemail.com",
-  "conversation-marlonbravo-toyl1@indeedemail.com",
-];
-
+// only want to save real people".
+//
+// A first version of this hardcoded the exact addresses the backfill had
+// just created — but the live 15-min import-contacts cron kept running with
+// the old, narrower filter for a while after that (until the fix above was
+// deployed), so a couple more contacts had already slipped through under
+// "Google"/"Indeedemail" by the time this ran, and the hardcoded list didn't
+// know about them — their companies looked "not orphaned yet" and got left
+// behind. This is a real sweep instead: every existing contact re-checked
+// against the actual (now-fixed) isAutomatedSender/RELAY_ONLY_DOMAINS logic,
+// not a fixed list — so it's self-correcting for whatever the old filter let
+// through, not just the one run that was inspected by hand.
 export async function cleanupNoisyBackfilledContacts(): Promise<{
   deleted: { name: string; email: string }[];
   detached: { name: string; email: string }[];
@@ -356,22 +347,23 @@ export async function cleanupNoisyBackfilledContacts(): Promise<{
   const supabase = getSupabaseAdmin();
   const touchedCompanyIds = new Set<string>();
 
-  const deleted: { name: string; email: string }[] = [];
-  for (const email of NOISE_TO_DELETE) {
-    const { data: row } = await supabase.from("customers").select("id, name, company_id").eq("email", email).maybeSingle();
-    if (!row) continue;
-    if (row.company_id) touchedCompanyIds.add(row.company_id as string);
-    await supabase.from("customers").delete().eq("id", row.id);
-    deleted.push({ name: row.name as string, email });
-  }
+  const { data: rows } = await supabase.from("customers").select("id, name, email, company_id").not("email", "is", null);
 
+  const deleted: { name: string; email: string }[] = [];
   const detached: { name: string; email: string }[] = [];
-  for (const email of REAL_PEOPLE_TO_DETACH) {
-    const { data: row } = await supabase.from("customers").select("id, name, company_id").eq("email", email).maybeSingle();
-    if (!row || !row.company_id) continue;
-    touchedCompanyIds.add(row.company_id as string);
-    await supabase.from("customers").update({ company_id: null }).eq("id", row.id);
-    detached.push({ name: row.name as string, email });
+  for (const row of rows ?? []) {
+    const email = row.email as string;
+    if (isAutomatedSender(email)) {
+      if (row.company_id) touchedCompanyIds.add(row.company_id as string);
+      await supabase.from("customers").delete().eq("id", row.id);
+      deleted.push({ name: row.name as string, email });
+      continue;
+    }
+    if (row.company_id && RELAY_ONLY_DOMAINS.has(domainOf(email))) {
+      touchedCompanyIds.add(row.company_id as string);
+      await supabase.from("customers").update({ company_id: null }).eq("id", row.id);
+      detached.push({ name: row.name as string, email });
+    }
   }
 
   const deletedCompanies: string[] = [];

@@ -1045,7 +1045,17 @@ function FullInspectionAsbestosReportDocument({ job, customer, settings }: Proje
 
         <SignatureBlock settings={settings} showLicense />
 
-        <Text style={styles.sectionTitleFullInspection} break>Appendix A</Text>
+        {/* Per Tim, 2026-09-11 (26-0026) — this unconditional `break` used
+            to produce a genuinely blank page whenever the Remarks/
+            signature content above happened to already end right at a
+            page boundary on its own: react-pdf's `break` always forces a
+            new page, even one that's already effectively started fresh,
+            so the natural page-3-ends-with-the-signature case still burned
+            an empty page 4 before Appendix A landed on page 5. Letting it
+            flow naturally still separates cleanly onto its own page
+            whenever there isn't room left, without ever forcing a
+            redundant one. */}
+        <Text style={styles.sectionTitleFullInspection}>Appendix A</Text>
         <Text style={styles.paragraph}>Asbestos Containing Materials Summary Table</Text>
         <View style={styles.appendixTable}>
           <View style={styles.appendixHeaderRow}>

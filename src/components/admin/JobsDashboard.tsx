@@ -5099,7 +5099,7 @@ function DocumentsPanel({ job, onChanged }: { job: JobWithCustomer; onChanged: (
 // invoice_emails/report_emails column comments in lib/types.ts for why
 // these are kept separate rather than one shared list.
 export function ComboboxInput<T>({
-  value, onChange, options, fetchOptions, getLabel, getSublabel, onSelect, placeholder, disabled, onEnter, onBlur, filterOptions = true, showChevron = false,
+  value, onChange, options, fetchOptions, getLabel, getSublabel, onSelect, placeholder, disabled, onEnter, onBlur, filterOptions = true, showChevron = false, fetchOnFocus = false,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -5118,6 +5118,16 @@ export function ComboboxInput<T>({
   filterOptions?: boolean;
   /** Shows a static dropdown-arrow indicator on the right edge, same idea as a native <select> — for a usage where the option list itself is the whole point (e.g. the canned Result findings) rather than free-text search-as-you-type. */
   showChevron?: boolean;
+  /** Per Tim, 2026-09-11 — "when I click the company contact cell I want
+      it to show all of the contacts under that company": normally
+      fetchOptions is only ever called once there's real text to search
+      on (an empty query would be meaningless for e.g. a global company-
+      name search). Set true only for a fetchOptions that's meaningful on
+      an empty query too — e.g. searchContacts, which already returns
+      every contact under the selected company regardless of query once
+      a company's picked — so clicking the empty field shows that full
+      list immediately instead of requiring the first keystroke first. */
+  fetchOnFocus?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [asyncOptions, setAsyncOptions] = useState<T[]>([]);
@@ -5131,7 +5141,7 @@ export function ComboboxInput<T>({
   useEffect(() => {
     if (!fetchOptions) return;
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (!value.trim()) {
+    if (!value.trim() && !fetchOnFocus) {
       setAsyncOptions([]);
       return;
     }
@@ -5141,7 +5151,7 @@ export function ComboboxInput<T>({
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [value, fetchOptions]);
+  }, [value, fetchOptions, fetchOnFocus]);
 
   const query = value.trim().toLowerCase();
   const filtered = fetchOptions
@@ -5511,6 +5521,13 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
       onSelect={selectContact}
       onBlur={() => setContactNameBlurred(true)}
       placeholder="Name"
+      // Only in Company mode — searchContacts returns every contact under
+      // the selected company regardless of query there, so clicking the
+      // empty field shows that full list immediately. In Individual mode
+      // this same field is a global Directory search instead (no company
+      // to scope to), where showing every contact in the Directory on a
+      // bare click would be a wall of irrelevant results.
+      fetchOnFocus={customerKind === "company"}
     />
   );
   const phoneField = (
@@ -7038,6 +7055,10 @@ export function EditProjectDialog({
               getSublabel={(c) => c.email}
               onSelect={selectContact}
               placeholder="Name"
+              // Same reasoning as AddProjectDialog's own nameField — see
+              // its comment. Only meaningful once a company's selected;
+              // an individual job's contact is a global Directory search.
+              fetchOnFocus={Boolean(companyName.trim())}
             />
           </div>
           <div className="w-0 flex-1">

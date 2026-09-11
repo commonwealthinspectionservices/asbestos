@@ -361,6 +361,26 @@ export const PATCH = withApiErrors(async (
     return NextResponse.json({ error: error?.message ?? "Project not found" }, { status: 404 });
   }
 
+  // Per Tim, 2026-09-10 — a manually-edited due date should move the real
+  // Stripe auto-charge date too, not just this app's own display value
+  // (see dueDateFor's own comment) — otherwise the two quietly disagree
+  // again, which is exactly what the 2026-08-28 "unconditional" change
+  // was meant to prevent. Only pushed when a concrete date was set (not
+  // on a clear-back-to-default) and only while the invoice is still
+  // live — Stripe rejects a due_date change on one already paid or void,
+  // which is fine, there's nothing left to reschedule at that point.
+  // Best-effort; must never fail the save that already landed.
+  if ("payment_due_date" in patch && patch.payment_due_date && typeof data.stripe_invoice_id === "string") {
+    try {
+      const { getStripe } = await import("@/lib/stripe");
+      const stripe = getStripe();
+      const dueDateUnix = Math.floor(new Date(`${patch.payment_due_date}T00:00:00`).getTime() / 1000);
+      await stripe.invoices.update(data.stripe_invoice_id, { due_date: dueDateUnix });
+    } catch (e) {
+      console.error(`PATCH /api/admin/jobs/${params.id}: failed to sync payment_due_date to Stripe:`, e);
+    }
+  }
+
   if (justConfirmedJobId) {
     const { sendJobConfirmedEmailIfDue } = await import("@/lib/booking-notify");
     await sendJobConfirmedEmailIfDue(justConfirmedJobId).catch((e) =>

@@ -22,19 +22,27 @@ export function paymentDueDate(projectDate: string): string | null {
   return d.toISOString().slice(0, 10);
 }
 
-// Per Tim, 2026-08-28 — always exactly 30 days after the invoice was
+// Per Tim, 2026-08-28 — defaults to exactly 30 days after the invoice was
 // actually emailed (not requested_date, which can differ from when the
-// report really went out, and no longer a manually-set payment_due_date
-// override either — Tim wants this unconditional) — this is what Stripe's
-// own auto-charge (lib/net30-autocharge.ts) goes by too, see stripe.ts's
-// tagInvoiceEmailed. requested_date+30 stays only as a rough pre-send
-// estimate, before invoice_sent_at exists yet. Shared by BillingView.tsx
-// and JobsDashboard.tsx — was two byte-identical copies until 2026-08-29's
+// report really went out) — this is what Stripe's own auto-charge
+// (lib/net30-autocharge.ts) goes by too, see stripe.ts's tagInvoiceEmailed.
+// requested_date+30 stays only as a rough pre-send estimate, before
+// invoice_sent_at exists yet. Shared by BillingView.tsx and
+// JobsDashboard.tsx — was two byte-identical copies until 2026-08-29's
 // organization pass; unlike the margin formula (lib/pricing.ts's
 // computeMarginCents), these hadn't actually drifted, but the codebase's
 // usual small-per-view-helper convention (see lib/phone.ts) doesn't extend
 // to real billing logic like this.
+//
+// Per Tim, 2026-09-10 — a manually-set payment_due_date now wins over the
+// computed default again (briefly removed 2026-08-28, over the exact same
+// "silently disagrees with the real Stripe due date" worry this override
+// used to cause) — the PATCH route now pushes a manual edit here straight
+// to the live Stripe invoice's own due_date (see route.ts), so this and
+// Stripe's real auto-charge date can no longer drift apart the way they
+// used to.
 export function dueDateFor(job: JobWithCustomer): string | null {
+  if (job.payment_due_date) return job.payment_due_date;
   if (job.invoice_sent_at) return paymentDueDate(localDateOnly(job.invoice_sent_at));
   return paymentDueDate(job.confirmed_date ?? job.requested_date ?? "");
 }

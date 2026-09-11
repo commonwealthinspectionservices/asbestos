@@ -17,7 +17,7 @@ import { formatDateMDY } from "@/lib/date-format";
 import { subcontractorSenderForJob, isKnownSubcontractorCompanyName, isKnownSubcontractingForName } from "@/lib/subcontractor-senders";
 import { timeSelectOptions } from "@/lib/time-options";
 import { computeMarginCents, knownLabCostCentsForJob } from "@/lib/pricing";
-import { dueDateFor, paymentDueDate } from "@/lib/invoice-due-date";
+import { dueDateFor, paymentDueDate, localDateOnly } from "@/lib/invoice-due-date";
 import { useLockBodyScroll } from "@/lib/use-lock-body-scroll";
 
 // Splits on (captured) bare URLs so odd-indexed segments are the URLs
@@ -6379,18 +6379,27 @@ export function EditProjectDialog({
   const [confirmedTime, setConfirmedTime] = useState(job.confirmed_time ?? job.requested_time ?? "");
   const confirmedDateInputRef = useRef<HTMLInputElement>(null);
   const [paidDate, setPaidDate] = useState(job.paid_date ?? "");
-  const [dueDate, setDueDate] = useState(job.payment_due_date || paymentDueDate(confirmedDate) || "");
-  // Tracks the auto-computed (confirmed date + 30) value last applied, so
-  // editing the due date by hand sticks even as the confirmed date keeps
-  // changing — only a due date that's still exactly the computed default
-  // gets recomputed when the project date changes.
-  const lastAppliedDueDateDefaultRef = useRef(paymentDueDate(confirmedDate) || "");
+  // Per Tim, 2026-09-10 — this used to default off confirmedDate+30 (the
+  // site-visit date) unconditionally, which silently overwrote a real
+  // invoice's due date every time this dialog was saved for any reason at
+  // all (site visits happen well before an invoice actually goes out, once
+  // lab results are back) — same underlying formula as dueDateFor
+  // (lib/invoice-due-date.ts) now, so a save here can't quietly drift the
+  // due date away from what Stripe/the Invoice tab agree on.
+  const computeDueDateDefault = () =>
+    (job.invoice_sent_at ? paymentDueDate(localDateOnly(job.invoice_sent_at)) : paymentDueDate(confirmedDate)) || "";
+  const [dueDate, setDueDate] = useState(job.payment_due_date || computeDueDateDefault());
+  // Tracks the auto-computed default last applied, so editing the due date
+  // by hand sticks even as the confirmed date keeps changing — only a due
+  // date that's still exactly the computed default gets recomputed when
+  // the project date changes.
+  const lastAppliedDueDateDefaultRef = useRef(computeDueDateDefault());
   useEffect(() => {
-    const nextDefault = paymentDueDate(confirmedDate) || "";
+    const nextDefault = computeDueDateDefault();
     setDueDate((current) => (current === lastAppliedDueDateDefaultRef.current ? nextDefault : current));
     lastAppliedDueDateDefaultRef.current = nextDefault;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [confirmedDate]);
+  }, [confirmedDate, job.invoice_sent_at]);
   const [notes, setNotes] = useState(job.notes ?? "");
   const [paymentType, setPaymentType] = useState<"online" | "check">(job.payment_type ?? "online");
   const [isRevisit, setIsRevisit] = useState(job.is_revisit ?? false);

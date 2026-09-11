@@ -52,7 +52,7 @@ import { formatCents } from "@/lib/pricing";
 import { createStripeInvoiceForJob, tagInvoiceEmailed, getStripe } from "@/lib/stripe";
 import { splitTrailingCocPages } from "@/lib/split-lab-report-coc";
 import { extractPositionOrderedText } from "@/lib/pdf-position-text";
-import { jobReportDomains, domainForServiceTypeLabel, ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, LEAD_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK, NEWTON_FIRE_FLOOD_COMPANY_ID, BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID, FLI_ENVIRONMENTAL_COMPANY_ID, reportEmailAttachmentFilename, type ReportDomain } from "@/lib/report-findings";
+import { jobReportDomains, domainForServiceTypeLabel, isFullInspectionAsbestosJob, ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, LEAD_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK, NEWTON_FIRE_FLOOD_COMPANY_ID, BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID, FLI_ENVIRONMENTAL_COMPANY_ID, reportEmailAttachmentFilename, type ReportDomain } from "@/lib/report-findings";
 import { sendEmail, emailShell } from "@/lib/email";
 import { sendJobPaidNotification } from "@/lib/booking-notify";
 import { getAppUrl } from "@/lib/app-url";
@@ -2043,6 +2043,37 @@ function assertLeadReportReady(job: Job): void {
   }
 }
 
+// Per Tim, 2026-09-11 (26-0026) — "a draft should not be auto made for an
+// asbestos inspection when there is a positive result as i will always
+// have to go back in and add the square footage": a positive result only
+// tells you a sample tested positive, never the material's actual extent
+// in the building — only Tim, looking at the site, can estimate that. A
+// negative-only asbestos job has nothing to add here and drafts normally.
+// Same two places that square footage/quantity actually lives as the
+// "Total Materials Sampled" gap this same incident surfaced (see
+// report-pdf.tsx materials.length) — full_inspection_materials for a Full
+// Inspection job (Pre-Renovation/Pre-Demolition), sample_findings for
+// every other (Limited) asbestos job.
+function assertAsbestosReportReady(job: Job): void {
+  if (!jobReportDomains(job.service_type).includes("asbestos")) return;
+  if (job.asbestos_result !== "positive") return;
+  if (isFullInspectionAsbestosJob(job.service_type)) {
+    if ((job.full_inspection_materials ?? []).length === 0) {
+      throw new Error(
+        "Asbestos report is positive but the Materials Sampled table is still empty — add the identified material(s) and square/linear footage on the job's Asbestos Report tab before creating a report draft."
+      );
+    }
+    return;
+  }
+  const findings = job.sample_findings ?? [];
+  const incomplete = findings.length === 0 || findings.some((f) => !f.material?.trim() || !f.estimated_quantity?.trim());
+  if (incomplete) {
+    throw new Error(
+      "Asbestos report is positive but at least one positive sample is still missing its material/footage — add that on the job's Asbestos Report tab before creating a report draft."
+    );
+  }
+}
+
 async function draftReportEmailForJob(params: {
   job: Job & { customers: Customer & { companies: Company | null } };
   settings: Settings;
@@ -2051,6 +2082,7 @@ async function draftReportEmailForJob(params: {
   const { job, settings, accessToken } = params;
   assertMoldReportReady(job);
   assertLeadReportReady(job);
+  assertAsbestosReportReady(job);
   const supabase = getSupabaseAdmin();
 
   const customer = withCompanyBillingAddress(job.customers, job.customers.companies);
@@ -2140,6 +2172,7 @@ async function draftCombinedEmailForJob(params: {
   const { job, settings, accessToken } = params;
   assertMoldReportReady(job);
   assertLeadReportReady(job);
+  assertAsbestosReportReady(job);
   const supabase = getSupabaseAdmin();
 
   const { data: settingsRow } = await supabase.from("settings").select("service_types, pricing_zones").eq("id", 1).single();
@@ -2274,6 +2307,7 @@ async function draftSelectedEmailForJob(params: {
   const { job, settings, accessToken, domains, includeInvoice, includeMoistureMapping, subject: customSubject } = params;
   if (domains.includes("mold")) assertMoldReportReady(job);
   if (domains.includes("lead")) assertLeadReportReady(job);
+  if (domains.includes("asbestos")) assertAsbestosReportReady(job);
   const supabase = getSupabaseAdmin();
 
   let pricedJob = job;

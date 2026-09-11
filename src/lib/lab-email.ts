@@ -4,6 +4,7 @@ import { randomUUID, createHash } from "crypto";
 import pdfParse from "pdf-parse/lib/pdf-parse.js";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { getSettings, primaryInspector } from "@/lib/settings";
+import { deriveFullInspectionMaterials } from "@/lib/sample-items";
 import { withCompanyBillingAddress } from "@/lib/customer-billing";
 import { formatDateMDY } from "@/lib/date-format";
 import { threadSubject, threadHeaders } from "@/lib/email-thread";
@@ -1589,6 +1590,16 @@ async function processMatchedLabEmail(params: {
         if (findings.length > 0) update.sample_findings = findings;
       }
       update.sample_results = resultsWithMaterial;
+
+      // Per Tim, 2026-09-11 (26-0026) — "Total Materials Sampled" only
+      // counts what's actually logged in the Materials Sampled table, and
+      // that table used to require every homogeneous material typed in by
+      // hand (15-20+ on a real Full Inspection job). Fills in whatever
+      // field codes aren't already covered by an existing (hand-edited)
+      // row — see deriveFullInspectionMaterials' own comment.
+      if (isFullInspectionAsbestosJob(job.service_type)) {
+        update.full_inspection_materials = deriveFullInspectionMaterials(resultsWithMaterial, job.full_inspection_materials ?? []);
+      }
     }
   }
   // Per Tim, 2026-08-27 — isMoldLabReport's own "fungal" keyword is the

@@ -81,3 +81,50 @@ export function parseFullInspectionMaterials(raw: unknown): { materials: FullIns
 
   return { materials };
 }
+
+// Per Tim, 2026-09-11 (26-0026) — "Total Materials Sampled" (report-pdf.tsx)
+// only counts rows actually logged in this table, but that table started
+// out requiring every homogeneous material to be typed in by hand — a
+// Full Inspection job easily has 15-20+ of them, most negative, so the
+// count read "1" (just the one ACM material he'd bothered to log) instead
+// of the real total. This derives the missing rows straight from the
+// lab's own per-sample results (same fieldCode/result/material data the
+// Sample Results box already shows), grouped by field code's leading
+// number — "01A"/"01B" (and any ".1"/".2" sub-samples, e.g. "18A.1"/
+// "18A.2") are the same homogeneous material sampled at more than one
+// spot/layer, matching how Crystal Analytical's own field codes are laid
+// out. Never touches a field code any EXISTING row already covers (an
+// admin's own typed-in material name, locations, footage) — this only
+// fills the gap, so re-running it after a manual edit can't clobber it.
+export function deriveFullInspectionMaterials(
+  sampleResults: { fieldCode: string; result: string; material?: string }[],
+  existing: FullInspectionMaterial[]
+): FullInspectionMaterial[] {
+  const coveredCodes = new Set<string>();
+  for (const m of existing) {
+    for (const code of m.sample_numbers.split(",").map((c) => c.trim()).filter(Boolean)) {
+      coveredCodes.add(code);
+    }
+  }
+
+  const groups = new Map<string, { fieldCode: string; result: string; material?: string }[]>();
+  for (const s of sampleResults) {
+    if (coveredCodes.has(s.fieldCode)) continue;
+    const groupKey = s.fieldCode.match(/^\d+/)?.[0] ?? s.fieldCode;
+    if (!groups.has(groupKey)) groups.set(groupKey, []);
+    groups.get(groupKey)!.push(s);
+  }
+
+  const derived: FullInspectionMaterial[] = [];
+  for (const samples of groups.values()) {
+    derived.push({
+      material: samples.find((s) => s.material)?.material ?? "",
+      is_acm: samples.some((s) => /%/.test(s.result)),
+      locations: [],
+      sample_numbers: samples.map((s) => s.fieldCode).join(", "),
+      estimated_quantity: null,
+    });
+  }
+
+  return [...existing, ...derived];
+}

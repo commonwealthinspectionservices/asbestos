@@ -13,7 +13,8 @@ import { isLabInvoiceText, extractLabInvoiceTotalCents, extractInvoiceNumber } f
 import { computeLabCostCentsFromDocuments } from "@/lib/lab-cost";
 import { splitTrailingCocPages } from "@/lib/split-lab-report-coc";
 import { extractPositionOrderedText } from "@/lib/pdf-position-text";
-import { ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK } from "@/lib/report-findings";
+import { ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, isFullInspectionAsbestosJob } from "@/lib/report-findings";
+import { deriveFullInspectionMaterials } from "@/lib/sample-items";
 import type { Job, JobDocument } from "@/lib/types";
 
 const DOCUMENT_KINDS = new Set(["coc", "lab_report", "lab_invoice", "report", "other"]);
@@ -204,6 +205,15 @@ export const POST = withApiErrors(async (
             if (findings.length > 0) update.sample_findings = findings;
           }
           update.sample_results = resultsWithMaterial;
+
+          // Per Tim, 2026-09-11 (26-0026) — see the matching comment in
+          // lab-email.ts (the automated-email upload path) for why this
+          // fills in the Materials Sampled table's missing homogeneous
+          // materials rather than leaving "Total Materials Sampled" only
+          // counting whatever's been hand-typed so far.
+          if (isFullInspectionAsbestosJob(jobRow.service_type)) {
+            update.full_inspection_materials = deriveFullInspectionMaterials(resultsWithMaterial, jobRow.full_inspection_materials ?? []);
+          }
         }
       }
 

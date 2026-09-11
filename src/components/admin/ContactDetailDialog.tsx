@@ -86,7 +86,10 @@ export function ContactForm({
 
   useAutoZip(street, city, addrState, setZip, "/api/admin");
 
-  const canSubmit = firstName.trim() && lastName.trim() && (!isCompany || company.trim());
+  // Per Tim, 2026-09-11 — last name shouldn't block saving a contact with
+  // only a first name on file (e.g. "Jake" from an email signature with no
+  // surname given) — only first name is actually required.
+  const canSubmit = firstName.trim() && (!isCompany || company.trim());
 
   async function searchCompanies(q: string): Promise<Company[]> {
     const res = await fetch(`/api/admin/companies?q=${encodeURIComponent(q)}`);

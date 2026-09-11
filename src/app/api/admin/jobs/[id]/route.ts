@@ -153,26 +153,26 @@ export const PATCH = withApiErrors(async (
   }
 
   // Full-inspection (Pre-Renovation/Pre-Demolition) asbestos jobs log one
-  // row per homogeneous material instead of picking a single Overall
-  // Findings remark — asbestos_result is derived from the materials list
-  // here (positive if any row is ACM, else negative once at least one
-  // material's logged) rather than admin-settable directly for these jobs,
-  // so the report's Remarks list and Appendix A can never contradict each
-  // other. Only overrides asbestos_result when the admin isn't already
-  // setting it explicitly in the same request (mirrors sample_count above).
+  // row per homogeneous material for the report's Appendix A/B tables and
+  // "Total Materials Sampled" count — but asbestos_result itself is left
+  // to the same source every other asbestos job already trusts, the real
+  // lab result (detectAsbestosResult, set once when the lab report is
+  // parsed). Per Tim, 2026-09-11 (26-0026) — this used to re-derive
+  // asbestos_result from this list on every save (positive only once a row
+  // was both logged AND marked ACM, negative the instant any row existed
+  // at all) — so the debounced autosave that fires the moment "+ Material"
+  // adds its first blank, not-yet-marked-ACM row silently flipped an
+  // already-correct "positive" (from a real Chrysotile-positive lab
+  // result) back to "negative" before Tim had touched the ACM checkbox.
+  // Nothing else reads that derived value — reportChecklist's own
+  // "Results" done-check already looks at full_inspection_materials.length,
+  // not asbestos_result — so this was pure risk with no upside.
   if ("full_inspection_materials" in body) {
     const parsed = parseFullInspectionMaterials(body.full_inspection_materials);
     if ("error" in parsed) {
       return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
     patch.full_inspection_materials = parsed.materials;
-    if (!("asbestos_result" in body)) {
-      patch.asbestos_result = parsed.materials.some((m) => m.is_acm)
-        ? "positive"
-        : parsed.materials.length > 0
-        ? "negative"
-        : null;
-    }
   }
 
   // Per Tim, 2026-08-31 — positive-sample material/footage, typed in next

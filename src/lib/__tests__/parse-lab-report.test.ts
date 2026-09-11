@@ -752,6 +752,34 @@ describe("extractCrystalAnalyticalMaterialDescriptions", () => {
   it("returns nothing for a report with no recognizable rows", () => {
     expect(extractCrystalAnalyticalMaterialDescriptions("not a lab report")).toEqual({});
   });
+
+  it("still pulls the real material when a long description wraps and pushes the percent onto its own line", () => {
+    // Real position-ordered text from 26-0026's actual Crystal Analytical
+    // report — the description is long enough that it wraps, which
+    // desyncs it from the adjacent results column: color+mineral stay on
+    // the row's first line, but the percent lands alone on the next line,
+    // with the description's own tail ("back right room") only after that.
+    const realText = [
+      "14A 0027 Assoc. adhesive - 13A, Roof over garage Black None Detected",
+      "Non-Fibrous",
+      "Homogeneous",
+      "15A 0029 Red vinyl floor tile (layer 2), Basement, Red Chrysotile",
+      "10%",
+      "back right room",
+      "Semi-Fibrous",
+      "Homogeneous",
+      "15B 0030 Red vinyl floor tile (layer 2), Basement, Red Chrysotile",
+      "10%",
+      "back right room",
+      "Semi-Fibrous",
+      "Homogeneous",
+      "Reviewer: ",
+    ].join("\n");
+    const materials = extractCrystalAnalyticalMaterialDescriptions(realText);
+    expect(materials["14A"]).toBe("Assoc. adhesive - 13A, Roof over garage");
+    expect(materials["15A"]).toBe("Red vinyl floor tile (layer 2), Basement, back right room");
+    expect(materials["15B"]).toBe("Red vinyl floor tile (layer 2), Basement, back right room");
+  });
 });
 
 // Real EMSL swab report text (exactly as pdf-parse extracts it) — 2 real

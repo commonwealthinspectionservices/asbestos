@@ -249,6 +249,26 @@ const CRYSTAL_DESCRIPTION_COLOR_PATTERN = new RegExp(
 const CRYSTAL_ATTRIBUTE_KEYWORDS_PATTERN = /\b(?:Non-Fibrous|Semi-Fibrous|Fibrous|Homogeneous|Heterogeneous)\b/gi;
 const CRYSTAL_NON_CONTINUATION_LINE_PATTERN = /^(?:Reviewer|Analyst|Page \d|LABORATORY ID|Client ID|Physical|Description & Location|Attributes|Fibrous Components|Crystal Analytical|Project (?:Address|Name)|Date|Contact Name|Client (?:Name|Location))/i;
 
+// Per Tim, 2026-09-11 (26-0026) — a positive row's own description can be
+// long enough that it wraps onto a second line, which desyncs it from the
+// adjacent "Physical Attributes/Fibrous Components" column in the
+// position-reconstructed text: the color and mineral name stay on the
+// row's first line ("...Red Chrysotile"), but the percentage lands alone
+// on its own line ("10%"), with the rest of the description's own
+// continuation ("back right room") only appearing AFTER that. None of
+// that satisfies CRYSTAL_DESCRIPTION_COLOR_PATTERN above (which needs the
+// percent — or "None Detected" — right there on the same line), so this
+// row used to fall through to "Material not available" every time,
+// confirmed against the real report. Matches the same shape one line
+// short of the boundary: description, then exactly one word (the color),
+// then a bare mineral name at the very end of the line with nothing
+// after it — the percent line right after gets skipped, not folded into
+// the description, when this pattern is what actually matched.
+const CRYSTAL_DESCRIPTION_COLOR_MINERAL_PATTERN = new RegExp(
+  `^(.+?)\\s+(?!\\d+%)\\S+\\s+(?:${ASBESTOS_MINERALS})\\s*$`,
+  "i"
+);
+
 export function extractCrystalAnalyticalMaterialDescriptions(positionOrderedText: string): Record<string, string> {
   const lines = positionOrderedText.split("\n");
   const materials: Record<string, string> = {};
@@ -259,11 +279,20 @@ export function extractCrystalAnalyticalMaterialDescriptions(positionOrderedText
     const [, fieldCode, rest] = rowMatch;
     if (materials[fieldCode] !== undefined) continue;
 
-    const descriptionMatch = rest.match(CRYSTAL_DESCRIPTION_COLOR_PATTERN);
+    let descriptionMatch = rest.match(CRYSTAL_DESCRIPTION_COLOR_PATTERN);
+    let splitAcrossPercentLine = false;
+    if (!descriptionMatch) {
+      descriptionMatch = rest.match(CRYSTAL_DESCRIPTION_COLOR_MINERAL_PATTERN);
+      splitAcrossPercentLine = Boolean(descriptionMatch);
+    }
     if (!descriptionMatch) continue;
 
     const parts = [descriptionMatch[1].trim()];
-    for (let j = i + 1; j < Math.min(i + 3, lines.length); j++) {
+    let start = i + 1;
+    if (splitAcrossPercentLine && /^\d+%$/.test(lines[start]?.trim() ?? "")) {
+      start++;
+    }
+    for (let j = start; j < Math.min(start + 2, lines.length); j++) {
       const line = lines[j].trim();
       if (!line || CRYSTAL_ROW_START_PATTERN.test(line) || CRYSTAL_NON_CONTINUATION_LINE_PATTERN.test(line)) break;
       const stripped = line.replace(CRYSTAL_ATTRIBUTE_KEYWORDS_PATTERN, "").trim();

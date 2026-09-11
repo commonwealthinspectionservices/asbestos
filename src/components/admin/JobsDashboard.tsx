@@ -1189,6 +1189,12 @@ export default function JobsDashboard() {
           onMouseLeave={closeStatusFilter}
         >
           <button
+            onClick={() => {
+              if (statusFilter.size > 0) {
+                setStatusFilter(new Set());
+                setStatusFilterOpen(false);
+              }
+            }}
             className={`w-full rounded-lg border border-slate-300 px-1.5 py-0.5 text-xs font-medium sm:px-2.5 sm:py-1 sm:text-sm ${statusFilter.size > 0 ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
           >
             Status{statusFilter.size > 0 ? ` (${statusFilter.size})` : ""} ▾
@@ -1235,6 +1241,12 @@ export default function JobsDashboard() {
           onMouseLeave={closeServiceTypeFilter}
         >
           <button
+            onClick={() => {
+              if (serviceTypeFilter.size > 0) {
+                setServiceTypeFilter(new Set());
+                setServiceTypeFilterOpen(false);
+              }
+            }}
             className={`w-full rounded-lg border border-slate-300 px-1.5 py-0.5 text-xs font-medium sm:px-2.5 sm:py-1 sm:text-sm ${serviceTypeFilter.size > 0 ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
           >
             <span className="sm:hidden">Service</span>
@@ -1262,11 +1274,6 @@ export default function JobsDashboard() {
             </div>
           )}
         </div>
-        {(statusFilter.size > 0 || serviceTypeFilter.size > 0) && (
-          <button onClick={clearAllFilters} className="shrink-0 rounded-lg px-2.5 py-1 text-xs font-normal text-brand-600 underline">
-            Clear filters
-          </button>
-        )}
       </div>
 
       {/* Desktop only now — mobile uses the single search box above instead. */}

@@ -256,6 +256,58 @@ export async function getMessage(accessToken: string, id: string): Promise<Gmail
   return res.json();
 }
 
+// Per Tim, 2026-09-11 — a configurable-count counterpart to
+// listMessagesByQuery above, which hardcodes maxResults=25 for its two
+// existing small-candidate-set callers. lib/contact-import.ts scans a much
+// larger slice of the inbox per run (bounded, not the whole history at
+// once — see its own comment), so it needs its own cap rather than
+// changing the shared default underneath lab-email.ts/job-intake.ts.
+export async function listMessageIdsByQuery(accessToken: string, query: string, maxResults: number): Promise<{ id: string; threadId: string }[]> {
+  const res = await gmailFetch(accessToken, `/messages?q=${encodeURIComponent(query)}&maxResults=${maxResults}`);
+  const data = await res.json();
+  return data.messages ?? [];
+}
+
+// Headers + labelIds only, no body/attachments — much cheaper than
+// getMessage's format=full for a pipeline that only ever reads From/To/Cc
+// and checks whether a message has already been labeled processed (see
+// contact-import.ts). Same header set getThreadParticipants already reads
+// per-thread; this is the per-message counterpart.
+export async function getMessageHeaders(accessToken: string, id: string): Promise<GmailMessage> {
+  const res = await gmailFetch(accessToken, `/messages/${id}?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Cc`);
+  return res.json();
+}
+
+// Named counterpart to extractEmailAddresses below — keeps the display
+// name alongside each address instead of discarding it, since
+// contact-import.ts needs a real name to save a new Directory contact
+// under, not just the bare address extractEmailAddresses' own callers
+// (reply-all, dedup) care about. Genuinely different regex, not just
+// extractEmailAddresses plus a name capture: that one's `[^,]*<...>`
+// prefix only has to walk past a comma-in-the-name without producing a
+// USABLE match there (nothing reads what it skipped), but here the
+// skipped-past text is exactly the name this needs — confirmed live on a
+// real CBRE header, `"Marquardt, Richard @ Branford" <...>`: the naive
+// `[^,]*` prefix backtracks past the first comma and matches starting only
+// from "Richard @ Branford", silently dropping "Marquardt, " off the front
+// of the name. Matching the quoted form as its own alternative first (any
+// character, comma included, between the quotes) avoids that; a bare,
+// unquoted name has no comma to begin with, so `[^",<]*` is safe for it.
+export function extractNamedAddresses(headerValue: string): { name: string | null; email: string }[] {
+  const found: { name: string | null; email: string }[] = [];
+  const remaining = headerValue.replace(/(?:"([^"]*)"|([^",<]*))\s*<([^<>]+)>/g, (_, quoted: string, bare: string, addr: string) => {
+    const name = (quoted ?? bare ?? "").trim();
+    found.push({ name: name || null, email: addr.trim() });
+    return "";
+  });
+  const bare = remaining
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s.includes("@"));
+  for (const email of bare) found.push({ name: null, email });
+  return found;
+}
+
 // Best-effort split of a From/To/Cc header value into bare email addresses
 // — not a full RFC 5322 parser, just enough for real Gmail headers. Pulls
 // every "<addr>"-bracketed address out first (handles a comma inside a

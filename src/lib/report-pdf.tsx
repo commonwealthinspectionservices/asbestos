@@ -985,7 +985,13 @@ function FullInspectionAsbestosReportDocument({ job, customer, settings }: Proje
           <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Asbestos Inspector:</Text><ValueOrBlank style={styles.summaryValue} value={inspector.name} /></View>
           <View style={styles.summaryRow}><Text style={styles.summaryLabel}>License #:</Text><ValueOrBlank style={styles.summaryValue} value={inspector.license_number} /></View>
           <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Date of Inspection:</Text><ValueOrBlank style={styles.summaryValue} value={formatDateMDY(job.confirmed_date ?? job.requested_date ?? job.lab_date_sampled)} /></View>
-          <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Total Materials Sampled:</Text><ValueOrBlank style={styles.summaryValue} value={materials.length} /></View>
+          {/* Per Tim, 2026-09-11 (26-0026) — "Total Materials Sampled" is
+              the raw physical sample count straight off the lab report
+              (42 on a 42-sample job), the same number "Total: X samples"
+              already shows under Sample Results — not the count of
+              homogeneous-material rows in the Appendix A/B tables below,
+              which is a different, usually much smaller number. */}
+          <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Total Materials Sampled:</Text><ValueOrBlank style={styles.summaryValue} value={job.sample_results?.length ?? 0} /></View>
           <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Samples Analyzed At:</Text><ValueOrBlank style={styles.summaryValue} value={job.lab_name} /></View>
           <View style={styles.summaryRow}><Text style={styles.summaryLabel}>NIST/NVLAP Certification#:</Text><ValueOrBlank style={styles.summaryValue} value={job.lab_nist_cert} /></View>
           <View style={styles.summaryRow}><Text style={styles.summaryLabel}>MassDLS Lab Certification#:</Text><ValueOrBlank style={styles.summaryValue} value={job.lab_massdls_cert} /></View>

@@ -955,7 +955,7 @@ function FullInspectionAsbestosReportDocument({ job, customer, settings }: Proje
           </View>
           <View style={styles.reRow}>
             <Text style={styles.reLabel} />
-            <Text style={styles.reValue}>Inspection for Asbestos Containing Materials at</Text>
+            <Text style={styles.reValue}>Inspection for Asbestos Containing Materials</Text>
           </View>
           <View style={styles.reRow}>
             <Text style={styles.reLabel} />

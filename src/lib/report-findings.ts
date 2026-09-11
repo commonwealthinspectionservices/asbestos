@@ -132,9 +132,6 @@ export const FULL_INSPECTION_BULK_SAMPLING_PARAGRAPH =
 export const FULL_INSPECTION_ACM_CATEGORY_PARAGRAPH =
   "Any homogeneous material having at least one (1) sample analytically identified as containing one percent (1%) asbestos or greater is categorized as an asbestos containing material. Any material analytically identified as containing any asbestos fibers is categorized as an asbestos containing waste material. A summary of materials identified to contain asbestos is provided in Appendix A including approximate location(s) of the material and estimated quantities. Laboratory Analytical Data Sheets for each sample analyzed are included in Appendix C.";
 
-export const FULL_INSPECTION_NON_ACM_CATEGORY_PARAGRAPH =
-  "Homogeneous materials where each sample analyzed was determined not to contain asbestos are categorized as non-asbestos. A summary of non-asbestos materials is provided in Appendix B. Laboratory Analytical Data Sheets for each sample analyzed are included in Appendix C.";
-
 // Always the first "Remarks and Limitations:" numbered item.
 export const FULL_INSPECTION_ADDITIONAL_SUSPECT_REMARK =
   "Additional suspect materials may be present beneath surfaces (multiple layers) or within chases or crawlspace areas that were unknown or unaccessible at the time of the inspection but may be discovered during demolition, renovation or maintenance activities. Any additional suspect materials not identified in this report that become exposed during building renovation, maintenance or demolition should be sampled and analyzed for asbestos content prior to disturbing.";

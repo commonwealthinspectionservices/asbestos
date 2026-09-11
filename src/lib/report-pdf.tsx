@@ -20,7 +20,7 @@ import {
   jobReportDomains, domainForServiceTypeLabel, type ReportDomain,
   isFullInspectionAsbestosJob, FULL_INSPECTION_SCOPE_PARAGRAPH, FULL_INSPECTION_NON_SUSPECT_PARAGRAPH,
   FULL_INSPECTION_WALLS_PARAGRAPH, FULL_INSPECTION_BULK_SAMPLING_PARAGRAPH, FULL_INSPECTION_ACM_CATEGORY_PARAGRAPH,
-  FULL_INSPECTION_NON_ACM_CATEGORY_PARAGRAPH, FULL_INSPECTION_ADDITIONAL_SUSPECT_REMARK,
+  FULL_INSPECTION_ADDITIONAL_SUSPECT_REMARK,
   FULL_INSPECTION_ACM_ABATEMENT_REMARK, FULL_INSPECTION_ACM_PLAN_DISCLAIMER_REMARK,
   FLI_ENVIRONMENTAL_COMPANY_ID, FLI_ENVIRONMENTAL_BUSINESS_NAME, FLI_ENVIRONMENTAL_ADDRESS, FLI_ENVIRONMENTAL_PHONE,
 } from "@/lib/report-findings";
@@ -205,10 +205,10 @@ const styles = StyleSheet.create({
   // un-underlined sub-headings within Sampling Methodology / Discussion.
   romanTitle: { fontWeight: 700, marginBottom: STANDARD_GAP },
   subHeading: { fontWeight: 700, marginBottom: TIGHT_GAP },
-  // Full-inspection asbestos report's Appendix A/B tables — react-pdf has
-  // no native table primitive, so these are plain flexbox rows. Shared
-  // between both appendices; column widths differ per appendix (A has 4
-  // wider columns, B has 5 narrower ones for its 3 location sub-columns).
+  // Full-inspection asbestos report's Appendix A table (Appendix B — the
+  // negative/non-ACM materials summary — was removed per Tim, 2026-09-11,
+  // 26-0026) — react-pdf has no native table primitive, so this is a
+  // plain flexbox grid of rows.
   appendixTable: { marginTop: 4, marginBottom: STANDARD_GAP },
   appendixHeaderRow: { flexDirection: "row", borderBottomWidth: 1, borderBottomColor: "#193466", paddingBottom: 4, marginBottom: 4 },
   appendixRow: { flexDirection: "row", paddingVertical: 3, borderBottomWidth: 0.5, borderBottomColor: "#cbd5e1" },
@@ -218,9 +218,6 @@ const styles = StyleSheet.create({
   appendixColLocationA: { width: "34%", paddingRight: 4 },
   appendixColQuantityA: { width: "18%", paddingRight: 4 },
   appendixColSamplesA: { width: "18%" },
-  appendixColSamplesB: { width: "14%", paddingRight: 4 },
-  appendixColMaterialB: { width: "24%", paddingRight: 4 },
-  appendixColLocB: { width: "20.66%", paddingRight: 4 },
   // Limited Inspection's own positive-materials table (3 columns, no
   // Location column — Limited jobs don't track per-material location the
   // way Full Inspection's materials editor does) — wider than Appendix A's
@@ -907,7 +904,6 @@ function FullInspectionAsbestosReportDocument({ job, customer, settings }: Proje
   const inspector = primaryInspector(settings);
   const materials = job.full_inspection_materials ?? [];
   const acmMaterials = materials.filter((m) => m.is_acm);
-  const nonAcmMaterials = materials.filter((m) => !m.is_acm);
 
   const remarks = [FULL_INSPECTION_ADDITIONAL_SUSPECT_REMARK];
   if (job.asbestos_result === "positive") {
@@ -1015,10 +1011,9 @@ function FullInspectionAsbestosReportDocument({ job, customer, settings }: Proje
           <Text style={styles.paragraph}>{FULL_INSPECTION_ACM_CATEGORY_PARAGRAPH}</Text>
         </View>
 
-        <View wrap={false}>
-          <Text style={styles.sectionTitleFullInspection}>Non-Asbestos Containing Materials:</Text>
-          <Text style={styles.paragraph}>{FULL_INSPECTION_NON_ACM_CATEGORY_PARAGRAPH}</Text>
-        </View>
+        {/* "Non-Asbestos Containing Materials:" section removed along with
+            Appendix B per Tim, 2026-09-11 (26-0026) — its only content was
+            directing the reader to that now-deleted table. */}
 
         {/* Title kept with just its first remark (wrap={false}) — the
             whole list isn't forced to stay together too, since a full
@@ -1065,27 +1060,6 @@ function FullInspectionAsbestosReportDocument({ job, customer, settings }: Proje
               <Text style={[styles.appendixColLocationA, styles.appendixCellText]}>{m.locations.join(", ")}</Text>
               <Text style={[styles.appendixColQuantityA, styles.appendixCellText]}>{m.estimated_quantity ?? ""}</Text>
               <Text style={[styles.appendixColSamplesA, styles.appendixCellText]}>{m.sample_numbers}</Text>
-            </View>
-          ))}
-        </View>
-
-        <Text style={styles.sectionTitleFullInspection} break>Appendix B</Text>
-        <Text style={styles.paragraph}>Suspect Materials Found Not to Contain Asbestos</Text>
-        <View style={styles.appendixTable}>
-          <View style={styles.appendixHeaderRow}>
-            <Text style={[styles.appendixColSamplesB, styles.appendixHeaderText]}>Sample #(&apos;s)</Text>
-            <Text style={[styles.appendixColMaterialB, styles.appendixHeaderText]}>Material</Text>
-            <Text style={[styles.appendixColLocB, styles.appendixHeaderText]}>Sample Location A</Text>
-            <Text style={[styles.appendixColLocB, styles.appendixHeaderText]}>Sample Location B</Text>
-            <Text style={[styles.appendixColLocB, styles.appendixHeaderText]}>Sample Location C</Text>
-          </View>
-          {nonAcmMaterials.map((m, i) => (
-            <View style={styles.appendixRow} key={i}>
-              <Text style={[styles.appendixColSamplesB, styles.appendixCellText]}>{m.sample_numbers}</Text>
-              <Text style={[styles.appendixColMaterialB, styles.appendixCellText]}>{m.material}</Text>
-              <Text style={[styles.appendixColLocB, styles.appendixCellText]}>{m.locations[0] ?? ""}</Text>
-              <Text style={[styles.appendixColLocB, styles.appendixCellText]}>{m.locations[1] ?? ""}</Text>
-              <Text style={[styles.appendixColLocB, styles.appendixCellText]}>{m.locations[2] ?? ""}</Text>
             </View>
           ))}
         </View>

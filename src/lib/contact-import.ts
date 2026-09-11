@@ -72,6 +72,65 @@ function domainOf(email: string): string {
   return email.slice(email.lastIndexOf("@") + 1).toLowerCase();
 }
 
+type SupabaseClient = ReturnType<typeof getSupabaseAdmin>;
+
+// Domain -> company_id, seeded from every existing contact that already has
+// both an email and a company on file — so a brand-new contact at an
+// address CBRE has used before lands under the same real company record
+// this app already has, not a fresh duplicate. Shared by
+// importContactsFromRecentEmail and backfillCompanyForExistingContacts
+// below — same lookup either way, just a different set of contacts
+// getting resolved against it.
+async function buildCompanyIdByDomainMap(supabase: SupabaseClient): Promise<Map<string, string | null>> {
+  const { data: companyRows } = await supabase
+    .from("customers")
+    .select("email, company_id")
+    .not("email", "is", null)
+    .not("company_id", "is", null);
+  const companyIdByDomain = new Map<string, string | null>(); // null = this domain maps to more than one company on file — ambiguous, don't guess
+  for (const row of companyRows ?? []) {
+    const domain = domainOf(row.email as string);
+    const companyId = row.company_id as string;
+    if (!companyIdByDomain.has(domain)) {
+      companyIdByDomain.set(domain, companyId);
+    } else if (companyIdByDomain.get(domain) !== companyId) {
+      companyIdByDomain.set(domain, null);
+    }
+  }
+  return companyIdByDomain;
+}
+
+// Resolves (and creates, if genuinely new) one company per unique
+// non-personal domain — resolvedCompanyIdByDomain is the caller's own
+// per-run cache, so a domain shared by several contacts in the same run
+// (three people at the same company CC'd on one thread; three
+// already-imported contacts sharing a domain in the backfill) only ever
+// looks up/creates that company once, and they all land under the same
+// resulting row.
+async function resolveCompanyIdForDomain(
+  supabase: SupabaseClient,
+  domain: string,
+  companyIdByDomain: Map<string, string | null>,
+  resolvedCompanyIdByDomain: Map<string, string | null>
+): Promise<string | null> {
+  if (PERSONAL_EMAIL_DOMAINS.has(domain)) return null;
+  if (resolvedCompanyIdByDomain.has(domain)) return resolvedCompanyIdByDomain.get(domain)!;
+  const fromExisting = companyIdByDomain.get(domain);
+  if (fromExisting !== undefined) {
+    resolvedCompanyIdByDomain.set(domain, fromExisting);
+    return fromExisting;
+  }
+  const guessedName = guessCompanyNameFromDomain(domain);
+  const { data: existingCompany } = await supabase.from("companies").select("id").ilike("name", guessedName).maybeSingle();
+  let companyId: string | null = existingCompany?.id ?? null;
+  if (!companyId) {
+    const { data: newCompany } = await supabase.from("companies").insert({ name: guessedName }).select("id").maybeSingle();
+    companyId = newCompany?.id ?? null;
+  }
+  resolvedCompanyIdByDomain.set(domain, companyId);
+  return companyId;
+}
+
 export interface ContactImportResult {
   scanned: number;
   created: { name: string; email: string; company: string | null }[];
@@ -103,26 +162,7 @@ export async function importContactsFromRecentEmail(maxMessages: number): Promis
 
   const { data: existingRows } = await supabase.from("customers").select("email").not("email", "is", null);
   const existingEmails = new Set((existingRows ?? []).map((r) => (r.email as string).toLowerCase()));
-
-  // Domain -> company_id, seeded from every existing contact that already
-  // has both an email and a company on file — so a brand-new contact at an
-  // address CBRE has used before lands under the same real company record
-  // this app already has, not a fresh duplicate.
-  const { data: companyRows } = await supabase
-    .from("customers")
-    .select("email, company_id")
-    .not("email", "is", null)
-    .not("company_id", "is", null);
-  const companyIdByDomain = new Map<string, string | null>(); // null = this domain maps to more than one company on file — ambiguous, don't guess
-  for (const row of companyRows ?? []) {
-    const domain = domainOf(row.email as string);
-    const companyId = row.company_id as string;
-    if (!companyIdByDomain.has(domain)) {
-      companyIdByDomain.set(domain, companyId);
-    } else if (companyIdByDomain.get(domain) !== companyId) {
-      companyIdByDomain.set(domain, null);
-    }
-  }
+  const companyIdByDomain = await buildCompanyIdByDomainMap(supabase);
 
   const pending: { name: string; email: string; domain: string }[] = [];
   let skippedExisting = 0;
@@ -165,34 +205,7 @@ export async function importContactsFromRecentEmail(maxMessages: number): Promis
     await addLabelToMessage(accessToken, candidate.id, labelId);
   }
 
-  // Resolves (and creates, if genuinely new) one company per unique
-  // non-personal domain seen this run — cached so a domain shared by
-  // several new contacts in the same run (e.g. three people at the same
-  // company CC'd on one thread) only ever looks up/creates that company
-  // once, and they all land under the same resulting row.
   const resolvedCompanyIdByDomain = new Map<string, string | null>();
-  async function resolveCompanyIdForDomain(domain: string): Promise<string | null> {
-    if (PERSONAL_EMAIL_DOMAINS.has(domain)) return null;
-    if (resolvedCompanyIdByDomain.has(domain)) return resolvedCompanyIdByDomain.get(domain)!;
-    const fromExisting = companyIdByDomain.get(domain);
-    if (fromExisting !== undefined) {
-      resolvedCompanyIdByDomain.set(domain, fromExisting);
-      return fromExisting;
-    }
-    const guessedName = guessCompanyNameFromDomain(domain);
-    const { data: existingCompany } = await supabase
-      .from("companies")
-      .select("id")
-      .ilike("name", guessedName)
-      .maybeSingle();
-    let companyId: string | null = existingCompany?.id ?? null;
-    if (!companyId) {
-      const { data: newCompany } = await supabase.from("companies").insert({ name: guessedName }).select("id").maybeSingle();
-      companyId = newCompany?.id ?? null;
-    }
-    resolvedCompanyIdByDomain.set(domain, companyId);
-    return companyId;
-  }
 
   // is_individual is deliberately left off (its own column default, false)
   // even for a company-less contact — that field really means "a
@@ -205,7 +218,7 @@ export async function importContactsFromRecentEmail(maxMessages: number): Promis
   const toInsert: { name: string; email: string; phone: string; company_id: string | null }[] = [];
   const companyNameById = new Map<string, string>();
   for (const p of pending) {
-    const companyId = await resolveCompanyIdForDomain(p.domain);
+    const companyId = await resolveCompanyIdForDomain(supabase, p.domain, companyIdByDomain, resolvedCompanyIdByDomain);
     let companyName: string | null = null;
     if (companyId) {
       if (!companyNameById.has(companyId)) {
@@ -231,4 +244,42 @@ export async function importContactsFromRecentEmail(maxMessages: number): Promis
   }
 
   return { scanned: candidates.length, created, skippedExisting, skippedAutomated };
+}
+
+// Per Tim, 2026-09-11 — one-time catch-up for contacts the cron already
+// imported before company-grouping existed (confirmed live: a real
+// imported contact, irijksen@sanair.com, sat with no company attached).
+// Same domain-matching/company-creation logic as the live import path
+// above, just run backward over every already-existing company-less
+// customer instead of forward over new Gmail messages. Safe to call more
+// than once — a contact that already has a company (including one this
+// same function just gave it) is simply skipped.
+export async function backfillCompanyForExistingContacts(): Promise<{ updated: { name: string; email: string; company: string }[] }> {
+  const supabase = getSupabaseAdmin();
+  const companyIdByDomain = await buildCompanyIdByDomainMap(supabase);
+  const resolvedCompanyIdByDomain = new Map<string, string | null>();
+
+  const { data: rows } = await supabase
+    .from("customers")
+    .select("id, name, email")
+    .is("company_id", null)
+    .not("email", "is", null);
+
+  const updated: { name: string; email: string; company: string }[] = [];
+  const companyNameById = new Map<string, string>();
+  for (const row of rows ?? []) {
+    const email = row.email as string;
+    const domain = domainOf(email);
+    const companyId = await resolveCompanyIdForDomain(supabase, domain, companyIdByDomain, resolvedCompanyIdByDomain);
+    if (!companyId) continue;
+
+    if (!companyNameById.has(companyId)) {
+      const { data } = await supabase.from("companies").select("name").eq("id", companyId).maybeSingle();
+      companyNameById.set(companyId, data?.name ?? "");
+    }
+    await supabase.from("customers").update({ company_id: companyId }).eq("id", row.id);
+    updated.push({ name: row.name as string, email, company: companyNameById.get(companyId) ?? "" });
+  }
+
+  return { updated };
 }

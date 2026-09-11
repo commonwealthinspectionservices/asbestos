@@ -35,8 +35,44 @@ const IMPORTED_LABEL = "Contacts Imported";
 
 // Skips the obviously-not-a-real-person senders a broad To/Cc/From scan
 // would otherwise happily add as "contacts" — automated notification/
-// delivery addresses, not people who ever emailed Tim on purpose.
-const AUTOMATED_SENDER_PATTERN = /^(no-?reply|do-?not-?reply|notifications?|mailer-daemon|postmaster|bounce|calendar-notification|drive-shares-noreply|docs-noreply)@/i;
+// delivery addresses, not people who ever emailed Tim on purpose. Matches
+// the keyword anywhere in the local part (bounded by the start/end of the
+// string or a ".", "-", "_", "+" separator), not just at the very start —
+// the first version of this pattern was anchored to "^", which let
+// "ads-account-noreply@google.com" and "noreply-analytics@google.com"
+// through (the keyword wasn't the very first thing before "@") until real
+// production data exposed it on 2026-09-11 (see backfillCompanyForExistingContacts'
+// own history).
+const AUTOMATED_LOCAL_PART_PATTERN =
+  /(?:^|[.\-_+])(no-?reply|do-?not-?reply|notifications?|notify|mailer-daemon|postmaster|bounces?|calendar-notification|drive-shares-noreply|docs-noreply|return|unsubscribe)(?:$|[.\-_+])/i;
+
+// Same 2026-09-11 finding — some automated senders carry no signal in the
+// local part at all ("americanexpress@welcome.americanexpress.com",
+// "quickbooks@notification.intuit.com"), only in the domain: a known
+// statement/notification subdomain of a vendor Tim doesn't have real people
+// at, or Tim's own SaaS billing sender. Exact-domain match, not a suffix
+// match — deliberately narrow so this can't accidentally swallow a real
+// domain that happens to share a substring.
+const AUTOMATED_SENDER_DOMAINS = new Set([
+  "notification.intuit.com",
+  "welcome.americanexpress.com",
+  "member.americanexpress.com",
+  "supabase.com",
+]);
+
+export function isAutomatedSender(email: string): boolean {
+  const at = email.lastIndexOf("@");
+  const localPart = email.slice(0, at);
+  const domain = email.slice(at + 1);
+  return AUTOMATED_LOCAL_PART_PATTERN.test(localPart) || AUTOMATED_SENDER_DOMAINS.has(domain);
+}
+
+// Real people, but the domain is a job-board/recruiting-platform message
+// relay (an anonymized per-conversation proxy address), not that person's
+// employer — grouping them under a "company" named after the relay domain
+// is actively wrong, not just a blank field. Company stays null for these;
+// the contact itself is still saved.
+const RELAY_ONLY_DOMAINS = new Set(["indeedemail.com"]);
 
 // Personal/free email providers — never a real company's own domain, so a
 // contact on one of these stays company-less even though it's a perfectly
@@ -114,6 +150,7 @@ async function resolveCompanyIdForDomain(
   resolvedCompanyIdByDomain: Map<string, string | null>
 ): Promise<string | null> {
   if (PERSONAL_EMAIL_DOMAINS.has(domain)) return null;
+  if (RELAY_ONLY_DOMAINS.has(domain)) return null;
   if (resolvedCompanyIdByDomain.has(domain)) return resolvedCompanyIdByDomain.get(domain)!;
   const fromExisting = companyIdByDomain.get(domain);
   if (fromExisting !== undefined) {
@@ -186,7 +223,7 @@ export async function importContactsFromRecentEmail(maxMessages: number): Promis
         seenThisMessage.add(lower);
 
         if (ownEmails.has(lower)) continue;
-        if (AUTOMATED_SENDER_PATTERN.test(lower)) {
+        if (isAutomatedSender(lower)) {
           skippedAutomated++;
           continue;
         }
@@ -282,4 +319,69 @@ export async function backfillCompanyForExistingContacts(): Promise<{ updated: {
   }
 
   return { updated };
+}
+
+// One-off, 2026-09-11 — the backfill run above (before AUTOMATED_LOCAL_PART_PATTERN
+// and AUTOMATED_SENDER_DOMAINS were broadened, and before RELAY_ONLY_DOMAINS
+// existed) created real noise in production: automated/notification senders
+// that slipped through the old narrower filter got saved as "contacts" with
+// a fabricated company, and three real Indeed job-applicant relay addresses
+// got grouped under a fake "Indeedemail" company. Per Tim, 2026-09-11 — "i
+// only want to save real people" — so this deletes the automated ones
+// outright and just strips the fake company off the real people, then
+// removes any company row left with zero contacts on it. Hardcoded to the
+// exact addresses the backfill actually created (not a general "re-scan
+// every contact" sweep) so this can't touch any other row in the table.
+const NOISE_TO_DELETE = [
+  "ads-account-noreply@google.com",
+  "ads-noreply@google.com",
+  "noreply-analytics@google.com",
+  "americanexpress@welcome.americanexpress.com",
+  "americanexpress@member.americanexpress.com",
+  "quickbooks@notification.intuit.com",
+  "invoice+statements@supabase.com",
+  "return@amazon.com",
+];
+const REAL_PEOPLE_TO_DETACH = [
+  "conversation-martinphillip-koj1c@indeedemail.com",
+  "conversation-frankruney-hapqg@indeedemail.com",
+  "conversation-marlonbravo-toyl1@indeedemail.com",
+];
+
+export async function cleanupNoisyBackfilledContacts(): Promise<{
+  deleted: { name: string; email: string }[];
+  detached: { name: string; email: string }[];
+  deletedCompanies: string[];
+}> {
+  const supabase = getSupabaseAdmin();
+  const touchedCompanyIds = new Set<string>();
+
+  const deleted: { name: string; email: string }[] = [];
+  for (const email of NOISE_TO_DELETE) {
+    const { data: row } = await supabase.from("customers").select("id, name, company_id").eq("email", email).maybeSingle();
+    if (!row) continue;
+    if (row.company_id) touchedCompanyIds.add(row.company_id as string);
+    await supabase.from("customers").delete().eq("id", row.id);
+    deleted.push({ name: row.name as string, email });
+  }
+
+  const detached: { name: string; email: string }[] = [];
+  for (const email of REAL_PEOPLE_TO_DETACH) {
+    const { data: row } = await supabase.from("customers").select("id, name, company_id").eq("email", email).maybeSingle();
+    if (!row || !row.company_id) continue;
+    touchedCompanyIds.add(row.company_id as string);
+    await supabase.from("customers").update({ company_id: null }).eq("id", row.id);
+    detached.push({ name: row.name as string, email });
+  }
+
+  const deletedCompanies: string[] = [];
+  for (const companyId of touchedCompanyIds) {
+    const { count } = await supabase.from("customers").select("id", { count: "exact", head: true }).eq("company_id", companyId);
+    if (count) continue;
+    const { data: company } = await supabase.from("companies").select("name").eq("id", companyId).maybeSingle();
+    await supabase.from("companies").delete().eq("id", companyId);
+    if (company?.name) deletedCompanies.push(company.name);
+  }
+
+  return { deleted, detached, deletedCompanies };
 }

@@ -157,8 +157,17 @@ function bestSampledDate(job: Job): string | null {
   return job.confirmed_date ?? job.requested_date ?? job.lab_date_sampled ?? job.mold_date_sampled ?? job.lead_date_sampled;
 }
 
-function reportDraftBodyHtml(job: Job, settings: Settings): string {
-  const domains = jobReportDomains(job.service_type);
+// Per Tim, 2026-09-11 (26-0019) — a mixed asbestos+lead job whose Email
+// tab checklist only had Asbestos Report checked still said "the final
+// asbestos and lead inspection reports are attached" even though only the
+// asbestos PDF actually went out. draftSelectedEmailForJob now passes its
+// own caller-selected domains through here instead of this silently
+// recomputing every domain on the job — see this function's other two
+// callers (the always-whole-job auto-drafted report and combined paths)
+// for why the default still has to fall back to that when no override is
+// given.
+function reportDraftBodyHtml(job: Job, settings: Settings, domainsOverride?: ReportDomain[]): string {
+  const domains = domainsOverride ?? jobReportDomains(job.service_type);
   const domainPhrase = reportDomainListPhrase(domains);
   const isPlural = domains.length > 1;
   const reportNoun = isPlural ? "inspection reports" : "inspection report";
@@ -257,8 +266,8 @@ const COMBINED_DRAFT_DOMAIN_REPORT_LABEL: Record<ReportDomain, string> = {
 // relationship, not a homeowner or a new referral source being asked
 // to leave a review; confirmed against a real drafted example he
 // pointed to directly as the standard to lock in.
-function combinedDraftBodyHtml(job: Job & { customers: Customer }, settings: Settings, totalCents: number, payNowUrl: string | null): string {
-  const domains = jobReportDomains(job.service_type);
+function combinedDraftBodyHtml(job: Job & { customers: Customer }, settings: Settings, totalCents: number, payNowUrl: string | null, domainsOverride?: ReportDomain[]): string {
+  const domains = domainsOverride ?? jobReportDomains(job.service_type);
   const isFliEnvironmental = job.customers.company_id === FLI_ENVIRONMENTAL_COMPANY_ID;
   return [
     `<strong>Site:</strong> ${escapeHtml(expandAddress(job.service_address))}`,
@@ -2291,14 +2300,15 @@ async function draftSelectedEmailForJob(params: {
   }
 
   // Body copy: reuses the three existing templates rather than writing a
-  // fourth — closest match to what's actually attached. Note these two
-  // still describe *every* domain on the job (jobReportDomains(job.service_type)
-  // internally), not just the ones actually selected here — fine for a
-  // job with one domain (today's real case), a mismatch worth revisiting
-  // if a multi-domain job ever sends less than all of its domains at once.
+  // fourth — closest match to what's actually attached. Per Tim,
+  // 2026-09-11 (26-0019) — passes the caller-selected `domains` through
+  // explicitly now, not just whatever the job's own service_type implies,
+  // so unchecking a domain here (e.g. sending only the asbestos report off
+  // a mixed asbestos+lead job) can't leave the body text claiming a
+  // report that isn't actually attached.
   const bodyHtml = includeInvoice
-    ? (domains.length > 0 ? combinedDraftBodyHtml(pricedJob, settings, totalCents, payNowUrlForEmail) : invoiceDraftBodyHtml(pricedJob, settings, payNowUrlForEmail))
-    : reportDraftBodyHtml(pricedJob, settings);
+    ? (domains.length > 0 ? combinedDraftBodyHtml(pricedJob, settings, totalCents, payNowUrlForEmail, domains) : invoiceDraftBodyHtml(pricedJob, settings, payNowUrlForEmail))
+    : reportDraftBodyHtml(pricedJob, settings, domains);
 
   // Boston Harbor Water Restoration: per Tim, 2026-09-08 — the people on
   // the original job-intake thread are the fieldworkers, not whoever

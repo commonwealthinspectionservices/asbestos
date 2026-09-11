@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireCronAuth, withCronAlert } from "@/lib/cron-auth";
 import { withApiErrors } from "@/lib/api-handler";
 import { getSupabaseAdmin } from "@/lib/supabase";
-import { checkDraftSentStatus, checkForBouncedSends } from "@/lib/lab-email";
+import { checkDraftSentStatus, checkForBouncedSends, reconcileFullySentJobStatuses } from "@/lib/lab-email";
 
 // Reads req.headers (via requireCronAuth) — without this, Next tries to
 // statically render the route at build time and throws "Dynamic server
@@ -48,5 +48,12 @@ export const GET = withApiErrors(withCronAlert("check-sent-drafts", async (req: 
   // see checkForBouncedSends's own comment.
   const bounces = await checkForBouncedSends();
 
-  return NextResponse.json({ checked: jobs?.length ?? 0, newlySent: results, bounces });
+  // Per Tim, 2026-09-11 (26-0024) — safety net for a job whose status
+  // advance got missed entirely (see reconcileFullySentJobStatuses' own
+  // comment) — this query's own WHERE clause above already stopped
+  // selecting it by the time that happens, so it needs its own independent
+  // check every run, not just a fix inside the loop above.
+  const reconciled = await reconcileFullySentJobStatuses();
+
+  return NextResponse.json({ checked: jobs?.length ?? 0, newlySent: results, bounces, reconciled });
 }));

@@ -465,6 +465,41 @@ export async function checkDraftSentStatus(
   return { status: "none" };
 }
 
+// Per Tim, 2026-09-11 (26-0024) — checkDraftSentStatus's own "reconcile
+// every time this is called" fix (see its comment above, from the earlier
+// 26-0017 incident) only ever helps a job that's still getting called at
+// all: check-sent-drafts' own query only selects a job with at least one
+// of report_sent_at/invoice_sent_at still null, and the Final Report tab's
+// own live-check effect (useDraftTracking in JobsDashboard.tsx) stops
+// calling it too once its sentAt is already known — so a job whose BOTH
+// sends land close enough together that status was still "ready_to_send"
+// at the wrong instant (network jitter, cron cadence, no strict ordering
+// guarantee between the two checks) can get permanently skipped by every
+// path that would otherwise have caught and fixed it. Confirmed live on
+// 26-0024: report sent 17:19, invoice sent 17:23, status stuck on "Ready
+// for Review" — manually re-running checkDraftSentStatus fixed it
+// instantly, proving the reconcile logic itself was fine, just never
+// invoked again once both timestamps were already on file. This is that
+// safety net: sweeps every job with both real send timestamps whose status
+// hasn't advanced past ready_to_send yet, independent of whichever path
+// missed it.
+export async function reconcileFullySentJobStatuses(): Promise<{ fixed: string[] }> {
+  const supabase = getSupabaseAdmin();
+  const { data: jobs } = await supabase
+    .from("jobs")
+    .select("id, project_number")
+    .not("report_sent_at", "is", null)
+    .not("invoice_sent_at", "is", null)
+    .eq("status", "ready_to_send");
+
+  const fixed: string[] = [];
+  for (const job of jobs ?? []) {
+    await supabase.from("jobs").update({ status: "report_invoice_sent" }).eq("id", job.id);
+    fixed.push(job.project_number ?? job.id);
+  }
+  return { fixed };
+}
+
 // Per Tim, 2026-09-02 — "name them what they are": renamed from the old
 // flat "cis-bounce-processed".
 const BOUNCE_PROCESSED_LABEL = "Processed/Bounces";

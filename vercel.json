@@ -19,10 +19,6 @@
     {
       "path": "/api/cron/charge-net30-invoices",
       "schedule": "0 15 * * *"
-    },
-    {
-      "path": "/api/cron/import-contacts",
-      "schedule": "*/15 * * * *"
     }
   ]
 }

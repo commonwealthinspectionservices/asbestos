@@ -451,6 +451,12 @@ describe("renderProjectReportPdf", () => {
         { material: "Transite Siding", is_acm: true, locations: ["Exterior Siding"], sample_numbers: "2458-1", estimated_quantity: "~1,600 SF" },
         { material: "Asphalt Shingle", is_acm: false, locations: ["Roof, Debris", "Roof, Debris"], sample_numbers: "2458-5", estimated_quantity: null },
       ],
+      sample_results: [
+        { fieldCode: "2458-1A", result: "15% Chrysotile", material: "Transite Siding" },
+        { fieldCode: "2458-1B", result: "15% Chrysotile", material: "Transite Siding" },
+        { fieldCode: "2458-5A", result: "None Detected", material: "Asphalt Shingle" },
+        { fieldCode: "2458-5B", result: "None Detected", material: "Asphalt Shingle" },
+      ],
     };
 
     it("renders the full-inspection letter, not the Limited template", async () => {
@@ -466,16 +472,23 @@ describe("renderProjectReportPdf", () => {
       const { text } = await pdfParse(pdf);
       expect(text).toContain("Bulk Sampling:");
       expect(text).toContain("Asbestos Containing Materials:");
-      expect(text).toContain("Non-Asbestos Containing Materials:");
+      // Removed along with Appendix B, per Tim, 2026-09-11 — this section's
+      // only content was pointing the reader at that now-deleted table.
+      expect(text).not.toContain("Non-Asbestos Containing Materials:");
       expect(text).toContain("Remarks and Limitations:");
       // The old version wrongly folded these into the numbered Remarks list.
       expect(text).toContain("Additional suspect materials may be present beneath surfaces");
     });
 
-    it("shows Total Materials Sampled as the materials list length, not sample_counts", async () => {
+    it("shows Total Materials Sampled as the real physical sample count, not the materials list length", async () => {
+      // Per Tim, 2026-09-11 (26-0026) — this is the raw sample count off
+      // the lab report (4 samples here), not full_inspection_materials.length
+      // (2 homogeneous materials) — a real job easily has 40+ samples
+      // across ~20 materials, and the count must match what the lab
+      // report itself shows.
       const pdf = await renderProjectReportPdfForDomain({ job: fullInspectionJob, customer, settings }, "asbestos");
       const { text } = await pdfParse(pdf);
-      expect(text).toMatch(/Total Materials Sampled:\s*2/);
+      expect(text).toMatch(/Total Materials Sampled:\s*4/);
     });
 
     it("lists a positive material in Appendix A with its quantity", async () => {
@@ -486,11 +499,10 @@ describe("renderProjectReportPdf", () => {
       expect(text).toContain("~1,600 SF");
     });
 
-    it("lists a negative material in Appendix B with up to 3 locations", async () => {
+    it("never renders Appendix B (removed per Tim, 2026-09-11)", async () => {
       const pdf = await renderProjectReportPdfForDomain({ job: fullInspectionJob, customer, settings }, "asbestos");
       const { text } = await pdfParse(pdf);
-      expect(text).toContain("Appendix B");
-      expect(text).toContain("Asphalt Shingle");
+      expect(text).not.toContain("Appendix B");
     });
 
     it("includes the fixed abatement remarks when any material is ACM", async () => {

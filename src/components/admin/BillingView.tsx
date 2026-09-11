@@ -1281,9 +1281,23 @@ export default function BillingView() {
                       // status pill was the one thing making it read as
                       // bigger than the rest at the same point size.
                       <div className="mt-0.5 flex w-full items-center justify-between gap-2">
-                        <span className={`shrink-0 whitespace-nowrap rounded px-1.5 py-0.5 text-xs ${STATUS_PILL_CLASS}`}>
-                          {STATUS_LABEL[status]}
-                        </span>
+                        <div className="flex flex-wrap items-center gap-1">
+                          <span className={`shrink-0 whitespace-nowrap rounded px-1.5 py-0.5 text-xs ${STATUS_PILL_CLASS}`}>
+                            {STATUS_LABEL[status]}
+                          </span>
+                          {/* Per Tim, 2026-09-11 (26-0026) — an invoice can go
+                              out before the lab results come back (he waits
+                              for payment before sending the report), so
+                              "Payment Pending" here doesn't tell the whole
+                              story: this job is also still blocked on the
+                              lab, same as job.status already tracks on the
+                              Projects page. */}
+                          {job.status === "pending_lab_results" && (
+                            <span className={`shrink-0 whitespace-nowrap rounded px-1.5 py-0.5 text-xs ${STATUS_PILL_CLASS}`}>
+                              Pending Lab Results
+                            </span>
+                          )}
+                        </div>
                         <div className="text-right text-xs text-slate-500">
                           {status === "paid" ? (
                             <>Paid {formatDate(job.paid_date)}</>

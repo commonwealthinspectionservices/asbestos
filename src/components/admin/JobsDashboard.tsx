@@ -3889,7 +3889,23 @@ export function ProjectDetailDialog({
                                           {results.map((s, i) => {
                                             const isPositive = /%/.test(s.result);
                                             const finding = findingFor(s.fieldCode);
-                                            const showFootageInput = isPositive && group.domain === "asbestos";
+                                            // Per Tim, 2026-09-11 (26-0026) — this per-sample
+                                            // footage input writes to sample_findings, but a
+                                            // Full Inspection report (report-pdf.tsx's
+                                            // FullInspectionAsbestosReportDocument) never reads
+                                            // that field at all — only the separate Materials
+                                            // Sampled table below (full_inspection_materials)
+                                            // feeds the report. Showing an editable footage box
+                                            // here for a Full Inspection job let him fill in real
+                                            // numbers that silently went nowhere, while the
+                                            // report's own "Total Materials Sampled" stayed
+                                            // blank. Still show the "Material not available"
+                                            // notice either way — informational, tells him
+                                            // Crystal's own PDF didn't have a material name for
+                                            // this row.
+                                            const isFull = isFullInspectionAsbestosJob(job.service_type);
+                                            const showMaterialNotice = isPositive && group.domain === "asbestos";
+                                            const showFootageInput = showMaterialNotice && !isFull;
                                             const material = s.material || (showFootageInput ? finding.material : undefined);
                                             return (
                                               <div
@@ -3900,7 +3916,7 @@ export function ProjectDetailDialog({
                                                 <div className="min-w-[10rem] flex-1 text-slate-600">
                                                   {material ? (
                                                     material
-                                                  ) : showFootageInput ? (
+                                                  ) : showMaterialNotice ? (
                                                     <span className="italic text-slate-400">Material not available</span>
                                                   ) : null}
                                                 </div>

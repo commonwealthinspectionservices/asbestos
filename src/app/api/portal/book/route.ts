@@ -8,6 +8,7 @@ import { maybeSendImmediateAreaAlert } from "@/lib/area-health";
 import { sendNewBookingRequestEmail, sendCustomerBookingReceivedEmail } from "@/lib/booking-notify";
 import { generateProjectNumber } from "@/lib/project-number";
 import { resolveServiceSelection } from "@/lib/portal-booking";
+import { FLI_ENVIRONMENTAL_COMPANY_ID } from "@/lib/report-findings";
 
 // Thinner sibling of /api/book's "submit" step: same acceptance rules
 // (service-area + capacity), but identity comes from the session instead of
@@ -21,7 +22,15 @@ export const POST = withApiErrors(async (req: NextRequest) => {
   const {
     address, lat, lng, distanceMiles, state, serviceTypeKeys, date: requestedDate, requestedTime,
     scheduleViaContact, siteContactName, siteContactPhone, notes, scopeOfWork, disclaimerAck,
+    fliProjectNumber, subcontractorClientCompany, subcontractorClientAddress,
+    subcontractorClientContactName, subcontractorClientContactPhone, subcontractorClientContactEmail,
   } = body ?? {};
+
+  // Server-side gate, not just PortalBookingForm.tsx only sending these
+  // fields when it thinks it should — a raw request from a non-FLI
+  // account can't plant subcontractor_client_* data on someone else's
+  // job type just because the client happened to send it.
+  const isFliEnvironmental = auth.customer.company_id === FLI_ENVIRONMENTAL_COMPANY_ID;
 
   // An individual booking on their own behalf IS the job site contact —
   // no separate "coordinate with job site contact" step exists for them
@@ -103,6 +112,12 @@ export const POST = withApiErrors(async (req: NextRequest) => {
       disclaimer_ack: true,
       distance_miles: distanceMiles ?? null,
       is_individual: auth.customer.is_individual,
+      fli_project_number: isFliEnvironmental ? (fliProjectNumber || null) : null,
+      subcontractor_client_company: isFliEnvironmental ? (subcontractorClientCompany || null) : null,
+      subcontractor_client_address: isFliEnvironmental ? (subcontractorClientAddress || null) : null,
+      subcontractor_client_contact_name: isFliEnvironmental ? (subcontractorClientContactName || null) : null,
+      subcontractor_client_contact_phone: isFliEnvironmental ? (subcontractorClientContactPhone || null) : null,
+      subcontractor_client_contact_email: isFliEnvironmental ? (subcontractorClientContactEmail || null) : null,
     })
     .select("*")
     .single();

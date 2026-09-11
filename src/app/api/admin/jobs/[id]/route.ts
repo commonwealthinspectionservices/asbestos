@@ -4,6 +4,7 @@ import { requireAdminApi } from "@/lib/admin-api";
 import { withApiErrors } from "@/lib/api-handler";
 import { parseLineItems, lineItemsTotalCents } from "@/lib/invoice-line-items";
 import { parseSampleItems, parseSampleCounts, parseFullInspectionMaterials, parseSampleFindings } from "@/lib/sample-items";
+import type { FullInspectionMaterial } from "@/lib/types";
 
 const EDITABLE_FIELDS = [
   "project_number",
@@ -185,6 +186,41 @@ export const PATCH = withApiErrors(async (
       return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
     patch.sample_findings = parsed.findings;
+
+    // Per Tim, 2026-09-11 (26-0026) — the footage typed in right next to a
+    // positive sample here is the one place he fills this in for every
+    // asbestos job, Full Inspection included. A Full Inspection report
+    // reads its Appendix A quantity off the separate Materials Sampled
+    // table (full_inspection_materials) instead, so this keeps that
+    // table's matching row's own estimated_quantity in sync — otherwise a
+    // number typed here would silently go nowhere for those jobs, same
+    // bug as before. Skipped when this same request already carries its
+    // own full_inspection_materials (the materials editor's own save
+    // already has the current value; this would just stomp it with a
+    // stale read).
+    if (!("full_inspection_materials" in body)) {
+      const { data: currentRow } = await getSupabaseAdminFresh()
+        .from("jobs")
+        .select("full_inspection_materials")
+        .eq("id", params.id)
+        .maybeSingle();
+      const existingMaterials = (currentRow?.full_inspection_materials ?? []) as FullInspectionMaterial[];
+      if (existingMaterials.length > 0) {
+        const findingByCode = new Map(parsed.findings.map((f) => [f.fieldCode, f]));
+        let changed = false;
+        const synced = existingMaterials.map((m) => {
+          const codes = m.sample_numbers.split(",").map((c) => c.trim()).filter(Boolean);
+          const matchingFinding = codes.map((c) => findingByCode.get(c)).find((f) => f?.estimated_quantity?.trim());
+          if (!matchingFinding) return m;
+          const unitLabel = matchingFinding.unit === "linear_ft" ? "linear ft" : "sq ft";
+          const newQuantity = `${matchingFinding.estimated_quantity.trim()} ${unitLabel}`;
+          if (m.estimated_quantity === newQuantity) return m;
+          changed = true;
+          return { ...m, estimated_quantity: newQuantity };
+        });
+        if (changed) patch.full_inspection_materials = synced;
+      }
+    }
   }
 
   if (Object.keys(patch).length === 0) {

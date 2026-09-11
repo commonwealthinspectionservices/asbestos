@@ -5241,16 +5241,6 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
   const [endClientCity, setEndClientCity] = useState("");
   const [endClientState, setEndClientState] = useState("");
   const [endClientZip, setEndClientZip] = useState("");
-  // Per Tim, 2026-08-31 — the end client's own business contact (e.g. an
-  // office admin at RestoreNOW LLC) — genuinely a different person from
-  // siteContactName/Phone below, which is whoever's physically at the job
-  // site (see subcontractor_client_contact_name's own comment in types.ts).
-  // Per Tim, same day — "first name cell and the last name cell": two
-  // inputs, joined into that one stored column on submit.
-  const [endClientContactFirstName, setEndClientContactFirstName] = useState("");
-  const [endClientContactLastName, setEndClientContactLastName] = useState("");
-  const [endClientContactPhone, setEndClientContactPhone] = useState("");
-  const [endClientContactEmail, setEndClientContactEmail] = useState("");
   // Per Tim, 2026-08-31 — "obviously I should be able to add that in when
   // I make the job": FLI's own project number, settable up front here
   // instead of only after the fact via the Asbestos Report tab's inline
@@ -5475,9 +5465,6 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
           subcontractorClientAddress: buildBillingAddress({
             street: endClientStreet, unit: endClientUnit, city: endClientCity, state: endClientState, zip: endClientZip,
           }) || undefined,
-          subcontractorClientContactName: [endClientContactFirstName.trim(), endClientContactLastName.trim()].filter(Boolean).join(" ") || undefined,
-          subcontractorClientContactPhone: endClientContactPhone.trim() || undefined,
-          subcontractorClientContactEmail: endClientContactEmail.trim() || undefined,
           fliProjectNumber: fliProjectNumber.trim() || undefined,
           serviceTypeKeys: selectedServiceTypeKeys,
           customServiceType: [moistureMappingChecked ? "Moisture Mapping" : null, customServiceType.trim() || null].filter(Boolean).join(", ") || undefined,
@@ -5712,6 +5699,48 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
 
         {customerKind === "company" && contactFields}
 
+        {isFliEnvironmental && (
+          // Per Tim, 2026-09-11 — moved up to sit directly under FLI
+          // Environmental contact (Dave) above, ahead of Job site address
+          // and FLI's client below — the genuine job site contact
+          // (whoever's physically there, distinct from both Dave and
+          // FLI's client's own business contact) — same plain fields
+          // every other job type gets.
+          <>
+            <label className="mt-3 block text-sm font-medium text-slate-700">Job site contact</label>
+            <div className="mt-1 flex flex-col gap-2 sm:flex-row">
+              <div className="min-w-0 sm:w-0 sm:flex-1">
+                <input
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  value={siteContactName}
+                  onChange={(e) => { setSiteContactName(e.target.value); setSiteContactSameAsContact(false); }}
+                  placeholder="Name"
+                />
+              </div>
+              <div className="min-w-0 sm:w-0 sm:flex-1">
+                <input
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  placeholder="Phone"
+                  value={siteContactPhone}
+                  onChange={(e) => {
+                    setSiteContactPhone(formatPhoneInput(e.target.value));
+                    setSiteContactSameAsContact(false);
+                  }}
+                />
+              </div>
+            </div>
+            {siteContactName.trim() && (
+              <button
+                type="button"
+                onClick={() => setSavingSiteContactAsCompany(true)}
+                className="mt-1.5 text-xs font-medium text-brand-600 underline"
+              >
+                + Save {siteContactName.trim()} as a company contact (not a homeowner)
+              </button>
+            )}
+          </>
+        )}
+
         <label className="mt-3 block text-sm font-medium text-slate-700">Job site address</label>
         <div className="mt-1 flex flex-col gap-1.5 sm:flex-row">
           <div className="min-w-0 sm:w-0 sm:flex-1">
@@ -5773,11 +5802,13 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
           // job site contact whoever it is, dave from fli and then the
           // company contact from who FLI's client is": this block is that
           // third contact — the end client's own business office (e.g.
-          // RestoreNOW LLC's own billing-info sheet: company, billing
-          // address, PO#, and a real contact person's name/phone/email).
-          // Genuinely distinct from Job site contact below (whoever's
-          // physically at the job site) and from Dave MacDonald (FLI's
-          // own internal contact, not stored per-job).
+          // RestoreNOW LLC's own billing-info sheet: company + billing
+          // address). Genuinely distinct from Job site contact above
+          // (whoever's physically at the job site) and from Dave
+          // MacDonald (FLI's own internal contact, not stored per-job).
+          // Per Tim, 2026-09-11 — the contact person's own name/phone/
+          // email (once collected here too) is gone; company + address is
+          // enough.
           <>
             <label className="mt-3 block text-sm font-medium text-slate-700">
               {companyName.trim() || "Their"}&apos;s client
@@ -5835,42 +5866,6 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
                 onChange={(e) => setEndClientState(e.target.value)}
               />
               <ZipInput street={endClientStreet} city={endClientCity} state={endClientState} zip={endClientZip} setZip={setEndClientZip} />
-            </div>
-            <div className="mt-1.5 flex flex-col gap-2 sm:flex-row">
-              <div className="min-w-0 sm:w-0 sm:flex-1">
-                <input
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                  value={endClientContactFirstName}
-                  onChange={(e) => setEndClientContactFirstName(e.target.value)}
-                  placeholder="First name"
-                />
-              </div>
-              <div className="min-w-0 sm:w-0 sm:flex-1">
-                <input
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                  value={endClientContactLastName}
-                  onChange={(e) => setEndClientContactLastName(e.target.value)}
-                  placeholder="Last name"
-                />
-              </div>
-            </div>
-            <div className="mt-1.5 flex flex-col gap-2 sm:flex-row">
-              <div className="min-w-0 sm:w-0 sm:flex-1">
-                <input
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                  placeholder="Contact's phone"
-                  value={endClientContactPhone}
-                  onChange={(e) => setEndClientContactPhone(formatPhoneInput(e.target.value))}
-                />
-              </div>
-              <div className="min-w-0 sm:w-0 sm:flex-1">
-                <input
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                  value={endClientContactEmail}
-                  onChange={(e) => setEndClientContactEmail(e.target.value)}
-                  placeholder="Contact's email"
-                />
-              </div>
             </div>
           </>
         ) : isSubcontractingFor ? (
@@ -5946,45 +5941,6 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
                 />
               </div>
             </div>
-          </>
-        )}
-
-        {isFliEnvironmental && (
-          // Per Tim, 2026-08-31 — the genuine job site contact (whoever's
-          // physically there, distinct from FLI's client's own business
-          // contact above) — same plain fields every other job type gets.
-          <>
-            <label className="mt-3 block text-sm font-medium text-slate-700">Job site contact</label>
-            <div className="mt-1 flex flex-col gap-2 sm:flex-row">
-              <div className="min-w-0 sm:w-0 sm:flex-1">
-                <input
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                  value={siteContactName}
-                  onChange={(e) => { setSiteContactName(e.target.value); setSiteContactSameAsContact(false); }}
-                  placeholder="Name"
-                />
-              </div>
-              <div className="min-w-0 sm:w-0 sm:flex-1">
-                <input
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                  placeholder="Phone"
-                  value={siteContactPhone}
-                  onChange={(e) => {
-                    setSiteContactPhone(formatPhoneInput(e.target.value));
-                    setSiteContactSameAsContact(false);
-                  }}
-                />
-              </div>
-            </div>
-            {siteContactName.trim() && (
-              <button
-                type="button"
-                onClick={() => setSavingSiteContactAsCompany(true)}
-                className="mt-1.5 text-xs font-medium text-brand-600 underline"
-              >
-                + Save {siteContactName.trim()} as a company contact (not a homeowner)
-              </button>
-            )}
           </>
         )}
 
@@ -6332,18 +6288,6 @@ export function EditProjectDialog({
   const [endClientCity, setEndClientCity] = useState(endClientAddressInit.city);
   const [endClientState, setEndClientState] = useState(endClientAddressInit.state);
   const [endClientZip, setEndClientZip] = useState(endClientAddressInit.zip);
-  // Per Tim, 2026-08-31 — "first name cell and the last name cell": still
-  // just one stored column (subcontractor_client_contact_name) — split on
-  // the first space to prefill these two inputs from it.
-  const endClientContactNameInit = useMemo(() => {
-    const full = (job.subcontractor_client_contact_name ?? "").trim();
-    const spaceIdx = full.indexOf(" ");
-    return spaceIdx === -1 ? { first: full, last: "" } : { first: full.slice(0, spaceIdx), last: full.slice(spaceIdx + 1) };
-  }, [job.subcontractor_client_contact_name]);
-  const [endClientContactFirstName, setEndClientContactFirstName] = useState(endClientContactNameInit.first);
-  const [endClientContactLastName, setEndClientContactLastName] = useState(endClientContactNameInit.last);
-  const [endClientContactPhone, setEndClientContactPhone] = useState(job.subcontractor_client_contact_phone ?? "");
-  const [endClientContactEmail, setEndClientContactEmail] = useState(job.subcontractor_client_contact_email ?? "");
   const [fliProjectNumber, setFliProjectNumber] = useState(job.fli_project_number ?? "");
   const [selectedServiceTypeKeys, setSelectedServiceTypeKeys] = useState<string[]>([]);
   const [customServiceType, setCustomServiceType] = useState("");
@@ -6581,9 +6525,6 @@ export function EditProjectDialog({
             subcontractor_client_address: buildBillingAddress({
               street: endClientStreet, unit: endClientUnit, city: endClientCity, state: endClientState, zip: endClientZip,
             }) || null,
-            subcontractor_client_contact_name: [endClientContactFirstName.trim(), endClientContactLastName.trim()].filter(Boolean).join(" ") || null,
-            subcontractor_client_contact_phone: endClientContactPhone.trim() || null,
-            subcontractor_client_contact_email: endClientContactEmail.trim() || null,
             fli_project_number: fliProjectNumber.trim() || null,
             service_address: serviceAddress || null,
             service_type: serviceTypeLabel || null,
@@ -6640,7 +6581,7 @@ export function EditProjectDialog({
     projectNumber, status, companyName, companyId, customerId, contactName, email, phone,
     reportEmailsList, invoiceEmailsList,
     serviceStreet, serviceUnit, serviceCity, serviceState, serviceZip,
-    siteContactName, siteContactPhone, endClientCompany, endClientStreet, endClientUnit, endClientCity, endClientState, endClientZip, endClientContactFirstName, endClientContactLastName, endClientContactPhone, endClientContactEmail, fliProjectNumber, selectedServiceTypeKeys, customServiceType, moistureMappingChecked, scopeOfWork,
+    siteContactName, siteContactPhone, endClientCompany, endClientStreet, endClientUnit, endClientCity, endClientState, endClientZip, fliProjectNumber, selectedServiceTypeKeys, customServiceType, moistureMappingChecked, scopeOfWork,
     confirmedDate, confirmedTime, paidDate, dueDate, notes, paymentType, isRevisit,
   ]);
 
@@ -6920,11 +6861,13 @@ export function EditProjectDialog({
           // job site contact whoever it is, dave from fli and then the
           // company contact from who FLI's client is": this block is that
           // third contact — the end client's own business office (e.g.
-          // RestoreNOW LLC's own billing-info sheet: company, billing
-          // address, PO#, and a real contact person's name/phone/email).
-          // Genuinely distinct from Job site contact below (whoever's
-          // physically at the job site) and from Dave MacDonald (FLI's
-          // own internal contact, not stored per-job).
+          // RestoreNOW LLC's own billing-info sheet: company + billing
+          // address). Genuinely distinct from Job site contact below
+          // (whoever's physically at the job site) and from Dave
+          // MacDonald (FLI's own internal contact, not stored per-job).
+          // Per Tim, 2026-09-11 — the contact person's own name/phone/
+          // email (once collected here too) is gone; company + address is
+          // enough.
           <>
             <label className="mt-3 block text-sm font-medium text-slate-700">
               {companyName.trim() || "Their"}&apos;s client
@@ -6985,42 +6928,6 @@ export function EditProjectDialog({
                 onChange={(e) => setEndClientState(e.target.value)}
               />
               <ZipInput street={endClientStreet} city={endClientCity} state={endClientState} zip={endClientZip} setZip={setEndClientZip} />
-            </div>
-            <div className="mt-1.5 flex gap-2">
-              <div className="w-0 flex-1">
-                <input
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                  value={endClientContactFirstName}
-                  onChange={(e) => setEndClientContactFirstName(e.target.value)}
-                  placeholder="First name"
-                />
-              </div>
-              <div className="w-0 flex-1">
-                <input
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                  value={endClientContactLastName}
-                  onChange={(e) => setEndClientContactLastName(e.target.value)}
-                  placeholder="Last name"
-                />
-              </div>
-            </div>
-            <div className="mt-1.5 flex gap-2">
-              <div className="w-0 flex-1">
-                <input
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                  placeholder="Contact's phone"
-                  value={endClientContactPhone}
-                  onChange={(e) => setEndClientContactPhone(formatPhoneInput(e.target.value))}
-                />
-              </div>
-              <div className="w-0 flex-1">
-                <input
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                  value={endClientContactEmail}
-                  onChange={(e) => setEndClientContactEmail(e.target.value)}
-                  placeholder="Contact's email"
-                />
-              </div>
             </div>
           </>
         ) : isSubcontractingFor ? (
@@ -7105,10 +7012,40 @@ export function EditProjectDialog({
           </>
         )}
 
+        {/* Per Tim, 2026-08-31 — "this should be 'FLI Environmental
+            contact'": disambiguates from "FLI Environmental's client"/"Job
+            site contact" — this one is specifically Dave MacDonald, the
+            Directory contact this job is filed under. */}
+        <label className="mt-3 block text-sm font-medium text-slate-700">
+          {isFliEnvironmental ? "FLI Environmental contact" : companyName.trim() ? "Company contact" : "Customer contact"}
+        </label>
+        <div className="mt-1 flex gap-2">
+          <div className="w-0 flex-1">
+            <ComboboxInput
+              value={contactName}
+              onChange={(v) => { setContactName(v); setEmail(""); setPhone(""); setCustomerId(""); }}
+              fetchOptions={searchContacts}
+              getLabel={(c) => c.name}
+              getSublabel={(c) => c.email}
+              onSelect={selectContact}
+              placeholder="Name"
+            />
+          </div>
+          <div className="w-0 flex-1">
+            <input
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              placeholder="Phone"
+              value={phone}
+              onChange={(e) => setPhone(formatPhoneInput(e.target.value))}
+            />
+          </div>
+        </div>
+
         {isFliEnvironmental && (
-          // Per Tim, 2026-08-31 — the genuine job site contact (whoever's
-          // physically there, distinct from FLI's client's own business
-          // contact above) — same plain fields every other job type gets.
+          // Per Tim, 2026-09-11 — moved up to sit directly under FLI
+          // Environmental contact (Dave) above — the genuine job site
+          // contact (whoever's physically there, distinct from both Dave
+          // and FLI's client's own business contact above that).
           <>
             <label className="mt-3 block text-sm font-medium text-slate-700">Job site contact</label>
             <div className="mt-1 flex gap-2">
@@ -7140,35 +7077,6 @@ export function EditProjectDialog({
             )}
           </>
         )}
-
-        {/* Per Tim, 2026-08-31 — "this should be 'FLI Environmental
-            contact'": disambiguates from "FLI Environmental's client"/"Job
-            site contact" — this one is specifically Dave MacDonald, the
-            Directory contact this job is filed under. */}
-        <label className="mt-3 block text-sm font-medium text-slate-700">
-          {isFliEnvironmental ? "FLI Environmental contact" : companyName.trim() ? "Company contact" : "Customer contact"}
-        </label>
-        <div className="mt-1 flex gap-2">
-          <div className="w-0 flex-1">
-            <ComboboxInput
-              value={contactName}
-              onChange={(v) => { setContactName(v); setEmail(""); setPhone(""); setCustomerId(""); }}
-              fetchOptions={searchContacts}
-              getLabel={(c) => c.name}
-              getSublabel={(c) => c.email}
-              onSelect={selectContact}
-              placeholder="Name"
-            />
-          </div>
-          <div className="w-0 flex-1">
-            <input
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-              placeholder="Phone"
-              value={phone}
-              onChange={(e) => setPhone(formatPhoneInput(e.target.value))}
-            />
-          </div>
-        </div>
 
         {/* Per Tim, 2026-09-03 — "I need to be able to edit these and add
             to these, not just add to these": every row is a plain

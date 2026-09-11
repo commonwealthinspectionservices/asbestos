@@ -401,7 +401,17 @@ function DraftLinkControl({
 // draft with exactly those attachments — see createSelectedDraftForJob in
 // lib/lab-email.ts for how that combination maps onto the existing
 // report_*/invoice_* sent-tracking columns.
-function EmailChecklistPanel({ job, onChanged }: { job: JobWithCustomer; onChanged: () => void }) {
+function EmailChecklistPanel({
+  job, onChanged, onBeforeCreateDraft,
+}: {
+  job: JobWithCustomer;
+  onChanged: () => void;
+  /** Flushes the Invoice tab's own pending debounced save (if any) before
+      this draft is built — see flushInvoiceSave's own comment. Without
+      this, drafting right after editing samples/line items could read the
+      job row before that ~1s-debounced edit had actually landed. */
+  onBeforeCreateDraft: () => Promise<void>;
+}) {
   const domains = jobReportDomains(job.service_type);
   const isMoistureMappingJob = (job.service_type ?? "").toLowerCase().includes("moisture mapping");
   const hasPhotos = (job.photos?.length ?? 0) > 0;
@@ -455,6 +465,7 @@ function EmailChecklistPanel({ job, onChanged }: { job: JobWithCustomer; onChang
     setCreating(true);
     setError(null);
     try {
+      await onBeforeCreateDraft();
       const res = await fetch(`/api/admin/jobs/${job.id}/create-draft?kind=custom`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -2304,6 +2315,11 @@ export function ProjectDetailDialog({
   const lastAppliedInvoiceDefaultRef = useRef<string>(JSON.stringify(defaultLineItems(job, serviceTypeSettings, pricingZones)));
   const invoiceHasMountedRef = useRef(false);
   const invoiceDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Tracks "a debounced save hasn't actually run yet" specifically —
+  // invoiceDebounceRef itself stays non-null forever once first set (its
+  // own timer id is never cleared back to null once it fires), so it can't
+  // answer that question on its own; flushInvoiceSave below needs to.
+  const invoiceSavePendingRef = useRef(false);
   // Set only by real admin edits (typing a field, +Custom Line Item,
   // +Samples, Delete) — never by the auto-recompute effect below — so
   // saveInvoice() can tell the two apart and persist invoice_auto correctly.
@@ -2768,6 +2784,21 @@ export function ProjectDetailDialog({
     }
   }
 
+  // Per Tim, 2026-09-10 — editing samples right before drafting the invoice
+  // (e.g. pricing it before lab results are back) produced a draft still
+  // showing the old total: saveInvoice's own debounce (below) waits ~1s
+  // before actually persisting a line-item edit, so a draft created within
+  // that window read the job row from the database before the edit had
+  // landed, even though the Invoice tab's own total already showed the new
+  // number. Called before create-draft fires, from wherever a draft gets
+  // created, so the database is always caught up first.
+  async function flushInvoiceSave() {
+    if (!invoiceSavePendingRef.current) return;
+    if (invoiceDebounceRef.current) clearTimeout(invoiceDebounceRef.current);
+    invoiceSavePendingRef.current = false;
+    await saveInvoice();
+  }
+
   // Auto-saves ~1s after the admin stops editing a line item — the Invoice
   // tab is meant to stay "live" the same way Edit Project does, rather than
   // requiring a separate explicit save step. Skips the very first render so
@@ -2784,7 +2815,9 @@ export function ProjectDetailDialog({
       return;
     }
     if (invoiceDebounceRef.current) clearTimeout(invoiceDebounceRef.current);
+    invoiceSavePendingRef.current = true;
     invoiceDebounceRef.current = setTimeout(() => {
+      invoiceSavePendingRef.current = false;
       saveInvoice();
     }, 1000);
     return () => {
@@ -4392,7 +4425,7 @@ export function ProjectDetailDialog({
         )}
 
         {tab === "email" && job.source !== "subcontractor" && (
-          <EmailChecklistPanel job={job} onChanged={onChanged} />
+          <EmailChecklistPanel job={job} onChanged={onChanged} onBeforeCreateDraft={flushInvoiceSave} />
         )}
 
         {/* Per Tim, 2026-09-04 — "this tab should be moisture mapping w
@@ -5338,8 +5371,8 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
 
   function selectContact(contact: Customer) {
     setContactName(contact.name);
-    setEmail(contact.email);
-    setPhone(contact.phone);
+    setEmail(contact.email ?? "");
+    setPhone(contact.phone ?? "");
     setContactId(contact.id);
   }
 
@@ -6194,8 +6227,8 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
           setCreatingContact(false);
           if (!customer) return;
           setContactName(customer.name);
-          setEmail(customer.email);
-          setPhone(customer.phone);
+          setEmail(customer.email ?? "");
+          setPhone(customer.phone ?? "");
           setContactId(customer.id);
           if (customer.company_id) {
             setCompanyId(customer.company_id);
@@ -6464,8 +6497,8 @@ export function EditProjectDialog({
   function selectContact(contact: Customer) {
     setCustomerId(contact.id);
     setContactName(contact.name);
-    setEmail(contact.email);
-    setPhone(contact.phone);
+    setEmail(contact.email ?? "");
+    setPhone(contact.phone ?? "");
   }
 
   function toggleServiceType(key: string) {

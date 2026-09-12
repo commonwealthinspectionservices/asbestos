@@ -2475,28 +2475,53 @@ export function ProjectDetailDialog({
       />
     </div>
   );
-  // Per Tim, 2026-09-04 — asbestos-only "# of samples" cell: auto-fills
-  // from sample_counts (the lab-parsed per-service-type breakdown) or
-  // sample_results.length as a raw fallback, but job.sample_count — once
-  // set — always wins, so a manual correction sticks even if the lab
-  // report gets re-parsed later. Deliberately small (w-20, not the full
-  // row width the other fields use) — it's one short number, not a name
-  // or date.
-  const autoAsbestosSampleCount =
-    Object.entries(job.sample_counts ?? {})
-      .filter(([label]) => domainForServiceTypeLabel(label) === "asbestos")
-      .reduce((sum, [, n]) => sum + (n || 0), 0) || job.sample_results.length || 0;
-  const sampleCountInput = (
+  // Per Tim, 2026-09-04 — "# of samples" cell: auto-fills from
+  // sample_counts (the lab-parsed per-service-type breakdown), but
+  // job.sample_count — once set — always wins, so a manual correction
+  // sticks even if the lab report gets re-parsed later. Deliberately small
+  // (w-20, not the full row width the other fields use) — it's one short
+  // number, not a name or date.
+  function perDomainSampleCount(domain: ReportDomain): number {
+    return Object.entries(job.sample_counts ?? {})
+      .filter(([label]) => domainForServiceTypeLabel(label) === domain)
+      .reduce((sum, [, n]) => sum + (n || 0), 0);
+  }
+  // Per Tim, 2026-09-12 (26-0019) — was asbestos-only. reportChecklist's own
+  // "Sample count" item is domain-aware for lead too, but had no editable UI
+  // for lead at all — a lead job whose report gets misfiled/re-filed under
+  // the wrong service_type (see fix-26-0019-lead-docs) never gets a real
+  // sample_counts entry for its label and had no way to ever satisfy that
+  // checklist item.
+  //
+  // Exposing this for lead can't just reuse job.sample_count the way
+  // asbestos does, though — that field is job-wide, not domain-scoped, and
+  // this job's own asbestos tab briefly showed a wrong "2" (borrowed from a
+  // lead edit) when tried live, since a mixed asbestos+lead job shares one
+  // job.sample_count across both tabs' inputs. Lead (and any future
+  // non-asbestos domain) instead writes straight into the per-label
+  // sample_counts map already used for the auto-parsed count — the same
+  // field a real lab-email re-parse would update, so a manual entry here
+  // can get overwritten by a later automatic re-parse the same way an
+  // asbestos sample_counts entry already can; unlike job.sample_count
+  // there's no separate "override always wins" field for lead. Acceptable
+  // for now since this only fires when a document was manually re-filed, a
+  // rare, already-manual-intervention path.
+  function autoSampleCountFor(domain: ReportDomain): number {
+    const perDomain = perDomainSampleCount(domain);
+    if (perDomain > 0) return perDomain;
+    return domain === "asbestos" ? job.sample_results.length : 0;
+  }
+  const sampleCountInput = (domain: ReportDomain, labels: string[]) => (
     <div className="flex w-full items-center gap-2 text-sm">
       <span className="w-28 shrink-0 text-xs font-semibold uppercase text-slate-400"># of Samples</span>
       <input
         type="number"
         min={0}
-        placeholder={String(autoAsbestosSampleCount)}
+        placeholder={String(autoSampleCountFor(domain))}
         className="h-9 w-20 min-w-0 rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
-        defaultValue={job.sample_count ?? ""}
-        key={job.sample_count ?? "auto"}
-        onBlur={(e) => saveSampleCount(e.target.value)}
+        defaultValue={domain === "asbestos" ? job.sample_count ?? "" : perDomainSampleCount(domain) || ""}
+        key={domain === "asbestos" ? job.sample_count ?? "auto" : perDomainSampleCount(domain) || "auto"}
+        onBlur={(e) => (domain === "asbestos" ? saveSampleCount(e.target.value) : saveDomainSampleCount(e.target.value, labels[0]))}
       />
     </div>
   );
@@ -2732,6 +2757,25 @@ export function ProjectDetailDialog({
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ sample_count: parsed !== null && Number.isFinite(parsed) ? parsed : null }),
+    });
+    onChanged();
+  }
+
+  // Non-asbestos counterpart to saveSampleCount — see sampleCountInput's own
+  // comment for why this writes straight into sample_counts[label] instead
+  // of the shared job.sample_count field a mixed job's asbestos tab also
+  // reads. Clearing the input removes that label's entry entirely, falling
+  // back to the auto-computed 0 (there's no lab-parsed value to fall back
+  // to the way asbestos's blank-clears-override does).
+  async function saveDomainSampleCount(value: string, label: string) {
+    const parsed = value.trim() === "" ? null : Number(value);
+    const next = { ...(job.sample_counts ?? {}) };
+    if (parsed !== null && Number.isFinite(parsed)) next[label] = parsed;
+    else delete next[label];
+    await fetch(`/api/admin/jobs/${job.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sample_counts: next }),
     });
     onChanged();
   }
@@ -3831,7 +3875,7 @@ export function ProjectDetailDialog({
                               <div className="mb-4 space-y-2">
                                 {labDropdown(group.domain)}
                                 {dateSampledInput(group.domain)}
-                                {group.domain === "asbestos" && sampleCountInput}
+                                {(group.domain === "asbestos" || group.domain === "lead") && sampleCountInput(group.domain, group.labels)}
                                 {isFliJob && group.domain === "asbestos" && fliProjectNumberInput}
                               </div>
                             )}

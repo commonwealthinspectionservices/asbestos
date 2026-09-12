@@ -5,7 +5,7 @@ import { expandAddress } from "@/lib/address";
 import { formatDateMDY, formatRequestedTime, formatRequestedTimeWindow } from "@/lib/date-format";
 import { formatCents } from "@/lib/pricing";
 import { getSupabaseAdmin } from "@/lib/supabase";
-import { threadSubject, scheduledNotificationSubject, sendThreadedEmail } from "@/lib/email-thread";
+import { threadSubject, scheduledNotificationSubject, bookingRequestSubject, sendThreadedEmail } from "@/lib/email-thread";
 
 /**
  * Every new booking — anonymous (/api/book) or portal (/api/portal/book) —
@@ -143,7 +143,7 @@ export async function sendCustomerBookingReceivedEmail(params: {
 
   const result = await sendThreadedEmail({
     to: params.customerEmail,
-    subject: threadSubject(params.address, params.serviceLabel),
+    subject: bookingRequestSubject(params.address),
     existingMessageIds: [],
     gmailThreadId: null,
     html: emailShell(`

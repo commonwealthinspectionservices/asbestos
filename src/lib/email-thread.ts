@@ -48,6 +48,17 @@ export function scheduledNotificationSubject(address: string): string {
   return `Inspection Confirmed - ${expandAddress(address)}`;
 }
 
+// Per Tim, 2026-09-12 — sendCustomerBookingReceivedEmail (the very first
+// email in a job's thread, always sent with existingMessageIds: []) was
+// sharing threadSubject's "...Report - <address>" phrasing too, same
+// problem as scheduledNotificationSubject above: nothing has been
+// inspected yet, so "Report" doesn't fit. Own, stable subject just for
+// that one email; every later email in the chain still shares
+// threadSubject as before.
+export function bookingRequestSubject(address: string): string {
+  return `Inspection Request - ${expandAddress(address)}`;
+}
+
 // In-Reply-To is just the immediately previous message; References is the
 // full chain, oldest first — standard RFC 5322 convention. Exported for
 // lab-email.ts's report/invoice draft, which builds its own headers

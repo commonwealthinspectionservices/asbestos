@@ -861,10 +861,23 @@ function LeadReportDocument({ job, customer, settings }: ProjectReportData) {
 
         <Text style={styles.salutation}>Dear <ValueOrBlank style={styles.salutation} value={knownCustomerName} inline />:</Text>
 
+        {/* Per Tim, 2026-09-12 — a short lead letter (the common case; this
+            template carries no sample list or appendix the way asbestos's
+            does) was ending well short of the page, and a single spacer in
+            one spot just moved all the leftover space into one big gap
+            instead of spreading it out. Five equal-weight spacers, one
+            between each major block from here down, divide it evenly
+            instead — the letter opening above (header/RE/recipient/
+            salutation) stays tight, the way a real letter's address block
+            does. */}
+        <View style={{ flexGrow: 1 }} />
+
         <Text style={styles.paragraph}>
           {settings.business_name} collected paint chip samples as directed from the address noted above. Samples were
           transported under chain-of-custody protocol to an accredited laboratory for analysis.
         </Text>
+
+        <View style={{ flexGrow: 1 }} />
 
         <View wrap={false}>
         <Text style={styles.sectionTitleTight}>Sampling Summary:</Text>
@@ -876,6 +889,8 @@ function LeadReportDocument({ job, customer, settings }: ProjectReportData) {
         </View>
         </View>
 
+        <View style={{ flexGrow: 1 }} />
+
         <Text style={styles.paragraph}>
           Paint chip samples were collected in a random manner and submitted via chain of custody to the analytical
           laboratory. The samples were analyzed for Total Concentration of Lead by EPA Method SW846/3050B/7000B. Any
@@ -884,6 +899,8 @@ function LeadReportDocument({ job, customer, settings }: ProjectReportData) {
           weight (5,000 ppm) to be lead-based paint (LBP). Laboratory Analytical Data Sheets are attached and provide
           details about each sample collected.
         </Text>
+
+        <View style={{ flexGrow: 1 }} />
 
         <Text style={styles.sectionTitle}>Remarks and Limitations:</Text>
         <View style={styles.listBlock}>
@@ -895,13 +912,6 @@ function LeadReportDocument({ job, customer, settings }: ProjectReportData) {
           ))}
         </View>
 
-        {/* Per Tim, 2026-09-12 — a short lead letter (the common case; this
-            template carries no sample list or appendix the way asbestos's
-            does) was ending well short of the page, all the leftover space
-            stranded below the signature. Absorbing it here instead — before
-            the closing paragraph/signature rather than after — keeps that
-            page-filling behavior only in the space between them; the
-            closing itself still reads as one place. */}
         <View style={{ flexGrow: 1 }} />
 
         <Text style={styles.paragraph}>

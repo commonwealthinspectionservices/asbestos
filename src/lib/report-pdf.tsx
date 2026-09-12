@@ -829,6 +829,17 @@ function LeadReportDocument({ job, customer, settings }: ProjectReportData) {
           dateText={dateText}
         />
 
+        {/* Per Tim, 2026-09-12 — a short lead letter (the common case; this
+            template carries no sample list or appendix the way asbestos's
+            does) was ending well short of the page. A single spacer in one
+            spot just moved all the leftover space into one big gap; giving
+            every block from here down its own equal-weight spacer (not
+            just the body — the letter-opening blocks too, so "Dear ___:"
+            sits evenly between the address above and the intro paragraph
+            below rather than pinned tight to one side) spreads it out into
+            one uniform gap instead. */}
+        <View style={{ flexGrow: 1 }} />
+
         <View style={styles.reBlock}>
           <View style={styles.reRowTop}>
             <View style={styles.reTopLeft}>
@@ -852,6 +863,8 @@ function LeadReportDocument({ job, customer, settings }: ProjectReportData) {
           </View>
         </View>
 
+        <View style={{ flexGrow: 1 }} />
+
         <RecipientBlock
           knownCustomerName={knownCustomerName}
           customer={customer}
@@ -859,17 +872,10 @@ function LeadReportDocument({ job, customer, settings }: ProjectReportData) {
           billingCityStateZip={billing.cityStateZip}
         />
 
+        <View style={{ flexGrow: 1 }} />
+
         <Text style={styles.salutation}>Dear <ValueOrBlank style={styles.salutation} value={knownCustomerName} inline />:</Text>
 
-        {/* Per Tim, 2026-09-12 — a short lead letter (the common case; this
-            template carries no sample list or appendix the way asbestos's
-            does) was ending well short of the page, and a single spacer in
-            one spot just moved all the leftover space into one big gap
-            instead of spreading it out. Five equal-weight spacers, one
-            between each major block from here down, divide it evenly
-            instead — the letter opening above (header/RE/recipient/
-            salutation) stays tight, the way a real letter's address block
-            does. */}
         <View style={{ flexGrow: 1 }} />
 
         <Text style={styles.paragraph}>

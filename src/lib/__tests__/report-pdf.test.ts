@@ -232,6 +232,54 @@ describe("renderProjectReportPdf", () => {
     expect(text).toMatch(/Total # of Samples:\s*4/);
   });
 
+  // Per Tim, 2026-09-12 (26-0019) — a real lead letter spilled just its
+  // signature onto its own page 2. Checked against both a short, realistic
+  // letter (the common case — no sample list/appendix on this template)
+  // and a worst-case one with a long report_notes paragraph, since the fix
+  // (pageLead in the styles above) was tuned against both. lead_result is
+  // always set on a real one of these — reportChecklist won't let a report
+  // generate otherwise — so both cases set it explicitly rather than
+  // leaving the base fixture's null (which renders a short "NO RESULTS
+  // YET." placeholder no real report ever ships with).
+  it("keeps a short lead letter to one page", async () => {
+    const pdf = await renderProjectReportPdfForDomain({
+      job: {
+        ...job,
+        service_type: "Lead Bulk Sampling",
+        sample_count: 0,
+        sample_counts: { "Lead Bulk Sampling": 2 },
+        lead_result: "negative",
+        lead_lab_name: "SanAir Technologies Laboratory",
+        lead_lab_cert: "LAP-162952",
+        lead_report_notes: null,
+      },
+      customer,
+      settings,
+    }, "lead");
+    const { numpages } = await rawPdfParse(pdf);
+    expect(numpages).toBe(1);
+  });
+
+  it("keeps a worst-case lead letter (long report notes) to one page", async () => {
+    const pdf = await renderProjectReportPdfForDomain({
+      job: {
+        ...job,
+        service_type: "Lead Bulk Sampling",
+        sample_count: 0,
+        sample_counts: { "Lead Bulk Sampling": 2 },
+        lead_result: "negative",
+        lead_lab_name: "SanAir Technologies Laboratory",
+        lead_lab_cert: "LAP-162952",
+        lead_report_notes:
+          "Samples were collected from the interior trim, window sills, and exterior siding at the request of the property manager. Additional areas identified by the occupant as recently painted were also sampled independently and included in this analysis. No visible deterioration or peeling was observed at any of the sampled locations at the time of the site visit.",
+      },
+      customer,
+      settings,
+    }, "lead");
+    const { numpages } = await rawPdfParse(pdf);
+    expect(numpages).toBe(1);
+  });
+
   it("doesn't leak lead's report summary/lab info into the asbestos report", async () => {
     const pdf = await renderProjectReportPdfForDomain({
       job: {

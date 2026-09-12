@@ -80,10 +80,17 @@ const styles = StyleSheet.create({
   // Per Tim, 2026-09-12 — the Lead report is the same short, simple-letter
   // shape as the asbestos one (RE block, Sampling Summary, one paragraph,
   // Remarks, signature) and must always fit on one page too; a real
-  // 26-0019 print spilled just the signature onto its own page 2. Same
-  // fix as pageAsbestos/pageMoistureMapping above — tighter font/line-
-  // height reclaims real headroom rather than shaving margins further.
-  pageLead: { fontSize: ASBESTOS_FONT_SIZE, paddingBottom: 26, lineHeight: 1.22 },
+  // 26-0019 print spilled just the signature onto its own page 2. Tuned
+  // separately from pageAsbestos, though — asbestos's worst case (up to 20
+  // samples) needs its font shrunk hard to fit; lead's own worst case
+  // (a longer Remarks paragraph — there's no sample list here) fits at a
+  // much closer-to-normal size, so reusing asbestos's numbers verbatim
+  // would only make an already-short letter look emptier. Confirmed by
+  // rendering both the real (short) 26-0019 content and a realistic
+  // worst-case one and checking each stayed one page. The flexGrow spacer
+  // in the JSX below (not a font/line-height problem) is what actually
+  // closes the leftover gap on a short letter like 26-0019's.
+  pageLead: { fontSize: 11, paddingBottom: 26, lineHeight: 1.29 },
   // Per Tim, 2026-09-04 — the default paddingTop above sat the logo/header
   // too close to the top edge specifically on this report; bumped down for
   // Moisture Mapping only, not touched on the other (already-approved)
@@ -887,6 +894,15 @@ function LeadReportDocument({ job, customer, settings }: ProjectReportData) {
             </View>
           ))}
         </View>
+
+        {/* Per Tim, 2026-09-12 — a short lead letter (the common case; this
+            template carries no sample list or appendix the way asbestos's
+            does) was ending well short of the page, all the leftover space
+            stranded below the signature. Absorbing it here instead — before
+            the closing paragraph/signature rather than after — keeps that
+            page-filling behavior only in the space between them; the
+            closing itself still reads as one place. */}
+        <View style={{ flexGrow: 1 }} />
 
         <Text style={styles.paragraph}>
           Should you have any questions or need additional information, please contact {inspector.name}

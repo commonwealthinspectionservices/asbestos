@@ -5,7 +5,7 @@ import { expandAddress } from "@/lib/address";
 import { formatDateMDY, formatRequestedTime, formatRequestedTimeWindow } from "@/lib/date-format";
 import { formatCents } from "@/lib/pricing";
 import { getSupabaseAdmin } from "@/lib/supabase";
-import { threadSubject, sendThreadedEmail } from "@/lib/email-thread";
+import { threadSubject, scheduledNotificationSubject, sendThreadedEmail } from "@/lib/email-thread";
 
 /**
  * Every new booking — anonymous (/api/book) or portal (/api/portal/book) —
@@ -414,7 +414,12 @@ export async function sendJobScheduledNotification(jobId: string): Promise<void>
   const existingIds: string[] = Array.isArray(job.email_thread_message_ids) ? job.email_thread_message_ids : [];
   const result = await sendThreadedEmail({
     to: customer.email,
-    subject: threadSubject(job.service_address, job.service_type),
+    // Per Tim, 2026-09-11 — when this email is the very first one in the
+    // thread (no request-received email came before it), the subject
+    // can't say "...Report..." — nothing's been reported on yet. Once it's
+    // a reply within an already-started thread, keep sharing that
+    // thread's one subject as before (threadSubject's own comment).
+    subject: existingIds.length === 0 ? scheduledNotificationSubject(job.service_address) : threadSubject(job.service_address, job.service_type),
     existingMessageIds: existingIds,
     gmailThreadId: job.email_gmail_thread_id,
     replyAllFromThread: true,
@@ -468,7 +473,8 @@ export async function sendJobCreatedScheduledNotification(jobId: string): Promis
   const existingIds: string[] = Array.isArray(job.email_thread_message_ids) ? job.email_thread_message_ids : [];
   const result = await sendThreadedEmail({
     to: customer.email,
-    subject: threadSubject(job.service_address, job.service_type),
+    // Same reasoning as sendJobScheduledNotification's own comment above.
+    subject: existingIds.length === 0 ? scheduledNotificationSubject(job.service_address) : threadSubject(job.service_address, job.service_type),
     existingMessageIds: existingIds,
     gmailThreadId: job.email_gmail_thread_id,
     replyAllFromThread: true,

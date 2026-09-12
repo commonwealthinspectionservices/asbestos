@@ -37,6 +37,17 @@ export function threadSubject(address: string, serviceType: string | null | unde
   return `${inspectionReportSubjectPrefix(serviceType)} - ${fullAddress}`;
 }
 
+// Per Tim, 2026-09-11 — booking-notify.ts's "This job is now scheduled"
+// email (sendJobScheduledNotification/sendJobCreatedScheduledNotification)
+// fires before any report exists — no findings, no lab results, nothing
+// to report yet — so it can't honestly share threadSubject's "...Report -
+// <address>" phrasing the way every later email in the thread does. Own,
+// stable subject for just that one email; every other email in the chain
+// still shares threadSubject as before (per that function's own comment).
+export function scheduledNotificationSubject(address: string): string {
+  return `Inspection Confirmed - ${expandAddress(address)}`;
+}
+
 // In-Reply-To is just the immediately previous message; References is the
 // full chain, oldest first — standard RFC 5322 convention. Exported for
 // lab-email.ts's report/invoice draft, which builds its own headers

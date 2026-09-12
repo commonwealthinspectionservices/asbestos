@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { extractSampleCount, detectAsbestosResult, extractSampleResults, extractReportProjectNumber, extractReportProjectAddress, detectLabInfo, extractMoldSampleCount, extractMoldSampleResults, extractCrystalAnalyticalMaterialDescriptions } from "../parse-lab-report";
+import { extractSampleCount, detectAsbestosResult, extractSampleResults, extractReportProjectNumber, extractReportProjectAddress, detectLabInfo, extractMoldSampleCount, extractMoldSampleResults, extractCrystalAnalyticalMaterialDescriptions, extractSampledDate } from "../parse-lab-report";
 
 // Excerpts of real EMSL bulk asbestos PLM report text, exactly as pdf-parse
 // extracts it (value-before-label ordering and all — PDF text extraction
@@ -1022,5 +1022,28 @@ BIO-SOP-002
     expect(extractMoldSampleResults(REPORT, "Mold Bulk Sampling")).toEqual([
       { fieldCode: "1", result: "Analyzed", serviceType: "Mold Bulk Sampling" },
     ]);
+  });
+});
+
+describe("extractSampledDate", () => {
+  it("reads Crystal Analytical's asbestos label, 'Date(s) Sampled:'", () => {
+    expect(extractSampledDate("Date(s) Sampled: 8/20/26\n")).toBe("2026-08-20");
+  });
+
+  it("reads Crystal Analytical's mold label, 'Collected:'", () => {
+    expect(extractSampledDate("Collected: 8/20/2026\n")).toBe("2026-08-20");
+  });
+
+  it("reads SanAir's lead label, 'Collected Date:' — confirmed 2026-09-12, 26-0019 (extra word between 'Collected' and the colon broke the original pattern)", () => {
+    const realText = "Address: 55  Accord Park Drive P.O. Number:\nSuite D\nProject Name: Restore To New\nRockland, MA 02370\nCollected Date: 9/9/2026\nPhone: 781-347-3936\nReceived Date: 9/10/2026 10:00:00 AM\n";
+    expect(extractSampledDate(realText)).toBe("2026-09-09");
+  });
+
+  it("doesn't get fooled by a nearby 'Received Date:' line", () => {
+    expect(extractSampledDate("Collected Date: 9/9/2026\nReceived Date: 9/10/2026 10:00:00 AM\n")).toBe("2026-09-09");
+  });
+
+  it("returns null when no recognized label is present", () => {
+    expect(extractSampledDate("not a lab report")).toBeNull();
   });
 });

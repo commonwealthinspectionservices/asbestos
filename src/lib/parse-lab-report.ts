@@ -545,18 +545,19 @@ export function extractReportProjectAddress(pdfText: string): string | null {
 
 // The lab's own "date samples were physically collected" line — Crystal
 // Analytical's asbestos PLM reports label it "Date(s) Sampled:", its mold
-// reports label the same thing "Collected:" instead (both confirmed
-// against real reports). Same label/value-split problem as the sample
-// table (see pdf-position-text.ts): the label and its own date sit apart
-// in the raw PDF stream, so this only works reliably against
-// position-ordered text — pass pdfText itself only as a last-resort
-// fallback for a caller with no buffer to re-parse. Returns an ISO
-// yyyy-mm-dd string (for a Postgres `date` column) rather than the
-// report's own mm/dd/yy, assuming a 2000s century for the 2-digit year
-// every real report seen so far uses.
+// reports label the same thing "Collected:" instead, and SanAir's lead
+// reports (Crystal's own subcontracted lead lab — see 26-0019) label it
+// "Collected Date:" (confirmed against all three real reports). Same
+// label/value-split problem as the sample table (see pdf-position-text.ts):
+// the label and its own date sit apart in the raw PDF stream, so this only
+// works reliably against position-ordered text — pass pdfText itself only
+// as a last-resort fallback for a caller with no buffer to re-parse.
+// Returns an ISO yyyy-mm-dd string (for a Postgres `date` column) rather
+// than the report's own mm/dd/yy, assuming a 2000s century for the 2-digit
+// year every real report seen so far uses.
 export function extractSampledDate(pdfText: string, positionOrderedText?: string): string | null {
   const text = positionOrderedText ?? pdfText;
-  const match = text.match(/(?:Date\(s\)\s*Sampled|Collected)\s*:\s*(\d{1,2})\/(\d{1,2})\/(\d{2,4})/i);
+  const match = text.match(/(?:Date\(s\)\s*Sampled|Collected(?:\s+Date)?)\s*:\s*(\d{1,2})\/(\d{1,2})\/(\d{2,4})/i);
   if (!match) return null;
   const [, month, day, yearRaw] = match;
   const year = yearRaw.length === 2 ? `20${yearRaw}` : yearRaw;

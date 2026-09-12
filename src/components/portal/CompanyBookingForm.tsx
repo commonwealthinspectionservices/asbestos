@@ -8,11 +8,34 @@ import { buildBillingAddress, US_STATES } from "@/lib/address";
 import { formatPhoneNumber } from "@/lib/phone";
 import { formatDateMDY } from "@/lib/date-format";
 import { TIME_OPTIONS } from "@/lib/time-options";
+import { formatCents } from "@/lib/pricing";
 
 interface ServiceTypeOption {
   key: string;
   label: string;
   rateLabel: string;
+  base_fee_cents: number;
+}
+
+// Per Tim, 2026-09-12 — company/portal bookings had no way to request Rush
+// at all, unlike GuestBookingForm.tsx's individuals-only flow (which has
+// carried this since 2026-09-02). Same flat-rate-replaces-per-sample rule,
+// copied rather than shared — this codebase's existing precedent for these
+// small per-form copies (see PendingRequestEditor.tsx's own comment).
+// Lead and mold swab have no rush rate; their price line doesn't change.
+const RUSH_SAMPLE_CENTS: Record<string, number> = {
+  asbestos_bulk: 5000,
+  asbestos_pre_reno: 5000,
+  asbestos_pre_demo: 5000,
+  mold_bulk: 5000,
+  mold_air: 10000,
+};
+function displayRateLabel(s: ServiceTypeOption, rush: boolean): string {
+  const rushCents = rush ? RUSH_SAMPLE_CENTS[s.key] : undefined;
+  if (rushCents != null) {
+    return `${formatCents(s.base_fee_cents)} base + ${formatCents(rushCents)}/sample (Rush)`;
+  }
+  return s.rateLabel;
 }
 
 function todayIso(): string {
@@ -92,6 +115,7 @@ export default function CompanyBookingForm({ isFliEnvironmental }: { isFliEnviro
   const [siteContactPhone, setSiteContactPhone] = useState("");
 
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+  const [rush, setRush] = useState(false);
   const [scopeOfWork, setScopeOfWork] = useState("");
   const [notes, setNotes] = useState("");
 
@@ -173,6 +197,7 @@ export default function CompanyBookingForm({ isFliEnvironmental }: { isFliEnviro
         body: JSON.stringify({
           address: checkedAddress, lat, lng, distanceMiles, state: addrValidState,
           serviceTypeKeys: Array.from(selectedKeys),
+          rush,
           scopeOfWork,
           date: scheduleViaContact ? null : date,
           requestedTime: scheduleViaContact ? null : preferredTime || null,
@@ -398,7 +423,28 @@ export default function CompanyBookingForm({ isFliEnvironmental }: { isFliEnviro
         />
       </div>
 
-      <label className="mt-4 block text-sm font-medium text-slate-700">Service type</label>
+      <div className="mt-4 flex items-end justify-between gap-2">
+        <label className="block text-sm font-medium text-slate-700">Service type</label>
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          <span className="text-xs font-bold text-slate-700">Turnaround Time</span>
+          <div className="flex items-center gap-1.5 text-xs font-bold uppercase">
+            <button
+              type="button"
+              onClick={() => setRush(false)}
+              className={`rounded px-2 py-1 ${!rush ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
+            >
+              Standard
+            </button>
+            <button
+              type="button"
+              onClick={() => setRush(true)}
+              className={`rounded px-2 py-1 text-slate-600 ${rush ? "bg-yellow-100" : "bg-slate-100"}`}
+            >
+              Rush
+            </button>
+          </div>
+        </div>
+      </div>
       <div className="mt-1 space-y-1.5">
         {serviceTypes.length === 0 ? (
           <p className="text-xs text-slate-400">Enter a complete job site address above to see available services.</p>
@@ -406,13 +452,16 @@ export default function CompanyBookingForm({ isFliEnvironmental }: { isFliEnviro
           serviceTypes
             .filter((s) => s.key !== "mold_swab")
             .map((s) => (
-              <label key={s.key} className="flex items-center gap-1.5 text-sm text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={selectedKeys.has(s.key)}
-                  onChange={() => toggleServiceType(s.key)}
-                />
-                {serviceTypeDisplayLabel(s.key, s.label)}
+              <label key={s.key} className="flex items-center justify-between gap-1.5 text-sm text-slate-700">
+                <span className="flex items-center gap-1.5">
+                  <input
+                    type="checkbox"
+                    checked={selectedKeys.has(s.key)}
+                    onChange={() => toggleServiceType(s.key)}
+                  />
+                  {serviceTypeDisplayLabel(s.key, s.label)}
+                </span>
+                <span className="text-xs text-slate-400">{displayRateLabel(s, rush)}</span>
               </label>
             ))
         )}

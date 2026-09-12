@@ -22,6 +22,7 @@ export const POST = withApiErrors(async (req: NextRequest) => {
   const {
     address, lat, lng, distanceMiles, state, serviceTypeKeys, date: requestedDate, requestedTime,
     scheduleViaContact, siteContactName, siteContactPhone, notes, scopeOfWork, disclaimerAck,
+    rush,
     fliProjectNumber, subcontractorClientCompany, subcontractorClientAddress,
     subcontractorClientContactName, subcontractorClientContactPhone, subcontractorClientContactEmail,
   } = body ?? {};
@@ -95,6 +96,11 @@ export const POST = withApiErrors(async (req: NextRequest) => {
       service_type: serviceTypeLabel,
       base_fee_cents: baseFeeCents,
       per_sample_cents: matchedServiceTypes[0].per_sample_cents,
+      // Per Tim, 2026-09-12 — same as the guest/individual booking flow
+      // (api/portal/book-guest/route.ts's own comment): this is what makes
+      // the form's Standard/Rush toggle preview match what actually gets
+      // invoiced later (invoice-defaults.ts reads this same job.lab_turnaround).
+      lab_turnaround: rush ? "Rush" : null,
       requested_date: scheduleViaContact ? null : date,
       requested_time: time,
       // No confirmed_date/time and no schedule_visible_to_customer here —

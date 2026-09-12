@@ -6,11 +6,34 @@ import AddressAutocompleteInput from "@/components/shared/AddressAutocompleteInp
 import ZipInput, { useAutoZip } from "@/components/shared/ZipInput";
 import { buildBillingAddress, parseAddressToFields, US_STATES } from "@/lib/address";
 import { formatPhoneNumber } from "@/lib/phone";
+import { formatCents } from "@/lib/pricing";
 
 interface ServiceTypeOption {
   key: string;
   label: string;
   rateLabel: string;
+  base_fee_cents: number;
+}
+
+// Per Tim, 2026-09-12 — same gap as CompanyBookingForm.tsx (the initial
+// booking form this request came from): no way to request or preview Rush
+// while editing a still-pending request either. Same flat-rate-replaces-
+// per-sample rule, copied rather than shared — matches this file's own
+// existing precedent of keeping small per-form copies (see TIME_OPTIONS
+// above). Lead and mold swab have no rush rate; their price line doesn't change.
+const RUSH_SAMPLE_CENTS: Record<string, number> = {
+  asbestos_bulk: 5000,
+  asbestos_pre_reno: 5000,
+  asbestos_pre_demo: 5000,
+  mold_bulk: 5000,
+  mold_air: 10000,
+};
+function displayRateLabel(s: ServiceTypeOption, rush: boolean): string {
+  const rushCents = rush ? RUSH_SAMPLE_CENTS[s.key] : undefined;
+  if (rushCents != null) {
+    return `${formatCents(s.base_fee_cents)} base + ${formatCents(rushCents)}/sample (Rush)`;
+  }
+  return s.rateLabel;
 }
 
 // toISOString() reports the UTC date, not the browser's local one — in US
@@ -108,6 +131,7 @@ export default function PendingRequestEditor({
   const [state, setState] = useState<string | null>(null);
   const [serviceTypes, setServiceTypes] = useState<ServiceTypeOption[]>([]);
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+  const [rush, setRush] = useState(job.lab_turnaround === "Rush");
 
   const [scopeOfWork, setScopeOfWork] = useState(job.scope_of_work ?? "");
   const [date, setDate] = useState(job.requested_date ?? todayIso());
@@ -150,6 +174,7 @@ export default function PendingRequestEditor({
     setSiteContactName(job.site_contact_name ?? "");
     setSiteContactPhone(job.site_contact_phone ?? "");
     setNotes(job.notes ?? "");
+    setRush(job.lab_turnaround === "Rush");
     setSaved(false);
     setConfirmingResubmit(false);
     setError(null);
@@ -252,6 +277,7 @@ export default function PendingRequestEditor({
           request: {
             address, lat, lng, distanceMiles, state,
             serviceTypeKeys: Array.from(selectedKeys),
+            rush,
             scopeOfWork,
             date: scheduleViaContact ? null : date,
             requestedTime: scheduleViaContact ? null : preferredTime || null,
@@ -330,7 +356,28 @@ export default function PendingRequestEditor({
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-slate-700">Service types</label>
+        <div className="flex items-end justify-between gap-2">
+          <label className="block text-sm font-medium text-slate-700">Service types</label>
+          <div className="flex shrink-0 flex-col items-end gap-1">
+            <span className="text-xs font-bold text-slate-700">Turnaround Time</span>
+            <div className="flex items-center gap-1.5 text-xs font-bold uppercase">
+              <button
+                type="button"
+                onClick={() => setRush(false)}
+                className={`rounded px-2 py-1 ${!rush ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
+              >
+                Standard
+              </button>
+              <button
+                type="button"
+                onClick={() => setRush(true)}
+                className={`rounded px-2 py-1 text-slate-600 ${rush ? "bg-yellow-100" : "bg-slate-100"}`}
+              >
+                Rush
+              </button>
+            </div>
+          </div>
+        </div>
         <div className="mt-2 space-y-3">
           {/* Per Tim, 2026-09-02 — "delete mold swab sampling as an option
               in the booking screen" and (same day, separately) "delete this
@@ -379,7 +426,7 @@ export default function PendingRequestEditor({
                           on their address": rateLabel already includes the
                           zone-adjusted base fee (see handleAddress in
                           /api/book), not just the per-sample rate. */}
-                      <span className="block text-right text-xs text-slate-400">{s.rateLabel}</span>
+                      <span className="block text-right text-xs text-slate-400">{displayRateLabel(s, rush)}</span>
                       <span className="flex items-start gap-2">
                         <input
                           type="checkbox"

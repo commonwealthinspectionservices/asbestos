@@ -76,7 +76,7 @@ export const PATCH = withApiErrors(async (
 
     const {
       address, lat, lng, distanceMiles, state, serviceTypeKeys, date: requestedDate, requestedTime,
-      scheduleViaContact, siteContactName, siteContactPhone, notes, scopeOfWork,
+      scheduleViaContact, siteContactName, siteContactPhone, notes, scopeOfWork, rush,
     } = body.request ?? {};
 
     // Same fallback as creation (api/portal/book/route.ts) — an individual
@@ -116,6 +116,11 @@ export const PATCH = withApiErrors(async (
       service_type: resolved.serviceTypeLabel,
       base_fee_cents: resolved.baseFeeCents,
       per_sample_cents: resolved.perSampleCents,
+      // Per Tim, 2026-09-12 — same as the initial booking (api/portal/book/
+      // route.ts's own comment): lets editing a still-pending request also
+      // change its Rush flag, not just lock in whatever was picked at
+      // first submission.
+      lab_turnaround: rush ? "Rush" : null,
       requested_date: scheduleViaContact ? null : requestedDate,
       requested_time: time,
       window: derivedWindow,

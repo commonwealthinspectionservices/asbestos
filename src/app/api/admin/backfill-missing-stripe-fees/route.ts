@@ -52,7 +52,11 @@ export const GET = withApiErrors(async (req: NextRequest) => {
         noFee.push({ project_number: label });
         continue;
       }
-      await supabase.from("jobs").update({ stripe_fee_cents: feeCents }).eq("id", job.id);
+      const { error: updateError } = await supabase.from("jobs").update({ stripe_fee_cents: feeCents }).eq("id", job.id);
+      if (updateError) {
+        errors.push({ project_number: label, error: updateError.message });
+        continue;
+      }
       fixed.push({ project_number: label, fee_cents: feeCents });
     } catch (e) {
       errors.push({ project_number: label, error: e instanceof Error ? e.message : String(e) });

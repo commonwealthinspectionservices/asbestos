@@ -3870,6 +3870,13 @@ export function ProjectDetailDialog({
                                     serviceType={label}
                                   />
                                   <DocumentStation job={job} onChanged={onChanged} kind="coc" label="Chain of Custody" serviceType={label} />
+                                  {/* Per Tim, 2026-09-12 (26-0019) — job.sample_results is
+                                      asbestos-only data (there's no separate lead_sample_results
+                                      field the way mold_sample_results exists for mold), so
+                                      showing this same table under the Lead Report tab too was
+                                      just displaying asbestos rows there, mislabeled as if they
+                                      were lead samples. Asbestos-only now. */}
+                                  {group.domain === "asbestos" && (
                                   <div className="col-span-2">
                                     <div className="flex flex-nowrap items-center gap-2">
                                       <h4 className="whitespace-nowrap text-xs font-semibold uppercase tracking-wide text-slate-400">Sample Results</h4>
@@ -3945,6 +3952,7 @@ export function ProjectDetailDialog({
                                       );
                                     })()}
                                   </div>
+                                  )}
                                 </>
                               )}
                             </div>

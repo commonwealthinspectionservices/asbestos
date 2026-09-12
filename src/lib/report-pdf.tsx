@@ -72,11 +72,18 @@ const styles = StyleSheet.create({
   page: { paddingTop: 26, paddingBottom: 58, paddingHorizontal: 69, fontSize: BODY_FONT_SIZE, fontFamily: "Times-Roman", color: "#000000", lineHeight: 1.35 },
   // lineHeight held back to the original 1.22 here, not inherited at 1.35 —
   // asbestos's one-page fit above is tuned against that exact value; giving
-  // it the same bump as mold/lead (free to run longer) risks pushing a
+  // it the same bump as mold (free to run longer) risks pushing a
   // realistic worst-case letter onto a second page.
   pageAsbestos: { fontSize: ASBESTOS_FONT_SIZE, paddingBottom: 26, lineHeight: 1.22 },
   // Full-inspection only — extra breathing room at the very top of the page.
   pageFullInspection: { paddingTop: 58 },
+  // Per Tim, 2026-09-12 — the Lead report is the same short, simple-letter
+  // shape as the asbestos one (RE block, Sampling Summary, one paragraph,
+  // Remarks, signature) and must always fit on one page too; a real
+  // 26-0019 print spilled just the signature onto its own page 2. Same
+  // fix as pageAsbestos/pageMoistureMapping above — tighter font/line-
+  // height reclaims real headroom rather than shaving margins further.
+  pageLead: { fontSize: ASBESTOS_FONT_SIZE, paddingBottom: 26, lineHeight: 1.22 },
   // Per Tim, 2026-09-04 — the default paddingTop above sat the logo/header
   // too close to the top edge specifically on this report; bumped down for
   // Moisture Mapping only, not touched on the other (already-approved)
@@ -805,7 +812,7 @@ function LeadReportDocument({ job, customer, settings }: ProjectReportData) {
 
   return (
     <Document title={`Bulk Paint Chip Sample Analytical Results — ${expandAddress(job.service_address)}`}>
-      <Page size="LETTER" style={styles.page}>
+      <Page size="LETTER" style={[styles.page, styles.pageLead]}>
         <LetterHeader
           settings={settings}
           reTitle="Bulk Paint Chip Sample Analytical Results"

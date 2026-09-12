@@ -70,6 +70,14 @@ export const POST = withApiErrors(async (req: NextRequest) => {
     if (matchedCompany) {
       needsCompanyReview = true;
     } else {
+      // Per Tim, 2026-09-11 — a brand-new company must have a billing
+      // address on file from the start (OnboardingForm already requires
+      // it client-side for this exact case; this is the server-side
+      // backstop). Doesn't apply to needsCompanyReview above — that
+      // company already exists, so this signup isn't the one creating it.
+      if (!billingAddress) {
+        return NextResponse.json({ error: "Billing address is required" }, { status: 400 });
+      }
       newCompany = await upsertCompany(company, { billingAddress });
     }
   }

@@ -16,6 +16,7 @@ export default function OnboardingForm({
   email,
   customer,
   companyName,
+  companyBillingAddress,
   jobId,
 }: {
   accountType: "company" | "individual" | null;
@@ -38,6 +39,11 @@ export default function OnboardingForm({
   // whatever company_id an existing row already has, regardless of what's
   // typed here), so this is display-only, never a source of truth to edit.
   companyName: string | null;
+  // Resolved server-side the same way as companyName (see its own comment)
+  // — the company's own billing_address, when session.customer already has
+  // a company_id (a teammate joining an existing company). Null for a
+  // brand-new company signup, which is exactly when this form requires one.
+  companyBillingAddress: string | null;
   // From a deep-linked email (see onboarding/page.tsx's own comment) —
   // forwarded to the dashboard redirect below once the profile's saved, so
   // the job that started this whole signup/onboarding trip is what they
@@ -53,17 +59,20 @@ export default function OnboardingForm({
   const hasKnownPhone = Boolean(customer?.phone);
   const hasKnownCompany = Boolean(companyName);
   const isCompanyAccount = accountType !== "individual";
-  // A company account never sees a billing address field here at all —
-  // known or not, editable or not. It's a company-level fact
-  // (companies.billing_address), not something whoever's joining that
-  // company enters or reviews on their own way in. Individuals have no
-  // company to inherit from, so they're the only ones who still see this
-  // section, exactly as before this account-type distinction existed.
-  const hasKnownAddress = !isCompanyAccount && Boolean(customer?.billing_address);
-  const addressIsEditable = !isCompanyAccount && !hasKnownAddress;
+  // Per Tim, 2026-09-11 — a brand-new company account must enter a
+  // billing address here too, same as an individual: it's a company-level
+  // fact (companies.billing_address), so a *teammate joining an existing
+  // company* (companyBillingAddress already resolved server-side, see
+  // onboarding/page.tsx) never sees this — the company already has one on
+  // file — but whoever's actually creating that company for the first
+  // time does.
+  const hasKnownAddress = isCompanyAccount ? Boolean(companyBillingAddress) : Boolean(customer?.billing_address);
+  const addressIsEditable = !hasKnownAddress;
 
   const prefilledName = hasKnownName ? splitFullName(customer!.name) : { first: "", last: "" };
-  const prefilledAddress = hasKnownAddress ? parseAddressToFields(customer!.billing_address) : null;
+  const prefilledAddress = hasKnownAddress
+    ? parseAddressToFields((isCompanyAccount ? companyBillingAddress : customer!.billing_address)!)
+    : null;
 
   const router = useRouter();
   const [firstName, setFirstName] = useState(prefilledName.first);
@@ -175,7 +184,9 @@ export default function OnboardingForm({
       )}
       {addressIsEditable && (
         <>
-          <p className="mt-4 text-sm font-semibold uppercase text-slate-500">Billing address</p>
+          <p className="mt-4 text-sm font-semibold uppercase text-slate-500">
+            Billing address{isCompanyAccount && " *"}
+          </p>
           <div className="mt-2 flex gap-2">
             <div className="w-0 flex-1">
               <AddressAutocompleteInput
@@ -248,6 +259,12 @@ export default function OnboardingForm({
           !lastName ||
           !phone ||
           (accountType !== "individual" && !company) ||
+          // Per Tim, 2026-09-11 — required for a brand-new company account
+          // (addressIsEditable, i.e. no company billing address on file
+          // yet); an individual's address stays optional here as before,
+          // and a teammate joining an existing company never sees these
+          // fields at all (hasKnownAddress instead).
+          (isCompanyAccount && addressIsEditable && (!street.trim() || !city.trim() || !zip.trim())) ||
           password.length < 6 ||
           password !== confirmPassword
         }

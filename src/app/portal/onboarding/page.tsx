@@ -35,15 +35,21 @@ export default async function PortalOnboardingPage({
   // admin Invite. company_id is what actually governs the link (see
   // POST /api/portal/profile), so this is purely a display gap: without
   // resolving it here, OnboardingForm would show a blank Company input for
-  // someone who's already definitely part of a real company.
+  // someone who's already definitely part of a real company. Same lookup
+  // also resolves the company's own billing address — required going
+  // forward for a brand-new company (see OnboardingForm), but a teammate
+  // joining one that's already on file should never be asked to re-enter
+  // it.
   let companyName = session.customer?.company ?? null;
-  if (!companyName && session.customer?.company_id) {
+  let companyBillingAddress: string | null = null;
+  if (session.customer?.company_id) {
     const { data: company } = await getSupabaseAdmin()
       .from("companies")
-      .select("name")
+      .select("name, billing_address")
       .eq("id", session.customer.company_id)
       .maybeSingle();
-    companyName = company?.name ?? null;
+    if (!companyName) companyName = company?.name ?? null;
+    companyBillingAddress = company?.billing_address ?? null;
   }
 
   return (
@@ -52,6 +58,7 @@ export default async function PortalOnboardingPage({
       email={session.email}
       customer={session.customer}
       companyName={companyName}
+      companyBillingAddress={companyBillingAddress}
       jobId={jobId}
     />
   );

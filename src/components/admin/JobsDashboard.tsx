@@ -7818,6 +7818,19 @@ function LineItemsEditor({
           <p className="text-base font-bold uppercase text-red-600">
             {labCostCents != null ? currency(labCostCents / 100) : "Not yet billed"}
           </p>
+          {/* Per Tim, 2026-09-13 — the real Stripe processing fee (see
+              stripeFeeCents's own comment above) was already factored into
+              Profit below, but never shown as its own line the way Lab fees
+              is. Only rendered once there's a real fee to show — null for a
+              job paid by hand or not yet paid via Stripe, same condition
+              Profit's own calculation already treats as "nothing to
+              deduct." */}
+          {stripeFeeCents != null && (
+            <>
+              <p className="text-base font-bold uppercase text-red-600">Stripe fee:</p>
+              <p className="text-base font-bold uppercase text-red-600">{currency(stripeFeeCents / 100)}</p>
+            </>
+          )}
           <p className="text-base font-bold uppercase text-slate-400">Profit:</p>
           <p className="text-base font-bold uppercase text-slate-400">
             {labCostCents != null ? currency(computeMarginCents(Math.round(total * 100), labCostCents, stripeFeeCents ?? 0) / 100) : "—"}

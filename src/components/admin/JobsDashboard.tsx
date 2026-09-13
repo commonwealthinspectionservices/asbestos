@@ -4930,12 +4930,13 @@ function DocumentStation({
         <button
           type="button"
           onClick={() => setLabInvoicesExpanded(true)}
-          className="mt-1.5 flex w-full items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-sm hover:border-brand-400"
+          className="mt-1.5 flex w-full flex-col items-start gap-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-sm hover:border-brand-400"
         >
+          <span className="font-medium text-slate-700">{docs.length} lab invoices</span>
           <span className="font-medium text-slate-700">
-            {docs.length} lab invoices · {(labInvoicesTotalCents / 100).toLocaleString("en-US", { style: "currency", currency: "USD" })} total
+            {(labInvoicesTotalCents / 100).toLocaleString("en-US", { style: "currency", currency: "USD" })} total
           </span>
-          <span className="shrink-0 text-xs text-brand-600">Show all</span>
+          <span className="text-brand-600">Show all</span>
         </button>
       )}
       {docs.length > 0 && !collapseLabInvoices && (

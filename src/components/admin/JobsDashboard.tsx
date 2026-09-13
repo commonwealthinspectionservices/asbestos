@@ -2487,25 +2487,33 @@ export function ProjectDetailDialog({
       .reduce((sum, [, n]) => sum + (n || 0), 0);
   }
   // Per Tim, 2026-09-12 (26-0019) — was asbestos-only. reportChecklist's own
-  // "Sample count" item is domain-aware for lead too, but had no editable UI
-  // for lead at all — a lead job whose report gets misfiled/re-filed under
+  // "Sample count" item is domain-aware for lead and mold too, but had no
+  // editable UI for either — a job whose report gets misfiled/re-filed under
   // the wrong service_type (see fix-26-0019-lead-docs) never gets a real
   // sample_counts entry for its label and had no way to ever satisfy that
-  // checklist item.
+  // checklist item. Extended to mold 2026-09-13, same reasoning, before it
+  // ever caused a real incident the way it did for lead.
   //
-  // Exposing this for lead can't just reuse job.sample_count the way
+  // Exposing this for lead/mold can't just reuse job.sample_count the way
   // asbestos does, though — that field is job-wide, not domain-scoped, and
   // this job's own asbestos tab briefly showed a wrong "2" (borrowed from a
   // lead edit) when tried live, since a mixed asbestos+lead job shares one
-  // job.sample_count across both tabs' inputs. Lead (and any future
-  // non-asbestos domain) instead writes straight into the per-label
+  // job.sample_count across both tabs' inputs. Lead/mold (and any future
+  // non-asbestos domain) instead write straight into the per-label
   // sample_counts map already used for the auto-parsed count — the same
   // field a real lab-email re-parse would update, so a manual entry here
   // can get overwritten by a later automatic re-parse the same way an
   // asbestos sample_counts entry already can; unlike job.sample_count
-  // there's no separate "override always wins" field for lead. Acceptable
-  // for now since this only fires when a document was manually re-filed, a
-  // rare, already-manual-intervention path.
+  // there's no separate "override always wins" field for these domains.
+  // Acceptable for now since this only fires when a document was manually
+  // re-filed, a rare, already-manual-intervention path.
+  //
+  // Writes to labels[0] only (see saveDomainSampleCount below) — fine for
+  // lead (almost always one label) but a real simplification for a mold job
+  // combining Air + Bulk + Swab under one manual override; only the first
+  // label's count is settable this way. Acceptable for the same reason as
+  // above — a rare, manual-intervention-only path — but worth revisiting
+  // with a per-label input if a real multi-modality mold job ever needs it.
   function autoSampleCountFor(domain: ReportDomain): number {
     const perDomain = perDomainSampleCount(domain);
     if (perDomain > 0) return perDomain;
@@ -3875,7 +3883,7 @@ export function ProjectDetailDialog({
                               <div className="mb-4 space-y-2">
                                 {labDropdown(group.domain)}
                                 {dateSampledInput(group.domain)}
-                                {(group.domain === "asbestos" || group.domain === "lead") && sampleCountInput(group.domain, group.labels)}
+                                {sampleCountInput(group.domain, group.labels)}
                                 {isFliJob && group.domain === "asbestos" && fliProjectNumberInput}
                               </div>
                             )}

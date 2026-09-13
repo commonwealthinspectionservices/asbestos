@@ -96,17 +96,6 @@ export default function TownMoldTestingPage({ params }: { params: { town: string
           </div>
         </div>
 
-        {/* Per Tim, 2026-09-03 — wanted the mold service advertised better
-            sitewide; the equipment showcase (src/lib/equipment.ts) already
-            does that on /services/mold, but these per-town SEO landing
-            pages (the highest-traffic mold pages on the site, one per
-            served town) never linked to it — someone landing here from a
-            "mold testing in [town]" search never saw it. Same link, same
-            wording, as /services/mold's own. */}
-        <p className="mt-6 text-center text-sm text-brand-700">
-          <Link href="/equipment" className="underline">See the equipment used on every mold inspection →</Link>
-        </p>
-
         <div className="mt-6">
           <Credentials show={["internachi"]} />
         </div>

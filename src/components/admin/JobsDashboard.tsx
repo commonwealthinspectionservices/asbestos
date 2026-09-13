@@ -4373,33 +4373,6 @@ export function ProjectDetailDialog({
                       <p className="border-t border-dashed border-slate-300 px-2 py-1 text-center text-xs font-bold uppercase text-slate-400">Invoice</p>
                     </div>
                   )}
-                  {/* Per Tim, 2026-08-27 — the lab's own invoice for the job
-                      belongs here next to the invoice we send, not back on
-                      the Report tab with the lab results/CoC paperwork.
-                      Per Tim, 2026-08-28 — one station for the whole job,
-                      not one per service type: there's usually just a
-                      single invoice from the lab covering everything.
-                      Filed under the job's first service-type label — the
-                      lab-email auto-filing (see processMatchedLabInvoiceEmail
-                      in lib/lab-email.ts) always writes a copy under every
-                      label, so the first one always has it. shrink-0
-                      (matching the Invoice card above) — without it
-                      DocumentStation's own nowrap label forces the browser
-                      to crush the Invoice card down to a sliver instead of
-                      just letting this row scroll horizontally. */}
-                  {/* Per Tim, 2026-08-31 — FLI Environmental jobs never have
-                      a lab invoice for Commonwealth to track: FLI submits
-                      samples to the lab under their own account and pays
-                      for that themselves (see FLI_ENVIRONMENTAL_COMPANY_ID's
-                      own comment). */}
-                  {!isFliJob && (() => {
-                    const firstLabel = serviceTypeGroups.flatMap((group) => group.labels)[0];
-                    return firstLabel ? (
-                      <div className="w-full shrink-0 sm:w-60">
-                        <DocumentStation job={job} onChanged={onChanged} kind="lab_invoice" label="Lab Invoice" serviceType={firstLabel} titlePosition="bottom" />
-                      </div>
-                    ) : null;
-                  })()}
                 </div>
                 {job.is_individual && job.status !== "paid" && (
                   job.report_release_override ? (
@@ -4465,6 +4438,34 @@ export function ProjectDetailDialog({
                 )}
               </div>
             </div>
+
+            {/* Per Tim, 2026-09-13 — was riding alongside our own Invoice
+                PDF card, side by side in a horizontally-scrolling row; now
+                its own section at the very bottom of this tab instead,
+                matching Stripe Payment Link's own section-header style.
+                Per Tim, 2026-08-27/2026-08-28 (moved here from) — the lab's
+                own invoice for the job belongs on the Invoice tab, not back
+                on the Report tab with the lab results/CoC paperwork; one
+                station for the whole job, not one per service type, filed
+                under the job's first service-type label (the lab-email
+                auto-filing in lib/lab-email.ts always writes a copy under
+                every label, so the first one always has it).
+                Per Tim, 2026-08-31 — FLI Environmental jobs never have a
+                lab invoice for Commonwealth to track: FLI submits samples
+                to the lab under their own account and pays for that
+                themselves (see FLI_ENVIRONMENTAL_COMPANY_ID's own
+                comment). */}
+            {!isFliJob && (() => {
+              const firstLabel = serviceTypeGroups.flatMap((group) => group.labels)[0];
+              return firstLabel ? (
+                <div className="border-t-4 border-slate-300 pt-6">
+                  <h3 className="text-base font-bold uppercase tracking-wide text-black underline sm:text-lg">Lab Invoice</h3>
+                  <div className="mt-3">
+                    <DocumentStation job={job} onChanged={onChanged} kind="lab_invoice" label="Lab Invoice" serviceType={firstLabel} titlePosition="none" />
+                  </div>
+                </div>
+              ) : null;
+            })()}
             </>
             )}
           </div>
@@ -4808,8 +4809,12 @@ function DocumentStation({
       footer bar under the thumbnail, not a header above it, and no
       whitespace-nowrap (a long service-type label there ran into the next
       card instead of wrapping). "top" (the Report tab's own look, label
-      above a fixed-height box) stays the default. */
-  titlePosition?: "top" | "bottom";
+      above a fixed-height box) stays the default.
+      Per Tim, 2026-09-13 — "none" for the Invoice tab's own Lab Invoice
+      section, which now titles itself the same way Stripe Payment Link
+      does (an <h3> above this whole station) — an internal label here too
+      would just repeat it. */
+  titlePosition?: "top" | "bottom" | "none";
 }) {
   const [dragOver, setDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -4930,7 +4935,7 @@ function DocumentStation({
         <button
           type="button"
           onClick={() => setLabInvoicesExpanded(true)}
-          className="mt-1.5 flex w-full flex-col items-start gap-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-sm hover:border-brand-400"
+          className="mt-1.5 flex w-full flex-col items-start gap-1 text-left text-sm"
         >
           <span className="font-medium text-slate-700">{docs.length} lab invoices</span>
           <span className="font-medium text-slate-700">

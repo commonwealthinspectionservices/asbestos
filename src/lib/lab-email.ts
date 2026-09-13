@@ -1352,11 +1352,9 @@ async function processWeeklyLabSummaryEmail(params: {
         // weekly summary became the sole source (see checkForLabResultEmails'
         // own comment), it's the OLDER per-invoice-email pipeline's own
         // document, filed under Crystal's own per-invoice PDF rather than
-        // this weekly one. Either way, the dollar amount is already
-        // accounted for — recording it again here would double it. What's
-        // still missing on that older case is this report's own
-        // report_total_cents/report_date_range (added after that document
-        // existed) — BillingView groups "Weekly Reports" by
+        // this weekly one. What's still missing on that older case is this
+        // report's own report_total_cents/report_date_range (added after
+        // that document existed) — BillingView groups "Weekly Reports" by
         // report_date_range specifically, not content_hash (a job's
         // existing document keeps its OWN real PDF's hash, so forcing this
         // report's hash onto it would misattribute which file it actually
@@ -1364,16 +1362,49 @@ async function processWeeklyLabSummaryEmail(params: {
         // part of THIS report. Confirmed live 2026-08-28: without this
         // backfill, 26-0001 through 26-0005's real share of the report
         // showed up as "not linked to a job on file," which is backwards.
-        // Only fills in fields that are still null — never touches
-        // amount_cents, so the real dollar total this job already carries
-        // can't change here.
-        if (existingDocsForNum.some((d) => d.report_date_range == null)) {
+        //
+        // Per Tim, 2026-09-13 — confirmed live (26-0002.1's own #6568
+        // among others): Crystal re-sends this same weekly summary
+        // repeatedly as the week goes on, with a growing cumulative total
+        // — a job's own charge under a given lab order number can show a
+        // LARGER amount on a later resend than what an earlier resend
+        // already recorded here. The dedup above only ever checked
+        // "does a document for this num already exist," never whether its
+        // amount still matches this resend — so a corrected/topped-up
+        // charge under the same num was silently kept at its stale,
+        // smaller amount forever (confirmed: a real ~$900 gap against
+        // QuickBooks traced back to exactly this).
+        //
+        // Only ever moves the amount UP, never down — messages aren't
+        // guaranteed to process in send order (retries, pagination,
+        // catching up after downtime), and an out-of-order older resend
+        // must never be able to undo a correct, larger amount a later one
+        // already recorded. A genuine downward correction from Crystal
+        // (rare) won't self-heal this way and would need a manual fix —
+        // an accepted tradeoff for never silently losing money instead.
+        const existingAmount = existingDocsForNum[0].amount_cents;
+        const amountIncreased = amountCents > (existingAmount ?? -Infinity);
+        const needsBackfill = existingDocsForNum.some((d) => d.report_date_range == null);
+        if (amountIncreased) {
+          console.error(
+            `lab-email: weekly summary #${num} for ${job.project_number ?? job.id} increased from ${existingAmount == null ? "(unset)" : formatCents(existingAmount)} to ${formatCents(amountCents)} on a resend — updating.`
+          );
+        }
+        if (amountIncreased || needsBackfill) {
           const enriched = (job.documents ?? []).map((d: JobDocument) =>
-            d.kind === "lab_invoice" && d.lab_invoice_number === num && d.report_date_range == null
-              ? { ...d, report_total_cents: d.report_total_cents ?? reportTotalCents, report_date_range: d.report_date_range ?? reportDateRange }
+            d.kind === "lab_invoice" && d.lab_invoice_number === num
+              ? {
+                  ...d,
+                  amount_cents: amountIncreased ? amountCents : d.amount_cents,
+                  report_total_cents: amountIncreased ? reportTotalCents : d.report_total_cents ?? reportTotalCents,
+                  report_date_range: d.report_date_range ?? reportDateRange,
+                }
               : d
           );
-          await supabase.from("jobs").update({ documents: enriched }).eq("id", job.id);
+          await supabase
+            .from("jobs")
+            .update({ documents: enriched, lab_cost_cents: computeLabCostCentsFromDocuments(enriched) })
+            .eq("id", job.id);
         }
         continue;
       }

@@ -1207,7 +1207,15 @@ async function processLabSalesReceiptEmail(params: {
 // database. Grouping this way, keyed on lab_invoice_number, is also exactly
 // what BillingView's existing "All Lab Invoices" cards already group
 // by — no new UI needed for this to show up there correctly.
-async function processWeeklyLabSummaryEmail(params: {
+// Exported only for a one-off admin backfill (see
+// api/admin/backfill-weekly-summary-amounts) that needed to re-run this
+// against messages already labeled processed — checkForLabResultEmails'
+// own per-message PROCESSED_LABEL skip happens before this is ever called,
+// which is exactly why a historical resend's corrected/topped-up amount
+// (see this function's own 2026-09-13 comment below) can't self-heal on
+// its own; something has to call this directly, bypassing that skip, for
+// a message the label already excludes from future runs.
+export async function processWeeklyLabSummaryEmail(params: {
   accessToken: string;
   messageId: string;
   pdfBuffer: Buffer;

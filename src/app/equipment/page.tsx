@@ -14,10 +14,6 @@ export default function EquipmentIndexPage() {
       <MarketingNav />
       <div className="mx-auto max-w-3xl px-4 py-10">
         <h1 className="text-2xl font-black uppercase text-brand-700">Equipment</h1>
-        <p className="mt-2 text-brand-700">
-          The real instruments used on every mold inspection — from finding hidden moisture to
-          collecting the air sample that goes to the lab.
-        </p>
         <div className="mt-6 space-y-4">
           {equipment.map((item) => (
             <Link

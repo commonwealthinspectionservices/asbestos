@@ -42,6 +42,21 @@ export function knownLabCostCentsForJob(job: { lab_cost_cents: number | null; cu
   return job.lab_cost_cents ?? null;
 }
 
+/**
+ * Same idea as knownLabCostCentsForJob, for the Stripe processing fee: a
+ * check-paid job's real fee is already known — always zero, permanently,
+ * never "not charged yet" — since it never goes through Stripe at all.
+ * Every other job's fee (job.stripe_fee_cents) is only ever captured once
+ * Stripe actually processes the payment (see captureStripeFee in
+ * stripe.ts), so it stays null until then; anywhere that reads
+ * job.stripe_fee_cents directly to decide "do we know the real fee yet"
+ * should read this instead.
+ */
+export function knownStripeFeeCentsForJob(job: { stripe_fee_cents: number | null; payment_type?: string | null }): number | null {
+  if (job.payment_type === "check") return 0;
+  return job.stripe_fee_cents ?? null;
+}
+
 export function computeInvoiceTotalCents(
   baseFeeCents: number,
   perSampleCents: number,

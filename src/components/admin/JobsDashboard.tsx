@@ -5583,7 +5583,6 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
       onChange={(v) => { setContactName(v); setEmail(""); setPhone(""); setContactId(""); setContactNameBlurred(false); }}
       fetchOptions={searchContacts}
       getLabel={(c) => c.name}
-      getSublabel={(c) => c.email}
       onSelect={selectContact}
       onBlur={() => setContactNameBlurred(true)}
       placeholder="Name"
@@ -7118,7 +7117,6 @@ export function EditProjectDialog({
               onChange={(v) => { setContactName(v); setEmail(""); setPhone(""); setCustomerId(""); }}
               fetchOptions={searchContacts}
               getLabel={(c) => c.name}
-              getSublabel={(c) => c.email}
               onSelect={selectContact}
               placeholder="Name"
               // Same reasoning as AddProjectDialog's own nameField — see

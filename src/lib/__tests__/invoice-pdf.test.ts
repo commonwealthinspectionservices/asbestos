@@ -1,6 +1,14 @@
 import { describe, it, expect } from "vitest";
+import rawPdfParse from "pdf-parse/lib/pdf-parse.js";
 import { renderInvoicePdf } from "@/lib/invoice-pdf";
 import type { Job, Customer, Settings } from "@/lib/types";
+
+// Same collapsing as report-pdf.test.ts's own copy — line-wrap noise, not a
+// real content change.
+async function pdfParse(pdf: Buffer): Promise<{ text: string }> {
+  const { text } = await rawPdfParse(pdf);
+  return { text: text.replace(/\s+/g, " ") };
+}
 
 const settings: Settings = {
   id: 1,
@@ -187,5 +195,33 @@ describe("renderInvoicePdf", () => {
     });
     expect(pdf.length).toBeGreaterThan(0);
     expect(pdf.subarray(0, 4).toString("utf-8")).toBe("%PDF");
+  });
+
+  // Confirmed live 2026-09-14 (26-0031, Ruben Rodrigues) — an individual
+  // with no billing_address on file (the guest booking flow never collects
+  // one) got a "Bill to" section with just name/phone, no address line at
+  // all. report-pdf.tsx already falls back to the job's own service
+  // address for exactly this case; invoice-pdf.tsx never did.
+  it("falls back to the service address as billing address for an individual with none on file", async () => {
+    const pdf = await renderInvoicePdf({
+      job,
+      customer: { ...customer, is_individual: true, billing_address: null },
+      settings,
+    });
+    const { text } = await pdfParse(pdf);
+    // Once for "Bill to", once for the Project section's own "Service address".
+    expect(text.split("800 Boylston Street, Boston, MA").length - 1).toBe(2);
+  });
+
+  it("never falls back to the service address for a company with no billing address", async () => {
+    const pdf = await renderInvoicePdf({
+      job,
+      customer: { ...customer, is_individual: false, billing_address: null },
+      settings,
+    });
+    const { text } = await pdfParse(pdf);
+    // Only the Project section's own "Service address" — a job site is
+    // frequently someone else's property, not the company's own address.
+    expect(text.split("800 Boylston Street, Boston, MA").length - 1).toBe(1);
   });
 });

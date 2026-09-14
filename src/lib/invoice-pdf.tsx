@@ -115,7 +115,19 @@ function InvoiceDocument({ job, customer, company, settings }: InvoiceData) {
           {isFliJob ? (
             <Text style={styles.meta}>{FLI_ENVIRONMENTAL_ADDRESS}</Text>
           ) : (
-            customer.billing_address && <Text style={styles.meta}>{expandAddress(customer.billing_address)}</Text>
+            // Same fallback as report-pdf.tsx's own commonLetterFields —
+            // an individual homeowner with no separate billing address on
+            // file is being billed at the property being serviced, so that
+            // belongs here instead of the invoice omitting an address line
+            // entirely. Never falls back for a company customer. Confirmed
+            // live 2026-09-14 (26-0031, Ruben Rodrigues) — the guest
+            // booking flow only ever collects a service address for an
+            // individual, so billing_address is null on every one of these
+            // unless an admin later types one in by hand; report-pdf.tsx
+            // already covered this, invoice-pdf.tsx never did.
+            (customer.billing_address || (customer.is_individual ? job.service_address : null)) && (
+              <Text style={styles.meta}>{expandAddress(customer.billing_address || job.service_address)}</Text>
+            )
           )}
           {isFliJob ? (
             <Text style={styles.meta}>{formatPhoneNumber(FLI_ENVIRONMENTAL_PHONE)}</Text>

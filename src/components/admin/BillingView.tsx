@@ -164,18 +164,6 @@ function estimatedLabCostCentsForJob(job: JobWithCustomer, avgLabCostPerSampleCe
   return totalSampleCount(job) * avgLabCostPerSampleCents;
 }
 
-// Per Tim, 2026-09-14 — "stripe fee needs to be a line here for sure...
-// and needs to be calculated over time exactly like lab fees": same
-// technique as estimatedLabCostCentsForJob above, just keyed off the
-// average fee rate (fee ÷ invoice total, see avgStripeFeeRate) instead of
-// a per-sample rate — a job not yet paid online has no real fee yet
-// (knownStripeFeeCentsForJob is null), so this estimates one from its own
-// invoice total instead of silently reading as $0/omitted.
-function estimatedStripeFeeCentsForJob(job: JobWithCustomer, avgStripeFeeRate: number): number {
-  if (knownStripeFeeCentsForJob(job) != null) return 0;
-  return Math.round((job.invoice_total_cents ?? 0) * avgStripeFeeRate);
-}
-
 // Per Tim, 2026-08-30 — "invoice and lab costs should be links to the
 // PDF invoices": a job can have more than one lab_invoice document
 // (partial billing across weekly reports) — links to the most recently
@@ -259,7 +247,7 @@ function JobRow({
 // $0. Same size/format for every row per Tim's follow-up — Margin isn't
 // visually singled out, just colored red if it's negative.
 function MoneyGrid({
-  revenueCents, labCostCents, estimatedLabCostCents, stripeFeeCents, estimatedStripeFeeCents, marginCents, invoiceHref, labInvoiceHref, labInvoiceIssues,
+  revenueCents, labCostCents, estimatedLabCostCents, stripeFeeCents, marginCents, invoiceHref, labInvoiceHref, labInvoiceIssues,
 }: {
   revenueCents: number; labCostCents: number | null;
   /** Per Tim, 2026-09-04 — shown (with "≈") in place of "—" when the lab
@@ -267,15 +255,16 @@ function MoneyGrid({
       to estimate from (see avgLabCostPerSampleCents), so a job card
       matches the same "≈" figure feeding Weekly/Monthly Lab Costs above. */
   estimatedLabCostCents?: number;
-  /** Per Tim, 2026-09-14 — "stripe fee needs to be a line here for sure":
-      null (not yet paid online, or the real charge hasn't posted) shows
-      the same kind of "≈" estimate as Lab Cost above, from
-      estimatedStripeFeeCents, instead of silently disappearing — a
-      check-paid job's real fee is already known-zero (see
-      knownStripeFeeCentsForJob), never estimated on top of that. */
+  /** Per Tim, 2026-09-14 — "stripe fee needs to be a line here for sure",
+      then same day, after seeing it: "the fee that is being calculated is
+      just credit card fee every time, and that's not correct... only put
+      in the straight fee once the job has actually gone through." Unlike
+      Lab Cost, this is never estimated — nearly every paid-online job so
+      far happened to be card, so an averaged rate was really just the
+      card rate, silently assuming card when ACH or a mailed check (both
+      live options) cost much less or nothing. null (not yet paid, or a
+      check payment in progress) shows "—", not a guess. */
   stripeFeeCents: number | null;
-  /** Same idea as estimatedLabCostCents, from avgStripeFeeRate. */
-  estimatedStripeFeeCents?: number;
   marginCents: number | null;
   invoiceHref?: string | null; labInvoiceHref?: string | null;
   /** Per Tim, 2026-09-05 — "instead of it being a red dot maybe it should
@@ -348,23 +337,21 @@ function MoneyGrid({
       </span>
       <span className="text-left text-slate-400">Stripe Fee</span>
       <span className="whitespace-nowrap text-right text-slate-700">
-        {stripeFeeCents != null
-          ? formatCents(stripeFeeCents)
-          : estimatedStripeFeeCents
-            ? <span className="italic"><span className="text-slate-400">≈ </span>{formatCents(estimatedStripeFeeCents)}</span>
-            : "—"}
+        {stripeFeeCents != null ? formatCents(stripeFeeCents) : "—"}
       </span>
       <span className="text-left text-slate-400">Margin</span>
       <span className={`whitespace-nowrap text-right ${marginCents != null && marginCents < 0 ? "text-red-600" : "text-slate-700"}`}>
         {(() => {
           if (marginCents != null) return formatCents(marginCents);
-          // Per Tim, 2026-09-04 (lab cost) and 2026-09-14 (stripe fee) —
-          // same estimate shown above, carried through to Margin too
-          // rather than leaving it blank just because the real lab
-          // invoice/Stripe charge hasn't landed yet.
-          if (estimatedLabCostCents || estimatedStripeFeeCents) {
-            const estimatedMarginCents =
-              revenueCents - (labCostCents ?? 0) - (estimatedLabCostCents ?? 0) - (stripeFeeCents ?? 0) - (estimatedStripeFeeCents ?? 0);
+          // Per Tim, 2026-09-04 — same estimate as Lab Cost above, carried
+          // through to Margin too rather than leaving it blank just
+          // because the real lab invoice hasn't come in yet. A still-
+          // unknown Stripe fee (unlike lab cost) is never estimated here
+          // either — see MoneyGrid's own stripeFeeCents comment — so it
+          // reads as $0 within this estimate, same simplification Margin
+          // always used for it.
+          if (estimatedLabCostCents) {
+            const estimatedMarginCents = revenueCents - estimatedLabCostCents - (stripeFeeCents ?? 0);
             return <span className="italic"><span className="text-slate-400">≈ </span>{formatCents(estimatedMarginCents)}</span>;
           }
           return "—";
@@ -796,24 +783,16 @@ export default function BillingView() {
     return totalSamples > 0 ? totalCents / totalSamples : 0;
   }, [invoicedJobs]);
 
-  // Same technique as avgLabCostPerSampleCents above — the real Stripe fee
-  // is only known once a job is actually paid online (knownStripeFeeCentsForJob),
-  // so this is the average fee as a fraction of invoice total across jobs
-  // that do have one, applied to jobs still awaiting payment. Check-paid
-  // jobs are excluded entirely — their real fee is already known-zero, not
-  // a data point for what an online fee runs.
-  const avgStripeFeeRate = useMemo(() => {
-    let totalFeeCents = 0;
-    let totalRevenueCents = 0;
-    for (const job of invoicedJobs) {
-      if (job.payment_type === "check") continue;
-      if (job.stripe_fee_cents == null || job.stripe_fee_cents <= 0) continue;
-      if (!job.invoice_total_cents) continue;
-      totalFeeCents += job.stripe_fee_cents;
-      totalRevenueCents += job.invoice_total_cents;
-    }
-    return totalRevenueCents > 0 ? totalFeeCents / totalRevenueCents : 0;
-  }, [invoicedJobs]);
+  // Per Tim, 2026-09-14 — tried averaging Stripe fee the same way as lab
+  // cost (see avgLabCostPerSampleCents) and pulled it back out: unlike lab
+  // cost (one lab, one stable per-sample rate), the fee genuinely depends
+  // on which payment method the customer ends up choosing — nearly every
+  // paid-online job so far happened to be card (~2.9%+30¢), so the
+  // "average" was really just the card rate, silently assuming everyone
+  // pays by card when ACH (~0.8%, capped) or a mailed check (free) are
+  // both live options. No rate to fall back to here — see
+  // knownStripeFeeCentsForJob's own null case: the real fee simply isn't
+  // known until the invoice is actually paid.
 
   const periodHistory = useMemo(() => {
     const today = new Date();
@@ -869,16 +848,15 @@ export default function BillingView() {
       // Environmental job never gets a real one — see
       // estimatedLabCostCentsForJob's own comment.)
       const estimatedCents = estimatedLabCostCentsForJob(job, avgLabCostPerSampleCents);
-      // Per Tim, 2026-09-14 — same reasoning as the lab cost estimate
-      // right above, now for Stripe fee too: a week full of jobs still
-      // awaiting online payment would otherwise show an inflated margin
-      // from reading their not-yet-real fee as $0.
-      const stripeFeeCents = (knownStripeFeeCentsForJob(job) ?? 0) + estimatedStripeFeeCentsForJob(job, avgStripeFeeRate);
       // Per Tim, 2026-09-04 — feeds Weekly/Monthly Margin below; includes
       // the same lab cost estimate Lab Costs itself shows, not just real
       // dollars — otherwise a week full of still-unbilled jobs would show
-      // an inflated, misleading margin.
-      const netCents = computeMarginCents(grossCents, labCostCents + estimatedCents, stripeFeeCents);
+      // an inflated, misleading margin. Stripe fee itself is never
+      // estimated (see knownStripeFeeCentsForJob's own comment) — a job
+      // still awaiting payment reads as $0 fee here, same simplification
+      // this line always used, just via the helper for correctness on a
+      // check-paid job.
+      const netCents = computeMarginCents(grossCents, labCostCents + estimatedCents, knownStripeFeeCentsForJob(job) ?? 0);
 
       const w = weekly.find((b) => bucketDate >= b.startStr && bucketDate <= b.endStr);
       if (w) {
@@ -899,7 +877,7 @@ export default function BillingView() {
     }
 
     return { weekly, monthly };
-  }, [invoicedJobs, avgLabCostPerSampleCents, avgStripeFeeRate]);
+  }, [invoicedJobs, avgLabCostPerSampleCents]);
 
   // Per Tim, 2026-09-05 — "a small PDF text only link... a link to the PDF
   // for each week from Crystal", then "why so many, it should be one":
@@ -961,16 +939,14 @@ export default function BillingView() {
     let labCostCents = 0;
     let estimatedLabCostCents = 0;
     let stripeFeeCents = 0;
-    let estimatedStripeFeeCents = 0;
     for (const job of invoicedJobs) {
       grossCents += job.invoice_total_cents ?? 0;
       labCostCents += job.lab_cost_cents ?? 0;
       stripeFeeCents += knownStripeFeeCentsForJob(job) ?? 0;
       estimatedLabCostCents += estimatedLabCostCentsForJob(job, avgLabCostPerSampleCents);
-      estimatedStripeFeeCents += estimatedStripeFeeCentsForJob(job, avgStripeFeeRate);
     }
-    return { grossCents, labCostCents, estimatedLabCostCents, stripeFeeCents, estimatedStripeFeeCents };
-  }, [invoicedJobs, avgLabCostPerSampleCents, avgStripeFeeRate]);
+    return { grossCents, labCostCents, estimatedLabCostCents, stripeFeeCents };
+  }, [invoicedJobs, avgLabCostPerSampleCents]);
 
   async function patchJob(job: JobWithCustomer, patch: Record<string, unknown>) {
     const res = await fetch(`/api/admin/jobs/${job.id}`, {
@@ -994,9 +970,9 @@ export default function BillingView() {
         const isWeekly = summaryTab === "weekly";
         const periodFilterType: "week" | "month" = isWeekly ? "week" : "month";
         const allTimeMarginPercent = allTimeTotal.grossCents > 0
-          ? ((allTimeTotal.grossCents - allTimeTotal.labCostCents - allTimeTotal.estimatedLabCostCents - allTimeTotal.stripeFeeCents - allTimeTotal.estimatedStripeFeeCents) / allTimeTotal.grossCents) * 100
+          ? ((allTimeTotal.grossCents - allTimeTotal.labCostCents - allTimeTotal.estimatedLabCostCents - allTimeTotal.stripeFeeCents) / allTimeTotal.grossCents) * 100
           : null;
-        const isMarginEstimated = allTimeTotal.estimatedLabCostCents > 0 || allTimeTotal.estimatedStripeFeeCents > 0;
+        const isMarginEstimated = allTimeTotal.estimatedLabCostCents > 0;
         const allTimeMarginText = allTimeMarginPercent != null ? `${isMarginEstimated ? "≈ " : ""}${allTimeMarginPercent.toFixed(1)}%` : "—";
         return (
           <>
@@ -1318,7 +1294,6 @@ export default function BillingView() {
                         labCostCents={knownLabCostCentsForJob(job)}
                         estimatedLabCostCents={estimatedLabCostCentsForJob(job, avgLabCostPerSampleCents) || undefined}
                         stripeFeeCents={knownStripeFeeCentsForJob(job)}
-                        estimatedStripeFeeCents={estimatedStripeFeeCentsForJob(job, avgStripeFeeRate) || undefined}
                         marginCents={
                           knownLabCostCentsForJob(job) != null && knownStripeFeeCentsForJob(job) != null
                             ? computeMarginCents(job.invoice_total_cents ?? 0, knownLabCostCentsForJob(job)!, knownStripeFeeCentsForJob(job)!)

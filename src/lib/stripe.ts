@@ -2,6 +2,7 @@ import Stripe from "stripe";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { expandAddress } from "@/lib/address";
 import type { Customer, Job } from "@/lib/types";
+import { NEWTON_FIRE_FLOOD_COMPANY_ID } from "@/lib/report-findings";
 
 let stripeClient: Stripe | null = null;
 
@@ -209,6 +210,16 @@ export async function createStripeInvoiceForJob(
     // still gets its own custom_field.
     ...(job.project_number ? { custom_fields: [{ name: "Project #", value: job.project_number }] } : {}),
     ...(job.service_address ? { description: expandAddress(job.service_address) } : {}),
+    // Per Tim, 2026-09-14 — card fees can run high (~2.9%+30¢, see
+    // captureStripeFee's own comment), so the hosted invoice page no
+    // longer offers card at all; ACH bank transfer (~0.8%, capped) is the
+    // only option left there, with a mailed check as the other real
+    // alternative outside Stripe entirely. Newton Fire & Flood is the one
+    // deliberate exception — createPaymentMethodSetupLink's own comment —
+    // they specifically want a card kept on file and charged
+    // automatically, so their invoices keep the account's normal (card
+    // included) payment methods untouched.
+    ...(customer.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID ? {} : { payment_settings: { payment_method_types: ["us_bank_account"] } }),
   }, job.project_number);
 
   for (const item of job.invoice_line_items) {

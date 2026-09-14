@@ -230,7 +230,7 @@ export function invoiceDraftBodyHtml(job: Job, settings: Settings, payNowUrl: st
     ...(payNowUrl ? ["", `<a href="${escapeHtml(payNowUrl)}">Link to pay</a>`] : []),
     "",
     // The phone number itself never wraps mid-digit — see reportDraftBodyHtml's own comment on this.
-    `If you have any questions, please call me at <span style="white-space:nowrap;">${escapeHtml(settings.business_phone)}</span>`,
+    `If you have any questions, please call Tim at <span style="white-space:nowrap;">${escapeHtml(settings.business_phone)}</span>`,
     "",
     ...SIGNATURE_LINES,
   ].join("<br>");

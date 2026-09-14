@@ -530,6 +530,14 @@ export async function createJobFromIntake(params: {
       // point of this feature.
       email_gmail_thread_id: message.threadId,
       email_thread_message_ids: rfcMessageId ? [rfcMessageId] : [],
+      // The client's own real Subject line — for an email_intake job this
+      // is the only message in the thread before any draft joins it (see
+      // BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID's own comment: this
+      // company gets no automated acknowledgment email at all), so this is
+      // the one true anchor subject the final report/invoice draft must
+      // reuse verbatim — see email_thread_subject's own comment in
+      // schema.sql for why.
+      email_thread_subject: getHeader(message, "Subject"),
     })
     .select("id")
     .single();

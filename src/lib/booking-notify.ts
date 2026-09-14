@@ -162,6 +162,11 @@ export async function sendCustomerBookingReceivedEmail(params: {
       .update({
         email_thread_message_ids: result.messageId ? [result.messageId] : [],
         email_gmail_thread_id: result.gmailThreadId,
+        // The real, first-ever subject in this job's thread — see
+        // email_thread_subject's own comment in schema.sql. Always the
+        // first send for a job's thread (this function's own docstring),
+        // so always safe to set here.
+        email_thread_subject: bookingRequestSubject(params.address),
       })
       .eq("id", params.jobId);
   }
@@ -257,6 +262,12 @@ export async function sendJobConfirmedEmailIfDue(jobId: string): Promise<void> {
         email_thread_message_ids: result.messageId ? [...existingIds, result.messageId] : existingIds,
         email_gmail_thread_id: result.gmailThreadId ?? job.email_gmail_thread_id,
         confirmation_sent_at: new Date().toISOString(),
+        // Only when this send is establishing the thread's real subject
+        // for the first time — see email_thread_subject's own comment in
+        // schema.sql. A reply into an already-started thread (existingIds
+        // non-empty) must never overwrite the subject that already
+        // anchors it.
+        ...(existingIds.length === 0 ? { email_thread_subject: threadSubject(job.service_address, job.service_type) } : {}),
       })
       .eq("id", job.id);
   }
@@ -438,6 +449,8 @@ export async function sendJobScheduledNotification(jobId: string): Promise<void>
         email_thread_message_ids: result.messageId ? [...existingIds, result.messageId] : existingIds,
         email_gmail_thread_id: result.gmailThreadId ?? job.email_gmail_thread_id,
         confirmation_sent_at: new Date().toISOString(),
+        // Same reasoning as sendJobConfirmedEmailIfDue's own comment above.
+        ...(existingIds.length === 0 ? { email_thread_subject: scheduledNotificationSubject(job.service_address) } : {}),
       })
       .eq("id", job.id);
   }
@@ -493,6 +506,8 @@ export async function sendJobCreatedScheduledNotification(jobId: string): Promis
         email_thread_message_ids: result.messageId ? [...existingIds, result.messageId] : existingIds,
         email_gmail_thread_id: result.gmailThreadId ?? job.email_gmail_thread_id,
         confirmation_sent_at: new Date().toISOString(),
+        // Same reasoning as sendJobConfirmedEmailIfDue's own comment above.
+        ...(existingIds.length === 0 ? { email_thread_subject: scheduledNotificationSubject(job.service_address) } : {}),
       })
       .eq("id", job.id);
   }

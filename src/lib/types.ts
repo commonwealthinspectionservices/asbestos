@@ -312,6 +312,8 @@ export interface Job {
   email_thread_message_ids: string[];
   /** Gmail's own thread id for this job's email chain, set the first time an email sends through Gmail — passed to createDraft so the final report/invoice draft joins the same thread. */
   email_gmail_thread_id: string | null;
+  /** The literal Subject line of whichever email actually established this thread (the client's own incoming message for email_intake, or this app's own first automated send otherwise) — set once, alongside email_gmail_thread_id, and reused verbatim by every later draft since Gmail requires a matching Subject for threadId to actually attach. Null for jobs created before this column existed. */
+  email_thread_subject: string | null;
   /** Set once, the first time confirmed_date goes from empty to set — see sendJobConfirmedEmailIfDue in lib/booking-notify.ts. Shown as small tracking text in the admin dashboard. */
   confirmation_sent_at: string | null;
   /** Retired feature (day-before reminder emails) — column kept for old rows, no longer read or written. */

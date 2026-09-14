@@ -2165,10 +2165,21 @@ async function draftReportEmailForJob(params: {
   // whose only prior message is the client's own original one) just has an
   // empty/short chain, so this becomes the next reply in whatever thread
   // that was — same call either way.
+  //
+  // Subject reuses email_thread_subject (the real subject captured once,
+  // the moment this thread was actually established — see its own comment
+  // in schema.sql) rather than recomputing threadSubject() fresh here:
+  // Gmail's API requires a message's Subject to match the thread's real
+  // subject for threadId to actually attach it, and threadSubject() drifts
+  // the moment service_address/service_type are edited after intake —
+  // confirmed live 2026-09-14 on a Boston Harbor Water Restoration job
+  // (wrong unit number fixed, draft regenerated, landed as an unthreaded
+  // new draft instead of a reply). Falls back to the live computation only
+  // for a job created before this column existed.
   const existingThreadIds: string[] = Array.isArray(job.email_thread_message_ids) ? job.email_thread_message_ids : [];
   const draft = await createDraft(accessToken, {
     to: [...new Set(recipients)].join(", "),
-    subject: threadSubject(job.service_address, job.service_type),
+    subject: job.email_thread_subject ?? threadSubject(job.service_address, job.service_type),
     headers: threadHeaders(existingThreadIds),
     threadId: job.email_gmail_thread_id ?? undefined,
     bodyHtml: reportDraftBodyHtml(job, settings),
@@ -2281,10 +2292,16 @@ async function draftCombinedEmailForJob(params: {
   // thread. A job with no prior automated emails (e.g. admin-entered,
   // never went through the portal) just has an empty chain, so this
   // becomes its own thread's root instead — same call either way.
+  //
+  // Subject reuses email_thread_subject rather than recomputing
+  // threadSubject() fresh — see draftReportEmailForJob's own comment on
+  // why: Gmail requires a matching Subject for threadId to actually
+  // attach, and the live recomputation drifts the moment the job's
+  // address/service type are edited after intake.
   const existingThreadIds: string[] = Array.isArray(pricedJob.email_thread_message_ids) ? pricedJob.email_thread_message_ids : [];
   const draft = await createDraft(accessToken, {
     to: invoiceTo,
-    subject: threadSubject(pricedJob.service_address, pricedJob.service_type),
+    subject: pricedJob.email_thread_subject ?? threadSubject(pricedJob.service_address, pricedJob.service_type),
     headers: threadHeaders(existingThreadIds),
     threadId: pricedJob.email_gmail_thread_id ?? undefined,
     bodyHtml: combinedDraftBodyHtml(pricedJob, settings, totalCents, payNowUrlForEmail),
@@ -2432,11 +2449,19 @@ async function draftSelectedEmailForJob(params: {
     includeInvoice && pricedJob.customers.company_id === BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID
   );
   const existingThreadIds: string[] = Array.isArray(pricedJob.email_thread_message_ids) ? pricedJob.email_thread_message_ids : [];
+  // The report/report+invoice branch reuses email_thread_subject rather
+  // than recomputing threadSubject() fresh — see draftReportEmailForJob's
+  // own comment on why. The invoice-only branch is left as its own fixed
+  // subject, unchanged: for Boston Harbor specifically it never threads
+  // anyway (threadOntoOriginal above), and for every other company that
+  // combination is an existing, separate gap (draftInvoiceEmailForJob's
+  // own standalone path never threads either) — not part of this fix.
+  const subject = customSubject?.trim() || (includeInvoice && domains.length === 0
+    ? `Inspection Invoice - ${expandAddress(pricedJob.service_address)}`
+    : (pricedJob.email_thread_subject ?? threadSubject(pricedJob.service_address, pricedJob.service_type)));
   const draft = await createDraft(accessToken, {
     to: recipients,
-    subject: customSubject?.trim() || (includeInvoice && domains.length === 0
-      ? `Inspection Invoice - ${expandAddress(pricedJob.service_address)}`
-      : threadSubject(pricedJob.service_address, pricedJob.service_type)),
+    subject,
     headers: threadOntoOriginal ? threadHeaders(existingThreadIds) : undefined,
     threadId: threadOntoOriginal ? (pricedJob.email_gmail_thread_id ?? undefined) : undefined,
     bodyHtml,

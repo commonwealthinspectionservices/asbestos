@@ -877,6 +877,23 @@ alter table jobs add column if not exists cancellation_requested_at timestamptz;
 -- small tracking text in the admin dashboard.
 alter table jobs add column if not exists email_thread_message_ids jsonb not null default '[]'::jsonb;
 alter table jobs add column if not exists email_gmail_thread_id text;
+-- The literal Subject line of whichever email actually established this
+-- job's real Gmail thread (the client's own incoming message for an
+-- email_intake job, or this app's own first automated send otherwise) —
+-- captured once, alongside email_gmail_thread_id, and never recomputed.
+-- Gmail's API requires a message's Subject header to match a thread's
+-- existing subject for threadId to actually attach it to that
+-- conversation; the report/invoice draft functions in lib/lab-email.ts
+-- recompute their own subject from the job's live service_address/
+-- service_type on every regeneration, which silently drifts from the
+-- real thread subject the moment either is edited after intake —
+-- confirmed live 2026-09-14 on a Boston Harbor Water Restoration job
+-- (26-00xx, wrong unit number fixed then draft regenerated) landing as a
+-- brand-new, unthreaded draft instead of a reply. Reusing this stored
+-- value verbatim on every draft, instead of threadSubject()'s live
+-- recomputation, keeps every draft correctly threaded regardless of
+-- later edits.
+alter table jobs add column if not exists email_thread_subject text;
 
 -- Ground truth for "has this account actually finished onboarding
 -- (including setting a password)" — catches a real bug: on_auth_user_created

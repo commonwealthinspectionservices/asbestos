@@ -1470,6 +1470,17 @@ function JobRow({
       {!job.report_sent_at && <HazardIcon />}
     </span>
   );
+  // Per Tim, 2026-09-15 — Payment Pending cards need the date the actual
+  // fieldwork happened, above the Invoice/Report sent lines — that block
+  // replaced the Completed-date line entirely back on 2026-08-27 (see this
+  // card's own comment further down), which reads fine for "Ready for
+  // Review" but leaves a Payment Pending card with no reference at all to
+  // when the job was actually done, only when it was billed.
+  const paymentPendingCompletedDate = job.status === "report_invoice_sent" && (
+    <span className="shrink-0 text-sm text-slate-500">
+      Completed date: {formatDate(job.confirmed_date ?? job.requested_date) || "—"}
+    </span>
+  );
   // Mobile only — see the address block below. Desktop already opens
   // straight to Google Maps in the detail dialog, and a driver picking a
   // nav app is a phone-in-hand, on-the-way-there thing, not a desktop one.
@@ -1757,6 +1768,7 @@ function JobRow({
                 of interrupting it. */}
             {showReportInvoice && (
               <div className="mt-1 flex flex-col items-start sm:hidden">
+                {paymentPendingCompletedDate}
                 {invoiceStatus}
                 {reportStatus}
               </div>
@@ -1977,6 +1989,7 @@ function JobRow({
                   redundantly visible on mobile alongside those lines. */}
               {showReportInvoice && (
                 <div className="hidden w-full flex-col items-end gap-0.5 text-sm text-slate-500 sm:flex">
+                  {paymentPendingCompletedDate}
                   {invoiceStatus}
                   {reportStatus}
                 </div>

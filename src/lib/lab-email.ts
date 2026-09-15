@@ -224,21 +224,14 @@ export function invoiceDraftBodyHtml(job: Job, settings: Settings, payNowUrl: st
     // company job, where payment never gates the report at all. Never
     // shown on a company invoice — it would just be wrong there.
     ...(job.is_individual ? ["", "<em>Payment must be completed in order for results to be sent out.</em>"] : []),
-    // Per Tim, 2026-09-14 — "my goal is to avoid fees": a mailed check is
-    // the only genuinely free option (the pay link itself is bank
-    // transfer now, not card — see createStripeInvoiceForJob's own
-    // comment — but ACH still isn't $0, just far cheaper than card), so
-    // it's offered first, ahead of the link. No "Total due" dollar figure
-    // in the email body itself (the attached PDF and the pay link both
-    // already show it); "Link to pay", not all-caps.
-    ...(payNowUrl ? [
-      "",
-      "To avoid a processing fee, mailing a check is the best option — send it to:",
-      escapeHtml(expandAddress(splitAddress(settings.base_address).street)),
-      escapeHtml(expandAddress(splitAddress(settings.base_address).cityStateZip)),
-      "",
-      `You can also pay online by bank transfer: <a href="${escapeHtml(payNowUrl)}">Link to pay</a>`,
-    ] : []),
+    // Per Tim, 2026-09-14 — tried leading with "mail a check to avoid a
+    // fee" ahead of this, then pulled it back out the same day: just the
+    // link, labeled as bank transfer since that's what it actually is now
+    // (see createStripeInvoiceForJob's own comment — card is gone from
+    // these invoices). No "Total due" dollar figure in the email body
+    // itself (the attached PDF and the pay link both already show it);
+    // "Link to pay", not all-caps.
+    ...(payNowUrl ? ["", `Pay online by bank transfer: <a href="${escapeHtml(payNowUrl)}">Link to pay</a>`] : []),
     "",
     // The phone number itself never wraps mid-digit — see reportDraftBodyHtml's own comment on this.
     `If you have any questions, please call Tim at <span style="white-space:nowrap;">${escapeHtml(settings.business_phone)}</span>`,
@@ -292,16 +285,9 @@ function combinedDraftBodyHtml(job: Job & { customers: Customer }, settings: Set
     ...domains.map((d) => `&bull; ${COMBINED_DRAFT_DOMAIN_REPORT_LABEL[d]}`),
     "&bull; Invoice",
     // Per Tim, 2026-09-14 — same reasoning as invoiceDraftBodyHtml's own
-    // comment: a mailed check is the only genuinely free option, offered
-    // first, ahead of the (bank transfer, not card) pay link.
-    ...(payNowUrl ? [
-      "",
-      "To avoid a processing fee, mailing a check is the best option — send it to:",
-      escapeHtml(expandAddress(splitAddress(settings.base_address).street)),
-      escapeHtml(expandAddress(splitAddress(settings.base_address).cityStateZip)),
-      "",
-      `You can also pay online by bank transfer: <a href="${escapeHtml(payNowUrl)}">Link to pay</a>`,
-    ] : []),
+    // comment: just the link, labeled as bank transfer since card is gone
+    // from these invoices now.
+    ...(payNowUrl ? ["", `Pay online by bank transfer: <a href="${escapeHtml(payNowUrl)}">Link to pay</a>`] : []),
     "",
     ...(isFliEnvironmental
       ? ["Tim Hall"]

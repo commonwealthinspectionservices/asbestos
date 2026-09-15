@@ -107,7 +107,10 @@ export const GET = withApiErrors(async (req: NextRequest) => {
       && !(job.documents ?? []).some((d) => d.kind === "lab_invoice")
     )
     .map((job) => ({ id: job.id, projectNumber: job.project_number, address: job.service_address, completedDate: job.confirmed_date }))
-    .sort((a, b) => (a.completedDate ?? "").localeCompare(b.completedDate ?? ""));
+    // Per Tim, 2026-09-15 — "try to make the job numbers in order as
+    // much as we can": numeric project-number order, same as each
+    // document card's own jobs list below, not completedDate.
+    .sort((a, b) => a.projectNumber.localeCompare(b.projectNumber, undefined, { numeric: true }));
 
   return NextResponse.json({ documents, notYetInvoiced });
 });

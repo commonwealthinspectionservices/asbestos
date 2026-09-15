@@ -49,7 +49,7 @@ function formatDate(date: string | null | undefined): string {
   return formatDateMDY(date) ?? "—";
 }
 
-function isPastDue(dueIso: string | null): boolean {
+export function isPastDue(dueIso: string | null): boolean {
   if (!dueIso) return false;
   const due = new Date(`${dueIso}T00:00:00`);
   if (Number.isNaN(due.getTime())) return false;
@@ -829,13 +829,19 @@ export default function BillingView() {
           Revenue & Margin Summary used to be collapsed-by-default dropdowns
           embedded right here; both are now their own full pages
           (LabInvoicesView/RevenueMarginSummaryView), linked from here
-          instead of rendered inline. */}
-      <div className="mb-3 flex justify-end gap-4 text-sm font-semibold">
+          instead of rendered inline. Payment Calendar (same day, separate
+          ask — "a full list of when I'm going to get paid or when jobs
+          are officially due") joined the same row as a third link,
+          PaymentCalendarView, rather than adding a fourth dropdown. */}
+      <div className="mb-3 flex flex-wrap justify-end gap-x-4 gap-y-1 text-sm font-semibold">
         <Link href="/admin/lab-invoices" className="text-brand-600 underline hover:text-brand-700">
           Lab Invoices
         </Link>
         <Link href="/admin/revenue-summary" className="text-brand-600 underline hover:text-brand-700">
           Revenue &amp; Margin Summary
+        </Link>
+        <Link href="/admin/payment-calendar" className="text-brand-600 underline hover:text-brand-700">
+          Payment Calendar
         </Link>
       </div>
 

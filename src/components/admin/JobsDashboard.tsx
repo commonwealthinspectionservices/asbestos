@@ -649,11 +649,16 @@ const DOCUMENT_KIND_LABEL: Record<JobDocument["kind"], string> = {
 };
 
 const TURNAROUND_OPTIONS = ["Rush", "24-Hr", "48-Hr", "3-Day", "4-Day", "5-Day"];
-type SortField = "date" | "project_number";
+type SortField = "date" | "project_number" | "status";
 const SORT_FIELDS: { key: SortField; label: string }[] = [
   { key: "date", label: "Date" },
   { key: "project_number", label: "Project #" },
+  { key: "status", label: "Status" },
 ];
+// STATUS_LABEL's own key order is already the real pipeline sequence (see
+// its own comment) — reused here as the group order for sorting by status,
+// rather than keeping a second hardcoded list that could drift out of sync.
+const STATUS_SORT_RANK: Record<string, number> = Object.fromEntries(Object.keys(STATUS_LABEL).map((s, i) => [s, i]));
 
 // "What needs attention" — open until paid (or cancelled). Per Tim,
 // 2026-08-27 — "report_invoice_sent" (Payment Pending) has its own
@@ -830,10 +835,11 @@ export default function JobsDashboard() {
   const serviceTypeFilterCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [availableServiceTypes, setAvailableServiceTypes] = useState<ServiceType[]>([]);
   const [addingProject, setAddingProject] = useState(false);
-  // Default view: newest project number first, so a job just added shows up
-  // at the top without the admin having to sort for it.
-  const [sortBy, setSortBy] = useState<SortField>("project_number");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  // Default view, per Tim 2026-09-15 — grouped by status (pipeline order,
+  // earliest stage first) so jobs at the same stage sit next to each other,
+  // rather than scattered by project number or date.
+  const [sortBy, setSortBy] = useState<SortField>("status");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [sortEnabled, setSortEnabled] = useState(true);
   // The card order to fall back to while sorting is off — snapshotted the
   // moment it's turned off, so status/date edits afterward can't reshuffle
@@ -1044,6 +1050,14 @@ export default function JobsDashboard() {
     return [...filteredJobs].sort((a, b) => {
       if (sortBy === "project_number") {
         return dir * (a.project_number ?? "").localeCompare(b.project_number ?? "");
+      }
+      if (sortBy === "status") {
+        const rankDiff = (STATUS_SORT_RANK[a.status] ?? Number.MAX_SAFE_INTEGER) - (STATUS_SORT_RANK[b.status] ?? Number.MAX_SAFE_INTEGER);
+        // Within the same status, always newest project first — matches the
+        // old plain project-number default, and stays put regardless of
+        // which way the status grouping itself is flipped.
+        if (rankDiff !== 0) return dir * rankDiff;
+        return -1 * (a.project_number ?? "").localeCompare(b.project_number ?? "");
       }
       return dir * (a.requested_date ?? "").localeCompare(b.requested_date ?? "");
     });

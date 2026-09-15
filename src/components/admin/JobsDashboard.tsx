@@ -450,22 +450,31 @@ function EmailChecklistPanel({
   //
   // job.email_thread_subject (set once, at whatever email actually
   // established this job's real Gmail thread — see its own comment in
-  // schema.sql) always wins over the checklist-based recompute below when
-  // present: this form always sends a non-empty subject as `customSubject`
-  // to the server (never blank, so createDraft's own email_thread_subject
-  // fallback never gets a chance to apply here), and every draft in a
-  // thread needs the SAME subject as the thread's real one for Gmail to
-  // actually attach it — not a description of whatever happens to be
-  // checked right now. Confirmed live 2026-09-14 — this auto-filled field
-  // was silently the reason job.email_thread_subject alone wasn't enough:
-  // a real anchor subject stored server-side is useless if the one UI path
-  // to a draft always overrides it with a fresh recompute.
-  const defaultSubject = job.email_thread_subject ?? (() => {
+  // schema.sql) wins over the checklist-based recompute below whenever a
+  // report is actually going out: this form always sends a non-empty
+  // subject as `customSubject` to the server (never blank, so
+  // createDraft's own email_thread_subject fallback never gets a chance
+  // to apply here), and every draft in a thread needs the SAME subject
+  // as the thread's real one for Gmail to actually attach it — not a
+  // description of whatever happens to be checked right now. Confirmed
+  // live 2026-09-14 — this auto-filled field was silently the reason
+  // job.email_thread_subject alone wasn't enough: a real anchor subject
+  // stored server-side is useless if the one UI path to a draft always
+  // overrides it with a fresh recompute.
+  //
+  // Per Tim, 2026-09-15 (26-0029) — an invoice-only send is the one
+  // exception: it always keeps its own fixed "Inspection Invoice -
+  // address" title, never the thread subject. The client's raw original
+  // request subject reads oddly on a bill, and for Boston Harbor
+  // specifically an invoice-only send never threads at all anyway (see
+  // draftSelectedEmailForJob's own threadOntoOriginal) — showing the
+  // thread subject here was actively misleading regardless of company.
+  const defaultSubject = (() => {
     const address = expandAddress(job.service_address);
     const labels = DOMAIN_SUBJECT_ORDER.filter((d) => selectedDomains.has(d)).map((d) => REPORT_DOMAIN_LABEL[d]);
     if (includeMoistureMapping) labels.push("Moisture Mapping");
     if (labels.length === 0) return includeInvoice ? `Inspection Invoice - ${address}` : address;
-    return `${labels.join(" + ")} Inspection Report - ${address}`;
+    return job.email_thread_subject ?? `${labels.join(" + ")} Inspection Report - ${address}`;
   })();
   const [subject, setSubject] = useState(defaultSubject);
   const [subjectTouched, setSubjectTouched] = useState(false);

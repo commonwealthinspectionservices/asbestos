@@ -45,9 +45,6 @@ export default function LabInvoicesView() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
       <h1 className="text-lg font-bold text-slate-800">Lab Invoices</h1>
-      <p className="mt-1 text-sm text-slate-500">
-        Every daily/weekly summary or invoice Crystal Analytical has ever sent, one copy each.
-      </p>
 
       {error && <div className="mt-4 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>}
 

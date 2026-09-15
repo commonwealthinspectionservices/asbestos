@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import type { JobWithCustomer } from "@/lib/types";
 import { formatCents, computeMarginCents, knownLabCostCentsForJob, knownStripeFeeCentsForJob } from "@/lib/pricing";
 import { ProjectDetailDialog, EditProjectDialog, formatDateTime } from "@/components/admin/JobsDashboard";
@@ -959,6 +960,18 @@ export default function BillingView() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
+      {/* Per Tim, 2026-09-15 — "make sure I have everything in one spot":
+          every distinct Crystal Analytical document ever received, one
+          copy each, with the jobs it covers — its own page since it's a
+          different question than this page's per-job/per-period rollups
+          ("what did I actually get sent" vs. "what did each job cost"). */}
+      <Link
+        href="/admin/lab-invoices"
+        className="mb-3 flex w-full items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:border-brand-400"
+      >
+        Lab Invoices — every Crystal document on file
+        <span className="text-slate-400">→</span>
+      </Link>
       <button
         onClick={() => setShowSummary((v) => !v)}
         className="flex w-full items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700"

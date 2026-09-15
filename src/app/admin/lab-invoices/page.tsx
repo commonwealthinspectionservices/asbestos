@@ -1,8 +1,26 @@
 import { redirect } from "next/navigation";
+import { getSessionRole } from "@/lib/auth";
+import AdminNav, { AdminFooter } from "@/components/admin/AdminNav";
+import LabInvoicesView from "@/components/admin/LabInvoicesView";
 
-// Per Tim, 2026-08-30 — merged Invoices/Lab Costs/Margins into one Billing
-// page ("too many clicks... a lot of repeating information") — this route
-// stays only as a redirect so any old bookmark/link still lands somewhere.
+// Per Tim, 2026-09-15 — "one page that has... one copy of every single
+// daily summary or weekly summary or any invoice that I've ever been
+// sent by Crystal Analytical... make sure I have everything in one
+// spot." Owner-only, same gate as Billing (this is real lab-cost/
+// financial data) — this route used to just redirect there before this
+// page existed (the old Invoices/Lab Costs/Margins consolidation).
 export default function AdminLabInvoicesPage() {
-  redirect("/admin/billing");
+  const role = getSessionRole();
+  if (!role) redirect("/admin/login");
+  if (role !== "owner") redirect("/admin/dashboard");
+
+  return (
+    <div className="flex min-h-screen flex-col bg-slate-50">
+      <AdminNav role={role} />
+      <div className="flex-1">
+        <LabInvoicesView />
+      </div>
+      <AdminFooter />
+    </div>
+  );
 }

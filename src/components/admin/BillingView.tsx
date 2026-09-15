@@ -1,10 +1,10 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import type { JobWithCustomer } from "@/lib/types";
 import { formatCents, computeMarginCents, knownLabCostCentsForJob, knownStripeFeeCentsForJob } from "@/lib/pricing";
 import { ProjectDetailDialog, EditProjectDialog, formatDateTime } from "@/components/admin/JobsDashboard";
+import LabInvoicesView from "@/components/admin/LabInvoicesView";
 import { formatDateMDY } from "@/lib/date-format";
 import { NEWTON_FIRE_FLOOD_COMPANY_ID } from "@/lib/report-findings";
 import { dueDateFor } from "@/lib/invoice-due-date";
@@ -562,6 +562,10 @@ export default function BillingView() {
   // once Lab Costs and Margin joined the original Revenue pair — starts
   // collapsed so the job list is what's actually visible on load.
   const [showSummary, setShowSummary] = useState(false);
+  // Per Tim, 2026-09-15 — same collapsed-by-default dropdown pattern as
+  // Revenue & Margin Summary below, instead of navigating away to its
+  // own page.
+  const [showLabInvoices, setShowLabInvoices] = useState(false);
   // Per Tim, 2026-09-05 — "let's put these open to two tabs. One is weekly
   // tab, and then one is monthly tab": replaces the old side-by-side
   // Weekly/Monthly card pairs with one set of cards at a time.
@@ -962,16 +966,24 @@ export default function BillingView() {
     <div className="mx-auto max-w-3xl px-4 py-6">
       {/* Per Tim, 2026-09-15 — "make sure I have everything in one spot":
           every distinct Crystal Analytical document ever received, one
-          copy each, with the jobs it covers — its own page since it's a
-          different question than this page's per-job/per-period rollups
-          ("what did I actually get sent" vs. "what did each job cost"). */}
-      <Link
-        href="/admin/lab-invoices"
-        className="mb-3 flex w-full items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:border-brand-400"
+          copy each, with the jobs it covers — a different question than
+          this page's per-job/per-period rollups ("what did I actually
+          get sent" vs. "what did each job cost"). Same collapsed-by-
+          default dropdown as Revenue & Margin Summary below, not a
+          separate page to navigate to (still reachable directly at
+          /admin/lab-invoices too). */}
+      <button
+        onClick={() => setShowLabInvoices((v) => !v)}
+        className="mb-3 flex w-full items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700"
       >
-        Lab Invoices — every Crystal document on file
-        <span className="text-slate-400">→</span>
-      </Link>
+        Lab Invoices
+        <span className={`text-slate-400 transition-transform ${showLabInvoices ? "rotate-180" : ""}`}>▾</span>
+      </button>
+      {showLabInvoices && (
+        <div className="mb-3">
+          <LabInvoicesView showHeading={false} />
+        </div>
+      )}
       <button
         onClick={() => setShowSummary((v) => !v)}
         className="flex w-full items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700"

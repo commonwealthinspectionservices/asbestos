@@ -18,7 +18,9 @@ export default function AdminLabInvoicesPage() {
     <div className="flex min-h-screen flex-col bg-slate-50">
       <AdminNav role={role} />
       <div className="flex-1">
-        <LabInvoicesView />
+        <div className="mx-auto max-w-3xl px-4 py-6">
+          <LabInvoicesView />
+        </div>
       </div>
       <AdminFooter />
     </div>

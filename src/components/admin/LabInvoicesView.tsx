@@ -26,7 +26,13 @@ interface NotYetInvoicedJob {
 // real, distinct document (see /api/admin/lab-invoices's own dedup-by-
 // content_hash comment), newest first, each job number linking straight
 // into that job on the dashboard.
-export default function LabInvoicesView() {
+//
+// Also embedded inline as a collapsed-by-default dropdown on the
+// Billing page (BillingView.tsx, same pattern as its own Revenue &
+// Margin Summary) rather than only reachable by navigating to its own
+// page — showHeading:false there, since the toggle button itself
+// already says "Lab Invoices".
+export default function LabInvoicesView({ showHeading = true }: { showHeading?: boolean }) {
   const [documents, setDocuments] = useState<LabInvoiceDocument[] | null>(null);
   const [notYetInvoiced, setNotYetInvoiced] = useState<NotYetInvoicedJob[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -43,10 +49,10 @@ export default function LabInvoicesView() {
   }, []);
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-6">
-      <h1 className="text-lg font-bold text-slate-800">Lab Invoices</h1>
+    <div>
+      {showHeading && <h1 className="text-lg font-bold text-slate-800">Lab Invoices</h1>}
 
-      {error && <div className="mt-4 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>}
+      {error && <div className={`${showHeading ? "mt-4" : ""} rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700`}>{error}</div>}
 
       {/* Per Tim, 2026-09-15 — "show at the very top jobs that have not
           yet been invoiced": fieldwork's done, no lab_invoice document on

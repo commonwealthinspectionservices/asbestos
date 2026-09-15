@@ -202,10 +202,22 @@ function reportDraftBodyHtml(job: Job, settings: Settings, domainsOverride?: Rep
 // Harbor Water Restoration (see isSeparateDraftsCompany/
 // BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID) — everyone else's invoice
 // goes out folded into combinedDraftBodyHtml instead.
-export function invoiceDraftBodyHtml(job: Job, settings: Settings, payNowUrl: string | null): string {
+export function invoiceDraftBodyHtml(job: Job & { customers?: Customer }, settings: Settings, payNowUrl: string | null): string {
   // Street on its own line, city/state/zip on the next — same split
   // JobsDashboard.tsx's own mobile address rendering uses.
   const { street, cityStateZip } = splitAddress(job.service_address);
+  // Per Tim, 2026-09-14 — Newton Fire & Flood is the one company excluded
+  // from the ACH-only restriction on new invoices (see
+  // createStripeInvoiceForJob's own comment — they keep a card on file,
+  // charged automatically), so calling this a bank transfer specifically
+  // would be wrong for them; every other company's invoice really is ACH
+  // only now. customers is optional here (unlike combinedDraftBodyHtml,
+  // which already required it) since invoiceDraftBodyHtml predates this
+  // company-specific wording and some callers may not have it attached —
+  // undefined just falls through to the safe, always-true "Link to pay".
+  const payLinkPrefix = job.customers?.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID
+    ? ""
+    : "Pay online by bank transfer: ";
   // Confirmed live 2026-09-03 (26-0014, a mold-only job) — this always
   // said "the asbestos inspection" regardless of what the job actually
   // was. reportDraftBodyHtml above already derives this correctly from
@@ -227,11 +239,10 @@ export function invoiceDraftBodyHtml(job: Job, settings: Settings, payNowUrl: st
     // Per Tim, 2026-09-14 — tried leading with "mail a check to avoid a
     // fee" ahead of this, then pulled it back out the same day: just the
     // link, labeled as bank transfer since that's what it actually is now
-    // (see createStripeInvoiceForJob's own comment — card is gone from
-    // these invoices). No "Total due" dollar figure in the email body
-    // itself (the attached PDF and the pay link both already show it);
-    // "Link to pay", not all-caps.
-    ...(payNowUrl ? ["", `Pay online by bank transfer: <a href="${escapeHtml(payNowUrl)}">Link to pay</a>`] : []),
+    // for every company but Newton (see payLinkPrefix above). No "Total
+    // due" dollar figure in the email body itself (the attached PDF and
+    // the pay link both already show it); "Link to pay", not all-caps.
+    ...(payNowUrl ? ["", `${payLinkPrefix}<a href="${escapeHtml(payNowUrl)}">Link to pay</a>`] : []),
     "",
     // The phone number itself never wraps mid-digit — see reportDraftBodyHtml's own comment on this.
     `If you have any questions, please call Tim at <span style="white-space:nowrap;">${escapeHtml(settings.business_phone)}</span>`,
@@ -274,6 +285,13 @@ const COMBINED_DRAFT_DOMAIN_REPORT_LABEL: Record<ReportDomain, string> = {
 function combinedDraftBodyHtml(job: Job & { customers: Customer }, settings: Settings, totalCents: number, payNowUrl: string | null, domainsOverride?: ReportDomain[]): string {
   const domains = domainsOverride ?? jobReportDomains(job.service_type);
   const isFliEnvironmental = job.customers.company_id === FLI_ENVIRONMENTAL_COMPANY_ID;
+  // Per Tim, 2026-09-14 — same reasoning as invoiceDraftBodyHtml's own
+  // comment: Newton is excluded from the ACH-only restriction (they keep
+  // a card on file), so "bank transfer" would be wrong for them
+  // specifically — every other company's invoice really is ACH only now.
+  const payLinkPrefix = job.customers.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID
+    ? ""
+    : "Pay online by bank transfer: ";
   return [
     `<strong>Site:</strong> ${escapeHtml(expandAddress(job.service_address))}`,
     `<strong>Date of Sampling:</strong> ${escapeHtml(formatDateMMDDYYYY(bestSampledDate(job)))}`,
@@ -284,10 +302,7 @@ function combinedDraftBodyHtml(job: Job & { customers: Customer }, settings: Set
     "",
     ...domains.map((d) => `&bull; ${COMBINED_DRAFT_DOMAIN_REPORT_LABEL[d]}`),
     "&bull; Invoice",
-    // Per Tim, 2026-09-14 — same reasoning as invoiceDraftBodyHtml's own
-    // comment: just the link, labeled as bank transfer since card is gone
-    // from these invoices now.
-    ...(payNowUrl ? ["", `Pay online by bank transfer: <a href="${escapeHtml(payNowUrl)}">Link to pay</a>`] : []),
+    ...(payNowUrl ? ["", `${payLinkPrefix}<a href="${escapeHtml(payNowUrl)}">Link to pay</a>`] : []),
     "",
     ...(isFliEnvironmental
       ? ["Tim Hall"]

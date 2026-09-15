@@ -430,7 +430,7 @@ export async function sendJobScheduledNotification(jobId: string): Promise<void>
     // can't say "...Report..." — nothing's been reported on yet. Once it's
     // a reply within an already-started thread, keep sharing that
     // thread's one subject as before (threadSubject's own comment).
-    subject: existingIds.length === 0 ? scheduledNotificationSubject(job.service_address) : threadSubject(job.service_address, job.service_type),
+    subject: existingIds.length === 0 ? scheduledNotificationSubject(job.service_address, job.service_type) : threadSubject(job.service_address, job.service_type),
     existingMessageIds: existingIds,
     gmailThreadId: job.email_gmail_thread_id,
     replyAllFromThread: true,
@@ -450,7 +450,7 @@ export async function sendJobScheduledNotification(jobId: string): Promise<void>
         email_gmail_thread_id: result.gmailThreadId ?? job.email_gmail_thread_id,
         confirmation_sent_at: new Date().toISOString(),
         // Same reasoning as sendJobConfirmedEmailIfDue's own comment above.
-        ...(existingIds.length === 0 ? { email_thread_subject: scheduledNotificationSubject(job.service_address) } : {}),
+        ...(existingIds.length === 0 ? { email_thread_subject: scheduledNotificationSubject(job.service_address, job.service_type) } : {}),
       })
       .eq("id", job.id);
   }
@@ -487,7 +487,7 @@ export async function sendJobCreatedScheduledNotification(jobId: string): Promis
   const result = await sendThreadedEmail({
     to: customer.email,
     // Same reasoning as sendJobScheduledNotification's own comment above.
-    subject: existingIds.length === 0 ? scheduledNotificationSubject(job.service_address) : threadSubject(job.service_address, job.service_type),
+    subject: existingIds.length === 0 ? scheduledNotificationSubject(job.service_address, job.service_type) : threadSubject(job.service_address, job.service_type),
     existingMessageIds: existingIds,
     gmailThreadId: job.email_gmail_thread_id,
     replyAllFromThread: true,
@@ -507,7 +507,7 @@ export async function sendJobCreatedScheduledNotification(jobId: string): Promis
         email_gmail_thread_id: result.gmailThreadId ?? job.email_gmail_thread_id,
         confirmation_sent_at: new Date().toISOString(),
         // Same reasoning as sendJobConfirmedEmailIfDue's own comment above.
-        ...(existingIds.length === 0 ? { email_thread_subject: scheduledNotificationSubject(job.service_address) } : {}),
+        ...(existingIds.length === 0 ? { email_thread_subject: scheduledNotificationSubject(job.service_address, job.service_type) } : {}),
       })
       .eq("id", job.id);
   }

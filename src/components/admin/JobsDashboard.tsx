@@ -677,9 +677,19 @@ function isClosedJob(job: JobWithCustomer): boolean {
   if (CLOSED_STATUSES.has(job.status)) return true;
   return job.status === "paid" && job.report_sent_at != null;
 }
+// Per Tim, 2026-09-15 — an individual/homeowner job sitting in Payment
+// Pending is still open: the homeowner payment gate (see
+// feature_deferred_homeowner_payment_gate) holds their report until they
+// pay, so report_invoice_sent for them means the report is genuinely still
+// owed, same as the "paid but report not sent" case above. A company job in
+// Payment Pending already got its report — only the invoice is outstanding
+// — so it keeps its own dedicated filter (per the 2026-08-27 decision
+// above) rather than also cluttering Open Projects.
 function isOpenJob(job: JobWithCustomer): boolean {
   if (OPEN_STATUSES.has(job.status)) return true;
-  return job.status === "paid" && !job.report_sent_at;
+  if (job.status === "paid" && !job.report_sent_at) return true;
+  if (job.status === "report_invoice_sent" && job.is_individual) return true;
+  return false;
 }
 
 function lineItemsTotalCents(items: InvoiceLineItem[]): number {

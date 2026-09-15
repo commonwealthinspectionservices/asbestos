@@ -20,7 +20,7 @@
 // without joining the thread that time.
 import { sendEmail, FROM } from "@/lib/email";
 import { getValidAccessToken, sendMessage, getMessageIdHeader, getThreadParticipants } from "@/lib/gmail";
-import { inspectionReportSubjectPrefix } from "@/lib/report-findings";
+import { inspectionReportSubjectPrefix, jobReportDomains, type ReportDomain } from "@/lib/report-findings";
 import { expandAddress } from "@/lib/address";
 
 // "Asbestos Inspection Report - 36 Drummer Road, Acton, MA" — kept stable
@@ -44,8 +44,25 @@ export function threadSubject(address: string, serviceType: string | null | unde
 // <address>" phrasing the way every later email in the thread does. Own,
 // stable subject for just that one email; every other email in the chain
 // still shares threadSubject as before (per that function's own comment).
-export function scheduledNotificationSubject(address: string): string {
-  return `Inspection Confirmed - ${expandAddress(address)}`;
+// Per Tim, 2026-09-15 — "instead of saying inspection confirmed... just
+// say service type", then the same day: "any type of mold service type
+// should be mold inspection and any type of asbestos service type
+// should be asbestos inspection" — not job.service_type verbatim (which
+// can be a specific label like "Pre-Renovation Asbestos Inspection" or
+// "Mold Bulk Sampling"), but the same domain-normalized "Asbestos" /
+// "Mold" / "Lead" naming inspectionReportSubjectPrefix already uses for
+// every later email in this same thread, just without its "Report"
+// suffix (nothing's been reported on yet at this stage either — same
+// reasoning as this function's own history above). Fixed Asbestos/Mold/
+// Lead order, matching inspectionReportSubjectPrefix's own — "Asbestos +
+// Mold Inspection", never "Mold + Asbestos Inspection" for the same job.
+const SCHEDULED_SUBJECT_DOMAIN_ORDER: ReportDomain[] = ["asbestos", "mold", "lead"];
+const SCHEDULED_SUBJECT_DOMAIN_LABEL: Record<ReportDomain, string> = { asbestos: "Asbestos", mold: "Mold", lead: "Lead" };
+export function scheduledNotificationSubject(address: string, serviceType: string | null | undefined): string {
+  const present = new Set(jobReportDomains(serviceType));
+  const labels = SCHEDULED_SUBJECT_DOMAIN_ORDER.filter((d) => present.has(d)).map((d) => SCHEDULED_SUBJECT_DOMAIN_LABEL[d]);
+  const prefix = labels.length > 0 ? `${labels.join(" + ")} Inspection` : "Inspection";
+  return `${prefix} - ${expandAddress(address)}`;
 }
 
 // Per Tim, 2026-09-12 — sendCustomerBookingReceivedEmail (the very first

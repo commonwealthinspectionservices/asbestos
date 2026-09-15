@@ -115,6 +115,23 @@ export interface Company {
   created_at: string;
   /** The resolved billing_contact_id record — only populated by endpoints that join it in (e.g. GET /api/admin/jobs). */
   billing_contact?: { id: string; name: string; email: string; phone: string } | null;
+  /** A subcontracting company's own saved roster of end clients they book jobs on behalf of — see this column's own comment in schema.sql. Only populated by portal endpoints that need it (GET/POST /api/portal/subcontractor-clients); not selected on every Company read. */
+  subcontractor_saved_clients?: SubcontractorSavedClient[];
+}
+
+/** One saved end client on a subcontracting company's own roster — see companies.subcontractor_saved_clients in schema.sql. Granular address/contact fields (not one combined string) so CompanyBookingForm.tsx can repopulate its own individual inputs directly when one is picked. */
+export interface SubcontractorSavedClient {
+  id: string;
+  company: string;
+  street: string;
+  unit: string;
+  city: string;
+  state: string;
+  zip: string;
+  contactFirstName: string;
+  contactLastName: string;
+  contactPhone: string;
+  contactEmail: string;
 }
 
 export interface SavedAddress {

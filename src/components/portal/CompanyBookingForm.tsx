@@ -9,6 +9,7 @@ import { formatPhoneNumber } from "@/lib/phone";
 import { formatDateMDY } from "@/lib/date-format";
 import { TIME_OPTIONS } from "@/lib/time-options";
 import { formatCents } from "@/lib/pricing";
+import type { SubcontractorSavedClient } from "@/lib/types";
 
 interface ServiceTypeOption {
   key: string;
@@ -110,6 +111,38 @@ export default function CompanyBookingForm({ isFliEnvironmental }: { isFliEnviro
   const [endClientContactLastName, setEndClientContactLastName] = useState("");
   const [endClientContactPhone, setEndClientContactPhone] = useState("");
   const [endClientContactEmail, setEndClientContactEmail] = useState("");
+
+  // Per Tim, 2026-09-15 — "the same dropdown features that I have... he
+  // must be able to save clients and use the drop down the same way":
+  // FLI's own saved roster (companies.subcontractor_saved_clients),
+  // fetched once since one subcontracting company's real client list is
+  // small — filtered client-side as Dave types, same effective feel as
+  // the admin's own debounced server search without needing one here.
+  const [savedClients, setSavedClients] = useState<SubcontractorSavedClient[]>([]);
+  const [showClientDropdown, setShowClientDropdown] = useState(false);
+  useEffect(() => {
+    if (!isFliEnvironmental) return;
+    fetch("/api/portal/subcontractor-clients")
+      .then((r) => r.json())
+      .then((data) => setSavedClients(data.clients ?? []))
+      .catch(() => {});
+  }, [isFliEnvironmental]);
+  const matchingClients = savedClients.filter((c) =>
+    c.company.toLowerCase().includes(endClientCompany.trim().toLowerCase())
+  );
+  function selectSavedClient(c: SubcontractorSavedClient) {
+    setEndClientCompany(c.company);
+    setEndClientStreet(c.street);
+    setEndClientUnit(c.unit);
+    setEndClientCity(c.city);
+    setEndClientState(c.state || "MA");
+    setEndClientZip(c.zip);
+    setEndClientContactFirstName(c.contactFirstName);
+    setEndClientContactLastName(c.contactLastName);
+    setEndClientContactPhone(c.contactPhone);
+    setEndClientContactEmail(c.contactEmail);
+    setShowClientDropdown(false);
+  }
 
   const [siteContactName, setSiteContactName] = useState("");
   const [siteContactPhone, setSiteContactPhone] = useState("");
@@ -218,6 +251,23 @@ export default function CompanyBookingForm({ isFliEnvironmental }: { isFliEnviro
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Something went wrong");
       setDone({ date: data.date });
+      // Per Tim, 2026-09-15 — auto-saves/updates this client on FLI's own
+      // roster the same moment a booking actually succeeds, no separate
+      // "save" step Dave has to remember — best-effort, a failure here
+      // must never surface as a booking error since the booking itself
+      // already went through.
+      if (isFliEnvironmental && endClientCompany.trim()) {
+        fetch("/api/portal/subcontractor-clients", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            company: endClientCompany.trim(),
+            street: endClientStreet, unit: endClientUnit, city: endClientCity, state: endClientState, zip: endClientZip,
+            contactFirstName: endClientContactFirstName, contactLastName: endClientContactLastName,
+            contactPhone: endClientContactPhone, contactEmail: endClientContactEmail,
+          }),
+        }).catch(() => {});
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong");
     } finally {
@@ -322,12 +372,39 @@ export default function CompanyBookingForm({ isFliEnvironmental }: { isFliEnviro
           />
 
           <label className="mt-4 block text-sm font-medium text-slate-700">FLI&apos;s client</label>
-          <input
-            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-            value={endClientCompany}
-            onChange={(e) => setEndClientCompany(e.target.value)}
-            placeholder="Company name"
-          />
+          <div className="relative">
+            <input
+              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              value={endClientCompany}
+              onChange={(e) => { setEndClientCompany(e.target.value); setShowClientDropdown(true); }}
+              onFocus={() => setShowClientDropdown(true)}
+              onBlur={() => setTimeout(() => setShowClientDropdown(false), 150)}
+              placeholder="Company name"
+              autoComplete="off"
+            />
+            {/* Per Tim, 2026-09-15 — picking a saved client fills in its
+                whole address/contact block below too, same "click the
+                people he's using a lot" behavior as the admin side's own
+                ComboboxInput. onMouseDown (not onClick) fires before the
+                input's onBlur above closes this list. */}
+            {showClientDropdown && matchingClients.length > 0 && (
+              <div className="absolute z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-lg border border-slate-300 bg-white shadow-lg">
+                {matchingClients.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onMouseDown={() => selectSavedClient(c)}
+                    className="block w-full px-3 py-2 text-left text-sm hover:bg-slate-50"
+                  >
+                    <div className="font-medium text-slate-800">{c.company}</div>
+                    {(c.contactFirstName || c.contactLastName) && (
+                      <div className="text-xs text-slate-500">{[c.contactFirstName, c.contactLastName].filter(Boolean).join(" ")}</div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <div className="mt-1.5 flex flex-col gap-1.5 sm:flex-row">
             <div className="min-w-0 sm:w-0 sm:flex-1">
               <AddressAutocompleteInput

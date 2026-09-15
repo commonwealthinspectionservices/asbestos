@@ -1143,3 +1143,19 @@ alter table prospects add column if not exists user_rating_count integer;
 -- column — people naturally answer with a range ("$25-30/hr") as often as
 -- a single figure.
 alter table career_interest_submissions add column if not exists desired_hourly_rate text;
+
+-- Per Tim, 2026-09-15 — a subcontracting company (FLI Environmental
+-- today; see FLI_ENVIRONMENTAL_COMPANY_ID) books jobs on behalf of their
+-- own clients (job.subcontractor_client_* — see that column's own
+-- comment), and was retyping the same client's company/address/contact
+-- info on every single booking with no memory of it at all. This is
+-- their own saved roster of end clients, scoped to their own company_id
+-- (never shared across companies), upserted automatically every time
+-- they book a job for a client whose name matches one already saved
+-- (case-insensitive) — same "just works, no explicit save step" feel as
+-- the admin side's own Company/Contact directory. A plain jsonb array
+-- rather than real child tables: one subcontracting company's own client
+-- list is small (a handful to a few dozen real repeat clients), so the
+-- relational/RLS overhead of a dedicated table isn't worth it here — see
+-- SubcontractorSavedClient in lib/types.ts for the shape of each entry.
+alter table companies add column if not exists subcontractor_saved_clients jsonb not null default '[]'::jsonb;

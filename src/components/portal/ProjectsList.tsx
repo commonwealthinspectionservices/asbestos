@@ -439,7 +439,15 @@ export default function ProjectsList() {
                   </span>
                 </div>
 
-                <div className="text-sm text-slate-500">&nbsp;</div>
+                {/* Per Tim, 2026-09-15 — a subcontractor (FLI Environmental)
+                    booking on behalf of their own client needs that
+                    client's name here, not just the address — every job on
+                    this list otherwise belongs to the same logged-in
+                    account, so the card gave Dave no way to tell jobs
+                    apart at a glance. Falls back to the same blank spacer
+                    line for every job that isn't booked on someone else's
+                    behalf. */}
+                <div className="text-sm font-medium text-slate-700">{p.subcontractor_client_company || " "}</div>
 
                 <div className="flex w-full items-start gap-3">
                   <a

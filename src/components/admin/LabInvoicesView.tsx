@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { formatDateTime } from "@/components/admin/JobsDashboard";
+import { formatDateTime, formatDate } from "@/components/admin/JobsDashboard";
 
 interface LabInvoiceDocument {
   fileName: string;
@@ -10,6 +10,13 @@ interface LabInvoiceDocument {
   reportDateRange: string | null;
   viewHref: string;
   jobs: { id: string; projectNumber: string; address: string }[];
+}
+
+interface NotYetInvoicedJob {
+  id: string;
+  projectNumber: string;
+  address: string;
+  completedDate: string | null;
 }
 
 // Per Tim, 2026-09-15 — "one page that has one copy of every single
@@ -21,6 +28,7 @@ interface LabInvoiceDocument {
 // into that job on the dashboard.
 export default function LabInvoicesView() {
   const [documents, setDocuments] = useState<LabInvoiceDocument[] | null>(null);
+  const [notYetInvoiced, setNotYetInvoiced] = useState<NotYetInvoicedJob[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -29,6 +37,7 @@ export default function LabInvoicesView() {
       .then((data) => {
         if (data.error) throw new Error(data.error);
         setDocuments(data.documents);
+        setNotYetInvoiced(data.notYetInvoiced ?? []);
       })
       .catch((e) => setError(e instanceof Error ? e.message : "Failed to load"));
   }, []);
@@ -41,6 +50,28 @@ export default function LabInvoicesView() {
       </p>
 
       {error && <div className="mt-4 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>}
+
+      {/* Per Tim, 2026-09-15 — "show at the very top jobs that have not
+          yet been invoiced": fieldwork's done, no lab_invoice document on
+          file for it at all yet (see the route's own FLI exclusion —
+          their lab work never bills to Commonwealth in the first place). */}
+      {notYetInvoiced.length > 0 && (
+        <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-3">
+          <div className="text-sm font-semibold text-amber-800">Not yet invoiced by Crystal</div>
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            {notYetInvoiced.map((j) => (
+              <Link
+                key={j.id}
+                href={`/admin/dashboard?jobId=${j.id}`}
+                className="whitespace-nowrap rounded bg-white px-1.5 py-0.5 font-mono text-xs text-slate-700 shadow-sm hover:bg-amber-100"
+                title={`${j.address}${j.completedDate ? ` — completed ${formatDate(j.completedDate)}` : ""}`}
+              >
+                {j.projectNumber}
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {!documents && !error && <p className="mt-6 text-sm text-slate-500">Loading…</p>}
 

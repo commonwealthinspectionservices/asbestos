@@ -5517,6 +5517,20 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
     setContactId(contact.id);
   }
 
+  // Per Tim, 2026-09-16 — "this should be a drop-down suggestion like any
+  // other name that I have saved in my system": a subcontractor's end
+  // client (e.g. FLI's "Elvis Plokhooy" at "Mukhooy Industries, LLC") is a
+  // real Directory contact now (see upsertCompanyContact), so it's
+  // searchable the same way as any other name — a plain global search, not
+  // scoped to a companyId the way searchContacts above is (that one's
+  // scoped to the job's OWN company, which for an FLI job is FLI itself,
+  // not its end client).
+  async function searchEndClientContacts(q: string): Promise<Customer[]> {
+    const res = await fetch(`/api/admin/customers?q=${encodeURIComponent(q)}`);
+    const data = await res.json();
+    return data.customers ?? [];
+  }
+
   function toggleServiceType(key: string) {
     setSelectedServiceTypeKeys((keys) => (keys.includes(key) ? keys.filter((k) => k !== key) : [...keys, key]));
   }
@@ -5981,18 +5995,27 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
             <label className="mt-3 block text-sm font-medium text-slate-700">
               {companyName.trim() || "Their"}&apos;s client
             </label>
-            <input
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-              value={endClientCompany}
-              onChange={(e) => setEndClientCompany(e.target.value)}
-              placeholder="Company name"
-            />
-            <input
-              className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-              value={endClientContactName}
-              onChange={(e) => setEndClientContactName(e.target.value)}
-              placeholder="Contact name (required)"
-            />
+            <div className="mt-1">
+              <ComboboxInput
+                value={endClientCompany}
+                onChange={setEndClientCompany}
+                fetchOptions={searchCompanies}
+                getLabel={(c) => c.name}
+                onSelect={(c) => setEndClientCompany(c.name)}
+                placeholder="Company name"
+              />
+            </div>
+            <div className="mt-1.5">
+              <ComboboxInput
+                value={endClientContactName}
+                onChange={setEndClientContactName}
+                fetchOptions={searchEndClientContacts}
+                getLabel={(c) => c.name}
+                getSublabel={(c) => c.company}
+                onSelect={(c) => setEndClientContactName(c.name)}
+                placeholder="Contact name (required)"
+              />
+            </div>
             <div className="mt-1.5 flex flex-col gap-1.5 sm:flex-row">
               <div className="min-w-0 sm:w-0 sm:flex-1">
                 <AddressAutocompleteInput
@@ -6633,6 +6656,14 @@ export function EditProjectDialog({
     setPhone(contact.phone ?? "");
   }
 
+  // Per Tim, 2026-09-16 — see AddProjectDialog's own comment on this same
+  // function.
+  async function searchEndClientContacts(q: string): Promise<Customer[]> {
+    const res = await fetch(`/api/admin/customers?q=${encodeURIComponent(q)}`);
+    const data = await res.json();
+    return data.customers ?? [];
+  }
+
   function toggleServiceType(key: string) {
     setSelectedServiceTypeKeys((keys) => (keys.includes(key) ? keys.filter((k) => k !== key) : [...keys, key]));
   }
@@ -7058,18 +7089,27 @@ export function EditProjectDialog({
             <label className="mt-3 block text-sm font-medium text-slate-700">
               {companyName.trim() || "Their"}&apos;s client
             </label>
-            <input
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-              value={endClientCompany}
-              onChange={(e) => setEndClientCompany(e.target.value)}
-              placeholder="Company name"
-            />
-            <input
-              className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-              value={endClientContactName}
-              onChange={(e) => setEndClientContactName(e.target.value)}
-              placeholder="Contact name (required)"
-            />
+            <div className="mt-1">
+              <ComboboxInput
+                value={endClientCompany}
+                onChange={setEndClientCompany}
+                fetchOptions={searchCompanies}
+                getLabel={(c) => c.name}
+                onSelect={(c) => setEndClientCompany(c.name)}
+                placeholder="Company name"
+              />
+            </div>
+            <div className="mt-1.5">
+              <ComboboxInput
+                value={endClientContactName}
+                onChange={setEndClientContactName}
+                fetchOptions={searchEndClientContacts}
+                getLabel={(c) => c.name}
+                getSublabel={(c) => c.company}
+                onSelect={(c) => setEndClientContactName(c.name)}
+                placeholder="Contact name (required)"
+              />
+            </div>
             {!endClientContactName.trim() && (
               <p className="mt-1 text-xs text-red-600">Required — the report is addressed to this name.</p>
             )}

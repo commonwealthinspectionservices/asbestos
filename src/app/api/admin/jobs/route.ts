@@ -5,7 +5,7 @@ import { requireAdminApi } from "@/lib/admin-api";
 import { getSettings } from "@/lib/settings";
 import { generateProjectNumber } from "@/lib/project-number";
 import { resolveZoneBaseFeeCents } from "@/lib/pricing-zones";
-import { upsertCompany } from "@/lib/companies";
+import { upsertCompany, upsertCompanyContact } from "@/lib/companies";
 import { withApiErrors } from "@/lib/api-handler";
 import { withCompanyBillingAddress } from "@/lib/customer-billing";
 import { NEWTON_FIRE_FLOOD_COMPANY_ID } from "@/lib/report-findings";
@@ -245,6 +245,22 @@ export const POST = withApiErrors(async (req: NextRequest) => {
     await sendJobCreatedScheduledNotification(job.id).catch((e) =>
       console.error(`Failed to send created-scheduled notification for job ${job.id}:`, e)
     );
+  }
+
+  // Per Tim, 2026-09-16 — "these names should save in my system too as
+  // company contacts": a subcontractor's end client (company + contact
+  // name) becomes a real, searchable Directory entry, not just freeform
+  // strings on this job. Best-effort — never fails project creation.
+  if (newJob.subcontractor_client_company && newJob.subcontractor_client_contact_name) {
+    try {
+      const endClientCompany = await upsertCompany(newJob.subcontractor_client_company as string);
+      await upsertCompanyContact(newJob.subcontractor_client_contact_name as string, endClientCompany.id, {
+        phone: newJob.subcontractor_client_contact_phone as string | null,
+        email: newJob.subcontractor_client_contact_email as string | null,
+      });
+    } catch (e) {
+      console.error(`Failed to save subcontractor end client as a Directory contact for job ${job.id}:`, e);
+    }
   }
 
   return NextResponse.json({ job });

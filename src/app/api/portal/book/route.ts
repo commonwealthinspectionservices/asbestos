@@ -9,6 +9,7 @@ import { sendNewBookingRequestEmail, sendCustomerBookingReceivedEmail } from "@/
 import { generateProjectNumber } from "@/lib/project-number";
 import { resolveServiceSelection } from "@/lib/portal-booking";
 import { FLI_ENVIRONMENTAL_COMPANY_ID } from "@/lib/report-findings";
+import { upsertCompany, upsertCompanyContact } from "@/lib/companies";
 
 // Thinner sibling of /api/book's "submit" step: same acceptance rules
 // (service-area + capacity), but identity comes from the session instead of
@@ -139,6 +140,21 @@ export const POST = withApiErrors(async (req: NextRequest) => {
 
   if (jobError || !job) {
     throw new Error(`Failed to create project: ${jobError?.message}`);
+  }
+
+  // Per Tim, 2026-09-16 — "these names should save in my system too as
+  // company contacts": FLI's own end client, same best-effort Directory
+  // upsert as the two admin routes that also write these fields.
+  if (isFliEnvironmental && subcontractorClientCompany && subcontractorClientContactName) {
+    try {
+      const endClientCompany = await upsertCompany(subcontractorClientCompany);
+      await upsertCompanyContact(subcontractorClientContactName, endClientCompany.id, {
+        phone: subcontractorClientContactPhone,
+        email: subcontractorClientContactEmail,
+      });
+    } catch (e) {
+      console.error(`Failed to save subcontractor end client as a Directory contact for job ${job.id}:`, e);
+    }
   }
 
   try {

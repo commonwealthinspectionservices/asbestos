@@ -4,6 +4,7 @@ import { requireAdminApi } from "@/lib/admin-api";
 import { withApiErrors } from "@/lib/api-handler";
 import { parseLineItems, lineItemsTotalCents } from "@/lib/invoice-line-items";
 import { parseSampleItems, parseSampleCounts, parseFullInspectionMaterials, parseSampleFindings } from "@/lib/sample-items";
+import { upsertCompany, upsertCompanyContact } from "@/lib/companies";
 import type { FullInspectionMaterial } from "@/lib/types";
 
 const EDITABLE_FIELDS = [
@@ -453,6 +454,26 @@ export const PATCH = withApiErrors(async (
     await sendJobPaidNotification(params.id).catch((e) =>
       console.error(`Failed to send paid notification for job ${params.id}:`, e)
     );
+  }
+
+  // Per Tim, 2026-09-16 — "these names should save in my system too as
+  // company contacts": same best-effort Directory upsert as POST /api/
+  // admin/jobs, fired here whenever this edit actually touched either
+  // field (not on every save of an unrelated field) and both are present.
+  if ("subcontractor_client_company" in patch || "subcontractor_client_contact_name" in patch) {
+    const endClientCompanyName = data.subcontractor_client_company as string | null;
+    const endClientContactName = data.subcontractor_client_contact_name as string | null;
+    if (endClientCompanyName && endClientContactName) {
+      try {
+        const endClientCompany = await upsertCompany(endClientCompanyName);
+        await upsertCompanyContact(endClientContactName, endClientCompany.id, {
+          phone: data.subcontractor_client_contact_phone as string | null,
+          email: data.subcontractor_client_contact_email as string | null,
+        });
+      } catch (e) {
+        console.error(`Failed to save subcontractor end client as a Directory contact for job ${params.id}:`, e);
+      }
+    }
   }
 
   return NextResponse.json({ job: data });

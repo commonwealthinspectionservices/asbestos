@@ -5373,6 +5373,13 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
   // client's own contact person; this is the end client's company name
   // itself (e.g. "Restore1"), a separate line.
   const [endClientCompany, setEndClientCompany] = useState("");
+  // Per Tim, 2026-09-11, this had been removed ("company + address is
+  // enough") — reinstated per Tim, 2026-09-16, required for FLI now: job
+  // 26-0028 went out addressed "Dear :" because only the company was on
+  // file, no person to address the letter to (report-pdf.tsx's
+  // FliAsbestosReportDocument falls back to the company name when this is
+  // blank, but the actual ask is that it's never blank going forward).
+  const [endClientContactName, setEndClientContactName] = useState("");
   // Per Tim, 2026-08-31 — the end client's own mailing address, needed
   // because the FLI report is addressed to them, not to Dave MacDonald
   // (see subcontractor_client_address's own comment in types.ts). Per Tim,
@@ -5585,6 +5592,13 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
       setError("Select an existing company, or create one, before adding this project.");
       return;
     }
+    // Per Tim, 2026-09-16 — "every FLI job must have their customer
+    // contact name... so that it can be addressed out to them": required
+    // from here on, same guard style as the contact/company checks above.
+    if (isFliEnvironmental && !endClientContactName.trim()) {
+      setError("Enter the client's contact name before adding this project.");
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
@@ -5606,6 +5620,7 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
           siteContactName: siteContactName.trim() || undefined,
           siteContactPhone: siteContactPhone.trim() || undefined,
           subcontractorClientCompany: endClientCompany.trim() || undefined,
+          subcontractorClientContactName: endClientContactName.trim() || undefined,
           subcontractorClientAddress: buildBillingAddress({
             street: endClientStreet, unit: endClientUnit, city: endClientCity, state: endClientState, zip: endClientZip,
           }) || undefined,
@@ -5957,8 +5972,11 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
           // (whoever's physically at the job site) and from Dave
           // MacDonald (FLI's own internal contact, not stored per-job).
           // Per Tim, 2026-09-11 — the contact person's own name/phone/
-          // email (once collected here too) is gone; company + address is
-          // enough.
+          // email had been dropped here ("company + address is enough").
+          // Per Tim, 2026-09-16 — contact name reinstated and now
+          // required: job 26-0028 went out addressed "Dear :" with only
+          // the company on file, nobody to actually address the report to.
+          // Phone/email stay dropped — not what broke, not what was asked.
           <>
             <label className="mt-3 block text-sm font-medium text-slate-700">
               {companyName.trim() || "Their"}&apos;s client
@@ -5968,6 +5986,12 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
               value={endClientCompany}
               onChange={(e) => setEndClientCompany(e.target.value)}
               placeholder="Company name"
+            />
+            <input
+              className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              value={endClientContactName}
+              onChange={(e) => setEndClientContactName(e.target.value)}
+              placeholder="Contact name (required)"
             />
             <div className="mt-1.5 flex flex-col gap-1.5 sm:flex-row">
               <div className="min-w-0 sm:w-0 sm:flex-1">
@@ -6432,6 +6456,11 @@ export function EditProjectDialog({
   // directly rather than re-deriving from typed/picked state like Add does.
   const isFliEnvironmental = job.customers?.company_id === FLI_ENVIRONMENTAL_COMPANY_ID;
   const [endClientCompany, setEndClientCompany] = useState(job.subcontractor_client_company ?? "");
+  // Per Tim, 2026-09-16 — required for FLI going forward (see
+  // AddProjectDialog's own comment on this same field, and
+  // report-pdf.tsx's FliAsbestosReportDocument, which is what actually
+  // surfaced the gap on job 26-0028).
+  const [endClientContactName, setEndClientContactName] = useState(job.subcontractor_client_contact_name ?? "");
   const endClientAddressInit = useMemo(() => parseAddressToFields(job.subcontractor_client_address), [job.subcontractor_client_address]);
   const [endClientStreet, setEndClientStreet] = useState(endClientAddressInit.street);
   const [endClientUnit, setEndClientUnit] = useState(endClientAddressInit.unit);
@@ -6672,6 +6701,7 @@ export function EditProjectDialog({
             site_contact_name: siteContactName.trim() || null,
             site_contact_phone: siteContactPhone || null,
             subcontractor_client_company: endClientCompany.trim() || null,
+            subcontractor_client_contact_name: endClientContactName.trim() || null,
             subcontractor_client_address: buildBillingAddress({
               street: endClientStreet, unit: endClientUnit, city: endClientCity, state: endClientState, zip: endClientZip,
             }) || null,
@@ -6731,7 +6761,7 @@ export function EditProjectDialog({
     projectNumber, status, companyName, companyId, customerId, contactName, email, phone,
     reportEmailsList, invoiceEmailsList,
     serviceStreet, serviceUnit, serviceCity, serviceState, serviceZip,
-    siteContactName, siteContactPhone, endClientCompany, endClientStreet, endClientUnit, endClientCity, endClientState, endClientZip, fliProjectNumber, selectedServiceTypeKeys, customServiceType, moistureMappingChecked, scopeOfWork,
+    siteContactName, siteContactPhone, endClientCompany, endClientContactName, endClientStreet, endClientUnit, endClientCity, endClientState, endClientZip, fliProjectNumber, selectedServiceTypeKeys, customServiceType, moistureMappingChecked, scopeOfWork,
     confirmedDate, confirmedTime, paidDate, dueDate, notes, paymentType, isRevisit,
   ]);
 
@@ -7016,8 +7046,14 @@ export function EditProjectDialog({
           // (whoever's physically at the job site) and from Dave
           // MacDonald (FLI's own internal contact, not stored per-job).
           // Per Tim, 2026-09-11 — the contact person's own name/phone/
-          // email (once collected here too) is gone; company + address is
-          // enough.
+          // email had been dropped here ("company + address is enough").
+          // Per Tim, 2026-09-16 — contact name reinstated and now
+          // required: job 26-0028 went out addressed "Dear :" with only
+          // the company on file. This dialog autosaves on every edit (no
+          // explicit Submit to gate the way AddProjectDialog does), so
+          // this is a visible warning rather than a blocked save — it
+          // still needs to be fillable here to actually fix a job like
+          // 26-0028 after the fact. Phone/email stay dropped.
           <>
             <label className="mt-3 block text-sm font-medium text-slate-700">
               {companyName.trim() || "Their"}&apos;s client
@@ -7028,6 +7064,15 @@ export function EditProjectDialog({
               onChange={(e) => setEndClientCompany(e.target.value)}
               placeholder="Company name"
             />
+            <input
+              className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              value={endClientContactName}
+              onChange={(e) => setEndClientContactName(e.target.value)}
+              placeholder="Contact name (required)"
+            />
+            {!endClientContactName.trim() && (
+              <p className="mt-1 text-xs text-red-600">Required — the report is addressed to this name.</p>
+            )}
             <div className="mt-1.5 flex gap-1.5">
               <div className="w-0 flex-1">
                 {/* Per Tim, 2026-08-31 — "all other address entry points

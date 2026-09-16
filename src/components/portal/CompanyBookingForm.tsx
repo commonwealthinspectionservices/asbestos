@@ -217,6 +217,13 @@ export default function CompanyBookingForm({ isFliEnvironmental }: { isFliEnviro
     scopeOfWork.trim() &&
     siteContactName.trim() &&
     siteContactPhone.trim() &&
+    // Per Tim, 2026-09-16 — "every FLI job must have their customer
+    // contact name... so that it can be addressed out to them": job
+    // 26-0028 went out with a blank "Dear :" because FLI only gave us
+    // the end client's company, no contact person. Required from here on
+    // for every FLI booking, same disabled-submit pattern as the job
+    // site contact fields above.
+    (!isFliEnvironmental || (endClientContactFirstName.trim() && endClientContactLastName.trim())) &&
     (scheduleViaContact || date);
 
   async function submit() {

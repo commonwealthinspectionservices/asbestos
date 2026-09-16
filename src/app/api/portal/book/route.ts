@@ -51,6 +51,15 @@ export const POST = withApiErrors(async (req: NextRequest) => {
   if (!disclaimerAck) {
     return NextResponse.json({ error: "Disclaimer acknowledgement is required" }, { status: 400 });
   }
+  // Per Tim, 2026-09-16 — job 26-0028 went out addressed "Dear :" because
+  // FLI only gave us their end client's company, no contact person — the
+  // report needs an actual name to address the letter to. Server-side gate
+  // to match CompanyBookingForm.tsx's own disabled-submit check, same
+  // reasoning as the FLI-only gate above: a raw request can't skip this by
+  // just not sending the field.
+  if (isFliEnvironmental && !subcontractorClientContactName?.trim()) {
+    return NextResponse.json({ error: "Client contact name is required" }, { status: 400 });
+  }
 
   const settings = await getSettings();
 

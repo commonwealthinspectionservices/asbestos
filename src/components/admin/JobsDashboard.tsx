@@ -1112,17 +1112,29 @@ export default function JobsDashboard() {
   // reshuffling the list. Jobs that weren't visible at freeze time (newly
   // added, or newly matching the current filters) land at the end.
   const sortedJobs = useMemo(() => {
-    if (sortEnabled) return liveSortedJobs;
-    const remaining = new Map(filteredJobs.map((j) => [j.id, j]));
-    const frozen: JobWithCustomer[] = [];
-    for (const id of frozenOrderRef.current) {
-      const job = remaining.get(id);
-      if (job) {
-        frozen.push(job);
-        remaining.delete(id);
+    let base: JobWithCustomer[];
+    if (sortEnabled) {
+      base = liveSortedJobs;
+    } else {
+      const remaining = new Map(filteredJobs.map((j) => [j.id, j]));
+      const frozen: JobWithCustomer[] = [];
+      for (const id of frozenOrderRef.current) {
+        const job = remaining.get(id);
+        if (job) {
+          frozen.push(job);
+          remaining.delete(id);
+        }
       }
+      base = [...frozen, ...remaining.values()];
     }
-    return [...frozen, ...remaining.values()];
+    // Per Tim, 2026-09-16 — "any job that is ready for review should be the
+    // very top cells in terms of statuses... the most important status to
+    // always have at the top if there are any is ready to review." Applies
+    // on top of whatever ordering is otherwise in effect (sort by status,
+    // date, project #, or the frozen manual order while sorting is off) —
+    // a stable partition so everything else keeps its existing relative
+    // order, Ready for Review just floats to the front of it.
+    return [...base].sort((a, b) => (a.status === "ready_to_send" ? 0 : 1) - (b.status === "ready_to_send" ? 0 : 1));
   }, [filteredJobs, sortEnabled, liveSortedJobs]);
 
   async function patchJob(job: JobWithCustomer, patch: Record<string, unknown>) {
@@ -1568,9 +1580,17 @@ function JobRow({
   // lab info + results" checklist the Final Report tab itself already
   // gates on, so this card agrees with what's actually missing there
   // rather than a second, looser notion of "in yet."
-  const labResultsChecklist = job.status === "pending_lab_results" && job.source !== "subcontractor" && (
+  //
+  // Per Tim, same day (follow-up) — "only needs to be used when there
+  // are multiple service types... when it's just a limited asbestos
+  // inspection we don't need to use this": a single-domain job has
+  // nothing ambiguous to disambiguate — the moment its one domain is in,
+  // the job leaves this status entirely — so the checklist only earns
+  // its space once there's more than one domain to tell apart.
+  const jobDomains = jobReportDomains(job.service_type);
+  const labResultsChecklist = job.status === "pending_lab_results" && job.source !== "subcontractor" && jobDomains.length > 1 && (
     <span className="flex shrink-0 flex-col items-end gap-0.5 text-sm">
-      {jobReportDomains(job.service_type).map((domain) => {
+      {jobDomains.map((domain) => {
         const isIn = reportIsCompleteForDomain(job, domain);
         return (
           <span key={domain} className={`flex items-center gap-1 ${isIn ? "text-emerald-600" : "text-slate-400"}`}>

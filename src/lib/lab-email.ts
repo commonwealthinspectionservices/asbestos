@@ -2092,7 +2092,11 @@ async function draftPaymentReminderForIndividual(params: {
       `Site: ${escapeHtml(expandAddress(job.service_address))}`,
       ...(payNowUrl ? ["", `<a href="${escapeHtml(payNowUrl)}">Link to pay</a>`] : []),
       "",
-      `Should you have any questions, please contact our office at <span style="white-space:nowrap;">${escapeHtml(settings.business_phone)}</span>.`,
+      // Per Tim, 2026-09-16 — same "contact me, not our office" wording fix
+      // reportDraftBodyHtml/combinedDraftBodyHtml already got on 2026-08-26
+      // (see REVIEW_LINK_LINE's own comment above), missed on this template
+      // at the time since the payment-reminder note is a separate body.
+      `Should you have any questions, please contact Tim at <span style="white-space:nowrap;">${escapeHtml(settings.business_phone)}</span>.`,
       "",
       "Thank you for the opportunity to provide you with our services.",
       "",

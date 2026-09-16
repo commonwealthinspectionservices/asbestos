@@ -4967,83 +4967,6 @@ function PdfThumbnail({ url, alt }: { url: string; alt: string }) {
 // leaving the app (opening the raw file in a new tab depends on the
 // browser/OS's PDF file-association, which can just as easily trigger a
 // download as a preview). Images just show directly at full size.
-function DocumentViewerModal({
-  url, fileName, isImage, onClose,
-}: {
-  url: string;
-  fileName: string;
-  isImage: boolean;
-  onClose: () => void;
-}) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [failed, setFailed] = useState(false);
-  const [loading, setLoading] = useState(!isImage);
-  useLockBodyScroll(true);
-
-  useEffect(() => {
-    if (isImage) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const pdfjsLib = await import("pdfjs-dist");
-        pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
-        const pdf = await pdfjsLib.getDocument(url).promise;
-        const container = containerRef.current;
-        if (!container || cancelled) return;
-        container.innerHTML = "";
-        for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-          const page = await pdf.getPage(pageNum);
-          const unscaled = page.getViewport({ scale: 1 });
-          const viewport = page.getViewport({ scale: Math.min(800 / unscaled.width, 1.5) });
-          const canvas = document.createElement("canvas");
-          canvas.width = viewport.width;
-          canvas.height = viewport.height;
-          canvas.className = "mx-auto mb-3 max-w-full shadow";
-          const ctx = canvas.getContext("2d");
-          if (!ctx || cancelled) return;
-          await page.render({ canvasContext: ctx, viewport }).promise;
-          if (cancelled) return;
-          container.appendChild(canvas);
-        }
-        if (!cancelled) setLoading(false);
-      } catch {
-        if (!cancelled) {
-          setFailed(true);
-          setLoading(false);
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [url, isImage]);
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
-      <div
-        className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl bg-white"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between gap-2 border-b border-slate-200 px-4 py-3">
-          <span className="truncate text-sm font-medium text-slate-700">{fileName}</span>
-          <button onClick={onClose} className="shrink-0 text-slate-400 hover:text-slate-600">✕</button>
-        </div>
-        <div className="overflow-y-auto bg-slate-100 p-4">
-          {isImage ? (
-            <img src={url} alt={fileName} className="mx-auto max-w-full" />
-          ) : (
-            <>
-              {loading && <p className="py-10 text-center text-sm text-slate-400">Loading…</p>}
-              {failed && <p className="py-10 text-center text-sm text-slate-400">Preview unavailable.</p>}
-              <div ref={containerRef} />
-            </>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // Live preview of the actual generated report packet — every page, rendered
 // right in the Final Report tab so the admin can see it come together as
 // project info/lab results/asbestos result get filled in,
@@ -5079,7 +5002,6 @@ function DocumentStation({
   const [dragOver, setDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [viewingDoc, setViewingDoc] = useState<JobDocument | null>(null);
   const [confirmingDeleteDoc, setConfirmingDeleteDoc] = useState<JobDocument | null>(null);
   useLockBodyScroll(confirmingDeleteDoc !== null);
   const [error, setError] = useState<string | null>(null);
@@ -5217,36 +5139,26 @@ function DocumentStation({
           )}
           {docs.map((doc) => {
             const url = `/api/admin/jobs/${job.id}/documents/${doc.id}`;
-            const isImage = /\.(png|jpe?g|gif|webp)$/i.test(doc.file_name);
             return (
               <div key={doc.id} className="relative overflow-hidden rounded-lg border border-slate-200 bg-white">
-                <button
-                  type="button"
-                  onClick={() => setViewingDoc(doc)}
-                  title={`View ${doc.file_name}`}
-                  aria-label={`View ${doc.file_name}`}
-                  className="block w-full"
-                >
-                  {isImage ? (
-                    <img src={url} alt={doc.file_name} className="h-40 w-full object-cover" />
-                  ) : (
-                    <PdfThumbnail url={url} alt={doc.file_name} />
-                  )}
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setConfirmingDeleteDoc(doc);
-                  }}
-                  disabled={deletingId === doc.id}
-                  title={`Delete ${doc.file_name}`}
-                  aria-label={`Delete ${doc.file_name}`}
-                  className="absolute right-1 top-1 rounded-full bg-white/90 px-1.5 py-0.5 text-xs font-bold text-slate-500 shadow hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
-                >
-                  {deletingId === doc.id ? "…" : "✕"}
-                </button>
+                {/* Per Tim, 2026-09-16 — "having the full preview of the PDF
+                    is a bit confusing... it just needs to be a link":
+                    replaces the embedded thumbnail (and the in-app preview
+                    modal it opened) with a plain filename + View/Download
+                    row, same links every card already had underneath. */}
+                <div className="flex items-center justify-between gap-2 px-2 py-1.5">
+                  <p className="min-w-0 truncate text-xs text-slate-600" title={doc.file_name}>{doc.file_name}</p>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmingDeleteDoc(doc)}
+                    disabled={deletingId === doc.id}
+                    title={`Delete ${doc.file_name}`}
+                    aria-label={`Delete ${doc.file_name}`}
+                    className="shrink-0 rounded-full px-1.5 py-0.5 text-xs font-bold text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                  >
+                    {deletingId === doc.id ? "…" : "✕"}
+                  </button>
+                </div>
                 {/* Per Tim, 2026-08-28 — same footer-title spot the Invoice
                     and Final Report cards use, so a row mixing this with
                     those looks consistent instead of DocumentStation's own
@@ -5254,11 +5166,6 @@ function DocumentStation({
                 {titlePosition === "bottom" && (
                   <p className="truncate border-t border-slate-200 bg-white px-2 py-1 text-center text-xs font-bold uppercase text-slate-700" title={label}>{label}</p>
                 )}
-                {/* Same View/Download row as the Invoice and Final Report
-                    cards, for the same reason — a right-click-to-save on
-                    the thumbnail isn't obvious, and the thumbnail's own
-                    click already opens the in-app preview modal instead of
-                    a new tab. */}
                 <div className="border-t border-slate-200 px-2 py-1 text-center text-xs">
                   <a href={url} target="_blank" rel="noreferrer" className="text-brand-600 hover:underline">
                     View
@@ -5292,14 +5199,6 @@ function DocumentStation({
             );
           })}
         </div>
-      )}
-      {viewingDoc && (
-        <DocumentViewerModal
-          url={`/api/admin/jobs/${job.id}/documents/${viewingDoc.id}`}
-          fileName={viewingDoc.file_name}
-          isImage={/\.(png|jpe?g|gif|webp)$/i.test(viewingDoc.file_name)}
-          onClose={() => setViewingDoc(null)}
-        />
       )}
       {confirmingDeleteDoc && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">

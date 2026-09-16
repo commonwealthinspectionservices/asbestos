@@ -1558,6 +1558,28 @@ function JobRow({
       Completed date: {formatDate(job.confirmed_date ?? job.requested_date) || "—"}
     </span>
   );
+  // Per Tim, 2026-09-16 (26-0032) — "I want to be able to easily see
+  // what's in and what's not": "Pending Lab Results" reads the same
+  // whether nothing has come back yet or every domain but one already
+  // has — confirmed live on 26-0032, asbestos results (positive) had been
+  // in for two days before he asked why it wasn't ready, with no way to
+  // tell that from this card. One chip per domain the job actually
+  // covers, reusing reportIsCompleteForDomain — the same "sample count +
+  // lab info + results" checklist the Final Report tab itself already
+  // gates on, so this card agrees with what's actually missing there
+  // rather than a second, looser notion of "in yet."
+  const labResultsChecklist = job.status === "pending_lab_results" && job.source !== "subcontractor" && (
+    <span className="flex shrink-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-sm">
+      {jobReportDomains(job.service_type).map((domain) => {
+        const isIn = reportIsCompleteForDomain(job, domain);
+        return (
+          <span key={domain} className={`flex items-center gap-1 ${isIn ? "text-emerald-600" : "text-slate-400"}`}>
+            {REPORT_DOMAIN_LABEL[domain]} {isIn ? "✓" : "…"}
+          </span>
+        );
+      })}
+    </span>
+  );
   // Mobile only — see the address block below. Desktop already opens
   // straight to Google Maps in the detail dialog, and a driver picking a
   // nav app is a phone-in-hand, on-the-way-there thing, not a desktop one.
@@ -2088,6 +2110,7 @@ function JobRow({
                     ? extractTimeRange(job.subcontractor_preferred_window) ?? formatTime(job.confirmed_time)
                     : formatTime(job.confirmed_time ?? job.requested_time) || "—"}
                 </div>
+                {labResultsChecklist && <div className="mt-0.5 flex justify-end">{labResultsChecklist}</div>}
               </div>
             </div>
           )}

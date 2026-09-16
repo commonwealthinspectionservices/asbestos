@@ -50,6 +50,13 @@ export default function LabInvoicesView() {
 
   return (
     <div>
+      {/* Per Tim, 2026-09-16 — "when I go into any of those tabs, they
+          should all have a back arrow to get me back to the last window":
+          this became its own page (see the 2026-09-15 comment above) with
+          no way back to Billing except the browser's own back button. */}
+      <Link href="/admin/billing" className="mb-2 inline-flex items-center gap-1 text-sm text-brand-600 hover:text-brand-700">
+        ← Billing
+      </Link>
       <h1 className="text-lg font-bold text-slate-800">Lab Invoices</h1>
 
       {error && <div className="mt-4 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>}

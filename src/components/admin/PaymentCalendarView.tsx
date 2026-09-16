@@ -67,6 +67,11 @@ export default function PaymentCalendarView() {
 
   return (
     <div>
+      {/* Per Tim, 2026-09-16 — "when I go into any of those tabs, they
+          should all have a back arrow to get me back to the last window". */}
+      <Link href="/admin/billing" className="mb-2 inline-flex items-center gap-1 text-sm text-brand-600 hover:text-brand-700">
+        ← Billing
+      </Link>
       <h1 className="text-lg font-bold text-slate-800">Payment Calendar</h1>
       <p className="mt-1 text-sm text-slate-500">
         Every date a sent, unpaid invoice is due — or, for a job on file with a card on file, scheduled to auto-charge.

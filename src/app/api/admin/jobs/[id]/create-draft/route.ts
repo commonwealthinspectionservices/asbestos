@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApi } from "@/lib/admin-api";
 import { withApiErrors } from "@/lib/api-handler";
 import { getSupabaseAdmin } from "@/lib/supabase";
-import { createCombinedDraftForJob, createInvoiceDraftForJob, createReportDraftForJob, createSelectedDraftForJob } from "@/lib/lab-email";
+import { createCombinedDraftForJob, createInvoiceDraftForJob, createReportDraftForJob, createSelectedDraftForJob, createPaymentReminderDraftForJob } from "@/lib/lab-email";
 import { BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID, type ReportDomain } from "@/lib/report-findings";
 
 // Backing the Email tab's "View Draft" buttons — same draft-creation
@@ -32,6 +32,16 @@ export const POST = withApiErrors(async (
   }
   if (kind === "report") {
     const { messageId } = await createReportDraftForJob(params.id);
+    return NextResponse.json({ ok: true, messageId });
+  }
+  // Per Tim, 2026-09-16 — "I want to be able to simply send out an email
+  // reminding them... it should be simple to do this for when this is the
+  // case": createPaymentReminderDraftForJob already existed (the automatic
+  // lab-results-landing path for an unpaid individual job uses it) but had
+  // no manual trigger anywhere — this is that trigger, same "kind" query
+  // param pattern as invoice/report above.
+  if (kind === "payment_reminder") {
+    const { messageId } = await createPaymentReminderDraftForJob(params.id);
     return NextResponse.json({ ok: true, messageId });
   }
   // The Email tab's checklist — any combination of report domain(s)/

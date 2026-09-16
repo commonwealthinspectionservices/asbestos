@@ -430,6 +430,8 @@ function EmailChecklistPanel({
   );
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sendingReminder, setSendingReminder] = useState(false);
+  const [reminderError, setReminderError] = useState<string | null>(null);
 
   function toggleDomain(domain: ReportDomain) {
     setSelectedDomains((prev) => {
@@ -511,6 +513,31 @@ function EmailChecklistPanel({
     }
   }
 
+  // Per Tim, 2026-09-16 — "I still have the results that I haven't sent
+  // out yet [because they haven't paid]... it should be simple to do this
+  // for when this is the case": createPaymentReminderDraftForJob already
+  // existed (the automatic path for this exact situation, fired the
+  // moment lab results land on an unpaid individual job) but had no manual
+  // way to re-run it on demand — this is that button, same draft-then-
+  // jump-to-Gmail pattern as Create Draft above.
+  async function sendPaymentReminder() {
+    setSendingReminder(true);
+    setReminderError(null);
+    try {
+      const res = await fetch(`/api/admin/jobs/${job.id}/create-draft?kind=payment_reminder`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to create payment reminder draft");
+      onChanged();
+      if (data.messageId) {
+        window.open(gmailMessageUrl(data.messageId, false), "_blank");
+      }
+    } catch (e) {
+      setReminderError(e instanceof Error ? e.message : "Failed to create payment reminder draft");
+    } finally {
+      setSendingReminder(false);
+    }
+  }
+
   const rowClassName = "flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm";
 
   return (
@@ -559,6 +586,23 @@ function EmailChecklistPanel({
         >
           {creating ? "Creating draft…" : "Create Draft ↗"}
         </button>
+
+        {job.is_individual && job.status !== "paid" && (
+          <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
+            <p className="text-xs text-slate-600">
+              Individual job, not yet paid — the report is being held until payment.
+              {job.payment_reminder_drafted_at ? ` Reminder draft last created ${formatDateMDY(job.payment_reminder_drafted_at)}.` : ""}
+            </p>
+            {reminderError && <p className="mt-1 text-xs text-red-600">{reminderError}</p>}
+            <button
+              onClick={sendPaymentReminder}
+              disabled={sendingReminder}
+              className="mt-2 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50"
+            >
+              {sendingReminder ? "Creating…" : job.payment_reminder_draft_gmail_message_id ? "Recreate Payment Reminder ↗" : "Create Payment Reminder ↗"}
+            </button>
+          </div>
+        )}
       </div>
       <div className="max-w-md flex-1">
         <h3 className="mb-2 text-xs font-bold uppercase text-slate-500">Subject</h3>

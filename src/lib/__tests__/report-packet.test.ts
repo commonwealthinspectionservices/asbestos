@@ -149,6 +149,8 @@ const baseJob: Job = {
   report_draft_gmail_id: null,
   report_draft_gmail_message_id: null,
   report_sent_at: null,
+  report_draft_domains: null,
+  report_sent_domains: null,
   payment_reversed_at: null,
   cancellation_requested_at: null,
   email_thread_message_ids: [],

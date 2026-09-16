@@ -2,7 +2,7 @@ import { randomUUID, createHash } from "crypto";
 // Imports the implementation directly rather than the package root — see
 // src/app/api/admin/jobs/[id]/documents/route.ts for why.
 import pdfParse from "pdf-parse/lib/pdf-parse.js";
-import { getSupabaseAdmin } from "@/lib/supabase";
+import { getSupabaseAdmin, updateJobToleratingMissingColumns } from "@/lib/supabase";
 import { getSettingsFresh, primaryInspector } from "@/lib/settings";
 import { deriveFullInspectionMaterials } from "@/lib/sample-items";
 import { withCompanyBillingAddress } from "@/lib/customer-billing";
@@ -450,6 +450,34 @@ export async function checkDraftSentStatus(
       update.status = "report_invoice_sent";
     }
     await supabase.from("jobs").update(update).eq("id", jobId);
+    // Per Tim, 2026-09-16 — merge this confirmed-sent event's report
+    // domain(s) into report_sent_domains (see that field's own comment in
+    // types.ts), so a multi-domain job can say exactly which domain(s)
+    // have actually gone out instead of one shared report_sent_at. A
+    // report was just confirmed sent whenever this check is itself the
+    // report kind, or a combined draft (one Gmail send covers both) —
+    // same condition as the SENT_REPORTS_LABEL logic below. Its own
+    // isolated select+update, wrapped separately from the write above —
+    // this is a secondary, additive signal on top of report_sent_at, not
+    // a replacement for it, and must never block that real write (or run
+    // on a database that hasn't had this migration applied yet).
+    if (kind === "report" || isCombinedDraft) {
+      try {
+        const { data: domainsRow } = await supabase
+          .from("jobs")
+          .select("report_draft_domains, report_sent_domains")
+          .eq("id", jobId)
+          .maybeSingle<{ report_draft_domains: string[] | null; report_sent_domains: Record<string, string> | null }>();
+        const draftDomains = Array.isArray(domainsRow?.report_draft_domains) ? domainsRow.report_draft_domains : [];
+        if (draftDomains.length > 0) {
+          const mergedSentDomains = { ...(domainsRow?.report_sent_domains ?? {}) };
+          for (const domain of draftDomains) mergedSentDomains[domain] = finalSentAt;
+          await supabase.from("jobs").update({ report_sent_domains: mergedSentDomains }).eq("id", jobId);
+        }
+      } catch (e) {
+        console.error(`Failed to merge report_sent_domains for job ${jobId}:`, e);
+      }
+    }
     // Best-effort — a labeling hiccup must never block the sent-status
     // check itself, which the Final Report tab depends on to update the
     // draft button. A combined draft's one message covers both, and its
@@ -2251,14 +2279,16 @@ async function draftReportEmailForJob(params: {
   // — there is no manual "mark as sent," it's either still in Drafts or
   // it's gone because the owner actually sent it (detected via the SENT
   // label on that message).
-  await supabase
-    .from("jobs")
-    .update({
-      report_drafted_at: new Date().toISOString(),
-      report_draft_gmail_id: draft.id,
-      report_draft_gmail_message_id: draft.messageId,
-    })
-    .eq("id", job.id);
+  // report_draft_domains — always every domain on the job here (this path
+  // always builds every domain's packet, see buildAllFinalReportPackets
+  // above with no domains filter); checkDraftSentStatus reads it back to
+  // know which domain(s) this draft's eventual sent confirmation covers.
+  await updateJobToleratingMissingColumns(supabase, job.id, {
+    report_drafted_at: new Date().toISOString(),
+    report_draft_gmail_id: draft.id,
+    report_draft_gmail_message_id: draft.messageId,
+    report_draft_domains: jobReportDomains(job.service_type),
+  }, ["report_draft_domains"]);
 
   return { messageId: draft.messageId };
 }
@@ -2375,17 +2405,17 @@ async function draftCombinedEmailForJob(params: {
   // column pairs independently, so pointing both at the same message keeps
   // all of that working without a schema change.
   const draftedAt = new Date().toISOString();
-  await supabase
-    .from("jobs")
-    .update({
-      invoice_drafted_at: draftedAt,
-      invoice_draft_gmail_id: draft.id,
-      invoice_draft_gmail_message_id: draft.messageId,
-      report_drafted_at: draftedAt,
-      report_draft_gmail_id: draft.id,
-      report_draft_gmail_message_id: draft.messageId,
-    })
-    .eq("id", job.id);
+  // report_draft_domains — same reasoning as draftReportEmailForJob above:
+  // this path also always builds every domain's packet.
+  await updateJobToleratingMissingColumns(supabase, job.id, {
+    invoice_drafted_at: draftedAt,
+    invoice_draft_gmail_id: draft.id,
+    invoice_draft_gmail_message_id: draft.messageId,
+    report_drafted_at: draftedAt,
+    report_draft_gmail_id: draft.id,
+    report_draft_gmail_message_id: draft.messageId,
+    report_draft_domains: jobReportDomains(pricedJob.service_type),
+  }, ["report_draft_domains"]);
 
   return { messageId: draft.messageId };
 }
@@ -2538,11 +2568,18 @@ async function draftSelectedEmailForJob(params: {
   });
 
   const draftedAt = new Date().toISOString();
-  const update: Record<string, string> = {};
+  const update: Record<string, unknown> = {};
+  const toleratedColumns: string[] = [];
   if (domains.length > 0 || includeMoistureMapping) {
     update.report_drafted_at = draftedAt;
     update.report_draft_gmail_id = draft.id;
     update.report_draft_gmail_message_id = draft.messageId;
+    // Only when a report domain was actually picked — moisture-mapping-only
+    // has no report domain of its own to attribute a later "sent" to.
+    if (domains.length > 0) {
+      update.report_draft_domains = domains;
+      toleratedColumns.push("report_draft_domains");
+    }
   }
   if (includeInvoice) {
     update.invoice_drafted_at = draftedAt;
@@ -2550,7 +2587,7 @@ async function draftSelectedEmailForJob(params: {
     update.invoice_draft_gmail_message_id = draft.messageId;
   }
   if (Object.keys(update).length > 0) {
-    await supabase.from("jobs").update(update).eq("id", job.id);
+    await updateJobToleratingMissingColumns(supabase, job.id, update, toleratedColumns);
   }
 
   return { messageId: draft.messageId };

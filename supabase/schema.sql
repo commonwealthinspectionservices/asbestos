@@ -524,6 +524,21 @@ alter table jobs add column if not exists report_draft_gmail_id text;
 -- (there is no manual "mark as sent").
 alter table jobs add column if not exists report_draft_gmail_message_id text;
 
+-- Per Tim, 2026-09-16 — report_sent_at is one shared timestamp for the
+-- whole job, so a multi-domain job (e.g. asbestos + mold) reads as fully
+-- "Report: Sent" the moment ANY one domain's report goes out, even while
+-- another domain's is still outstanding (confirmed live wrong on 26-0032:
+-- only its asbestos report had actually been sent). report_draft_domains
+-- records which domain(s) the CURRENT report draft covers — a report can
+-- be drafted as a subset via the Email tab's checklist (see
+-- draftSelectedEmailForJob), not always every domain the job has.
+-- report_sent_domains accumulates domain -> the timestamp
+-- checkDraftSentStatus actually confirmed THAT domain sent, merged rather
+-- than replaced on every check so an earlier domain's own sent timestamp
+-- survives a later, different-domain send.
+alter table jobs add column if not exists report_draft_domains jsonb;
+alter table jobs add column if not exists report_sent_domains jsonb;
+
 -- Same four-column pattern, but for the invoice email specifically — split
 -- out from the report so the invoice can go out the moment lab results
 -- land while the report itself stays held back until the job is paid (see

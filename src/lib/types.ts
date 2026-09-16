@@ -1,3 +1,5 @@
+import type { ReportDomain } from "@/lib/report-findings";
+
 export type JobWindow = "AM" | "PM" | "ANY";
 
 export type JobStatus =
@@ -370,6 +372,10 @@ export interface Job {
   report_draft_gmail_message_id: string | null;
   /** Set automatically by /draft-status once it detects the draft's message now carries Gmail's SENT label — never set manually, there is no "mark as sent" button. Drives the "drafted but not sent" indicator until this lands. */
   report_sent_at: string | null;
+  /** Which report domain(s) the CURRENT report draft (report_draft_gmail_id) actually covers — a job's report can be drafted as a subset via the Email tab's checklist (see draftSelectedEmailForJob), so this isn't always every domain the job has. Null/absent on a job predating this field, or when the current draft is moisture-mapping-only (no report domain attached at all). */
+  report_draft_domains: ReportDomain[] | null;
+  /** Domain -> the timestamp checkDraftSentStatus confirmed THAT domain's report sent, accumulated across every real send event rather than replaced — a multi-domain job's asbestos report can go out well before its mold report is even ready, and report_sent_at alone can't tell them apart (confirmed live wrong on 26-0032: the card read "Report: Sent" the moment only its asbestos report went out). Null/absent on a job predating this field, or one whose report(s) haven't been confirmed sent at all yet. */
+  report_sent_domains: Partial<Record<ReportDomain, string>> | null;
   /** Same idea as report_drafted_at, but for the invoice email — created the moment lab results land, independent of payment status. */
   invoice_drafted_at: string | null;
   /** Same idea as report_draft_gmail_id, but for the invoice draft. */

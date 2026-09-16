@@ -420,9 +420,16 @@ function EmailChecklistPanel({
   // something's already sent, defaulting it to checked risked a stray
   // click re-drafting (and possibly re-sending) content that already
   // reached the customer. Nothing here prevents deliberately re-checking
-  // a sent item to resend it — just not as the default.
+  // a sent item to resend it — just not as the default. Per-domain via
+  // report_sent_domains (falling back to the old shared report_sent_at for
+  // a job whose per-domain breakdown was never recorded) — a multi-domain
+  // job whose asbestos report already went out but whose mold report is
+  // still outstanding needs Mold checked by default, not neither.
   const [selectedDomains, setSelectedDomains] = useState<Set<ReportDomain>>(
-    new Set(job.report_sent_at ? [] : domains)
+    new Set(domains.filter((domain) => {
+      const sentAt = job.report_sent_domains?.[domain] ?? (!job.report_sent_domains ? job.report_sent_at : null);
+      return !sentAt;
+    }))
   );
   const [includeInvoice, setIncludeInvoice] = useState(job.invoice_total_cents != null && !job.invoice_sent_at);
   const [includeMoistureMapping, setIncludeMoistureMapping] = useState(
@@ -552,7 +559,18 @@ function EmailChecklistPanel({
               <span className="text-xs text-slate-400">
                 {domain === "mold" && !job.mold_report_notes?.trim()
                   ? "Missing Conclusions & Recommendations"
-                  : job.report_sent_at ? `Sent ${formatDateMDY(job.report_sent_at)}` : job.report_drafted_at ? "Drafted, not sent" : "Not drafted"}
+                  : (() => {
+                      // Per Tim, 2026-09-16 — this row is already scoped to
+                      // one domain, so its own sent status should be too:
+                      // job.report_sent_at alone can't tell "this domain's
+                      // report went out" from "some other domain's did" on
+                      // a multi-domain job (confirmed live wrong on
+                      // 26-0032). Falls back to the shared report_sent_at
+                      // for a job whose per-domain breakdown was never
+                      // recorded (sent before report_sent_domains existed).
+                      const sentAt = job.report_sent_domains?.[domain] ?? (!job.report_sent_domains ? job.report_sent_at : null);
+                      return sentAt ? `Sent ${formatDateMDY(sentAt)}` : job.report_drafted_at ? "Drafted, not sent" : "Not drafted";
+                    })()}
               </span>
             </label>
           ))}
@@ -817,26 +835,40 @@ function commonReportChecklist(job: JobWithCustomer): { label: string; done: boo
 // domain, each with its own lab info/sample count/results, so "is the
 // report ready" has to be asked per domain rather than once for the job.
 function reportChecklist(job: JobWithCustomer, domain: ReportDomain): { label: string; done: boolean }[] {
+  const domainLabels = (job.service_type ?? "").split(",").map((s) => s.trim()).filter(Boolean)
+    .filter((label) => domainForServiceTypeLabel(label) === domain);
   const totalSamples = Object.entries(job.sample_counts ?? {})
     .filter(([label]) => domainForServiceTypeLabel(label) === domain)
     .reduce((sum, [, n]) => sum + (n || 0), 0) || job.sample_count || 0;
+  // Per Tim, 2026-09-16 — a domain with more than one label (mold's own
+  // Air/Bulk/Swab combos) needs EVERY label's own results in, not just a
+  // nonzero sum across all of them — a summed check let one label's
+  // results alone read as "the whole domain is done" while a sibling
+  // label was still fully outstanding (confirmed live wrong on 26-0032:
+  // its Mold Bulk results landing alone made Mold read as complete even
+  // though Mold Air hadn't come in at all). A single-label domain keeps
+  // the original summed/legacy-job.sample_count behavior unchanged —
+  // nothing ambiguous to split there.
+  const resultsIn = domainLabels.length > 1
+    ? domainLabels.every((label) => (job.sample_counts?.[label] || 0) > 0)
+    : totalSamples > 0;
 
   if (domain === "mold") {
     return [
       ...commonReportChecklist(job),
-      { label: "Sample count", done: totalSamples > 0 },
+      { label: "Sample count", done: resultsIn },
       { label: "Lab info", done: Boolean(job.mold_lab_name) },
       // Air, bulk, and swab each have their own fixed, auto-generated
       // sample-count sentence for Discussion of Results — the admin's own
       // per-type findings fields are optional additions on top of that, not
       // required for this checklist item to be considered done.
-      { label: "Results", done: totalSamples > 0 },
+      { label: "Results", done: resultsIn },
     ];
   }
   if (domain === "lead") {
     return [
       ...commonReportChecklist(job),
-      { label: "Sample count", done: totalSamples > 0 },
+      { label: "Sample count", done: resultsIn },
       { label: "Lab info", done: Boolean(job.lead_lab_name && job.lead_lab_cert) },
       { label: "Results", done: Boolean(job.lead_result) },
     ];
@@ -849,7 +881,7 @@ function reportChecklist(job: JobWithCustomer, domain: ReportDomain): { label: s
   const isFull = isFullInspectionAsbestosJob(job.service_type);
   return [
     ...commonReportChecklist(job),
-    { label: "Sample count", done: isFull ? job.full_inspection_materials.length > 0 : totalSamples > 0 },
+    { label: "Sample count", done: isFull ? job.full_inspection_materials.length > 0 : resultsIn },
     { label: "Lab info", done: Boolean(job.lab_name && job.lab_nist_cert && job.lab_massdls_cert) },
     { label: "Results", done: isFull ? job.full_inspection_materials.length > 0 : Boolean(job.asbestos_result) },
   ];
@@ -1553,11 +1585,38 @@ function JobRow({
       {!job.invoice_sent_at && <HazardIcon />}
     </span>
   );
+  // Per Tim, 2026-09-16 — report_sent_at is one shared timestamp for the
+  // whole job, so a multi-domain job read as "Report: Sent" the moment ANY
+  // one domain's report went out, even while another domain's was still
+  // outstanding (confirmed live wrong on 26-0032: only its asbestos report
+  // had actually been sent). A domain with more than one report domain on
+  // this job now gets its own line, backed by report_sent_domains — a
+  // single-domain job keeps the original combined line, nothing ambiguous
+  // to split there.
   const reportStatus = showReportInvoice && (
-    <span className="flex shrink-0 items-center gap-1 text-sm text-slate-500">
-      {job.report_sent_at ? `Report: Sent ${formatDateTime(job.report_sent_at)}` : "Report: Not sent"}
-      {!job.report_sent_at && <HazardIcon />}
-    </span>
+    jobReportDomains(job.service_type).length > 1 ? (
+      <span className="flex shrink-0 flex-col items-end gap-0.5 text-sm text-slate-500">
+        {jobReportDomains(job.service_type).map((domain) => {
+          // Falls back to the shared report_sent_at for a job whose
+          // per-domain breakdown was never recorded (sent before this field
+          // existed, or a database that hasn't had the migration run yet)
+          // — same "the report is out" meaning report_sent_at always had,
+          // rather than reading an already-sent job as newly unsent.
+          const sentAt = job.report_sent_domains?.[domain] ?? (!job.report_sent_domains ? job.report_sent_at : null);
+          return (
+            <span key={domain} className="flex items-center gap-1">
+              {REPORT_DOMAIN_LABEL[domain]}: {sentAt ? `Sent ${formatDateTime(sentAt)}` : "Not sent"}
+              {!sentAt && <HazardIcon />}
+            </span>
+          );
+        })}
+      </span>
+    ) : (
+      <span className="flex shrink-0 items-center gap-1 text-sm text-slate-500">
+        {job.report_sent_at ? `Report: Sent ${formatDateTime(job.report_sent_at)}` : "Report: Not sent"}
+        {!job.report_sent_at && <HazardIcon />}
+      </span>
+    )
   );
   // Per Tim, 2026-09-15 — Payment Pending cards need the date the actual
   // fieldwork happened, above the Invoice/Report sent lines — that block
@@ -1588,16 +1647,37 @@ function JobRow({
   // the job leaves this status entirely — so the checklist only earns
   // its space once there's more than one domain to tell apart.
   const jobDomains = jobReportDomains(job.service_type);
-  const labResultsChecklist = job.status === "pending_lab_results" && job.source !== "subcontractor" && jobDomains.length > 1 && (
+  const jobServiceTypeLabels = (job.service_type ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+  // Per Tim, 2026-09-16 — a mold job's Air/Bulk/Swab sub-methods land as
+  // genuinely separate lab reports, so lumping them into one combined
+  // "Mold" line hid which specific one was still outstanding: confirmed
+  // live wrong on 26-0032, whose Mold Air sample was still outstanding but
+  // the old domain-summed check read "done" the moment its Mold Bulk
+  // sample alone came in. A domain with more than one label on this job
+  // now gets one line PER LABEL instead of one combined line — a domain
+  // with only one label keeps the original single line, nothing ambiguous
+  // to split there. "done" per label mirrors reportChecklist's own
+  // Sample count/Results check (sample_counts is already recorded per
+  // exact label — see extractMoldSampleCount), just scoped to that one
+  // label instead of summed across the whole domain.
+  const checklistItems: { key: string; text: string; done: boolean }[] = jobDomains.flatMap((domain) => {
+    const domainLabels = jobServiceTypeLabels.filter((l) => domainForServiceTypeLabel(l) === domain);
+    if (domainLabels.length <= 1) {
+      return [{ key: domain, text: REPORT_DOMAIN_LABEL[domain], done: reportIsCompleteForDomain(job, domain) }];
+    }
+    return domainLabels.map((label) => ({
+      key: label,
+      text: label.replace(new RegExp(`^${REPORT_DOMAIN_LABEL[domain]}\\s+`, "i"), ""),
+      done: (job.sample_counts?.[label] || 0) > 0,
+    }));
+  });
+  const labResultsChecklist = job.status === "pending_lab_results" && job.source !== "subcontractor" && checklistItems.length > 1 && (
     <span className="flex shrink-0 flex-col items-end gap-0.5 text-sm">
-      {jobDomains.map((domain) => {
-        const isIn = reportIsCompleteForDomain(job, domain);
-        return (
-          <span key={domain} className={`flex items-center gap-1 ${isIn ? "text-emerald-600" : "text-slate-400"}`}>
-            {REPORT_DOMAIN_LABEL[domain]} {isIn ? "☑" : "☐"}
-          </span>
-        );
-      })}
+      {checklistItems.map((item) => (
+        <span key={item.key} className={`flex items-center gap-1 ${item.done ? "text-emerald-600" : "text-slate-400"}`}>
+          {item.text} {item.done ? "☑" : "☐"}
+        </span>
+      ))}
     </span>
   );
   // Mobile only — see the address block below. Desktop already opens
@@ -3184,18 +3264,44 @@ export function ProjectDetailDialog({
   // sent" itself (inline with the value), not off at the row's far right
   // edge via DetailField's own trailing slot — and shows for either field,
   // not just Report.
+  // Per Tim, 2026-09-16 — same fix as JobRow's own reportStatus: a
+  // multi-domain job gets one "{Domain} Report" line per domain (backed by
+  // report_sent_domains, falling back to the shared report_sent_at for a
+  // job whose per-domain breakdown was never recorded) instead of one
+  // combined "Report" line that reads as fully sent the moment any single
+  // domain's report goes out.
+  const sentStatusDomains = jobReportDomains(job.service_type);
   const sentStatusLines = (
     <>
-      <DetailField
-        label="Report"
-        value={
-          job.report_sent_at ? (
-            `Sent ${formatDateTime(job.report_sent_at)}`
-          ) : (
-            <span className="inline-flex items-center gap-1">Not sent <HazardIcon /></span>
-          )
-        }
-      />
+      {sentStatusDomains.length > 1 ? (
+        sentStatusDomains.map((domain) => {
+          const sentAt = job.report_sent_domains?.[domain] ?? (!job.report_sent_domains ? job.report_sent_at : null);
+          return (
+            <DetailField
+              key={domain}
+              label={`${REPORT_DOMAIN_LABEL[domain]} Report`}
+              value={
+                sentAt ? (
+                  `Sent ${formatDateTime(sentAt)}`
+                ) : (
+                  <span className="inline-flex items-center gap-1">Not sent <HazardIcon /></span>
+                )
+              }
+            />
+          );
+        })
+      ) : (
+        <DetailField
+          label="Report"
+          value={
+            job.report_sent_at ? (
+              `Sent ${formatDateTime(job.report_sent_at)}`
+            ) : (
+              <span className="inline-flex items-center gap-1">Not sent <HazardIcon /></span>
+            )
+          }
+        />
+      )}
       <DetailField
         label="Invoice"
         value={

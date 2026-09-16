@@ -1,5 +1,30 @@
 import { createClient } from "@supabase/supabase-js";
 
+// Same "tolerate a migration that hasn't been run yet" pattern already used
+// ad hoc in a couple of places (e.g. the manual document-delete route) —
+// pulled out here so new fields can adopt it without re-deriving the
+// drop-and-retry loop each time. Drops whichever of `toleratedColumns` the
+// Postgres error actually names from `update` and retries, so the rest of a
+// real write (e.g. a job's core report/invoice fields) never gets lost just
+// because one newer, optional column doesn't exist in this database yet.
+export async function updateJobToleratingMissingColumns(
+  supabase: ReturnType<typeof createClient<any, any, any>>,
+  jobId: string,
+  update: Record<string, unknown>,
+  toleratedColumns: string[]
+): Promise<void> {
+  const remaining = { ...update };
+  for (let attempt = 0; attempt <= toleratedColumns.length; attempt++) {
+    const { error } = await supabase.from("jobs").update(remaining).eq("id", jobId);
+    if (!error) return;
+    const missingColumn = toleratedColumns.find(
+      (col) => col in remaining && new RegExp(col, "i").test(error.message ?? "")
+    );
+    if (!missingColumn) throw new Error(error.message);
+    delete remaining[missingColumn];
+  }
+}
+
 // Server-only client using the service role key. All DB access in this app
 // goes through API routes (no customer accounts, no client-side RLS needs),
 // so a single privileged server client is sufficient — never import this

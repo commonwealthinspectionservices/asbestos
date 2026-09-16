@@ -5140,40 +5140,51 @@ function DocumentStation({
           {docs.map((doc) => {
             const url = `/api/admin/jobs/${job.id}/documents/${doc.id}`;
             return (
-              <div key={doc.id} className="relative overflow-hidden rounded-lg border border-slate-200 bg-white">
-                {/* Per Tim, 2026-09-16 — "having the full preview of the PDF
-                    is a bit confusing... it just needs to be a link":
-                    replaces the embedded thumbnail (and the in-app preview
-                    modal it opened) with a plain filename + View/Download
-                    row, same links every card already had underneath. */}
-                <div className="flex items-center justify-between gap-2 px-2 py-1.5">
-                  <p className="min-w-0 truncate text-xs text-slate-600" title={doc.file_name}>{doc.file_name}</p>
+              <div key={doc.id}>
+                {/* Per Tim, 2026-09-16 — "It shouldn't even be its own cell
+                    like that. It should just be like a link and then it
+                    should have one view button and one download button and
+                    that's it": drops the bordered card entirely (see this
+                    div's own earlier comment for the first pass, which
+                    still boxed each document) down to one flat row. */}
+                <div className="flex items-center gap-2 py-1 text-xs">
+                  {titlePosition === "bottom" && (
+                    <span className="shrink-0 font-bold uppercase text-slate-400" title={label}>{label}</span>
+                  )}
+                  <a
+                    href={url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="min-w-0 flex-1 truncate text-slate-600 hover:text-brand-600 hover:underline"
+                    title={doc.file_name}
+                  >
+                    {doc.file_name}
+                  </a>
+                  <a
+                    href={url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="shrink-0 rounded border border-slate-300 px-2 py-0.5 font-medium text-slate-600 hover:bg-slate-50"
+                  >
+                    View
+                  </a>
+                  <a
+                    href={`${url}?download=1`}
+                    download={doc.file_name}
+                    className="shrink-0 rounded border border-slate-300 px-2 py-0.5 font-medium text-slate-600 hover:bg-slate-50"
+                  >
+                    Download
+                  </a>
                   <button
                     type="button"
                     onClick={() => setConfirmingDeleteDoc(doc)}
                     disabled={deletingId === doc.id}
                     title={`Delete ${doc.file_name}`}
                     aria-label={`Delete ${doc.file_name}`}
-                    className="shrink-0 rounded-full px-1.5 py-0.5 text-xs font-bold text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                    className="shrink-0 rounded-full px-1 text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
                   >
                     {deletingId === doc.id ? "…" : "✕"}
                   </button>
-                </div>
-                {/* Per Tim, 2026-08-28 — same footer-title spot the Invoice
-                    and Final Report cards use, so a row mixing this with
-                    those looks consistent instead of DocumentStation's own
-                    header-above-the-box default (titlePosition "top"). */}
-                {titlePosition === "bottom" && (
-                  <p className="truncate border-t border-slate-200 bg-white px-2 py-1 text-center text-xs font-bold uppercase text-slate-700" title={label}>{label}</p>
-                )}
-                <div className="border-t border-slate-200 px-2 py-1 text-center text-xs">
-                  <a href={url} target="_blank" rel="noreferrer" className="text-brand-600 hover:underline">
-                    View
-                  </a>
-                  {" · "}
-                  <a href={`${url}?download=1`} download={doc.file_name} className="text-brand-600 hover:underline">
-                    Download
-                  </a>
                 </div>
                 {doc.project_number_mismatch && (
                   <p className="bg-red-600 px-2 py-1 text-xs font-bold text-white">

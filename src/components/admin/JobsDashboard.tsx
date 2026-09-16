@@ -5061,9 +5061,49 @@ function DocumentStation({
   return (
     <div>
       {titlePosition === "top" && (
-        <div className="flex flex-nowrap items-center gap-2">
-          <h4 className="whitespace-nowrap text-xs font-semibold uppercase tracking-wide text-slate-400">{label}</h4>
-          {headerExtra}
+        <div className="flex flex-nowrap items-center justify-between gap-2">
+          <div className="flex flex-nowrap items-center gap-2">
+            <h4 className="whitespace-nowrap text-xs font-semibold uppercase tracking-wide text-slate-400">{label}</h4>
+            {headerExtra}
+          </div>
+          {/* Per Tim, 2026-09-16 — "the PDF title does not need to be in
+              there. The view and download buttons should be directly
+              across from lab results and chain of custody": for the
+              common one-document case, View/Download sit right in this
+              header row instead of their own line below with a filename.
+              A station with more than one document (lab_invoice's own
+              titlePosition="bottom" usage, or the rare multi-file upload
+              here) still lists them below instead — nothing to be
+              "directly across from" once there's more than one. */}
+          {docs.length === 1 && (
+            <div className="flex shrink-0 items-center gap-2 text-xs">
+              <a
+                href={`/api/admin/jobs/${job.id}/documents/${docs[0].id}`}
+                target="_blank"
+                rel="noreferrer"
+                className="rounded border border-slate-300 px-2 py-0.5 font-medium text-slate-600 hover:bg-slate-50"
+              >
+                View
+              </a>
+              <a
+                href={`/api/admin/jobs/${job.id}/documents/${docs[0].id}?download=1`}
+                download={docs[0].file_name}
+                className="rounded border border-slate-300 px-2 py-0.5 font-medium text-slate-600 hover:bg-slate-50"
+              >
+                Download
+              </a>
+              <button
+                type="button"
+                onClick={() => setConfirmingDeleteDoc(docs[0])}
+                disabled={deletingId === docs[0].id}
+                title={`Delete ${docs[0].file_name}`}
+                aria-label={`Delete ${docs[0].file_name}`}
+                className="rounded-full px-1 text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+              >
+                {deletingId === docs[0].id ? "…" : "✕"}
+              </button>
+            </div>
+          )}
         </div>
       )}
       {docs.length === 0 && (
@@ -5126,7 +5166,7 @@ function DocumentStation({
           <span className="text-brand-600">Show all</span>
         </button>
       )}
-      {docs.length > 0 && !collapseLabInvoices && (
+      {docs.length > 0 && !collapseLabInvoices && !(titlePosition === "top" && docs.length === 1) && (
         <div className="mt-1.5 space-y-2">
           {kind === "lab_invoice" && docs.length > 1 && (
             <button
@@ -5141,30 +5181,21 @@ function DocumentStation({
             const url = `/api/admin/jobs/${job.id}/documents/${doc.id}`;
             return (
               <div key={doc.id}>
-                {/* Per Tim, 2026-09-16 — "It shouldn't even be its own cell
-                    like that. It should just be like a link and then it
-                    should have one view button and one download button and
-                    that's it": drops the bordered card entirely (see this
-                    div's own earlier comment for the first pass, which
-                    still boxed each document) down to one flat row. */}
+                {/* Per Tim, 2026-09-16 — "the PDF title does not need to be
+                    in there": no filename shown here at all, just
+                    View/Download/delete (see the header row above for the
+                    common one-document case — this list only ever renders
+                    when there's more than one document to show, or for
+                    titlePosition="bottom" stations like lab_invoice). */}
                 <div className="flex items-center gap-2 py-1 text-xs">
                   {titlePosition === "bottom" && (
-                    <span className="shrink-0 font-bold uppercase text-slate-400" title={label}>{label}</span>
+                    <span className="min-w-0 flex-1 truncate font-bold uppercase text-slate-400" title={label}>{label}</span>
                   )}
                   <a
                     href={url}
                     target="_blank"
                     rel="noreferrer"
-                    className="min-w-0 flex-1 truncate text-slate-600 hover:text-brand-600 hover:underline"
-                    title={doc.file_name}
-                  >
-                    {doc.file_name}
-                  </a>
-                  <a
-                    href={url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="shrink-0 rounded border border-slate-300 px-2 py-0.5 font-medium text-slate-600 hover:bg-slate-50"
+                    className={`shrink-0 rounded border border-slate-300 px-2 py-0.5 font-medium text-slate-600 hover:bg-slate-50 ${titlePosition !== "bottom" ? "ml-auto" : ""}`}
                   >
                     View
                   </a>

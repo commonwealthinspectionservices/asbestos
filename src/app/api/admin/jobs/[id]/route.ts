@@ -67,6 +67,15 @@ const EDITABLE_FIELDS = [
   "report_release_override",
   "is_revisit",
   "payment_reversed_at",
+  // Per Tim, 2026-09-16 — the backfill's own bulk assumption (every domain
+  // on the job sent together, same as report_sent_at always implicitly
+  // meant before this field existed) is wrong for the rare job whose
+  // report actually went out as a real partial send via the Email tab's
+  // per-domain checklist (26-0032: only its Asbestos report had gone out).
+  // Directly editable so that one-off correction doesn't need its own
+  // dedicated route — same reasoning payment_reversed_at above already
+  // gets this treatment for.
+  "report_sent_domains",
 ] as const;
 
 export const PATCH = withApiErrors(async (

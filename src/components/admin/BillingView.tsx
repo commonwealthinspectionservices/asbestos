@@ -248,7 +248,7 @@ function JobRow({
 // $0. Same size/format for every row per Tim's follow-up — Margin isn't
 // visually singled out, just colored red if it's negative.
 function MoneyGrid({
-  revenueCents, labCostCents, estimatedLabCostCents, stripeFeeCents, marginCents, invoiceHref, labInvoiceHref, labInvoiceIssues,
+  revenueCents, labCostCents, estimatedLabCostCents, stripeFeeCents, marginCents, invoiceHref, labInvoiceHref, labInvoiceIssues, invoiceIssues,
 }: {
   revenueCents: number; labCostCents: number | null;
   /** Per Tim, 2026-09-04 — shown (with "≈") in place of "—" when the lab
@@ -280,6 +280,13 @@ function MoneyGrid({
       otherwise falls through to the card's own onOpen like any other
       unlinked label). */
   labInvoiceIssues?: LabInvoiceCheckIssue[];
+  /** Per Tim, 2026-09-16 — same "the label itself turns red on hover-title"
+      pattern as Lab Cost above (see its own comment), for audit-invoices'
+      "invoice" category instead of "lab_invoice" — the Invoice label turns
+      red when the base fee on file doesn't match what Settings' current
+      zones/service-type rates would actually compute (see
+      resolveBaseFeeCents), found via 26-0025's stray $650. */
+  invoiceIssues?: LabInvoiceCheckIssue[];
 }) {
   // Per Tim, 2026-09-05 — "if it's waiting on crystal, it should be
   // blue [then:] it doesn't even need to be blue... it can just be
@@ -302,12 +309,22 @@ function MoneyGrid({
   // also firing JobRow's own onClick (which opens the job detail dialog)
   // — same pattern this file already used for the old weekly report's
   // "PDF ↗" link.
+  const hasInvoiceWarning = Boolean(invoiceIssues?.some((i) => i.severity === "warning"));
+  const invoiceIssuesTitle = invoiceIssues?.map((i) => (i.detail ? `${i.issue} — ${i.detail}` : i.issue)).join("\n");
+  const invoiceColorClass = hasInvoiceWarning ? "text-red-600" : "text-slate-400";
   const invoiceLabel = invoiceHref ? (
-    <a href={invoiceHref} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="text-left text-slate-400 underline hover:text-brand-600">
+    <a
+      href={invoiceHref}
+      target="_blank"
+      rel="noreferrer"
+      onClick={(e) => e.stopPropagation()}
+      title={invoiceIssuesTitle}
+      className={`text-left underline hover:text-brand-600 ${invoiceColorClass}`}
+    >
       Invoice
     </a>
   ) : (
-    <span className="text-left text-slate-400">Invoice</span>
+    <span title={invoiceIssuesTitle} className={`text-left ${invoiceColorClass}`}>Invoice</span>
   );
   const labCostColorClass = hasWarningIssue ? "text-red-600" : "text-slate-400";
   const labCostLabel = labInvoiceHref ? (
@@ -563,15 +580,21 @@ export default function BillingView() {
   // run a check like this... should just be there automatically". Wraps
   // the existing audit-invoices route (already scanned every job for
   // exactly this — missing/duplicate/mismatched/uncosted lab invoices — it
-  // just had no UI), filtered here to its lab_invoice-category issues only,
-  // and run once on page load (see the mount useEffect below) rather than
-  // behind a button. Surfaced as a small red dot on each affected job's own
-  // card (see JobRow's issues prop) — no separate section on this page.
+  // just had no UI), run once on page load (see the mount useEffect below)
+  // rather than behind a button. Surfaced as a small red dot on each
+  // affected job's own card (see JobRow's issues prop) — no separate
+  // section on this page.
+  //
+  // Per Tim, 2026-09-16 — kept both categories now (used to filter down to
+  // lab_invoice only here) once audit-invoices' own "invoice" category
+  // started carrying something real worth showing too (the base-fee
+  // mismatch check, found via 26-0025) — MoneyGrid filters each category to
+  // its own label (Lab Cost vs. Invoice) at render time below instead.
   const [labInvoiceCheck, setLabInvoiceCheck] = useState<
     | { status: "idle" }
     | { status: "loading" }
     | { status: "error"; message: string }
-    | { status: "done"; jobsScanned: number; issues: LabInvoiceCheckIssue[] }
+    | { status: "done"; jobsScanned: number; issues: AuditInvoicesIssue[] }
   >({ status: "idle" });
 
   async function runLabInvoiceCheck() {
@@ -580,7 +603,7 @@ export default function BillingView() {
       const res = await fetch("/api/admin/audit-invoices");
       if (!res.ok) throw new Error(`Request failed (${res.status})`);
       const data = await res.json();
-      const issues = (data.issues as AuditInvoicesIssue[]).filter((i) => i.category === "lab_invoice");
+      const issues = data.issues as AuditInvoicesIssue[];
       setLabInvoiceCheck({ status: "done", jobsScanned: data.jobsScanned, issues });
     } catch (e) {
       setLabInvoiceCheck({ status: "error", message: e instanceof Error ? e.message : "Check failed" });
@@ -1032,7 +1055,11 @@ export default function BillingView() {
                 const labInvoiceDocId = latestLabInvoiceDocId(job);
                 const jobLabInvoiceIssues =
                   labInvoiceCheck.status === "done"
-                    ? labInvoiceCheck.issues.filter((i) => i.project_number === job.project_number)
+                    ? labInvoiceCheck.issues.filter((i) => i.project_number === job.project_number && i.category === "lab_invoice")
+                    : undefined;
+                const jobInvoiceIssues =
+                  labInvoiceCheck.status === "done"
+                    ? labInvoiceCheck.issues.filter((i) => i.project_number === job.project_number && i.category === "invoice")
                     : undefined;
                 return (
                   <JobRow
@@ -1053,6 +1080,7 @@ export default function BillingView() {
                         invoiceHref={job.invoice_total_cents != null ? `/api/admin/jobs/${job.id}/invoice` : null}
                         labInvoiceHref={labInvoiceDocId ? `/api/admin/jobs/${job.id}/documents/${labInvoiceDocId}` : null}
                         labInvoiceIssues={jobLabInvoiceIssues}
+                        invoiceIssues={jobInvoiceIssues}
                       />
                     }
                     below={

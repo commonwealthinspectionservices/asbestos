@@ -3,7 +3,7 @@ import { randomUUID, createHash } from "crypto";
 // src/app/api/admin/jobs/[id]/documents/route.ts for why.
 import pdfParse from "pdf-parse/lib/pdf-parse.js";
 import { getSupabaseAdmin } from "@/lib/supabase";
-import { getSettings, primaryInspector } from "@/lib/settings";
+import { getSettingsFresh, primaryInspector } from "@/lib/settings";
 import { deriveFullInspectionMaterials } from "@/lib/sample-items";
 import { withCompanyBillingAddress } from "@/lib/customer-billing";
 import { formatDateMDY } from "@/lib/date-format";
@@ -745,7 +745,11 @@ export async function checkForLabResultEmails(): Promise<LabEmailCheckResult> {
   if (!accessToken) throw new Error("Gmail is not connected");
 
   const supabase = getSupabaseAdmin();
-  const settings = await getSettings();
+  // Per Tim, 2026-09-16 — found via 26-0025 ($650 base fee baked into a
+  // real invoice, standard rate actually $450): this cron pricing every
+  // auto-drafted invoice off a stale cached Settings read is the real root
+  // cause — see getSettingsFresh's own comment.
+  const settings = await getSettingsFresh();
   const processedLabelId = await getOrCreateLabelId(accessToken, PROCESSED_LABEL);
   const legacyProcessedLabelId = await getOrCreateLabelId(accessToken, LEGACY_PROCESSED_LABEL);
   // -from:me — confirmed live 2026-08-25 as the real root cause behind
@@ -2022,7 +2026,7 @@ async function draftPaymentReminderForIndividual(params: {
   job: Job & { customers: Customer & { companies: Company | null } };
   settings: Settings;
   accessToken: string;
-}): Promise<void> {
+}): Promise<{ messageId: string }> {
   const { job, settings, accessToken } = params;
   const supabase = getSupabaseAdmin();
   const customer = withCompanyBillingAddress(job.customers, job.customers.companies);
@@ -2077,6 +2081,8 @@ async function draftPaymentReminderForIndividual(params: {
       payment_reminder_draft_gmail_message_id: draft.messageId,
     })
     .eq("id", job.id);
+
+  return { messageId: draft.messageId };
 }
 
 // Report half of the split — called the moment lab results land (see
@@ -2559,7 +2565,7 @@ async function loadJobForDraft(jobId: string): Promise<{
   if (!accessToken) throw new Error("Gmail is not connected");
 
   const supabase = getSupabaseAdmin();
-  const settings = await getSettings();
+  const settings = await getSettingsFresh();
 
   const { data: jobRow, error } = await supabase
     .from("jobs")
@@ -2585,9 +2591,9 @@ export async function createReportDraftForJob(jobId: string): Promise<{ messageI
   return draftReportEmailForJob(await loadJobForDraft(jobId));
 }
 
-/** Manual re-send path for the individual-billed "your report is ready, pay to receive it" notice — same draft-creation code the automatic lab-results-landing path uses. */
-export async function createPaymentReminderDraftForJob(jobId: string): Promise<void> {
-  await draftPaymentReminderForIndividual(await loadJobForDraft(jobId));
+/** Manual "Send Payment Reminder" button on the Email tab (individual/homeowner jobs only) — same draft-creation path the automatic lab-results-landing path uses, callable on demand any time results are ready but payment isn't in yet. Returns the new draft's own Gmail message id so a caller can jump straight to it, same as the other create*DraftForJob functions. */
+export async function createPaymentReminderDraftForJob(jobId: string): Promise<{ messageId: string }> {
+  return draftPaymentReminderForIndividual(await loadJobForDraft(jobId));
 }
 
 /** The Email tab's one "View Draft" button — final report + invoice as two attachments on a single Gmail draft, with a payment link. Returns the new draft's own Gmail message id so the caller can jump straight to it. */

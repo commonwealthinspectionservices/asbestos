@@ -4,6 +4,9 @@ import { getSupabaseAdminFresh } from "@/lib/supabase";
 import { withApiErrors } from "@/lib/api-handler";
 import { FLI_ENVIRONMENTAL_COMPANY_ID } from "@/lib/report-findings";
 import { formatDateMDY } from "@/lib/date-format";
+import { resolveBaseFeeCents } from "@/lib/invoice-defaults";
+import { formatCents } from "@/lib/pricing";
+import { getSettingsFresh } from "@/lib/settings";
 import type { Company, Customer, Job } from "@/lib/types";
 
 type JobRow = Job & { customers: (Customer & { companies: Company | null }) | null };
@@ -26,10 +29,16 @@ export const GET = withApiErrors(async (req: NextRequest) => {
   if (unauthorized) return unauthorized;
 
   const supabase = getSupabaseAdminFresh();
-  const { data, error } = await supabase
-    .from("jobs")
-    .select("*, customers!customer_id(*, companies!company_id(*))")
-    .order("project_number", { ascending: true });
+  // getSettingsFresh(), not getSettings() — see its own comment in
+  // lib/settings.ts for why (confirmed live here first: a stale cached
+  // base fee made the check below flag an already-correct job as wrong).
+  const [{ data, error }, settings] = await Promise.all([
+    supabase
+      .from("jobs")
+      .select("*, customers!customer_id(*, companies!company_id(*))")
+      .order("project_number", { ascending: true }),
+    getSettingsFresh(),
+  ]);
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
@@ -81,6 +90,37 @@ export const GET = withApiErrors(async (req: NextRequest) => {
       }
       if (!job.paid_date && job.invoice_sent_at && job.payment_type === "online" && !job.stripe_invoice_id) {
         issues.push({ project_number: label, company, issue: "Invoice sent for online payment but no Stripe invoice/pay link was ever created", category: "invoice" });
+      }
+    }
+
+    // Per Tim, 2026-09-16 — found via 26-0025: its base fee was $650,
+    // matching neither any configured pricing zone nor the service type's
+    // own $450 rate — nothing in the app could explain why, since invoice
+    // line items aren't versioned. Same "does what's on file match what
+    // the current rules say it should be" check as the lab invoice checks
+    // below, applied to the base fee itself. Runs on ANY job with a base
+    // fee line item already drafted — not gated behind isInvoiced above —
+    // so a mismatch surfaces before it's ever sent, not just after. Only
+    // checked when every one of the job's service type labels has a real,
+    // exact match in Settings: resolveBaseFeeCents falls back to $0 for a
+    // custom/"Other" label with no configured rate, which would otherwise
+    // falsely flag every intentionally hand-priced custom job as "wrong".
+    const baseFeeLineItem = job.invoice_line_items?.find((li) => li.billing_unit === "Base Fee");
+    if (baseFeeLineItem && job.service_address) {
+      const serviceTypeLabels = (job.service_type ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+      const allMatched = serviceTypeLabels.length > 0 && serviceTypeLabels.every((l) => settings.service_types.some((t) => t.label === l));
+      if (allMatched) {
+        const expectedBaseFeeCents = resolveBaseFeeCents(job, settings.service_types, settings.pricing_zones);
+        if (expectedBaseFeeCents != null && expectedBaseFeeCents !== baseFeeLineItem.unit_cost_cents) {
+          issues.push({
+            project_number: label,
+            company,
+            issue: "Base fee doesn't match the standard rate",
+            detail: `on file: ${formatCents(baseFeeLineItem.unit_cost_cents)}, standard rate: ${formatCents(expectedBaseFeeCents)}`,
+            category: "invoice",
+            severity: "warning",
+          });
+        }
       }
     }
 

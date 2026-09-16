@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { extractSampleCount, detectAsbestosResult, extractSampleResults, extractReportProjectNumber, extractReportProjectAddress, detectLabInfo, extractMoldSampleCount, extractMoldSampleResults, extractCrystalAnalyticalMaterialDescriptions, extractSampledDate } from "../parse-lab-report";
+import { extractSampleCount, detectAsbestosResult, extractSampleResults, extractReportProjectNumber, extractReportProjectAddress, detectLabInfo, extractMoldSampleCount, extractMoldSampleResults, extractCrystalAnalyticalMaterialDescriptions, extractSampledDate, extractMoldDirectAnalysisFindings, summarizeElevatedMoldFindings } from "../parse-lab-report";
 
 // Excerpts of real EMSL bulk asbestos PLM report text, exactly as pdf-parse
 // extracts it (value-before-label ordering and all — PDF text extraction
@@ -1022,6 +1022,80 @@ BIO-SOP-002
     expect(extractMoldSampleResults(REPORT, "Mold Bulk Sampling")).toEqual([
       { fieldCode: "1", result: "Analyzed", serviceType: "Mold Bulk Sampling" },
     ]);
+  });
+});
+
+describe("extractMoldDirectAnalysisFindings", () => {
+  // Real position-ordered text confirmed against 26-0032's actual Crystal
+  // Analytical report (both samples Trace — no elevated finding at all).
+  const CLEAN_SINGLE_TAXON_REPORT = `
+Tim Hall 26-0032 Lab ID: 2601003978
+Commonwealth Inspection Services, LLC 21 Blossom Street
+118 Greenacre Road Lexington, MA BIO-SOP-002
+Westwood, MA Direct Analysis
+Tape-Lift
+0001 Fungal Structure ID Spore/Material Load Debris Pollen Epithelial Cells
+1 - Textured Wall - Base of Spiral Staircase basidiospores Trace
+Light   None None
+0002 Tape-Lift Fungal Structure ID Spore/Material Load Debris Pollen Epithelial Cells
+2 - Drywall - Desk Room basidiospores Trace
+Light   None None
+Crystal Analytical, LLC.      •       55 Accord Park Dr., Ste. 2D; Rockland, MA 02370      •      (781) 347-3936     •      Page 2 of 4
+`;
+
+  it("extracts a clean single-taxon-per-sample report", () => {
+    expect(extractMoldDirectAnalysisFindings(CLEAN_SINGLE_TAXON_REPORT)).toEqual([
+      { location: "Textured Wall - Base of Spiral Staircase", taxon: "basidiospores", load: "Trace" },
+      { location: "Drywall - Desk Room", taxon: "basidiospores", load: "Trace" },
+    ]);
+  });
+
+  it("returns no findings when the report has no Direct Analysis section at all", () => {
+    expect(extractMoldDirectAnalysisFindings("just some unrelated report text")).toEqual([]);
+  });
+
+  // Real position-ordered text confirmed against 26-0002's actual report —
+  // its Insulation sample carries TWO taxa (Penicillium/Aspergillus at
+  // Trace, and a separate Very Heavy Alternaria finding), interleaved in a
+  // way that can't be reliably disentangled from text alone. Dropped
+  // entirely rather than risk pairing the wrong load to the wrong taxon.
+  const AMBIGUOUS_MULTI_TAXON_REPORT = `
+Tim Hall 26-0002 Lab ID: 2601003618
+Commonwealth Inspection Services, LLC 36 Drummer Ave.
+Boston Acton, MA BIO-SOP-002
+MA Direct Analysis
+Tape-Lift
+0005 Fungal Structure ID Spore/Material Load Debris Pollen Epithelial Cells
+1 - Insulation Penicillium/Aspergillus Trace
+Alternaria Trace Very Heavy None None
+Crystal Analytical, LLC.      •       55 Accord Park Dr., Ste. 2D; Rockland, MA 02370      •      (781) 347-3936     •      Page 3 of 7
+`;
+
+  it("drops a sample with more than one taxon rather than guessing which load belongs to which", () => {
+    expect(extractMoldDirectAnalysisFindings(AMBIGUOUS_MULTI_TAXON_REPORT)).toEqual([]);
+  });
+});
+
+describe("summarizeElevatedMoldFindings", () => {
+  it("writes one plain sentence per Moderate-or-above finding", () => {
+    expect(summarizeElevatedMoldFindings([
+      { location: "Basement Closet", taxon: "Stachybotrys", load: "Heavy" },
+      { location: "Kitchen Ceiling", taxon: "aspergillus", load: "Very Heavy" },
+    ])).toEqual([
+      "Stachybotrys was elevated (Heavy) at Basement Closet.",
+      "Aspergillus was elevated (Very Heavy) at Kitchen Ceiling.",
+    ]);
+  });
+
+  it("leaves out anything Light or below", () => {
+    expect(summarizeElevatedMoldFindings([
+      { location: "Textured Wall", taxon: "basidiospores", load: "Trace" },
+      { location: "Drywall", taxon: "basidiospores", load: "Light" },
+    ])).toEqual([]);
+  });
+
+  it("returns an empty array, not placeholder text, when nothing is elevated", () => {
+    expect(summarizeElevatedMoldFindings([])).toEqual([]);
   });
 });
 

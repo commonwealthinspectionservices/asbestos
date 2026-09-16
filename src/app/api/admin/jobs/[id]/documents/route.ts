@@ -8,7 +8,7 @@ import pdfParse from "pdf-parse/lib/pdf-parse.js";
 import { requireAdminApi } from "@/lib/admin-api";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { withApiErrors } from "@/lib/api-handler";
-import { extractSampleCount, detectAsbestosResult, extractSampleResults, extractReportProjectNumber, detectLabInfo, extractMoldSampleCount, extractMoldSampleResults, extractSampledDate, extractCrystalAnalyticalMaterialDescriptions } from "@/lib/parse-lab-report";
+import { extractSampleCount, detectAsbestosResult, extractSampleResults, extractReportProjectNumber, detectLabInfo, extractMoldSampleCount, extractMoldSampleResults, extractMoldDirectAnalysisFindings, summarizeElevatedMoldFindings, extractSampledDate, extractCrystalAnalyticalMaterialDescriptions } from "@/lib/parse-lab-report";
 import { isLabInvoiceText, extractLabInvoiceTotalCents, extractInvoiceNumber } from "@/lib/parse-lab-invoice";
 import { computeLabCostCentsFromDocuments } from "@/lib/lab-cost";
 import { splitTrailingCocPages } from "@/lib/split-lab-report-coc";
@@ -152,6 +152,17 @@ export const POST = withApiErrors(async (
           // label's prior entries get replaced; every other label's stay.
           const priorOtherLabels = (jobRow.mold_sample_results ?? []).filter((r) => r.serviceType !== serviceType);
           update.mold_sample_results = [...priorOtherLabels, ...sampleResults];
+        }
+        // Per Tim, 2026-09-16 — same auto-fill as the automated lab-email
+        // pipeline (see summarizeElevatedMoldFindings's own comment): one
+        // plain sentence per Moderate-or-above finding, only when there's
+        // something to say and the field is still empty.
+        if (positionOrderedText && !jobRow.mold_report_notes?.trim()) {
+          const findings = extractMoldDirectAnalysisFindings(positionOrderedText);
+          const sentences = summarizeElevatedMoldFindings(findings);
+          if (sentences.length > 0) {
+            update.mold_report_notes = sentences.join(" ");
+          }
         }
       }
 

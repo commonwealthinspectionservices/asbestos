@@ -465,6 +465,81 @@ export function extractMoldSampleResults(pdfText: string, serviceType?: string):
   return moldSampleFieldCodesAnyLab(pdfText, serviceType).map((fieldCode) => ({ fieldCode, result: "Analyzed", serviceType }));
 }
 
+export type MoldSporeLoad = "None" | "Trace" | "Light" | "Moderate" | "Heavy" | "Very Heavy";
+export interface MoldDirectAnalysisFinding {
+  location: string;
+  taxon: string;
+  load: MoldSporeLoad;
+}
+
+// Per Tim, 2026-09-16 — "anything that has a color coded to it should just
+// have a simple sentence of what it is, like basidiospores were elevated in
+// [location]": Crystal's own "Spore/Material Load" scale (None/Trace/Light/
+// Moderate/Heavy/Very Heavy — the color-coded rating on a Direct Analysis
+// bulk/swab/tape-lift sample row) is the confirmed signal; Moderate or above
+// counts as "elevated" per his own confirmed cutoff. This only covers
+// Direct Analysis (BIO-SOP-002) — Crystal's spore-trap air format
+// (BIO-SOP-001) uses a completely different indoor-vs-outdoor-baseline
+// comparison with its own separate color coding, not this scale at all, and
+// isn't handled here.
+//
+// Needs `positionOrderedText`, not raw pdfText — confirmed on 26-0002/26-0008
+// (see CRYSTAL_DIRECT_ANALYSIS_SAMPLE_PATTERN's own comment) that raw
+// pdf-parse text runs a sample's location straight into the next cell's
+// taxon name with zero space, and interleaves columns unpredictably.
+// Position-ordered text instead puts a single-taxon sample's row on two
+// clean lines: "N - <location> <taxon> <load>" then "<debris> [<pollen>]
+// <epithelial cells>" — reliably regex-able. A sample with MORE than one
+// taxon (e.g. 26-0002's Insulation sample: Penicillium/Aspergillus AND a
+// separate Very Heavy Alternaria finding) interleaves its own load value in
+// with the next taxon's own row in a way that can't be disentangled from
+// text alone without real risk of pairing the wrong load to the wrong
+// taxon — confirmed by testing against that exact report. Rather than ever
+// risk stating a wrong finding on an actual report, a sample whose
+// continuation line isn't cleanly just debris/pollen/epithelial values is
+// dropped from the results entirely (not guessed at) — see
+// summarizeElevatedMoldFindings's own comment on how that's surfaced.
+const DIRECT_ANALYSIS_SAMPLE_ROW = /^(\d{1,2})(?:\s-\s|:\s)(.+?)\s+([A-Za-z][A-Za-z/.]*(?:\s\([^)]*\))?)\s+(Very Heavy|Moderate|Heavy|Light|Trace|None)\s*$/;
+const SPORE_LOAD_WORDS = new Set<MoldSporeLoad>(["None", "Trace", "Light", "Moderate", "Heavy"]);
+
+function isCleanTrailingMetadataLine(line: string): boolean {
+  const tokens = line.replace(/Very\s+Heavy/g, "VeryHeavy").split(/\s+/).filter(Boolean);
+  if (tokens.length === 0 || tokens.length > 3) return false;
+  return tokens.every((t) => t === "VeryHeavy" || SPORE_LOAD_WORDS.has(t as MoldSporeLoad));
+}
+
+export function extractMoldDirectAnalysisFindings(positionOrderedText: string): MoldDirectAnalysisFinding[] {
+  const sectionMatch = positionOrderedText.match(/Direct Analysis[\s\S]*?(?=Crystal Analytical, LLC\.)/);
+  if (!sectionMatch) return [];
+  const lines = sectionMatch[0].split("\n").map((l) => l.trim()).filter(Boolean);
+
+  const findings: MoldDirectAnalysisFinding[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const match = lines[i].match(DIRECT_ANALYSIS_SAMPLE_ROW);
+    if (!match) continue;
+    const [, , location, taxon, load] = match;
+    const nextLine = lines[i + 1];
+    if (nextLine && !isCleanTrailingMetadataLine(nextLine)) continue;
+    findings.push({ location: location.trim(), taxon, load: load as MoldSporeLoad });
+  }
+  return findings;
+}
+
+// Plain sentences, not a narrative — per Tim, "I don't need you to write
+// these crazy conclusions and recommendations." One line per sample rated
+// Moderate or above; a report where nothing crossed that line returns an
+// empty array (callers should leave the report's Conclusions blank, not
+// invent something to say).
+export function summarizeElevatedMoldFindings(findings: MoldDirectAnalysisFinding[]): string[] {
+  const ELEVATED: MoldSporeLoad[] = ["Moderate", "Heavy", "Very Heavy"];
+  return findings
+    .filter((f) => (ELEVATED as string[]).includes(f.load))
+    .map((f) => {
+      const taxonLabel = f.taxon.charAt(0).toUpperCase() + f.taxon.slice(1);
+      return `${taxonLabel} was elevated (${f.load}) at ${f.location}.`;
+    });
+}
+
 // The lab itself makes the positive/negative call, not FLI — any sample
 // result carrying a percentage + one of the six regulated minerals means
 // the report as a whole is positive, full stop, regardless of how many

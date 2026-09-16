@@ -33,6 +33,8 @@ import {
   extractSampleResults,
   extractMoldSampleCount,
   extractMoldSampleResults,
+  extractMoldDirectAnalysisFindings,
+  summarizeElevatedMoldFindings,
   extractSampledDate,
   extractCrystalAnalyticalMaterialDescriptions,
 } from "@/lib/parse-lab-report";
@@ -1594,6 +1596,21 @@ async function processMatchedLabEmail(params: {
       const touchedLabels = new Set(newResultsByLabel.keys());
       const priorOtherLabels = (job.mold_sample_results ?? []).filter((r) => !r.serviceType || !touchedLabels.has(r.serviceType));
       update.mold_sample_results = [...priorOtherLabels, ...[...newResultsByLabel.values()].flat()];
+    }
+    // Per Tim, 2026-09-16 — "a simple sentence of what it is, like
+    // basidiospores were elevated in [location]": pre-fills Conclusions &
+    // Recommendations with one plain sentence per Moderate-or-above finding
+    // (see summarizeElevatedMoldFindings's own comment for the confirmed
+    // cutoff and why an ambiguous multi-taxon sample is silently dropped
+    // rather than guessed at). Only when there's something to say AND the
+    // field is still empty — never overwrites an admin's own hand-written
+    // notes, same as report_summary's own auto-fill above.
+    if (positionOrderedText && !job.mold_report_notes?.trim()) {
+      const findings = extractMoldDirectAnalysisFindings(positionOrderedText);
+      const sentences = summarizeElevatedMoldFindings(findings);
+      if (sentences.length > 0) {
+        update.mold_report_notes = sentences.join(" ");
+      }
     }
   } else {
     const count = extractSampleCount(pdfText, positionOrderedText);

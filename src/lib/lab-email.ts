@@ -1830,11 +1830,36 @@ async function processMatchedLabEmail(params: {
     // If it's already paid by the time results land (the early-invoice
     // flow above), release the report right now instead — a stale "pay to
     // receive it" reminder would be wrong for someone who's already paid.
+    let draftedWhat: string;
     if (!updatedJob.is_individual || updatedJob.status === "paid") {
       await draftReportEmailForJob({ job: updatedJob, settings, accessToken });
+      draftedWhat = updatedJob.status === "paid"
+        ? "A report draft was created automatically and is waiting in Gmail"
+        : "Invoice and report drafts were created automatically and are waiting in Gmail";
     } else {
       await draftPaymentReminderForIndividual({ job: updatedJob, settings, accessToken });
+      draftedWhat = "An invoice draft was created, and a payment-reminder email went out — the report itself stays held until they pay";
     }
+
+    // Per Tim, 2026-09-16 — "some sort of email automation... that tells
+    // me when lab results have landed for a single job": the mold branch
+    // above already had its own "no auto-draft" version of this; every
+    // other job silently drafted and moved on with no notification at
+    // all. This is that same notification for the common case, so every
+    // job (not just mold) gets a heads-up the moment results land —
+    // fires once per job, never a bundled multi-job email, since
+    // processMatchedLabEmail itself only ever matches one job per lab
+    // results email (Crystal's own multi-job bundling only happens on
+    // lab_invoice-kind weekly/daily summary PDFs, handled by a separate
+    // path that never reaches this function).
+    await sendEmail({
+      to: process.env.OWNER_EMAIL!,
+      subject: `Lab results landed — ${updatedJob.project_number ?? updatedJob.id}`,
+      html: emailShell(`
+        <p style="font-size:15px;">Lab results just came in for ${escapeHtml(expandAddress(updatedJob.service_address))} and were filed on this job.</p>
+        <p>${draftedWhat}, ready for your review.</p>
+      `),
+    }).catch(() => {});
   } catch (err) {
     console.error(`processMatchedLabEmail: lab PDF filed on job ${updatedJob.id}, but invoice/report drafting failed:`, err);
     await sendEmail({

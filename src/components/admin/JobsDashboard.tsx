@@ -1569,12 +1569,12 @@ function JobRow({
   // gates on, so this card agrees with what's actually missing there
   // rather than a second, looser notion of "in yet."
   const labResultsChecklist = job.status === "pending_lab_results" && job.source !== "subcontractor" && (
-    <span className="flex shrink-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-sm">
+    <span className="flex shrink-0 flex-col items-end gap-0.5 text-sm">
       {jobReportDomains(job.service_type).map((domain) => {
         const isIn = reportIsCompleteForDomain(job, domain);
         return (
           <span key={domain} className={`flex items-center gap-1 ${isIn ? "text-emerald-600" : "text-slate-400"}`}>
-            {REPORT_DOMAIN_LABEL[domain]} {isIn ? "✓" : "…"}
+            {REPORT_DOMAIN_LABEL[domain]} {isIn ? "☑" : "☐"}
           </span>
         );
       })}

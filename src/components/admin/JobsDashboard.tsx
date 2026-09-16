@@ -4139,7 +4139,16 @@ export function ProjectDetailDialog({
                                 {isFliJob && group.domain === "asbestos" && fliProjectNumberInput}
                               </div>
                             )}
-                            <div className="grid grid-cols-2 gap-3">
+                            {/* Per Tim, 2026-09-16 — "laboratory results and
+                                chain of custody should each have their own
+                                row": now that each station is just a label
+                                + View/Download (no more side-by-side
+                                thumbnails to justify two columns — see
+                                DocumentStation's own comment), stacked in a
+                                single column reads better than a 2-up grid.
+                                Supersedes the 2026-09-01 side-by-side layout
+                                below. */}
+                            <div className="flex flex-col gap-3">
                               {/* Per Tim, 2026-09-01 — mold has no Sample
                                   Results box at all (unlike asbestos/lead):
                                   Chain of Custody sits in its place instead,
@@ -4181,7 +4190,7 @@ export function ProjectDetailDialog({
                                       just displaying asbestos rows there, mislabeled as if they
                                       were lead samples. Asbestos-only now. */}
                                   {group.domain === "asbestos" && (
-                                  <div className="col-span-2">
+                                  <div>
                                     <div className="flex flex-nowrap items-center gap-2">
                                       <h4 className="whitespace-nowrap text-xs font-semibold uppercase tracking-wide text-slate-400">Sample Results</h4>
                                     </div>

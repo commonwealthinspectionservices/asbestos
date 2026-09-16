@@ -663,8 +663,17 @@ function FliAsbestosReportDocument({ job, customer, settings }: ProjectReportDat
   // instead — commonLetterFields' own billingStreet/billing (customer.
   // billing_address-derived) go unused here, still returned for the other
   // three templates that share it.
-  const knownCustomerName = job.subcontractor_client_contact_name?.trim() || null;
+  // Per Tim, 2026-09-16 — a job where FLI only gave us the end client's
+  // company (e.g. "Mukhooy Industries, LLC") and never a specific contact
+  // person was rendering "Dear :" — ValueOrBlank's blank underline with
+  // nothing to fill it. Falls back to the company name so the salutation
+  // (and the continuation-page header, which shares this same value) reads
+  // "Dear Mukhooy Industries, LLC:" instead of a blank line. RecipientBlock
+  // already dedupes knownCustomerName against customer.company (see its own
+  // "it says Adina Koch twice" comment), so this doesn't repeat the company
+  // name as a second line there.
   const clientCompany = job.subcontractor_client_company?.trim() || null;
+  const knownCustomerName = job.subcontractor_client_contact_name?.trim() || clientCompany;
   const clientAddressRaw = splitAddress(job.subcontractor_client_address);
   const clientBillingStreet = expandAddress(clientAddressRaw.locationName ? `${clientAddressRaw.locationName} ${clientAddressRaw.street}` : clientAddressRaw.street);
   const clientCityStateZip = expandAddress(clientAddressRaw.cityStateZip);

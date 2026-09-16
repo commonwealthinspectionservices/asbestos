@@ -4147,8 +4147,11 @@ export function ProjectDetailDialog({
                                 DocumentStation's own comment), stacked in a
                                 single column reads better than a 2-up grid.
                                 Supersedes the 2026-09-01 side-by-side layout
-                                below. */}
-                            <div className="flex flex-col gap-3">
+                                below. my-4 (per Tim's own follow-up) gives it
+                                breathing room from the fields above and
+                                Sample Results below — just spacing, nothing
+                                about the text sizes touched. */}
+                            <div className="my-4 flex flex-col gap-3">
                               {/* Per Tim, 2026-09-01 — mold has no Sample
                                   Results box at all (unlike asbestos/lead):
                                   Chain of Custody sits in its place instead,

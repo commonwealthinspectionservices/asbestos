@@ -128,11 +128,18 @@ function parseMonthDayYear(text: string): string | null {
 
 export function parseNewAssignmentEmail(html: string): ParsedAssignment | null {
   const address = extractLabeledField(html, "Address:");
-  const preferredWindowsRaw = extractLabeledField(html, "Preferred Windows:");
-  const clientName = extractLabeledField(html, "Name:");
+  // Per Tim, 2026-09-17 — Fast Mold Testing's new "You're Booked" template
+  // (replacing "New Assignment") dropped the combined "Preferred Windows:
+  // Window 1: ..." line for separate "Date:"/"Time:" fields, renamed
+  // "Name:" to "Client:" and "Client Notes:" to "Notes:", and no longer
+  // sends a client email at all. Each old label is tried first so a
+  // template that still sends it (or reverts to it) keeps working
+  // unchanged; the new label is only a fallback.
+  const preferredWindowsRaw = extractLabeledField(html, "Preferred Windows:") ?? extractLabeledField(html, "Date:");
+  const clientName = extractLabeledField(html, "Name:") ?? extractLabeledField(html, "Client:");
   const clientEmail = extractLabeledField(html, "Email:");
   const clientPhone = extractLabeledField(html, "Phone:");
-  const clientNotes = extractLabeledField(html, "Client Notes:");
+  const clientNotes = extractLabeledField(html, "Client Notes:") ?? extractLabeledField(html, "Notes:");
   const jobNotes = extractLabeledField(html, "Job Notes:");
   const baseCompensation = extractLabeledField(html, "Base Compensation:");
   const netPayment = extractLabeledField(html, "Est. Net Payment:");

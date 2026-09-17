@@ -104,10 +104,17 @@ export async function checkForSubcontractorAssignments(): Promise<SubcontractorI
           continue;
         }
 
-        if (!/new assignment/i.test(subject)) {
-          // A known sender, but not an assignment or reschedule email (e.g.
-          // a reply in an onboarding thread) — nothing for this pipeline to
-          // do, left unread since it's not this pipeline's to touch.
+        // Per Tim, 2026-09-17 — Fast Mold Testing switched from "New
+        // Assignment" to a two-step flow: a "New Job —" offer he can
+        // decline, then (once he accepts through their portal) a "You're
+        // Booked —" confirmation. Only the confirmation is a real
+        // commitment worth putting on his schedule — matching "New
+        // Assignment" too keeps this working if they ever revert.
+        if (!/new assignment|you.re booked/i.test(subject)) {
+          // A known sender, but not an assignment/booked/reschedule email
+          // (e.g. the "New Job" offer itself, or a reply in an onboarding
+          // thread) — nothing for this pipeline to do, left unread since
+          // it's not this pipeline's to touch.
           result.unmatched++;
           continue;
         }

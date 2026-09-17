@@ -86,7 +86,26 @@ const KNOWN_SENDERS: JobIntakeSender[] = [
 export interface JobIntakeResult {
   checked: number;
   created: { projectNumber: string; jobId: string }[];
+  phoneUpdated: { projectNumber: string; jobId: string }[];
   unmatched: number;
+}
+
+// Per Tim, 2026-09-17 — Boston Harbor started splitting the homeowner's
+// phone number out into its own quick reply ("Phone number is-\n
+// 617-319-3631") sent a couple minutes after the main order email, instead
+// of always including it in the order itself. Deliberately narrow (anchored
+// on the literal "Phone number is" lead-in actually observed, not just any
+// message containing digits) — this only ever fires for a message already
+// known to belong to an existing job's thread (see the existingJob check
+// below), so a false negative just leaves the field blank for manual entry,
+// same as before this existed.
+const PHONE_ONLY_REPLY = /phone\s*number\s*is[-:]?\s*\n?\s*([\d()+\-.\s]{7,20})/i;
+export function extractPhoneOnlyReply(bodyText: string): string | null {
+  const match = bodyText.match(PHONE_ONLY_REPLY);
+  if (!match) return null;
+  const digits = match[1].replace(/\D/g, "");
+  if (digits.length < 10) return null;
+  return formatPhoneNumber(digits);
 }
 
 // Gmail's own "Forward" action: "---------- Forwarded message ---------".
@@ -211,7 +230,7 @@ export async function checkForJobIntakeEmails(): Promise<JobIntakeResult> {
   if (!accessToken) throw new Error("Gmail is not connected");
 
   const settings = await getSettings();
-  const result: JobIntakeResult = { checked: 0, created: [], unmatched: 0 };
+  const result: JobIntakeResult = { checked: 0, created: [], phoneUpdated: [], unmatched: 0 };
   const processedLabelId = await getOrCreateLabelId(accessToken, PROCESSED_LABEL);
 
   for (const sender of KNOWN_SENDERS) {
@@ -246,9 +265,18 @@ export async function checkForJobIntakeEmails(): Promise<JobIntakeResult> {
     const query = `newer_than:14d -label:"${PROCESSED_LABEL}" -label:${LEGACY_PROCESSED_LABEL} (subject:"${sender.subjectHint}" OR from:${sender.domain})`;
     const candidates = await listMessagesByQuery(accessToken, query);
 
-    for (const candidate of candidates) {
+    // listMessagesByQuery has no explicit sort and Gmail's default order is
+    // newest-first — fetch everything up front and process oldest first so
+    // a same-thread follow-up (e.g. Boston Harbor's separate "Phone number
+    // is-" reply, sent minutes after the main order) always sees its job
+    // already created rather than racing it within the same run (same
+    // reasoning as subcontractor-intake.ts's own sort).
+    const messages = await Promise.all(candidates.map((c) => getMessage(accessToken, c.id)));
+    messages.sort((a, b) => Number(a.internalDate ?? 0) - Number(b.internalDate ?? 0));
+
+    for (const message of messages) {
       result.checked++;
-      const message = await getMessage(accessToken, candidate.id);
+      const candidate = { id: message.id };
       const from = getHeader(message, "From") ?? "";
       const subject = getHeader(message, "Subject") ?? "(no subject)";
       const rawBodyText = getMessageBodyText(message);
@@ -284,13 +312,24 @@ export async function checkForJobIntakeEmails(): Promise<JobIntakeResult> {
       const supabase = getSupabaseAdminFresh();
       const { data: existingJob } = await supabase
         .from("jobs")
-        .select("project_number")
+        .select("id, project_number, site_contact_phone")
         .eq("email_gmail_thread_id", message.threadId)
         .maybeSingle();
       if (existingJob) {
+        // A same-thread follow-up like Boston Harbor's separate "Phone
+        // number is-" reply (see extractPhoneOnlyReply's own comment) —
+        // backfill the one field it carries rather than just discarding it,
+        // but only when the job doesn't already have a phone number (never
+        // overwrite a value that's since been corrected by hand).
+        const phone = !existingJob.site_contact_phone ? extractPhoneOnlyReply(rawBodyText) : null;
+        if (phone) {
+          await supabase.from("jobs").update({ site_contact_phone: phone }).eq("id", existingJob.id);
+          result.phoneUpdated.push({ projectNumber: existingJob.project_number, jobId: existingJob.id });
+        } else {
+          result.unmatched++;
+        }
         await markMessageRead(accessToken, candidate.id);
         await labelCandidate(candidate.id);
-        result.unmatched++;
         continue;
       }
 

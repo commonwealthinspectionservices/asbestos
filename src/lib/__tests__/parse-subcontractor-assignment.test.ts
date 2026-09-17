@@ -89,6 +89,64 @@ Includes: (x1 Outdoor Air) + (x1 Indoor Air) + (1x swab and/or air sample/s - co
 </div>
 `;
 
+// Per Tim, 2026-09-17 — Fast Mold Testing's new "You're Booked" template
+// (real content, from job 627 Tremont Street), replacing "New Assignment":
+// "Date:"/"Time:" instead of one "Preferred Windows:"/"Window 1:" line,
+// "Client:" instead of "Name:", "Notes:" instead of "Client Notes:", and no
+// Email field at all.
+const YOURE_BOOKED_HTML = `
+<table style="width: 100%; border-collapse: collapse;">
+  <tr>
+    <td style="padding: 8px 0; color: #718096; width: 120px;">Date:</td>
+    <td style="padding: 8px 0; color: #2d3748;">Friday, September 18, 2026 at 11:00 AM</td>
+  </tr>
+  <tr>
+    <td style="padding: 8px 0; color: #718096;">Time:</td>
+    <td style="padding: 8px 0; color: #2d3748;">11:00 AM</td>
+  </tr>
+  <tr>
+    <td style="padding: 8px 0; color: #718096;">Address:</td>
+    <td style="padding: 8px 0; color: #2d3748;">627 Tremont Street, Boston, MA 02118</td>
+  </tr>
+  <tr>
+    <td style="padding: 8px 0; color: #718096;">Client:</td>
+    <td style="padding: 8px 0; color: #2d3748;">Andrea Joanna/ Good Hotels</td>
+  </tr>
+  <tr>
+    <td style="padding: 8px 0; color: #718096;">Phone:</td>
+    <td style="padding: 8px 0; color: #2d3748;">
+      <a href="tel:+13463603701" style="color: #0ea5e9; text-decoration: none;">
+        +13463603701
+      </a>
+    </td>
+  </tr>
+  <tr>
+    <td style="padding: 8px 0; color: #718096;">Notes:</td>
+    <td style="padding: 8px 0; color: #2d3748;">Client requested a commercial mold assessment.</td>
+  </tr>
+  <tr>
+    <td style="padding: 8px 0; color: #718096;">Job Notes:</td>
+    <td style="padding: 8px 0; color: #2d3748;">PLEASE CALL/TEXT CLIENT TO CONFIRM ARRIVAL TIME:
+
+Infrared used in all areas of property by request of client.</td>
+  </tr>
+</table>
+<table style="width: 100%; border-collapse: collapse;">
+  <tr>
+    <td style="padding: 8px 0; color: #718096; width: 180px;">Base Compensation:</td>
+    <td style="padding: 8px 0; color: #2d3748; font-weight: 600;">$1638.24</td>
+  </tr>
+  <tr>
+    <td style="padding: 8px 0; color: #718096;">Est. Lab Fees:</td>
+    <td style="padding: 8px 0; color: #dc2626; font-weight: 600;">-$325.00</td>
+  </tr>
+  <tr>
+    <td style="padding: 12px 0 8px; color: #166534; font-weight: 600;">Est. Net Payment:</td>
+    <td style="padding: 12px 0 8px; color: #166534; font-weight: 700; font-size: 18px;">$1313.24</td>
+  </tr>
+</table>
+`;
+
 const RESCHEDULED_HTML = `
 <p>The inspection at 352 Centre Street, Boston, MA 02122 has been rescheduled:</p>
 <p>
@@ -124,6 +182,29 @@ describe("parseNewAssignmentEmail", () => {
 
   it("returns null for a body that doesn't match the expected table format at all", () => {
     expect(parseNewAssignmentEmail("<p>Hey, just checking in.</p>")).toBeNull();
+  });
+
+  it("extracts every field from the new You're Booked template (Date/Client/Notes instead of Preferred Windows/Name/Client Notes)", () => {
+    const result = parseNewAssignmentEmail(YOURE_BOOKED_HTML);
+    expect(result).toEqual({
+      address: "627 Tremont Street, Boston, MA 02118",
+      preferredWindowText: "Friday, September 18, 2026 at 11:00 AM",
+      preferredDate: "2026-09-18",
+      clientName: "Andrea Joanna/ Good Hotels",
+      clientEmail: "",
+      clientPhone: "+13463603701",
+      clientNotes: "Client requested a commercial mold assessment.",
+      scopeOfWork: "Infrared used in all areas of property by request of client.",
+      sampleTypes: [],
+      arrivalInstruction: "PLEASE CALL/TEXT CLIENT TO CONFIRM ARRIVAL TIME",
+      baseCompensation: "$1638.24",
+      labFees: "-$325.00",
+      netPayment: "$1313.24",
+      shippingProvider: null,
+      shippingSpeed: null,
+      shippingTrackingNumber: null,
+      shippingLabelUrl: null,
+    });
   });
 
   it("leaves sampleTypes empty and arrivalInstruction null when job notes has neither line", () => {

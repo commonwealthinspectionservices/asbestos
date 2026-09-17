@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { stripGmailForwardBoilerplate, extractOtherRecipients } from "@/lib/job-intake";
+import { stripGmailForwardBoilerplate, extractOtherRecipients, extractPhoneOnlyReply } from "@/lib/job-intake";
 import type { GmailMessage } from "@/lib/gmail";
 
 function messageWithHeaders(headers: Record<string, string>): GmailMessage {
@@ -84,6 +84,24 @@ ${ORIGINAL_BODY}`;
       originalFrom: "Jack Cook <jack@bostonharborwater.com>",
       body: ORIGINAL_BODY,
     });
+  });
+});
+
+describe("extractPhoneOnlyReply", () => {
+  it("extracts a phone number from a real Boston Harbor follow-up reply", () => {
+    expect(extractPhoneOnlyReply("Phone number is-\n617-319-3631\n")).toBe("617-319-3631");
+  });
+
+  it("extracts a phone number with the dash and number on the same line", () => {
+    expect(extractPhoneOnlyReply("Phone number is- 617-319-3631")).toBe("617-319-3631");
+  });
+
+  it("returns null for a full order email that isn't a phone-only reply", () => {
+    expect(extractPhoneOnlyReply("Customer Name\nTim Howard\nAddress\n7 Lafayette st")).toBeNull();
+  });
+
+  it("returns null when fewer than 10 digits follow the lead-in", () => {
+    expect(extractPhoneOnlyReply("Phone number is- 555-1234")).toBeNull();
   });
 });
 

@@ -2346,6 +2346,23 @@ function useDraftTracking(params: {
   // window.open() that happens after an intervening await, since by then
   // it's no longer considered a direct result of the user's click.
   async function viewDraft() {
+    // Per Tim, 2026-09-17 — on his phone this always opened Gmail's mobile
+    // website instead of the native Gmail app. iOS only hands a
+    // mail.google.com link off to the installed app for a genuine
+    // top-level navigation; a window.open("", "_blank") popup that gets
+    // its location set later (the desktop path below, needed there to
+    // dodge popup blockers across the intervening await) doesn't carry
+    // that same user-activation signal, so iOS just loads it as a regular
+    // page in Safari. A same-tab navigation after the draft exists does
+    // still get treated as top-level, so mobile skips the popup dance
+    // entirely and navigates the current tab instead — trading "the
+    // admin page stays open in its own tab" (not very useful on a phone
+    // screen anyway) for the link actually opening the app.
+    if (window.innerWidth < 768) {
+      const data = await createDraft();
+      if (data?.messageId) window.location.href = gmailMessageUrl(data.messageId, false);
+      return;
+    }
     // Deliberately no noopener here (unlike other external links in this
     // file) — that flag makes window.open() return null, and this needs
     // the handle back so it can navigate the tab once the draft exists.
@@ -2636,51 +2653,27 @@ export function ProjectDetailDialog({
       </button>
     </div>
   );
-  // Per Tim, 2026-08-31 — FLI Environmental's own chain-of-custody form
-  // lists these 6 turnaround options (not Commonwealth's own Standard/Rush
-  // pair), so an FLI job's turnaround control matches theirs instead —
-  // same lab_turnaround field/styling, just Rush's own highlight preserved
-  // and the other 5 options using the same "active" look Standard used to.
-  const FLI_TURNAROUND_OPTIONS = ["Rush", "24-Hr", "48-Hr", "3-Day", "4-Day", "5-Day"];
-  async function setTurnaround(value: string) {
-    await fetch(`/api/admin/jobs/${job.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ lab_turnaround: value }),
-    });
-    onChanged();
-  }
-  const fliTurnaroundControl = (
-    <div className="flex flex-wrap items-center gap-2 text-sm">
-      <span className="rounded bg-slate-100 px-2 py-0.5 text-xs font-bold uppercase text-slate-600">Turnaround</span>
-      {FLI_TURNAROUND_OPTIONS.map((opt) => (
-        <button
-          key={opt}
-          onClick={() => setTurnaround(opt)}
-          className={`rounded px-2 py-0.5 text-xs font-bold uppercase ${
-            job.lab_turnaround === opt
-              ? opt === "Rush" ? "bg-yellow-100 text-slate-600" : "bg-slate-700 text-white"
-              : "bg-slate-100 text-slate-600"
-          }`}
-        >
-          {opt}
-        </button>
-      ))}
-    </div>
-  );
   const labDropdown = (domain: ReportDomain) => (
     <div className="flex w-full items-center gap-2 text-sm">
       <span className="w-28 shrink-0 text-xs font-semibold uppercase text-slate-400">Lab</span>
-      <select
-        className="h-9 w-full min-w-0 flex-1 truncate rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
-        value={(domain === "mold" ? job.mold_lab_name : domain === "lead" ? job.lead_lab_name : job.lab_name) ?? ""}
-        onChange={(e) => selectLab(e.target.value, domain)}
-      >
-        <option value="">— Not set —</option>
-        {labs.map((l) => (
-          <option key={l.name} value={l.name}>{l.name}</option>
-        ))}
-      </select>
+      {/* appearance-none + bg-white — same pattern used by every other
+          <select> in this app (see the Time picker's own comment): strips
+          iOS's own gray select fill, which is what made this box render a
+          different size than Date Sampled/FLI Project #'s plain inputs
+          right below it despite identical h-9/w-full classes. */}
+      <div className="relative h-9 w-full min-w-0 flex-1">
+        <select
+          className="h-9 w-full min-w-0 truncate appearance-none rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm"
+          value={(domain === "mold" ? job.mold_lab_name : domain === "lead" ? job.lead_lab_name : job.lab_name) ?? ""}
+          onChange={(e) => selectLab(e.target.value, domain)}
+        >
+          <option value="">— Not set —</option>
+          {labs.map((l) => (
+            <option key={l.name} value={l.name}>{l.name}</option>
+          ))}
+        </select>
+        <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-slate-500">▾</span>
+      </div>
     </div>
   );
   // Auto-extracted from the lab report's own "Date(s) Sampled:"/"Collected:"
@@ -4035,7 +4028,7 @@ export function ProjectDetailDialog({
                             down from here — see below), so it's clear which
                             upload station it's actually labeling. */}
                         <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
-                          {isFliJob ? fliTurnaroundControl : turnaroundControl}
+                          {turnaroundControl}
                         </div>
                         <div className="mb-4 space-y-2">
                           {labDropdown(group.domain)}
@@ -4132,19 +4125,19 @@ export function ProjectDetailDialog({
                                             return (
                                               <div
                                                 key={i}
-                                                className={`flex flex-wrap items-center gap-x-4 gap-y-1 px-3 py-2 ${i > 0 ? "border-t border-slate-200" : ""}`}
+                                                className={`flex flex-col gap-1 px-3 py-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-4 sm:gap-y-1 ${i > 0 ? "border-t border-slate-200" : ""}`}
                                               >
-                                                <div className="w-14 shrink-0 font-semibold text-slate-700">{s.fieldCode}</div>
-                                                <div className="min-w-[10rem] flex-1 text-slate-600">
+                                                <div className="font-semibold text-slate-700 sm:w-14 sm:shrink-0">{s.fieldCode}</div>
+                                                <div className="text-slate-600 sm:min-w-[10rem] sm:flex-1">
                                                   {material ? (
                                                     material
                                                   ) : showFootageInput ? (
                                                     <span className="italic text-slate-400">Material not available</span>
                                                   ) : null}
                                                 </div>
-                                                <div className={`shrink-0 font-medium ${isPositive ? "text-red-600" : "text-slate-900"}`}>{s.result}</div>
+                                                <div className={`font-medium sm:shrink-0 ${isPositive ? "text-red-600" : "text-slate-900"}`}>{s.result}</div>
                                                 {showFootageInput && (
-                                                  <span className="shrink-0 inline-flex items-center gap-1">
+                                                  <span className="inline-flex items-center gap-1 sm:shrink-0">
                                                     <input
                                                       className="w-12 rounded border border-slate-300 bg-white px-1.5 py-0.5 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                                       value={finding.estimated_quantity}
@@ -4454,7 +4447,7 @@ export function ProjectDetailDialog({
                   header, not this scrollable body). */}
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <h3 className="text-lg font-bold uppercase tracking-wide text-black underline">Invoice</h3>
-                {isFliJob ? fliTurnaroundControl : turnaroundControl}
+                {turnaroundControl}
               </div>
               <div className="mt-3">
                 <div className="mb-4 space-y-1">

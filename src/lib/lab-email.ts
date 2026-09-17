@@ -85,6 +85,8 @@ export interface LabEmailCheckResult {
   unmatched: number;
   /** Lab charges that were recorded but didn't check out against Crystal's own published pricing, or repeated the same test type under more than one lab order for the same job — see lib/lab-pricing.ts and 26-0015's real incident, 2026-09-04. */
   flaggedLabInvoices: number;
+  /** A real lab report (recognized via detectLabInfo, not just any PDF) that couldn't be matched to any job — see alertUnmatchedLabReport's own comment and 26-0030's real incident, 2026-09-17. */
+  unmatchedLabReports: number;
 }
 
 // EMSL scans in the physical chain-of-custody form and emails a "receipt
@@ -823,7 +825,7 @@ export async function checkForLabResultEmails(): Promise<LabEmailCheckResult> {
   // where this search-time negation isn't.
   const candidates = await listMessagesByQuery(accessToken, `has:attachment filename:pdf newer_than:14d -from:me`);
 
-  const result: LabEmailCheckResult = { checked: 0, matched: [], cocUploaded: [], labInvoicesRecorded: [], unmatched: 0, flaggedLabInvoices: 0 };
+  const result: LabEmailCheckResult = { checked: 0, matched: [], cocUploaded: [], labInvoicesRecorded: [], unmatched: 0, flaggedLabInvoices: 0, unmatchedLabReports: 0 };
 
   candidateLoop: for (const candidate of candidates) {
     result.checked++;
@@ -845,11 +847,29 @@ export async function checkForLabResultEmails(): Promise<LabEmailCheckResult> {
       let matchedJob: (Job & { customers: Customer & { companies: Company | null } }) | null = null;
       let matchedBuffer: Buffer | null = null;
       let matchedText = "";
+      // Kept even when they don't lead to a match, purely so the "couldn't
+      // match this report" alert below can tell Tim what the pipeline
+      // actually tried, instead of just "no match" with nothing to go on.
+      let lastProjectNumber: string | null = null;
+      let lastReportAddress: string | null = null;
+      // Whether ANY part of this message was recognized as a real lab
+      // report at all — confirmed live on 26-0030 (a genuine Crystal
+      // Analytical mold report) that extractReportProjectNumber and
+      // extractReportProjectAddress both returned null on: this PDF's
+      // two-column layout (a project-info box beside a full disclaimer
+      // paragraph) interleaves the position-ordered text badly enough that
+      // neither extractor found the address or number actually printed on
+      // it. detectLabInfo matching plain "Crystal Analytical"/"EMSL" text
+      // is a much lower bar and is what still recognizes it as a real
+      // report worth alerting on below, even when the more specific
+      // extractors come up empty.
+      let recognizedAsLabReport = false;
 
       for (const part of pdfParts) {
         try {
           const data = await getAttachmentData(accessToken, candidate.id, part.attachmentId);
           const { text } = await parsePdfWithRetry(data, `${candidate.id}:${part.filename}`);
+          if (detectLabInfo(text)) recognizedAsLabReport = true;
 
           // QuickBooks' own weekly rollup (see processWeeklyLabSummaryEmail)
           // needs its own path checked first, same reasoning as the
@@ -925,6 +945,7 @@ export async function checkForLabResultEmails(): Promise<LabEmailCheckResult> {
           }
 
           const projectNumber = extractReportProjectNumber(text);
+          if (projectNumber) lastProjectNumber = projectNumber;
           let job: (Job & { customers: Customer & { companies: Company | null } }) | null = null;
           if (projectNumber) {
             const { data } = await supabase
@@ -974,7 +995,10 @@ export async function checkForLabResultEmails(): Promise<LabEmailCheckResult> {
           // used for every other report with no extractable number.
           if (!job) {
             const reportAddress = extractReportProjectAddress(text);
-            if (reportAddress) job = await findJobByReportAddress(supabase, reportAddress);
+            if (reportAddress) {
+              lastReportAddress = reportAddress;
+              job = await findJobByReportAddress(supabase, reportAddress);
+            }
           }
           if (job) {
             matchedJob = job;
@@ -1024,6 +1048,24 @@ export async function checkForLabResultEmails(): Promise<LabEmailCheckResult> {
           result.cocUploaded.push({ projectNumber: job.project_number ?? "", jobId: job.id });
           continue;
         }
+      }
+
+      // Per Tim, 2026-09-17 — 26-0030's real mold report sat unread and
+      // unlabeled indefinitely: recognized as a genuine Crystal Analytical
+      // report (recognizedAsLabReport) but never matched to a job, this
+      // used to just increment `unmatched` and move on with no alert and
+      // no read/label, so it was silently re-checked and re-failed on
+      // every future run forever. A real report Tim needs to know about
+      // now gets a page (same reasoning as alertUnmatchedWeeklySummaryTransactions
+      // above) and is marked processed so it doesn't loop — the alert
+      // itself is the "handled" outcome now, same as job-intake.ts's own
+      // alertOwnerOfIntakeIssue.
+      if (recognizedAsLabReport) {
+        await alertUnmatchedLabReport({ subject, projectNumber: lastProjectNumber, address: lastReportAddress });
+        await markMessageRead(accessToken, candidate.id);
+        await addLabelToMessage(accessToken, candidate.id, processedLabelId);
+        result.unmatchedLabReports++;
+        continue;
       }
 
       result.unmatched++;
@@ -1181,6 +1223,36 @@ async function alertUnmatchedWeeklySummaryTransactions(unmatched: UnmatchedWeekl
           .join("")}
       </ul>
       <p>These charges are real (they're on the invoice) but aren't reflected on any job's lab cost yet — worth checking the weekly report PDF directly to reconcile.</p>
+    `),
+  }).catch(() => {});
+}
+
+// Per Tim, 2026-09-17 — a real 26-0030 incident: Crystal Analytical's own
+// mold report for the job arrived, but its two-column layout (a
+// project-info box beside a full disclaimer paragraph) interleaved badly
+// enough in position-ordered text that neither extractReportProjectNumber
+// nor extractReportProjectAddress found the number/address actually
+// printed on it, so nothing in this system ever connected the report to
+// its job. Recognized as a real report at all only via detectLabInfo
+// (a much lower bar — just "does the text mention a known lab") rather
+// than a project-number/address match, which is exactly the case a plain
+// "no match" fallthrough can't tell apart from an ordinary PDF that has
+// nothing to do with lab results — see recognizedAsLabReport's own comment.
+async function alertUnmatchedLabReport(params: { subject: string; projectNumber: string | null; address: string | null }): Promise<void> {
+  await sendEmail({
+    to: process.env.OWNER_EMAIL!,
+    subject: `A lab report couldn't be matched to a job: ${params.subject}`,
+    html: emailShell(`
+      <p style="font-size:15px;">A PDF that looks like a real lab report (Crystal Analytical or EMSL) came in but couldn't be matched to any job:</p>
+      <p><strong>Subject:</strong> ${escapeHtml(params.subject)}</p>
+      <p><strong>What was found on the report itself:</strong> ${
+        params.projectNumber
+          ? `project number "${escapeHtml(params.projectNumber)}" — doesn't match any job on file`
+          : params.address
+            ? `address "${escapeHtml(params.address)}" — doesn't match any job on file`
+            : "nothing — the report's own project number/address didn't parse out of this PDF at all"
+      }</p>
+      <p>This report is marked as handled so it won't keep resurfacing, but it still needs to be filed onto the right job by hand from your inbox.</p>
     `),
   }).catch(() => {});
 }

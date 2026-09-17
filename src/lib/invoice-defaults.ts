@@ -213,19 +213,24 @@ export function defaultInvoiceLineItems(
   // and kept falling further behind as sample count grew (a real 30-sample
   // Rush job, 26-0015, billed $510 less than the standard rush rate would
   // have). Dropped entirely — PuroClean now prices exactly like any other
-  // rush customer, no exception. Newton Fire & Flood keeps its own 20%
-  // surcharge (below), still always applied regardless of turnaround, but
-  // as of the same date the samples it's a percentage OF also switch to
-  // the standard rush rate on an actual Rush job — same fix, kept
-  // deliberately separate from PuroClean's per Tim: Newton's 20% stays on
-  // top of that (not replacing it), only on Rush; a non-Rush Newton job
-  // still gets the normal per-sample rate, 20% on top of that instead.
+  // rush customer, no exception.
+  //
+  // Per Tim, 2026-09-17 (26-0032) — reversed the same date's change for
+  // Newton Fire & Flood specifically: that change made an actual Rush
+  // Newton job stack the elevated per-sample rush rate underneath the 20%
+  // surcharge, double-charging the rush premium (confirmed live on
+  // 26-0032: $50/$100 rush sample rates AND a 20% fee on top of that
+  // already-inflated subtotal). "It's just the 20% and then standard
+  // sample fees, not rush fees" — Newton's own standing arrangement is the
+  // 20% surcharge covering whatever turnaround the job needs; the
+  // per-sample rate underneath it never switches to the rush rate,
+  // regardless of this job's own lab_turnaround.
   const RUSH_SAMPLE_CENTS: Record<string, number> = {
     "Bulk Samples for Asbestos Analysis by PLM": 5000,
     "Bulk Samples for Mold Analysis": 5000,
     "Air-O-Cell Samples for Mold Analysis": 10000,
   };
-  const rushRateApplies = isRush;
+  const rushRateApplies = isRush && !isNewton;
 
   for (const label of serviceTypeLabels) {
     const count = job.sample_counts?.[label];

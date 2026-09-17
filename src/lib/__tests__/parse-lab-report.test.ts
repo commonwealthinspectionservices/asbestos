@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { extractSampleCount, detectAsbestosResult, extractSampleResults, extractReportProjectNumber, extractReportProjectAddress, detectLabInfo, extractMoldSampleCount, extractMoldSampleResults, extractCrystalAnalyticalMaterialDescriptions, extractSampledDate, extractMoldDirectAnalysisFindings, summarizeMoldDirectAnalysisFindings, extractMoldSporeTrapFindings, summarizeMoldSporeTrapFindings } from "../parse-lab-report";
+import { extractSampleCount, detectAsbestosResult, extractSampleResults, extractReportProjectNumber, extractReportProjectAddress, detectLabInfo, extractMoldSampleCount, extractMoldSampleResults, extractCrystalAnalyticalMaterialDescriptions, extractSampledDate, extractMoldDirectAnalysisFindings, summarizeMoldDirectAnalysisFindings, extractMoldSporeTrapFindings, summarizeMoldSporeTrapFindings, type MoldSporeTrapResult } from "../parse-lab-report";
 
 // Excerpts of real EMSL bulk asbestos PLM report text, exactly as pdf-parse
 // extracts it (value-before-label ordering and all — PDF text extraction
@@ -1193,7 +1193,7 @@ Crystal Analytical, LLC.      •       55 Accord Park Dr., Ste. 2D; Rockland, M
     expect(extractMoldSporeTrapFindings(reordered)).toBeNull();
   });
 
-  it("matches the hand-written 26-0032 sentence almost exactly, using Sample <field code> instead of a room name", () => {
+  it("falls back to Sample <field code> when no sample names were supplied", () => {
     const result = extractMoldSporeTrapFindings(REAL_SPORE_TRAP_REPORT)!;
     expect(summarizeMoldSporeTrapFindings(result)).toEqual([
       "Penicillium/Aspergillus was highly elevated in Sample 1 (1,373 structures/m3, 76.9% of total) and Sample 2 (627 structures/m3, 72.3% of total), both well above the outdoor baseline (53 structures/m3, 6.3% of total).",
@@ -1201,10 +1201,31 @@ Crystal Analytical, LLC.      •       55 Accord Park Dr., Ste. 2D; Rockland, M
     ]);
   });
 
+  // Per Tim, 2026-09-17 — pushed back on an earlier version of this
+  // parser that gave up on ever recovering real location names: "Yes,
+  // they are. They are the sample name." He was right — see
+  // extractLabeledRowItems' own comment in pdf-position-text.ts. These
+  // are the same 4 real names confirmed against 26-0032's actual report.
+  it("uses real room names instead when the caller supplies them, matching the hand-written 26-0032 example exactly", () => {
+    const result = extractMoldSporeTrapFindings(REAL_SPORE_TRAP_REPORT, [
+      "Outdoor Ambient", "Boiler/Equipment Room", "Basement - Common Area w/ Red Tile", "Basement - Back Right Bedroom",
+    ])!;
+    expect(summarizeMoldSporeTrapFindings(result)).toEqual([
+      "Penicillium/Aspergillus was highly elevated in the Boiler/Equipment Room (1,373 structures/m3, 76.9% of total) and the Basement - Common Area w/ Red Tile (627 structures/m3, 72.3% of total), both well above the outdoor baseline (53 structures/m3, 6.3% of total).",
+      "Penicillium/Aspergillus was elevated in the Basement - Back Right Bedroom (147 structures/m3, 52.5% of total), above the outdoor baseline (53 structures/m3, 6.3% of total).",
+    ]);
+  });
+
+  it("falls back to field codes when the supplied sample names don't match the sample count", () => {
+    const result = extractMoldSporeTrapFindings(REAL_SPORE_TRAP_REPORT, ["Only One Name"])!;
+    expect(result.sampleNames).toBeNull();
+  });
+
   it("returns a plain background sentence when no sample crosses the 25-point composition shift", () => {
-    const result: ReturnType<typeof extractMoldSporeTrapFindings> = {
+    const result: MoldSporeTrapResult = {
       sampleCount: 2,
       sampleFieldCodes: ["4", "1"],
+      sampleNames: null,
       totalsBySample: [
         { count: 10, structPerM3: 100, pct: 100 },
         { count: 12, structPerM3: 120, pct: 100 },

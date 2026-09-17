@@ -12,7 +12,7 @@ import { extractSampleCount, detectAsbestosResult, extractSampleResults, extract
 import { isLabInvoiceText, extractLabInvoiceTotalCents, extractInvoiceNumber } from "@/lib/parse-lab-invoice";
 import { computeLabCostCentsFromDocuments } from "@/lib/lab-cost";
 import { splitTrailingCocPages } from "@/lib/split-lab-report-coc";
-import { extractPositionOrderedText } from "@/lib/pdf-position-text";
+import { extractPositionOrderedText, extractLabeledRowItems } from "@/lib/pdf-position-text";
 import { ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, isFullInspectionAsbestosJob, moldDiscussionFieldForLabel } from "@/lib/report-findings";
 import { deriveFullInspectionMaterials } from "@/lib/sample-items";
 import type { Job, JobDocument } from "@/lib/types";
@@ -164,7 +164,11 @@ export const POST = withApiErrors(async (
         if (positionOrderedText && discussionField && !jobRow[discussionField]?.trim()) {
           let sentences: string[] = [];
           if (/air/i.test(serviceType)) {
-            const sporeTrap = extractMoldSporeTrapFindings(positionOrderedText);
+            // Best-effort — see extractLabeledRowItems' own comment; a
+            // missing/garbled Sample Name row just falls back to
+            // "Sample <field code>" instead of a real room name.
+            const sampleNames = await extractLabeledRowItems(fileBuffer, "Sample Name").catch(() => null);
+            const sporeTrap = extractMoldSporeTrapFindings(positionOrderedText, sampleNames);
             if (sporeTrap) sentences = summarizeMoldSporeTrapFindings(sporeTrap);
           } else {
             const findings = extractMoldDirectAnalysisFindings(positionOrderedText);

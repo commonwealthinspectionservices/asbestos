@@ -601,11 +601,17 @@ export interface MoldSporeTrapResult {
   sampleCount: number;
   /** The report's own field code per sample ("1", "2", "3", "4", ...), in
    *  the same column order as every other array here — used to label a
-   *  sample in generated sentences the same way sample_counts/
-   *  mold_sample_results already do elsewhere, since a sample's real-world
-   *  location name isn't reliably recoverable from this table's text at
-   *  all (see extractMoldSporeTrapFindings's own comment). */
+   *  sample whenever `sampleNames` doesn't have a real name for it. */
   sampleFieldCodes: string[];
+  /** Each sample's own real-world location ("Boiler/Equipment Room",
+   *  "Outdoor Ambient", ...), same column order as everything else here —
+   *  from extractLabeledRowItems(pdfBuffer, "Sample Name"), which reads
+   *  the underlying PDF text items directly rather than the flattened
+   *  text this file otherwise works from (see that function's own
+   *  comment). Optional/caller-supplied since it needs the raw PDF buffer,
+   *  not just position-ordered text — null when the caller didn't have
+   *  one to pass, or it didn't parse to exactly `sampleCount` names. */
+  sampleNames: string[] | null;
   /** Struct/m³-and-% breakdown per sample, in the report's own column
    *  order — index 0 is always the outdoor/baseline sample (Crystal's own
    *  convention lists "Outdoor Ambient" first in every real report seen so
@@ -652,7 +658,7 @@ function findSporeTrapTaxonInLine(line: string): string | null {
 // sampleCount-many triplets before trusting a taxon's row at all — a
 // sparse row (a real gap for at least one sample) is dropped rather than
 // guessed at, same discipline the Direct Analysis parser uses.
-export function extractMoldSporeTrapFindings(positionOrderedText: string): MoldSporeTrapResult | null {
+export function extractMoldSporeTrapFindings(positionOrderedText: string, sampleNames?: string[] | null): MoldSporeTrapResult | null {
   const sectionMatch = positionOrderedText.match(/Inertial Impactor \(Spore Trap\)[\s\S]*?(?=Crystal Analytical, LLC\.)/);
   if (!sectionMatch) return null;
   const section = sectionMatch[0];
@@ -665,13 +671,15 @@ export function extractMoldSporeTrapFindings(positionOrderedText: string): MoldS
   const sampleCount = shortCodes.length;
   if (sampleCount === 0) return null;
 
-  // Per extractMoldSampleFieldCodes's own comment elsewhere in this file —
-  // a sample's real-world location name isn't reliably recoverable from
-  // this table's text at all (columns interleave unpredictably). All this
-  // needs from the Sample Name line is confirming Crystal's own
-  // convention holds on this specific report: the outdoor/baseline sample
-  // is listed first. Bails rather than guessing which column is the
-  // baseline when it doesn't.
+  // A sample's real-world location name IS reliably recoverable — see
+  // extractLabeledRowItems in pdf-position-text.ts, which the caller uses
+  // to build the optional `sampleNames` param — but that needs the raw PDF
+  // buffer, not this function's own positionOrderedText input, so it's
+  // supplied by the caller rather than derived here. All this function
+  // itself needs from the flattened Sample Name line is confirming
+  // Crystal's own convention holds on this specific report: the
+  // outdoor/baseline sample is listed first. Bails rather than guessing
+  // which column is the baseline when it doesn't.
   const namesLineMatch = section.match(/Sample Name\s+(.+)/);
   const baselineIsFirst = Boolean(namesLineMatch && namesLineMatch[1].trim().startsWith("Outdoor Ambient"));
   if (!baselineIsFirst) return null;
@@ -705,7 +713,8 @@ export function extractMoldSporeTrapFindings(positionOrderedText: string): MoldS
   }
 
   if (!totalsBySample) return null;
-  return { sampleCount, sampleFieldCodes: shortCodes, totalsBySample, taxaBySample };
+  const cleanSampleNames = sampleNames && sampleNames.length === sampleCount ? sampleNames : null;
+  return { sampleCount, sampleFieldCodes: shortCodes, sampleNames: cleanSampleNames, totalsBySample, taxaBySample };
 }
 
 // Per Tim, 2026-09-17 — same "always say something plain" requirement as
@@ -731,7 +740,14 @@ export function extractMoldSporeTrapFindings(positionOrderedText: string): MoldS
 // built to match. Returns a single background sentence when nothing
 // crosses 25 points anywhere.
 export function summarizeMoldSporeTrapFindings(result: MoldSporeTrapResult): string[] {
-  const { sampleCount, sampleFieldCodes, taxaBySample } = result;
+  const { sampleCount, sampleFieldCodes, sampleNames, taxaBySample } = result;
+  // "the Boiler/Equipment Room" reads naturally for a real room name, but
+  // "the Sample 1" doesn't — the article only makes sense when there's an
+  // actual name to attach it to.
+  const sampleLabel = (sampleIndex: number) => {
+    const name = sampleNames?.[sampleIndex];
+    return name ? `the ${name}` : `Sample ${sampleFieldCodes[sampleIndex]}`;
+  };
   type Flag = { sampleIndex: number; taxon: string; delta: number; severity: "Elevated" | "Highly Elevated"; triplet: SporeTrapTriplet; baselineTriplet: SporeTrapTriplet };
   const flags: Flag[] = [];
   for (let sampleIndex = 1; sampleIndex < sampleCount; sampleIndex++) {
@@ -780,7 +796,7 @@ export function summarizeMoldSporeTrapFindings(result: MoldSporeTrapResult): str
     const taxonLabel = group[0].taxon.charAt(0).toUpperCase() + group[0].taxon.slice(1);
     const severityWord = group[0].severity === "Highly Elevated" ? "highly elevated" : "elevated";
     const baselineTriplet = group[0].baselineTriplet;
-    const parts = group.map((f) => `Sample ${sampleFieldCodes[f.sampleIndex]} (${formatNumber(f.triplet.structPerM3)} structures/m3, ${f.triplet.pct}% of total)`);
+    const parts = group.map((f) => `${sampleLabel(f.sampleIndex)} (${formatNumber(f.triplet.structPerM3)} structures/m3, ${f.triplet.pct}% of total)`);
     const joined = parts.length === 1
       ? `${parts[0]}, above`
       : `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}, both well above`;

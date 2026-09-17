@@ -55,3 +55,45 @@ export async function extractPositionOrderedText(pdfBuffer: Buffer): Promise<str
   const data = await pdfParse(pdfBuffer, { pagerender: renderPageInPosition });
   return data.text;
 }
+
+// Per Tim, 2026-09-17 — pushed back on "a sample's real-world location
+// name isn't reliably recoverable from this table's text" after seeing
+// "Sample Name" right there in the report, and he was right: that
+// conclusion only held for extractPositionOrderedText's own OUTPUT, which
+// joins every same-row item into one space-separated line and loses the
+// item boundaries in the process ("Outdoor Ambient Boiler/Equipment Room
+// Basement - Common Area w/ Red Tile Basement - Back Right Bedroom" reads
+// as one ambiguous blob). The underlying pdf.js text items never lost that
+// information — confirmed against two real reports (26-0032, 26-0002):
+// each sample's location name is already its own discrete item, not
+// fragmented at the word or character level, at the exact same y as the
+// "Sample Name" label itself. This finds a row by its own label text
+// (exact match) and returns every OTHER item on that same line, left to
+// right — one string per column, in the table's own left-to-right order
+// (which extractMoldSporeTrapFindings already relies on matching the
+// Sample Number row's own order, from the joined text). Returns null when
+// the label isn't found on any page at all.
+export async function extractLabeledRowItems(pdfBuffer: Buffer, label: string): Promise<string[] | null> {
+  let result: string[] | null = null;
+  async function findLabeledRow(pageData: {
+    getTextContent: (opts: { normalizeWhitespace: boolean; disableCombineTextItems: boolean }) => Promise<{
+      items: { str: string; transform: number[] }[];
+    }>;
+  }): Promise<string> {
+    if (result) return "";
+    const textContent = await pageData.getTextContent({ normalizeWhitespace: false, disableCombineTextItems: false });
+    const items: PositionedItem[] = textContent.items
+      .map((it) => ({ str: it.str, x: it.transform[4], y: Math.round(it.transform[5]) }))
+      .filter((it) => it.str.trim().length > 0);
+    const labelItem = items.find((it) => it.str.trim() === label);
+    if (labelItem) {
+      result = items
+        .filter((it) => it.y === labelItem.y && it !== labelItem)
+        .sort((a, b) => a.x - b.x)
+        .map((it) => it.str.trim());
+    }
+    return "";
+  }
+  await pdfParse(pdfBuffer, { pagerender: findLabeledRow });
+  return result;
+}

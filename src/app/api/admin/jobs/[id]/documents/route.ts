@@ -377,9 +377,21 @@ export const POST = withApiErrors(async (
   // treatment now that it has its own mismatch flag above: re-uploading
   // the correct file needs to actually clear a flagged invoice_mismatch,
   // not just add a second document alongside the bad one.
+  // Per Tim, 2026-09-17 — confirmed live: re-uploading a lab_report whose
+  // trailing pages split off its own CoC (cocBuffer above) correctly
+  // superseded the old lab_report row but never touched a prior CoC row
+  // for that same service type, since this filter only ever matched
+  // `kind` itself (always "lab_report" here) against old documents —
+  // "coc" was never in scope. Four uploads to the same station over the
+  // course of testing left four Chain of Custody rows stacked up instead
+  // of one. Now also supersedes a prior coc row whenever this upload
+  // produces a new one of its own.
   const priorDocuments =
     kind === "lab_report" || kind === "lab_invoice"
-      ? (jobRow.documents ?? []).filter((d) => !(d.kind === kind && d.service_type === serviceType))
+      ? (jobRow.documents ?? []).filter((d) =>
+          !(d.kind === kind && d.service_type === serviceType) &&
+          !(cocBuffer && d.kind === "coc" && d.service_type === serviceType)
+        )
       : (jobRow.documents ?? []);
   update.documents = [...priorDocuments, ...documents];
   if (kind === "lab_invoice") {

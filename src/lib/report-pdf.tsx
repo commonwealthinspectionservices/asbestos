@@ -1387,17 +1387,26 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
         )}
         {!hasAir && !hasBulk && !hasSwab && <Text style={styles.paragraph}>NO RESULTS YET.</Text>}
 
-        <Text style={styles.romanTitle} minPresenceAhead={80}>IV.  CONCLUSIONS & RECOMMENDATIONS</Text>
+        {/* Title kept with just its first paragraph (wrap={false}) — if
+            that pair doesn't fit in what's left on the page, both move to
+            the next page together rather than the title landing alone. */}
+        <View wrap={false}>
+          <Text style={styles.romanTitle}>IV.  CONCLUSIONS & RECOMMENDATIONS</Text>
+          {hasAir ? (
+            <Text style={styles.paragraph}>{MOLD_INDOOR_AIR_QUALITY_PARAGRAPH}</Text>
+          ) : standardConclusionBlocks.length > 0 ? (
+            <RenderTextBlocks blocks={standardConclusionBlocks} />
+          ) : conclusionBlocks.length === 0 ? (
+            <Text style={styles.paragraph}>NO RECOMMENDATIONS YET.</Text>
+          ) : null}
+        </View>
         {hasAir && (
           <>
-            <Text style={styles.paragraph}>{MOLD_INDOOR_AIR_QUALITY_PARAGRAPH}</Text>
             <Text style={styles.paragraph}>{MOLD_AIR_INVESTIGATION_GOAL_PARAGRAPH}</Text>
+            {standardConclusionBlocks.length > 0 && <RenderTextBlocks blocks={standardConclusionBlocks} />}
           </>
         )}
-        {standardConclusionBlocks.length > 0 && <RenderTextBlocks blocks={standardConclusionBlocks} />}
-        {conclusionBlocks.length > 0
-          ? <RenderTextBlocks blocks={conclusionBlocks} />
-          : !hasAir && !isNewtonFireFlood && <Text style={styles.paragraph}>NO RECOMMENDATIONS YET.</Text>}
+        {conclusionBlocks.length > 0 && <RenderTextBlocks blocks={conclusionBlocks} />}
 
         <Text style={styles.romanTitle} minPresenceAhead={80}>V.  LIMITATIONS AND CONDITIONS OF THIS REPORT</Text>
         <Text style={styles.paragraph}>

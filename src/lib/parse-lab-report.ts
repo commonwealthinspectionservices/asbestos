@@ -526,18 +526,269 @@ export function extractMoldDirectAnalysisFindings(positionOrderedText: string): 
 }
 
 // Plain sentences, not a narrative — per Tim, "I don't need you to write
-// these crazy conclusions and recommendations." One line per sample rated
-// Moderate or above; a report where nothing crossed that line returns an
-// empty array (callers should leave the report's Conclusions blank, not
-// invent something to say).
-export function summarizeElevatedMoldFindings(findings: MoldDirectAnalysisFinding[]): string[] {
+// these crazy conclusions and recommendations." Per Tim, 2026-09-17 —
+// "every mold air sampling or bulk sampling or anything should always just
+// have the findings listed in the discussion of results": this always
+// returns at least one sentence when there's anything to report at all
+// (empty only when `findings` itself is empty, i.e. nothing was
+// extractable) — a sample rated Moderate or above gets its own "X was
+// elevated" line same as before; everything else (Trace/Light, None
+// dropped entirely — nothing to say about a taxon that wasn't found) gets
+// grouped into one plain background line per taxon, at that taxon's own
+// highest load across every sample it showed up in.
+export function summarizeMoldDirectAnalysisFindings(findings: MoldDirectAnalysisFinding[]): string[] {
   const ELEVATED: MoldSporeLoad[] = ["Moderate", "Heavy", "Very Heavy"];
-  return findings
-    .filter((f) => (ELEVATED as string[]).includes(f.load))
-    .map((f) => {
-      const taxonLabel = f.taxon.charAt(0).toUpperCase() + f.taxon.slice(1);
-      return `${taxonLabel} was elevated (${f.load}) at ${f.location}.`;
-    });
+  const elevated = findings.filter((f) => (ELEVATED as string[]).includes(f.load));
+  const sentences = elevated.map((f) => {
+    const taxonLabel = f.taxon.charAt(0).toUpperCase() + f.taxon.slice(1);
+    return `${taxonLabel} was elevated (${f.load}) at ${f.location}.`;
+  });
+
+  const LOAD_RANK: Record<MoldSporeLoad, number> = { None: 0, Trace: 1, Light: 2, Moderate: 3, Heavy: 4, "Very Heavy": 5 };
+  const background = findings.filter((f) => f.load === "Trace" || f.load === "Light");
+  if (background.length > 0) {
+    // Highest load per taxon, across every sample it showed up in at
+    // Trace/Light — e.g. "basidiospores" found Trace in one sample and
+    // Light in another reports as the single higher one, not two lines.
+    const highestByTaxon = new Map<string, MoldSporeLoad>();
+    for (const f of background) {
+      const current = highestByTaxon.get(f.taxon);
+      if (!current || LOAD_RANK[f.load] > LOAD_RANK[current]) highestByTaxon.set(f.taxon, f.load);
+    }
+    // Grouped by load level so "Trace amounts of X and Y" reads naturally
+    // instead of one sentence per taxon.
+    const byLoad = new Map<MoldSporeLoad, string[]>();
+    for (const [taxon, load] of highestByTaxon) {
+      const list = byLoad.get(load) ?? [];
+      list.push(taxon);
+      byLoad.set(load, list);
+    }
+    for (const load of ["Light", "Trace"] as MoldSporeLoad[]) {
+      const taxa = byLoad.get(load);
+      if (!taxa || taxa.length === 0) continue;
+      const joined = taxa.length === 1 ? taxa[0] : `${taxa.slice(0, -1).join(", ")} and ${taxa[taxa.length - 1]}`;
+      sentences.push(`${load} amounts of ${joined} were found in the samples.`);
+    }
+  }
+  return sentences;
+}
+
+// Crystal's known taxa list (BIO-SOP-001's fixed row order — confirmed
+// against two real reports, 26-0002 and 26-0032) — used to anchor which
+// lines in the spore-trap table are a taxon's own row, since the table's
+// text extraction glues a taxon's numbers either onto its own name's line
+// or the line just before a bare name line, with no consistent rule (see
+// extractMoldSporeTrapFindings's own comment).
+const SPORE_TRAP_KNOWN_TAXA = [
+  "Ascospores", "Basidiospores", "Bipolaris/Drech/Exser/Helm", "Cercospora", "Cladosporium",
+  "Curvularia", "Epicoccum", "Ganoderma", "Pestalotia", "Pithomyces", "Rusts/Smuts/Myxo/Periconia",
+  "Stemphylium", "Arthrinium", "Penicillium/Aspergillus", "Trichoderma", "Alternaria (syn. Ulocladium)",
+  "Chaetomium", "Stachybotrys", "Nigrospora", "Spegazzinia", "Tetraploa", "Torula", "Scopulariopsis",
+  "Unidentified Spores", "Hyphal Fragments",
+  // Longest-match-first below relies on this array's own order too (a
+  // shorter name appearing before a longer one that contains it would
+  // false-match) — sorted defensively inside the function itself instead
+  // of trusting this list's authoring order.
+];
+
+interface SporeTrapTriplet {
+  count: number;
+  structPerM3: number;
+  pct: number;
+}
+
+export interface MoldSporeTrapResult {
+  sampleCount: number;
+  /** The report's own field code per sample ("1", "2", "3", "4", ...), in
+   *  the same column order as every other array here — used to label a
+   *  sample in generated sentences the same way sample_counts/
+   *  mold_sample_results already do elsewhere, since a sample's real-world
+   *  location name isn't reliably recoverable from this table's text at
+   *  all (see extractMoldSporeTrapFindings's own comment). */
+  sampleFieldCodes: string[];
+  /** Struct/m³-and-% breakdown per sample, in the report's own column
+   *  order — index 0 is always the outdoor/baseline sample (Crystal's own
+   *  convention lists "Outdoor Ambient" first in every real report seen so
+   *  far; this bails to null rather than guess when that's not true). */
+  totalsBySample: SporeTrapTriplet[];
+  /** One entry per taxon whose row had a clean value for every sample
+   *  (no blank/omitted cells) — a taxon with a gap for even one sample is
+   *  dropped entirely rather than guessed at, same discipline as
+   *  extractMoldDirectAnalysisFindings. */
+  taxaBySample: { taxon: string; valuesBySample: SporeTrapTriplet[] }[];
+}
+
+function parseSporeTrapTriplets(line: string): SporeTrapTriplet[] {
+  const re = /([\d,]+)\s+([\d,]+)\s+([\d.]+)%/g;
+  const out: SporeTrapTriplet[] = [];
+  let m;
+  while ((m = re.exec(line))) {
+    out.push({ count: Number(m[1].replace(/,/g, "")), structPerM3: Number(m[2].replace(/,/g, "")), pct: Number(m[3]) });
+  }
+  return out;
+}
+
+const SPORE_TRAP_TAXA_SORTED = [...SPORE_TRAP_KNOWN_TAXA].sort((a, b) => b.length - a.length);
+function findSporeTrapTaxonInLine(line: string): string | null {
+  return SPORE_TRAP_TAXA_SORTED.find((t) => line.includes(t)) ?? null;
+}
+
+// Crystal's spore-trap (Air-O-Cell, BIO-SOP-001) table compares each
+// indoor sample against one outdoor/ambient baseline sample, and
+// color-codes cells "Elevated"/"Highly Elevated"/"Composition Alert"
+// directly in the PDF — none of which survives to plain text. Rather than
+// try to recover cell color, this recomputes the same idea from the
+// report's own numbers (see summarizeMoldSporeTrapFindings) using the
+// report's own quoted ACGIH-style composition-shift definition.
+//
+// Needs position-ordered text (see extractMoldDirectAnalysisFindings's own
+// comment on why) — but even then, a taxon's own numbers land either glued
+// onto its name's own line ("Basidiospores 26 347 41.3% ...") or on the
+// line immediately before a bare name-only line ("4 53 6.3% ...\n
+// Ascospores"), inconsistently row to row within the same table, and a
+// taxon not detected in every sample just omits that sample's three
+// numbers rather than printing zeroes — confirmed against two real
+// reports. This handles both gluing patterns, and requires an exact
+// sampleCount-many triplets before trusting a taxon's row at all — a
+// sparse row (a real gap for at least one sample) is dropped rather than
+// guessed at, same discipline the Direct Analysis parser uses.
+export function extractMoldSporeTrapFindings(positionOrderedText: string): MoldSporeTrapResult | null {
+  const sectionMatch = positionOrderedText.match(/Inertial Impactor \(Spore Trap\)[\s\S]*?(?=Crystal Analytical, LLC\.)/);
+  if (!sectionMatch) return null;
+  const section = sectionMatch[0];
+
+  const sampleNumMatch = section.match(/Sample Number\s*\n(.+)/);
+  if (!sampleNumMatch) return null;
+  // "0004 4 0001 1 0002 2 0003 3" — alternating zero-padded/short forms of
+  // the same code; only the short form (every other token) is used.
+  const shortCodes = sampleNumMatch[1].trim().split(/\s+/).filter((_, i) => i % 2 === 1);
+  const sampleCount = shortCodes.length;
+  if (sampleCount === 0) return null;
+
+  // Per extractMoldSampleFieldCodes's own comment elsewhere in this file —
+  // a sample's real-world location name isn't reliably recoverable from
+  // this table's text at all (columns interleave unpredictably). All this
+  // needs from the Sample Name line is confirming Crystal's own
+  // convention holds on this specific report: the outdoor/baseline sample
+  // is listed first. Bails rather than guessing which column is the
+  // baseline when it doesn't.
+  const namesLineMatch = section.match(/Sample Name\s+(.+)/);
+  const baselineIsFirst = Boolean(namesLineMatch && namesLineMatch[1].trim().startsWith("Outdoor Ambient"));
+  if (!baselineIsFirst) return null;
+
+  const lines = section.split("\n").map((l) => l.trim()).filter(Boolean);
+  const taxaBySample: { taxon: string; valuesBySample: SporeTrapTriplet[] }[] = [];
+  let totalsBySample: SporeTrapTriplet[] | null = null;
+  let pending: SporeTrapTriplet[] | null = null;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (line === "Total") {
+      const next = lines[i + 1];
+      const triplets = next ? parseSporeTrapTriplets(next) : [];
+      if (triplets.length === sampleCount) totalsBySample = triplets;
+      pending = null;
+      continue;
+    }
+    const taxon = findSporeTrapTaxonInLine(line);
+    const triplets = parseSporeTrapTriplets(line);
+    if (taxon && triplets.length > 0) {
+      if (triplets.length === sampleCount) taxaBySample.push({ taxon, valuesBySample: triplets });
+      pending = null;
+    } else if (taxon && triplets.length === 0) {
+      if (pending && pending.length === sampleCount) taxaBySample.push({ taxon, valuesBySample: pending });
+      pending = null;
+    } else if (!taxon && triplets.length > 0) {
+      pending = triplets;
+    } else {
+      pending = null;
+    }
+  }
+
+  if (!totalsBySample) return null;
+  return { sampleCount, sampleFieldCodes: shortCodes, totalsBySample, taxaBySample };
+}
+
+// Per Tim, 2026-09-17 — same "always say something plain" requirement as
+// summarizeMoldDirectAnalysisFindings. Crystal's own report explains its
+// "Composition Alert" concept in these exact words: "A noticeable shift in
+// composition (≈25% or more increase in the proportion of a given type)
+// can indicate atypical amplification indoors — even when that type's
+// absolute indoor count is lower than outdoors." Confirmed against
+// 26-0032's real report: its two clearly-elevated samples had Penicillium/
+// Aspergillus TOTAL struct/m³ only 1.0-2.1x the outdoor baseline (nowhere
+// near a 10x total-count jump), while that one taxon's own share of the
+// sample jumped from 6.3% outdoors to 76.9%/72.3% indoors — a composition
+// shift, not a volume one. This mirrors that: per non-baseline sample,
+// finds the taxon with the largest percentage-of-total increase over the
+// baseline sample (only among taxa with a clean, complete row — see
+// extractMoldSporeTrapFindings), and calls a ≥25-point increase "elevated",
+// ≥50 points "highly elevated" (a graduated read of the same ≈25% language,
+// not a claim to replicate Crystal's own undisclosed exact thresholds —
+// this is always a draft for the admin to review before it goes in a
+// report, so erring toward flagging a real, large shift is the safer
+// failure mode). Samples sharing the same dominant taxon and severity are
+// combined into one sentence, matching the hand-written example this was
+// built to match. Returns a single background sentence when nothing
+// crosses 25 points anywhere.
+export function summarizeMoldSporeTrapFindings(result: MoldSporeTrapResult): string[] {
+  const { sampleCount, sampleFieldCodes, taxaBySample } = result;
+  type Flag = { sampleIndex: number; taxon: string; delta: number; severity: "Elevated" | "Highly Elevated"; triplet: SporeTrapTriplet; baselineTriplet: SporeTrapTriplet };
+  const flags: Flag[] = [];
+  for (let sampleIndex = 1; sampleIndex < sampleCount; sampleIndex++) {
+    let best: { taxon: string; delta: number; triplet: SporeTrapTriplet; baselineTriplet: SporeTrapTriplet } | null = null;
+    for (const row of taxaBySample) {
+      const baselineTriplet = row.valuesBySample[0];
+      const sampleTriplet = row.valuesBySample[sampleIndex];
+      const delta = sampleTriplet.pct - baselineTriplet.pct;
+      if (delta >= 25 && (!best || delta > best.delta)) {
+        best = { taxon: row.taxon, delta, triplet: sampleTriplet, baselineTriplet };
+      }
+    }
+    if (best) {
+      flags.push({
+        sampleIndex,
+        taxon: best.taxon,
+        delta: best.delta,
+        severity: best.delta >= 50 ? "Highly Elevated" : "Elevated",
+        triplet: best.triplet,
+        baselineTriplet: best.baselineTriplet,
+      });
+    }
+  }
+
+  if (flags.length === 0) {
+    return ["No significant mold amplification was indicated in the air samples; indoor spore composition was consistent with the outdoor baseline."];
+  }
+
+  // Grouped by (taxon, severity, baseline value) so two samples both driven
+  // by the same taxon at the same severity read as one combined sentence,
+  // matching the hand-written 26-0032 example ("... in the Boiler/Equipment
+  // Room ... and the Basement Common Area ..., both well above ..."). The
+  // baseline value is always identical across every flag for the same
+  // taxon (it's the one outdoor sample), so including it in the key is
+  // just a safety net, not a real split.
+  const groups = new Map<string, Flag[]>();
+  for (const f of flags) {
+    const key = `${f.taxon}|${f.severity}|${f.baselineTriplet.structPerM3}`;
+    const list = groups.get(key) ?? [];
+    list.push(f);
+    groups.set(key, list);
+  }
+  const formatNumber = (n: number) => n.toLocaleString("en-US");
+  const sentences: string[] = [];
+  for (const group of groups.values()) {
+    const taxonLabel = group[0].taxon.charAt(0).toUpperCase() + group[0].taxon.slice(1);
+    const severityWord = group[0].severity === "Highly Elevated" ? "highly elevated" : "elevated";
+    const baselineTriplet = group[0].baselineTriplet;
+    const parts = group.map((f) => `Sample ${sampleFieldCodes[f.sampleIndex]} (${formatNumber(f.triplet.structPerM3)} structures/m3, ${f.triplet.pct}% of total)`);
+    const joined = parts.length === 1
+      ? `${parts[0]}, above`
+      : `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}, both well above`;
+    sentences.push(
+      `${taxonLabel} was ${severityWord} in ${joined} the outdoor baseline (${formatNumber(baselineTriplet.structPerM3)} structures/m3, ${baselineTriplet.pct}% of total).`
+    );
+  }
+  return sentences;
 }
 
 // The lab itself makes the positive/negative call, not FLI — any sample

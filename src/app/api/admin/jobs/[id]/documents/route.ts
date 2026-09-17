@@ -8,12 +8,12 @@ import pdfParse from "pdf-parse/lib/pdf-parse.js";
 import { requireAdminApi } from "@/lib/admin-api";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { withApiErrors } from "@/lib/api-handler";
-import { extractSampleCount, detectAsbestosResult, extractSampleResults, extractReportProjectNumber, detectLabInfo, extractMoldSampleCount, extractMoldSampleResults, extractMoldDirectAnalysisFindings, summarizeElevatedMoldFindings, extractSampledDate, extractCrystalAnalyticalMaterialDescriptions } from "@/lib/parse-lab-report";
+import { extractSampleCount, detectAsbestosResult, extractSampleResults, extractReportProjectNumber, detectLabInfo, extractMoldSampleCount, extractMoldSampleResults, extractMoldDirectAnalysisFindings, summarizeMoldDirectAnalysisFindings, extractMoldSporeTrapFindings, summarizeMoldSporeTrapFindings, extractSampledDate, extractCrystalAnalyticalMaterialDescriptions } from "@/lib/parse-lab-report";
 import { isLabInvoiceText, extractLabInvoiceTotalCents, extractInvoiceNumber } from "@/lib/parse-lab-invoice";
 import { computeLabCostCentsFromDocuments } from "@/lib/lab-cost";
 import { splitTrailingCocPages } from "@/lib/split-lab-report-coc";
 import { extractPositionOrderedText } from "@/lib/pdf-position-text";
-import { ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, isFullInspectionAsbestosJob } from "@/lib/report-findings";
+import { ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, isFullInspectionAsbestosJob, moldDiscussionFieldForLabel } from "@/lib/report-findings";
 import { deriveFullInspectionMaterials } from "@/lib/sample-items";
 import type { Job, JobDocument } from "@/lib/types";
 
@@ -153,16 +153,24 @@ export const POST = withApiErrors(async (
           const priorOtherLabels = (jobRow.mold_sample_results ?? []).filter((r) => r.serviceType !== serviceType);
           update.mold_sample_results = [...priorOtherLabels, ...sampleResults];
         }
-        // Per Tim, 2026-09-16 — same auto-fill as the automated lab-email
-        // pipeline (see summarizeElevatedMoldFindings's own comment): one
-        // plain sentence per Moderate-or-above finding, only when there's
-        // something to say and the field is still empty.
-        if (positionOrderedText && !jobRow.mold_report_notes?.trim()) {
-          const findings = extractMoldDirectAnalysisFindings(positionOrderedText);
-          const sentences = summarizeElevatedMoldFindings(findings);
-          if (sentences.length > 0) {
-            update.mold_report_notes = sentences.join(" ");
+        // Per Tim, 2026-09-17 — same auto-fill as the automated lab-email
+        // pipeline (see moldDiscussionFieldForLabel's own comment for why
+        // this targets the label's own Discussion of Results field, not
+        // the shared Conclusions & Recommendations field it used to write
+        // into): always something to say (elevated finding, Trace/Light
+        // background note, or a "no significant amplification" line for
+        // air), only when that field is still empty.
+        const discussionField = moldDiscussionFieldForLabel(serviceType);
+        if (positionOrderedText && discussionField && !jobRow[discussionField]?.trim()) {
+          let sentences: string[] = [];
+          if (/air/i.test(serviceType)) {
+            const sporeTrap = extractMoldSporeTrapFindings(positionOrderedText);
+            if (sporeTrap) sentences = summarizeMoldSporeTrapFindings(sporeTrap);
+          } else {
+            const findings = extractMoldDirectAnalysisFindings(positionOrderedText);
+            sentences = summarizeMoldDirectAnalysisFindings(findings);
           }
+          if (sentences.length > 0) update[discussionField] = sentences.join(" ");
         }
       }
 

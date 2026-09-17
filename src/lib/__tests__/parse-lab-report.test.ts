@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { extractSampleCount, detectAsbestosResult, extractSampleResults, extractReportProjectNumber, extractReportProjectAddress, detectLabInfo, extractMoldSampleCount, extractMoldSampleResults, extractCrystalAnalyticalMaterialDescriptions, extractSampledDate, extractMoldDirectAnalysisFindings, summarizeElevatedMoldFindings } from "../parse-lab-report";
+import { extractSampleCount, detectAsbestosResult, extractSampleResults, extractReportProjectNumber, extractReportProjectAddress, detectLabInfo, extractMoldSampleCount, extractMoldSampleResults, extractCrystalAnalyticalMaterialDescriptions, extractSampledDate, extractMoldDirectAnalysisFindings, summarizeMoldDirectAnalysisFindings, extractMoldSporeTrapFindings, summarizeMoldSporeTrapFindings } from "../parse-lab-report";
 
 // Excerpts of real EMSL bulk asbestos PLM report text, exactly as pdf-parse
 // extracts it (value-before-label ordering and all — PDF text extraction
@@ -1076,9 +1076,9 @@ Crystal Analytical, LLC.      •       55 Accord Park Dr., Ste. 2D; Rockland, M
   });
 });
 
-describe("summarizeElevatedMoldFindings", () => {
+describe("summarizeMoldDirectAnalysisFindings", () => {
   it("writes one plain sentence per Moderate-or-above finding", () => {
-    expect(summarizeElevatedMoldFindings([
+    expect(summarizeMoldDirectAnalysisFindings([
       { location: "Basement Closet", taxon: "Stachybotrys", load: "Heavy" },
       { location: "Kitchen Ceiling", taxon: "aspergillus", load: "Very Heavy" },
     ])).toEqual([
@@ -1087,15 +1087,135 @@ describe("summarizeElevatedMoldFindings", () => {
     ]);
   });
 
-  it("leaves out anything Light or below", () => {
-    expect(summarizeElevatedMoldFindings([
-      { location: "Textured Wall", taxon: "basidiospores", load: "Trace" },
-      { location: "Drywall", taxon: "basidiospores", load: "Light" },
+  // Per Tim, 2026-09-17 — "every mold air sampling or bulk sampling or
+  // anything should always just have the findings listed": confirmed
+  // against 26-0032's real report (both samples Trace basidiospores, real
+  // fixture in extractMoldDirectAnalysisFindings' own describe block
+  // above) — this is the exact shape that report's findings take.
+  it("reports Trace/Light findings as a plain background sentence instead of nothing", () => {
+    expect(summarizeMoldDirectAnalysisFindings([
+      { location: "Textured Wall - Base of Spiral Staircase", taxon: "basidiospores", load: "Trace" },
+      { location: "Drywall - Desk Room", taxon: "basidiospores", load: "Trace" },
+    ])).toEqual([
+      "Trace amounts of basidiospores were found in the samples.",
+    ]);
+  });
+
+  it("groups multiple different Trace/Light taxa into one sentence per load level", () => {
+    expect(summarizeMoldDirectAnalysisFindings([
+      { location: "Wall", taxon: "basidiospores", load: "Trace" },
+      { location: "Ceiling", taxon: "Cladosporium", load: "Light" },
+      { location: "Floor", taxon: "Aspergillus", load: "Light" },
+    ])).toEqual([
+      "Light amounts of Cladosporium and Aspergillus were found in the samples.",
+      "Trace amounts of basidiospores were found in the samples.",
+    ]);
+  });
+
+  it("leaves None findings out of the background sentence entirely", () => {
+    expect(summarizeMoldDirectAnalysisFindings([
+      { location: "Wall", taxon: "basidiospores", load: "None" },
     ])).toEqual([]);
   });
 
-  it("returns an empty array, not placeholder text, when nothing is elevated", () => {
-    expect(summarizeElevatedMoldFindings([])).toEqual([]);
+  it("returns an empty array, not placeholder text, when there's nothing extractable at all", () => {
+    expect(summarizeMoldDirectAnalysisFindings([])).toEqual([]);
+  });
+});
+
+describe("extractMoldSporeTrapFindings / summarizeMoldSporeTrapFindings", () => {
+  // Real position-ordered text confirmed against 26-0032's actual
+  // Air-O-Cell spore-trap report (Lab ID 2601003979) — Penicillium/
+  // Aspergillus jumped from 6.3% outdoors to 76.9%/72.3%/52.5% indoors
+  // across its three indoor samples, while every taxon row has at least
+  // one blank/omitted cell except Ascospores, Rusts/Smuts/Myxo/Periconia,
+  // and Penicillium/Aspergillus itself.
+  const REAL_SPORE_TRAP_REPORT = `
+Tim Hall Lab ID: 2601003979
+Commonwealth Inspection Services, LLC 21 Blossom St.,
+118 Greenacre Road Lexington, MA BIO-SOP-001
+Westwood, MA Inertial Impactor (Spore Trap)
+Sample Number
+0004 4 0001 1 0002 2 0003 3
+Sample Name Outdoor Ambient Boiler/Equipment Room Basement - Common Area w/ Red Tile Basement - Back Right Bedroom
+Sample Volume 0.075 m³ 0.075 m³ 0.075 m³ 0.075 m³
+Reporting Limit 13 Spores / m³ 13 Spores / m³ 13 Spores / m³ 13 Spores / m³
+Debris Rating Moderate Moderate Moderate Moderate
+Pollen Trace Trace Trace Trace
+Epithelial Cells None Light Light Light
+Taxa/Organism Count % of Total   Count % of Total Eval Count % of Total  Count % of Total
+Struct/m Struct/m Struct/m Struct/m
+4 53 6.3% 1 13 0.7% 3 40 4.6% 1 13 4.6%
+Ascospores
+Basidiospores 26 347 41.3% 12 160 9.0% 12 160 18.5% 8 107 38.2%
+Bipolaris/Drech/Exser/Helm 1 13 1.5% 1 13 0.7% 2 27 3.1%
+Cercospora
+Cladosporium 19 253 30.1% 15 200 11.2%
+Ganoderma 2 27 3.2% 1 13 0.7%
+2 27 3.2%
+Pithomyces
+5 67 8.0% 1 13 0.7% 1 13 1.5% 1 13 4.6%
+Rusts/Smuts/Myxo/Periconia
+4 53 6.3% 103 1,373 76.9% 47 627 72.3% 11 147 52.5%
+Penicillium/Aspergillus
+Total
+63 840 100% 134 1,785 100% 65 867 100% 21 280 100%
+Water Damage Common Allergen Elevated Highly Elevated Composition Alert
+Crystal Analytical, LLC.      •       55 Accord Park Dr., Ste. 2D; Rockland, MA 02370      •      (781) 347-3936     •      Page 2 of 6
+`;
+
+  it("extracts sample count, field codes, totals, and only the complete taxon rows", () => {
+    const result = extractMoldSporeTrapFindings(REAL_SPORE_TRAP_REPORT);
+    expect(result).not.toBeNull();
+    expect(result!.sampleCount).toBe(4);
+    expect(result!.sampleFieldCodes).toEqual(["4", "1", "2", "3"]);
+    expect(result!.totalsBySample).toEqual([
+      { count: 63, structPerM3: 840, pct: 100 },
+      { count: 134, structPerM3: 1785, pct: 100 },
+      { count: 65, structPerM3: 867, pct: 100 },
+      { count: 21, structPerM3: 280, pct: 100 },
+    ]);
+    // Bipolaris/Drech/Exser/Helm, Cladosporium, Ganoderma, and Pithomyces
+    // each have at least one blank cell in the real report — dropped
+    // entirely rather than guessed at. Ascospores, Basidiospores, Rusts/
+    // Smuts/Myxo/Periconia, and Penicillium/Aspergillus have a value for
+    // every sample, so all four come through.
+    expect(result!.taxaBySample.map((t) => t.taxon).sort()).toEqual([
+      "Ascospores", "Basidiospores", "Penicillium/Aspergillus", "Rusts/Smuts/Myxo/Periconia",
+    ]);
+  });
+
+  it("returns null when the outdoor/baseline sample isn't listed first", () => {
+    const reordered = REAL_SPORE_TRAP_REPORT.replace(
+      "Sample Name Outdoor Ambient Boiler/Equipment Room Basement - Common Area w/ Red Tile Basement - Back Right Bedroom",
+      "Sample Name Boiler/Equipment Room Outdoor Ambient Basement - Common Area w/ Red Tile Basement - Back Right Bedroom"
+    );
+    expect(extractMoldSporeTrapFindings(reordered)).toBeNull();
+  });
+
+  it("matches the hand-written 26-0032 sentence almost exactly, using Sample <field code> instead of a room name", () => {
+    const result = extractMoldSporeTrapFindings(REAL_SPORE_TRAP_REPORT)!;
+    expect(summarizeMoldSporeTrapFindings(result)).toEqual([
+      "Penicillium/Aspergillus was highly elevated in Sample 1 (1,373 structures/m3, 76.9% of total) and Sample 2 (627 structures/m3, 72.3% of total), both well above the outdoor baseline (53 structures/m3, 6.3% of total).",
+      "Penicillium/Aspergillus was elevated in Sample 3 (147 structures/m3, 52.5% of total), above the outdoor baseline (53 structures/m3, 6.3% of total).",
+    ]);
+  });
+
+  it("returns a plain background sentence when no sample crosses the 25-point composition shift", () => {
+    const result: ReturnType<typeof extractMoldSporeTrapFindings> = {
+      sampleCount: 2,
+      sampleFieldCodes: ["4", "1"],
+      totalsBySample: [
+        { count: 10, structPerM3: 100, pct: 100 },
+        { count: 12, structPerM3: 120, pct: 100 },
+      ],
+      taxaBySample: [
+        { taxon: "Basidiospores", valuesBySample: [{ count: 5, structPerM3: 50, pct: 50 }, { count: 6, structPerM3: 60, pct: 55 }] },
+      ],
+    };
+    expect(summarizeMoldSporeTrapFindings(result)).toEqual([
+      "No significant mold amplification was indicated in the air samples; indoor spore composition was consistent with the outdoor baseline.",
+    ]);
   });
 });
 

@@ -34,7 +34,9 @@ import {
   extractMoldSampleCount,
   extractMoldSampleResults,
   extractMoldDirectAnalysisFindings,
-  summarizeElevatedMoldFindings,
+  summarizeMoldDirectAnalysisFindings,
+  extractMoldSporeTrapFindings,
+  summarizeMoldSporeTrapFindings,
   extractSampledDate,
   extractCrystalAnalyticalMaterialDescriptions,
 } from "@/lib/parse-lab-report";
@@ -55,7 +57,7 @@ import { formatCents } from "@/lib/pricing";
 import { createStripeInvoiceForJob, tagInvoiceEmailed, getStripe } from "@/lib/stripe";
 import { splitTrailingCocPages } from "@/lib/split-lab-report-coc";
 import { extractPositionOrderedText } from "@/lib/pdf-position-text";
-import { jobReportDomains, domainForServiceTypeLabel, isFullInspectionAsbestosJob, ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, NEWTON_FIRE_FLOOD_COMPANY_ID, BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID, FLI_ENVIRONMENTAL_COMPANY_ID, reportEmailAttachmentFilename, type ReportDomain } from "@/lib/report-findings";
+import { jobReportDomains, domainForServiceTypeLabel, moldDiscussionFieldForLabel, isFullInspectionAsbestosJob, ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, NEWTON_FIRE_FLOOD_COMPANY_ID, BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID, FLI_ENVIRONMENTAL_COMPANY_ID, reportEmailAttachmentFilename, type ReportDomain } from "@/lib/report-findings";
 import { sendEmail, emailShell } from "@/lib/email";
 import { sendJobPaidNotification } from "@/lib/booking-notify";
 import { getAppUrl } from "@/lib/app-url";
@@ -1597,19 +1599,34 @@ async function processMatchedLabEmail(params: {
       const priorOtherLabels = (job.mold_sample_results ?? []).filter((r) => !r.serviceType || !touchedLabels.has(r.serviceType));
       update.mold_sample_results = [...priorOtherLabels, ...[...newResultsByLabel.values()].flat()];
     }
-    // Per Tim, 2026-09-16 — "a simple sentence of what it is, like
-    // basidiospores were elevated in [location]": pre-fills Conclusions &
-    // Recommendations with one plain sentence per Moderate-or-above finding
-    // (see summarizeElevatedMoldFindings's own comment for the confirmed
-    // cutoff and why an ambiguous multi-taxon sample is silently dropped
-    // rather than guessed at). Only when there's something to say AND the
-    // field is still empty — never overwrites an admin's own hand-written
-    // notes, same as report_summary's own auto-fill above.
-    if (positionOrderedText && !job.mold_report_notes?.trim()) {
-      const findings = extractMoldDirectAnalysisFindings(positionOrderedText);
-      const sentences = summarizeElevatedMoldFindings(findings);
-      if (sentences.length > 0) {
-        update.mold_report_notes = sentences.join(" ");
+    // Per Tim, 2026-09-17 — "every mold air sampling or bulk sampling or
+    // anything should always just have the findings listed in the
+    // discussion of results" — pre-fills each label's OWN Discussion of
+    // Results (not the shared Conclusions & Recommendations field this
+    // used to write into — see mold_air_discussion's own comment in
+    // types.ts for why that's the one that actually renders under each
+    // label's own report section) with a plain summary of what that
+    // label's own report actually found, always something (an elevated
+    // finding, a Trace/Light background note, or "no significant
+    // amplification" for air) rather than nothing. Only when the field is
+    // still empty — never overwrites an admin's own hand-written notes,
+    // same as report_summary's own auto-fill above. One extraction pass
+    // per label this report covers, same loop as the counts/results
+    // extraction above — a combined air+bulk report fills in both
+    // sections' own discussion fields in the same pass.
+    if (positionOrderedText) {
+      for (const label of domainServiceTypeLabels) {
+        const discussionField = moldDiscussionFieldForLabel(label);
+        if (!discussionField || job[discussionField]?.trim()) continue;
+        let sentences: string[] = [];
+        if (/air/i.test(label)) {
+          const sporeTrap = extractMoldSporeTrapFindings(positionOrderedText);
+          if (sporeTrap) sentences = summarizeMoldSporeTrapFindings(sporeTrap);
+        } else {
+          const findings = extractMoldDirectAnalysisFindings(positionOrderedText);
+          sentences = summarizeMoldDirectAnalysisFindings(findings);
+        }
+        if (sentences.length > 0) update[discussionField] = sentences.join(" ");
       }
     }
   } else {

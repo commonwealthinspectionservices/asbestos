@@ -96,6 +96,18 @@ export function domainForServiceTypeLabel(label: string): ReportDomain {
   return "asbestos";
 }
 
+// Which of the job's three mold Discussion of Results columns (see their
+// own comments in types.ts) a given mold service-type label's own
+// findings belong in — null for a label that isn't a recognized mold
+// sub-method at all (defensive; every real mold label is Air/Bulk/Swab).
+export function moldDiscussionFieldForLabel(label: string): "mold_air_discussion" | "mold_bulk_discussion" | "mold_swab_discussion" | null {
+  const l = label.toLowerCase();
+  if (l.includes("air")) return "mold_air_discussion";
+  if (l.includes("bulk")) return "mold_bulk_discussion";
+  if (l.includes("swab")) return "mold_swab_discussion";
+  return null;
+}
+
 // Pre-Renovation and Pre-Demolition are a full, inspector-directed survey of
 // the whole property (the inspector decides what/where to sample) — a
 // genuinely different report from Limited Asbestos Inspection's short,

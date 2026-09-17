@@ -2701,64 +2701,6 @@ export function ProjectDetailDialog({
       />
     </div>
   );
-  // Per Tim, 2026-09-04 — "# of samples" cell: auto-fills from
-  // sample_counts (the lab-parsed per-service-type breakdown), but
-  // job.sample_count — once set — always wins, so a manual correction
-  // sticks even if the lab report gets re-parsed later. Deliberately small
-  // (w-20, not the full row width the other fields use) — it's one short
-  // number, not a name or date.
-  function perDomainSampleCount(domain: ReportDomain): number {
-    return Object.entries(job.sample_counts ?? {})
-      .filter(([label]) => domainForServiceTypeLabel(label) === domain)
-      .reduce((sum, [, n]) => sum + (n || 0), 0);
-  }
-  // Per Tim, 2026-09-12 (26-0019) — was asbestos-only. reportChecklist's own
-  // "Sample count" item is domain-aware for lead and mold too, but had no
-  // editable UI for either — a job whose report gets misfiled/re-filed under
-  // the wrong service_type (see fix-26-0019-lead-docs) never gets a real
-  // sample_counts entry for its label and had no way to ever satisfy that
-  // checklist item. Extended to mold 2026-09-13, same reasoning, before it
-  // ever caused a real incident the way it did for lead.
-  //
-  // Exposing this for lead/mold can't just reuse job.sample_count the way
-  // asbestos does, though — that field is job-wide, not domain-scoped, and
-  // this job's own asbestos tab briefly showed a wrong "2" (borrowed from a
-  // lead edit) when tried live, since a mixed asbestos+lead job shares one
-  // job.sample_count across both tabs' inputs. Lead/mold (and any future
-  // non-asbestos domain) instead write straight into the per-label
-  // sample_counts map already used for the auto-parsed count — the same
-  // field a real lab-email re-parse would update, so a manual entry here
-  // can get overwritten by a later automatic re-parse the same way an
-  // asbestos sample_counts entry already can; unlike job.sample_count
-  // there's no separate "override always wins" field for these domains.
-  // Acceptable for now since this only fires when a document was manually
-  // re-filed, a rare, already-manual-intervention path.
-  //
-  // Writes to labels[0] only (see saveDomainSampleCount below) — fine for
-  // lead (almost always one label) but a real simplification for a mold job
-  // combining Air + Bulk + Swab under one manual override; only the first
-  // label's count is settable this way. Acceptable for the same reason as
-  // above — a rare, manual-intervention-only path — but worth revisiting
-  // with a per-label input if a real multi-modality mold job ever needs it.
-  function autoSampleCountFor(domain: ReportDomain): number {
-    const perDomain = perDomainSampleCount(domain);
-    if (perDomain > 0) return perDomain;
-    return domain === "asbestos" ? job.sample_results.length : 0;
-  }
-  const sampleCountInput = (domain: ReportDomain, labels: string[]) => (
-    <div className="flex w-full items-center gap-2 text-sm">
-      <span className="w-28 shrink-0 text-xs font-semibold uppercase text-slate-400"># of Samples</span>
-      <input
-        type="number"
-        min={0}
-        placeholder={String(autoSampleCountFor(domain))}
-        className="h-9 w-20 min-w-0 rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
-        defaultValue={domain === "asbestos" ? job.sample_count ?? "" : perDomainSampleCount(domain) || ""}
-        key={domain === "asbestos" ? job.sample_count ?? "auto" : perDomainSampleCount(domain) || "auto"}
-        onBlur={(e) => (domain === "asbestos" ? saveSampleCount(e.target.value) : saveDomainSampleCount(e.target.value, labels[0]))}
-      />
-    </div>
-  );
   // Per Tim, 2026-08-31 — "track both mine and theirs": FLI Environmental
   // assigns their own project number to a subcontracted job, separate from
   // (and shown instead of) this app's own project_number on the FLI-
@@ -2973,43 +2915,6 @@ export function ProjectDetailDialog({
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(patch),
-    });
-    onChanged();
-  }
-
-  // Per Tim, 2026-09-04 — "a very small editable cell for # of samples
-  // that auto fills but can be edited as needed": job.sample_count
-  // already exists exactly for this ("row count of sample_items by
-  // default, but independently settable by hand once the lab's results
-  // are in" — types.ts) but had no editable UI anywhere. An empty value
-  // clears the override back to null (falls back to the auto-computed
-  // count again), matching the date/lab fields' own "blank clears it"
-  // convention just above.
-  async function saveSampleCount(value: string) {
-    const parsed = value.trim() === "" ? null : Number(value);
-    await fetch(`/api/admin/jobs/${job.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sample_count: parsed !== null && Number.isFinite(parsed) ? parsed : null }),
-    });
-    onChanged();
-  }
-
-  // Non-asbestos counterpart to saveSampleCount — see sampleCountInput's own
-  // comment for why this writes straight into sample_counts[label] instead
-  // of the shared job.sample_count field a mixed job's asbestos tab also
-  // reads. Clearing the input removes that label's entry entirely, falling
-  // back to the auto-computed 0 (there's no lab-parsed value to fall back
-  // to the way asbestos's blank-clears-override does).
-  async function saveDomainSampleCount(value: string, label: string) {
-    const parsed = value.trim() === "" ? null : Number(value);
-    const next = { ...(job.sample_counts ?? {}) };
-    if (parsed !== null && Number.isFinite(parsed)) next[label] = parsed;
-    else delete next[label];
-    await fetch(`/api/admin/jobs/${job.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sample_counts: next }),
     });
     onChanged();
   }
@@ -4118,27 +4023,28 @@ export function ProjectDetailDialog({
                     <div className="space-y-5">
                       {[group].map((group) => (
                       <div key={group.domain}>
+                        {/* Per Tim, 2026-09-17 — "the first two cells lab and
+                            date sampled should just be generic for
+                            everything": Turnaround/Lab/Date Sampled are
+                            domain-level (one mold lab pick covers every mold
+                            label on the job), so they sit once, above every
+                            label, rather than looking like they belong to
+                            whichever label happened to render first. Each
+                            label's own title now sits right above that
+                            label's own Laboratory Results instead (moved
+                            down from here — see below), so it's clear which
+                            upload station it's actually labeling. */}
+                        <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+                          {isFliJob ? fliTurnaroundControl : turnaroundControl}
+                        </div>
+                        <div className="mb-4 space-y-2">
+                          {labDropdown(group.domain)}
+                          {dateSampledInput(group.domain)}
+                          {isFliJob && group.domain === "asbestos" && fliProjectNumberInput}
+                        </div>
                         {group.labels.map((label, labelIdx) => (
                           <div key={label} className={labelIdx > 0 ? "mt-5" : ""}>
-                            {/* Turnaround/Lab are domain-level (one mold lab
-                                pick covers every mold label on the job) so
-                                they sit once, under the group's first title,
-                                ahead of every service type's own
-                                separately-uploaded section below. On desktop,
-                                Turnaround shares the title's row, pinned to
-                                the far right. */}
-                            <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                              <p className="text-base font-bold uppercase text-slate-700">{label}</p>
-                              {labelIdx === 0 && (isFliJob ? fliTurnaroundControl : turnaroundControl)}
-                            </div>
-                            {labelIdx === 0 && (
-                              <div className="mb-4 space-y-2">
-                                {labDropdown(group.domain)}
-                                {dateSampledInput(group.domain)}
-                                {sampleCountInput(group.domain, group.labels)}
-                                {isFliJob && group.domain === "asbestos" && fliProjectNumberInput}
-                              </div>
-                            )}
+                            <p className="mb-3 text-base font-bold uppercase text-slate-700">{label}</p>
                             {/* Per Tim, 2026-09-16 — "laboratory results and
                                 chain of custody should each have their own
                                 row": now that each station is just a label

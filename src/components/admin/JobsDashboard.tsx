@@ -2655,7 +2655,7 @@ export function ProjectDetailDialog({
   );
   const labDropdown = (domain: ReportDomain) => (
     <div className="flex w-full items-center gap-2 text-sm">
-      <span className="w-28 shrink-0 text-xs font-semibold uppercase text-slate-400">Lab</span>
+      <span className="w-28 shrink-0 text-xs font-semibold uppercase text-slate-700">Lab</span>
       {/* appearance-none + bg-white — same pattern used by every other
           <select> in this app (see the Time picker's own comment): strips
           iOS's own gray select fill, which is what made this box render a
@@ -2685,7 +2685,7 @@ export function ProjectDetailDialog({
   // short of editing the database directly.
   const dateSampledInput = (domain: ReportDomain) => (
     <div className="flex w-full items-center gap-2 text-sm">
-      <span className="w-28 shrink-0 text-xs font-semibold uppercase text-slate-400">Date Sampled</span>
+      <span className="w-28 shrink-0 text-xs font-semibold uppercase text-slate-700">Date Sampled</span>
       <input
         type="date"
         className="h-9 w-full min-w-0 flex-1 rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
@@ -2731,7 +2731,7 @@ export function ProjectDetailDialog({
   }
   const fliProjectNumberInput = (
     <div className="flex w-full items-center gap-2 text-sm">
-      <span className="w-28 shrink-0 text-xs font-semibold uppercase text-slate-400">FLI Project #</span>
+      <span className="w-28 shrink-0 text-xs font-semibold uppercase text-slate-700">FLI Project #</span>
       <input
         type="text"
         className="h-9 w-full min-w-0 flex-1 rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
@@ -4094,7 +4094,7 @@ export function ProjectDetailDialog({
                                   {group.domain === "asbestos" && (
                                   <div>
                                     <div className="flex flex-nowrap items-center gap-2">
-                                      <h4 className="whitespace-nowrap text-xs font-semibold uppercase tracking-wide text-slate-400">Sample Results</h4>
+                                      <h4 className="whitespace-nowrap text-xs font-semibold uppercase tracking-wide text-slate-700">Sample Results</h4>
                                     </div>
                                     {(() => {
                                       const results = job.sample_results;
@@ -4974,7 +4974,7 @@ function DocumentStation({
       {titlePosition === "top" && (
         <div className="flex flex-nowrap items-center justify-between gap-2">
           <div className="flex flex-nowrap items-center gap-2">
-            <h4 className="whitespace-nowrap text-xs font-semibold uppercase tracking-wide text-slate-400">{label}</h4>
+            <h4 className="whitespace-nowrap text-xs font-semibold uppercase tracking-wide text-slate-700">{label}</h4>
             {headerExtra}
           </div>
           {/* Per Tim, 2026-09-16 — "the PDF title does not need to be in

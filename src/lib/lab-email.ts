@@ -287,7 +287,20 @@ const COMBINED_DRAFT_DOMAIN_REPORT_LABEL: Record<ReportDomain, string> = {
 // to leave a review; confirmed against a real drafted example he
 // pointed to directly as the standard to lock in.
 function combinedDraftBodyHtml(job: Job & { customers: Customer }, settings: Settings, totalCents: number, payNowUrl: string | null, domainsOverride?: ReportDomain[]): string {
-  const domains = domainsOverride ?? jobReportDomains(job.service_type);
+  // Per Tim, 2026-09-17 — "the order that they are listed out in should be
+  // the order that they are attached in": the actual attachments always
+  // come out in the job's own natural service_type order (see
+  // buildAllFinalReportPackets, which derives from jobReportDomains
+  // regardless of what order a caller's own domain selection happened to
+  // list them in), but this bullet list used to just map over
+  // domainsOverride's own raw array order — whatever order the Email tab
+  // checklist's domain checkboxes happened to submit in, not necessarily
+  // matching. Re-deriving from the job's natural order (filtered down to
+  // just what's actually included) keeps both in sync regardless of
+  // selection order.
+  const domains = domainsOverride
+    ? jobReportDomains(job.service_type).filter((d) => domainsOverride.includes(d))
+    : jobReportDomains(job.service_type);
   const isFliEnvironmental = job.customers.company_id === FLI_ENVIRONMENTAL_COMPANY_ID;
   // Per Tim, 2026-09-14 — same reasoning as invoiceDraftBodyHtml's own
   // comment: Newton is excluded from the ACH-only restriction (they keep

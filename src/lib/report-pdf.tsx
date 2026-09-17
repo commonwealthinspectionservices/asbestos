@@ -587,28 +587,15 @@ function AsbestosReportDocument({ job, customer, settings }: ProjectReportData) 
           and provide details about each sample collected.
         </Text>
 
-        {/* Title kept with just its first remark (wrap={false}) — the
-            whole list isn't forced to stay together too, since remarks can
-            run long. */}
-        <View wrap={false}>
-          <Text style={styles.sectionTitle}>Remarks and Limitations:</Text>
-          {remarks.length > 0 && (
-            <View style={styles.listItem} wrap={false}>
-              <Text style={styles.listIndex}>1.</Text>
-              <Text style={0 === resultRemarkIndex ? styles.resultRemarkTextAsbestos : styles.listText}>{remarks[0]}</Text>
+        <Text style={styles.sectionTitle}>Remarks and Limitations:</Text>
+        <View style={styles.listBlock}>
+          {remarks.map((text, i) => (
+            <View style={styles.listItem} key={i} wrap={false}>
+              <Text style={styles.listIndex}>{i + 1}.</Text>
+              <Text style={i === resultRemarkIndex ? styles.resultRemarkTextAsbestos : styles.listText}>{text}</Text>
             </View>
-          )}
+          ))}
         </View>
-        {remarks.length > 1 && (
-          <View style={styles.listBlock}>
-            {remarks.slice(1).map((text, i) => (
-              <View style={styles.listItem} key={i + 1} wrap={false}>
-                <Text style={styles.listIndex}>{i + 2}.</Text>
-                <Text style={i + 1 === resultRemarkIndex ? styles.resultRemarkTextAsbestos : styles.listText}>{text}</Text>
-              </View>
-            ))}
-          </View>
-        )}
 
         <Text style={styles.paragraph}>
           Should you have any questions or need additional information, please contact {inspector.name} at {settings.business_phone}.
@@ -760,25 +747,15 @@ function FliAsbestosReportDocument({ job, customer, settings }: ProjectReportDat
           and provide details about each sample collected.
         </Text>
 
-        <View wrap={false}>
-          <Text style={styles.sectionTitle}>Remarks and Limitations:</Text>
-          {remarks.length > 0 && (
-            <View style={styles.listItem} wrap={false}>
-              <Text style={styles.listIndex}>1.</Text>
-              <Text style={0 === resultRemarkIndex ? styles.resultRemarkTextAsbestos : styles.listText}>{remarks[0]}</Text>
+        <Text style={styles.sectionTitle}>Remarks and Limitations:</Text>
+        <View style={styles.listBlock}>
+          {remarks.map((text, i) => (
+            <View style={styles.listItem} key={i} wrap={false}>
+              <Text style={styles.listIndex}>{i + 1}.</Text>
+              <Text style={i === resultRemarkIndex ? styles.resultRemarkTextAsbestos : styles.listText}>{text}</Text>
             </View>
-          )}
+          ))}
         </View>
-        {remarks.length > 1 && (
-          <View style={styles.listBlock}>
-            {remarks.slice(1).map((text, i) => (
-              <View style={styles.listItem} key={i + 1} wrap={false}>
-                <Text style={styles.listIndex}>{i + 2}.</Text>
-                <Text style={i + 1 === resultRemarkIndex ? styles.resultRemarkTextAsbestos : styles.listText}>{text}</Text>
-              </View>
-            ))}
-          </View>
-        )}
 
         {/* Two paragraphs, not one — the xlsm's own B32 cell has these as a
             single sentence-pair, but keeping them together let a line wrap
@@ -940,25 +917,15 @@ function LeadReportDocument({ job, customer, settings }: ProjectReportData) {
 
         <View style={{ flexGrow: 1 }} />
 
-        <View wrap={false}>
-          <Text style={styles.sectionTitle}>Remarks and Limitations:</Text>
-          {remarks.length > 0 && (
-            <View style={styles.listItem} wrap={false}>
-              <Text style={styles.listIndex}>1.</Text>
-              <Text style={0 === resultRemarkIndex ? styles.resultRemarkText : styles.listText}>{remarks[0]}</Text>
+        <Text style={styles.sectionTitle}>Remarks and Limitations:</Text>
+        <View style={styles.listBlock}>
+          {remarks.map((text, i) => (
+            <View style={styles.listItem} key={i} wrap={false}>
+              <Text style={styles.listIndex}>{i + 1}.</Text>
+              <Text style={i === resultRemarkIndex ? styles.resultRemarkText : styles.listText}>{text}</Text>
             </View>
-          )}
+          ))}
         </View>
-        {remarks.length > 1 && (
-          <View style={styles.listBlock}>
-            {remarks.slice(1).map((text, i) => (
-              <View style={styles.listItem} key={i + 1} wrap={false}>
-                <Text style={styles.listIndex}>{i + 2}.</Text>
-                <Text style={i + 1 === resultRemarkIndex ? styles.resultRemarkText : styles.listText}>{text}</Text>
-              </View>
-            ))}
-          </View>
-        )}
 
         <View style={{ flexGrow: 1 }} />
 
@@ -1365,44 +1332,30 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
           our scope of work, sampling methodology, discussion of results and conclusion.
         </Text>
 
-        {/* Title kept with just its first item (wrap={false}) — the whole
-            list isn't forced to stay together too, since scope items can
-            run long. */}
-        <View wrap={false}>
-          <Text style={styles.romanTitle}>I.  SCOPE OF WORK</Text>
-          {scopeItems.length > 0 && (
-            <View style={styles.listItem} wrap={false}>
-              <Text style={styles.listIndex}>1.</Text>
-              <Text style={styles.listText}>{scopeItems[0]}</Text>
+        <Text style={styles.romanTitle} minPresenceAhead={80}>I.  SCOPE OF WORK</Text>
+        <View style={styles.listBlock}>
+          {scopeItems.map((text, i) => (
+            <View style={styles.listItem} key={i} wrap={false}>
+              <Text style={styles.listIndex}>{i + 1}.</Text>
+              <Text style={styles.listText}>{text}</Text>
             </View>
-          )}
+          ))}
         </View>
-        {scopeItems.length > 1 && (
-          <View style={styles.listBlock}>
-            {scopeItems.slice(1).map((text, i) => (
-              <View style={styles.listItem} key={i + 1} wrap={false}>
-                <Text style={styles.listIndex}>{i + 2}.</Text>
-                <Text style={styles.listText}>{text}</Text>
-              </View>
-            ))}
-          </View>
-        )}
 
+        <Text style={styles.romanTitle} minPresenceAhead={80}>II.  SAMPLING METHODOLOGY</Text>
         {methodologySections.map((section, i) => (
           <View key={i} wrap={false}>
-            {i === 0 && <Text style={styles.romanTitle}>II.  SAMPLING METHODOLOGY</Text>}
             <Text style={styles.subHeading}>{i + 1}. {section.title}</Text>
             {section.paragraphs.map((p, j) => (
               <Text style={styles.paragraph} key={j}>{p}</Text>
             ))}
           </View>
         ))}
-        {methodologySections.length === 0 && <Text style={styles.romanTitle}>II.  SAMPLING METHODOLOGY</Text>}
 
+        <Text style={styles.romanTitle} minPresenceAhead={80}>III.  DISCUSSION OF RESULTS</Text>
         {hasAir && (
           <>
             <View wrap={false}>
-              <Text style={styles.romanTitle}>III.  DISCUSSION OF RESULTS</Text>
               <Text style={styles.subHeading}>{airDiscussionNumber}. Airborne Sampling for Mold:</Text>
               <Text style={styles.paragraph}>{MOLD_ACGIH_PARAGRAPH}</Text>
               <Text style={styles.paragraph}>{airSampleCountSentence}</Text>
@@ -1417,7 +1370,6 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
         {hasBulk && (
           <>
             <View wrap={false}>
-              {!hasAir && <Text style={styles.romanTitle}>III.  DISCUSSION OF RESULTS</Text>}
               <Text style={styles.subHeading}>{bulkDiscussionNumber}. Bulk Sampling for Mold:</Text>
               <Text style={styles.paragraph}>{bulkSampleCountSentence}</Text>
             </View>
@@ -1427,61 +1379,44 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
         {hasSwab && (
           <>
             <View wrap={false}>
-              {!hasAir && !hasBulk && <Text style={styles.romanTitle}>III.  DISCUSSION OF RESULTS</Text>}
               <Text style={styles.subHeading}>{swabDiscussionNumber}. Swab Sampling for Mold:</Text>
               <Text style={styles.paragraph}>{swabSampleCountSentence}</Text>
             </View>
             <RenderTextBlocks blocks={swabDiscussionBlocks} />
           </>
         )}
-        {!hasAir && !hasBulk && !hasSwab && (
+        {!hasAir && !hasBulk && !hasSwab && <Text style={styles.paragraph}>NO RESULTS YET.</Text>}
+
+        <Text style={styles.romanTitle} minPresenceAhead={80}>IV.  CONCLUSIONS & RECOMMENDATIONS</Text>
+        {hasAir && (
           <>
-            <Text style={styles.romanTitle}>III.  DISCUSSION OF RESULTS</Text>
-            <Text style={styles.paragraph}>NO RESULTS YET.</Text>
+            <Text style={styles.paragraph}>{MOLD_INDOOR_AIR_QUALITY_PARAGRAPH}</Text>
+            <Text style={styles.paragraph}>{MOLD_AIR_INVESTIGATION_GOAL_PARAGRAPH}</Text>
           </>
         )}
-
-        {/* Title kept with the fixed lead-in content (air paragraphs +
-            Newton's standard conclusion, when present) via wrap={false} —
-            conclusionBlocks is left outside since that's the admin's own
-            open-ended mold_report_notes text, which can run long and needs
-            to paginate normally rather than being forced into one chunk. */}
-        <View wrap={false}>
-          <Text style={styles.romanTitle}>IV.  CONCLUSIONS & RECOMMENDATIONS</Text>
-          {hasAir && (
-            <>
-              <Text style={styles.paragraph}>{MOLD_INDOOR_AIR_QUALITY_PARAGRAPH}</Text>
-              <Text style={styles.paragraph}>{MOLD_AIR_INVESTIGATION_GOAL_PARAGRAPH}</Text>
-            </>
-          )}
-          {standardConclusionBlocks.length > 0 && <RenderTextBlocks blocks={standardConclusionBlocks} />}
-        </View>
+        {standardConclusionBlocks.length > 0 && <RenderTextBlocks blocks={standardConclusionBlocks} />}
         {conclusionBlocks.length > 0
           ? <RenderTextBlocks blocks={conclusionBlocks} />
           : !hasAir && !isNewtonFireFlood && <Text style={styles.paragraph}>NO RECOMMENDATIONS YET.</Text>}
 
-        {/* Fully fixed section (no admin-editable content) — safe to bundle
-            the whole thing, title included, into one unbreakable unit. */}
-        <View wrap={false}>
-          <Text style={styles.romanTitle}>V.  LIMITATIONS AND CONDITIONS OF THIS REPORT</Text>
-          <Text style={styles.paragraph}>
-            The recommendations and conclusions discussed herein are based solely and in reliance upon information
-            collected as a result of the activities delineated in the Proposal. {settings.business_name} neither attests
-            nor renders an opinion as to the accuracy or comprehensiveness of the analytical results. There is a limit
-            to all investigations of this type in the sense that the researcher must draw conclusions and develop
-            recommendations with information obtained from research, site evaluation and limited sampling and analysis.
-            {" "}{settings.business_name} does not render any warranty, either express or implied, as to the conditions
-            of the Site beyond that observed during the Site survey. The passage of time may also result in a change in
-            the characteristics at the Site. {settings.business_name} does not render an opinion as to conditions which
-            may change subsequent to the date of the Site reconnaissance. {settings.business_name} does not render an
-            opinion as to conditions at uninspected or obstructed portions of the Site (e.g. ceiling plenums or air
-            handling equipment), or those areas not sampled as part of this survey. {settings.business_name} performed
-            professional services and rendered conclusions in accordance with generally accepted practices of other
-            environmental consultants undertaking similar investigations at the same time in the same geographical
-            area. {settings.business_name} exercised the degree of care and skill generally exercised by other
-            environmental consultants under similar circumstances and conditions.
-          </Text>
-        </View>
+        <Text style={styles.romanTitle} minPresenceAhead={80}>V.  LIMITATIONS AND CONDITIONS OF THIS REPORT</Text>
+        <Text style={styles.paragraph}>
+          The recommendations and conclusions discussed herein are based solely and in reliance upon information
+          collected as a result of the activities delineated in the Proposal. {settings.business_name} neither attests
+          nor renders an opinion as to the accuracy or comprehensiveness of the analytical results. There is a limit
+          to all investigations of this type in the sense that the researcher must draw conclusions and develop
+          recommendations with information obtained from research, site evaluation and limited sampling and analysis.
+          {" "}{settings.business_name} does not render any warranty, either express or implied, as to the conditions
+          of the Site beyond that observed during the Site survey. The passage of time may also result in a change in
+          the characteristics at the Site. {settings.business_name} does not render an opinion as to conditions which
+          may change subsequent to the date of the Site reconnaissance. {settings.business_name} does not render an
+          opinion as to conditions at uninspected or obstructed portions of the Site (e.g. ceiling plenums or air
+          handling equipment), or those areas not sampled as part of this survey. {settings.business_name} performed
+          professional services and rendered conclusions in accordance with generally accepted practices of other
+          environmental consultants undertaking similar investigations at the same time in the same geographical
+          area. {settings.business_name} exercised the degree of care and skill generally exercised by other
+          environmental consultants under similar circumstances and conditions.
+        </Text>
 
         <Text style={styles.paragraph}>
           Thank you for choosing {settings.business_name} to assist you on this project. I hope the information that
@@ -1913,25 +1848,17 @@ function MoistureMappingReportDocument({
             </Text>
           </View>
 
-          <View wrap={false}>
+          <View>
             <Text style={styles.sectionTitle}>Remarks and Limitations:</Text>
-            {remarks.length > 0 && (
-              <View style={styles.listItem} wrap={false}>
-                <Text style={styles.listIndex}>1.</Text>
-                <Text style={styles.listText}>{remarks[0]}</Text>
-              </View>
-            )}
-          </View>
-          {remarks.length > 1 && (
             <View style={styles.listBlock}>
-              {remarks.slice(1).map((text, i) => (
-                <View style={styles.listItem} key={i + 1} wrap={false}>
-                  <Text style={styles.listIndex}>{i + 2}.</Text>
+              {remarks.map((text, i) => (
+                <View style={styles.listItem} key={i} wrap={false}>
+                  <Text style={styles.listIndex}>{i + 1}.</Text>
                   <Text style={styles.listText}>{text}</Text>
                 </View>
               ))}
             </View>
-          )}
+          </View>
 
           {/* Per Tim, 2026-09-04 (follow-up: "make this line exactly
               halfway between sincerely and the water damage line above

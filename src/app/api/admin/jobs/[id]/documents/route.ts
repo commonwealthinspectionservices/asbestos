@@ -13,7 +13,7 @@ import { isLabInvoiceText, extractLabInvoiceTotalCents, extractInvoiceNumber } f
 import { computeLabCostCentsFromDocuments } from "@/lib/lab-cost";
 import { splitTrailingCocPages } from "@/lib/split-lab-report-coc";
 import { extractPositionOrderedText, extractLabeledRowItems } from "@/lib/pdf-position-text";
-import { ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, isFullInspectionAsbestosJob, moldDiscussionFieldForLabel } from "@/lib/report-findings";
+import { ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, isFullInspectionAsbestosJob, moldDiscussionFieldForLabel, hasAllLabReports } from "@/lib/report-findings";
 import { deriveFullInspectionMaterials } from "@/lib/sample-items";
 import type { Job, JobDocument } from "@/lib/types";
 
@@ -396,6 +396,14 @@ export const POST = withApiErrors(async (
   update.documents = [...priorDocuments, ...documents];
   if (kind === "lab_invoice") {
     update.lab_cost_cents = computeLabCostCentsFromDocuments(update.documents as JobDocument[]);
+  }
+
+  // Per Tim, 2026-09-17 — "it should always move to Ready for Review when
+  // the lab results come in": only once, from pending_lab_results
+  // specifically, and only once every label's own lab_report is in —
+  // see hasAllLabReports' own comment.
+  if (kind === "lab_report" && jobRow.status === "pending_lab_results" && hasAllLabReports(jobRow.service_type, update.documents as JobDocument[])) {
+    update.status = "ready_to_send";
   }
 
   // asbestos_result/sample_results may not exist yet if these migrations

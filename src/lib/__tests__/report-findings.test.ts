@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { domainForServiceTypeLabel, jobReportDomains, isFullInspectionAsbestosJob, inspectionReportSubjectPrefix } from "@/lib/report-findings";
+import { domainForServiceTypeLabel, jobReportDomains, isFullInspectionAsbestosJob, inspectionReportSubjectPrefix, hasAllLabReports } from "@/lib/report-findings";
+import type { JobDocument } from "@/lib/types";
 
 describe("inspectionReportSubjectPrefix", () => {
   it("names a single domain", () => {
@@ -32,6 +33,51 @@ describe("domainForServiceTypeLabel", () => {
   it("defaults to asbestos for anything else", () => {
     expect(domainForServiceTypeLabel("Limited Asbestos Inspection")).toBe("asbestos");
     expect(domainForServiceTypeLabel("Some Custom Type")).toBe("asbestos");
+  });
+});
+
+function labReportDoc(serviceType: string): JobDocument {
+  return {
+    id: serviceType,
+    kind: "lab_report",
+    service_type: serviceType,
+    file_name: "lab-report.pdf",
+    storage_path: "x/lab-report.pdf",
+    uploaded_at: "2026-09-17T00:00:00.000Z",
+  };
+}
+
+describe("hasAllLabReports", () => {
+  it("is true once the single label's own lab_report is in", () => {
+    expect(hasAllLabReports("Limited Asbestos Inspection", [labReportDoc("Limited Asbestos Inspection")])).toBe(true);
+  });
+
+  it("is false with no documents at all", () => {
+    expect(hasAllLabReports("Limited Asbestos Inspection", [])).toBe(false);
+    expect(hasAllLabReports("Limited Asbestos Inspection", null)).toBe(false);
+  });
+
+  it("requires every label's own report, not just one of several", () => {
+    const docs = [labReportDoc("Mold Air Sampling")];
+    expect(hasAllLabReports("Mold Air Sampling, Mold Bulk Sampling", docs)).toBe(false);
+    expect(hasAllLabReports("Mold Air Sampling, Mold Bulk Sampling", [...docs, labReportDoc("Mold Bulk Sampling")])).toBe(true);
+  });
+
+  it("ignores a lab_report filed under a different label, or a non-lab_report document", () => {
+    const wrongLabel: JobDocument = { ...labReportDoc("Mold Bulk Sampling") };
+    expect(hasAllLabReports("Mold Air Sampling", [wrongLabel])).toBe(false);
+    const wrongKind: JobDocument = { ...labReportDoc("Mold Air Sampling"), kind: "coc" };
+    expect(hasAllLabReports("Mold Air Sampling", [wrongKind])).toBe(false);
+  });
+
+  it("doesn't require a lab_report for a Moisture Mapping label", () => {
+    const docs = [labReportDoc("Mold Air Sampling")];
+    expect(hasAllLabReports("Mold Air Sampling, Moisture Mapping", docs)).toBe(true);
+  });
+
+  it("is false for a null/empty/blank service type", () => {
+    expect(hasAllLabReports(null, [])).toBe(false);
+    expect(hasAllLabReports("", [])).toBe(false);
   });
 });
 

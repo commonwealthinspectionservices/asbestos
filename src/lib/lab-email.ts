@@ -57,7 +57,7 @@ import { formatCents } from "@/lib/pricing";
 import { createStripeInvoiceForJob, tagInvoiceEmailed, getStripe } from "@/lib/stripe";
 import { splitTrailingCocPages } from "@/lib/split-lab-report-coc";
 import { extractPositionOrderedText, extractLabeledRowItems } from "@/lib/pdf-position-text";
-import { jobReportDomains, domainForServiceTypeLabel, moldDiscussionFieldForLabel, isFullInspectionAsbestosJob, ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, NEWTON_FIRE_FLOOD_COMPANY_ID, BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID, FLI_ENVIRONMENTAL_COMPANY_ID, reportEmailAttachmentFilename, type ReportDomain } from "@/lib/report-findings";
+import { jobReportDomains, domainForServiceTypeLabel, moldDiscussionFieldForLabel, isFullInspectionAsbestosJob, hasAllLabReports, ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, NEWTON_FIRE_FLOOD_COMPANY_ID, BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID, FLI_ENVIRONMENTAL_COMPANY_ID, reportEmailAttachmentFilename, type ReportDomain } from "@/lib/report-findings";
 import { sendEmail, emailShell } from "@/lib/email";
 import { sendJobPaidNotification } from "@/lib/booking-notify";
 import { getAppUrl } from "@/lib/app-url";
@@ -1878,6 +1878,14 @@ async function processMatchedLabEmail(params: {
     domain_mismatch: !domainDataFound,
   }));
   update.documents = await replaceDocumentsByKindAndServiceType(supabase, job.documents ?? [], reportDocuments);
+
+  // Per Tim, 2026-09-17 — same rule as the manual upload route (see
+  // hasAllLabReports' own comment): the automated pipeline landing the
+  // last label's own report is just as much "the lab results came in" as
+  // an admin uploading it by hand.
+  if (job.status === "pending_lab_results" && hasAllLabReports(job.service_type, update.documents as JobDocument[])) {
+    update.status = "ready_to_send";
+  }
 
   // sample_findings may not exist yet if its migration hasn't been run —
   // tolerate that rather than failing this whole automated intake (every

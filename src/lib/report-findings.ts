@@ -1,4 +1,5 @@
 import { expandAddress } from "@/lib/address";
+import type { JobDocument } from "@/lib/types";
 
 // Canned Remarks-and-Limitations sentences, shared by the PDF report
 // (report-pdf.tsx), the .xlsm template (report-xlsm.ts, asbestos only),
@@ -180,6 +181,29 @@ export function jobReportDomains(serviceType: string | null | undefined): Report
     if (!domains.includes(domain)) domains.push(domain);
   }
   return domains;
+}
+
+// Per Tim, 2026-09-17 — "it should always move to Ready for Review when
+// the lab results come in": confirmed there was never actually an
+// automatic status transition anywhere (uploading a lab report, whether
+// via the automated Gmail pipeline or a manual admin upload, only ever
+// filed the document itself). Used by both upload paths to check whether
+// EVERY one of the job's own service-type labels now has its own
+// lab_report document — a job with more than one label (e.g. "Mold Air
+// Sampling, Mold Bulk Sampling") needs a report for each before it's
+// really ready, same granularity documents are actually filed under (see
+// processMatchedLabEmail's own comment on why one combined report can
+// still leave another label's data missing). Moisture Mapping is excluded
+// (same reasoning as jobReportDomains above) — it's not a lab-sample
+// domain and never gets a lab_report at all.
+export function hasAllLabReports(serviceType: string | null | undefined, documents: JobDocument[] | null | undefined): boolean {
+  const labels = (serviceType ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter((l) => l && !l.toLowerCase().includes("moisture mapping"));
+  if (labels.length === 0) return false;
+  const docs = documents ?? [];
+  return labels.every((label) => docs.some((d) => d.kind === "lab_report" && d.service_type === label));
 }
 
 const REPORT_DOMAIN_FILENAME_LABEL: Record<ReportDomain, string> = {

@@ -110,6 +110,51 @@ export async function POST(req: NextRequest) {
     } else {
       await alertUnmatchedEvent(event.type, invoiceId ?? charge.id);
     }
+  } else if (event.type === "payment_intent.processing") {
+    // Per Tim, 2026-09-18 (26-0031, Ruben Rodrigues) — "I need to get a
+    // notification every time someone pays me in Stripe": a bank-transfer
+    // (ACH) payment doesn't resolve instantly like a card — it sits in
+    // "processing" for 3-5 business days before invoice.paid ever fires,
+    // and until now that whole window was invisible. Only bank-account
+    // payments get this — a card either succeeds or fails right at
+    // checkout, with the customer already seeing that outcome themselves,
+    // so an extra email here would just be noise for the payment type
+    // that was never actually silent.
+    const paymentIntent = event.data.object as Stripe.PaymentIntent;
+    if (paymentIntent.payment_method_types.includes("us_bank_account")) {
+      const invoiceId = typeof paymentIntent.invoice === "string" ? paymentIntent.invoice : paymentIntent.invoice?.id ?? null;
+      const jobId = await resolveJobIdFromInvoiceId(supabase, invoiceId, paymentIntent.metadata?.job_id);
+      if (jobId) {
+        const { sendJobPaymentPendingNotification } = await import("@/lib/booking-notify");
+        await sendJobPaymentPendingNotification({
+          jobId,
+          amountCents: paymentIntent.amount,
+          paymentMethodTypes: paymentIntent.payment_method_types,
+        });
+      } else {
+        await alertUnmatchedEvent(event.type, invoiceId ?? paymentIntent.id);
+      }
+    }
+  } else if (event.type === "payment_intent.payment_failed") {
+    // The other half of the same gap — a pending ACH payment can still
+    // fail days later instead of clearing, and without this, that failure
+    // was exactly as invisible as the pending state used to be. Same
+    // us_bank_account-only scope as above, same reasoning.
+    const paymentIntent = event.data.object as Stripe.PaymentIntent;
+    if (paymentIntent.payment_method_types.includes("us_bank_account")) {
+      const invoiceId = typeof paymentIntent.invoice === "string" ? paymentIntent.invoice : paymentIntent.invoice?.id ?? null;
+      const jobId = await resolveJobIdFromInvoiceId(supabase, invoiceId, paymentIntent.metadata?.job_id);
+      if (jobId) {
+        const { sendJobPaymentFailedNotification } = await import("@/lib/booking-notify");
+        await sendJobPaymentFailedNotification({
+          jobId,
+          amountCents: paymentIntent.amount,
+          failureReason: paymentIntent.last_payment_error?.message ?? null,
+        });
+      } else {
+        await alertUnmatchedEvent(event.type, invoiceId ?? paymentIntent.id);
+      }
+    }
   }
 
   return NextResponse.json({ received: true });

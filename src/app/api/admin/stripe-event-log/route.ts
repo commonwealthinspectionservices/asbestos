@@ -35,6 +35,13 @@ export const GET = withApiErrors(async (req: NextRequest) => {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  // Per Tim, 2026-09-18 — checking whether the live webhook endpoint is
+  // even subscribed to payment_intent.processing/payment_failed (the new
+  // pending-payment notification depends on Stripe actually sending
+  // those, which is a Dashboard-side setting this codebase can't change).
+  const endpoints = await stripe.webhookEndpoints.list({ limit: 10 });
+  const webhookEndpoints = endpoints.data.map((e) => ({ url: e.url, enabled_events: e.enabled_events }));
+
   const results: unknown[] = [];
   for (const job of jobs ?? []) {
     if (!job.stripe_invoice_id) {
@@ -89,5 +96,5 @@ export const GET = withApiErrors(async (req: NextRequest) => {
     }
   }
 
-  return NextResponse.json({ results });
+  return NextResponse.json({ webhookEndpoints, results });
 });

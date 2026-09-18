@@ -39,6 +39,7 @@ import {
   summarizeMoldSporeTrapFindings,
   extractSampledDate,
   extractCrystalAnalyticalMaterialDescriptions,
+  SPORE_TRAP_KNOWN_TAXA,
 } from "@/lib/parse-lab-report";
 import {
   isLabInvoiceText,
@@ -56,7 +57,7 @@ import { computeLabCostCentsFromDocuments } from "@/lib/lab-cost";
 import { formatCents } from "@/lib/pricing";
 import { createStripeInvoiceForJob, tagInvoiceEmailed, getStripe } from "@/lib/stripe";
 import { splitTrailingCocPages } from "@/lib/split-lab-report-coc";
-import { extractPositionOrderedText, extractLabeledRowItems } from "@/lib/pdf-position-text";
+import { extractPositionOrderedText, extractLabeledRowItems, extractSporeTrapTaxonColumns } from "@/lib/pdf-position-text";
 import { jobReportDomains, domainForServiceTypeLabel, moldDiscussionFieldForLabel, isFullInspectionAsbestosJob, hasAllLabReports, ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, NEWTON_FIRE_FLOOD_COMPANY_ID, BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID, FLI_ENVIRONMENTAL_COMPANY_ID, reportEmailAttachmentFilename, type ReportDomain } from "@/lib/report-findings";
 import { sendEmail, emailShell } from "@/lib/email";
 import { sendJobPaidNotification } from "@/lib/booking-notify";
@@ -1711,7 +1712,15 @@ async function processMatchedLabEmail(params: {
           // missing/garbled Sample Name row just means the sentence below
           // falls back to "Sample <field code>" instead of a real room name.
           const sampleNames = await extractLabeledRowItems(pdfBuffer, "Sample Name").catch(() => null);
-          const sporeTrap = extractMoldSporeTrapFindings(positionOrderedText, sampleNames);
+          // extractSporeTrapTaxonColumns resolves a taxon's per-column
+          // values by their own on-page position — needed whenever a cell
+          // is genuinely blank/undetected, which the flattened text alone
+          // can't safely attribute to a column (see its own comment and
+          // 26-0030's real incident: a taxon undetected in the baseline
+          // sample was silently dropped along with a real "Elevated"
+          // finding elsewhere in the same row).
+          const taxonColumnsByPage = await extractSporeTrapTaxonColumns(pdfBuffer, SPORE_TRAP_KNOWN_TAXA).catch(() => null);
+          const sporeTrap = extractMoldSporeTrapFindings(positionOrderedText, sampleNames, taxonColumnsByPage);
           if (sporeTrap) sentences = summarizeMoldSporeTrapFindings(sporeTrap);
         } else {
           const findings = extractMoldDirectAnalysisFindings(positionOrderedText);

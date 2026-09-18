@@ -22,6 +22,8 @@
 // entirely instead of a result, so this allow-lists the two real outcomes
 // rather than trying to enumerate every phrasing a "not analyzed" row
 // might use.
+import type { SporeTrapCellValue } from "@/lib/pdf-position-text";
+
 const ASBESTOS_MINERALS = "chrysotile|amosite|crocidolite|tremolite|anthophyllite|actinolite";
 const POSITIVE_PATTERN = new RegExp(`\\d+%\\s*(?:${ASBESTOS_MINERALS})|(?:${ASBESTOS_MINERALS})\\s*\\d+%`, "i");
 const RESULT_PATTERN = new RegExp(`none detected|${POSITIVE_PATTERN.source}`, "i");
@@ -579,7 +581,7 @@ export function summarizeMoldDirectAnalysisFindings(findings: MoldDirectAnalysis
 // text extraction glues a taxon's numbers either onto its own name's line
 // or the line just before a bare name line, with no consistent rule (see
 // extractMoldSporeTrapFindings's own comment).
-const SPORE_TRAP_KNOWN_TAXA = [
+export const SPORE_TRAP_KNOWN_TAXA = [
   "Ascospores", "Basidiospores", "Bipolaris/Drech/Exser/Helm", "Cercospora", "Cladosporium",
   "Curvularia", "Epicoccum", "Ganoderma", "Pestalotia", "Pithomyces", "Rusts/Smuts/Myxo/Periconia",
   "Stemphylium", "Arthrinium", "Penicillium/Aspergillus", "Trichoderma", "Alternaria (syn. Ulocladium)",
@@ -658,59 +660,52 @@ function findSporeTrapTaxonInLine(line: string): string | null {
 // sampleCount-many triplets before trusting a taxon's row at all — a
 // sparse row (a real gap for at least one sample) is dropped rather than
 // guessed at, same discipline the Direct Analysis parser uses.
-export function extractMoldSporeTrapFindings(positionOrderedText: string, sampleNames?: string[] | null): MoldSporeTrapResult | null {
-  const sectionMatch = positionOrderedText.match(/Inertial Impactor \(Spore Trap\)[\s\S]*?(?=Crystal Analytical, LLC\.)/);
-  if (!sectionMatch) return null;
-  const section = sectionMatch[0];
+interface SporeTrapSectionParse {
+  fieldCodes: string[];
+  namesLine: string;
+  totals: SporeTrapTriplet[];
+  taxa: Map<string, SporeTrapTriplet[]>;
+}
 
+// One "Inertial Impactor (Spore Trap)" table's worth of parsing — split out
+// so extractMoldSporeTrapFindings can run it once per table and merge the
+// results (see that function's own comment on why a report can have more
+// than one).
+function parseSporeTrapSection(
+  section: string,
+  columnData?: { columnCount: number; valuesByTaxon: Map<string, Map<number, SporeTrapCellValue>> } | null
+): SporeTrapSectionParse | null {
   const sampleNumMatch = section.match(/Sample Number\s*\n(.+)/);
   if (!sampleNumMatch) return null;
   // "0004 4 0001 1 0002 2 0003 3" — alternating zero-padded/short forms of
   // the same code; only the short form (every other token) is used.
-  const shortCodes = sampleNumMatch[1].trim().split(/\s+/).filter((_, i) => i % 2 === 1);
-  const sampleCount = shortCodes.length;
+  const fieldCodes = sampleNumMatch[1].trim().split(/\s+/).filter((_, i) => i % 2 === 1);
+  const sampleCount = fieldCodes.length;
   if (sampleCount === 0) return null;
 
-  // A sample's real-world location name IS reliably recoverable — see
-  // extractLabeledRowItems in pdf-position-text.ts, which the caller uses
-  // to build the optional `sampleNames` param — but that needs the raw PDF
-  // buffer, not this function's own positionOrderedText input, so it's
-  // supplied by the caller rather than derived here. All this function
-  // itself needs from the flattened Sample Name line is confirming
-  // Crystal's own convention holds on this specific report: the
-  // outdoor/baseline sample is listed first. Bails rather than guessing
-  // which column is the baseline when it doesn't.
   const namesLineMatch = section.match(/Sample Name\s+(.+)/);
-  // Per Tim, 2026-09-17 (26-0030) — confirmed live that Crystal doesn't
-  // always word this the same way report to report: "Outdoor Ambient" on
-  // some, "Ambient Outdoor" on others (same two words, reversed) — both
-  // unambiguously name the same baseline sample, so both are accepted
-  // rather than bailing on a real report over word order alone. Anything
-  // else still bails rather than guess which column is the baseline.
-  const firstNameOnLine = namesLineMatch?.[1].trim() ?? "";
-  const baselineIsFirst = firstNameOnLine.startsWith("Outdoor Ambient") || firstNameOnLine.startsWith("Ambient Outdoor");
-  if (!baselineIsFirst) return null;
+  const namesLine = namesLineMatch?.[1].trim() ?? "";
 
   const lines = section.split("\n").map((l) => l.trim()).filter(Boolean);
-  const taxaBySample: { taxon: string; valuesBySample: SporeTrapTriplet[] }[] = [];
-  let totalsBySample: SporeTrapTriplet[] | null = null;
+  const taxa = new Map<string, SporeTrapTriplet[]>();
+  let totals: SporeTrapTriplet[] | null = null;
   let pending: SporeTrapTriplet[] | null = null;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     if (line === "Total") {
       const next = lines[i + 1];
       const triplets = next ? parseSporeTrapTriplets(next) : [];
-      if (triplets.length === sampleCount) totalsBySample = triplets;
+      if (triplets.length === sampleCount) totals = triplets;
       pending = null;
       continue;
     }
     const taxon = findSporeTrapTaxonInLine(line);
     const triplets = parseSporeTrapTriplets(line);
     if (taxon && triplets.length > 0) {
-      if (triplets.length === sampleCount) taxaBySample.push({ taxon, valuesBySample: triplets });
+      if (triplets.length === sampleCount) taxa.set(taxon, triplets);
       pending = null;
     } else if (taxon && triplets.length === 0) {
-      if (pending && pending.length === sampleCount) taxaBySample.push({ taxon, valuesBySample: pending });
+      if (pending && pending.length === sampleCount) taxa.set(taxon, pending);
       pending = null;
     } else if (!taxon && triplets.length > 0) {
       pending = triplets;
@@ -719,9 +714,99 @@ export function extractMoldSporeTrapFindings(positionOrderedText: string, sample
     }
   }
 
-  if (!totalsBySample) return null;
+  if (!totals) return null;
+
+  // Per Tim, 2026-09-17 (26-0030) — a taxon undetected in even one sample
+  // prints nothing for that cell at all, which the flattened-text parsing
+  // above can't safely attribute to a specific column when some are blank
+  // (see extractSporeTrapTaxonColumns' own comment) and so drops the whole
+  // row rather than guess — silently losing a real elevated finding along
+  // with it in the one report this was confirmed against. Position-resolved
+  // column data (when the caller has it) fills exactly those gaps: a taxon
+  // the text parsing already found complete is left as-is (trust the
+  // simpler path when it worked), but one it dropped gets filled in here,
+  // one column at a time, with an unresolved column becoming a real zero
+  // rather than the row vanishing.
+  if (columnData && columnData.columnCount === sampleCount) {
+    for (const [taxon, columnValues] of columnData.valuesByTaxon) {
+      if (taxa.has(taxon)) continue;
+      const filled: SporeTrapTriplet[] = [];
+      for (let col = 0; col < sampleCount; col++) {
+        const v = columnValues.get(col);
+        filled.push(v ? { count: v.count, structPerM3: v.structPerM3, pct: v.pct } : { count: 0, structPerM3: 0, pct: 0 });
+      }
+      taxa.set(taxon, filled);
+    }
+  }
+
+  return { fieldCodes, namesLine, totals, taxa };
+}
+
+// Per Tim, 2026-09-17 (26-0030) — confirmed live: a job with more air
+// samples than fit in one table (7 here) gets a SECOND "Inertial Impactor
+// (Spore Trap)" table further down the report, with no baseline column of
+// its own — only the first table repeats the outdoor/baseline sample.
+// Reading only the first table (the original version of this function)
+// silently dropped every sample in the second one from the discussion of
+// results entirely, including one Crystal's own report had colored
+// "Elevated" — a materially wrong "no significant amplification" auto-fill
+// on a job that actually had one. Every matching table is now parsed and
+// merged: whichever ONE table lists the baseline first supplies it, every
+// other table's samples are appended after it in report order, and a
+// taxon only survives into the merged result if every contributing table
+// had a clean, complete row for it — same "drop rather than guess"
+// discipline as a single table, just applied across all of them.
+export function extractMoldSporeTrapFindings(
+  positionOrderedText: string,
+  sampleNames?: string[] | null,
+  // Per Tim, 2026-09-17 (26-0030) — optional, from extractSporeTrapTaxonColumns
+  // (needs the raw PDF buffer, not just this function's own flattened text
+  // input, so it's supplied by the caller the same way sampleNames is).
+  // One entry per table, in the SAME document order as this function's own
+  // section matches below — extractSporeTrapTaxonColumns only ever
+  // includes a page that actually has an "Inertial Impactor" table, so the
+  // two orderings line up. Omitted entirely, existing callers (and every
+  // test using a hand-written text fixture with no real PDF behind it)
+  // keep the original text-only behavior unchanged.
+  taxonColumnsByPage?: { columnCount: number; valuesByTaxon: Map<string, Map<number, SporeTrapCellValue>> }[] | null
+): MoldSporeTrapResult | null {
+  const sectionMatches = [...positionOrderedText.matchAll(/Inertial Impactor \(Spore Trap\)[\s\S]*?(?=Crystal Analytical, LLC\.)/g)];
+  if (sectionMatches.length === 0) return null;
+
+  const parsedSections = sectionMatches.map((m, i) => parseSporeTrapSection(m[0], taxonColumnsByPage?.[i] ?? null));
+  if (parsedSections.some((p) => p === null)) return null;
+  const sections = parsedSections as SporeTrapSectionParse[];
+
+  // A sample's real-world location name IS reliably recoverable — see
+  // extractLabeledRowItems in pdf-position-text.ts, which the caller uses
+  // to build the optional `sampleNames` param — but that needs the raw PDF
+  // buffer, not this function's own positionOrderedText input, so it's
+  // supplied by the caller rather than derived here. All this function
+  // itself needs from each table's own flattened Sample Name line is
+  // confirming Crystal's own convention holds: exactly one table lists the
+  // outdoor/baseline sample first ("Outdoor Ambient" on some reports,
+  // "Ambient Outdoor" on others — same two words, reversed, both accepted).
+  // Bails rather than guessing when that's not true of exactly one table.
+  const baselineFlags = sections.map((s) => s.namesLine.startsWith("Outdoor Ambient") || s.namesLine.startsWith("Ambient Outdoor"));
+  if (baselineFlags.filter(Boolean).length !== 1) return null;
+  const baselineIndex = baselineFlags.indexOf(true);
+  const orderedSections = [sections[baselineIndex], ...sections.filter((_, i) => i !== baselineIndex)];
+
+  const sampleCount = orderedSections.reduce((n, s) => n + s.fieldCodes.length, 0);
+  const sampleFieldCodes = orderedSections.flatMap((s) => s.fieldCodes);
+  const totalsBySample = orderedSections.flatMap((s) => s.totals);
+
+  const taxonNames = new Set<string>();
+  for (const s of orderedSections) for (const t of s.taxa.keys()) taxonNames.add(t);
+  const taxaBySample: { taxon: string; valuesBySample: SporeTrapTriplet[] }[] = [];
+  for (const taxon of taxonNames) {
+    if (orderedSections.every((s) => s.taxa.has(taxon))) {
+      taxaBySample.push({ taxon, valuesBySample: orderedSections.flatMap((s) => s.taxa.get(taxon)!) });
+    }
+  }
+
   const cleanSampleNames = sampleNames && sampleNames.length === sampleCount ? sampleNames : null;
-  return { sampleCount, sampleFieldCodes: shortCodes, sampleNames: cleanSampleNames, totalsBySample, taxaBySample };
+  return { sampleCount, sampleFieldCodes, sampleNames: cleanSampleNames, totalsBySample, taxaBySample };
 }
 
 // Per Tim, 2026-09-17 — same "always say something plain" requirement as

@@ -1164,6 +1164,91 @@ Water Damage Common Allergen Elevated Highly Elevated Composition Alert
 Crystal Analytical, LLC.      •       55 Accord Park Dr., Ste. 2D; Rockland, MA 02370      •      (781) 347-3936     •      Page 2 of 6
 `;
 
+  // Real position-ordered text confirmed against 26-0030's actual
+  // Air-O-Cell report (Lab ID 2601004010, 440 Hancock St.) — 7 samples
+  // split across two "Inertial Impactor (Spore Trap)" tables (only the
+  // first repeats the baseline), with Crystal's own report coloring
+  // Penicillium/Aspergillus "Elevated" for sample 5 (42.6%) even though
+  // it's completely undetected (blank) in the baseline sample.
+  const TWO_TABLE_REPORT = `
+Inertial Impactor (Spore Trap)
+Sample Number
+0007 7 0001 1 0002 2 0003 3
+Sample Name Ambient Outdoor Idiil Left Staircase on Stairs Right Staircase on Stairs
+Taxa/Organism Count % of Total   Count % of Total Eval Count % of Total  Count % of Total
+Basidiospores 71 947 67.1% 3 40 75.5% 13 173 76.5% 12 160 63.0%
+1 13 24.5%  2 27 10.6%
+Penicillium/Aspergillus
+Total
+106 1,412 100% 4 53 100% 17 226 100% 19 254 100%
+Crystal Analytical, LLC.      •       55 Accord Park Dr., Ste. 2D; Rockland, MA 02370      •      (781) 347-3936     •      Page 2 of 6
+Inertial Impactor (Spore Trap)
+Sample Number
+0004 4 0005 5 0006 6
+Sample Name Spring Dental Common Area Under Carpet Outside Women's Room in Hall Above Ceiling Panel
+Taxa/Organism Count % of Total   Count % of Total Eval Count % of Total
+Basidiospores 6 80 86.0% 12 160 25.5% 5 67 83.8%
+1 13 14.0% 20 267 42.6% 1 13 16.3%
+Penicillium/Aspergillus
+Total
+7 93 100% 47 627 100% 6 80 100%
+Crystal Analytical, LLC.      •       55 Accord Park Dr., Ste. 2D; Rockland, MA 02370      •      (781) 347-3936     •      Page 3 of 6
+`;
+
+  // Mirrors what extractSporeTrapTaxonColumns (pdf-position-text.ts) would
+  // resolve from the real PDF's own item positions for this same report —
+  // Penicillium/Aspergillus undetected (blank) in the baseline (column 0)
+  // and "Idiil" (column 2) on the first table.
+  const TWO_TABLE_TAXON_COLUMNS = [
+    {
+      columnCount: 4,
+      valuesByTaxon: new Map([
+        ["Penicillium/Aspergillus", new Map([
+          [1, { count: 1, structPerM3: 13, pct: 24.5 }],
+          [3, { count: 2, structPerM3: 27, pct: 10.6 }],
+        ])],
+      ]),
+    },
+    {
+      columnCount: 3,
+      valuesByTaxon: new Map([
+        ["Penicillium/Aspergillus", new Map([
+          [0, { count: 1, structPerM3: 13, pct: 14.0 }],
+          [1, { count: 20, structPerM3: 267, pct: 42.6 }],
+          [2, { count: 1, structPerM3: 13, pct: 16.3 }],
+        ])],
+      ]),
+    },
+  ];
+
+  it("merges a report split across two spore-trap tables into one 7-sample result", () => {
+    const result = extractMoldSporeTrapFindings(TWO_TABLE_REPORT);
+    expect(result).not.toBeNull();
+    expect(result!.sampleCount).toBe(7);
+    expect(result!.sampleFieldCodes).toEqual(["7", "1", "2", "3", "4", "5", "6"]);
+  });
+
+  it("without position data, drops Penicillium/Aspergillus entirely (undetected in baseline, ambiguous from text alone)", () => {
+    const result = extractMoldSporeTrapFindings(TWO_TABLE_REPORT)!;
+    expect(result.taxaBySample.map((t) => t.taxon)).not.toContain("Penicillium/Aspergillus");
+    expect(summarizeMoldSporeTrapFindings(result)).toEqual([
+      "No significant mold amplification was indicated in the air samples; indoor spore composition was consistent with the outdoor baseline.",
+    ]);
+  });
+
+  // Per Tim, 2026-09-17 (26-0030) — this is the real bug: without position
+  // data, the sentence above claims no amplification even though Crystal's
+  // own report colored sample 5's Penicillium/Aspergillus "Elevated". With
+  // it, the undetected baseline cell resolves to a real zero and the
+  // finding surfaces correctly.
+  it("with position data, recovers the real Elevated finding Crystal's own report flagged", () => {
+    const result = extractMoldSporeTrapFindings(TWO_TABLE_REPORT, null, TWO_TABLE_TAXON_COLUMNS)!;
+    expect(result.taxaBySample.map((t) => t.taxon)).toContain("Penicillium/Aspergillus");
+    expect(summarizeMoldSporeTrapFindings(result)).toEqual([
+      "Penicillium/Aspergillus was elevated in Sample 5 (267 structures/m3, 42.6% of total), above the outdoor baseline (0 structures/m3, 0% of total).",
+    ]);
+  });
+
   it("extracts sample count, field codes, totals, and only the complete taxon rows", () => {
     const result = extractMoldSporeTrapFindings(REAL_SPORE_TRAP_REPORT);
     expect(result).not.toBeNull();

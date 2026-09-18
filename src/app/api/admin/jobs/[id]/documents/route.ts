@@ -8,11 +8,11 @@ import pdfParse from "pdf-parse/lib/pdf-parse.js";
 import { requireAdminApi } from "@/lib/admin-api";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { withApiErrors } from "@/lib/api-handler";
-import { extractSampleCount, detectAsbestosResult, extractSampleResults, extractReportProjectNumber, detectLabInfo, extractMoldSampleCount, extractMoldSampleResults, extractMoldDirectAnalysisFindings, summarizeMoldDirectAnalysisFindings, extractMoldSporeTrapFindings, summarizeMoldSporeTrapFindings, extractSampledDate, extractCrystalAnalyticalMaterialDescriptions } from "@/lib/parse-lab-report";
+import { extractSampleCount, detectAsbestosResult, extractSampleResults, extractReportProjectNumber, detectLabInfo, extractMoldSampleCount, extractMoldSampleResults, extractMoldDirectAnalysisFindings, summarizeMoldDirectAnalysisFindings, extractMoldSporeTrapFindings, summarizeMoldSporeTrapFindings, extractSampledDate, extractCrystalAnalyticalMaterialDescriptions, SPORE_TRAP_KNOWN_TAXA } from "@/lib/parse-lab-report";
 import { isLabInvoiceText, extractLabInvoiceTotalCents, extractInvoiceNumber } from "@/lib/parse-lab-invoice";
 import { computeLabCostCentsFromDocuments } from "@/lib/lab-cost";
 import { splitTrailingCocPages } from "@/lib/split-lab-report-coc";
-import { extractPositionOrderedText, extractLabeledRowItems } from "@/lib/pdf-position-text";
+import { extractPositionOrderedText, extractLabeledRowItems, extractSporeTrapTaxonColumns } from "@/lib/pdf-position-text";
 import { ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, isFullInspectionAsbestosJob, moldDiscussionFieldForLabel, hasAllLabReports } from "@/lib/report-findings";
 import { deriveFullInspectionMaterials } from "@/lib/sample-items";
 import type { Job, JobDocument } from "@/lib/types";
@@ -168,7 +168,13 @@ export const POST = withApiErrors(async (
             // missing/garbled Sample Name row just falls back to
             // "Sample <field code>" instead of a real room name.
             const sampleNames = await extractLabeledRowItems(fileBuffer, "Sample Name").catch(() => null);
-            const sporeTrap = extractMoldSporeTrapFindings(positionOrderedText, sampleNames);
+            // See extractSporeTrapTaxonColumns' own comment — resolves a
+            // taxon's per-column values by position, needed whenever a
+            // cell is genuinely blank/undetected (confirmed live on
+            // 26-0030: a taxon undetected in the baseline sample was
+            // silently dropping a real "Elevated" finding along with it).
+            const taxonColumnsByPage = await extractSporeTrapTaxonColumns(fileBuffer, SPORE_TRAP_KNOWN_TAXA).catch(() => null);
+            const sporeTrap = extractMoldSporeTrapFindings(positionOrderedText, sampleNames, taxonColumnsByPage);
             if (sporeTrap) sentences = summarizeMoldSporeTrapFindings(sporeTrap);
           } else {
             const findings = extractMoldDirectAnalysisFindings(positionOrderedText);

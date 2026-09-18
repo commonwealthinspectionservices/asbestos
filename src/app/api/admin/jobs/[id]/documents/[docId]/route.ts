@@ -48,6 +48,59 @@ export const GET = withApiErrors(async (
   });
 });
 
+// Per Tim, 2026-09-18 — a job billed under more than one service-type
+// label gets one JobDocument row per label for the same real weekly-
+// summary upload (see replaceLabInvoiceDocumentByNumber's own comment),
+// all sharing one lab_invoice_number; lab_invoice_flag was written to
+// every one of those rows the same way, so clearing it has to walk all of
+// them too, not just the one docId a caller happens to reference.
+// Narrowly scoped to this one field on purpose — lab_invoice_flag is the
+// only thing on a JobDocument a human should ever need to hand-correct
+// after the fact, when a detection heuristic that set it is later found
+// and fixed (see identifyTestSubtype in lib/lab-pricing.ts for the case
+// this was actually built for: two real, distinct charges — Direct
+// Examination and Spore Trap — that were wrongly flagged as the same test
+// billed twice, before that heuristic existed).
+export const PATCH = withApiErrors(async (
+  req: NextRequest,
+  { params }: { params: { id: string; docId: string } }
+) => {
+  const unauthorized = requireAdminApi(req);
+  if (unauthorized) return unauthorized;
+
+  const body = await req.json().catch(() => null);
+  if (!body || !("lab_invoice_flag" in body) || (body.lab_invoice_flag !== null && typeof body.lab_invoice_flag !== "string")) {
+    return NextResponse.json({ error: "lab_invoice_flag (string or null) is required" }, { status: 400 });
+  }
+
+  const supabase = getSupabaseAdmin();
+  const { data: job, error: jobError } = await supabase
+    .from("jobs")
+    .select("documents")
+    .eq("id", params.id)
+    .single();
+  if (jobError || !job) {
+    return NextResponse.json({ error: "Project not found" }, { status: 404 });
+  }
+  const jobRow = job as unknown as Job;
+  const target = jobRow.documents.find((d) => d.id === params.docId);
+  if (!target) {
+    return NextResponse.json({ error: "Document not found" }, { status: 404 });
+  }
+
+  const updatedDocuments = jobRow.documents.map((d) =>
+    d.kind === "lab_invoice" && d.lab_invoice_number === target.lab_invoice_number
+      ? { ...d, lab_invoice_flag: body.lab_invoice_flag }
+      : d
+  );
+
+  const { error } = await supabase.from("jobs").update({ documents: updatedDocuments }).eq("id", params.id);
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+  return NextResponse.json({ ok: true, updated: updatedDocuments.filter((d) => d.kind === "lab_invoice" && d.lab_invoice_number === target.lab_invoice_number).length });
+});
+
 export const DELETE = withApiErrors(async (
   req: NextRequest,
   { params }: { params: { id: string; docId: string } }

@@ -6378,8 +6378,19 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
 
         <label className="mt-3 block text-sm font-medium text-slate-700">Scope of Work</label>
         <textarea
-          className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          className="mt-1 w-full resize-none overflow-hidden rounded-lg border border-slate-300 px-3 py-2 text-sm"
           rows={4}
+          ref={(el) => {
+            // Per Tim, 2026-09-18 — "always made big enough to fit all of
+            // the text": same grow-to-fit approach as the invoice line
+            // item descriptions below (see that ref's own comment) — a
+            // long scope of work (a numbered list on a mold job, e.g.)
+            // was clipped by a fixed row count and needed scrolling to
+            // read the rest instead of just showing it.
+            if (!el) return;
+            el.style.height = "auto";
+            el.style.height = `${el.scrollHeight}px`;
+          }}
           value={scopeOfWork}
           onChange={(e) => setScopeOfWork(e.target.value)}
         />
@@ -7137,8 +7148,15 @@ export function EditProjectDialog({
 
         <label className="mt-3 block text-sm font-medium text-slate-700">Scope of Work</label>
         <textarea
-          className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          className="mt-1 w-full resize-none overflow-hidden rounded-lg border border-slate-300 px-3 py-2 text-sm"
           rows={2}
+          ref={(el) => {
+            // Per Tim, 2026-09-18 — same grow-to-fit fix as the other
+            // Scope of Work field's own comment.
+            if (!el) return;
+            el.style.height = "auto";
+            el.style.height = `${el.scrollHeight}px`;
+          }}
           value={scopeOfWork}
           onChange={(e) => setScopeOfWork(e.target.value)}
         />

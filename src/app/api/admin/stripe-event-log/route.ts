@@ -60,10 +60,28 @@ export const GET = withApiErrors(async (req: NextRequest) => {
           id: e.id,
           pending_webhooks: e.pending_webhooks,
         }));
+      // Per Tim, 2026-09-18 (26-0031, Ruben Rodrigues) — events.list is
+      // capped at 100, newest first, across the WHOLE account — a real
+      // pending ACH payment's own event can fall outside that window if
+      // enough other Stripe activity has happened since. Fetching the
+      // invoice's own live payment_intent directly sidesteps that limit
+      // entirely: real current status, no matter how far back it started.
+      const invoice = await stripe.invoices.retrieve(job.stripe_invoice_id, { expand: ["payment_intent"] });
+      const paymentIntent = typeof invoice.payment_intent === "object" ? invoice.payment_intent : null;
+
       results.push({
         project_number: job.project_number,
         current_db_state: { status: job.status, paid_date: job.paid_date, payment_reversed_at: job.payment_reversed_at },
         stripe_invoice_id: job.stripe_invoice_id,
+        stripe_invoice_status: invoice.status,
+        payment_intent: paymentIntent
+          ? {
+              id: paymentIntent.id,
+              status: paymentIntent.status,
+              amount: paymentIntent.amount,
+              payment_method_types: paymentIntent.payment_method_types,
+            }
+          : null,
         events: related,
       });
     } catch (e) {

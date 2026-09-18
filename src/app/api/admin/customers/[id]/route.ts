@@ -23,11 +23,31 @@ export const GET = withApiErrors(async (
     return NextResponse.json({ error: "Customer not found" }, { status: 404 });
   }
 
-  const { data: jobs } = await supabase
+  // Per Tim, 2026-09-18 — "since he's part of Boston Harbor Water
+  // Restoration, he's part of all their projects... if I click on
+  // someone's company to show all the projects I did with the company":
+  // a job only ever points at the one specific contact who happened to
+  // send/confirm it (jobs.customer_id), so a teammate at the same company
+  // who's never personally been that job's own contact showed 0 projects
+  // even though they're just as much "on" every one of that company's
+  // real jobs. Every contact sharing this one's company_id counts now,
+  // not just this exact row — same idea throughout the system, applied
+  // here first. A standalone individual (no company_id) keeps the
+  // original per-contact-only behavior — there's no company to expand to.
+  let jobsQuery = supabase
     .from("jobs")
     .select("id, project_number, service_address, requested_date, status, invoice_total_cents")
-    .eq("customer_id", params.id)
     .order("requested_date", { ascending: false });
+  if (customer.company_id) {
+    const { data: companyContacts } = await supabase
+      .from("customers")
+      .select("id")
+      .eq("company_id", customer.company_id);
+    jobsQuery = jobsQuery.in("customer_id", (companyContacts ?? []).map((c) => c.id));
+  } else {
+    jobsQuery = jobsQuery.eq("customer_id", params.id);
+  }
+  const { data: jobs } = await jobsQuery;
 
   // Someone can sign up for a portal login and never finish onboarding —
   // that leaves a confirmed auth.users account with no customers row

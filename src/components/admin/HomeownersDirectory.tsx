@@ -89,9 +89,9 @@ export default function HomeownersDirectory({
               <button
                 key={key}
                 onClick={() => setSelectedKey(key)}
-                className="block w-full rounded-lg border border-slate-200 bg-white p-3 text-left hover:border-brand-400"
+                className="group block w-full rounded-lg border border-slate-200 bg-white p-3 text-left hover:border-brand-400"
               >
-                <div className="font-medium text-slate-800">{toTitleCase(h.name)}</div>
+                <div className="font-medium text-slate-800 group-hover:underline">{toTitleCase(h.name)}</div>
                 {/* Most recent job's address — the newest entry in each
                     group, since /api/admin/homeowners already orders
                     jobs newest-first before grouping. */}

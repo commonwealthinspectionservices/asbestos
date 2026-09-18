@@ -11,9 +11,9 @@ function ContactRow({ c, onClick }: { c: Customer; onClick: () => void }) {
   return (
     <button
       onClick={onClick}
-      className="w-full rounded-lg border border-slate-200 bg-white p-3 text-left hover:border-brand-400"
+      className="group w-full rounded-lg border border-slate-200 bg-white p-3 text-left hover:border-brand-400"
     >
-      <div className="font-medium text-slate-800">{c.name}</div>
+      <div className="font-medium text-slate-800 group-hover:underline">{c.name}</div>
       {c.company ? (
         <div className="text-sm text-slate-500">{c.company}</div>
       ) : (

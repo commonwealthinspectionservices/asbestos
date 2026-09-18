@@ -24,7 +24,19 @@ import {
   getHeader,
   getMessageBodyHtml,
   markMessageRead,
+  getOrCreateLabelId,
+  addLabelToMessage,
 } from "@/lib/gmail";
+
+// Per Tim, 2026-09-18 — a real job (627 Tremont Street) sat un-created for
+// a full day: this pipeline's only candidacy filter was is:unread, and
+// Tim reading the email himself (to show it to me) silently dropped it
+// from every future run forever, with no alert and no way to notice short
+// of him asking directly. Same root cause, and same fix, as job-intake.ts
+// hit first (see its own PROCESSED_LABEL comment) — a label only this
+// pipeline ever applies is authoritative regardless of the owner's own
+// reading habits, where is:unread never was.
+const PROCESSED_LABEL = "Processed/Subcontractor Assignments";
 
 export interface SubcontractorIntakeResult {
   checked: number;
@@ -56,9 +68,14 @@ export async function checkForSubcontractorAssignments(): Promise<SubcontractorI
   if (!accessToken) throw new Error("Gmail is not connected");
 
   const result: SubcontractorIntakeResult = { checked: 0, created: [], updated: [], unmatched: 0 };
+  const processedLabelId = await getOrCreateLabelId(accessToken, PROCESSED_LABEL);
 
   for (const sender of KNOWN_SUBCONTRACTOR_SENDERS) {
-    const query = `is:unread from:${sender.domain} newer_than:14d`;
+    // -label, not is:unread — see PROCESSED_LABEL's own comment. Applied to
+    // every message this pipeline actually looks at below (whether or not
+    // there was anything to do), independent of whether the owner's own
+    // Gmail client has since marked it read.
+    const query = `-label:"${PROCESSED_LABEL}" from:${sender.domain} newer_than:14d`;
     const candidates = await listMessagesByQuery(accessToken, query);
 
     // listMessagesByQuery has no explicit sort and Gmail's default order is
@@ -140,6 +157,13 @@ export async function checkForSubcontractorAssignments(): Promise<SubcontractorI
         });
         await markMessageRead(accessToken, message.id);
         result.unmatched++;
+      } finally {
+        // Applied no matter which branch above ran (including a genuine
+        // error) — see PROCESSED_LABEL's own comment. Read state is
+        // untouched here on purpose: a "New Job" offer this pipeline has
+        // nothing to do with should still look unread to Tim if he hasn't
+        // opened it, same as before.
+        await addLabelToMessage(accessToken, message.id, processedLabelId).catch(() => {});
       }
     }
   }

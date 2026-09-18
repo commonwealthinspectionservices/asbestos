@@ -949,6 +949,65 @@ Very Heavy
 Crystal Analytical, LLC.      •       55 Accord Park Dr., Ste. 2D; Rockland, MA 02370      •      (781) 347-3936     •      Page 3 of 3
 `;
 
+// Per Tim, 2026-09-18 (26-0030, real Lab ID 2601004010) — same underlying
+// report structure as the air+bulk combo above, but this time the job had
+// more air samples than fit in one spore-trap table (7 total), so Crystal
+// printed a SECOND "Count / Struct/m³" table further down the report.
+// Matching only the report's first such table undercounted a real
+// 7-sample job as 4, which then printed "Three (3) samples" in the actual
+// report letter (job.sample_counts feeds that sentence — see report-pdf.tsx's
+// own airSampleCountSentence) instead of the correct "Six (6) samples".
+const CRYSTAL_MOLD_AIR_TWO_TABLE_REPORT = `
+Tim Hall
+Commonwealth Inspection Services, LLC
+440 Hancock St.
+Quincy, MA
+0007000100020003
+Count
+Struct/m
+3
+% of Total   Count
+Struct/m
+3
+% of Total
+Eval Count
+Struct/m
+3
+% of Total  Count
+Struct/m
+3
+% of Total
+106 1,412 100% 4 53 100% 17 226 100% 19 254 100%
+Sample Name Ambient Outdoor
+BIO-SOP-001
+Inertial Impactor (Spore Trap)
+Lab ID: 2601004010
+Crystal Analytical, LLC.      •       55 Accord Park Dr., Ste. 2D; Rockland, MA 02370      •      (781) 347-3936     •      Page 2 of 6
+
+Tim Hall
+Commonwealth Inspection Services, LLC
+440 Hancock St.
+Quincy, MA
+000400050006
+Count
+Struct/m
+3
+% of Total   Count
+Struct/m
+3
+% of Total
+Eval Count
+Struct/m
+3
+% of Total
+7 93 100% 47 627 100% 6 80 100%
+Sample Name Spring Dental Common Area
+BIO-SOP-001
+Inertial Impactor (Spore Trap)
+Lab ID: 2601004010
+Crystal Analytical, LLC.      •       55 Accord Park Dr., Ste. 2D; Rockland, MA 02370      •      (781) 347-3936     •      Page 3 of 6
+`;
+
 describe("extractMoldSampleCount", () => {
   it("counts only the 2 real swab samples, excluding the 3 Dummy slots", () => {
     expect(extractMoldSampleCount(MOLD_SWAB_REPORT)).toBe(2);
@@ -977,6 +1036,10 @@ describe("extractMoldSampleCount", () => {
   it("still returns the spore-trap count when no serviceType is given at all", () => {
     expect(extractMoldSampleCount(CRYSTAL_MOLD_AIR_BULK_COMBO_REPORT)).toBe(4);
   });
+
+  it("counts all 7 real Crystal spore-trap samples split across two tables, not just the first table's 4", () => {
+    expect(extractMoldSampleCount(CRYSTAL_MOLD_AIR_TWO_TABLE_REPORT, "Mold Air Sampling")).toBe(7);
+  });
 });
 
 describe("extractMoldSampleResults", () => {
@@ -996,6 +1059,12 @@ describe("extractMoldSampleResults", () => {
   it("lists the 1 real bulk sample for a bulk request on a Crystal air+bulk combo report", () => {
     expect(extractMoldSampleResults(CRYSTAL_MOLD_AIR_BULK_COMBO_REPORT, "Mold Bulk Sampling")).toEqual([
       { fieldCode: "1", result: "Analyzed", serviceType: "Mold Bulk Sampling" },
+    ]);
+  });
+
+  it("lists all 7 real field codes split across two Crystal spore-trap tables, not just the first table's 4", () => {
+    expect(extractMoldSampleResults(CRYSTAL_MOLD_AIR_TWO_TABLE_REPORT, "Mold Air Sampling").map((r) => r.fieldCode)).toEqual([
+      "1", "2", "3", "4", "5", "6", "7",
     ]);
   });
 

@@ -424,14 +424,22 @@ function crystalDirectAnalysisFieldCodes(pdfText: string): string[] {
   return [...new Set(matches.map((m) => m[1]))].sort((a, b) => Number(a) - Number(b));
 }
 
+// Per Tim, 2026-09-18 (26-0030) — a job with more air samples than fit in
+// one table gets a SECOND "Taxa/Organism ... Count / Struct/m³" table
+// further down the report (see extractMoldSporeTrapFindings' own comment
+// on the same underlying report structure) — matching only the first
+// occurrence undercounted a real 7-sample report as 4, which then printed
+// "Three (3) samples" in the actual report letter instead of "Six (6)".
+// Every matching table now contributes its own codes, merged and deduped
+// the same way a report with just one table already behaved.
 function crystalSporeTrapFieldCodes(pdfText: string): string[] {
-  const match = pdfText.match(CRYSTAL_SPORE_TRAP_COUNT_PATTERN);
-  if (!match) return [];
-  const digits = match[1].replace(/\s/g, "");
-  if (digits.length % 4 !== 0) return [];
   const codes: string[] = [];
-  for (let i = 0; i < digits.length; i += 4) {
-    codes.push(String(Number(digits.slice(i, i + 4))));
+  for (const match of pdfText.matchAll(new RegExp(CRYSTAL_SPORE_TRAP_COUNT_PATTERN, "g"))) {
+    const digits = match[1].replace(/\s/g, "");
+    if (digits.length % 4 !== 0) continue;
+    for (let i = 0; i < digits.length; i += 4) {
+      codes.push(String(Number(digits.slice(i, i + 4))));
+    }
   }
   return [...new Set(codes)].sort((a, b) => Number(a) - Number(b));
 }

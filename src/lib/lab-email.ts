@@ -2159,11 +2159,22 @@ async function draftInvoiceEmailForJob(params: {
     }
   }
 
+  // Per Tim, 2026-09-18 (26-0030, "Burt Condo Trust") — confirmed live
+  // that this draft never threaded onto the job's own Gmail conversation
+  // at all, unlike draftReportEmailForJob's own copy of this same
+  // threadId/headers wiring just above: a job whose invoice actually
+  // needed to land as a reply in an ongoing back-and-forth (not a fresh
+  // top-level email) always got a brand-new, disconnected thread instead.
+  // Subject stays fixed per Tim's own 2026-08-27 note below — only the
+  // threading itself was missing.
+  const existingThreadIds: string[] = Array.isArray(job.email_thread_message_ids) ? job.email_thread_message_ids : [];
   const draft = await createDraft(accessToken, {
     to: invoiceTo,
     // Per Tim, 2026-08-27 — always exactly this, regardless of service
     // type(s) on the job.
     subject: `Inspection Invoice - ${expandAddress(pricedJob.service_address)}`,
+    headers: threadHeaders(existingThreadIds),
+    threadId: job.email_gmail_thread_id ?? undefined,
     bodyHtml: invoiceDraftBodyHtml(pricedJob, settings, payNowUrlForEmail),
     attachments: [
       // Per Tim, 2026-08-27 — every PDF filename starts with the job

@@ -57,7 +57,7 @@ import { computeLabCostCentsFromDocuments } from "@/lib/lab-cost";
 import { formatCents } from "@/lib/pricing";
 import { createStripeInvoiceForJob, tagInvoiceEmailed, getStripe } from "@/lib/stripe";
 import { splitTrailingCocPages } from "@/lib/split-lab-report-coc";
-import { extractPositionOrderedText, extractLabeledRowItems, extractSporeTrapTaxonColumns } from "@/lib/pdf-position-text";
+import { extractPositionOrderedText, extractSporeTrapSampleNames, extractSporeTrapTaxonColumns } from "@/lib/pdf-position-text";
 import { jobReportDomains, domainForServiceTypeLabel, moldDiscussionFieldForLabel, isFullInspectionAsbestosJob, hasAllLabReports, ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, NEWTON_FIRE_FLOOD_COMPANY_ID, BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID, FLI_ENVIRONMENTAL_COMPANY_ID, reportEmailAttachmentFilename, type ReportDomain } from "@/lib/report-findings";
 import { sendEmail, emailShell } from "@/lib/email";
 import { sendJobPaidNotification } from "@/lib/booking-notify";
@@ -1706,12 +1706,13 @@ async function processMatchedLabEmail(params: {
         if (!discussionField || job[discussionField]?.trim()) continue;
         let sentences: string[] = [];
         if (/air/i.test(label)) {
-          // extractLabeledRowItems reads the raw PDF's own text items
-          // directly (see its own comment for why that succeeds where the
-          // flattened positionOrderedText can't) — best-effort, since a
-          // missing/garbled Sample Name row just means the sentence below
+          // extractSporeTrapSampleNames reads the raw PDF's own text items
+          // directly, anchored to each sample's own field-code column (see
+          // its own comment for why that's needed — a wrapped name broke
+          // naive same-line reading) — best-effort, since a missing/
+          // unresolvable Sample Name row just means the sentence below
           // falls back to "Sample <field code>" instead of a real room name.
-          const sampleNames = await extractLabeledRowItems(pdfBuffer, "Sample Name").catch(() => null);
+          const sampleNames = await extractSporeTrapSampleNames(pdfBuffer).catch(() => null);
           // extractSporeTrapTaxonColumns resolves a taxon's per-column
           // values by their own on-page position — needed whenever a cell
           // is genuinely blank/undetected, which the flattened text alone

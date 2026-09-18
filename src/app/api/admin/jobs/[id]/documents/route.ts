@@ -12,7 +12,7 @@ import { extractSampleCount, detectAsbestosResult, extractSampleResults, extract
 import { isLabInvoiceText, extractLabInvoiceTotalCents, extractInvoiceNumber } from "@/lib/parse-lab-invoice";
 import { computeLabCostCentsFromDocuments } from "@/lib/lab-cost";
 import { splitTrailingCocPages } from "@/lib/split-lab-report-coc";
-import { extractPositionOrderedText, extractLabeledRowItems, extractSporeTrapTaxonColumns } from "@/lib/pdf-position-text";
+import { extractPositionOrderedText, extractSporeTrapSampleNames, extractSporeTrapTaxonColumns } from "@/lib/pdf-position-text";
 import { ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, isFullInspectionAsbestosJob, moldDiscussionFieldForLabel, hasAllLabReports } from "@/lib/report-findings";
 import { deriveFullInspectionMaterials } from "@/lib/sample-items";
 import type { Job, JobDocument } from "@/lib/types";
@@ -164,10 +164,10 @@ export const POST = withApiErrors(async (
         if (positionOrderedText && discussionField && !jobRow[discussionField]?.trim()) {
           let sentences: string[] = [];
           if (/air/i.test(serviceType)) {
-            // Best-effort — see extractLabeledRowItems' own comment; a
-            // missing/garbled Sample Name row just falls back to
+            // Best-effort — see extractSporeTrapSampleNames' own comment; a
+            // missing/unresolvable Sample Name row just falls back to
             // "Sample <field code>" instead of a real room name.
-            const sampleNames = await extractLabeledRowItems(fileBuffer, "Sample Name").catch(() => null);
+            const sampleNames = await extractSporeTrapSampleNames(fileBuffer).catch(() => null);
             // See extractSporeTrapTaxonColumns' own comment — resolves a
             // taxon's per-column values by position, needed whenever a
             // cell is genuinely blank/undetected (confirmed live on

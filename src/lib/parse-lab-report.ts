@@ -607,7 +607,7 @@ export interface MoldSporeTrapResult {
   sampleFieldCodes: string[];
   /** Each sample's own real-world location ("Boiler/Equipment Room",
    *  "Outdoor Ambient", ...), same column order as everything else here —
-   *  from extractLabeledRowItems(pdfBuffer, "Sample Name"), which reads
+   *  from extractSporeTrapSampleNames(pdfBuffer), which reads
    *  the underlying PDF text items directly rather than the flattened
    *  text this file otherwise works from (see that function's own
    *  comment). Optional/caller-supplied since it needs the raw PDF buffer,
@@ -778,8 +778,8 @@ export function extractMoldSporeTrapFindings(
   const sections = parsedSections as SporeTrapSectionParse[];
 
   // A sample's real-world location name IS reliably recoverable — see
-  // extractLabeledRowItems in pdf-position-text.ts, which the caller uses
-  // to build the optional `sampleNames` param — but that needs the raw PDF
+  // extractSporeTrapSampleNames in pdf-position-text.ts, which the caller
+  // uses to build the optional `sampleNames` param — but that needs the raw PDF
   // buffer, not this function's own positionOrderedText input, so it's
   // supplied by the caller rather than derived here. All this function
   // itself needs from each table's own flattened Sample Name line is

@@ -63,47 +63,104 @@ export async function extractPositionOrderedText(pdfBuffer: Buffer): Promise<str
 // joins every same-row item into one space-separated line and loses the
 // item boundaries in the process ("Outdoor Ambient Boiler/Equipment Room
 // Basement - Common Area w/ Red Tile Basement - Back Right Bedroom" reads
-// as one ambiguous blob). The underlying pdf.js text items never lost that
-// information — confirmed against two real reports (26-0032, 26-0002):
-// each sample's location name is already its own discrete item, not
-// fragmented at the word or character level, at the exact same y as the
-// "Sample Name" label itself. This finds a row by its own label text
-// (exact match) and returns every OTHER item on that same line, left to
-// right — one string per column, in the table's own left-to-right order
-// (which extractMoldSporeTrapFindings already relies on matching the
-// Sample Number row's own order, from the joined text). Returns null when
-// the label isn't found on any page at all.
+// as one ambiguous blob). The underlying pdf.js text items never lost
+// that information — confirmed against two real reports (26-0032,
+// 26-0002): each sample's location name is already its own discrete
+// item, not fragmented at the word or character level.
 //
-// Per Tim, 2026-09-17 (26-0030) — a job with more air samples than fit in
-// one table gets a SECOND same-labeled table further down the report (its
-// own "Sample Name" row, no baseline column — see
-// extractMoldSporeTrapFindings' own comment). Every matching row across
-// every page now contributes its own columns, concatenated in document
-// order, instead of just the first one found — the only caller of this
-// (mold air's "Sample Name") already expects one name per sample in report
-// order, so a report with just one matching row behaves exactly as before.
-export async function extractLabeledRowItems(pdfBuffer: Buffer, label: string): Promise<string[] | null> {
-  const rows: string[][] = [];
-  async function findLabeledRow(pageData: {
+// Per Tim, 2026-09-18 (26-0030) — an earlier version of this simply read
+// every item at the "Sample Name" label's own exact y, left to right.
+// That breaks the moment a sample's own name wraps onto a second line
+// (confirmed real: "Under Carpet Outside Women's Room in Hall" splits
+// into "Under Carpet Outside Women's Room in " one point *above* the
+// label's own baseline and "Hall" several points *below* it — neither
+// sits at the label's exact y at all), which left that whole table's
+// names undercounted (falling back to generic "Sample N" labels for
+// every sample on it, not just the one that wrapped) and, worse, invited
+// exactly the kind of left-to-right-by-eye misreading that put the wrong
+// room name on a real elevated finding when done by hand afterward. This
+// anchors each name fragment to its actual sample column instead of
+// guessing from left-to-right order: the
+// "Sample Number" row's own field codes are guaranteed one per column and
+// never wrap, so their x-positions are reliable anchors (same idea as
+// extractSporeTrapTaxonColumns' use of the Total row); a y-band bounded by
+// the midpoints to the rows immediately above ("Sample Number") and below
+// ("Sample Volume") catches every fragment of a wrapped name without
+// bleeding into either neighboring row; and fragments assigned to the same
+// column are joined top-to-bottom into that sample's full name. Returns
+// one array per table (flattened, same order as extractLabeledRowItems)
+// — null if any table's own row doesn't resolve cleanly, since a partial
+// result here is worse than the caller's own existing "Sample N" fallback.
+export async function extractSporeTrapSampleNames(pdfBuffer: Buffer): Promise<string[] | null> {
+  const allNames: string[][] = [];
+  let failed = false;
+
+  async function renderPage(pageData: {
     getTextContent: (opts: { normalizeWhitespace: boolean; disableCombineTextItems: boolean }) => Promise<{
       items: { str: string; transform: number[] }[];
     }>;
   }): Promise<string> {
+    if (failed) return "";
     const textContent = await pageData.getTextContent({ normalizeWhitespace: false, disableCombineTextItems: false });
     const items: PositionedItem[] = textContent.items
       .map((it) => ({ str: it.str, x: it.transform[4], y: Math.round(it.transform[5]) }))
       .filter((it) => it.str.trim().length > 0);
-    for (const labelItem of items.filter((it) => it.str.trim() === label)) {
-      const row = items
-        .filter((it) => it.y === labelItem.y && it !== labelItem)
-        .sort((a, b) => a.x - b.x)
-        .map((it) => it.str.trim());
-      if (row.length > 0) rows.push(row);
+
+    if (!items.some((it) => it.str.includes("Inertial Impactor"))) return "";
+
+    const sampleNumberLabel = items.find((it) => it.str.trim() === "Sample Number");
+    const sampleNameLabel = items.find((it) => it.str.trim() === "Sample Name");
+    const sampleVolumeLabel = items.find((it) => it.str.trim() === "Sample Volume");
+    if (!sampleNumberLabel || !sampleNameLabel || !sampleVolumeLabel) { failed = true; return ""; }
+
+    // Field codes sit a point or two below their own label, same as every
+    // other row in this table — same small tolerance used throughout this
+    // file for matching a label to its own row.
+    const fieldCodeItems = items
+      .filter((it) => Math.abs(it.y - sampleNumberLabel.y) <= 3 && it !== sampleNumberLabel)
+      .sort((a, b) => a.x - b.x);
+    // "0007 7 0001 1 ..." — every other token (the short form) is one
+    // column anchor.
+    const columnAnchors = fieldCodeItems.filter((_, i) => i % 2 === 1).map((it) => it.x);
+    if (columnAnchors.length === 0) { failed = true; return ""; }
+
+    const upperBound = (sampleNumberLabel.y + sampleNameLabel.y) / 2;
+    const lowerBound = (sampleNameLabel.y + sampleVolumeLabel.y) / 2;
+    const nameFragments = items.filter(
+      (it) => it.y < upperBound && it.y > lowerBound && it !== sampleNameLabel && it.x > sampleNameLabel.x - 5
+    );
+
+    const byColumn = new Map<number, PositionedItem[]>();
+    for (const fragment of nameFragments) {
+      let nearestIndex = -1;
+      let nearestDist = Infinity;
+      columnAnchors.forEach((anchorX, i) => {
+        const dist = Math.abs(fragment.x - anchorX);
+        if (dist < nearestDist) { nearestDist = dist; nearestIndex = i; }
+      });
+      if (nearestIndex < 0) continue;
+      const list = byColumn.get(nearestIndex) ?? [];
+      list.push(fragment);
+      byColumn.set(nearestIndex, list);
     }
+
+    if (byColumn.size !== columnAnchors.length) { failed = true; return ""; }
+    const names = columnAnchors.map((_, i) =>
+      byColumn
+        .get(i)!
+        .sort((a, b) => b.y - a.y)
+        .map((it) => it.str.trim())
+        .join(" ")
+        .replace(/\s+/g, " ")
+        .trim()
+    );
+    allNames.push(names);
     return "";
   }
-  await pdfParse(pdfBuffer, { pagerender: findLabeledRow });
-  return rows.length > 0 ? rows.flat() : null;
+
+  await pdfParse(pdfBuffer, { pagerender: renderPage });
+  if (failed || allNames.length === 0) return null;
+  return allNames.flat();
 }
 
 export interface SporeTrapCellValue {

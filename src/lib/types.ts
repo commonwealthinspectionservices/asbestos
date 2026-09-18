@@ -103,6 +103,8 @@ export interface Customer {
   onboarding_completed_at: string | null;
   /** The linked company's own record (phone, billing address, etc.), distinct from this contact's own — only populated by endpoints that join it in (e.g. GET /api/admin/jobs). */
   companies?: Company | null;
+  /** Every ADDITIONAL email that should also resolve to this same contact (e.g. in the Email results to/Email invoice to picker) — `email` above stays the one primary address everything else (the unique index, Stripe, upserts) is keyed off. Absent/empty on a row saved before this column existed. */
+  secondary_emails?: string[];
 }
 
 /** The payer entity (e.g. a restoration company) — customers are individual contacts at one. */

@@ -1174,3 +1174,65 @@ alter table career_interest_submissions add column if not exists desired_hourly_
 -- relational/RLS overhead of a dedicated table isn't worth it here — see
 -- SubcontractorSavedClient in lib/types.ts for the shape of each entry.
 alter table companies add column if not exists subcontractor_saved_clients jsonb not null default '[]'::jsonb;
+
+-- Per Tim, 2026-09-18 — a real contact (Lorraine Tse, cc'd on a client
+-- email under two different addresses) needs more than one email reaching
+-- them, and "just make both emails under the same contact" going forward
+-- is a general request, not a one-off. customers.email stays the single
+-- primary address (the unique index, Stripe, upserts, everything else
+-- keyed off "the" email for this contact are all untouched) — this is
+-- every ADDITIONAL address that should also resolve to this same person
+-- (e.g. in the Email results to/Email invoice to contact picker).
+alter table customers add column if not exists secondary_emails text[] not null default '{}'::text[];
+
+-- Per Tim, 2026-09-18 — merge_customers used to just delete the loser's
+-- own email along with the rest of the row, which is exactly wrong for
+-- the case this was extended for: two contacts that are really the same
+-- person under two different addresses (Lorraine Tse) should merge into
+-- one contact who still reaches both, not one that silently drops
+-- whichever email the loser had. Folds the loser's own email and any of
+-- its own secondary_emails into the survivor's secondary_emails before
+-- deleting it — same "preserve what the loser had" reasoning the
+-- auth_user_id handling below it already follows.
+create or replace function merge_customers(survivor_id uuid, loser_id uuid) returns void as $$
+declare
+  loser_auth_id uuid;
+  survivor_auth_id uuid;
+  loser_email text;
+  loser_secondary_emails text[];
+begin
+  if not exists (select 1 from customers where id = loser_id) then
+    raise exception 'merge_customers: loser_id % does not exist', loser_id;
+  end if;
+  if not exists (select 1 from customers where id = survivor_id) then
+    raise exception 'merge_customers: survivor_id % does not exist', survivor_id;
+  end if;
+
+  select auth_user_id, email, secondary_emails into loser_auth_id, loser_email, loser_secondary_emails from customers where id = loser_id;
+  select auth_user_id into survivor_auth_id from customers where id = survivor_id;
+
+  if loser_auth_id is not null and survivor_auth_id is not null and loser_auth_id != survivor_auth_id then
+    raise exception 'Both records have their own portal login — resolve manually before merging';
+  end if;
+
+  update jobs set customer_id = survivor_id where customer_id = loser_id;
+  update jobs set billing_contact_id = survivor_id where billing_contact_id = loser_id;
+  update saved_addresses set customer_id = survivor_id where customer_id = loser_id;
+  update companies set billing_contact_id = survivor_id where billing_contact_id = loser_id;
+
+  if loser_email is not null then
+    update customers
+      set secondary_emails = array(
+        select distinct e from unnest(secondary_emails || array[loser_email] || coalesce(loser_secondary_emails, '{}'::text[])) as e
+      )
+      where id = survivor_id;
+  end if;
+
+  if loser_auth_id is not null and survivor_auth_id is null then
+    update customers set auth_user_id = null where id = loser_id;
+    update customers set auth_user_id = loser_auth_id where id = survivor_id;
+  end if;
+
+  delete from customers where id = loser_id;
+end;
+$$ language plpgsql;

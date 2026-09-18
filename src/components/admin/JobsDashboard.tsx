@@ -2400,16 +2400,19 @@ export function ProjectDetailDialog({
   // Just for labeling "Email results to" below — report_emails is only ever
   // stored as bare addresses (see lib/lab-email.ts's own recipient-building,
   // which needs plain emails to send to), so names for display are looked
-  // up separately against the job's company contacts rather than stored
-  // alongside the emails themselves.
+  // up separately rather than stored alongside the emails themselves.
+  // Per Tim, 2026-09-18 (26-0030, Marco Rancourt @ CBRE) — "I should be
+  // able to add someone by contact name" wasn't limited to this job's own
+  // company (a real example: a third party like a broker or property
+  // manager, not this customer's own teammate) — every known contact
+  // system-wide now, not just companyId's own roster.
   const [companyContactsForDisplay, setCompanyContactsForDisplay] = useState<Customer[]>([]);
   useEffect(() => {
-    const companyId = job.customers?.company_id;
-    if (!companyId) { setCompanyContactsForDisplay([]); return; }
-    fetch(`/api/admin/customers?companyId=${companyId}`)
+    fetch(`/api/admin/customers`)
       .then((res) => res.json())
       .then((data) => setCompanyContactsForDisplay(data.customers ?? []));
-  }, [job.customers?.company_id]);
+  }, []);
+  const [linkingEmailThread, setLinkingEmailThread] = useState(false);
   const [confirmingReleaseOverride, setConfirmingReleaseOverride] = useState(false);
   useLockBodyScroll(confirmingReleaseOverride);
   const [submittingReleaseOverride, setSubmittingReleaseOverride] = useState(false);
@@ -3472,7 +3475,7 @@ export function ProjectDetailDialog({
               desktop-only, with a separate mobile-only inline copy next to
               Project # — that copy is gone, see its own removed comment). */}
           <div className="absolute right-0 top-0 flex shrink-0 items-center gap-2">
-            {job.email_gmail_thread_id && (
+            {job.email_gmail_thread_id ? (
               <a
                 href={`https://mail.google.com/mail/u/0/#all/${job.email_gmail_thread_id}`}
                 target="_blank"
@@ -3485,6 +3488,24 @@ export function ProjectDetailDialog({
                   <path d="M3 5.5L10 11L17 5.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </a>
+            ) : (
+              // Per Tim, 2026-09-18 (26-0030, "Burt Condo Trust") — a job
+              // that started as an ordinary back-and-forth negotiation
+              // thread rather than the automated intake path never gets
+              // email_gmail_thread_id captured, so the mail icon above has
+              // nothing to link to and a regenerated report draft can't
+              // land as a reply in that same conversation either. This
+              // finds and attaches the real thread after the fact.
+              <button
+                onClick={() => setLinkingEmailThread(true)}
+                title="Link this job to its Gmail conversation"
+                className="shrink-0 rounded-lg border border-dashed border-slate-300 p-2 text-slate-400 hover:border-slate-400 hover:text-slate-600"
+              >
+                <svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="2" y="4" width="16" height="12" rx="2" stroke="currentColor" strokeWidth="1.5" />
+                  <path d="M3 5.5L10 11L17 5.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
             )}
             <button
               onClick={onEdit}
@@ -3951,7 +3972,9 @@ export function ProjectDetailDialog({
             <div className="space-y-4 sm:space-y-2">
               <h4 className="text-sm font-bold tracking-wide text-black underline">Email results to</h4>
               {job.report_emails.split(",").map((e) => e.trim()).filter(Boolean).map((addr, i) => {
-                const contact = companyContactsForDisplay.find((c) => c.email?.toLowerCase() === addr.toLowerCase());
+                const contact = companyContactsForDisplay.find(
+                  (c) => c.email?.toLowerCase() === addr.toLowerCase() || c.secondary_emails?.some((e) => e.toLowerCase() === addr.toLowerCase())
+                );
                 return (
                   <div key={i} className="text-sm text-black">
                     {contact ? `${contact.name} — ${addr}` : addr}
@@ -3969,7 +3992,9 @@ export function ProjectDetailDialog({
             <div className="space-y-4 sm:space-y-2">
               <h4 className="text-sm font-bold tracking-wide text-black underline">Email invoice to</h4>
               {job.invoice_emails.split(",").map((e) => e.trim()).filter(Boolean).map((addr, i) => {
-                const contact = companyContactsForDisplay.find((c) => c.email?.toLowerCase() === addr.toLowerCase());
+                const contact = companyContactsForDisplay.find(
+                  (c) => c.email?.toLowerCase() === addr.toLowerCase() || c.secondary_emails?.some((e) => e.toLowerCase() === addr.toLowerCase())
+                );
                 return (
                   <div key={i} className="text-sm text-black">
                     {contact ? `${contact.name} — ${addr}` : addr}
@@ -4846,6 +4871,121 @@ export function ProjectDetailDialog({
         </div>
         )}
         </div>
+      </div>
+      {linkingEmailThread && (
+        <LinkEmailThreadDialog
+          job={job}
+          onClose={() => setLinkingEmailThread(false)}
+          onLinked={() => {
+            setLinkingEmailThread(false);
+            onChanged();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// Per Tim, 2026-09-18 (26-0030, "Burt Condo Trust") — see the mail-icon
+// fallback button's own comment above for why this is needed at all.
+// Searches Gmail directly (raw query syntax, same mental model as Gmail's
+// own search bar) rather than asking for a pasted URL — Gmail's web UI
+// permalink fragment is a different id format than the API's own threadId
+// this needs to store.
+function LinkEmailThreadDialog({
+  job, onClose, onLinked,
+}: {
+  job: JobWithCustomer;
+  onClose: () => void;
+  onLinked: () => void;
+}) {
+  const [query, setQuery] = useState(job.customers?.company || job.customers?.name || "");
+  const [searching, setSearching] = useState(false);
+  const [results, setResults] = useState<{ gmailThreadId: string; subject: string; from: string; date: string }[] | null>(null);
+  const [linkingId, setLinkingId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function search() {
+    if (!query.trim()) return;
+    setSearching(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/jobs/${job.id}/email-thread?q=${encodeURIComponent(query.trim())}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Search failed");
+      setResults(data.threads ?? []);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Search failed");
+    } finally {
+      setSearching(false);
+    }
+  }
+
+  async function link(gmailThreadId: string) {
+    setLinkingId(gmailThreadId);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/jobs/${job.id}/email-thread`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ gmailThreadId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to link thread");
+      onLinked();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to link thread");
+      setLinkingId(null);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+      <div className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-5">
+        <div className="flex items-start justify-between gap-2">
+          <h3 className="font-semibold text-slate-800">Link this job to its Gmail conversation</h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">✕</button>
+        </div>
+        <p className="mt-1 text-sm text-slate-500">
+          Search Gmail for the real conversation, then pick it — the mail icon and future report drafts will use it from then on.
+        </p>
+        <div className="mt-3 flex gap-2">
+          <input
+            className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            placeholder="Subject, name, or from:someone@example.com"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && search()}
+          />
+          <button
+            disabled={searching || !query.trim()}
+            onClick={search}
+            className="shrink-0 rounded-lg bg-brand-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+          >
+            {searching ? "Searching…" : "Search"}
+          </button>
+        </div>
+        {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+        {results && (
+          results.length === 0 ? (
+            <p className="mt-4 text-sm text-slate-500">No matching conversations found.</p>
+          ) : (
+            <div className="mt-4 space-y-2">
+              {results.map((t) => (
+                <button
+                  key={t.gmailThreadId}
+                  disabled={linkingId !== null}
+                  onClick={() => link(t.gmailThreadId)}
+                  className="block w-full rounded-lg border border-slate-200 p-2.5 text-left text-sm hover:border-brand-400 disabled:opacity-50"
+                >
+                  <div className="font-medium text-slate-800">{t.subject}</div>
+                  <div className="text-xs text-slate-500">{t.from}{t.date ? ` · ${formatDate(t.date)}` : ""}</div>
+                  {linkingId === t.gmailThreadId && <div className="mt-1 text-xs text-brand-700">Linking…</div>}
+                </button>
+              ))}
+            </div>
+          )
+        )}
       </div>
     </div>
   );
@@ -6666,15 +6806,26 @@ export function EditProjectDialog({
     }
   }
 
+  // Per Tim, 2026-09-18 (26-0030, Marco Rancourt @ CBRE) — every known
+  // contact, not just companyId's own roster — see companyContactsForDisplay's
+  // own comment above for the real example that prompted this.
   useEffect(() => {
-    if (!companyId) {
-      setCompanyContacts([]);
-      return;
-    }
-    fetch(`/api/admin/customers?companyId=${companyId}`)
+    fetch(`/api/admin/customers`)
       .then((r) => r.json())
       .then((data) => setCompanyContacts(data.customers ?? []));
-  }, [companyId]);
+  }, []);
+  // Per Tim, 2026-09-18 — "make both emails under the same contact": each
+  // of a contact's own secondary_emails gets its own suggestion row too
+  // (same name label, so it's obviously the same person), not just their
+  // one primary address.
+  const contactEmailOptions = useMemo(
+    () =>
+      companyContacts.flatMap((c) => [
+        ...(c.email ? [{ key: c.id, email: c.email, label: c.name }] : []),
+        ...(c.secondary_emails ?? []).map((email, i) => ({ key: `${c.id}-alt-${i}`, email, label: c.name })),
+      ]),
+    [companyContacts]
+  );
 
   useEffect(() => {
     if (!siteContactSameAsContact) return;
@@ -7453,8 +7604,8 @@ export function EditProjectDialog({
             </div>
           ))}
           <datalist id="report-email-suggestions">
-            {companyContacts.filter((c) => c.email).map((c) => (
-              <option key={c.id} value={c.email}>{c.name}</option>
+            {contactEmailOptions.map((o) => (
+              <option key={o.key} value={o.email}>{o.label}</option>
             ))}
           </datalist>
         </div>
@@ -7496,8 +7647,8 @@ export function EditProjectDialog({
             </div>
           ))}
           <datalist id="invoice-email-suggestions">
-            {companyContacts.filter((c) => c.email).map((c) => (
-              <option key={c.id} value={c.email}>{c.name}</option>
+            {contactEmailOptions.map((o) => (
+              <option key={o.key} value={o.email}>{o.label}</option>
             ))}
           </datalist>
         </div>

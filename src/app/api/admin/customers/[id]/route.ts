@@ -4,7 +4,7 @@ import { requireAdminApi } from "@/lib/admin-api";
 import { withApiErrors } from "@/lib/api-handler";
 import { upsertCompany } from "@/lib/companies";
 
-const EDITABLE_FIELDS = ["name", "company", "email", "phone", "billing_address", "is_individual"] as const;
+const EDITABLE_FIELDS = ["name", "company", "email", "phone", "billing_address", "is_individual", "secondary_emails"] as const;
 
 export const GET = withApiErrors(async (
   req: NextRequest,
@@ -87,6 +87,18 @@ export const PATCH = withApiErrors(async (
   // saved with "" would collide on it, while Postgres allows any number of
   // NULLs there.
   if (typeof patch.email === "string") patch.email = patch.email.trim().toLowerCase() || null;
+  // Per Tim, 2026-09-18 — trimmed, lowercased, deduped, and never
+  // including the primary email a second time (that's what `email` above
+  // is already for) — same normalization the primary email gets, applied
+  // to every additional one.
+  if (Array.isArray(patch.secondary_emails)) {
+    const primary = (typeof patch.email === "string" ? patch.email : undefined) ?? "";
+    const seen = new Set<string>();
+    patch.secondary_emails = (patch.secondary_emails as unknown[])
+      .filter((v): v is string => typeof v === "string")
+      .map((v) => v.trim().toLowerCase())
+      .filter((v) => v && v !== primary && !seen.has(v) && (seen.add(v), true));
+  }
 
   const supabase = getSupabaseAdmin();
 

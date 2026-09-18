@@ -8,8 +8,27 @@ import { resolveBaseFeeCents } from "@/lib/invoice-defaults";
 import { formatCents } from "@/lib/pricing";
 import { getSettingsFresh } from "@/lib/settings";
 import type { Company, Customer, Job } from "@/lib/types";
+import { getStripe } from "@/lib/stripe";
 
 type JobRow = Job & { customers: (Customer & { companies: Company | null }) | null };
+
+// Live Stripe lookup, only for a job that already tripped the "no
+// processing fee recorded" check — see that check's own comment. Best-
+// effort: a Stripe hiccup here should never crash the whole scan, and
+// false (treat as "genuinely missing") is the safer default on failure —
+// it just means a human double-checks, not that a real gap gets buried.
+async function isPaymentStillProcessing(stripeInvoiceId: string): Promise<boolean> {
+  try {
+    const stripe = getStripe();
+    const invoice = await stripe.invoices.retrieve(stripeInvoiceId, { expand: ["payment_intent"] });
+    const paymentIntent = invoice.payment_intent;
+    if (!paymentIntent || typeof paymentIntent === "string") return false;
+    return paymentIntent.status === "processing";
+  } catch (e) {
+    console.error(`isPaymentStillProcessing: failed to check invoice ${stripeInvoiceId}:`, e);
+    return false;
+  }
+}
 
 // Per Tim, 2026-08-28 — "I just wanna make sure that there's one clean
 // invoice for every single job already, and also one clean lab invoice
@@ -86,7 +105,28 @@ export const GET = withApiErrors(async (req: NextRequest) => {
         issues.push({ project_number: label, company, issue: "Marked paid online but has no Stripe invoice on record", category: "invoice" });
       }
       if (job.paid_date && job.stripe_invoice_id && !job.stripe_fee_cents && !job.payment_reversed_at) {
-        issues.push({ project_number: label, company, issue: "Paid via Stripe but no processing fee was ever recorded", category: "invoice" });
+        // Per Tim, 2026-09-18 (26-0031, Ruben Rodrigues) — the 2026-09-17
+        // policy change to mark an ACH-paying job paid the instant Stripe
+        // reports payment_intent.processing (see markJobPaid's own
+        // callers in the webhook) means paid_date can now be set for
+        // days before Stripe actually knows the real processing fee —
+        // ACH takes 3-5 business days to clear, and the fee isn't final
+        // until it does. Without this check, every such job falsely read
+        // as "the fee was never recorded" for that entire window, even
+        // though nothing is actually wrong yet. Only worth a live Stripe
+        // lookup for a job that would otherwise trip this exact
+        // condition — rare, so this doesn't turn the scan into one
+        // Stripe call per job.
+        const stillProcessing = await isPaymentStillProcessing(job.stripe_invoice_id);
+        issues.push({
+          project_number: label,
+          company,
+          issue: stillProcessing
+            ? "Paid via ACH, still waiting on Stripe to confirm the processing fee"
+            : "Paid via Stripe but no processing fee was ever recorded",
+          category: "invoice",
+          severity: stillProcessing ? "waiting" : "warning",
+        });
       }
       if (!job.paid_date && job.invoice_sent_at && job.payment_type === "online" && !job.stripe_invoice_id) {
         issues.push({ project_number: label, company, issue: "Invoice sent for online payment but no Stripe invoice/pay link was ever created", category: "invoice" });

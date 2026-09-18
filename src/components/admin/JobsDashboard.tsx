@@ -3565,9 +3565,14 @@ export function ProjectDetailDialog({
                 <>
                   {/* Per Tim, 2026-08-31 — "company needs to be at top above
                       project #": moved ahead of the Project #/Edit row. */}
+                  {/* Per Tim, 2026-09-18 (26-0030) — a long company name
+                      ("Burt Condominium Trust, c/o Green Ocean Property
+                      Management") needs to wrap onto its own lines like
+                      every other long value on this tab; nowrap forced it
+                      onto one line that overflowed past this column into
+                      "Job site contact" next to it. */}
                   <DetailField
                     label={isSubcontractingFor ? "Subcontracting for" : "Company"}
-                    nowrap
                     value={
                       portalBadge ? (
                         <>

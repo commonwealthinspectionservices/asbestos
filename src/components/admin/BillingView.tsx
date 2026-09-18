@@ -218,11 +218,20 @@ function JobRow({
           as misaligned against the plain company-name text next to it —
           items-center lines them up regardless of the font-size/padding
           difference between the two. */}
-      <div className="flex items-center gap-2">
+      {/* Per Tim, 2026-09-18 — "I dont want any companys to strech off
+          like this": whitespace-nowrap on a long company name, inside a
+          flex row with no min-w-0, let it overflow straight past the
+          card's own right edge instead of wrapping — a flex item's
+          default min-width is its content width, not 0, so it never
+          shrank to wrap in the first place. min-w-0 on both the row and
+          the name lets it wrap onto a second line within the card
+          instead. Same root cause, same fix, as the Project Info tab's
+          own Company field earlier this session. */}
+      <div className="flex min-w-0 items-center gap-2">
         <span className="shrink-0 whitespace-nowrap rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs text-slate-600">
           {job.project_number}
         </span>
-        <span className="whitespace-nowrap text-sm font-medium text-slate-800">
+        <span className="min-w-0 text-sm font-medium text-slate-800">
           {job.customers?.company || job.customers?.name}
         </span>
       </div>

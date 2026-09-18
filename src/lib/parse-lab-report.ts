@@ -681,7 +681,14 @@ export function extractMoldSporeTrapFindings(positionOrderedText: string, sample
   // outdoor/baseline sample is listed first. Bails rather than guessing
   // which column is the baseline when it doesn't.
   const namesLineMatch = section.match(/Sample Name\s+(.+)/);
-  const baselineIsFirst = Boolean(namesLineMatch && namesLineMatch[1].trim().startsWith("Outdoor Ambient"));
+  // Per Tim, 2026-09-17 (26-0030) — confirmed live that Crystal doesn't
+  // always word this the same way report to report: "Outdoor Ambient" on
+  // some, "Ambient Outdoor" on others (same two words, reversed) — both
+  // unambiguously name the same baseline sample, so both are accepted
+  // rather than bailing on a real report over word order alone. Anything
+  // else still bails rather than guess which column is the baseline.
+  const firstNameOnLine = namesLineMatch?.[1].trim() ?? "";
+  const baselineIsFirst = firstNameOnLine.startsWith("Outdoor Ambient") || firstNameOnLine.startsWith("Ambient Outdoor");
   if (!baselineIsFirst) return null;
 
   const lines = section.split("\n").map((l) => l.trim()).filter(Boolean);

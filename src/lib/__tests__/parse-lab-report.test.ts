@@ -1216,6 +1216,20 @@ Crystal Analytical, LLC.      •       55 Accord Park Dr., Ste. 2D; Rockland, M
     ]);
   });
 
+  // Per Tim, 2026-09-17 (26-0030) — a real report worded this "Ambient
+  // Outdoor" instead of "Outdoor Ambient", which used to bail this whole
+  // parser to null over word order alone even though the baseline sample
+  // genuinely was listed first. Both phrasings now recognize the baseline.
+  it("still recognizes the baseline as first when the report words it \"Ambient Outdoor\" instead of \"Outdoor Ambient\"", () => {
+    const reversedWording = REAL_SPORE_TRAP_REPORT.replace(
+      "Sample Name Outdoor Ambient Boiler/Equipment Room Basement - Common Area w/ Red Tile Basement - Back Right Bedroom",
+      "Sample Name Ambient Outdoor Boiler/Equipment Room Basement - Common Area w/ Red Tile Basement - Back Right Bedroom"
+    );
+    const result = extractMoldSporeTrapFindings(reversedWording);
+    expect(result).not.toBeNull();
+    expect(result!.sampleCount).toBe(4);
+  });
+
   it("falls back to field codes when the supplied sample names don't match the sample count", () => {
     const result = extractMoldSporeTrapFindings(REAL_SPORE_TRAP_REPORT, ["Only One Name"])!;
     expect(result.sampleNames).toBeNull();

@@ -51,7 +51,7 @@ import {
   extractLabSalesReceiptNumber,
   extractLabSalesReceiptLines,
 } from "@/lib/parse-lab-invoice";
-import { checkLabInvoiceLineItemPrice, type TestFamily } from "@/lib/lab-pricing";
+import { checkLabInvoiceLineItemPrice, identifyTestSubtype } from "@/lib/lab-pricing";
 import { defaultInvoiceLineItems, invoiceLineItemsTotalCents } from "@/lib/invoice-defaults";
 import { computeLabCostCentsFromDocuments } from "@/lib/lab-cost";
 import { formatCents } from "@/lib/pricing";
@@ -1429,7 +1429,7 @@ async function processWeeklyLabSummaryEmail(params: {
   // itself (that already happened before this code existed).
   const flagged: SuspiciousLabInvoiceCharge[] = [];
   const flagReasonByNum = new Map<string, string>();
-  const familyEntriesByProject = new Map<string, { family: TestFamily; num: string; quantity: number }[]>();
+  const subtypeEntriesByProject = new Map<string, { subtype: string; num: string; quantity: number }[]>();
   for (const t of transactions) {
     const resolvedProjectNumber = t.projectNumber ?? (t.address ? projectByNormalizedAddress.get(normalizeAddressForMatch(t.address)) ?? null : null);
     if (!resolvedProjectNumber || !t.testDescription) continue;
@@ -1451,18 +1451,27 @@ async function processWeeklyLabSummaryEmail(params: {
       flagReasonByNum.set(t.num, reason);
     }
 
-    if (priceCheck.family) {
-      if (!familyEntriesByProject.has(resolvedProjectNumber)) familyEntriesByProject.set(resolvedProjectNumber, []);
-      familyEntriesByProject.get(resolvedProjectNumber)!.push({ family: priceCheck.family, num: t.num, quantity: t.quantity });
+    // Per Tim, 2026-09-18 — found via 26-0002.1 and 26-0032, both falsely
+    // flagged: this used to group by priceCheck.family, which is right for
+    // price-checking (Direct Examination and Spore Trap price identically)
+    // but wrong here — a job legitimately gets billed both as separate,
+    // real charges all the time, and that grouping read them as "the same
+    // test billed twice." identifyTestSubtype splits them back apart
+    // (everything else only has one real subtype today, so it's
+    // unaffected) — see its own comment in lib/lab-pricing.ts.
+    const subtype = identifyTestSubtype(t.testDescription);
+    if (subtype) {
+      if (!subtypeEntriesByProject.has(resolvedProjectNumber)) subtypeEntriesByProject.set(resolvedProjectNumber, []);
+      subtypeEntriesByProject.get(resolvedProjectNumber)!.push({ subtype, num: t.num, quantity: t.quantity });
     }
   }
-  for (const [projectNumber, entries] of familyEntriesByProject) {
-    const numsByFamily = new Map<TestFamily, Set<string>>();
+  for (const [projectNumber, entries] of subtypeEntriesByProject) {
+    const numsBySubtype = new Map<string, Set<string>>();
     for (const e of entries) {
-      if (!numsByFamily.has(e.family)) numsByFamily.set(e.family, new Set());
-      numsByFamily.get(e.family)!.add(e.num);
+      if (!numsBySubtype.has(e.subtype)) numsBySubtype.set(e.subtype, new Set());
+      numsBySubtype.get(e.subtype)!.add(e.num);
     }
-    for (const [family, nums] of numsByFamily) {
+    for (const [, nums] of numsBySubtype) {
       if (nums.size < 2) continue;
       const numList = [...nums];
       const reason = `Possible duplicate — same test billed under lab orders #${numList.join(", #")}.`;

@@ -38,6 +38,27 @@ export function identifyTestFamily(testDescription: string): TestFamily | null {
   return null;
 }
 
+// Finer-grained than identifyTestFamily above — that groups "Mold - Direct
+// Examination" and "Mold - Spore Trap" into one "mold" family because they
+// price identically at every tier (correct, and all that price-checking
+// needs). But lib/lab-email.ts's own "billed the same test under two lab
+// order numbers" duplicate check reused that same family grouping as its
+// dedup key, which made it flag every job billed BOTH a real Direct
+// Examination charge and a real Spore Trap charge — the normal, expected
+// pairing for a job that samples both bulk/swab and air — as a "possible
+// duplicate." Confirmed live on 26-0002.1 (#6610 Direct Examination +
+// #6611 Spore Trap) and 26-0032 (#6795 Direct Examination + #6798 Spore
+// Trap): both totally legitimate, distinct real charges, neither an
+// actual duplicate of the other. Splits mold's two real sub-tests apart
+// for exactly that dedup use; every other family only has one sub-test
+// today, so it's left as the plain family value.
+export function identifyTestSubtype(testDescription: string): string | null {
+  const text = testDescription.replace(/\s+/g, " ");
+  if (/Mold\s*-\s*Direct Examination/i.test(text)) return "mold-direct-examination";
+  if (/Mold\s*-\s*Spore Trap/i.test(text)) return "mold-spore-trap";
+  return identifyTestFamily(text);
+}
+
 // Same narrow-match, null-if-unsure approach for the turnaround tier —
 // real invoices abbreviate as "24 Hr TAT" / "24Hr TAT" / "6Hr TAT" (space
 // before "Hr" isn't consistent), and a 5-day tier would presumably print

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkLabInvoiceLineItemPrice, expectedUnitPriceCents, identifyTestFamily, identifyTurnaroundTier } from "../lab-pricing";
+import { checkLabInvoiceLineItemPrice, expectedUnitPriceCents, identifyTestFamily, identifyTestSubtype, identifyTurnaroundTier } from "../lab-pricing";
 
 describe("identifyTestFamily", () => {
   it("recognizes asbestos bulk PLM CVE", () => {
@@ -13,6 +13,26 @@ describe("identifyTestFamily", () => {
 
   it("returns null for unrecognized test text rather than guessing", () => {
     expect(identifyTestFamily("Some Unrelated Line Item")).toBeNull();
+  });
+});
+
+describe("identifyTestSubtype", () => {
+  // Found live on 26-0002.1 and 26-0032 — both real jobs billed genuine,
+  // distinct Direct Examination AND Spore Trap charges (normal for a job
+  // sampling both bulk/swab and air), but the duplicate check used to key
+  // off identifyTestFamily (both are "mold", since they price the same),
+  // so it read the pair as "the same test billed twice."
+  it("splits mold's two real sub-tests apart, unlike identifyTestFamily", () => {
+    expect(identifyTestSubtype("Analytical Services:Mold \nAnalysis:Mold - Direct Examination - \n24Hr TAT")).toBe("mold-direct-examination");
+    expect(identifyTestSubtype("Analytical Services:Mold \nAnalysis:Mold - Spore Trap Analysis \n- 24Hr TAT")).toBe("mold-spore-trap");
+  });
+
+  it("falls back to the plain family for a test with only one real subtype", () => {
+    expect(identifyTestSubtype("Analytical Services:Asbestos \nAnalysis:PLM - Bulk CVE, Per-Layer \n- 6Hr TAT")).toBe("plm-bulk-cve");
+  });
+
+  it("returns null for unrecognized test text", () => {
+    expect(identifyTestSubtype("Some Unrelated Line Item")).toBeNull();
   });
 });
 

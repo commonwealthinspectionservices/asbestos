@@ -104,7 +104,7 @@ export const COMPANY_START_DATE = "2026-08-24";
 // rather than growing forever as more real weeks/months pass.
 export const HISTORY_PERIOD_COUNT = 3;
 
-function invoiceStatus(job: JobWithCustomer): InvoiceStatus {
+export function invoiceStatus(job: JobWithCustomer): InvoiceStatus {
   if (job.paid_date) return "paid";
   if (job.invoice_sent_at) return isPastDue(dueDateFor(job)) ? "overdue" : "sent";
   return "ready_to_send";
@@ -768,14 +768,11 @@ export default function BillingView() {
   }, [invoicedJobs, filter, periodFilter, projectNumberQuery, companyQuery, addressQuery, mobileSearch, sortBy, sortDir]);
 
   const listSummary = useMemo(() => {
-    let awaitingPaymentCents = 0;
     let paidCents = 0;
     for (const job of invoicedJobs) {
-      const status = invoiceStatus(job);
-      if (status === "sent" || status === "overdue") awaitingPaymentCents += job.invoice_total_cents ?? 0;
-      if (status === "paid") paidCents += job.invoice_total_cents ?? 0;
+      if (invoiceStatus(job) === "paid") paidCents += job.invoice_total_cents ?? 0;
     }
-    return { awaitingPaymentCents, paidCents };
+    return { paidCents };
   }, [invoicedJobs]);
 
   // Per Tim, 2026-08-30 — "I just want a simple way to keep track of net
@@ -1002,17 +999,14 @@ export default function BillingView() {
             />
           </div>
 
-          {/* Per Tim, 2026-08-30 — "Total amount pending should be
-              directly in between search by and 26-0009, and it should
-              only be there when the Payment Pending button on the top
-              right is selected": moved down from under Weekly/Monthly,
-              renamed from "Payment Pending" (too easy to confuse with
-              the filter pill/status pill of the same name), and now only
-              shows for the sent/Payment Pending filter. */}
+          {/* Per Tim, 2026-09-18 — "Total Amount Pending" moved to the
+              Revenue & Margin Summary page (see its own AllTimeLine there)
+              — this page keeps only Total Amount Paid Out, for the paid
+              filter, and the period-total row below. */}
           {/* Per Tim, 2026-09-02 — "I want to be able to break down jobs
               week by week, month by month": while a period's selected
-              (see periodFilter's own comment), this replaces Total Amount
-              Pending with that period's own total and a way back to the
+              (see periodFilter's own comment), this replaces the row
+              below with that period's own total and a way back to the
               normal status-filtered view. */}
           {periodFilter ? (
             // Per Tim, 2026-09-02 (follow-up) — "delete this part [Showing
@@ -1035,16 +1029,10 @@ export default function BillingView() {
               </button>
             </div>
           ) : (
-            filter === "sent" ? (
+            filter === "paid" && (
               <div className="mt-3 text-sm text-slate-500">
-                Total Amount Pending <span className="font-semibold text-slate-800">{formatCents(listSummary.awaitingPaymentCents)}</span>
+                Total Amount Paid Out <span className="font-semibold text-slate-800">{formatCents(listSummary.paidCents)}</span>
               </div>
-            ) : (
-              filter === "paid" && (
-                <div className="mt-3 text-sm text-slate-500">
-                  Total Amount Paid Out <span className="font-semibold text-slate-800">{formatCents(listSummary.paidCents)}</span>
-                </div>
-              )
             )
           )}
 

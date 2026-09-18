@@ -19,6 +19,7 @@ import {
   PeriodHistoryTable,
   MarginHistoryTable,
   AllTimeLine,
+  invoiceStatus,
 } from "@/components/admin/BillingView";
 
 // Per Tim, 2026-09-15 — split out of BillingView's own collapsed-by-
@@ -184,6 +185,19 @@ export default function RevenueMarginSummaryView() {
     return { grossCents, labCostCents, estimatedLabCostCents, stripeFeeCents };
   }, [invoicedJobs, avgLabCostPerSampleCents]);
 
+  // Per Tim, 2026-09-18 — moved here from BillingView ("this part should
+  // not be on the billing page, it should be on the revenue and margin
+  // summary page"), unchanged math (same invoicedJobs, same invoiceStatus
+  // predicate as its old home there).
+  const awaitingPaymentCents = useMemo(() => {
+    let cents = 0;
+    for (const job of invoicedJobs) {
+      const status = invoiceStatus(job);
+      if (status === "sent" || status === "overdue") cents += job.invoice_total_cents ?? 0;
+    }
+    return cents;
+  }, [invoicedJobs]);
+
   const isWeekly = summaryTab === "weekly";
 
   // A period row navigates to Billing pre-filtered to that period, instead
@@ -219,6 +233,12 @@ export default function RevenueMarginSummaryView() {
 
       {loaded && !error && (
         <>
+          {/* Per Tim, 2026-09-18 — moved here from the Billing page; an
+              all-time total, not tied to the Weekly/Monthly toggle below. */}
+          <div className="mt-3 text-sm text-slate-500">
+            Total Amount Pending <span className="font-semibold text-slate-800">{formatCents(awaitingPaymentCents)}</span>
+          </div>
+
           <div className="mt-4 flex gap-2">
             <button
               onClick={() => setSummaryTab("weekly")}

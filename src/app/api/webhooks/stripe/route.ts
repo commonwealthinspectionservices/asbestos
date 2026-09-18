@@ -111,46 +111,44 @@ export async function POST(req: NextRequest) {
       await alertUnmatchedEvent(event.type, invoiceId ?? charge.id);
     }
   } else if (event.type === "payment_intent.processing") {
-    // Per Tim, 2026-09-18 (26-0031, Ruben Rodrigues) — "I need to get a
-    // notification every time someone pays me in Stripe": a bank-transfer
-    // (ACH) payment doesn't resolve instantly like a card — it sits in
-    // "processing" for 3-5 business days before invoice.paid ever fires,
-    // and until now that whole window was invisible. Only bank-account
-    // payments get this — a card either succeeds or fails right at
-    // checkout, with the customer already seeing that outcome themselves,
-    // so an extra email here would just be noise for the payment type
-    // that was never actually silent.
+    // Per Tim, 2026-09-18 (26-0031, Ruben Rodrigues) — "if the customer has
+    // already sent the ACH and it's out of his account then we should be
+    // marking this job as paid... and all jobs like this": a bank-transfer
+    // (ACH) payment sits in "processing" for 3-5 business days before
+    // invoice.paid ever fires, but the money has genuinely left the
+    // customer's account and Stripe has accepted the debit by this point —
+    // explicit decision to treat that as paid immediately rather than wait
+    // out the clearing window, same as any other payment. Only bank-account
+    // payments reach this at all — a card either succeeds or fails right at
+    // checkout and invoice.paid/a decline already covers that instantly.
     const paymentIntent = event.data.object as Stripe.PaymentIntent;
     if (paymentIntent.payment_method_types.includes("us_bank_account")) {
       const invoiceId = typeof paymentIntent.invoice === "string" ? paymentIntent.invoice : paymentIntent.invoice?.id ?? null;
       const jobId = await resolveJobIdFromInvoiceId(supabase, invoiceId, paymentIntent.metadata?.job_id);
       if (jobId) {
-        const { sendJobPaymentPendingNotification } = await import("@/lib/booking-notify");
-        await sendJobPaymentPendingNotification({
-          jobId,
-          amountCents: paymentIntent.amount,
-          paymentMethodTypes: paymentIntent.payment_method_types,
-        });
+        const { markJobPaid } = await import("@/lib/lab-email");
+        await markJobPaid(jobId, `webhook:payment_intent.processing:${event.id}`);
       } else {
         await alertUnmatchedEvent(event.type, invoiceId ?? paymentIntent.id);
       }
     }
   } else if (event.type === "payment_intent.payment_failed") {
-    // The other half of the same gap — a pending ACH payment can still
-    // fail days later instead of clearing, and without this, that failure
-    // was exactly as invisible as the pending state used to be. Same
-    // us_bank_account-only scope as above, same reasoning.
+    // The other half of marking paid early: an ACH payment can still
+    // bounce days later (insufficient funds, closed account) after already
+    // being marked paid above — same reversal path as a refund/dispute on
+    // any other paid job (see markJobPaymentReversed's own comment: an
+    // owner alert, status left as-is for a deliberate human decision, not
+    // silently reverted). Same us_bank_account-only scope as above.
     const paymentIntent = event.data.object as Stripe.PaymentIntent;
     if (paymentIntent.payment_method_types.includes("us_bank_account")) {
       const invoiceId = typeof paymentIntent.invoice === "string" ? paymentIntent.invoice : paymentIntent.invoice?.id ?? null;
       const jobId = await resolveJobIdFromInvoiceId(supabase, invoiceId, paymentIntent.metadata?.job_id);
       if (jobId) {
-        const { sendJobPaymentFailedNotification } = await import("@/lib/booking-notify");
-        await sendJobPaymentFailedNotification({
-          jobId,
-          amountCents: paymentIntent.amount,
-          failureReason: paymentIntent.last_payment_error?.message ?? null,
-        });
+        const { markJobPaymentReversed } = await import("@/lib/lab-email");
+        const reason = paymentIntent.last_payment_error?.message
+          ? `ACH payment failed: ${paymentIntent.last_payment_error.message}`
+          : "ACH payment failed after being marked paid";
+        await markJobPaymentReversed(jobId, reason);
       } else {
         await alertUnmatchedEvent(event.type, invoiceId ?? paymentIntent.id);
       }

@@ -2437,6 +2437,32 @@ export function ProjectDetailDialog({
   const moldBulkDiscussionRef = useRef<HTMLTextAreaElement>(null);
   const moldSwabDiscussionRef = useRef<HTMLTextAreaElement>(null);
   const moldReportNotesRef = useRef<HTMLTextAreaElement>(null);
+  // Per Tim, 2026-09-18 (26-0030) — real data loss: these four fields only
+  // ever read job.mold_*_discussion/mold_report_notes once, at mount. A
+  // correction made a different way (a direct fix like this session's own,
+  // or a second browser tab) while this tab sat open with the old value
+  // still loaded got silently blown away the moment this tab's own field
+  // was blurred (even without the admin touching it) — onBlur re-saves
+  // whatever's in local state, stale or not. Re-syncs from the job prop
+  // whenever the server value actually changes, but only while the field
+  // isn't currently focused — an admin actively typing a correction still
+  // wins over a same-moment refetch.
+  useEffect(() => {
+    if (document.activeElement !== moldAirDiscussionRef.current) setMoldAirDiscussionInput(job.mold_air_discussion ?? "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [job.mold_air_discussion]);
+  useEffect(() => {
+    if (document.activeElement !== moldBulkDiscussionRef.current) setMoldBulkDiscussionInput(job.mold_bulk_discussion ?? "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [job.mold_bulk_discussion]);
+  useEffect(() => {
+    if (document.activeElement !== moldSwabDiscussionRef.current) setMoldSwabDiscussionInput(job.mold_swab_discussion ?? "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [job.mold_swab_discussion]);
+  useEffect(() => {
+    if (document.activeElement !== moldReportNotesRef.current) setMoldReportNotesInput(job.mold_report_notes ?? "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [job.mold_report_notes]);
   // Which domain's report is showing on the Report tab — a job combining
   // service types from more than one domain (e.g. asbestos + mold) gets
   // one tab button per domain (see the tab bar below) instead of every

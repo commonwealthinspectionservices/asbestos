@@ -1351,6 +1351,42 @@ async function processLabSalesReceiptEmail(params: {
 // database. Grouping this way, keyed on lab_invoice_number, is also exactly
 // what BillingView's existing "All Lab Invoices" cards already group
 // by — no new UI needed for this to show up there correctly.
+interface JobForTransactionMatching {
+  projectNumber: string;
+  serviceAddress: string;
+  company: string | null;
+}
+
+async function loadJobsForTransactionMatching(supabase: ReturnType<typeof getSupabaseAdmin>): Promise<JobForTransactionMatching[]> {
+  const { data } = await supabase.from("jobs").select("project_number, service_address, customers!customer_id(company)");
+  return ((data ?? []) as unknown as { project_number: string | null; service_address: string | null; customers: { company: string | null } | null }[])
+    .filter((j) => j.project_number)
+    .map((j) => ({ projectNumber: j.project_number!, serviceAddress: j.service_address ?? "", company: j.customers?.company ?? null }));
+}
+
+// The street line only ("14 Heather St., Beverley MA" → "14heatherstreet"),
+// so a misspelled or missing town/zip can't stop two spellings of the same
+// street address matching.
+function streetKey(address: string): string {
+  return normalizeAddressForMatch(address.split(",")[0]);
+}
+
+export function matchTransactionToJobGlobally(address: string | null, jobs: JobForTransactionMatching[]): string | null {
+  const trimmed = address?.trim();
+  if (!trimmed) return null;
+  let matches: JobForTransactionMatching[];
+  if (/^\d/.test(trimmed)) {
+    const key = streetKey(trimmed);
+    if (key.length < 5) return null;
+    matches = jobs.filter((j) => streetKey(j.serviceAddress) === key);
+  } else {
+    const name = trimmed.toLowerCase();
+    matches = jobs.filter((j) => j.company && (j.company.toLowerCase().includes(name) || name.includes(j.company.toLowerCase())));
+  }
+  const projects = new Set(matches.map((j) => j.projectNumber));
+  return projects.size === 1 ? [...projects][0] : null;
+}
+
 async function processWeeklyLabSummaryEmail(params: {
   accessToken: string;
   messageId: string;
@@ -1401,10 +1437,24 @@ async function processWeeklyLabSummaryEmail(params: {
     }
   }
 
+  // Per Tim, 2026-09-19 — three real Crystal charges (#6723 $504 for 58
+  // Parker Rd, #6739 $44 billed to just "Restore to New", #6791 $48 for
+  // "14 Heather St., Beverley") never attached to a job: none printed a
+  // project number, and the only fallback above needs a sibling line in the
+  // SAME report that does. Last resort: look across every job on file —
+  // by the street line alone (number + street name, ignoring how the town or
+  // zip happens to be spelled), or, when the "address" is really a company
+  // name, by that company — and only accept a match that's unambiguous.
+  const jobsForMatching = await loadJobsForTransactionMatching(supabase);
+  const resolveProjectNumber = (t: { projectNumber: string | null; address: string | null }): string | null =>
+    t.projectNumber
+    ?? (t.address ? projectByNormalizedAddress.get(normalizeAddressForMatch(t.address)) ?? null : null)
+    ?? matchTransactionToJobGlobally(t.address, jobsForMatching);
+
   const byNum = new Map<string, { transactionType: string; amountCentsByProject: Map<string, number> }>();
   const unmatched: UnmatchedWeeklySummaryTransaction[] = [];
   for (const t of transactions) {
-    const resolvedProjectNumber = t.projectNumber ?? (t.address ? projectByNormalizedAddress.get(normalizeAddressForMatch(t.address)) ?? null : null);
+    const resolvedProjectNumber = resolveProjectNumber(t);
     if (!resolvedProjectNumber) {
       unmatched.push({ num: t.num, transactionType: t.transactionType, projectNumber: null, address: t.address });
       continue;
@@ -1431,7 +1481,7 @@ async function processWeeklyLabSummaryEmail(params: {
   const flagReasonByNum = new Map<string, string>();
   const subtypeEntriesByProject = new Map<string, { subtype: string; num: string; quantity: number }[]>();
   for (const t of transactions) {
-    const resolvedProjectNumber = t.projectNumber ?? (t.address ? projectByNormalizedAddress.get(normalizeAddressForMatch(t.address)) ?? null : null);
+    const resolvedProjectNumber = resolveProjectNumber(t);
     if (!resolvedProjectNumber || !t.testDescription) continue;
 
     // Per Tim, 2026-09-04 — keep this short. It shows as a banner on the
@@ -1602,6 +1652,36 @@ async function processWeeklyLabSummaryEmail(params: {
 
   await markMessageRead(accessToken, messageId);
   return { recorded, unmatched, flagged };
+}
+
+
+/**
+ * Re-runs the real weekly-summary pipeline on one specific QuickBooks/Crystal
+ * summary email — for a charge that was in the report but never made it onto
+ * a job (a parse failure on an earlier pass, or one the matcher couldn't
+ * place before matchTransactionToJobGlobally existed). Safe to repeat: a
+ * transaction already recorded on its job is left alone (see the
+ * existingDocsForNum handling in processWeeklyLabSummaryEmail).
+ */
+export async function reprocessLabSummaryMessage(messageId: string): Promise<{
+  recorded: { projectNumber: string; jobId: string; num: string }[];
+  unmatched: UnmatchedWeeklySummaryTransaction[];
+  flagged: SuspiciousLabInvoiceCharge[];
+}> {
+  const accessToken = await getValidAccessToken();
+  if (!accessToken) throw new Error("Gmail is not connected");
+  const message = await getMessage(accessToken, messageId);
+  for (const part of findPdfParts(message.payload)) {
+    const data = await getAttachmentData(accessToken, messageId, part.attachmentId);
+    const { text } = await parsePdfWithRetry(data, `${messageId}:${part.filename}`, 8);
+    if (!isWeeklyLabSummaryText(text)) continue;
+    const outcome = await processWeeklyLabSummaryEmail({ accessToken, messageId, pdfBuffer: data, pdfText: text });
+    const processedLabelId = await getOrCreateLabelId(accessToken, PROCESSED_LABEL);
+    await addLabelToMessage(accessToken, messageId, processedLabelId);
+    if (outcome.unmatched.length > 0) await alertUnmatchedWeeklySummaryTransactions(outcome.unmatched).catch(() => {});
+    return outcome;
+  }
+  throw new Error("No weekly lab summary PDF found on that message");
 }
 
 // Confirmed live 2026-08-26 (jobs 26-0007/26-0008, "Final Fungal Report

@@ -8087,10 +8087,10 @@ function LineItemsEditor({
                       (quantity box, $ boxes, gaps, text size) trimmed down
                       instead, tight enough that all six pieces fit one row
                       on a phone's own width without spilling over. */}
-                  <div className="flex flex-nowrap items-center gap-1">
+                  <div className="flex flex-wrap items-center gap-x-1 gap-y-1.5">
                     <input
                       type="number"
-                      className="w-11 shrink-0 rounded-lg border border-slate-300 px-1 py-1.5 text-center text-xs"
+                      className="w-10 shrink-0 rounded-lg border border-slate-300 px-1 py-1.5 text-center text-xs"
                       placeholder="#"
                       value={row.quantity}
                       onChange={(e) => update(i, { quantity: e.target.value })}
@@ -8109,7 +8109,7 @@ function LineItemsEditor({
                     </div>
                     <span className="shrink-0 text-xs text-slate-600">each</span>
                     <span className="shrink-0 text-xs text-slate-500">=</span>
-                    <div className="relative w-16 shrink-0">
+                    <div className="relative w-[5.5rem] shrink-0">
                       <span className="pointer-events-none absolute inset-y-0 left-1.5 flex items-center text-xs text-slate-400">$</span>
                       <input
                         type="number"

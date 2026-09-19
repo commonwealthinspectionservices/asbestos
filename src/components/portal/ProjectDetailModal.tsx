@@ -1,5 +1,6 @@
 "use client";
 
+import PayNowButton, { canPayOnline } from "@/components/portal/PayNowButton";
 import { useState } from "react";
 import type { Customer, Job } from "@/lib/types";
 import { googleMapsUrl, expandAddress } from "@/lib/address";
@@ -223,6 +224,12 @@ export default function ProjectDetailModal({
         <div className="max-h-[60vh] overflow-y-auto px-5 py-4">
           {tab === "info" && (
             <div className="grid grid-cols-1 gap-y-4">
+              {canPayOnline(job) && (
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">
+                  <div className="mb-2 text-sm font-medium text-emerald-900">Payment due</div>
+                  <PayNowButton job={job} />
+                </div>
+              )}
               {/* Editable only for a self-submitted portal booking — an
                   email_intake job's source of truth is the original email
                   it was parsed from, not something to let a portal user

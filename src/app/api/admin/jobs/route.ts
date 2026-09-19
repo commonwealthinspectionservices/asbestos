@@ -132,7 +132,10 @@ export const POST = withApiErrors(async (req: NextRequest) => {
   }
 
   const name: string = body.name?.trim() || company?.name || "Unknown contact";
-  const email: string = body.email?.trim() ? String(body.email).trim().toLowerCase() : `no-email+${randomUUID()}@placeholder.local`;
+  // Per Tim, 2026-09-19 — never a made-up placeholder address: an unknown
+  // email is stored as NULL (customers.email is nullable, and a unique index
+  // allows any number of NULLs).
+  const email: string | null = body.email?.trim() ? String(body.email).trim().toLowerCase() : null;
 
   const { data: customer, error: customerError } = await supabase
     .from("customers")

@@ -4562,14 +4562,14 @@ export function ProjectDetailDialog({
                     <button
                       onClick={getPaymentLink}
                       disabled={payLinkLoading}
-                      className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold uppercase text-slate-700 hover:underline disabled:opacity-50 sm:px-4"
+                      className={ACTION_BUTTON_CLASS}
                     >
                       {payLinkLoading ? "Loading…" : "View"}
                     </button>
                     <button
                       onClick={copyPaymentLink}
                       disabled={copyLinkLoading}
-                      className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold uppercase text-slate-700 hover:underline disabled:opacity-50 sm:px-4"
+                      className={ACTION_BUTTON_CLASS}
                     >
                       {copyLinkLoading ? "Loading…" : copyLinkDone ? "Copied!" : "Copy"}
                     </button>
@@ -4716,10 +4716,15 @@ export function ProjectDetailDialog({
               const firstLabel = serviceTypeGroups.flatMap((group) => group.labels)[0];
               return firstLabel ? (
                 <div className="border-t-4 border-slate-300 pt-6">
-                  <h3 className="text-base font-bold uppercase tracking-wide text-black underline sm:text-lg">Lab Invoice</h3>
-                  <div className="mt-3">
-                    <DocumentStation job={job} onChanged={onChanged} kind="lab_invoice" label="Lab Invoice" serviceType={firstLabel} titlePosition="none" />
-                  </div>
+                  <DocumentStation
+                    job={job}
+                    onChanged={onChanged}
+                    kind="lab_invoice"
+                    label="Lab Invoice"
+                    serviceType={firstLabel}
+                    titlePosition="none"
+                    leading={<h3 className="text-base font-bold uppercase tracking-wide text-black underline sm:text-lg">Lab Invoice</h3>}
+                  />
                 </div>
               ) : null;
             })()}
@@ -5090,8 +5095,18 @@ function PdfThumbnail({ url, alt }: { url: string; alt: string }) {
 // on exactly what he needs each one for (chain of custody, lab receipt,
 // lab results, etc.). Reuses the same documents route as everything else,
 // just tagged with this station's own kind.
+// Per Tim, 2026-09-19 — every action button on the Invoice tab's bottom
+// sections (Stripe Payment Link's View/Copy, Lab Invoice's View/Download and
+// its delete ✕) "should all be the same height, the length can be different
+// depending on the verb": one fixed height (h-9, same as the form fields),
+// only the width follows the label.
+const ACTION_BUTTON_CLASS =
+  "inline-flex h-9 shrink-0 items-center justify-center whitespace-nowrap rounded-lg border border-slate-300 px-4 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50";
+const DELETE_ICON_BUTTON_CLASS =
+  "inline-flex h-9 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-50";
+
 function DocumentStation({
-  job, onChanged, kind, label, serviceType, headerExtra, titlePosition = "top",
+  job, onChanged, kind, label, serviceType, headerExtra, titlePosition = "top", leading,
 }: {
   job: JobWithCustomer;
   onChanged: () => void;
@@ -5110,6 +5125,8 @@ function DocumentStation({
       does (an <h3> above this whole station) — an internal label here too
       would just repeat it. */
   titlePosition?: "top" | "bottom" | "none";
+  /** A heading rendered on the same row as the first document's buttons (Lab Invoice), so the buttons sit directly in line with it. */
+  leading?: ReactNode;
 }) {
   const [dragOver, setDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -5172,6 +5189,7 @@ function DocumentStation({
 
   return (
     <div>
+      {leading && (docs.length === 0 || collapseLabInvoices) && <div className="mb-3">{leading}</div>}
       {titlePosition === "top" && (
         <div className="flex flex-nowrap items-center justify-between gap-2">
           <div className="flex flex-nowrap items-center gap-2">
@@ -5289,7 +5307,7 @@ function DocumentStation({
               Collapse
             </button>
           )}
-          {docs.map((doc) => {
+          {docs.map((doc, docIdx) => {
             const url = `/api/admin/jobs/${job.id}/documents/${doc.id}`;
             return (
               <div key={doc.id}>
@@ -5299,7 +5317,8 @@ function DocumentStation({
                     common one-document case — this list only ever renders
                     when there's more than one document to show, or for
                     titlePosition="bottom" stations like lab_invoice). */}
-                <div className="flex items-center gap-2 py-1 text-xs">
+                <div className="flex items-center gap-2 py-1 text-sm">
+                  {leading && docIdx === 0 && <div className="min-w-0 flex-1">{leading}</div>}
                   {titlePosition === "bottom" && (
                     <span className="min-w-0 flex-1 truncate font-bold uppercase text-slate-400" title={label}>{label}</span>
                   )}
@@ -5307,14 +5326,14 @@ function DocumentStation({
                     href={url}
                     target="_blank"
                     rel="noreferrer"
-                    className={`shrink-0 rounded border border-slate-300 px-2 py-0.5 font-medium text-slate-600 hover:bg-slate-50 ${titlePosition !== "bottom" ? "ml-auto" : ""}`}
+                    className={`${ACTION_BUTTON_CLASS} ${titlePosition !== "bottom" && !(leading && docIdx === 0) ? "ml-auto" : ""}`}
                   >
                     View
                   </a>
                   <a
                     href={`${url}?download=1`}
                     download={doc.file_name}
-                    className="shrink-0 rounded border border-slate-300 px-2 py-0.5 font-medium text-slate-600 hover:bg-slate-50"
+                    className={ACTION_BUTTON_CLASS}
                   >
                     Download
                   </a>
@@ -5324,7 +5343,7 @@ function DocumentStation({
                     disabled={deletingId === doc.id}
                     title={`Delete ${doc.file_name}`}
                     aria-label={`Delete ${doc.file_name}`}
-                    className="shrink-0 rounded-full px-1 text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                    className={DELETE_ICON_BUTTON_CLASS}
                   >
                     {deletingId === doc.id ? "…" : "✕"}
                   </button>

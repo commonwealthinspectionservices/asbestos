@@ -4539,6 +4539,7 @@ export function ProjectDetailDialog({
                   onPaymentDueDateChange={(v) => saveJobField({ payment_due_date: v || null })}
                   labCostCents={knownLabCostCentsForJob(job)}
                   stripeFeeCents={job.stripe_fee_cents}
+                  isRush={job.lab_turnaround === "Rush"}
                 />
                 {savingInvoice && <p className="mt-1 text-xs text-slate-400">Saving…</p>}
               </div>
@@ -7919,8 +7920,10 @@ function MaterialsEditor({
 }
 
 function LineItemsEditor({
-  items, setItems, serviceTypeSettings, paymentDueDate, onPaymentDueDateChange, labCostCents, stripeFeeCents,
+  items, setItems, serviceTypeSettings, paymentDueDate, onPaymentDueDateChange, labCostCents, stripeFeeCents, isRush,
 }: {
+  /** Shows a plain "RUSH" label beside each per-sample total on a rush job. */
+  isRush?: boolean;
   items: LineItemRowState[];
   setItems: Dispatch<SetStateAction<LineItemRowState[]>>;
   serviceTypeSettings: ServiceType[];
@@ -8117,6 +8120,7 @@ function LineItemsEditor({
                         onBlur={(e) => handleTotalBlur(i, e.target.value)}
                       />
                     </div>
+                    {isRush && <span className="shrink-0 text-xs font-bold uppercase text-slate-700">Rush</span>}
                   </div>
                 </div>
                 <div className="flex shrink-0 flex-col gap-1">

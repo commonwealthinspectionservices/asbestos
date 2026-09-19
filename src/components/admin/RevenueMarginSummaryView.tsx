@@ -16,9 +16,6 @@ import {
   MONTH_NAMES,
   COMPANY_START_DATE,
   HISTORY_PERIOD_COUNT,
-  PeriodHistoryTable,
-  MarginHistoryTable,
-  AllTimeLine,
   invoiceStatus,
 } from "@/components/admin/BillingView";
 
@@ -212,6 +209,18 @@ export default function RevenueMarginSummaryView() {
     }
   }
 
+  const summaryRows = useMemo(() => {
+    const source = isWeekly ? periodHistory.weekly : periodHistory.monthly;
+    return source.map((p) => ({
+      label: p.label,
+      grossCents: p.grossCents,
+      labCents: p.labCostCents + p.estimatedLabCostCents,
+      estimated: p.estimatedLabCostCents > 0,
+      marginPercent: marginPercentOf(p),
+      pdfHrefs: isWeekly ? weeklyLabInvoicePdfHrefs[p.label] : undefined,
+    }));
+  }, [isWeekly, periodHistory, weeklyLabInvoicePdfHrefs]);
+
   const allTimeMarginPercent = allTimeTotal.grossCents > 0
     ? ((allTimeTotal.grossCents - allTimeTotal.labCostCents - allTimeTotal.estimatedLabCostCents - allTimeTotal.stripeFeeCents) / allTimeTotal.grossCents) * 100
     : null;
@@ -254,55 +263,69 @@ export default function RevenueMarginSummaryView() {
             </button>
           </div>
 
-          <div className="mt-3">
-            <PeriodHistoryTable
-              title={isWeekly ? "Weekly Revenue" : "Monthly Revenue"}
-              rows={isWeekly ? periodHistory.weekly : periodHistory.monthly}
-              onSelectRow={goToPeriod}
-            />
-            <AllTimeLine label="All-Time Gross Revenue" value={formatCents(allTimeTotal.grossCents)} />
+          {/* Per Tim, 2026-09-19 — "is this page really formatted the
+              best": three separate boxes (revenue, lab costs, margin)
+              listing the same weeks three times became one table, a row
+              per period, so a week reads left to right. Same math and the
+              same click-through to Billing as before. The lab-invoice PDF
+              links sit under the period name so the number columns stay
+              narrow enough for a phone. */}
+          <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white">
+            <div className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto] gap-x-3 border-b border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold uppercase tracking-wide text-slate-500 sm:px-4">
+              <div>{isWeekly ? "Week" : "Month"}</div>
+              <div className="whitespace-nowrap text-right">Revenue</div>
+              <div className="whitespace-nowrap text-right">Lab cost</div>
+              <div className="whitespace-nowrap text-right">Margin</div>
+            </div>
+            {summaryRows.map((row) => (
+              <div
+                key={row.label}
+                onClick={() => goToPeriod(row.label)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && goToPeriod(row.label)}
+                className="grid cursor-pointer grid-cols-[minmax(0,1.6fr)_repeat(3,minmax(0,1fr))] items-start gap-x-3 border-b border-slate-100 px-3 py-3 text-sm hover:bg-slate-50 sm:px-4"
+              >
+                <div className="text-slate-700">
+                  {row.label}
+                  {row.pdfHrefs && row.pdfHrefs.length > 0 && (
+                    <div className="mt-1 flex flex-wrap gap-x-2 text-xs">
+                      {row.pdfHrefs.map((href, i) => (
+                        <a
+                          key={href}
+                          href={href}
+                          target="_blank"
+                          rel="noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-brand-700 underline"
+                        >
+                          PDF{i + 1}
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="whitespace-nowrap text-right text-[13px] font-medium text-slate-800 sm:text-sm">{formatCents(row.grossCents)}</div>
+                <div className={`whitespace-nowrap text-right text-[13px] text-slate-700 sm:text-sm ${row.estimated ? "italic" : ""}`}>
+                  {row.estimated ? "≈ " : ""}{formatCents(row.labCents)}
+                </div>
+                <div className={`whitespace-nowrap text-right text-[13px] text-slate-700 sm:text-sm ${row.estimated ? "italic" : ""}`}>
+                  {row.marginPercent != null ? `${row.marginPercent.toFixed(1)}%` : "—"}
+                </div>
+              </div>
+            ))}
+            <div className="grid grid-cols-[minmax(0,1.6fr)_repeat(3,minmax(0,1fr))] items-start gap-x-3 bg-slate-50 px-3 py-3 text-sm font-semibold text-slate-800 sm:px-4">
+              <div>All time</div>
+              <div className="whitespace-nowrap text-right text-[13px] sm:text-sm">{formatCents(allTimeTotal.grossCents)}</div>
+              <div className={`whitespace-nowrap text-right text-[13px] sm:text-sm ${allTimeTotal.estimatedLabCostCents > 0 ? "italic" : ""}`}>
+                {allTimeTotal.estimatedLabCostCents > 0 ? "≈ " : ""}{formatCents(allTimeTotal.labCostCents + allTimeTotal.estimatedLabCostCents)}
+              </div>
+              <div className={`whitespace-nowrap text-right text-[13px] sm:text-sm ${isMarginEstimated ? "italic" : ""}`}>{allTimeMarginText.replace("≈ ", "")}</div>
+            </div>
           </div>
-
-          <div className="mt-3">
-            <PeriodHistoryTable
-              title={isWeekly ? "Weekly Lab Costs" : "Monthly Lab Costs"}
-              rows={
-                isWeekly
-                  ? periodHistory.weekly.map((w) => ({
-                      label: w.label,
-                      grossCents: w.labCostCents + w.estimatedLabCostCents,
-                      netCents: 0,
-                      estimated: w.estimatedLabCostCents > 0,
-                      pdfHrefs: weeklyLabInvoicePdfHrefs[w.label],
-                    }))
-                  : periodHistory.monthly.map((m) => ({
-                      label: m.label,
-                      grossCents: m.labCostCents + m.estimatedLabCostCents,
-                      netCents: 0,
-                      estimated: m.estimatedLabCostCents > 0,
-                    }))
-              }
-              onSelectRow={goToPeriod}
-            />
-            <AllTimeLine
-              label="All-Time Lab Costs"
-              value={`${allTimeTotal.estimatedLabCostCents > 0 ? "≈ " : ""}${formatCents(allTimeTotal.labCostCents + allTimeTotal.estimatedLabCostCents)}`}
-              italic={allTimeTotal.estimatedLabCostCents > 0}
-            />
-          </div>
-
-          <div className="mt-3">
-            <MarginHistoryTable
-              title={isWeekly ? "Weekly Margin" : "Monthly Margin"}
-              rows={
-                isWeekly
-                  ? periodHistory.weekly.map((w) => ({ label: w.label, marginPercent: marginPercentOf(w), estimated: w.estimatedLabCostCents > 0 }))
-                  : periodHistory.monthly.map((m) => ({ label: m.label, marginPercent: marginPercentOf(m), estimated: m.estimatedLabCostCents > 0 }))
-              }
-              onSelectRow={goToPeriod}
-            />
-            <AllTimeLine label="All-Time Margin" value={allTimeMarginText} italic={isMarginEstimated} />
-          </div>
+          <p className="mt-2 text-xs text-slate-500">
+            By invoice date. Click a row to see that {isWeekly ? "week" : "month"}&apos;s jobs. ≈ / italic means part of the lab cost is still an estimate.
+          </p>
         </>
       )}
     </div>

@@ -628,7 +628,7 @@ function EmailChecklistPanel({
           </div>
         )}
       </div>
-      <div className="max-w-md flex-1">
+      <div className="order-first max-w-md flex-1">
         <h3 className="mb-2 text-xs font-bold uppercase text-slate-500">Subject</h3>
         <input
           type="text"

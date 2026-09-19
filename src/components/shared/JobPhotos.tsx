@@ -433,7 +433,7 @@ export default function JobPhotos({
           );
         })()
       ) : photos.length === 0 ? (
-        <p className="mt-4 text-sm text-slate-500">No photos yet.</p>
+        null
       ) : (
         <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-4">
           {photos.map((photo) => (

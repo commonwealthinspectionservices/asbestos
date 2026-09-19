@@ -4607,28 +4607,32 @@ export function ProjectDetailDialog({
 
             <div className="border-t-4 border-slate-300 pt-6">
               <div className="space-y-3">
-                <div className="flex flex-wrap gap-4 sm:flex-nowrap sm:gap-5 sm:overflow-x-auto sm:pb-1">
+                {/* Per Tim, 2026-09-19 — "we do not need a preview file for
+                    the invoice": the thumbnail card is gone; just a heading
+                    with View/Download in line with it, same shape as Lab
+                    Invoice below. */}
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="text-base font-bold uppercase tracking-wide text-black underline sm:text-lg">Invoice PDF</h3>
                   {reportComplete && job.invoice_total_cents != null ? (
-                    <div className="w-full shrink-0 overflow-hidden rounded-lg border border-slate-200 sm:w-60">
-                      <a href={`/api/admin/jobs/${job.id}/invoice?v=${encodeURIComponent(invoiceRevision)}`} target="_blank" rel="noreferrer" className="block">
-                        <PdfThumbnail url={`/api/admin/jobs/${job.id}/invoice?v=${encodeURIComponent(invoiceRevision)}`} alt="Invoice preview" />
-                        <p className="border-t border-slate-200 bg-white px-2 py-1 text-center text-xs font-bold uppercase text-slate-700">Invoice</p>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <a
+                        href={`/api/admin/jobs/${job.id}/invoice?v=${encodeURIComponent(invoiceRevision)}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className={ACTION_BUTTON_CLASS}
+                      >
+                        View
                       </a>
-                      <div className="border-t border-slate-200 px-2 py-1 text-center text-xs">
-                        <a href={`/api/admin/jobs/${job.id}/invoice?v=${encodeURIComponent(invoiceRevision)}`} target="_blank" rel="noreferrer" className="text-brand-600 hover:underline">
-                          View
-                        </a>
-                        {" · "}
-                        <a href={`/api/admin/jobs/${job.id}/invoice?download=1`} download={`invoice-${job.project_number ?? job.id}.pdf`} className="text-brand-600 hover:underline">
-                          Download
-                        </a>
-                      </div>
+                      <a
+                        href={`/api/admin/jobs/${job.id}/invoice?download=1`}
+                        download={`invoice-${job.project_number ?? job.id}.pdf`}
+                        className={ACTION_BUTTON_CLASS}
+                      >
+                        Download
+                      </a>
                     </div>
                   ) : (
-                    <div className="block w-full shrink-0 overflow-hidden rounded-lg border border-dashed border-slate-300 sm:w-60">
-                      <div className="flex h-40 w-full items-center justify-center bg-slate-50 px-2 text-center text-xs text-slate-400">Not ready yet</div>
-                      <p className="border-t border-dashed border-slate-300 px-2 py-1 text-center text-xs font-bold uppercase text-slate-400">Invoice</p>
-                    </div>
+                    <span className="text-sm text-slate-400">Not ready yet</span>
                   )}
                 </div>
                 {job.is_individual && job.status !== "paid" && (

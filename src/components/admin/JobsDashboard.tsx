@@ -2691,7 +2691,7 @@ export function ProjectDetailDialog({
       <span className="w-28 shrink-0 text-xs font-semibold uppercase text-slate-700">Turnaround</span>
       <div className="relative h-9 w-full min-w-0 flex-1">
         <select
-          className={`h-9 w-full min-w-0 truncate appearance-none rounded-lg border px-2 py-1.5 text-sm ${job.lab_turnaround === "Rush" ? "border-yellow-300 bg-yellow-100" : "border-slate-300 bg-white"}`}
+          className={`h-9 w-full min-w-0 truncate appearance-none rounded-lg border px-2 py-1.5 text-sm border-slate-300 bg-white`}
           value={job.lab_turnaround === "Rush" ? "Rush" : "Standard"}
           onChange={(e) => setRush(e.target.value === "Rush")}
         >
@@ -3794,7 +3794,7 @@ export function ProjectDetailDialog({
                       // when it is a rush": same bg-yellow-100/text-slate-600
                       // pill as the Rush button's own active state
                       // (turnaroundControl above), not plain text.
-                      <span className="rounded bg-yellow-100 px-2 py-0.5 text-xs font-bold uppercase text-slate-600">Rush</span>
+                      <span className="text-sm font-bold uppercase text-slate-700">Rush</span>
                     ) : (
                       "Standard"
                     )

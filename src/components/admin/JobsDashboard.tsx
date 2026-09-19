@@ -8033,10 +8033,10 @@ function LineItemsEditor({
   const otherRows = items.map((r, i) => ({ r, i })).filter(({ r }) => r.billingUnit !== "Base Fee" && r.billingUnit !== "Sample");
 
   return (
-    <div className="mt-1 space-y-4">
+    <div className="mt-2 space-y-7">
       {baseFeeRows.map(({ r: row, i }) => (
         <div key={i}>
-          <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Base Fee</h4>
+          <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Base Fee</h4>
           <textarea
             rows={1}
             ref={(el) => {
@@ -8079,8 +8079,8 @@ function LineItemsEditor({
 
       {sampleRows.length > 0 && (
         <div>
-          <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Samples</h4>
-          <div className="mt-1 space-y-2">
+          <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Samples</h4>
+          <div className="mt-1 space-y-4">
             {sampleRows.map(({ r: row, i }) => (
               <div key={i} className="flex items-stretch gap-2">
                 <div className="flex-1 space-y-1">
@@ -8228,27 +8228,34 @@ function LineItemsEditor({
         </div>
       ))}
 
-      <div className="flex gap-3">
-        <button onClick={() => add()} className="text-sm text-brand-600 hover:underline">
+      <div className="flex flex-wrap gap-3">
+        <button onClick={() => add()} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-brand-600 hover:bg-slate-50">
           + Custom Line Item
         </button>
-        <button onClick={() => addSample()} className="text-sm text-brand-600 hover:underline">
+        <button onClick={() => addSample()} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-brand-600 hover:bg-slate-50">
           + Samples
         </button>
       </div>
 
-      <div className="mt-3 flex flex-wrap items-start justify-between gap-2">
-        {/* Per Tim, 2026-09-02 — "make it so all the numbers align": a grid
-            instead of three independent lines, so the dollar figures all
-            start at the same x position regardless of how long each label
-            is ("Invoice total" vs "Lab fees" vs "Profit"). */}
-        <div className="grid grid-cols-[max-content_max-content] gap-x-2">
-          <p className="text-base font-bold uppercase text-emerald-600">Invoice total:</p>
-          <p className="text-base font-bold uppercase text-emerald-600">{currency(total)}</p>
-          <p className="text-base font-bold uppercase text-red-600">Lab fees:</p>
-          <p className="text-base font-bold uppercase text-red-600">
-            {labCostCents != null ? currency(labCostCents / 100) : "Not yet billed"}
-          </p>
+      {/* Per Tim, 2026-09-19 — "this could be formatted better": the totals
+          were three loose lines of big uppercase text with the payment due
+          date squeezed in beside them. Now one summary card, a label on the
+          left and its amount on the right per row, with Profit set apart
+          under a rule; the due date gets its own full-width row, the same
+          shape as Lab/Date Sampled on the Report tab (including the iOS
+          date-box fix — see dateSampledInput). */}
+      <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-4">
+        <div className="space-y-3">
+          <div className="flex items-baseline justify-between gap-4">
+            <p className="text-sm font-bold uppercase text-emerald-600">Invoice total</p>
+            <p className="text-lg font-bold text-emerald-600">{currency(total)}</p>
+          </div>
+          <div className="flex items-baseline justify-between gap-4">
+            <p className="text-sm font-bold uppercase text-red-600">Lab fees</p>
+            <p className="text-lg font-bold text-red-600">
+              {labCostCents != null ? currency(labCostCents / 100) : "Not yet billed"}
+            </p>
+          </div>
           {/* Per Tim, 2026-09-13 — the real Stripe processing fee (see
               stripeFeeCents's own comment above) was already factored into
               Profit below, but never shown as its own line the way Lab fees
@@ -8257,25 +8264,28 @@ function LineItemsEditor({
               Profit's own calculation already treats as "nothing to
               deduct." */}
           {stripeFeeCents != null && (
-            <>
-              <p className="text-base font-bold uppercase text-red-600">Stripe fee:</p>
-              <p className="text-base font-bold uppercase text-red-600">{currency(stripeFeeCents / 100)}</p>
-            </>
+            <div className="flex items-baseline justify-between gap-4">
+              <p className="text-sm font-bold uppercase text-red-600">Stripe fee</p>
+              <p className="text-lg font-bold text-red-600">{currency(stripeFeeCents / 100)}</p>
+            </div>
           )}
-          <p className="text-base font-bold uppercase text-slate-400">Profit:</p>
-          <p className="text-base font-bold uppercase text-slate-400">
-            {labCostCents != null ? currency(computeMarginCents(Math.round(total * 100), labCostCents, stripeFeeCents ?? 0) / 100) : "—"}
-          </p>
+          <div className="flex items-baseline justify-between gap-4 border-t border-slate-200 pt-3">
+            <p className="text-sm font-bold uppercase text-slate-500">Profit</p>
+            <p className="text-lg font-bold text-slate-500">
+              {labCostCents != null ? currency(computeMarginCents(Math.round(total * 100), labCostCents, stripeFeeCents ?? 0) / 100) : "—"}
+            </p>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <label className="whitespace-nowrap text-xs font-semibold uppercase tracking-wide text-slate-400">Payment due date</label>
-          <input
-            type="date"
-            className="w-auto rounded border border-slate-300 px-1.5 py-0.5 text-sm"
-            value={paymentDueDate}
-            onChange={(e) => onPaymentDueDateChange(e.target.value)}
-          />
-        </div>
+      </div>
+
+      <div className="flex w-full items-center gap-2 text-sm">
+        <label className="w-28 shrink-0 text-xs font-semibold uppercase text-slate-700">Payment due</label>
+        <input
+          type="date"
+          className="block h-9 min-h-0 w-full min-w-0 flex-1 appearance-none rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-left text-sm [&::-webkit-date-and-time-value]:text-left"
+          value={paymentDueDate}
+          onChange={(e) => onPaymentDueDateChange(e.target.value)}
+        />
       </div>
     </div>
   );

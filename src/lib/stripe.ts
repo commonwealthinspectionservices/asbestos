@@ -152,7 +152,14 @@ export async function createStripeInvoiceForJob(
       await supabase.from("jobs").update({ stripe_invoice_id: null }).eq("id", job.id);
     }
     if (existing) {
-      if (existing.status === "paid") {
+      // Per Tim, 2026-09-19 (26-0007) — a "paid" invoice whose payment was
+      // later refunded (job.payment_reversed_at) is a spent invoice, not a
+      // real payment: Stripe never lets it be paid again, so reusing it left
+      // a job that still owes money with no payable link at all. Treated as
+      // stale below — a fresh invoice is created and the reversal flag is
+      // cleared, since that refund is now fully settled history.
+      const refundedPaid = existing.status === "paid" && Boolean(job.payment_reversed_at);
+      if (existing.status === "paid" && !refundedPaid) {
         return { stripeInvoiceId: existing.id, hostedInvoiceUrl: existing.hosted_invoice_url ?? null };
       }
       const hasCurrentProjectNumber = !job.project_number
@@ -173,7 +180,7 @@ export async function createStripeInvoiceForJob(
       // own Stripe page.
       const existingCustomerId = typeof existing.customer === "string" ? existing.customer : existing.customer?.id;
       const belongsToCurrentCustomer = existingCustomerId === stripeCustomerId;
-      const isStale = existing.status === "void" || existing.status === "uncollectible"
+      const isStale = refundedPaid || existing.status === "void" || existing.status === "uncollectible"
         || existing.total !== job.invoice_total_cents
         || !hasCurrentProjectNumber || !hasCurrentAddress || !hasCurrentNumber || !belongsToCurrentCustomer;
       if (!isStale) {
@@ -187,7 +194,7 @@ export async function createStripeInvoiceForJob(
           console.error(`createStripeInvoiceForJob: failed to void stale invoice ${existing.id} for job ${job.id}:`, err);
         });
       }
-      await supabase.from("jobs").update({ stripe_invoice_id: null }).eq("id", job.id);
+      await supabase.from("jobs").update({ stripe_invoice_id: null, ...(refundedPaid ? { payment_reversed_at: null } : {}) }).eq("id", job.id);
     }
   }
 

@@ -293,20 +293,29 @@ export default function RevenueMarginSummaryView() {
               >
                 <div className="text-slate-700">
                   {row.label}
-                  {row.pdfHrefs && row.pdfHrefs.length > 0 && (
-                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+                </div>
+                <div className="whitespace-nowrap text-right text-[13px] font-medium text-slate-800 sm:text-sm">{formatCents(row.grossCents)}</div>
+                <div className={`text-right text-[13px] text-slate-700 sm:text-sm ${row.estimated ? "italic" : ""}`}>
+                  {row.pdfHrefs && row.pdfHrefs.length > 0 ? (
+                    <>
+                      {/* The Crystal report is where this number comes from,
+                          so the number itself is the link (newest summary —
+                          each is a running total that includes the earlier
+                          ones); older snapshots sit behind the small arrow. */}
                       <a
                         href={row.pdfHrefs[0].href}
                         target="_blank"
                         rel="noreferrer"
+                        title="Open this week's Crystal report"
                         onClick={(e) => e.stopPropagation()}
-                        className="text-brand-700 underline"
+                        className="whitespace-nowrap underline decoration-slate-300 underline-offset-2 hover:decoration-slate-500"
                       >
-                        Crystal report ↗
+                        {row.estimated ? "≈ " : ""}{formatCents(row.labCents)}
                       </a>
                       {row.pdfHrefs.length > 1 && (
                         <button
                           type="button"
+                          title="Earlier versions of this week's report"
                           onClick={(e) => {
                             e.stopPropagation();
                             setExpandedPdfWeeks((prev) => {
@@ -316,30 +325,31 @@ export default function RevenueMarginSummaryView() {
                               return next;
                             });
                           }}
-                          className="text-slate-500 underline"
+                          className="ml-1 text-xs text-slate-400 hover:text-slate-600"
                         >
-                          {expandedPdfWeeks.has(row.label) ? "hide earlier" : `earlier versions (${row.pdfHrefs.length - 1})`}
+                          {expandedPdfWeeks.has(row.label) ? "▴" : "▾"}
                         </button>
                       )}
-                      {expandedPdfWeeks.has(row.label) &&
-                        row.pdfHrefs.slice(1).map((p) => (
-                          <a
-                            key={p.href}
-                            href={p.href}
-                            target="_blank"
-                            rel="noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            className="text-slate-500 underline"
-                          >
-                            {new Date(p.uploadedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                          </a>
-                        ))}
-                    </div>
+                      {expandedPdfWeeks.has(row.label) && (
+                        <div className="mt-1 flex flex-col items-end gap-0.5 text-xs text-slate-500">
+                          {row.pdfHrefs.slice(1).map((p) => (
+                            <a
+                              key={p.href}
+                              href={p.href}
+                              target="_blank"
+                              rel="noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="underline"
+                            >
+                              {new Date(p.uploadedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <span className="whitespace-nowrap">{row.estimated ? "≈ " : ""}{formatCents(row.labCents)}</span>
                   )}
-                </div>
-                <div className="whitespace-nowrap text-right text-[13px] font-medium text-slate-800 sm:text-sm">{formatCents(row.grossCents)}</div>
-                <div className={`whitespace-nowrap text-right text-[13px] text-slate-700 sm:text-sm ${row.estimated ? "italic" : ""}`}>
-                  {row.estimated ? "≈ " : ""}{formatCents(row.labCents)}
                 </div>
                 <div className={`whitespace-nowrap text-right text-[13px] text-slate-700 sm:text-sm ${row.estimated ? "italic" : ""}`}>
                   {row.marginPercent != null ? `${row.marginPercent.toFixed(1)}%` : "—"}

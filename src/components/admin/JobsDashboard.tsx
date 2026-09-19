@@ -4524,8 +4524,7 @@ export function ProjectDetailDialog({
                   Report tabs, top-right under the header's "Create Final
                   Report and Invoice Draft" button (which lives in the modal
                   header, not this scrollable body). */}
-              <h3 className="text-lg font-bold uppercase tracking-wide text-black underline">Invoice</h3>
-              <div className="mt-6">
+              <div>
                 <div className="mb-4 space-y-1">
                   {job.po_number && <DetailField label="PO #" value={job.po_number} />}
                   {job.invoice_number && <DetailField label="Invoice #" value={job.invoice_number} />}

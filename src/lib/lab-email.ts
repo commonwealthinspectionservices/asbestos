@@ -48,6 +48,7 @@ import {
   extractWeeklySummaryTotalCents,
   extractWeeklySummaryDateRangeLabel,
   isLabSalesReceiptText,
+  type WeeklyLabSummaryTransaction,
   extractLabSalesReceiptNumber,
   extractLabSalesReceiptLines,
 } from "@/lib/parse-lab-invoice";
@@ -1682,6 +1683,126 @@ export async function reprocessLabSummaryMessage(messageId: string): Promise<{
     return outcome;
   }
   throw new Error("No weekly lab summary PDF found on that message");
+}
+
+
+export interface LabReconciliationResult {
+  summaryEmailsChecked: number;
+  unreadableSummaryEmails: number;
+  hoursSinceLastReadableSummary: number | null;
+  transactionsChecked: number;
+  missingCharges: { num: string; expectedCents: number; recordedCents: number; address: string | null; projectNumber: string | null }[];
+  totalMismatches: { subject: string; printedCents: number; rowsCents: number }[];
+}
+
+/**
+ * Per Tim, 2026-09-19 — three real Crystal charges (#6723 $504, #6739 $44,
+ * #6791 $48) sat in QuickBooks for a week without ever landing on a job,
+ * silently: the QuickBooks summary PDFs fail to read fairly often and the
+ * pipeline just retried quietly. Independent of the pipeline's own labels,
+ * this re-reads every recent QuickBooks/Crystal summary email itself and
+ * checks three things: (1) every charge in them is actually on a job, at the
+ * right amount (per receipt number, across all jobs); (2) each report's own
+ * printed total equals the sum of the rows this app parsed from it; (3) a
+ * readable summary has come in recently. Read-only — reports, never fixes.
+ */
+export async function runLabReconciliation(): Promise<LabReconciliationResult> {
+  const accessToken = await getValidAccessToken();
+  if (!accessToken) throw new Error("Gmail is not connected");
+  const supabase = getSupabaseAdmin();
+
+  const messages = await listMessagesByQuery(accessToken, `from:quickbooks@notification.intuit.com subject:"Crystal Analytical" subject:Summary newer_than:21d`);
+  const result: LabReconciliationResult = {
+    summaryEmailsChecked: 0,
+    unreadableSummaryEmails: 0,
+    hoursSinceLastReadableSummary: null,
+    transactionsChecked: 0,
+    missingCharges: [],
+    totalMismatches: [],
+  };
+
+  // Deduped by receipt number + line identity — Crystal re-sends the same
+  // report cumulatively, so the same line appears in many emails.
+  const linesByKey = new Map<string, WeeklyLabSummaryTransaction>();
+  let newestReadableAt = 0;
+  for (const m of messages) {
+    const message = await getMessage(accessToken, m.id);
+    const subject = getHeader(message, "Subject") ?? "";
+    const sentAt = Number(message.internalDate ?? 0);
+    for (const part of findPdfParts(message.payload)) {
+      result.summaryEmailsChecked++;
+      let text: string;
+      try {
+        const data = await getAttachmentData(accessToken, m.id, part.attachmentId);
+        text = (await parsePdfWithRetry(data, `${m.id}:${part.filename}`, 8)).text;
+      } catch {
+        result.unreadableSummaryEmails++;
+        continue;
+      }
+      if (!isWeeklyLabSummaryText(text)) continue;
+      newestReadableAt = Math.max(newestReadableAt, sentAt);
+      const rows = extractWeeklyLabSummaryTransactions(text);
+      const printed = extractWeeklySummaryTotalCents(text);
+      const rowsCents = rows.reduce((sum, t) => sum + t.amountCents, 0);
+      if (printed != null && printed !== rowsCents) result.totalMismatches.push({ subject, printedCents: printed, rowsCents });
+      for (const t of rows) {
+        linesByKey.set([t.num, t.date, t.amountCents, t.address, t.testDescription].join("|"), t);
+      }
+    }
+  }
+  result.hoursSinceLastReadableSummary = newestReadableAt ? Math.round((Date.now() - newestReadableAt) / 3600000) : null;
+
+  const expectedByNum = new Map<string, { cents: number; address: string | null; projectNumber: string | null }>();
+  for (const t of linesByKey.values()) {
+    const e = expectedByNum.get(t.num);
+    if (e) e.cents += t.amountCents;
+    else expectedByNum.set(t.num, { cents: t.amountCents, address: t.address, projectNumber: t.projectNumber });
+  }
+  result.transactionsChecked = expectedByNum.size;
+
+  const { data: jobs } = await supabase.from("jobs").select("documents");
+  const recordedByNum = new Map<string, number>();
+  for (const job of (jobs ?? []) as { documents: JobDocument[] | null }[]) {
+    const seenForJob = new Map<string, number>();
+    for (const d of job.documents ?? []) {
+      if (d.kind !== "lab_invoice" || d.amount_cents == null || !d.lab_invoice_number) continue;
+      if (!seenForJob.has(d.lab_invoice_number)) seenForJob.set(d.lab_invoice_number, d.amount_cents);
+    }
+    for (const [num, cents] of seenForJob) recordedByNum.set(num, (recordedByNum.get(num) ?? 0) + cents);
+  }
+  for (const [num, e] of expectedByNum) {
+    const recorded = recordedByNum.get(num) ?? 0;
+    if (recorded !== e.cents) {
+      result.missingCharges.push({ num, expectedCents: e.cents, recordedCents: recorded, address: e.address, projectNumber: e.projectNumber });
+    }
+  }
+  return result;
+}
+
+export async function alertLabReconciliationProblems(result: LabReconciliationResult): Promise<boolean> {
+  const stale = result.hoursSinceLastReadableSummary == null || result.hoursSinceLastReadableSummary > 36;
+  if (result.missingCharges.length === 0 && result.totalMismatches.length === 0 && !stale) return false;
+  const { escapeHtml } = await import("@/lib/html");
+  const parts: string[] = [];
+  if (result.missingCharges.length > 0) {
+    parts.push(`<p style="font-size:15px;"><strong>Crystal charges that aren't (fully) on a job:</strong></p><ul>${result.missingCharges
+      .map((c) => `<li>#${escapeHtml(c.num)} — Crystal billed ${formatCents(c.expectedCents)}, recorded ${formatCents(c.recordedCents)}${c.address ? ` (${escapeHtml(c.address)})` : ""}${c.projectNumber ? ` [${escapeHtml(c.projectNumber)}]` : ""}</li>`)
+      .join("")}</ul>`);
+  }
+  if (result.totalMismatches.length > 0) {
+    parts.push(`<p style="font-size:15px;"><strong>A report's printed total doesn't match the charges read from it</strong> (a row may have been missed):</p><ul>${result.totalMismatches
+      .map((m) => `<li>${escapeHtml(m.subject)} — printed ${formatCents(m.printedCents)}, rows add up to ${formatCents(m.rowsCents)}</li>`)
+      .join("")}</ul>`);
+  }
+  if (stale) {
+    parts.push(`<p style="font-size:15px;"><strong>No readable Crystal summary in ${result.hoursSinceLastReadableSummary == null ? "the last 3 weeks" : `the last ${result.hoursSinceLastReadableSummary} hours`}.</strong> ${result.unreadableSummaryEmails} summary PDF(s) failed to read.</p>`);
+  }
+  await sendEmail({
+    to: process.env.OWNER_EMAIL!,
+    subject: `Lab costs need a look: ${result.missingCharges.length} unrecorded charge(s)${stale ? ", summaries unreadable" : ""}`,
+    html: emailShell(`${parts.join("")}<p style="font-size:13px;color:#64748b;">Checked ${result.transactionsChecked} Crystal receipts from ${result.summaryEmailsChecked} summary emails against what's recorded on jobs. This repeats daily until it's resolved.</p>`),
+  }).catch(() => {});
+  return true;
 }
 
 // Confirmed live 2026-08-26 (jobs 26-0007/26-0008, "Final Fungal Report

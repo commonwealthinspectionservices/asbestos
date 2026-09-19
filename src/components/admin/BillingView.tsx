@@ -939,7 +939,7 @@ export default function BillingView() {
                   // Payment Pending button": the active Sort pill was
                   // bg-slate-700 while the active filter pill (Payment
                   // Pending) is bg-brand-600 — matched to the same blue.
-                  className={`shrink-0 rounded-lg px-2.5 py-1 text-sm font-medium ${sortBy === f.key ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}
+                  className={`shrink-0 rounded-lg px-4 py-2 text-sm font-medium ${sortBy === f.key ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}
                 >
                   {f.label}{sortBy === f.key ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
                 </button>

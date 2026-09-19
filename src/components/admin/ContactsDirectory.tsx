@@ -23,10 +23,11 @@ function ContactRow({ c, onClick }: { c: Customer; onClick: () => void }) {
   );
 }
 
-// Every individual on file, whether they're a standalone client (an
-// individual who's the client themselves) or one of several contacts at a
-// company (an employee of Boston Harbor Water Restoration) — companies
-// themselves live on their own "Companies" tab, not here.
+// Standalone individuals only (a homeowner or other person who's the client
+// themselves). Per Tim, 2026-09-19 — people who belong to a company (Jack
+// Cook, Joe Kline at Boston Harbor Water Restoration) live underneath that
+// company on the Companies tab instead of being listed here too. A search
+// still finds them by name, so nobody becomes unreachable.
 export default function ContactsDirectory({
   adding, onAddingChange, mobileSearch,
 }: {
@@ -60,7 +61,8 @@ export default function ContactsDirectory({
       const res = await fetch(`/api/admin/customers${q ? `?q=${encodeURIComponent(q)}` : ""}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to load contacts");
-      setContacts(data.customers);
+      const all = data.customers as Customer[];
+      setContacts(q ? all : all.filter((c) => !c.company_id));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load contacts");
     } finally {

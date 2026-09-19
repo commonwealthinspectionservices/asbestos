@@ -430,6 +430,8 @@ export interface JobWithCustomer extends Job {
   /** Who "Create Report Draft"/"Create Invoice Draft" will actually address — computed server-side (see /api/admin/jobs) using the same fallback draftInvoiceEmailForJob itself uses, so the Email tab can show it before/after a draft exists. Only populated by the jobs list endpoint, not part of the core Job record. */
   report_recipient?: { name: string; email: string } | null;
   invoice_recipient?: { name: string; email: string } | null;
+  /** Paid via an ACH transfer Stripe still has as "processing" (marked Paid the moment it was initiated, per policy — see the Stripe webhook) — checked live against Stripe by the jobs list endpoint, not stored. */
+  ach_pending?: boolean;
 }
 
 export interface DailyRoute {

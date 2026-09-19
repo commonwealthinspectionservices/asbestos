@@ -82,6 +82,13 @@ function statusLabelForJob(job: JobWithCustomer, status: string): string {
   return STATUS_LABEL[status];
 }
 
+// Per Tim, 2026-09-19 — a job marked Paid the moment its ACH transfer started
+// (26-0031) should say so until the money actually clears.
+function statusDisplayLabel(job: JobWithCustomer): string {
+  const label = statusLabelForJob(job, job.status);
+  return job.status === "paid" && job.ach_pending ? `${label} · ACH pending` : label;
+}
+
 // The linear progression shown as a horizontal tracker on a project's detail
 // dialog — "cancelled" is excluded since it's an exception path, not a step.
 const TRACKER_STATUSES = ["needs_scheduling", "scheduled", "pending_lab_results", "ready_to_send", "report_invoice_sent", "paid"] as const;
@@ -1861,7 +1868,7 @@ function JobRow({
             // free to run wider for a longer status instead of being
             // padded out to a fixed width regardless of status.
             <span className="inline-flex h-7 w-full min-w-0 shrink-0 items-center justify-center overflow-hidden text-ellipsis whitespace-nowrap rounded border-2 border-transparent bg-slate-200 px-2 py-0.5 text-center text-xs font-bold text-slate-700 sm:inline sm:h-auto sm:w-auto sm:justify-start sm:text-left sm:text-sm">
-              {statusLabelForJob(job, job.status)}
+              {statusDisplayLabel(job)}
             </span>
           ) : (
             <div className="flex w-full flex-col items-end gap-4 sm:w-auto">
@@ -3662,7 +3669,7 @@ export function ProjectDetailDialog({
                     <span className="hidden shrink-0 sm:inline-flex">{portalBadge}</span>
                   </div>
                   {isFliJob && <DetailField label="FLI Project #" value={job.fli_project_number} />}
-                  <DetailField label="Status" value={statusLabelForJob(job, job.status)} />
+                  <DetailField label="Status" value={statusDisplayLabel(job)} />
                   {/* Per Tim, 2026-08-27 — listed as plain fields here,
                       between Status and Company, left-aligned like
                       everything else on this tab — not floated in a

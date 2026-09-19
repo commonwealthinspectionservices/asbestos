@@ -3347,7 +3347,7 @@ export function ProjectDetailDialog({
           with padding + rounded corners on the same scrolling element,
           let content bleed above the header during momentum scroll on
           mobile Safari). */}
-      <div className="flex max-h-[95vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl bg-white">
+      <div className={`flex w-full max-w-5xl flex-col overflow-hidden rounded-xl bg-white ${tab === "photos" || tab === "email" ? "h-[95vh]" : "max-h-[95vh]"}`}>
         {(() => {
           // One dropdown option per tab the button row below would otherwise
           // render — a report tab is keyed "report:<domain>" since a job

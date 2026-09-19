@@ -4488,38 +4488,32 @@ export function ProjectDetailDialog({
                 don't belong on this tab) were removed 2026-08-25. */}
             {tab === "report" && (
             <div className="border-t-4 border-slate-300 pt-6">
-              <p className="text-base font-bold uppercase text-slate-700">Final {REPORT_DOMAIN_LABEL[reportDomainTab]} Report</p>
-              <div className="mt-3 flex flex-wrap gap-4 sm:flex-nowrap sm:gap-5 sm:overflow-x-auto sm:pb-1">
-                {(() => {
-                  const domain = reportDomainTab;
-                  const domainReady = reportIsCompleteForDomain(job, domain);
-                  const tileLabel = `Final ${REPORT_DOMAIN_LABEL[domain]} Report`;
-                  const reportUrl = `/api/admin/jobs/${job.id}/report?type=${domain}&v=${encodeURIComponent(reportRevision)}`;
-                  const downloadUrl = `/api/admin/jobs/${job.id}/report?type=${domain}&download=1`;
-                  return domainReady ? (
-                    <div className="w-full overflow-hidden rounded-lg border border-slate-200 sm:w-60">
-                      <a href={reportUrl} target="_blank" rel="noreferrer" className="block">
-                        <PdfThumbnail url={reportUrl} alt={`${tileLabel} preview`} />
-                        <p className="border-t border-slate-200 bg-white px-2 py-1 text-center text-xs font-bold uppercase text-slate-700">{tileLabel}</p>
-                      </a>
-                      <div className="border-t border-slate-200 px-2 py-1 text-center text-xs">
-                        <a href={reportUrl} target="_blank" rel="noreferrer" className="text-brand-600 hover:underline">
+              {/* Per Tim, 2026-09-19 — "remove that one too" (the preview
+                  thumbnail, same as the invoice's): just the heading with
+                  View/Download in line with it, or "Not ready yet". */}
+              {(() => {
+                const domain = reportDomainTab;
+                const domainReady = reportIsCompleteForDomain(job, domain);
+                const reportUrl = `/api/admin/jobs/${job.id}/report?type=${domain}&v=${encodeURIComponent(reportRevision)}`;
+                const downloadUrl = `/api/admin/jobs/${job.id}/report?type=${domain}&download=1`;
+                return (
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="min-w-0 text-base font-bold uppercase text-slate-700">Final {REPORT_DOMAIN_LABEL[domain]} Report</p>
+                    {domainReady ? (
+                      <div className="flex shrink-0 items-center gap-2">
+                        <a href={reportUrl} target="_blank" rel="noreferrer" className={ACTION_BUTTON_CLASS}>
                           View
                         </a>
-                        {" · "}
-                        <a href={downloadUrl} download={`report-${domain}-${job.project_number ?? job.id}.pdf`} className="text-brand-600 hover:underline">
+                        <a href={downloadUrl} download={`report-${domain}-${job.project_number ?? job.id}.pdf`} className={ACTION_BUTTON_CLASS}>
                           Download
                         </a>
                       </div>
-                    </div>
-                  ) : (
-                    <div className="block w-full overflow-hidden rounded-lg border border-dashed border-slate-300 sm:w-60">
-                      <div className="flex h-40 w-full items-center justify-center bg-slate-50 px-2 text-center text-xs text-slate-400">Not ready yet</div>
-                      <p className="border-t border-dashed border-slate-300 px-2 py-1 text-center text-xs font-bold uppercase text-slate-400">{tileLabel}</p>
-                    </div>
-                  );
-                })()}
-              </div>
+                    ) : (
+                      <span className="shrink-0 text-sm text-slate-400">Not ready yet</span>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
             )}
 
@@ -5026,59 +5020,6 @@ function LinkEmailThreadDialog({
           )
         )}
       </div>
-    </div>
-  );
-}
-
-// Renders a PDF's first page onto a canvas client-side rather than relying
-// on the browser's native PDF viewer inside an iframe — that plugin turned
-// out to render solid black for this admin (likely a Chrome/PDFium quirk
-// with nested-iframe PDF viewers), so this sidesteps it entirely by doing
-// the rasterizing ourselves with pdf.js.
-function PdfThumbnail({ url, alt }: { url: string; alt: string }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [failed, setFailed] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const pdfjsLib = await import("pdfjs-dist");
-        // Served as a plain static file (see the postinstall script in
-        // package.json) rather than bundled via a `new URL(...)` import —
-        // Next's production build runs Terser over anything webpack bundles,
-        // and Terser chokes on the worker's top-level ESM import/export
-        // syntax. A static asset skips that pipeline entirely.
-        pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
-        const pdf = await pdfjsLib.getDocument(url).promise;
-        const page = await pdf.getPage(1);
-        const unscaled = page.getViewport({ scale: 1 });
-        const viewport = page.getViewport({ scale: 300 / unscaled.width });
-        const canvas = canvasRef.current;
-        const ctx = canvas?.getContext("2d");
-        if (!canvas || !ctx || cancelled) return;
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
-        await page.render({ canvasContext: ctx, viewport }).promise;
-      } catch {
-        if (!cancelled) setFailed(true);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [url]);
-
-  if (failed) {
-    return (
-      <div className="flex h-40 w-full items-center justify-center bg-slate-100 text-xs text-slate-400">
-        Preview unavailable
-      </div>
-    );
-  }
-  return (
-    <div className="flex h-40 w-full items-center justify-center bg-slate-50">
-      <canvas ref={canvasRef} aria-label={alt} className="max-h-full max-w-full" />
     </div>
   );
 }

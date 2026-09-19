@@ -102,6 +102,21 @@ export const PATCH = withApiErrors(async (
 
   const supabase = getSupabaseAdmin();
 
+  // Per Tim, 2026-09-18 — Ruben Rodrigues (26-0031) and Adina Koch, both
+  // homeowners who hired Tim directly, were showing up in the Directory as
+  // *companies* named after themselves. An individual has no company, so a
+  // company name identical to the person's own name is never real — drop it
+  // instead of creating a company row for a person.
+  if (typeof patch.company === "string" && patch.company.trim()) {
+    const { data: existing } = await supabase.from("customers").select("name, is_individual").eq("id", params.id).maybeSingle();
+    const willBeIndividual = typeof patch.is_individual === "boolean" ? patch.is_individual : existing?.is_individual;
+    const personName = (typeof patch.name === "string" ? patch.name : existing?.name ?? "").trim().toLowerCase();
+    if (willBeIndividual && patch.company.trim().toLowerCase() === personName) {
+      patch.company = null;
+      body.companyId = null;
+    }
+  }
+
   // companyId takes precedence when present: it means the caller already
   // resolved an exact existing company (e.g. picked from a dropdown), so
   // skip the name-based dedup lookup and just point at it directly.

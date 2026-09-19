@@ -2682,28 +2682,32 @@ export function ProjectDetailDialog({
     }
     return groups;
   }, [serviceTypeLabels]);
+  // Per Tim, 2026-09-19 — "this is tucked in the corner... make it just a
+  // normal cell like lab and date sampled are": the same label + full-width
+  // cell row as Lab and Date Sampled (see labDropdown/dateSampledInput), with
+  // Standard and Rush as two equal halves of one h-9 cell instead of small
+  // pills pushed to the right edge.
   const turnaroundControl = (
-    <div className="flex items-center gap-2 text-sm">
-      {/* Per Tim — matches Standard/Rush's own inactive-state pill exactly
-          (rounded/px-2/py-0.5/text-xs/font-bold/text-slate-600/bg-slate-100),
-          not plain unboxed text. */}
-      <span className="rounded bg-slate-100 px-2 py-0.5 text-xs font-bold uppercase text-slate-600">Turnaround</span>
-      <button
-        onClick={() => setRush(false)}
-        className={`rounded px-2 py-0.5 text-xs font-bold uppercase ${job.lab_turnaround !== "Rush" ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
-      >
-        Standard
-      </button>
-      {/* Per Tim — light yellow highlight (bg-yellow-100, the same shade
-          used elsewhere in the app) instead of solid amber, with text
-          staying the same slate-600 as Standard/Turnaround in both states
-          rather than switching to white when active. */}
-      <button
-        onClick={() => setRush(true)}
-        className={`rounded px-2 py-0.5 text-xs font-bold uppercase text-slate-600 ${job.lab_turnaround === "Rush" ? "bg-yellow-100" : "bg-slate-100"}`}
-      >
-        Rush
-      </button>
+    <div className="flex w-full items-center gap-2 text-sm">
+      <span className="w-28 shrink-0 text-xs font-semibold uppercase text-slate-700">Turnaround</span>
+      <div className="flex h-9 w-full min-w-0 flex-1 gap-2">
+        <button
+          type="button"
+          onClick={() => setRush(false)}
+          className={`h-9 flex-1 rounded-lg border px-2 text-sm font-medium ${job.lab_turnaround !== "Rush" ? "border-slate-700 bg-slate-700 text-white" : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"}`}
+        >
+          Standard
+        </button>
+        {/* Rush keeps its light-yellow highlight when active (per Tim,
+            2026-09-02). */}
+        <button
+          type="button"
+          onClick={() => setRush(true)}
+          className={`h-9 flex-1 rounded-lg border px-2 text-sm font-medium text-slate-700 ${job.lab_turnaround === "Rush" ? "border-yellow-300 bg-yellow-100" : "border-slate-300 bg-white hover:bg-slate-50"}`}
+        >
+          Rush
+        </button>
+      </div>
     </div>
   );
   const labDropdown = (domain: ReportDomain) => (
@@ -4113,10 +4117,8 @@ export function ProjectDetailDialog({
                             label's own Laboratory Results instead (moved
                             down from here — see below), so it's clear which
                             upload station it's actually labeling. */}
-                        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
-                          {turnaroundControl}
-                        </div>
                         <div className="mb-7 space-y-4">
+                          {turnaroundControl}
                           {labDropdown(group.domain)}
                           {dateSampledInput(group.domain)}
                           {isFliJob && group.domain === "asbestos" && fliProjectNumberInput}
@@ -4136,41 +4138,14 @@ export function ProjectDetailDialog({
                                 breathing room from the fields above and
                                 Sample Results below — just spacing, nothing
                                 about the text sizes touched. */}
-                            <div className="my-6 flex flex-col gap-6">
-                              {/* Per Tim, 2026-09-01 — mold has no Sample
-                                  Results box at all (unlike asbestos/lead):
-                                  Chain of Custody sits in its place instead,
-                                  as its own column, rather than stacked under
-                                  Laboratory Results the way every other
-                                  domain still shows it. */}
-                              {group.domain === "mold" ? (
+                            <div className={group.domain === "asbestos" ? "my-6 flex flex-col gap-6" : "hidden"}>
+                              {/* Per Tim, 2026-09-19 — "pdfs at bottom is best": Laboratory
+                                  Results and Chain of Custody moved out of here into
+                                  the one PDFs block at the bottom of this tab, next
+                                  to the Final Report. Mold has no Sample Results box,
+                                  so it has nothing left in this spot. */}
+                              {group.domain !== "mold" && (
                                 <>
-                                  <DocumentStation
-                                    job={job}
-                                    onChanged={onChanged}
-                                    kind="lab_report"
-                                    label="Laboratory Results"
-                                    serviceType={label}
-                                  />
-                                  <DocumentStation job={job} onChanged={onChanged} kind="coc" label="Chain of Custody" serviceType={label} />
-                                </>
-                              ) : (
-                                <>
-                                  {/* Per Tim, 2026-09-01 — Chain of Custody sits
-                                      directly to the right of Laboratory Results
-                                      (same row, matching the mold layout above)
-                                      instead of stacked below it; Sample Results
-                                      moves down to its old spot and stretches the
-                                      full width of the row instead of sharing it
-                                      with Laboratory Results/Chain of Custody. */}
-                                  <DocumentStation
-                                    job={job}
-                                    onChanged={onChanged}
-                                    kind="lab_report"
-                                    label="Laboratory Results"
-                                    serviceType={label}
-                                  />
-                                  <DocumentStation job={job} onChanged={onChanged} kind="coc" label="Chain of Custody" serviceType={label} />
                                   {/* Per Tim, 2026-09-12 (26-0019) — job.sample_results is
                                       asbestos-only data (there's no separate lead_sample_results
                                       field the way mold_sample_results exists for mold), so
@@ -4488,30 +4463,62 @@ export function ProjectDetailDialog({
                 don't belong on this tab) were removed 2026-08-25. */}
             {tab === "report" && (
             <div className="border-t-4 border-slate-300 pt-6">
-              {/* Per Tim, 2026-09-19 — "remove that one too" (the preview
-                  thumbnail, same as the invoice's): just the heading with
-                  View/Download in line with it, or "Not ready yet". */}
+              {/* Per Tim, 2026-09-19 — "all of the PDFs... together... pdfs
+                  at bottom is best": every PDF for this domain in one block at
+                  the bottom of the Report tab — the lab's results and chain of
+                  custody (per service-type label, since a job can carry more
+                  than one, e.g. mold air + bulk) and then the Final Report —
+                  each a title with View/Download in line. The preview
+                  thumbnail is gone (per Tim, same day). */}
               {(() => {
                 const domain = reportDomainTab;
+                const group = serviceTypeGroups.find((g) => g.domain === domain);
+                const labels = group?.labels ?? [];
                 const domainReady = reportIsCompleteForDomain(job, domain);
                 const reportUrl = `/api/admin/jobs/${job.id}/report?type=${domain}&v=${encodeURIComponent(reportRevision)}`;
                 const downloadUrl = `/api/admin/jobs/${job.id}/report?type=${domain}&download=1`;
                 return (
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="min-w-0 text-base font-bold uppercase text-slate-700">Final {REPORT_DOMAIN_LABEL[domain]} Report</p>
-                    {domainReady ? (
-                      <div className="flex shrink-0 items-center gap-2">
-                        <a href={reportUrl} target="_blank" rel="noreferrer" className={ACTION_BUTTON_CLASS}>
-                          View
-                        </a>
-                        <a href={downloadUrl} download={`report-${domain}-${job.project_number ?? job.id}.pdf`} className={ACTION_BUTTON_CLASS}>
-                          Download
-                        </a>
+                  <>
+                    <h3 className="text-base font-bold uppercase tracking-wide text-black underline sm:text-lg">PDFs</h3>
+                    <div className="mt-4 space-y-5">
+                      {labels.map((label) => (
+                        <div key={label} className="space-y-5">
+                          <DocumentStation
+                            job={job}
+                            onChanged={onChanged}
+                            kind="lab_report"
+                            label={labels.length > 1 ? `Laboratory Results — ${serviceTypeLabel(label)}` : "Laboratory Results"}
+                            serviceType={label}
+                          />
+                          <DocumentStation
+                            job={job}
+                            onChanged={onChanged}
+                            kind="coc"
+                            label={labels.length > 1 ? `Chain of Custody — ${serviceTypeLabel(label)}` : "Chain of Custody"}
+                            serviceType={label}
+                          />
+                        </div>
+                      ))}
+                      <div className="flex items-center justify-between gap-2">
+                        <h4 className="min-w-0 text-xs font-semibold uppercase tracking-wide text-slate-700">Final {REPORT_DOMAIN_LABEL[domain]} Report</h4>
+                        {domainReady ? (
+                          <div className="flex shrink-0 items-center gap-2">
+                            <a href={reportUrl} target="_blank" rel="noreferrer" className={ACTION_BUTTON_CLASS}>
+                              View
+                            </a>
+                            <a href={downloadUrl} download={`report-${domain}-${job.project_number ?? job.id}.pdf`} className={ACTION_BUTTON_CLASS}>
+                              Download
+                            </a>
+                            {/* Same width as the ✕ slot on the two rows above so all
+                                three rows' buttons line up. */}
+                            <span className="w-7 shrink-0" aria-hidden="true" />
+                          </div>
+                        ) : (
+                          <span className="shrink-0 text-sm text-slate-400">Not ready yet</span>
+                        )}
                       </div>
-                    ) : (
-                      <span className="shrink-0 text-sm text-slate-400">Not ready yet</span>
-                    )}
-                  </div>
+                    </div>
+                  </>
                 );
               })()}
             </div>
@@ -4525,11 +4532,11 @@ export function ProjectDetailDialog({
                   Report tabs, top-right under the header's "Create Final
                   Report and Invoice Draft" button (which lives in the modal
                   header, not this scrollable body). */}
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <h3 className="text-lg font-bold uppercase tracking-wide text-black underline">Invoice</h3>
+              <h3 className="text-lg font-bold uppercase tracking-wide text-black underline">Invoice</h3>
+              <div className="mt-4">
                 {turnaroundControl}
               </div>
-              <div className="mt-3">
+              <div className="mt-6">
                 <div className="mb-4 space-y-1">
                   {job.po_number && <DetailField label="PO #" value={job.po_number} />}
                   {job.invoice_number && <DetailField label="Invoice #" value={job.invoice_number} />}
@@ -5046,9 +5053,9 @@ function LinkEmailThreadDialog({
 // depending on the verb": one fixed height (h-9, same as the form fields),
 // only the width follows the label.
 const ACTION_BUTTON_CLASS =
-  "inline-flex h-9 shrink-0 items-center justify-center whitespace-nowrap rounded-lg border border-slate-300 px-4 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50";
+  "inline-flex h-9 shrink-0 items-center justify-center whitespace-nowrap rounded-lg border border-slate-300 px-3 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50";
 const DELETE_ICON_BUTTON_CLASS =
-  "inline-flex h-9 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-50";
+  "inline-flex h-9 w-7 shrink-0 items-center justify-center rounded-full text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-50";
 
 function DocumentStation({
   job, onChanged, kind, label, serviceType, headerExtra, titlePosition = "top", leading,
@@ -5137,8 +5144,8 @@ function DocumentStation({
       {leading && (docs.length === 0 || collapseLabInvoices) && <div className="mb-3">{leading}</div>}
       {titlePosition === "top" && (
         <div className="flex flex-nowrap items-center justify-between gap-2">
-          <div className="flex flex-nowrap items-center gap-2">
-            <h4 className="whitespace-nowrap text-xs font-semibold uppercase tracking-wide text-slate-700">{label}</h4>
+          <div className="flex min-w-0 flex-nowrap items-center gap-2">
+            <h4 className="min-w-0 text-xs font-semibold uppercase leading-snug tracking-wide text-slate-700">{label}</h4>
             {headerExtra}
           </div>
           {/* Per Tim, 2026-09-16 — "the PDF title does not need to be in
@@ -5151,19 +5158,19 @@ function DocumentStation({
               here) still lists them below instead — nothing to be
               "directly across from" once there's more than one. */}
           {docs.length === 1 && (
-            <div className="flex shrink-0 items-center gap-2 text-xs">
+            <div className="flex shrink-0 items-center gap-2 text-sm">
               <a
                 href={`/api/admin/jobs/${job.id}/documents/${docs[0].id}`}
                 target="_blank"
                 rel="noreferrer"
-                className="rounded border border-slate-300 px-2 py-0.5 font-medium text-slate-600 hover:bg-slate-50"
+                className={ACTION_BUTTON_CLASS}
               >
                 View
               </a>
               <a
                 href={`/api/admin/jobs/${job.id}/documents/${docs[0].id}?download=1`}
                 download={docs[0].file_name}
-                className="rounded border border-slate-300 px-2 py-0.5 font-medium text-slate-600 hover:bg-slate-50"
+                className={ACTION_BUTTON_CLASS}
               >
                 Download
               </a>
@@ -5173,7 +5180,7 @@ function DocumentStation({
                 disabled={deletingId === docs[0].id}
                 title={`Delete ${docs[0].file_name}`}
                 aria-label={`Delete ${docs[0].file_name}`}
-                className="rounded-full px-1 text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                className={DELETE_ICON_BUTTON_CLASS}
               >
                 {deletingId === docs[0].id ? "…" : "✕"}
               </button>

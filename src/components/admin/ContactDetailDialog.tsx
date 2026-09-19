@@ -74,6 +74,7 @@ export function ContactForm({
   const [firstName, setFirstName] = useState(initialName.first);
   const [lastName, setLastName] = useState(initialName.last);
   const [email, setEmail] = useState(initial?.email ?? "");
+  const [otherEmails, setOtherEmails] = useState((initial?.secondary_emails ?? []).join(", "));
   const [phone, setPhone] = useState(initial?.phone ?? prefill?.phone ?? "");
   const addressInit = parseAddressToFields(initial?.billing_address);
   const [street, setStreet] = useState(addressInit.street);
@@ -124,6 +125,7 @@ export function ContactForm({
           ...(isCompany ? (companyId ? { companyId } : {}) : { companyId: null }),
           is_individual: !isCompany,
           email: email.trim() || null,
+          ...(initial ? { secondary_emails: otherEmails.split(",").map((e) => e.trim()).filter(Boolean) } : {}),
           phone: phone.trim(),
           billingAddress: billingAddress.trim() || null,
           billing_address: billingAddress.trim() || null,
@@ -190,6 +192,18 @@ export function ContactForm({
           <input className="w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm" value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="First name" />
           <input className="w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm" value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Last name" />
         </div>
+
+        {initial && (
+          <div className="mt-3">
+            <label className="block text-sm font-medium text-slate-700">Other emails</label>
+            <input
+              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              placeholder="Separate multiple with commas"
+              value={otherEmails}
+              onChange={(e) => setOtherEmails(e.target.value)}
+            />
+          </div>
+        )}
 
         <div className="mt-3 flex gap-2">
           <div className="flex-1">
@@ -446,6 +460,9 @@ export function ContactDetailDialog({
                 {customer.phone ? <a href={telHref(customer.phone)} className="text-brand-700 hover:underline">{customer.phone}</a> : "—"}
               </div>
               <div><span className="text-slate-500">Email </span>{customer.email}</div>
+              {(customer.secondary_emails ?? []).length > 0 && (
+                <div><span className="text-slate-500">Other emails </span>{(customer.secondary_emails ?? []).join(", ")}</div>
+              )}
               {/* Billing address is a company-level concern once this contact
                   belongs to one — shown on the company's own record instead,
                   not repeated on every employee's card. Only a standalone

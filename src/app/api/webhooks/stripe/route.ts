@@ -18,6 +18,24 @@ async function resolveJobIdFromInvoiceId(
   return data?.id ?? null;
 }
 
+// Per Tim, 2026-09-19 (26-0019, Oscar Cruz) — a payment_intent event's own
+// `invoice` field is null on this account's Stripe API version, so an ACH
+// payment that was genuinely for one of our invoices reported "couldn't be
+// matched to a job" (and never got marked paid). Falls back to finding the
+// invoice that owns this payment intent among the customer's own invoices.
+async function invoiceIdForPaymentIntent(stripe: Stripe, paymentIntent: Stripe.PaymentIntent): Promise<string | null> {
+  const direct = typeof paymentIntent.invoice === "string" ? paymentIntent.invoice : paymentIntent.invoice?.id ?? null;
+  if (direct) return direct;
+  const customerId = typeof paymentIntent.customer === "string" ? paymentIntent.customer : paymentIntent.customer?.id ?? null;
+  if (!customerId) return null;
+  const invoices = await stripe.invoices.list({ customer: customerId, limit: 100 });
+  const match = invoices.data.find((inv) => {
+    const pi = inv.payment_intent;
+    return (typeof pi === "string" ? pi : pi?.id) === paymentIntent.id;
+  });
+  return match?.id ?? null;
+}
+
 export async function POST(req: NextRequest) {
   const signature = req.headers.get("stripe-signature");
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -123,7 +141,7 @@ export async function POST(req: NextRequest) {
     // checkout and invoice.paid/a decline already covers that instantly.
     const paymentIntent = event.data.object as Stripe.PaymentIntent;
     if (paymentIntent.payment_method_types.includes("us_bank_account")) {
-      const invoiceId = typeof paymentIntent.invoice === "string" ? paymentIntent.invoice : paymentIntent.invoice?.id ?? null;
+      const invoiceId = await invoiceIdForPaymentIntent(stripe, paymentIntent);
       const jobId = await resolveJobIdFromInvoiceId(supabase, invoiceId, paymentIntent.metadata?.job_id);
       if (jobId) {
         const { markJobPaid } = await import("@/lib/lab-email");
@@ -141,7 +159,7 @@ export async function POST(req: NextRequest) {
     // silently reverted). Same us_bank_account-only scope as above.
     const paymentIntent = event.data.object as Stripe.PaymentIntent;
     if (paymentIntent.payment_method_types.includes("us_bank_account")) {
-      const invoiceId = typeof paymentIntent.invoice === "string" ? paymentIntent.invoice : paymentIntent.invoice?.id ?? null;
+      const invoiceId = await invoiceIdForPaymentIntent(stripe, paymentIntent);
       const jobId = await resolveJobIdFromInvoiceId(supabase, invoiceId, paymentIntent.metadata?.job_id);
       if (jobId) {
         const { markJobPaymentReversed } = await import("@/lib/lab-email");

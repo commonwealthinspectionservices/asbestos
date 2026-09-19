@@ -4519,16 +4519,18 @@ export function ProjectDetailDialog({
             {/* Invoice + Stripe Payment Link — Invoice tab only. */}
             {tab === "invoice" && (
             <>
-            <div className="pt-6">
+            <div>
               {/* Per Tim — same Turnaround toggle as Project Info and the
                   Report tabs, top-right under the header's "Create Final
                   Report and Invoice Draft" button (which lives in the modal
                   header, not this scrollable body). */}
               <div>
-                <div className="mb-4 space-y-1">
-                  {job.po_number && <DetailField label="PO #" value={job.po_number} />}
-                  {job.invoice_number && <DetailField label="Invoice #" value={job.invoice_number} />}
-                </div>
+                {(job.po_number || job.invoice_number) && (
+                  <div className="mb-4 space-y-1">
+                    {job.po_number && <DetailField label="PO #" value={job.po_number} />}
+                    {job.invoice_number && <DetailField label="Invoice #" value={job.invoice_number} />}
+                  </div>
+                )}
 
                 <LineItemsEditor
                   items={invoiceLineItems}
@@ -8004,7 +8006,7 @@ function LineItemsEditor({
   const otherRows = items.map((r, i) => ({ r, i })).filter(({ r }) => r.billingUnit !== "Base Fee" && r.billingUnit !== "Sample");
 
   return (
-    <div className="mt-2 space-y-7">
+    <div className="space-y-7">
       {baseFeeRows.map(({ r: row, i }) => (
         <div key={i}>
           <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Base Fee</h4>

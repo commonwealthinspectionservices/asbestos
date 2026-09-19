@@ -2739,9 +2739,15 @@ export function ProjectDetailDialog({
   const dateSampledInput = (domain: ReportDomain) => (
     <div className="flex w-full items-center gap-2 text-sm">
       <span className="w-28 shrink-0 text-xs font-semibold uppercase text-slate-700">Date Sampled</span>
+      {/* Per Tim, 2026-09-19 — "lab and date sampled cells must be the same
+          size": on iOS Safari a native date input ignores h-9 and paints its
+          own taller gray pill with centered text, unlike the Lab select right
+          above it (which already strips iOS's own styling — see labDropdown).
+          Same fix: appearance-none + bg-white + an explicit height, and
+          left-aligned value text to match the Lab box. */}
       <input
         type="date"
-        className="h-9 w-full min-w-0 flex-1 rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+        className="block h-9 min-h-0 w-full min-w-0 flex-1 appearance-none rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-left text-sm [&::-webkit-date-and-time-value]:text-left"
         value={(domain === "mold" ? job.mold_date_sampled : domain === "lead" ? job.lead_date_sampled : job.lab_date_sampled) ?? ""}
         onChange={(e) => saveDateSampled(e.target.value, domain)}
       />
@@ -4107,17 +4113,17 @@ export function ProjectDetailDialog({
                             label's own Laboratory Results instead (moved
                             down from here — see below), so it's clear which
                             upload station it's actually labeling. */}
-                        <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+                        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
                           {turnaroundControl}
                         </div>
-                        <div className="mb-4 space-y-2">
+                        <div className="mb-7 space-y-4">
                           {labDropdown(group.domain)}
                           {dateSampledInput(group.domain)}
                           {isFliJob && group.domain === "asbestos" && fliProjectNumberInput}
                         </div>
                         {group.labels.map((label, labelIdx) => (
-                          <div key={label} className={labelIdx > 0 ? "mt-5" : ""}>
-                            <p className="mb-3 text-base font-bold uppercase text-slate-700">{label}</p>
+                          <div key={label} className={labelIdx > 0 ? "mt-8" : ""}>
+                            <p className="mb-5 text-base font-bold uppercase text-slate-700">{label}</p>
                             {/* Per Tim, 2026-09-16 — "laboratory results and
                                 chain of custody should each have their own
                                 row": now that each station is just a label
@@ -4130,7 +4136,7 @@ export function ProjectDetailDialog({
                                 breathing room from the fields above and
                                 Sample Results below — just spacing, nothing
                                 about the text sizes touched. */}
-                            <div className="my-4 flex flex-col gap-3">
+                            <div className="my-6 flex flex-col gap-6">
                               {/* Per Tim, 2026-09-01 — mold has no Sample
                                   Results box at all (unlike asbestos/lead):
                                   Chain of Custody sits in its place instead,
@@ -4173,13 +4179,13 @@ export function ProjectDetailDialog({
                                       were lead samples. Asbestos-only now. */}
                                   {group.domain === "asbestos" && (
                                   <div>
-                                    <div className="flex flex-nowrap items-center gap-2">
+                                    <div className="mt-2 flex flex-nowrap items-center gap-2">
                                       <h4 className="whitespace-nowrap text-xs font-semibold uppercase tracking-wide text-slate-700">Sample Results</h4>
                                     </div>
                                     {(() => {
                                       const results = job.sample_results;
                                       return results && results.length > 0 ? (
-                                        <div className="mt-1.5 w-full rounded-lg border border-slate-200 bg-slate-50 text-xs">
+                                        <div className="mt-3 w-full rounded-lg border border-slate-200 bg-slate-50 text-xs">
                                           {/* Per Tim, 2026-09-01 — "list out ... all the details for
                                               each one of them" now that Sample Results spans the full
                                               width: every row gets its own line (field code, material,

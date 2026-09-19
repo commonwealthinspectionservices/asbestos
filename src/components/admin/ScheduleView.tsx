@@ -272,7 +272,7 @@ export default function ScheduleView() {
             <button
               key={v}
               onClick={() => selectView(v)}
-              className={`rounded-lg px-3 py-1.5 text-sm font-medium capitalize ${viewMode === v ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}
+              className={`rounded-lg px-4 py-2 text-sm font-medium capitalize ${viewMode === v ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}
             >
               {v}
             </button>
@@ -285,7 +285,7 @@ export default function ScheduleView() {
           <button onClick={() => step(-1)} className="rounded-lg bg-slate-100 px-2.5 py-1.5 text-sm font-bold text-slate-600">
             ‹
           </button>
-          <button onClick={() => goTo(new Date())} title="Jump to today" className="rounded-lg bg-slate-100 px-3 py-1.5 text-sm font-semibold text-slate-700">
+          <button onClick={() => goTo(new Date())} title="Jump to today" className="rounded-lg bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700">
             {rangeLabel}
           </button>
           <button onClick={() => step(1)} className="rounded-lg bg-slate-100 px-2.5 py-1.5 text-sm font-bold text-slate-600">

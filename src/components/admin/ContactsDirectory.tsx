@@ -89,7 +89,7 @@ export default function ContactsDirectory({
       <div className="hidden items-center justify-end gap-2 sm:flex">
         <button
           onClick={() => onAddingChange(true)}
-          className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white"
+          className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white"
         >
           ADD CONTACT
         </button>

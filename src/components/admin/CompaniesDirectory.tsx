@@ -68,7 +68,7 @@ export default function CompaniesDirectory({
         </button>
         <button
           onClick={() => onAddingChange(true)}
-          className="shrink-0 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white"
+          className="shrink-0 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white"
         >
           ADD COMPANY
         </button>

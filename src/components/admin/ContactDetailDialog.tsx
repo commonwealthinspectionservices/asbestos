@@ -619,7 +619,7 @@ export function ContactDetailDialog({
                     <button
                       onClick={() => setConfirmingMerge(true)}
                       disabled={!mergeTarget}
-                      className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+                      className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
                     >
                       Merge
                     </button>

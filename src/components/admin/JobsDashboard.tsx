@@ -557,7 +557,6 @@ function EmailChecklistPanel({
   return (
     <div className="mt-4 flex flex-col gap-6 sm:flex-row">
       <div className="max-w-md flex-1">
-        <h3 className="mb-2 text-xs font-bold uppercase text-slate-500">What should this email include?</h3>
         <div className="space-y-2">
           {domains.map((domain) => (
             <label key={domain} className={rowClassName}>
@@ -1212,7 +1211,7 @@ export default function JobsDashboard() {
         </div>
         <button
           onClick={() => setAddingProject(true)}
-          className="shrink-0 whitespace-nowrap rounded-lg bg-emerald-600 px-3 py-2 text-sm font-bold text-white"
+          className="shrink-0 whitespace-nowrap rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white"
         >
           Add Project
         </button>
@@ -3498,7 +3497,7 @@ export function ProjectDetailDialog({
 
         {tab === "info" && (
         <>
-        <div className="relative mt-6 grid grid-cols-1 gap-y-6 pt-10 sm:gap-y-8 sm:pt-0">
+        <div className="relative mt-6 grid grid-cols-1 gap-y-6 sm:gap-y-8">
           {/* Per Tim, 2026-08-28 — Edit sits pinned to the very top-right
               corner of this whole tab (anchored to this relative wrapper),
               not inline with any particular field. Per Tim, 2026-08-31 —
@@ -3508,14 +3507,14 @@ export function ProjectDetailDialog({
               now the only one, shown at every width (previously
               desktop-only, with a separate mobile-only inline copy next to
               Project # — that copy is gone, see its own removed comment). */}
-          <div className="absolute right-0 top-0 flex shrink-0 items-center gap-2">
+          <div className="absolute right-0 top-0 z-10 flex shrink-0 items-center gap-2">
             {job.email_gmail_thread_id ? (
               <a
                 href={`https://mail.google.com/mail/u/0/#all/${job.email_gmail_thread_id}`}
                 target="_blank"
                 rel="noreferrer"
                 title="Open this job's email conversation in Gmail"
-                className="shrink-0 rounded-lg border border-slate-300 p-2 text-slate-600 hover:bg-slate-50"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50"
               >
                 <svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <rect x="2" y="4" width="16" height="12" rx="2" stroke="currentColor" strokeWidth="1.5" />
@@ -3533,7 +3532,7 @@ export function ProjectDetailDialog({
               <button
                 onClick={() => setLinkingEmailThread(true)}
                 title="Link this job to its Gmail conversation"
-                className="shrink-0 rounded-lg border border-dashed border-slate-300 p-2 text-slate-400 hover:border-slate-400 hover:text-slate-600"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-dashed border-slate-300 text-slate-400 hover:border-slate-400 hover:text-slate-600"
               >
                 <svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <rect x="2" y="4" width="16" height="12" rx="2" stroke="currentColor" strokeWidth="1.5" />
@@ -3543,7 +3542,7 @@ export function ProjectDetailDialog({
             )}
             <button
               onClick={onEdit}
-              className="shrink-0 rounded-lg border border-slate-300 px-3.5 py-1.5 text-sm font-bold uppercase hover:underline"
+              className="h-9 shrink-0 rounded-lg border border-slate-300 px-4 text-sm font-bold uppercase hover:underline"
             >
               Edit
             </button>
@@ -4479,7 +4478,7 @@ export function ProjectDetailDialog({
                 const downloadUrl = `/api/admin/jobs/${job.id}/report?type=${domain}&download=1`;
                 return (
                   <>
-                    <h3 className="text-base font-bold uppercase tracking-wide text-black underline sm:text-lg">PDFs</h3>
+                    <h3 className="text-base font-bold tracking-wide text-black underline sm:text-lg">PDFs</h3>
                     <div className="mt-4 space-y-5">
                       {labels.map((label) => (
                         <div key={label} className="space-y-5">
@@ -4607,13 +4606,14 @@ export function ProjectDetailDialog({
             )}
 
             <div className="border-t-4 border-slate-300 pt-6">
+              <h3 className="mb-4 text-base font-bold tracking-wide text-black underline sm:text-lg">PDFs</h3>
               <div className="space-y-3">
                 {/* Per Tim, 2026-09-19 — "we do not need a preview file for
                     the invoice": the thumbnail card is gone; just a heading
                     with View/Download in line with it, same shape as Lab
                     Invoice below. */}
                 <div className="flex items-center justify-between gap-2">
-                  <h3 className="text-base font-bold uppercase tracking-wide text-black underline sm:text-lg">Invoice PDF</h3>
+                  <h4 className="min-w-0 text-xs font-semibold uppercase tracking-wide text-slate-700">Invoice</h4>
                   {reportComplete && job.invoice_total_cents != null ? (
                     <div className="flex shrink-0 items-center gap-2">
                       <a
@@ -4720,7 +4720,7 @@ export function ProjectDetailDialog({
             {!isFliJob && (() => {
               const firstLabel = serviceTypeGroups.flatMap((group) => group.labels)[0];
               return firstLabel ? (
-                <div className="border-t-4 border-slate-300 pt-6">
+                <div className="-mt-3">
                   <DocumentStation
                     job={job}
                     onChanged={onChanged}
@@ -4728,7 +4728,7 @@ export function ProjectDetailDialog({
                     label="Lab Invoice"
                     serviceType={firstLabel}
                     titlePosition="none"
-                    leading={<h3 className="text-base font-bold uppercase tracking-wide text-black underline sm:text-lg">Lab Invoice</h3>}
+                    leading={<h4 className="min-w-0 text-xs font-semibold uppercase tracking-wide text-slate-700">Lab Invoice</h4>}
                   />
                 </div>
               ) : null;
@@ -5976,7 +5976,7 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
               setCustomerKind("company");
               setSiteContactSameAsContact(false);
             }}
-            className={`flex-1 rounded-lg px-3 py-1.5 text-sm font-medium ${customerKind === "company" ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}
+            className={`flex-1 rounded-lg px-4 py-2 text-sm font-medium ${customerKind === "company" ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}
           >
             Company
           </button>
@@ -5988,7 +5988,7 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
               setCompanyId("");
               setSiteContactSameAsContact(true);
             }}
-            className={`flex-1 rounded-lg px-3 py-1.5 text-sm font-medium ${customerKind === "individual" ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}
+            className={`flex-1 rounded-lg px-4 py-2 text-sm font-medium ${customerKind === "individual" ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}
           >
             Individual
           </button>
@@ -8208,10 +8208,10 @@ function LineItemsEditor({
       ))}
 
       <div className="flex flex-wrap gap-3">
-        <button onClick={() => add()} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-brand-600 hover:bg-slate-50">
+        <button onClick={() => add()} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-brand-600 hover:bg-slate-50">
           + Custom Line Item
         </button>
-        <button onClick={() => addSample()} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-brand-600 hover:bg-slate-50">
+        <button onClick={() => addSample()} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-brand-600 hover:bg-slate-50">
           + Samples
         </button>
       </div>

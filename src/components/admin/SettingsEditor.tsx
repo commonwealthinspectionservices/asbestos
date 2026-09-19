@@ -510,7 +510,7 @@ function CredentialsDocumentUpload({ hasDocument, onUploaded }: { hasDocument: b
         <button
           onClick={upload}
           disabled={!file || uploading}
-          className="shrink-0 rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 disabled:opacity-50"
+          className="shrink-0 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 disabled:opacity-50"
         >
           {uploading ? "Uploading…" : hasDocument ? "Replace" : "Upload"}
         </button>
@@ -575,7 +575,7 @@ export function GmailConnection({ compact = false }: { compact?: boolean } = {})
             <button
               onClick={disconnect}
               disabled={disconnecting}
-              className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 disabled:opacity-50"
+              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 disabled:opacity-50"
             >
               {disconnecting ? "Disconnecting…" : "Disconnect"}
             </button>
@@ -583,7 +583,7 @@ export function GmailConnection({ compact = false }: { compact?: boolean } = {})
         ) : status ? (
           <a
             href="/api/admin/gmail/oauth-start"
-            className="rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-medium text-white"
+            className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white"
           >
             Connect Gmail
           </a>

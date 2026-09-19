@@ -155,7 +155,7 @@ export function AcceptScheduleControl({
           type="button"
           disabled={!date || !time}
           onClick={startAccepting}
-          className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-bold text-white disabled:opacity-50"
+          className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
         >
           Accept & Schedule
         </button>

@@ -950,7 +950,7 @@ export default function BillingView() {
                 <button
                   key={f.key}
                   onClick={() => { setFilter(f.key); setPeriodFilter(null); }}
-                  className={`shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium ${!periodFilter && filter === f.key ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}
+                  className={`shrink-0 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium ${!periodFilter && filter === f.key ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}
                 >
                   {f.label}
                 </button>

@@ -251,7 +251,7 @@ export default function JobPhotos({
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   disabled={uploading}
-                  className="rounded border border-slate-300 px-3 py-1.5 text-sm font-bold text-slate-700 hover:bg-slate-50"
+                  className="rounded border border-slate-300 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50"
                 >
                   {uploading ? "Uploading…" : "Choose photos"}
                 </button>
@@ -272,7 +272,7 @@ export default function JobPhotos({
                       }}
                       className="rounded border border-slate-300 px-2 py-1.5 text-sm"
                     />
-                    <button onClick={addPendingRoom} className="rounded bg-brand-700 px-3 py-1.5 text-sm font-bold text-white">
+                    <button onClick={addPendingRoom} className="rounded bg-brand-700 px-4 py-2 text-sm font-bold text-white">
                       Add
                     </button>
                     <button
@@ -288,7 +288,7 @@ export default function JobPhotos({
                 ) : (
                   <button
                     onClick={() => setAddingRoom(true)}
-                    className="rounded border border-slate-300 px-3 py-1.5 text-sm font-bold text-slate-700 hover:bg-slate-50"
+                    className="rounded border border-slate-300 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50"
                   >
                     + Add room
                   </button>

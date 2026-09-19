@@ -323,9 +323,6 @@ export default function RevenueMarginSummaryView() {
               <div className={`whitespace-nowrap text-right text-[13px] sm:text-sm ${isMarginEstimated ? "italic" : ""}`}>{allTimeMarginText.replace("≈ ", "")}</div>
             </div>
           </div>
-          <p className="mt-2 text-xs text-slate-500">
-            By invoice date. Click a row to see that {isWeekly ? "week" : "month"}&apos;s jobs. ≈ / italic means part of the lab cost is still an estimate.
-          </p>
         </>
       )}
     </div>

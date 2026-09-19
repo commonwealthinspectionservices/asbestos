@@ -5337,16 +5337,24 @@ function DocumentStation({
                   >
                     Download
                   </a>
-                  <button
-                    type="button"
-                    onClick={() => setConfirmingDeleteDoc(doc)}
-                    disabled={deletingId === doc.id}
-                    title={`Delete ${doc.file_name}`}
-                    aria-label={`Delete ${doc.file_name}`}
-                    className={DELETE_ICON_BUTTON_CLASS}
-                  >
-                    {deletingId === doc.id ? "…" : "✕"}
-                  </button>
+                  {/* Per Tim, 2026-09-19 — "why does the lab invoice have an X
+                      next to it? It probably shouldn't": a lab invoice is
+                      recorded from Crystal's own weekly reports, and deleting
+                      one silently drops that charge from the job's lab cost
+                      (the mistake behind 26-0015's duplicate-charge mix-up).
+                      No delete button for this kind. */}
+                  {kind !== "lab_invoice" && (
+                    <button
+                      type="button"
+                      onClick={() => setConfirmingDeleteDoc(doc)}
+                      disabled={deletingId === doc.id}
+                      title={`Delete ${doc.file_name}`}
+                      aria-label={`Delete ${doc.file_name}`}
+                      className={DELETE_ICON_BUTTON_CLASS}
+                    >
+                      {deletingId === doc.id ? "…" : "✕"}
+                    </button>
+                  )}
                 </div>
                 {doc.project_number_mismatch && (
                   <p className="bg-red-600 px-2 py-1 text-xs font-bold text-white">

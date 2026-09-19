@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import type { Company, Customer, FullInspectionMaterial, InvoiceLineItem, JobDocument, JobWithCustomer, LabProfile, PricingZone, SampleItem, ServiceType } from "@/lib/types";
 import { defaultInvoiceLineItems, sampleDescriptionForServiceType } from "@/lib/invoice-defaults";
@@ -1090,10 +1090,12 @@ export default function JobsDashboard() {
   }, []);
 
   const overdueJobs = useMemo(() => jobs.filter((j) => daysOverdue(j) !== null), [jobs]);
+  const achPendingCount = useMemo(() => jobs.filter((j) => j.ach_pending).length, [jobs]);
 
   const filteredJobs = useMemo(() => {
     let result = jobs;
     if (statusFilter.has("overdue")) result = result.filter((j) => daysOverdue(j) !== null);
+    else if (statusFilter.has("ach_pending")) result = result.filter((j) => j.ach_pending);
     else if (statusFilter.size > 0) result = result.filter((j) => statusFilter.has(j.status));
     else if (statusView === "open") result = result.filter((j) => isOpenJob(j));
     else if (statusView === "closed") result = result.filter((j) => isClosedJob(j));
@@ -1367,7 +1369,8 @@ export default function JobsDashboard() {
                 </label>
               )}
               {PIPELINE_STATUSES.map((s) => (
-                <label key={s} className="flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-slate-50">
+                <Fragment key={s}>
+                <label className="flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-slate-50">
                   <input
                     type="radio"
                     name="statusFilter"
@@ -1378,6 +1381,20 @@ export default function JobsDashboard() {
                   <span className={`h-2.5 w-2.5 rounded-full ${STATUS_DOT_COLOR[s]}`} />
                   {STATUS_LABEL[s]}
                 </label>
+                {s === "paid" && (
+                  <label className="flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-slate-50">
+                    <input
+                      type="radio"
+                      name="statusFilter"
+                      checked={statusFilter.has("ach_pending")}
+                      onChange={() => selectStatusFilter("ach_pending")}
+                      className="h-3.5 w-3.5 shrink-0 appearance-none rounded-none border border-slate-400 checked:border-brand-600 checked:bg-brand-600"
+                    />
+                    <span className="h-2.5 w-2.5 rounded-full bg-emerald-300" />
+                    Paid · ACH Pending ({achPendingCount})
+                  </label>
+                )}
+                </Fragment>
               ))}
               {statusFilter.size > 0 && (
                 <button onClick={() => setStatusFilter(new Set())} className="mt-1 w-full rounded px-2 py-1 text-left text-xs text-brand-600 underline">

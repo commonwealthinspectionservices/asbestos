@@ -9,10 +9,6 @@
       "schedule": "*/15 * * * *"
     },
     {
-      "path": "/api/cron/check-subcontractor-assignments",
-      "schedule": "*/15 * * * *"
-    },
-    {
       "path": "/api/cron/check-sent-drafts",
       "schedule": "*/15 * * * *"
     },

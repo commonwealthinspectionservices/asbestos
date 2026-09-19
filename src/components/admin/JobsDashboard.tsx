@@ -2689,23 +2689,16 @@ export function ProjectDetailDialog({
   const turnaroundControl = (
     <div className="flex w-full items-center gap-2 text-sm">
       <span className="w-28 shrink-0 text-xs font-semibold uppercase text-slate-700">Turnaround</span>
-      <div className="flex h-9 w-full min-w-0 flex-1 gap-2">
-        <button
-          type="button"
-          onClick={() => setRush(false)}
-          className={`h-9 flex-1 rounded-lg border px-2 text-sm font-medium ${job.lab_turnaround !== "Rush" ? "border-slate-700 bg-slate-700 text-white" : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"}`}
+      <div className="relative h-9 w-full min-w-0 flex-1">
+        <select
+          className={`h-9 w-full min-w-0 truncate appearance-none rounded-lg border px-2 py-1.5 text-sm ${job.lab_turnaround === "Rush" ? "border-yellow-300 bg-yellow-100" : "border-slate-300 bg-white"}`}
+          value={job.lab_turnaround === "Rush" ? "Rush" : "Standard"}
+          onChange={(e) => setRush(e.target.value === "Rush")}
         >
-          Standard
-        </button>
-        {/* Rush keeps its light-yellow highlight when active (per Tim,
-            2026-09-02). */}
-        <button
-          type="button"
-          onClick={() => setRush(true)}
-          className={`h-9 flex-1 rounded-lg border px-2 text-sm font-medium text-slate-700 ${job.lab_turnaround === "Rush" ? "border-yellow-300 bg-yellow-100" : "border-slate-300 bg-white hover:bg-slate-50"}`}
-        >
-          Rush
-        </button>
+          <option value="Standard">Standard</option>
+          <option value="Rush">Rush</option>
+        </select>
+        <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-slate-500">▾</span>
       </div>
     </div>
   );

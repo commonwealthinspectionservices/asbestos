@@ -2042,17 +2042,12 @@ async function processMatchedLabEmail(params: {
   // likely wrong for this specific email — rather than silently filing a
   // report that doesn't match its own label, alert immediately so this
   // gets caught before a customer ever sees it, not after.
+  // Per Tim, 2026-09-19 — the "may be filed under the wrong domain" alert
+  // email that used to fire here was dropped (rare, and redundant with the
+  // job's own Laboratory Paperwork). The report/invoice-draft hold it
+  // described is unchanged: a report that produced no data for its domain
+  // still won't build until the document is replaced.
   const domainDataFound = isMold ? reportedMoldLabels.size > 0 : asbestosDataFound;
-  if (!domainDataFound) {
-    await sendEmail({
-      to: process.env.OWNER_EMAIL!,
-      subject: `Lab report may be filed under the wrong domain — ${job.project_number ?? job.id}`,
-      html: emailShell(`
-        <p style="font-size:15px;">This report was just filed on ${escapeHtml(job.project_number ?? job.id)} as <strong>${isMold ? "mold" : "asbestos"}</strong> (subject: "${escapeHtml(subject)}"), but no ${isMold ? "mold" : "asbestos"}-shaped results could actually be read out of it.</p>
-        <p>That's exactly how the mold/asbestos mislabeling bug showed up before — this report is now held (the ${isMold ? "mold" : "asbestos"} report/invoice draft for this job won't build until it's resolved). Open the job's Laboratory Paperwork, replace this document with the right file, and it'll draft normally again.</p>
-      `),
-    }).catch(() => {});
-  }
 
   // Crystal Analytical (and similarly-shaped labs) email back one PDF with
   // the typed lab data pages followed by the scanned, handwritten chain-of-
@@ -2091,7 +2086,7 @@ async function processMatchedLabEmail(params: {
     storage_path: storagePath,
     uploaded_at: reportUploadedAt,
     project_number_mismatch: null,
-    // Not just the alert email above — this is what actually stops
+    // This is what actually stops
     // buildFinalReportPacket (report-packet.ts) from including this
     // document in a customer-facing report until someone clears it by
     // replacing it with the right file. See DomainMismatchError there.
@@ -2215,36 +2210,17 @@ async function processMatchedLabEmail(params: {
     // If it's already paid by the time results land (the early-invoice
     // flow above), release the report right now instead — a stale "pay to
     // receive it" reminder would be wrong for someone who's already paid.
-    let draftedWhat: string;
     if (!updatedJob.is_individual || updatedJob.status === "paid") {
       await draftReportEmailForJob({ job: updatedJob, settings, accessToken });
-      draftedWhat = updatedJob.status === "paid"
-        ? "A report draft was created automatically and is waiting in Gmail"
-        : "Invoice and report drafts were created automatically and are waiting in Gmail";
     } else {
       await draftPaymentReminderForIndividual({ job: updatedJob, settings, accessToken });
-      draftedWhat = "An invoice draft was created, and a payment-reminder email went out — the report itself stays held until they pay";
     }
 
-    // Per Tim, 2026-09-16 — "some sort of email automation... that tells
-    // me when lab results have landed for a single job": the mold branch
-    // above already had its own "no auto-draft" version of this; every
-    // other job silently drafted and moved on with no notification at
-    // all. This is that same notification for the common case, so every
-    // job (not just mold) gets a heads-up the moment results land —
-    // fires once per job, never a bundled multi-job email, since
-    // processMatchedLabEmail itself only ever matches one job per lab
-    // results email (Crystal's own multi-job bundling only happens on
-    // lab_invoice-kind weekly/daily summary PDFs, handled by a separate
-    // path that never reaches this function).
-    await sendEmail({
-      to: process.env.OWNER_EMAIL!,
-      subject: `Lab results landed — ${updatedJob.project_number ?? updatedJob.id}`,
-      html: emailShell(`
-        <p style="font-size:15px;">Lab results just came in for ${escapeHtml(expandAddress(updatedJob.service_address))} and were filed on this job.</p>
-        <p>${draftedWhat}, ready for your review.</p>
-      `),
-    }).catch(() => {});
+    // Per Tim, 2026-09-19 — the plain "Lab results landed" email that used
+    // to go out here for every job (added 2026-09-16) was dropped as too
+    // noisy. The two variants that need an action are kept: the mold one
+    // above (nothing was auto-drafted, so that email is the only cue) and
+    // the drafting-failed one below.
   } catch (err) {
     console.error(`processMatchedLabEmail: lab PDF filed on job ${updatedJob.id}, but invoice/report drafting failed:`, err);
     await sendEmail({

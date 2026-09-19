@@ -100,12 +100,43 @@ export interface JobIntakeResult {
 // below), so a false negative just leaves the field blank for manual entry,
 // same as before this existed.
 const PHONE_ONLY_REPLY = /phone\s*number\s*is[-:]?\s*\n?\s*([\d()+\-.\s]{7,20})/i;
+
+// Per Tim, 2026-09-19 — the literal "Phone number is" lead-in above turned out
+// to be only one of the shapes Boston Harbor actually uses: found live on
+// 26-0037 ("Phone number-\n+1 (617) 921-0599"), 26-0038 and 26-0039 ("Number
+// is-\n518-231-1595"), 26-0023 ("978-886-7270, thank you! ...") and 26-0027
+// (a bare "919-452-4709") — all left the job's phone blank. The rule is now:
+// look only at what the sender actually typed (everything above the quoted
+// "On ... wrote:" history and any signature), and accept it when that has
+// exactly one phone number in a short message.
+const PHONE_NUMBER_PATTERN = /(?:\+?1[\s.-]?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}/g;
+
+function topOfReply(bodyText: string): string {
+  let text = bodyText.replace(/\r/g, "");
+  const cuts = [
+    /\n\s*On [^\n]*(?:\n[^\n]*)?wrote:/i,
+    /\n\s*-{2,}\s*(?:\n|$)/,
+    /\n\s*From:\s/i,
+    /\n\s*>/,
+  ];
+  for (const cut of cuts) {
+    const m = cut.exec(text);
+    if (m) text = text.slice(0, m.index);
+  }
+  return text.trim();
+}
+
 export function extractPhoneOnlyReply(bodyText: string): string | null {
   const match = bodyText.match(PHONE_ONLY_REPLY);
-  if (!match) return null;
-  const digits = match[1].replace(/\D/g, "");
-  if (digits.length < 10) return null;
-  return formatPhoneNumber(digits);
+  if (match) {
+    const digits = match[1].replace(/\D/g, "");
+    if (digits.length >= 10) return formatPhoneNumber(digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits);
+  }
+  const top = topOfReply(bodyText);
+  if (!top || top.length > 200) return null;
+  const numbers = new Set((top.match(PHONE_NUMBER_PATTERN) ?? []).map((n) => n.replace(/\D/g, "").replace(/^1(?=\d{10}$)/, "")));
+  if (numbers.size !== 1) return null;
+  return formatPhoneNumber([...numbers][0]);
 }
 
 // Gmail's own "Forward" action: "---------- Forwarded message ---------".

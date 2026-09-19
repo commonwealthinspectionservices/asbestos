@@ -100,6 +100,23 @@ describe("extractPhoneOnlyReply", () => {
     expect(extractPhoneOnlyReply("Customer Name\nTim Howard\nAddress\n7 Lafayette st")).toBeNull();
   });
 
+  // The real shapes Boston Harbor used on 26-0037/0038/0039/0023/0027, 2026-09-19.
+  it("reads the other reply shapes Boston Harbor actually sends", () => {
+    expect(extractPhoneOnlyReply("Number is-\n518-231-1595\n\nOn Wed, Sep 16, 2026 at 4:20 PM Niall Dalton <niall@bostonharborwater.com>\nwrote:\n> Customer Name")).toBe("518-231-1595");
+    expect(extractPhoneOnlyReply("Phone number-\n+1 (617) 921-0599\nOn Wed, Sep 16, 2026 at 4:24 PM Niall Dalton <niall@x.com>\nwrote:")).toBe("617-921-0599");
+    expect(extractPhoneOnlyReply("978-886-7270, thank you! Again I don't know why that's not going through.\n\nOn Wed, Sep 9, 2026 at 11:20 AM Tim Hall <\ntim@x.com> wrote:")).toBe("978-886-7270");
+    expect(extractPhoneOnlyReply("919-452-4709\n\nOn Thu, Sep 10, 2026 at 11:23 AM Tim Hall <\ntim@x.com> wrote:\n\n-- \nJack Cook\n781-985-7432")).toBe("919-452-4709");
+  });
+
+  it("ignores a phone number that's only in the quoted history or a signature", () => {
+    expect(extractPhoneOnlyReply("Tim, the front door code is 6988.\n\nOn Thu, Sep 10, 2026 at 11:22 AM Niall <n@x.com> wrote:\n> call 617-555-0199")).toBeNull();
+    expect(extractPhoneOnlyReply("Sounds good, thanks\n\n-- \nRyan Hammond\nBoston Harbor\n617-555-0100")).toBeNull();
+  });
+
+  it("returns null when the message has two different numbers", () => {
+    expect(extractPhoneOnlyReply("Call 617-555-0100 or 781-555-0111")).toBeNull();
+  });
+
   it("returns null when fewer than 10 digits follow the lead-in", () => {
     expect(extractPhoneOnlyReply("Phone number is- 555-1234")).toBeNull();
   });

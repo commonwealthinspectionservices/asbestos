@@ -37,6 +37,7 @@ export default function RevenueMarginSummaryView() {
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [summaryTab, setSummaryTab] = useState<"weekly" | "monthly">("weekly");
+  const [expandedPdfWeeks, setExpandedPdfWeeks] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetch("/api/admin/jobs")
@@ -143,7 +144,7 @@ export default function RevenueMarginSummaryView() {
   // for that job goes out.
   const weeklyLabInvoicePdfHrefs = useMemo(() => {
     const seenKeys = new Set<string>();
-    const docs: { jobId: string; docId: string; startStr: string; endStr: string }[] = [];
+    const docs: { jobId: string; docId: string; startStr: string; endStr: string; uploadedAt: string }[] = [];
     for (const job of jobs) {
       for (const doc of job.documents ?? []) {
         if (doc.kind !== "lab_invoice" || !doc.report_date_range || !doc.file_name.startsWith("weekly-lab-summary")) continue;
@@ -152,14 +153,18 @@ export default function RevenueMarginSummaryView() {
         const range = parseReportDateRange(doc.report_date_range);
         if (!range) continue;
         seenKeys.add(key);
-        docs.push({ jobId: job.id, docId: doc.id, ...range });
+        docs.push({ jobId: job.id, docId: doc.id, uploadedAt: doc.uploaded_at, ...range });
       }
     }
-    const result: Record<string, string[]> = {};
+    const result: Record<string, { href: string; uploadedAt: string }[]> = {};
     for (const week of periodHistory.weekly) {
+      // Newest first — each Crystal summary is a running total that
+      // includes everything in the earlier ones, so the newest is the one
+      // that matters and the rest are just older snapshots.
       const hrefs = docs
         .filter((d) => d.startStr >= week.startStr && d.startStr <= week.endStr)
-        .map((d) => `/api/admin/jobs/${d.jobId}/documents/${d.docId}`);
+        .sort((a, b) => b.uploadedAt.localeCompare(a.uploadedAt))
+        .map((d) => ({ href: `/api/admin/jobs/${d.jobId}/documents/${d.docId}`, uploadedAt: d.uploadedAt }));
       if (hrefs.length > 0) result[week.label] = hrefs;
     }
     return result;
@@ -289,19 +294,46 @@ export default function RevenueMarginSummaryView() {
                 <div className="text-slate-700">
                   {row.label}
                   {row.pdfHrefs && row.pdfHrefs.length > 0 && (
-                    <div className="mt-1 flex flex-wrap gap-x-2 text-xs">
-                      {row.pdfHrefs.map((href, i) => (
-                        <a
-                          key={href}
-                          href={href}
-                          target="_blank"
-                          rel="noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          className="text-brand-700 underline"
+                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+                      <a
+                        href={row.pdfHrefs[0].href}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-brand-700 underline"
+                      >
+                        Crystal report ↗
+                      </a>
+                      {row.pdfHrefs.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setExpandedPdfWeeks((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(row.label)) next.delete(row.label);
+                              else next.add(row.label);
+                              return next;
+                            });
+                          }}
+                          className="text-slate-500 underline"
                         >
-                          PDF{i + 1}
-                        </a>
-                      ))}
+                          {expandedPdfWeeks.has(row.label) ? "hide earlier" : `earlier versions (${row.pdfHrefs.length - 1})`}
+                        </button>
+                      )}
+                      {expandedPdfWeeks.has(row.label) &&
+                        row.pdfHrefs.slice(1).map((p) => (
+                          <a
+                            key={p.href}
+                            href={p.href}
+                            target="_blank"
+                            rel="noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-slate-500 underline"
+                          >
+                            {new Date(p.uploadedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                          </a>
+                        ))}
                     </div>
                   )}
                 </div>

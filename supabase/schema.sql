@@ -1236,3 +1236,30 @@ begin
   delete from customers where id = loser_id;
 end;
 $$ language plpgsql;
+
+-- Per Tim, 2026-09-18 (26-0030, "Burt Condo Trust") — the same upsertCompany
+-- exact-name-match logic that keeps re-adding a contact under a company can
+-- also produce two real company rows for the same actual company, if it
+-- ever gets typed/matched under two different name strings ("Green Ocean
+-- Property Management" plain vs. "Burt Condominum Trust, c/o Green Ocean
+-- Property Management" for the same firm) — found live: Kai Rodriguez's own
+-- company card showed 0 projects even though Green Ocean's real job
+-- (26-0030) was on file the whole time, just filed under the other row via
+-- Jarrett Lau. Only customers.company_id ever points at a company (see its
+-- own fk above) — no job or other table references a company directly — so
+-- reassigning every contact is the whole merge.
+create or replace function merge_companies(survivor_id uuid, loser_id uuid) returns void as $$
+begin
+  if not exists (select 1 from companies where id = loser_id) then
+    raise exception 'merge_companies: loser_id % does not exist', loser_id;
+  end if;
+  if not exists (select 1 from companies where id = survivor_id) then
+    raise exception 'merge_companies: survivor_id % does not exist', survivor_id;
+  end if;
+
+  update customers set company_id = survivor_id, company = (select name from companies where id = survivor_id) where company_id = loser_id;
+  update companies set billing_contact_id = null where billing_contact_id in (select id from customers where company_id = loser_id);
+
+  delete from companies where id = loser_id;
+end;
+$$ language plpgsql;

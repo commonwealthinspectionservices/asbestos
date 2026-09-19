@@ -271,7 +271,7 @@ export default function RevenueMarginSummaryView() {
               links sit under the period name so the number columns stay
               narrow enough for a phone. */}
           <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white">
-            <div className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto] gap-x-3 border-b border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold uppercase tracking-wide text-slate-500 sm:px-4">
+            <div className="grid grid-cols-[minmax(0,1fr)_76px_92px_50px] gap-x-2 sm:grid-cols-[minmax(0,1fr)_130px_150px_100px] sm:gap-x-4 border-b border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold uppercase tracking-wide text-slate-500 sm:px-4">
               <div>{isWeekly ? "Week" : "Month"}</div>
               <div className="whitespace-nowrap text-right">Revenue</div>
               <div className="whitespace-nowrap text-right">Lab cost</div>
@@ -284,7 +284,7 @@ export default function RevenueMarginSummaryView() {
                 role="button"
                 tabIndex={0}
                 onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && goToPeriod(row.label)}
-                className="grid cursor-pointer grid-cols-[minmax(0,1.6fr)_repeat(3,minmax(0,1fr))] items-start gap-x-3 border-b border-slate-100 px-3 py-3 text-sm hover:bg-slate-50 sm:px-4"
+                className="grid cursor-pointer grid-cols-[minmax(0,1fr)_76px_92px_50px] gap-x-2 sm:grid-cols-[minmax(0,1fr)_130px_150px_100px] sm:gap-x-4 items-start border-b border-slate-100 px-3 py-3 text-sm hover:bg-slate-50 sm:px-4"
               >
                 <div className="text-slate-700">
                   {row.label}
@@ -314,7 +314,7 @@ export default function RevenueMarginSummaryView() {
                 </div>
               </div>
             ))}
-            <div className="grid grid-cols-[minmax(0,1.6fr)_repeat(3,minmax(0,1fr))] items-start gap-x-3 bg-slate-50 px-3 py-3 text-sm font-semibold text-slate-800 sm:px-4">
+            <div className="grid grid-cols-[minmax(0,1fr)_76px_92px_50px] gap-x-2 sm:grid-cols-[minmax(0,1fr)_130px_150px_100px] sm:gap-x-4 items-start bg-slate-50 px-3 py-3 text-sm font-semibold text-slate-800 sm:px-4">
               <div>All time</div>
               <div className="whitespace-nowrap text-right text-[13px] sm:text-sm">{formatCents(allTimeTotal.grossCents)}</div>
               <div className={`whitespace-nowrap text-right text-[13px] sm:text-sm ${allTimeTotal.estimatedLabCostCents > 0 ? "italic" : ""}`}>

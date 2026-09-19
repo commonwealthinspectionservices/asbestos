@@ -8200,11 +8200,11 @@ function LineItemsEditor({
         </div>
       ))}
 
-      <div className="flex flex-wrap gap-3">
-        <button onClick={() => add()} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-brand-600 hover:bg-slate-50">
+      <div className="flex justify-end gap-4">
+        <button onClick={() => add()} className="text-sm font-medium text-brand-600 hover:underline">
           + Custom Line Item
         </button>
-        <button onClick={() => addSample()} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-brand-600 hover:bg-slate-50">
+        <button onClick={() => addSample()} className="text-sm font-medium text-brand-600 hover:underline">
           + Samples
         </button>
       </div>

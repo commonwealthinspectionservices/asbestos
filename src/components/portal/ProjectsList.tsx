@@ -6,7 +6,7 @@ import type { Customer, Job } from "@/lib/types";
 import { splitAddress, googleMapsUrl, expandAddress } from "@/lib/address";
 import { formatDateMDY } from "@/lib/date-format";
 import ProjectDetailModal from "@/components/portal/ProjectDetailModal";
-import PayNowButton, { canPayOnline } from "@/components/portal/PayNowButton";
+import PayNowButton, { PaidNotice, canPayOnline } from "@/components/portal/PayNowButton";
 
 const OPEN_STATUSES = new Set(["needs_scheduling", "scheduled", "fieldwork_in_progress", "awaiting_lab_results", "needs_report", "pending_lab_results", "completed", "invoiced", "ready_to_send", "report_invoice_sent"]);
 const CLOSED_STATUSES = new Set(["paid", "cancelled"]);
@@ -486,9 +486,9 @@ export default function ProjectsList() {
                   </div>
                 </div>
 
-                {canPayOnline(p) && (
+                {(canPayOnline(p) || (p.status === "paid" && p.invoice_total_cents != null)) && (
                   <div className="mt-3 border-t border-slate-100 pt-3">
-                    <PayNowButton job={p} />
+                    {canPayOnline(p) ? <PayNowButton job={p} /> : <PaidNotice job={p} />}
                   </div>
                 )}
               </div>

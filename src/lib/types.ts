@@ -252,6 +252,8 @@ export interface InvoiceLineItem {
 }
 
 export interface Job {
+  /** Paid via an ACH transfer Stripe still has as "processing" — computed live by the jobs list endpoints (admin and portal), not stored. */
+  ach_pending?: boolean;
   id: string;
   /** Human-readable id (e.g. "26-1301"), auto-generated at booking time. Nullable for waitlist entries and some historical imports. */
   project_number: string | null;

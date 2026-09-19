@@ -6,7 +6,7 @@ import { generateProjectNumber } from "@/lib/project-number";
 import { resolveZoneBaseFeeCents } from "@/lib/pricing-zones";
 import { upsertCompany, upsertCompanyContact } from "@/lib/companies";
 import { withApiErrors } from "@/lib/api-handler";
-import { getStripe } from "@/lib/stripe";
+import { findAchPendingJobIds } from "@/lib/stripe";
 import { withCompanyBillingAddress } from "@/lib/customer-billing";
 import { NEWTON_FIRE_FLOOD_COMPANY_ID } from "@/lib/report-findings";
 import type { Company, Customer, ServiceType } from "@/lib/types";
@@ -49,27 +49,7 @@ export const GET = withApiErrors(async (req: NextRequest) => {
   type JobRow = {
     customers: (Customer & { companies: (Company & { billing_contact: { id: string; name: string; email: string; phone: string } | null }) | null }) | null;
   };
-  // Per Tim, 2026-09-19 — a job marked Paid the instant its ACH transfer
-  // started (see the Stripe webhook's payment_intent.processing handler)
-  // should read "ACH pending" until Stripe actually settles it. Checked live
-  // rather than stored — only for a recently-paid Stripe job with no fee
-  // recorded yet (a settled payment gets its fee at invoice.paid), so this
-  // is usually zero Stripe calls.
-  const achPendingIds = new Set<string>();
-  const candidates = (data as unknown as { id: string; status: string; paid_date: string | null; stripe_invoice_id: string | null; stripe_fee_cents: number | null; payment_reversed_at: string | null }[])
-    .filter((j) => j.status === "paid" && j.stripe_invoice_id && !j.stripe_fee_cents && !j.payment_reversed_at && j.paid_date && Date.now() - new Date(j.paid_date).getTime() < 14 * 86400000);
-  if (candidates.length > 0) {
-    const stripe = getStripe();
-    await Promise.all(candidates.map(async (j) => {
-      try {
-        const invoice = await stripe.invoices.retrieve(j.stripe_invoice_id!, { expand: ["payment_intent"] });
-        const pi = invoice.payment_intent;
-        if (pi && typeof pi !== "string" && pi.status === "processing") achPendingIds.add(j.id);
-      } catch {
-        // Best-effort label only — never fail the whole list over it.
-      }
-    }));
-  }
+  const achPendingIds = await findAchPendingJobIds(data as unknown as Parameters<typeof findAchPendingJobIds>[0]);
   const jobs = (data as unknown as JobRow[]).map((job) => {
     const customer = job.customers;
     const billingContact = customer?.companies?.billing_contact ?? null;

@@ -58,3 +58,21 @@ export default function PayNowButton({ job, showAmount = true }: { job: Job; sho
     </div>
   );
 }
+
+// The other half of the pay link: once a job is paid, say so plainly right
+// where the button was, instead of leaving the customer wondering whether
+// their payment went through. A bank transfer (ACH) that's been accepted but
+// hasn't cleared yet counts as paid, but says so.
+export function PaidNotice({ job }: { job: Job }) {
+  if (job.status !== "paid" || job.invoice_total_cents == null) return null;
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2" onClick={(e) => e.stopPropagation()}>
+      <span className="text-sm text-slate-600">
+        Invoice <span className="font-semibold text-slate-800">{formatCents(job.invoice_total_cents)}</span>
+      </span>
+      <span className="text-sm font-medium text-emerald-700">
+        ✓ Paid{job.ach_pending ? " — bank transfer processing" : ""}
+      </span>
+    </div>
+  );
+}

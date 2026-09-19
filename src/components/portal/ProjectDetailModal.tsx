@@ -1,6 +1,6 @@
 "use client";
 
-import PayNowButton, { canPayOnline } from "@/components/portal/PayNowButton";
+import PayNowButton, { PaidNotice, canPayOnline } from "@/components/portal/PayNowButton";
 import { useState } from "react";
 import type { Customer, Job } from "@/lib/types";
 import { googleMapsUrl, expandAddress } from "@/lib/address";
@@ -228,6 +228,11 @@ export default function ProjectDetailModal({
                 <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">
                   <div className="mb-2 text-sm font-medium text-emerald-900">Payment due</div>
                   <PayNowButton job={job} />
+                </div>
+              )}
+              {job.status === "paid" && job.invoice_total_cents != null && (
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">
+                  <PaidNotice job={job} />
                 </div>
               )}
               {/* Editable only for a self-submitted portal booking — an

@@ -381,3 +381,30 @@ export async function chargeInvoiceOffSession(stripeInvoiceId: string): Promise<
   const stripe = getStripe();
   return stripe.invoices.pay(stripeInvoiceId, { off_session: true });
 }
+
+
+// Ids of jobs that were marked Paid the moment their ACH transfer started
+// (see the Stripe webhook's payment_intent.processing handler) and that
+// Stripe still has as "processing". Checked live rather than stored, and only
+// for a recently-paid Stripe job with no fee recorded yet (a settled payment
+// gets its fee at invoice.paid), so this is usually zero Stripe calls.
+export async function findAchPendingJobIds(
+  jobs: { id: string; status: string; paid_date: string | null; stripe_invoice_id: string | null; stripe_fee_cents: number | null; payment_reversed_at: string | null }[]
+): Promise<Set<string>> {
+  const pending = new Set<string>();
+  const candidates = jobs.filter(
+    (j) => j.status === "paid" && j.stripe_invoice_id && !j.stripe_fee_cents && !j.payment_reversed_at && j.paid_date && Date.now() - new Date(j.paid_date).getTime() < 14 * 86400000
+  );
+  if (candidates.length === 0) return pending;
+  const stripe = getStripe();
+  await Promise.all(candidates.map(async (j) => {
+    try {
+      const invoice = await stripe.invoices.retrieve(j.stripe_invoice_id!, { expand: ["payment_intent"] });
+      const pi = invoice.payment_intent;
+      if (pi && typeof pi !== "string" && pi.status === "processing") pending.add(j.id);
+    } catch {
+      // Best-effort label only — never fail a whole list over it.
+    }
+  }));
+  return pending;
+}

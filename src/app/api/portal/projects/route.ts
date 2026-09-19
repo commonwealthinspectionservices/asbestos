@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireContractorApi, getCompanyCustomerIds } from "@/lib/contractor-api";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { withApiErrors } from "@/lib/api-handler";
+import { findAchPendingJobIds } from "@/lib/stripe";
 
 export const GET = withApiErrors(async () => {
   const auth = await requireContractorApi();
@@ -24,5 +25,7 @@ export const GET = withApiErrors(async () => {
   // pending. confirmed_date/confirmed_time (only ever set by the admin's
   // explicit Accept & Schedule action) are what actually gets shown once a
   // job is scheduled.
-  return NextResponse.json({ projects: data ?? [], customer: auth.customer });
+  const achPending = await findAchPendingJobIds((data ?? []) as Parameters<typeof findAchPendingJobIds>[0]);
+  const projects = (data ?? []).map((j) => ({ ...j, ach_pending: achPending.has(j.id) }));
+  return NextResponse.json({ projects, customer: auth.customer });
 });

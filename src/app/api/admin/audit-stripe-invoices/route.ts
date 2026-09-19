@@ -6,7 +6,7 @@ import { getStripe } from "@/lib/stripe";
 import { withApiErrors } from "@/lib/api-handler";
 import type { Job } from "@/lib/types";
 
-type JobRow = Pick<Job, "id" | "project_number" | "stripe_invoice_id" | "paid_date" | "payment_reversed_at" | "payment_type" | "invoice_sent_at" | "source">;
+type JobRow = Pick<Job, "id" | "project_number" | "stripe_invoice_id" | "paid_date" | "payment_reversed_at" | "payment_type" | "invoice_sent_at" | "source" | "invoice_total_cents">;
 
 // Per Tim, 2026-08-28 — "is this all though in stripe??": the earlier
 // audit-invoices endpoint only ever checked our OWN database's idea of

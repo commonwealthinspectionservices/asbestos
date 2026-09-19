@@ -27,7 +27,7 @@ export const GET = withApiErrors(async (req: NextRequest) => {
   const supabase = getSupabaseAdminFresh();
   const { data, error } = await supabase
     .from("jobs")
-    .select("id, project_number, stripe_invoice_id, paid_date, payment_reversed_at, payment_type, invoice_sent_at, source")
+    .select("id, project_number, stripe_invoice_id, paid_date, payment_reversed_at, payment_type, invoice_sent_at, source, invoice_total_cents")
     .order("project_number", { ascending: true });
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -61,6 +61,13 @@ export const GET = withApiErrors(async (req: NextRequest) => {
       continue;
     }
 
+    // Per Tim, 2026-09-19 — "every single price... must be correct": a
+    // Stripe invoice is what a customer actually pays, so its total has to
+    // equal the total on the job's own invoice PDF. A void/uncollectible one
+    // is handled below (a newer one replaces it), so skip those here.
+    if (invoice.status !== "void" && invoice.status !== "uncollectible" && job.invoice_total_cents != null && invoice.total !== job.invoice_total_cents) {
+      issues.push({ project_number: label, issue: "Stripe invoice amount doesn't match the job's invoice total", detail: `Stripe ${(invoice.total / 100).toFixed(2)} vs job ${(job.invoice_total_cents / 100).toFixed(2)}` });
+    }
     if (job.paid_date && !job.payment_reversed_at && invoice.status !== "paid") {
       issues.push({ project_number: label, issue: "Job marked paid but its Stripe invoice isn't", detail: `Stripe status: ${invoice.status}` });
     }

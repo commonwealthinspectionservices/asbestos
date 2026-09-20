@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { splitAddress } from "@/lib/address";
 import { LAB_ADDRESS, LAB_LABEL, MILEAGE_RATE_CENTS, newStopId, totalMiles, type MileageDay, type MileageStop } from "@/lib/mileage-shared";
 import { formatCents } from "@/lib/pricing";
 import { COMPANY_START_DATE } from "@/lib/company-dates";
@@ -29,11 +30,15 @@ function currentMonthKey(): string {
 
 const smallLink = "text-sm font-medium text-brand-600 hover:underline disabled:opacity-40";
 
-/** Short label for a stop in a "from → to" row: Home, Crystal, or just the street. */
-function shortName(stop: MileageStop): string {
-  if (stop.kind === "home") return "Home";
-  if (stop.kind === "lab") return "Crystal";
-  return stop.address.split(",")[0].trim() || stop.label;
+/** A stop's full address on two lines: street, then town/state/zip. */
+function AddressBlock({ stop }: { stop: MileageStop }) {
+  const { street, cityStateZip } = splitAddress(stop.address);
+  return (
+    <div className="min-w-0 text-[13px] leading-snug">
+      <p className="font-medium text-slate-800">{street || stop.address}</p>
+      {cityStateZip && <p className="text-xs text-slate-500">{cityStateZip}</p>}
+    </div>
+  );
 }
 
 function DayCard({ day, onSaved, onReset }: { day: MileageDay; onSaved: (d: MileageDay) => void; onReset: () => void }) {
@@ -199,9 +204,11 @@ function DayCard({ day, onSaved, onReset }: { day: MileageDay; onSaved: (d: Mile
                 >
                   ⋮⋮
                 </span>
-                <p className="min-w-0 flex-1 text-[13px] font-medium leading-snug text-slate-800">
-                  {shortName(from)} <span className="text-slate-400">→</span> {shortName(to)}
-                </p>
+                <div className="min-w-0 flex-1 space-y-1">
+                  <AddressBlock stop={from} />
+                  <p className="text-xs leading-none text-slate-400">↓</p>
+                  <AddressBlock stop={to} />
+                </div>
                 <input
                   key={`${to.id}-${leg.miles}`}
                   type="number"

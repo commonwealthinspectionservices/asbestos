@@ -256,15 +256,11 @@ export default function MileageView() {
       <h1 className="mt-3 text-2xl font-bold text-slate-800">Mileage</h1>
 
       <div className="mt-5 flex items-center justify-between gap-2">
-        <button type="button" disabled={!canGoBack} onClick={() => setMonth(shiftMonth(month, -1))} className={smallLink}>← Previous</button>
-        <div className="text-center">
-          <p className="text-base font-bold text-slate-800">{monthLabel(month)}</p>
-          <p className="text-sm text-slate-600">
-            {monthMiles.toFixed(1)} mi · {formatCents(Math.round(monthMiles * MILEAGE_RATE_CENTS))}
-            <span className="text-slate-400"> at {MILEAGE_RATE_CENTS}¢/mi</span>
-          </p>
-        </div>
-        <button type="button" disabled={!canGoForward} onClick={() => setMonth(shiftMonth(month, 1))} className={smallLink}>Next →</button>
+        <button type="button" disabled={!canGoBack} onClick={() => setMonth(shiftMonth(month, -1))} className={`${smallLink} px-1 text-lg leading-none`} aria-label="Previous month">←</button>
+        <p className="whitespace-nowrap text-center text-sm text-slate-600">
+          <span className="font-bold text-slate-800">{monthLabel(month)}</span> · {monthMiles.toFixed(1)} mi · {formatCents(Math.round(monthMiles * MILEAGE_RATE_CENTS))}
+        </p>
+        <button type="button" disabled={!canGoForward} onClick={() => setMonth(shiftMonth(month, 1))} className={`${smallLink} px-1 text-lg leading-none`} aria-label="Next month">→</button>
       </div>
 
       {error && <div className="mt-4 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>}

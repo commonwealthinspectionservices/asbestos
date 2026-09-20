@@ -82,6 +82,7 @@ function DayCard({ day, onSaved, onReset }: { day: MileageDay; onSaved: (d: Mile
   }
 
   const total = totalMiles(day);
+  const isSummary = day.stops.length === 1 && day.stops[0].kind === "summary";
   const hasLab = day.stops.some((s) => s.kind === "lab");
 
   return (
@@ -93,7 +94,25 @@ function DayCard({ day, onSaved, onReset }: { day: MileageDay; onSaved: (d: Mile
         </span>
       </div>
 
-      <ol className="mt-3 space-y-1">
+      {isSummary && (
+        <div className="mt-4 flex items-center gap-3">
+          <span className="text-sm text-slate-600">Total miles driven</span>
+          <input
+            key={day.legs[0]?.miles}
+            type="number"
+            step="0.1"
+            min="0"
+            defaultValue={day.legs[0]?.miles ?? 0}
+            onBlur={(e) => {
+              const v = parseFloat(e.target.value);
+              if (Number.isFinite(v) && v !== day.legs[0]?.miles) save(day.stops, { index: 0, miles: v });
+            }}
+            className="h-9 w-24 rounded-lg border border-slate-300 bg-white px-2 text-right text-sm text-slate-700"
+          />
+          <span className="text-sm text-slate-500">mi</span>
+        </div>
+      )}
+      <ol className={`mt-3 space-y-1 ${isSummary ? "hidden" : ""}`}>
         {day.stops.map((stop, i) => (
           <li key={stop.id}>
             <div
@@ -152,7 +171,7 @@ function DayCard({ day, onSaved, onReset }: { day: MileageDay; onSaved: (d: Mile
         ))}
       </ol>
 
-      {adding ? (
+      {isSummary ? null : adding ? (
         <div className="mt-3 space-y-2 rounded-lg border border-slate-200 p-3">
           <input value={newLabel} onChange={(e) => setNewLabel(e.target.value)} placeholder="What is it? (e.g. Supply run)" className="h-9 w-full rounded-lg border border-slate-300 px-3 text-sm" />
           <input value={newAddress} onChange={(e) => setNewAddress(e.target.value)} placeholder="Address" className="h-9 w-full rounded-lg border border-slate-300 px-3 text-sm" />

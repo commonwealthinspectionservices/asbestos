@@ -2,14 +2,14 @@
 // home → each job that day → the lab → home. Auto-filled from the schedule,
 // then dragged/edited by hand. Feeds the monthly payout table.
 export const LAB_ADDRESS = "55 Accord Park Dr, Rockland, MA 02370";
-export const LAB_LABEL = "Crystal Analytical (lab)";
+export const LAB_LABEL = "Crystal Analytical";
 // IRS standard business mileage rate, cents per mile. Update when the IRS
 // publishes a new one each January.
 export const MILEAGE_RATE_CENTS = 76; // 2026 rate, matches what QuickBooks uses ($0.76/mi)
 // Share of each month's profit (after mileage) set aside for taxes.
 export const TAX_SET_ASIDE_PERCENT = 35;
 
-export type StopKind = "home" | "job" | "lab" | "other";
+export type StopKind = "home" | "job" | "lab" | "other" | "summary";
 
 export interface MileageStop {
   id: string;

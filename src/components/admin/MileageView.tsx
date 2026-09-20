@@ -132,7 +132,7 @@ function DayCard({ day, onSaved, onReset }: { day: MileageDay; onSaved: (d: Mile
               <button type="button" disabled={busy || day.stops.length <= 2} onClick={() => remove(i)} className="px-1 text-sm text-red-600 disabled:opacity-30" aria-label="Remove stop">✕</button>
             </div>
             {i < day.stops.length - 1 && (
-              <div className="flex items-center gap-2 py-1 pl-8 text-xs text-slate-500">
+              <div className="my-0.5 ml-6 flex items-center gap-2 border-l-2 border-slate-300 py-2 pl-4 text-xs text-slate-500">
                 <input
                   key={`${stop.id}-${day.legs[i]?.miles}`}
                   type="number"
@@ -143,7 +143,7 @@ function DayCard({ day, onSaved, onReset }: { day: MileageDay; onSaved: (d: Mile
                     const v = parseFloat(e.target.value);
                     if (Number.isFinite(v) && v !== day.legs[i]?.miles) save(day.stops, { index: i, miles: v });
                   }}
-                  className="h-8 w-20 rounded-lg border border-slate-300 bg-white px-2 text-right text-sm text-slate-700"
+                  className="h-7 w-16 rounded-full border border-slate-300 bg-white px-2 text-right text-xs font-medium text-slate-700"
                 />
                 <span>mi</span>
               </div>
@@ -181,16 +181,6 @@ function DayCard({ day, onSaved, onReset }: { day: MileageDay; onSaved: (d: Mile
               + Lab trip
             </button>
           )}
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => {
-              if (confirm("Rebuild this day's route from its jobs? Your edits to this day will be lost.")) onReset();
-            }}
-            className="text-sm text-slate-500 hover:underline disabled:opacity-40"
-          >
-            Reset to jobs
-          </button>
         </div>
       )}
       {busy && <p className="mt-2 text-xs text-slate-400">Saving…</p>}

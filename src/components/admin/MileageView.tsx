@@ -240,7 +240,7 @@ export default function MileageView() {
       <Link href="/admin/billing" className="text-sm text-brand-600 hover:underline">← Billing</Link>
       <h1 className="mt-3 text-2xl font-bold text-slate-800">Mileage</h1>
       <p className="mt-1 text-sm text-slate-500">
-        Each day is filled in from that day&apos;s jobs: home, each job, the lab, home. Tap a day to open it. Drag stops into the order you drove, add stops, or type over a leg&apos;s miles.
+        Each day is filled in from that day&apos;s jobs: home, each job, the lab, home. Tap any day to open it, including days with no jobs. Drag stops into the order you drove, add stops, or type over a leg&apos;s miles.
       </p>
 
       <div className="mt-5 flex items-center justify-between gap-2">
@@ -259,7 +259,22 @@ export default function MileageView() {
       {loading ? (
         <p className="mt-6 text-sm text-slate-500">Building routes…</p>
       ) : (
-        <Calendar month={month} days={days} onPick={setOpenDay} />
+        <Calendar
+          month={month}
+          days={days}
+          onPick={async (day) => {
+            if (!days.some((d) => d.day === day)) {
+              const res = await fetch(`/api/admin/mileage/${day}`, { method: "POST" });
+              const data = await res.json();
+              if (!res.ok) {
+                setError(data.error ?? "Couldn't start that day");
+                return;
+              }
+              setDays((cur) => [...cur, data.day].sort((a, b) => b.day.localeCompare(a.day)));
+            }
+            setOpenDay(day);
+          }}
+        />
       )}
 
       {(() => {
@@ -295,6 +310,8 @@ function Calendar({ month, days, onPick }: { month: string; days: MileageDay[]; 
   const first = new Date(y, m - 1, 1).getDay();
   const count = new Date(y, m, 0).getDate();
   const byDay = new Map(days.map((d) => [d.day, d]));
+  const now = new Date();
+  const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
   const cells: (number | null)[] = [...Array(first).fill(null), ...Array.from({ length: count }, (_, i) => i + 1)];
   return (
     <div className="mt-4 rounded-xl border border-slate-200 bg-white p-2">
@@ -308,13 +325,14 @@ function Calendar({ month, days, onPick }: { month: string; days: MileageDay[]; 
           if (n == null) return <div key={`b${i}`} />;
           const key = `${month}-${String(n).padStart(2, "0")}`;
           const d = byDay.get(key);
+          const isFuture = key > todayKey;
           return (
             <button
               key={key}
               type="button"
-              disabled={!d}
+              disabled={!d && isFuture}
               onClick={() => onPick(key)}
-              className={`flex h-14 flex-col items-center justify-center rounded-lg text-sm ${d ? "border border-brand-600 bg-brand-50 font-semibold text-slate-800 hover:bg-brand-100" : "text-slate-300"}`}
+              className={`flex h-14 flex-col items-center justify-center rounded-lg text-sm ${d ? "border border-brand-600 bg-brand-50 font-semibold text-slate-800 hover:bg-brand-100" : isFuture ? "text-slate-300" : "text-slate-500 hover:bg-slate-50"}`}
             >
               <span>{n}</span>
               {d && <span className="text-[11px] font-medium text-brand-700">{totalMiles(d).toFixed(0)} mi</span>}

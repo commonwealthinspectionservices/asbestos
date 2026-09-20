@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireOwnerApi } from "@/lib/admin-api";
 import { withApiErrors } from "@/lib/api-handler";
-import { resetMileageDay, saveMileageDay, type MileageStop } from "@/lib/mileage";
+import { createEmptyMileageDay, resetMileageDay, saveMileageDay, type MileageStop } from "@/lib/mileage";
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -33,4 +33,12 @@ export const DELETE = withApiErrors(async (req: NextRequest, { params }: { param
   if (!DAY.test(params.day)) return NextResponse.json({ error: "Bad day" }, { status: 400 });
   await resetMileageDay(params.day);
   return NextResponse.json({ ok: true });
+});
+
+// Starts a blank day (home → home) so trips on days with no jobs can be logged.
+export const POST = withApiErrors(async (req: NextRequest, { params }: { params: { day: string } }) => {
+  const unauthorized = requireOwnerApi(req);
+  if (unauthorized) return unauthorized;
+  if (!DAY.test(params.day)) return NextResponse.json({ error: "Bad day" }, { status: 400 });
+  return NextResponse.json({ day: await createEmptyMileageDay(params.day) });
 });

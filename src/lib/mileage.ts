@@ -156,3 +156,19 @@ export async function resetMileageDay(day: string): Promise<void> {
   const { error } = await supabase.from("mileage_days").delete().eq("day", day);
   if (error) throw new Error(error.message);
 }
+
+/** Creates an empty day (home → home) for a date with no scheduled jobs — e.g. a supply run or an extra lab trip. */
+export async function createEmptyMileageDay(day: string): Promise<MileageDay> {
+  const settings = await getSettingsFresh();
+  const stops: MileageStop[] = [
+    { id: newStopId(), kind: "home", label: "Home", address: settings.base_address },
+    { id: newStopId(), kind: "home", label: "Home", address: settings.base_address },
+  ];
+  const supabase = getSupabaseAdminFresh();
+  const { data: existing } = await supabase.from("mileage_days").select("day, stops, legs").eq("day", day).maybeSingle();
+  if (existing) return existing as unknown as MileageDay;
+  const legs = await buildLegs(stops, new Map());
+  const { error } = await supabase.from("mileage_days").insert({ day, stops, legs, updated_at: new Date().toISOString() });
+  if (error) throw new Error(error.message);
+  return { day, stops, legs };
+}

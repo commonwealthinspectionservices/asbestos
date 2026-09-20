@@ -64,12 +64,22 @@ interface JobRowForRoute {
   service_address: string | null;
   requested_time: string | null;
   requested_date: string | null;
+  confirmed_date?: string | null;
+  confirmed_time?: string | null;
   created_at: string;
+}
+
+/** The day a job was actually scheduled/done — confirmed_date when set (Boston Harbor-style jobs never have requested_date), else requested_date. */
+export function effectiveJobDate(j: Pick<JobRowForRoute, "confirmed_date" | "requested_date">): string | null {
+  return j.confirmed_date ?? j.requested_date ?? null;
+}
+function effectiveJobTime(j: JobRowForRoute): string {
+  return j.confirmed_time ?? j.requested_time ?? "99:99";
 }
 
 /** home → each job that day (by scheduled time) → lab → home. */
 export async function autoStopsForDay(homeAddress: string, jobs: JobRowForRoute[]): Promise<MileageStop[]> {
-  const ordered = [...jobs].sort((a, b) => (a.requested_time ?? "99:99").localeCompare(b.requested_time ?? "99:99") || a.created_at.localeCompare(b.created_at));
+  const ordered = [...jobs].sort((a, b) => effectiveJobTime(a).localeCompare(effectiveJobTime(b)) || a.created_at.localeCompare(b.created_at));
   const stops: MileageStop[] = [{ id: newStopId(), kind: "home", label: "Home", address: homeAddress }];
   for (const j of ordered) {
     if (!j.service_address) continue;
@@ -101,17 +111,17 @@ export async function ensureMileageDays(from: string, to: string): Promise<Milea
   if (from <= upper) {
     const { data: jobs, error: jobsError } = await supabase
       .from("jobs")
-      .select("id, project_number, service_address, requested_time, requested_date, created_at, status")
-      .gte("requested_date", from)
-      .lte("requested_date", upper)
+      .select("id, project_number, service_address, requested_time, requested_date, confirmed_date, confirmed_time, created_at, status")
+      .or(`and(confirmed_date.gte.${from},confirmed_date.lte.${upper}),and(confirmed_date.is.null,requested_date.gte.${from},requested_date.lte.${upper})`)
       .not("status", "in", `(${SKIP_STATUSES.join(",")})`);
     if (jobsError) throw new Error(jobsError.message);
     const jobsByDay = new Map<string, JobRowForRoute[]>();
     for (const j of (jobs ?? []) as JobRowForRoute[]) {
-      if (!j.requested_date) continue;
-      const list = jobsByDay.get(j.requested_date) ?? [];
+      const date = effectiveJobDate(j);
+      if (!date) continue;
+      const list = jobsByDay.get(date) ?? [];
       list.push(j);
-      jobsByDay.set(j.requested_date, list);
+      jobsByDay.set(date, list);
     }
     for (const [day, dayJobs] of jobsByDay) {
       if (byDay.has(day)) continue;

@@ -46,6 +46,8 @@ function DayCard({ day, onSaved, onReset }: { day: MileageDay; onSaved: (d: Mile
   const [error, setError] = useState<string | null>(null);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [overIndex, setOverIndex] = useState<number | null>(null);
+  // true when the pointer is over the lower half of the hovered card, i.e. drop AFTER it
+  const [overAfter, setOverAfter] = useState(false);
   const [adding, setAdding] = useState(false);
   const [newAddress, setNewAddress] = useState("");
   const [newLabel, setNewLabel] = useState("");
@@ -111,8 +113,10 @@ function DayCard({ day, onSaved, onReset }: { day: MileageDay; onSaved: (d: Mile
           <li key={stop.id}>
             <div
               data-stop-index={i}
-              className={`flex items-center gap-2 rounded-lg border bg-slate-50 px-2 py-2 ${dragIndex === i ? "border-brand-600 opacity-60" : overIndex === i && dragIndex != null ? "border-brand-600" : "border-slate-200"}`}
+              className={`relative flex items-center gap-2 rounded-lg border bg-slate-50 px-2 py-2 ${dragIndex === i ? "opacity-50" : ""} border-slate-200`}
             >
+              {dragIndex != null && overIndex === i && !overAfter && <div className="pointer-events-none absolute -top-1.5 left-0 right-0 h-1 rounded bg-brand-600" />}
+              {dragIndex != null && overIndex === i && overAfter && <div className="pointer-events-none absolute -bottom-1.5 left-0 right-0 h-1 rounded bg-brand-600" />}
               {!isSummary && (
                 <span
                   className="cursor-grab touch-none select-none px-1 py-1 text-slate-400"
@@ -125,10 +129,18 @@ function DayCard({ day, onSaved, onReset }: { day: MileageDay; onSaved: (d: Mile
                   onPointerMove={(e) => {
                     if (dragIndex == null) return;
                     const el = document.elementFromPoint(e.clientX, e.clientY)?.closest("[data-stop-index]");
-                    if (el) setOverIndex(Number(el.getAttribute("data-stop-index")));
+                    if (el) {
+                      const rect = el.getBoundingClientRect();
+                      setOverIndex(Number(el.getAttribute("data-stop-index")));
+                      setOverAfter(e.clientY > rect.top + rect.height / 2);
+                    }
                   }}
                   onPointerUp={() => {
-                    if (dragIndex != null && overIndex != null) move(dragIndex, overIndex);
+                    if (dragIndex != null && overIndex != null) {
+                      // Where the dragged stop lands, as a slot between cards (0 = before the first).
+                      const slot = overAfter ? overIndex + 1 : overIndex;
+                      move(dragIndex, slot > dragIndex ? slot - 1 : slot);
+                    }
                     setDragIndex(null);
                     setOverIndex(null);
                   }}
@@ -242,9 +254,6 @@ export default function MileageView() {
     <div>
       <Link href="/admin/billing" className="text-sm text-brand-600 hover:underline">← Billing</Link>
       <h1 className="mt-3 text-2xl font-bold text-slate-800">Mileage</h1>
-      <p className="mt-1 text-sm text-slate-500">
-        Each day is filled in from that day&apos;s jobs: home, each job, the lab, home. Tap any day to open it, including days with no jobs. Drag stops into the order you drove, add stops, or type over a leg&apos;s miles.
-      </p>
 
       <div className="mt-5 flex items-center justify-between gap-2">
         <button type="button" disabled={!canGoBack} onClick={() => setMonth(shiftMonth(month, -1))} className={smallLink}>← Previous</button>

@@ -136,7 +136,7 @@ export async function ensureMileageDays(from: string, to: string): Promise<Milea
   return [...byDay.values()].sort((a, b) => b.day.localeCompare(a.day));
 }
 
-export async function saveMileageDay(day: string, stops: MileageStop[], legOverride?: { index: number; miles: number | null }): Promise<MileageDay> {
+export async function saveMileageDay(day: string, stops: MileageStop[], legOverride?: { index: number; miles: number | null }, dayTotal?: number): Promise<MileageDay> {
   const supabase = getSupabaseAdminFresh();
   const { data: existing } = await supabase.from("mileage_days").select("day, stops, legs").eq("day", day).maybeSingle();
   const manual = manualMapOf((existing as unknown as MileageDay | null) ?? null);
@@ -151,6 +151,7 @@ export async function saveMileageDay(day: string, stops: MileageStop[], legOverr
   const legs: MileageLeg[] = isSummary
     ? [{ miles: legOverride?.miles ?? existingDay!.legs[0].miles, manual: true, total: true }]
     : await buildLegs(stops, manual);
+  if (!isSummary && dayTotal != null && legs[0]) legs[0] = { ...legs[0], dayTotal };
   const { error } = await supabase.from("mileage_days").upsert({ day, stops, legs, updated_at: new Date().toISOString() });
   if (error) throw new Error(error.message);
   return { day, stops, legs };

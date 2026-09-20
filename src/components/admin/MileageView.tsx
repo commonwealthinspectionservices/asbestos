@@ -51,14 +51,14 @@ function DayCard({ day, onSaved, onReset }: { day: MileageDay; onSaved: (d: Mile
   const [newLabel, setNewLabel] = useState("");
 
   const save = useCallback(
-    async (stops: MileageStop[], legOverride?: { index: number; miles: number | null }) => {
+    async (stops: MileageStop[], legOverride?: { index: number; miles: number | null }, dayTotal?: number) => {
       setBusy(true);
       setError(null);
       try {
         const res = await fetch(`/api/admin/mileage/${day.day}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ stops, legOverride }),
+          body: JSON.stringify({ stops, legOverride, dayTotal }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error ?? "Couldn't save");
@@ -106,17 +106,16 @@ function DayCard({ day, onSaved, onReset }: { day: MileageDay; onSaved: (d: Mile
         </span>
       </div>
 
-      {isSummary ? (
-        <ol className="mt-3 space-y-1">
-          {day.stops.map((stop, i) => (
-            <li key={stop.id}>
-              <div
-                data-stop-index={i}
-                className={`flex items-center gap-2 rounded-lg border bg-slate-50 px-2 py-2 ${dragIndex === i ? "border-brand-600 opacity-60" : overIndex === i && dragIndex != null ? "border-brand-600" : "border-slate-200"}`}
-              >
-                {!isSummary && (
+      <ol className="mt-3">
+        {day.stops.map((stop, i) => (
+          <li key={stop.id}>
+            <div
+              data-stop-index={i}
+              className={`flex items-center gap-2 rounded-lg border bg-slate-50 px-2 py-2 ${dragIndex === i ? "border-brand-600 opacity-60" : overIndex === i && dragIndex != null ? "border-brand-600" : "border-slate-200"}`}
+            >
+              {!isSummary && (
                 <span
-                  className="cursor-grab touch-none select-none px-2 py-1 text-slate-400"
+                  className="cursor-grab touch-none select-none px-1 py-1 text-slate-400"
                   aria-label="Drag to reorder"
                   onPointerDown={(e) => {
                     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
@@ -140,116 +139,37 @@ function DayCard({ day, onSaved, onReset }: { day: MileageDay; onSaved: (d: Mile
                 >
                   ⋮⋮
                 </span>
-                )}
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-slate-800">{stop.label}</p>
-                  {!stop.label.toLowerCase().includes(stop.address.toLowerCase()) && <p className="truncate text-xs text-slate-500">{stop.address}</p>}
-                </div>
-                {!isSummary && <button type="button" disabled={busy || day.stops.length <= 2} onClick={() => remove(i)} className="px-1 text-sm text-red-600 disabled:opacity-30" aria-label="Remove stop">✕</button>}
-              </div>
-              {!isSummary && i < day.stops.length - 1 && (
-                <div className="my-0.5 ml-6 flex items-center gap-2 border-l-2 border-slate-300 py-2 pl-4 text-xs text-slate-500">
-                  <input
-                    key={`${stop.id}-${day.legs[i]?.miles}`}
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    defaultValue={day.legs[i]?.miles ?? 0}
-                    onBlur={(e) => {
-                      const v = parseFloat(e.target.value);
-                      if (Number.isFinite(v) && v !== day.legs[i]?.miles) save(day.stops, { index: i, miles: v });
-                    }}
-                    className="h-7 w-16 rounded-full border border-slate-300 bg-white px-2 text-right text-xs font-medium text-slate-700"
-                  />
-                  <span>mi</span>
-                </div>
               )}
-            </li>
-          ))}
-        </ol>
-      ) : (
-        <ol className="mt-3 space-y-2">
-          {day.legs.map((leg, i) => {
-            const from = day.stops[i];
-            const to = day.stops[i + 1];
-            if (!from || !to) return null;
-            return (
-              <li
-                key={`${from.id}-${to.id}`}
-                data-stop-index={i + 1}
-                className={`flex items-center gap-1 rounded-lg border bg-slate-50 px-1.5 py-2 ${dragIndex === i + 1 ? "border-brand-600 opacity-60" : overIndex === i + 1 && dragIndex != null ? "border-brand-600" : "border-slate-200"}`}
-              >
-                <span
-                  className="cursor-grab touch-none select-none px-0.5 py-1 text-slate-400"
-                  aria-label="Drag to reorder"
-                  onPointerDown={(e) => {
-                    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-                    setDragIndex(i + 1);
-                    setOverIndex(i + 1);
-                  }}
-                  onPointerMove={(e) => {
-                    if (dragIndex == null) return;
-                    const el = document.elementFromPoint(e.clientX, e.clientY)?.closest("[data-stop-index]");
-                    if (el) setOverIndex(Number(el.getAttribute("data-stop-index")));
-                  }}
-                  onPointerUp={() => {
-                    if (dragIndex != null && overIndex != null) move(dragIndex, overIndex);
-                    setDragIndex(null);
-                    setOverIndex(null);
-                  }}
-                  onPointerCancel={() => {
-                    setDragIndex(null);
-                    setOverIndex(null);
-                  }}
-                >
-                  ⋮⋮
-                </span>
-                <div className="flex min-w-0 flex-1 items-center gap-1.5">
-                  <div className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1.5">
-                    <AddressBlock stop={from} />
-                    <p className="text-center text-[10px] font-medium uppercase text-slate-400">to</p>
-                    <AddressBlock stop={to} />
-                  </div>
-                  <div className="relative shrink-0">
-                    <input
-                      key={`${to.id}-${leg.miles}`}
-                      type="number"
-                      step="0.1"
-                      min="0"
-                      defaultValue={leg.miles}
-                      onBlur={(e) => {
-                        const v = parseFloat(e.target.value);
-                        if (Number.isFinite(v) && v !== leg.miles) save(day.stops, { index: i, miles: v });
-                      }}
-                      className="h-8 w-[3.6rem] rounded-lg border border-slate-300 bg-white pl-1 pr-5 text-right text-xs font-medium text-slate-700"
-                    />
-                    <span className="pointer-events-none absolute inset-y-0 right-1 flex items-center text-[10px] text-slate-400">mi</span>
-                  </div>
-                  <button type="button" disabled={busy || day.stops.length <= 2} onClick={() => remove(i + 1)} className="shrink-0 text-sm leading-none text-red-600 disabled:opacity-30" aria-label="Remove this stop">✕</button>
-                </div>
-              </li>
-            );
-          })}
-        </ol>
-      )}
-      {isSummary && (
-        <div className="mt-4 flex items-center gap-3">
-          <span className="text-sm text-slate-600">Total miles driven</span>
-          <input
-            key={day.legs[0]?.miles}
-            type="number"
-            step="0.1"
-            min="0"
-            defaultValue={day.legs[0]?.miles ?? 0}
-            onBlur={(e) => {
-              const v = parseFloat(e.target.value);
-              if (Number.isFinite(v) && v !== day.legs[0]?.miles) save(day.stops, { index: 0, miles: v });
-            }}
-            className="h-9 w-24 rounded-lg border border-slate-300 bg-white px-2 text-right text-sm text-slate-700"
-          />
-          <span className="text-sm text-slate-500">mi</span>
-        </div>
-      )}
+              <div className="min-w-0 flex-1">
+                <AddressBlock stop={stop} />
+              </div>
+              {!isSummary && (
+                <button type="button" disabled={busy || day.stops.length <= 2} onClick={() => remove(i)} className="px-1 text-sm text-red-600 disabled:opacity-30" aria-label="Remove stop">✕</button>
+              )}
+            </div>
+            {i < day.stops.length - 1 && <p className="py-1 text-center text-[10px] font-medium uppercase text-slate-400">to</p>}
+          </li>
+        ))}
+      </ol>
+
+      <div className="mt-4 flex items-center gap-3">
+        <span className="text-sm text-slate-600">Total miles</span>
+        <input
+          key={`${day.day}-${total}`}
+          type="number"
+          step="0.1"
+          min="0"
+          defaultValue={total}
+          onBlur={(e) => {
+            const v = parseFloat(e.target.value);
+            if (!Number.isFinite(v) || v === total) return;
+            if (isSummary) save(day.stops, { index: 0, miles: v });
+            else save(day.stops, undefined, v);
+          }}
+          className="h-9 w-24 rounded-lg border border-slate-300 bg-white px-2 text-right text-sm text-slate-700"
+        />
+        <span className="text-sm text-slate-500">mi</span>
+      </div>
 
       {isSummary ? null : adding ? (
         <div className="mt-3 space-y-2 rounded-lg border border-slate-200 p-3">

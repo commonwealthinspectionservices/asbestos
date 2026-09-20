@@ -24,6 +24,8 @@ export interface MileageLeg {
   manual?: boolean;
   /** Past days keep their stops as a plain list, with one leg holding the whole day's miles. */
   total?: boolean;
+  /** A day total typed over the computed one; cleared whenever the stops change. */
+  dayTotal?: number;
 }
 
 export interface MileageDay {
@@ -44,6 +46,7 @@ export function normalizeAddress(a: string): string {
 }
 
 export function totalMiles(day: Pick<MileageDay, "legs">): number {
+  if (day.legs[0]?.dayTotal != null) return day.legs[0].dayTotal;
   return Math.round(day.legs.reduce((s, l) => s + (l.miles || 0), 0) * 10) / 10;
 }
 

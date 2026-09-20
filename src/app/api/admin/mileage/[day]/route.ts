@@ -21,7 +21,8 @@ export const PUT = withApiErrors(async (req: NextRequest, { params }: { params: 
   const day = await saveMileageDay(
     params.day,
     stops.map((s) => ({ id: String(s.id), kind: s.kind, label: String(s.label ?? s.address), address: String(s.address).trim(), job_id: s.job_id })),
-    override && Number.isInteger(override.index) ? { index: override.index, miles: override.miles == null || override.miles === "" ? null : Number(override.miles) } : undefined
+    override && Number.isInteger(override.index) ? { index: override.index, miles: override.miles == null || override.miles === "" ? null : Number(override.miles) } : undefined,
+    Number.isFinite(Number(body?.dayTotal)) && body?.dayTotal != null ? Number(body.dayTotal) : undefined
   );
   return NextResponse.json({ day });
 });

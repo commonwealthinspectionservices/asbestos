@@ -127,13 +127,12 @@ function DayCard({ day, onSaved, onReset }: { day: MileageDay; onSaved: (d: Mile
               </span>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium text-slate-800">{stop.label}</p>
-                {stop.label !== stop.address && <p className="truncate text-xs text-slate-500">{stop.address}</p>}
+                {!stop.label.toLowerCase().includes(stop.address.toLowerCase()) && <p className="truncate text-xs text-slate-500">{stop.address}</p>}
               </div>
               <button type="button" disabled={busy || day.stops.length <= 2} onClick={() => remove(i)} className="px-1 text-sm text-red-600 disabled:opacity-30" aria-label="Remove stop">✕</button>
             </div>
             {i < day.stops.length - 1 && (
               <div className="flex items-center gap-2 py-1 pl-8 text-xs text-slate-500">
-                <span>↓ drive</span>
                 <input
                   key={`${stop.id}-${day.legs[i]?.miles}`}
                   type="number"
@@ -147,11 +146,6 @@ function DayCard({ day, onSaved, onReset }: { day: MileageDay; onSaved: (d: Mile
                   className="h-8 w-20 rounded-lg border border-slate-300 bg-white px-2 text-right text-sm text-slate-700"
                 />
                 <span>mi</span>
-                {day.legs[i]?.manual && (
-                  <button type="button" onClick={() => save(day.stops, { index: i, miles: null })} className="text-brand-600 hover:underline">
-                    use Google&apos;s number
-                  </button>
-                )}
               </div>
             )}
           </li>

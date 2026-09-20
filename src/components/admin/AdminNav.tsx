@@ -24,6 +24,7 @@ const NAV_LINKS: NavLink[] = [
   { href: "/admin/dashboard", label: "Projects" },
   { href: "/admin/billing", label: "Billing" },
   { href: "/admin/schedule", label: "Schedule" },
+  { href: "/admin/mileage", label: "Mileage" },
   { href: "/admin/customers", label: "Directory" },
   { href: "/admin/chain-of-custody", label: "Chain of Custody" },
   { href: "/admin/settings", label: "Settings" },
@@ -42,7 +43,8 @@ export default function AdminNav({ role }: { role: AdminRole }) {
   const pathname = usePathname();
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
-  const navLinks = role === "staff" ? NAV_LINKS.filter((l) => l.href !== "/admin/billing") : NAV_LINKS;
+  // Mileage is owner-only, same as Billing (the page itself redirects staff away).
+  const navLinks = role === "staff" ? NAV_LINKS.filter((l) => l.href !== "/admin/billing" && l.href !== "/admin/mileage") : NAV_LINKS;
 
   useEffect(() => {
     setMenuOpen(false);

@@ -222,6 +222,8 @@ export default function MileageView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [openDay, setOpenDay] = useState<string | null>(null);
+  // Miles per month ("YYYY-MM") across every saved day, for the By month table.
+  const [monthlyMiles, setMonthlyMiles] = useState<Record<string, number>>({});
 
   const load = useCallback(async (m: string) => {
     setLoading(true);
@@ -241,6 +243,13 @@ export default function MileageView() {
   useEffect(() => {
     load(month);
   }, [month, load]);
+
+  // Refresh the by-month totals whenever the visible month's days change (an edit, a reset, a new day).
+  useEffect(() => {
+    fetch("/api/admin/mileage?summary=1")
+      .then(async (r) => (r.ok ? setMonthlyMiles((await r.json()).monthlyMiles) : null))
+      .catch(() => {});
+  }, [days]);
 
   const monthMiles = Math.round(days.reduce((s, d) => s + totalMiles(d), 0) * 10) / 10;
   const canGoBack = shiftMonth(month, -1) >= COMPANY_START_DATE.slice(0, 7);
@@ -280,6 +289,32 @@ export default function MileageView() {
           }}
         />
       )}
+
+      <h2 className="mt-8 text-lg font-bold text-slate-800">Miles by month</h2>
+      <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-white">
+        <div className="grid grid-cols-[minmax(0,1fr)_90px_100px] gap-x-2 border-b border-slate-200 bg-slate-50 px-4 py-2 text-xs font-bold uppercase tracking-wide text-slate-500">
+          <div>Month</div>
+          <div className="text-right">Miles</div>
+          <div className="text-right">Deduction</div>
+        </div>
+        {Object.keys(monthlyMiles).sort().reverse().map((key) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setMonth(key)}
+            className="grid w-full grid-cols-[minmax(0,1fr)_90px_100px] gap-x-2 border-b border-slate-100 px-4 py-3 text-left text-sm hover:bg-slate-50"
+          >
+            <div className="text-slate-700">{monthLabel(key)}</div>
+            <div className="text-right text-slate-800">{monthlyMiles[key].toFixed(1)}</div>
+            <div className="text-right font-medium text-slate-800">{formatCents(Math.round(monthlyMiles[key] * MILEAGE_RATE_CENTS))}</div>
+          </button>
+        ))}
+        <div className="grid grid-cols-[minmax(0,1fr)_90px_100px] gap-x-2 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-800">
+          <div>All time</div>
+          <div className="text-right">{Object.values(monthlyMiles).reduce((a, b) => a + b, 0).toFixed(1)}</div>
+          <div className="text-right">{formatCents(Math.round(Object.values(monthlyMiles).reduce((a, b) => a + b, 0) * MILEAGE_RATE_CENTS))}</div>
+        </div>
+      </div>
 
       {(() => {
         const d = days.find((x) => x.day === openDay);

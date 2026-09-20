@@ -213,6 +213,23 @@ export default function RevenueMarginSummaryView() {
     return cents;
   }, [invoicedJobs]);
 
+  // Net profit (invoice − lab cost − Stripe fee) of PAID jobs, by the month
+  // they were paid — what has actually landed, unlike the invoiced-date
+  // tables above.
+  const paidMonthly = useMemo(() => {
+    const byMonth: Record<string, number> = {};
+    for (const job of invoicedJobs) {
+      if (job.status !== "paid" && !job.paid_date) continue;
+      const date = job.paid_date ?? billingDateFor(job);
+      if (!date) continue;
+      const labCents = (job.lab_cost_cents ?? 0) + estimatedLabCostCentsForJob(job, avgLabCostPerSampleCents);
+      const net = computeMarginCents(job.invoice_total_cents ?? 0, labCents, knownStripeFeeCentsForJob(job) ?? 0);
+      const key = date.slice(0, 7);
+      byMonth[key] = (byMonth[key] ?? 0) + net;
+    }
+    return byMonth;
+  }, [invoicedJobs, avgLabCostPerSampleCents]);
+
   const isWeekly = summaryTab === "weekly";
 
   // A period row navigates to Billing pre-filtered to that period, instead
@@ -379,39 +396,61 @@ export default function RevenueMarginSummaryView() {
             </div>
           </div>
 
-          {/* Per Tim, 2026-09-20 — "what I'm actually pulling in after I
-              save for taxes": each month's net profit (invoice minus lab
-              cost minus Stripe fee, same math as the table above) minus
-              mileage at the IRS rate; the tax set-aside is taken on what's
-              left after mileage, and the rest is the month's pay. */}
-          <h2 className="mt-8 text-lg font-bold text-slate-800">Monthly payout</h2>
+          {/* Per Tim, 2026-09-20 — "one spot that shows me my monthly net
+              earnings after all this stuff": only jobs that have actually
+              been PAID count (money in hand, bucketed by the month it was
+              paid), net of lab cost and Stripe fee, minus mileage at the
+              IRS rate; the tax set-aside is taken on what's left after
+              mileage, and the rest is that month's take-home. */}
+          <h2 className="mt-8 text-lg font-bold text-slate-800">Monthly earnings</h2>
           <p className="mt-1 text-sm text-slate-500">
-            Net profit, minus mileage, minus {TAX_SET_ASIDE_PERCENT}% for taxes.{" "}
-            <Link href="/admin/mileage" className="font-medium text-brand-600 hover:underline">Mileage log</Link>
+            Paid jobs only, after lab costs and Stripe fees, minus mileage, minus {TAX_SET_ASIDE_PERCENT}% for taxes.
           </p>
-          <div className="mt-3 space-y-3">
-            {periodHistory.monthly.map((m) => {
-              const miles = monthlyMiles ? monthlyMiles[m.key] ?? 0 : null;
-              const mileageCents = miles != null ? Math.round(miles * MILEAGE_RATE_CENTS) : 0;
-              const afterMileage = m.netCents - mileageCents;
-              const taxCents = Math.max(0, Math.round((afterMileage * TAX_SET_ASIDE_PERCENT) / 100));
-              const payCents = afterMileage - taxCents;
-              const line = "flex items-baseline justify-between gap-3 py-1 text-sm";
+          <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-white">
+            <div className="grid grid-cols-[48px_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] gap-x-2 border-b border-slate-200 bg-slate-50 px-3 py-2 text-[10px] font-bold uppercase tracking-wide text-slate-500 sm:grid-cols-[120px_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] sm:px-4 sm:text-xs">
+              <div>Month</div>
+              <div className="text-right">Profit</div>
+              <div className="text-right">Mileage</div>
+              <div className="text-right">Tax</div>
+              <div className="text-right">Take-home</div>
+            </div>
+            {(() => {
+              let totalNet = 0, totalMileage = 0, totalTax = 0, totalPay = 0;
+              const rows = periodHistory.monthly.map((m) => {
+                const netCents = paidMonthly[m.key] ?? 0;
+                const miles = monthlyMiles ? monthlyMiles[m.key] ?? 0 : null;
+                const mileageCents = miles != null ? Math.round(miles * MILEAGE_RATE_CENTS) : 0;
+                const afterMileage = netCents - mileageCents;
+                const taxCents = Math.max(0, Math.round((afterMileage * TAX_SET_ASIDE_PERCENT) / 100));
+                const payCents = afterMileage - taxCents;
+                totalNet += netCents; totalMileage += mileageCents; totalTax += taxCents; totalPay += payCents;
+                return { key: m.key, label: m.label, netCents, miles, mileageCents, taxCents, payCents };
+              });
+              const cell = "whitespace-nowrap text-right text-[12px] sm:text-sm";
               return (
-                <div key={m.key} className="rounded-xl border border-slate-200 bg-white px-4 py-3">
-                  <p className="text-sm font-bold text-slate-800">{m.label}</p>
-                  <div className="mt-1">
-                    <div className={line}><span className="text-slate-600">Net profit</span><span className="font-medium text-slate-800">{formatCents(m.netCents)}</span></div>
-                    <div className={line}>
-                      <span className="text-slate-600">Mileage{miles != null ? ` (${miles.toFixed(1)} mi)` : ""}</span>
-                      <span className="font-medium text-slate-800">{miles != null ? `− ${formatCents(mileageCents)}` : "—"}</span>
+                <>
+                  {rows.map((r) => (
+                    <div key={r.key} className="grid grid-cols-[48px_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] items-start gap-x-2 border-b border-slate-100 px-3 py-3 text-sm sm:grid-cols-[120px_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] sm:px-4">
+                      <div className="text-slate-700">
+                        <span className="sm:hidden">{r.label.slice(0, 3)}</span>
+                        <span className="hidden sm:inline">{r.label}</span>
+                      </div>
+                      <div className={`${cell} text-slate-800`}>{formatCents(r.netCents)}</div>
+                      <div className={`${cell} text-slate-600`}>{r.miles != null ? `−${formatCents(r.mileageCents)}` : "—"}</div>
+                      <div className={`${cell} text-slate-600`}>−{formatCents(r.taxCents)}</div>
+                      <div className={`${cell} font-bold ${r.payCents < 0 ? "text-red-600" : "text-emerald-700"}`}>{r.payCents < 0 ? "−" : ""}{formatCents(Math.abs(r.payCents))}</div>
                     </div>
-                    <div className={line}><span className="text-slate-600">Set aside for taxes ({TAX_SET_ASIDE_PERCENT}%)</span><span className="font-medium text-slate-800">− {formatCents(taxCents)}</span></div>
-                    <div className={`${line} border-t border-slate-200 pt-2 font-bold`}><span className="text-slate-800">Pay yourself</span><span className="text-emerald-700">{formatCents(payCents)}</span></div>
+                  ))}
+                  <div className="grid grid-cols-[48px_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] items-start gap-x-2 bg-slate-50 px-3 py-3 text-sm font-semibold text-slate-800 sm:grid-cols-[120px_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] sm:px-4">
+                    <div>All</div>
+                    <div className={cell}>{formatCents(totalNet)}</div>
+                    <div className={cell}>−{formatCents(totalMileage)}</div>
+                    <div className={cell}>−{formatCents(totalTax)}</div>
+                    <div className={`${cell} ${totalPay < 0 ? "text-red-600" : "text-emerald-700"}`}>{totalPay < 0 ? "−" : ""}{formatCents(Math.abs(totalPay))}</div>
                   </div>
-                </div>
+                </>
               );
-            })}
+            })()}
           </div>
         </>
       )}

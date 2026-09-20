@@ -33,6 +33,7 @@ function DayCard({ day, onSaved, onReset }: { day: MileageDay; onSaved: (d: Mile
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [overIndex, setOverIndex] = useState<number | null>(null);
   const [adding, setAdding] = useState(false);
   const [newAddress, setNewAddress] = useState("");
   const [newLabel, setNewLabel] = useState("");
@@ -96,22 +97,38 @@ function DayCard({ day, onSaved, onReset }: { day: MileageDay; onSaved: (d: Mile
         {day.stops.map((stop, i) => (
           <li key={stop.id}>
             <div
-              draggable
-              onDragStart={() => setDragIndex(i)}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={() => {
-                if (dragIndex != null) move(dragIndex, i);
-                setDragIndex(null);
-              }}
-              className={`flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2 py-2 ${dragIndex === i ? "opacity-50" : ""}`}
+              data-stop-index={i}
+              className={`flex items-center gap-2 rounded-lg border bg-slate-50 px-2 py-2 ${dragIndex === i ? "border-brand-600 opacity-60" : overIndex === i && dragIndex != null ? "border-brand-600" : "border-slate-200"}`}
             >
-              <span className="cursor-grab select-none px-1 text-slate-400" aria-hidden="true">⋮⋮</span>
+              <span
+                className="cursor-grab touch-none select-none px-2 py-1 text-slate-400"
+                aria-label="Drag to reorder"
+                onPointerDown={(e) => {
+                  (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+                  setDragIndex(i);
+                  setOverIndex(i);
+                }}
+                onPointerMove={(e) => {
+                  if (dragIndex == null) return;
+                  const el = document.elementFromPoint(e.clientX, e.clientY)?.closest("[data-stop-index]");
+                  if (el) setOverIndex(Number(el.getAttribute("data-stop-index")));
+                }}
+                onPointerUp={() => {
+                  if (dragIndex != null && overIndex != null) move(dragIndex, overIndex);
+                  setDragIndex(null);
+                  setOverIndex(null);
+                }}
+                onPointerCancel={() => {
+                  setDragIndex(null);
+                  setOverIndex(null);
+                }}
+              >
+                ⋮⋮
+              </span>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium text-slate-800">{stop.label}</p>
                 {stop.label !== stop.address && <p className="truncate text-xs text-slate-500">{stop.address}</p>}
               </div>
-              <button type="button" disabled={busy || i === 0} onClick={() => move(i, i - 1)} className="px-1 text-slate-500 disabled:opacity-30" aria-label="Move up">▲</button>
-              <button type="button" disabled={busy || i === day.stops.length - 1} onClick={() => move(i, i + 1)} className="px-1 text-slate-500 disabled:opacity-30" aria-label="Move down">▼</button>
               <button type="button" disabled={busy || day.stops.length <= 2} onClick={() => remove(i)} className="px-1 text-sm text-red-600 disabled:opacity-30" aria-label="Remove stop">✕</button>
             </div>
             {i < day.stops.length - 1 && (
@@ -193,6 +210,7 @@ export default function MileageView() {
   const [days, setDays] = useState<MileageDay[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [openDay, setOpenDay] = useState<string | null>(null);
 
   const load = useCallback(async (m: string) => {
     setLoading(true);
@@ -222,7 +240,7 @@ export default function MileageView() {
       <Link href="/admin/billing" className="text-sm text-brand-600 hover:underline">← Billing</Link>
       <h1 className="mt-3 text-2xl font-bold text-slate-800">Mileage</h1>
       <p className="mt-1 text-sm text-slate-500">
-        Each day is filled in from that day&apos;s jobs: home, each job, the lab, home. Drag stops (or use the arrows) into the order you drove, add stops, or type over a leg&apos;s miles.
+        Each day is filled in from that day&apos;s jobs: home, each job, the lab, home. Tap a day to open it. Drag stops into the order you drove, add stops, or type over a leg&apos;s miles.
       </p>
 
       <div className="mt-5 flex items-center justify-between gap-2">
@@ -240,23 +258,70 @@ export default function MileageView() {
       {error && <div className="mt-4 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>}
       {loading ? (
         <p className="mt-6 text-sm text-slate-500">Building routes…</p>
-      ) : days.length === 0 && !error ? (
-        <p className="mt-6 text-sm text-slate-500">No jobs scheduled this month yet.</p>
       ) : (
-        <div className="mt-4 space-y-4">
-          {days.map((d) => (
-            <DayCard
-              key={d.day}
-              day={d}
-              onSaved={(saved) => setDays((cur) => cur.map((x) => (x.day === saved.day ? saved : x)))}
-              onReset={async () => {
-                await fetch(`/api/admin/mileage/${d.day}`, { method: "DELETE" });
-                load(month);
-              }}
-            />
-          ))}
-        </div>
+        <Calendar month={month} days={days} onPick={setOpenDay} />
       )}
+
+      {(() => {
+        const d = days.find((x) => x.day === openDay);
+        if (!d) return null;
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={() => setOpenDay(null)}>
+            <div className="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-xl bg-white" onClick={(e) => e.stopPropagation()}>
+              <div className="flex justify-end px-3 pt-2">
+                <button type="button" onClick={() => setOpenDay(null)} className="px-2 py-1 text-2xl leading-none text-slate-500" aria-label="Close">×</button>
+              </div>
+              <div className="overflow-y-auto px-4 pb-4">
+                <DayCard
+                  day={d}
+                  onSaved={(saved) => setDays((cur) => cur.map((x) => (x.day === saved.day ? saved : x)))}
+                  onReset={async () => {
+                    await fetch(`/api/admin/mileage/${d.day}`, { method: "DELETE" });
+                    setOpenDay(null);
+                    load(month);
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+    </div>
+  );
+}
+
+function Calendar({ month, days, onPick }: { month: string; days: MileageDay[]; onPick: (day: string) => void }) {
+  const [y, m] = month.split("-").map(Number);
+  const first = new Date(y, m - 1, 1).getDay();
+  const count = new Date(y, m, 0).getDate();
+  const byDay = new Map(days.map((d) => [d.day, d]));
+  const cells: (number | null)[] = [...Array(first).fill(null), ...Array.from({ length: count }, (_, i) => i + 1)];
+  return (
+    <div className="mt-4 rounded-xl border border-slate-200 bg-white p-2">
+      <div className="grid grid-cols-7 pb-1 text-center text-xs font-bold uppercase text-slate-400">
+        {["S", "M", "T", "W", "T", "F", "S"].map((l, i) => (
+          <div key={i}>{l}</div>
+        ))}
+      </div>
+      <div className="grid grid-cols-7 gap-1">
+        {cells.map((n, i) => {
+          if (n == null) return <div key={`b${i}`} />;
+          const key = `${month}-${String(n).padStart(2, "0")}`;
+          const d = byDay.get(key);
+          return (
+            <button
+              key={key}
+              type="button"
+              disabled={!d}
+              onClick={() => onPick(key)}
+              className={`flex h-14 flex-col items-center justify-center rounded-lg text-sm ${d ? "border border-brand-600 bg-brand-50 font-semibold text-slate-800 hover:bg-brand-100" : "text-slate-300"}`}
+            >
+              <span>{n}</span>
+              {d && <span className="text-[11px] font-medium text-brand-700">{totalMiles(d).toFixed(0)} mi</span>}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }

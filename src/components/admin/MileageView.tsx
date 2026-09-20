@@ -35,8 +35,8 @@ function AddressBlock({ stop }: { stop: MileageStop }) {
   const { street, cityStateZip } = splitAddress(stop.address);
   return (
     <div className="min-w-0 text-xs leading-snug">
-      <p className="font-medium text-slate-800">{street || stop.address}</p>
-      {cityStateZip && <p className="text-xs text-slate-500">{cityStateZip}</p>}
+      <p className="text-[12px] font-medium text-slate-800">{street || stop.address}</p>
+      {cityStateZip && <p className="text-[11px] text-slate-500">{cityStateZip}</p>}
     </div>
   );
 }
@@ -177,10 +177,10 @@ function DayCard({ day, onSaved, onReset }: { day: MileageDay; onSaved: (d: Mile
               <li
                 key={`${from.id}-${to.id}`}
                 data-stop-index={i + 1}
-                className={`flex items-start gap-1 rounded-lg border bg-slate-50 px-2 py-2 ${dragIndex === i + 1 ? "border-brand-600 opacity-60" : overIndex === i + 1 && dragIndex != null ? "border-brand-600" : "border-slate-200"}`}
+                className={`flex items-center gap-1 rounded-lg border bg-slate-50 px-1.5 py-2 ${dragIndex === i + 1 ? "border-brand-600 opacity-60" : overIndex === i + 1 && dragIndex != null ? "border-brand-600" : "border-slate-200"}`}
               >
                 <span
-                  className="cursor-grab touch-none select-none px-1 py-1 text-slate-400"
+                  className="cursor-grab touch-none select-none px-0.5 py-1 text-slate-400"
                   aria-label="Drag to reorder"
                   onPointerDown={(e) => {
                     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
@@ -204,13 +204,13 @@ function DayCard({ day, onSaved, onReset }: { day: MileageDay; onSaved: (d: Mile
                 >
                   ⋮⋮
                 </span>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-start gap-2">
-                    <div className="min-w-0 flex-1"><AddressBlock stop={from} /></div>
-                    <p className="pt-0.5 text-xs font-medium uppercase text-slate-400">to</p>
-                    <div className="min-w-0 flex-1"><AddressBlock stop={to} /></div>
+                <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                  <div className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1.5">
+                    <AddressBlock stop={from} />
+                    <p className="text-center text-[10px] font-medium uppercase text-slate-400">to</p>
+                    <AddressBlock stop={to} />
                   </div>
-                  <div className="mt-2 flex items-center justify-end gap-2">
+                  <div className="relative shrink-0">
                     <input
                       key={`${to.id}-${leg.miles}`}
                       type="number"
@@ -221,11 +221,11 @@ function DayCard({ day, onSaved, onReset }: { day: MileageDay; onSaved: (d: Mile
                         const v = parseFloat(e.target.value);
                         if (Number.isFinite(v) && v !== leg.miles) save(day.stops, { index: i, miles: v });
                       }}
-                      className="h-8 w-16 shrink-0 rounded-lg border border-slate-300 bg-white px-1 text-right text-[13px] font-medium text-slate-700"
+                      className="h-8 w-[3.6rem] rounded-lg border border-slate-300 bg-white pl-1 pr-5 text-right text-xs font-medium text-slate-700"
                     />
-                    <span className="text-xs text-slate-500">mi</span>
-                    <button type="button" disabled={busy || day.stops.length <= 2} onClick={() => remove(i + 1)} className="px-1 text-sm text-red-600 disabled:opacity-30" aria-label="Remove this stop">✕</button>
+                    <span className="pointer-events-none absolute inset-y-0 right-1 flex items-center text-[10px] text-slate-400">mi</span>
                   </div>
+                  <button type="button" disabled={busy || day.stops.length <= 2} onClick={() => remove(i + 1)} className="shrink-0 text-sm leading-none text-red-600 disabled:opacity-30" aria-label="Remove this stop">✕</button>
                 </div>
               </li>
             );
@@ -364,7 +364,7 @@ export default function MileageView() {
         const d = days.find((x) => x.day === openDay);
         if (!d) return null;
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={() => setOpenDay(null)}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-2" onClick={() => setOpenDay(null)}>
             <div className="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-xl bg-white" onClick={(e) => e.stopPropagation()}>
               <div className="flex justify-end px-3 pt-2">
                 <button type="button" onClick={() => setOpenDay(null)} className="px-2 py-1 text-2xl leading-none text-slate-500" aria-label="Close">×</button>

@@ -8,6 +8,7 @@ import { ProjectDetailDialog, EditProjectDialog, formatDateTime } from "@/compon
 import { formatDateMDY } from "@/lib/date-format";
 import { NEWTON_FIRE_FLOOD_COMPANY_ID } from "@/lib/report-findings";
 import { dueDateFor } from "@/lib/invoice-due-date";
+import { COMPANY_START_DATE } from "@/lib/company-dates";
 import { expandAddress, splitAddress } from "@/lib/address";
 
 // Per Tim, 2026-08-30 — "too many clicks to get an answer, and I feel like
@@ -97,7 +98,7 @@ export function ordinal(n: number): string {
 // Per Tim, 2026-08-30 — "it should only just start at August 24th 2026,
 // that's when my company started": the Weekly/Monthly history tables
 // never show a period entirely before this date.
-export const COMPANY_START_DATE = "2026-08-24";
+export { COMPANY_START_DATE };
 
 // Per Tim, 2026-08-30 — "I don't want the weekly and monthly at the top
 // to get too crowded": how many rows each history table shows, capped
@@ -871,6 +872,9 @@ export default function BillingView() {
         </Link>
         <Link href="/admin/payment-calendar" className="text-brand-600 underline hover:text-brand-700">
           Payment Calendar
+        </Link>
+        <Link href="/admin/mileage" className="text-brand-600 underline hover:text-brand-700">
+          Mileage
         </Link>
       </div>
 

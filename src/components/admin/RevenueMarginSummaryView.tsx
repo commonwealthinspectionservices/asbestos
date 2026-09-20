@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { JobWithCustomer } from "@/lib/types";
 import { formatCents, computeMarginCents, knownStripeFeeCentsForJob } from "@/lib/pricing";
+import { MILEAGE_RATE_CENTS, TAX_SET_ASIDE_PERCENT } from "@/lib/mileage-shared";
 import {
   totalSampleCount,
   estimatedLabCostCentsForJob,
@@ -40,6 +41,9 @@ export default function RevenueMarginSummaryView() {
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [summaryTab, setSummaryTab] = useState<"weekly" | "monthly">("weekly");
+  // Miles driven per month ("YYYY-MM"), from the Mileage page's saved routes.
+  // null until loaded; stays null if the mileage table isn't set up yet.
+  const [monthlyMiles, setMonthlyMiles] = useState<Record<string, number> | null>(null);
   const [expandedPdfWeeks, setExpandedPdfWeeks] = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -51,6 +55,12 @@ export default function RevenueMarginSummaryView() {
       })
       .catch((e) => setError(e instanceof Error ? e.message : "Failed to load revenue summary"))
       .finally(() => setLoaded(true));
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/admin/mileage?summary=1")
+      .then(async (r) => (r.ok ? setMonthlyMiles((await r.json()).monthlyMiles) : null))
+      .catch(() => {});
   }, []);
 
   // Per Tim, 2026-08-28 — this summary is only for invoices that have
@@ -367,6 +377,41 @@ export default function RevenueMarginSummaryView() {
               </div>
               <div className={`whitespace-nowrap text-right text-[13px] sm:text-sm ${isMarginEstimated ? "italic" : ""}`}>{allTimeMarginText.replace("≈ ", "")}</div>
             </div>
+          </div>
+
+          {/* Per Tim, 2026-09-20 — "what I'm actually pulling in after I
+              save for taxes": each month's net profit (invoice minus lab
+              cost minus Stripe fee, same math as the table above) minus
+              mileage at the IRS rate; the tax set-aside is taken on what's
+              left after mileage, and the rest is the month's pay. */}
+          <h2 className="mt-8 text-lg font-bold text-slate-800">Monthly payout</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Net profit, minus mileage, minus {TAX_SET_ASIDE_PERCENT}% for taxes.{" "}
+            <Link href="/admin/mileage" className="font-medium text-brand-600 hover:underline">Mileage log</Link>
+          </p>
+          <div className="mt-3 space-y-3">
+            {periodHistory.monthly.map((m) => {
+              const miles = monthlyMiles ? monthlyMiles[m.key] ?? 0 : null;
+              const mileageCents = miles != null ? Math.round(miles * MILEAGE_RATE_CENTS) : 0;
+              const afterMileage = m.netCents - mileageCents;
+              const taxCents = Math.max(0, Math.round((afterMileage * TAX_SET_ASIDE_PERCENT) / 100));
+              const payCents = afterMileage - taxCents;
+              const line = "flex items-baseline justify-between gap-3 py-1 text-sm";
+              return (
+                <div key={m.key} className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                  <p className="text-sm font-bold text-slate-800">{m.label}</p>
+                  <div className="mt-1">
+                    <div className={line}><span className="text-slate-600">Net profit</span><span className="font-medium text-slate-800">{formatCents(m.netCents)}</span></div>
+                    <div className={line}>
+                      <span className="text-slate-600">Mileage{miles != null ? ` (${miles.toFixed(1)} mi)` : ""}</span>
+                      <span className="font-medium text-slate-800">{miles != null ? `− ${formatCents(mileageCents)}` : "—"}</span>
+                    </div>
+                    <div className={line}><span className="text-slate-600">Set aside for taxes ({TAX_SET_ASIDE_PERCENT}%)</span><span className="font-medium text-slate-800">− {formatCents(taxCents)}</span></div>
+                    <div className={`${line} border-t border-slate-200 pt-2 font-bold`}><span className="text-slate-800">Pay yourself</span><span className="text-emerald-700">{formatCents(payCents)}</span></div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </>
       )}

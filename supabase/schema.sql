@@ -1263,3 +1263,14 @@ begin
   delete from companies where id = loser_id;
 end;
 $$ language plpgsql;
+
+-- Per Tim, 2026-09-20 — daily mileage routes (home → jobs → lab → home),
+-- auto-filled from the schedule and hand-editable; see lib/mileage.ts.
+-- stops/legs are jsonb arrays; legs[i] is the drive from stops[i] to stops[i+1].
+create table if not exists mileage_days (
+  day date primary key,
+  stops jsonb not null default '[]'::jsonb,
+  legs jsonb not null default '[]'::jsonb,
+  updated_at timestamptz not null default now()
+);
+alter table mileage_days enable row level security;

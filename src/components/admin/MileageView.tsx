@@ -34,7 +34,7 @@ const smallLink = "text-sm font-medium text-brand-600 hover:underline disabled:o
 function AddressBlock({ stop }: { stop: MileageStop }) {
   const { street, cityStateZip } = splitAddress(stop.address);
   return (
-    <div className="min-w-0 text-[13px] leading-snug">
+    <div className="min-w-0 text-xs leading-snug">
       <p className="font-medium text-slate-800">{street || stop.address}</p>
       {cityStateZip && <p className="text-xs text-slate-500">{cityStateZip}</p>}
     </div>
@@ -98,7 +98,7 @@ function DayCard({ day, onSaved, onReset }: { day: MileageDay; onSaved: (d: Mile
   const hasLab = day.stops.some((s) => s.kind === "lab");
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4">
+    <div className="rounded-xl border border-slate-200 bg-white p-3">
       <div className="flex items-baseline justify-between gap-2">
         <h3 className="text-base font-bold text-slate-800">{dayLabel(day.day)}</h3>
         <span className="text-sm font-semibold text-slate-800">
@@ -177,7 +177,7 @@ function DayCard({ day, onSaved, onReset }: { day: MileageDay; onSaved: (d: Mile
               <li
                 key={`${from.id}-${to.id}`}
                 data-stop-index={i + 1}
-                className={`flex items-center gap-2 rounded-lg border bg-slate-50 px-2 py-2 ${dragIndex === i + 1 ? "border-brand-600 opacity-60" : overIndex === i + 1 && dragIndex != null ? "border-brand-600" : "border-slate-200"}`}
+                className={`flex items-start gap-1 rounded-lg border bg-slate-50 px-2 py-2 ${dragIndex === i + 1 ? "border-brand-600 opacity-60" : overIndex === i + 1 && dragIndex != null ? "border-brand-600" : "border-slate-200"}`}
               >
                 <span
                   className="cursor-grab touch-none select-none px-1 py-1 text-slate-400"
@@ -204,25 +204,29 @@ function DayCard({ day, onSaved, onReset }: { day: MileageDay; onSaved: (d: Mile
                 >
                   ⋮⋮
                 </span>
-                <div className="min-w-0 flex-1 space-y-1">
-                  <AddressBlock stop={from} />
-                  <p className="text-xs font-medium uppercase leading-none text-slate-400">to</p>
-                  <AddressBlock stop={to} />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start gap-2">
+                    <div className="min-w-0 flex-1"><AddressBlock stop={from} /></div>
+                    <p className="pt-0.5 text-xs font-medium uppercase text-slate-400">to</p>
+                    <div className="min-w-0 flex-1"><AddressBlock stop={to} /></div>
+                  </div>
+                  <div className="mt-2 flex items-center justify-end gap-2">
+                    <input
+                      key={`${to.id}-${leg.miles}`}
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      defaultValue={leg.miles}
+                      onBlur={(e) => {
+                        const v = parseFloat(e.target.value);
+                        if (Number.isFinite(v) && v !== leg.miles) save(day.stops, { index: i, miles: v });
+                      }}
+                      className="h-8 w-16 shrink-0 rounded-lg border border-slate-300 bg-white px-1 text-right text-[13px] font-medium text-slate-700"
+                    />
+                    <span className="text-xs text-slate-500">mi</span>
+                    <button type="button" disabled={busy || day.stops.length <= 2} onClick={() => remove(i + 1)} className="px-1 text-sm text-red-600 disabled:opacity-30" aria-label="Remove this stop">✕</button>
+                  </div>
                 </div>
-                <input
-                  key={`${to.id}-${leg.miles}`}
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  defaultValue={leg.miles}
-                  onBlur={(e) => {
-                    const v = parseFloat(e.target.value);
-                    if (Number.isFinite(v) && v !== leg.miles) save(day.stops, { index: i, miles: v });
-                  }}
-                  className="h-8 w-14 shrink-0 rounded-lg border border-slate-300 bg-white px-1 text-right text-[13px] font-medium text-slate-700"
-                />
-                <span className="text-xs text-slate-500">mi</span>
-                <button type="button" disabled={busy || day.stops.length <= 2} onClick={() => remove(i + 1)} className="px-1 text-sm text-red-600 disabled:opacity-30" aria-label="Remove this stop">✕</button>
               </li>
             );
           })}
@@ -365,7 +369,7 @@ export default function MileageView() {
               <div className="flex justify-end px-3 pt-2">
                 <button type="button" onClick={() => setOpenDay(null)} className="px-2 py-1 text-2xl leading-none text-slate-500" aria-label="Close">×</button>
               </div>
-              <div className="overflow-y-auto px-4 pb-4">
+              <div className="overflow-y-auto px-2 pb-3">
                 <DayCard
                   day={d}
                   onSaved={(saved) => setDays((cur) => cur.map((x) => (x.day === saved.day ? saved : x)))}

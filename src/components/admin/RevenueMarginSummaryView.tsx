@@ -15,7 +15,6 @@ import {
   ymd,
   MONTH_NAMES,
   COMPANY_START_DATE,
-  HISTORY_PERIOD_COUNT,
   invoiceStatus,
 } from "@/components/admin/BillingView";
 
@@ -31,6 +30,10 @@ import {
 // exact same "check this period's total against the job list" view. Runs
 // its own /api/admin/jobs fetch — same self-contained-page pattern as
 // LabInvoicesView, not a shared data source with BillingView.
+// Every week/month since the company started, not just the latest few — the
+// COMPANY_START_DATE filter below trims the excess.
+const ALL_PERIODS_COUNT = 520;
+
 export default function RevenueMarginSummaryView() {
   const router = useRouter();
   const [jobs, setJobs] = useState<JobWithCustomer[]>([]);
@@ -89,7 +92,7 @@ export default function RevenueMarginSummaryView() {
     currentWeekStart.setHours(0, 0, 0, 0);
     currentWeekStart.setDate(currentWeekStart.getDate() - currentWeekStart.getDay());
 
-    const weekly = Array.from({ length: HISTORY_PERIOD_COUNT }, (_, i) => {
+    const weekly = Array.from({ length: ALL_PERIODS_COUNT }, (_, i) => {
       const start = new Date(currentWeekStart);
       start.setDate(start.getDate() - i * 7);
       const end = new Date(start);
@@ -101,7 +104,7 @@ export default function RevenueMarginSummaryView() {
       return { label, startStr: ymd(start), endStr: ymd(end), grossCents: 0, netCents: 0, labCostCents: 0, estimatedLabCostCents: 0 };
     }).filter((b) => b.endStr >= COMPANY_START_DATE);
 
-    const monthly = Array.from({ length: HISTORY_PERIOD_COUNT }, (_, i) => {
+    const monthly = Array.from({ length: ALL_PERIODS_COUNT }, (_, i) => {
       const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
       const label = `${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`;

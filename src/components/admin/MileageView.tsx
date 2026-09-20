@@ -30,15 +30,11 @@ function currentMonthKey(): string {
 
 const smallLink = "text-sm font-medium text-brand-600 hover:underline disabled:opacity-40";
 
-/** A stop's full address on two lines: street, then town/state/zip. */
+/** A stop's full address on one line, in a single text style. */
 function AddressBlock({ stop }: { stop: MileageStop }) {
   const { street, cityStateZip } = splitAddress(stop.address);
-  return (
-    <div className="min-w-0 text-xs leading-snug">
-      <p className="text-[12px] font-medium text-slate-800">{street || stop.address}</p>
-      {cityStateZip && <p className="text-[11px] text-slate-500">{cityStateZip}</p>}
-    </div>
-  );
+  const full = [street || stop.address, cityStateZip].filter(Boolean).join(", ");
+  return <p className="min-w-0 text-[13px] font-medium leading-snug text-slate-800">{full}</p>;
 }
 
 function DayCard({ day, onSaved, onReset }: { day: MileageDay; onSaved: (d: MileageDay) => void; onReset: () => void }) {

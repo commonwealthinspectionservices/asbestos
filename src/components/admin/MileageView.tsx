@@ -248,7 +248,7 @@ export default function MileageView() {
 
   const monthMiles = Math.round(days.reduce((s, d) => s + totalMiles(d), 0) * 10) / 10;
   const canGoBack = shiftMonth(month, -1) >= COMPANY_START_DATE.slice(0, 7);
-  const canGoForward = month < currentMonthKey();
+  const canGoForward = month < shiftMonth(currentMonthKey(), 12);
 
   return (
     <div>
@@ -338,9 +338,9 @@ function Calendar({ month, days, onPick }: { month: string; days: MileageDay[]; 
             <button
               key={key}
               type="button"
-              disabled={!d && isFuture}
+              disabled={false}
               onClick={() => onPick(key)}
-              className={`flex h-14 flex-col items-center justify-center rounded-lg text-sm ${d ? "border border-brand-600 bg-brand-50 font-semibold text-slate-800 hover:bg-brand-100" : isFuture ? "text-slate-300" : "text-slate-500 hover:bg-slate-50"}`}
+              className={`flex h-14 flex-col items-center justify-center rounded-lg text-sm ${d ? "border border-brand-600 bg-brand-50 font-semibold text-slate-800 hover:bg-brand-100" : isFuture ? "text-slate-400 hover:bg-slate-50" : "text-slate-500 hover:bg-slate-50"}`}
             >
               <span>{n}</span>
               {d && <span className="text-[11px] font-medium text-brand-700">{totalMiles(d).toFixed(0)} mi</span>}

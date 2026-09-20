@@ -163,16 +163,24 @@ export async function resetMileageDay(day: string): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
-/** Creates an empty day (home → home) for a date with no scheduled jobs — e.g. a supply run or an extra lab trip. */
+/** Starts a day on demand (any date, including future ones): built from that day's scheduled jobs when there are any, otherwise just home → home. */
 export async function createEmptyMileageDay(day: string): Promise<MileageDay> {
   const settings = await getSettingsFresh();
-  const stops: MileageStop[] = [
-    { id: newStopId(), kind: "home", label: "Home", address: settings.base_address },
-    { id: newStopId(), kind: "home", label: "Home", address: settings.base_address },
-  ];
   const supabase = getSupabaseAdminFresh();
   const { data: existing } = await supabase.from("mileage_days").select("day, stops, legs").eq("day", day).maybeSingle();
   if (existing) return existing as unknown as MileageDay;
+
+  const { data: jobs } = await supabase
+    .from("jobs")
+    .select("id, project_number, service_address, requested_time, requested_date, confirmed_date, confirmed_time, created_at, status")
+    .or(`confirmed_date.eq.${day},and(confirmed_date.is.null,requested_date.eq.${day})`)
+    .not("status", "in", `(${SKIP_STATUSES.join(",")})`);
+  const stops: MileageStop[] = (jobs ?? []).length
+    ? await autoStopsForDay(settings.base_address, jobs as JobRowForRoute[])
+    : [
+        { id: newStopId(), kind: "home", label: "Home", address: settings.base_address },
+        { id: newStopId(), kind: "home", label: "Home", address: settings.base_address },
+      ];
   const legs = await buildLegs(stops, new Map());
   const { error } = await supabase.from("mileage_days").insert({ day, stops, legs, updated_at: new Date().toISOString() });
   if (error) throw new Error(error.message);

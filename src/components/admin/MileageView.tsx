@@ -206,7 +206,7 @@ function DayCard({ day, onSaved, onReset }: { day: MileageDay; onSaved: (d: Mile
                 </span>
                 <div className="min-w-0 flex-1 space-y-1">
                   <AddressBlock stop={from} />
-                  <p className="text-xs leading-none text-slate-400">↓</p>
+                  <p className="text-xs font-medium uppercase leading-none text-slate-400">to</p>
                   <AddressBlock stop={to} />
                 </div>
                 <input

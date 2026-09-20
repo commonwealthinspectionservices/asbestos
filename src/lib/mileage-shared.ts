@@ -5,7 +5,7 @@ export const LAB_ADDRESS = "55 Accord Park Dr, Rockland, MA 02370";
 export const LAB_LABEL = "Crystal Analytical (lab)";
 // IRS standard business mileage rate, cents per mile. Update when the IRS
 // publishes a new one each January.
-export const MILEAGE_RATE_CENTS = 72.5;
+export const MILEAGE_RATE_CENTS = 76; // 2026 rate, matches what QuickBooks uses ($0.76/mi)
 // Share of each month's profit (after mileage) set aside for taxes.
 export const TAX_SET_ASIDE_PERCENT = 35;
 

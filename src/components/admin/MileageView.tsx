@@ -147,7 +147,7 @@ function DayCard({ day, onSaved, onReset }: { day: MileageDay; onSaved: (d: Mile
                 <button type="button" disabled={busy || day.stops.length <= 2} onClick={() => remove(i)} className="px-1 text-sm text-red-600 disabled:opacity-30" aria-label="Remove stop">✕</button>
               )}
             </div>
-            {i < day.stops.length - 1 && <div className="relative left-6 mx-auto h-4 w-0.5 bg-slate-300" aria-hidden="true" />}
+            {i < day.stops.length - 1 && <div className="relative left-12 mx-auto h-4 w-0.5 bg-slate-300" aria-hidden="true" />}
           </li>
         ))}
       </ol>

@@ -146,9 +146,10 @@ export async function saveMileageDay(day: string, stops: MileageStop[], legOverr
     else manual.set(key, legOverride.miles);
   }
   // A day recorded only as a total (no trip-by-trip detail): one summary stop, one leg holding the miles.
-  const isSummary = stops.length === 1 && stops[0].kind === "summary";
-  const legs = isSummary
-    ? [{ miles: legOverride?.miles ?? (existing as unknown as MileageDay | null)?.legs?.[0]?.miles ?? 0, manual: true }]
+  const existingDay = (existing as unknown as MileageDay | null) ?? null;
+  const isSummary = !!existingDay?.legs?.[0]?.total;
+  const legs: MileageLeg[] = isSummary
+    ? [{ miles: legOverride?.miles ?? existingDay!.legs[0].miles, manual: true, total: true }]
     : await buildLegs(stops, manual);
   const { error } = await supabase.from("mileage_days").upsert({ day, stops, legs, updated_at: new Date().toISOString() });
   if (error) throw new Error(error.message);

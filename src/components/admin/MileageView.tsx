@@ -82,7 +82,7 @@ function DayCard({ day, onSaved, onReset }: { day: MileageDay; onSaved: (d: Mile
   }
 
   const total = totalMiles(day);
-  const isSummary = day.stops.length === 1 && day.stops[0].kind === "summary";
+  const isSummary = !!day.legs[0]?.total;
   const hasLab = day.stops.some((s) => s.kind === "lab");
 
   return (
@@ -94,31 +94,14 @@ function DayCard({ day, onSaved, onReset }: { day: MileageDay; onSaved: (d: Mile
         </span>
       </div>
 
-      {isSummary && (
-        <div className="mt-4 flex items-center gap-3">
-          <span className="text-sm text-slate-600">Total miles driven</span>
-          <input
-            key={day.legs[0]?.miles}
-            type="number"
-            step="0.1"
-            min="0"
-            defaultValue={day.legs[0]?.miles ?? 0}
-            onBlur={(e) => {
-              const v = parseFloat(e.target.value);
-              if (Number.isFinite(v) && v !== day.legs[0]?.miles) save(day.stops, { index: 0, miles: v });
-            }}
-            className="h-9 w-24 rounded-lg border border-slate-300 bg-white px-2 text-right text-sm text-slate-700"
-          />
-          <span className="text-sm text-slate-500">mi</span>
-        </div>
-      )}
-      <ol className={`mt-3 space-y-1 ${isSummary ? "hidden" : ""}`}>
+      <ol className="mt-3 space-y-1">
         {day.stops.map((stop, i) => (
           <li key={stop.id}>
             <div
               data-stop-index={i}
               className={`flex items-center gap-2 rounded-lg border bg-slate-50 px-2 py-2 ${dragIndex === i ? "border-brand-600 opacity-60" : overIndex === i && dragIndex != null ? "border-brand-600" : "border-slate-200"}`}
             >
+              {!isSummary && (
               <span
                 className="cursor-grab touch-none select-none px-2 py-1 text-slate-400"
                 aria-label="Drag to reorder"
@@ -144,13 +127,14 @@ function DayCard({ day, onSaved, onReset }: { day: MileageDay; onSaved: (d: Mile
               >
                 ⋮⋮
               </span>
+              )}
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium text-slate-800">{stop.label}</p>
                 {!stop.label.toLowerCase().includes(stop.address.toLowerCase()) && <p className="truncate text-xs text-slate-500">{stop.address}</p>}
               </div>
-              <button type="button" disabled={busy || day.stops.length <= 2} onClick={() => remove(i)} className="px-1 text-sm text-red-600 disabled:opacity-30" aria-label="Remove stop">✕</button>
+              {!isSummary && <button type="button" disabled={busy || day.stops.length <= 2} onClick={() => remove(i)} className="px-1 text-sm text-red-600 disabled:opacity-30" aria-label="Remove stop">✕</button>}
             </div>
-            {i < day.stops.length - 1 && (
+            {!isSummary && i < day.stops.length - 1 && (
               <div className="my-0.5 ml-6 flex items-center gap-2 border-l-2 border-slate-300 py-2 pl-4 text-xs text-slate-500">
                 <input
                   key={`${stop.id}-${day.legs[i]?.miles}`}
@@ -170,6 +154,24 @@ function DayCard({ day, onSaved, onReset }: { day: MileageDay; onSaved: (d: Mile
           </li>
         ))}
       </ol>
+      {isSummary && (
+        <div className="mt-4 flex items-center gap-3">
+          <span className="text-sm text-slate-600">Total miles driven</span>
+          <input
+            key={day.legs[0]?.miles}
+            type="number"
+            step="0.1"
+            min="0"
+            defaultValue={day.legs[0]?.miles ?? 0}
+            onBlur={(e) => {
+              const v = parseFloat(e.target.value);
+              if (Number.isFinite(v) && v !== day.legs[0]?.miles) save(day.stops, { index: 0, miles: v });
+            }}
+            className="h-9 w-24 rounded-lg border border-slate-300 bg-white px-2 text-right text-sm text-slate-700"
+          />
+          <span className="text-sm text-slate-500">mi</span>
+        </div>
+      )}
 
       {isSummary ? null : adding ? (
         <div className="mt-3 space-y-2 rounded-lg border border-slate-200 p-3">
@@ -197,7 +199,7 @@ function DayCard({ day, onSaved, onReset }: { day: MileageDay; onSaved: (d: Mile
           <button type="button" disabled={busy} onClick={() => setAdding(true)} className={smallLink}>+ Stop</button>
           {!hasLab && (
             <button type="button" disabled={busy} onClick={() => addStop({ id: newStopId(), kind: "lab", label: LAB_LABEL, address: LAB_ADDRESS }, true)} className={smallLink}>
-              + Lab trip
+              + Crystal
             </button>
           )}
         </div>

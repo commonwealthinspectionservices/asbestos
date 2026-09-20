@@ -22,6 +22,8 @@ export interface MileageStop {
 export interface MileageLeg {
   miles: number;
   manual?: boolean;
+  /** Past days keep their stops as a plain list, with one leg holding the whole day's miles. */
+  total?: boolean;
 }
 
 export interface MileageDay {

@@ -1780,7 +1780,10 @@ export async function runLabReconciliation(): Promise<LabReconciliationResult> {
 }
 
 export async function alertLabReconciliationProblems(result: LabReconciliationResult): Promise<boolean> {
-  const stale = result.hoursSinceLastReadableSummary == null || result.hoursSinceLastReadableSummary > 36;
+  // Per Tim, 2026-09-20 — the "no readable summary lately" alert is gone: it
+  // fired every weekend (Crystal only sends on weekdays) and flaky PDF reads
+  // are already covered by the missing-charge check below.
+  const stale = false;
   if (result.missingCharges.length === 0 && result.totalMismatches.length === 0 && !stale) return false;
   const { escapeHtml } = await import("@/lib/html");
   const parts: string[] = [];

@@ -126,7 +126,8 @@ function AddStopSearch({
                 onClick={() => onPick({ id: newStopId(), kind: "home", label: "Home", address: homeAddress })}
                 className="block w-full rounded-lg bg-white px-3 py-2 text-left hover:bg-brand-50 disabled:opacity-40"
               >
-                <AddressBlock stop={{ id: "home-quick", kind: "home", label: "Home", address: homeAddress }} />
+                <p className="text-[13px] font-semibold text-slate-800">Home</p>
+                <p className="text-xs text-slate-500">{homeAddress.replace(/,\s*(USA|United States)\s*$/i, "")}</p>
               </button>
             )}
             {!hasLab && (
@@ -136,7 +137,8 @@ function AddStopSearch({
                 onClick={() => onPick({ id: newStopId(), kind: "lab", label: LAB_LABEL, address: LAB_ADDRESS })}
                 className="block w-full rounded-lg bg-white px-3 py-2 text-left hover:bg-brand-50 disabled:opacity-40"
               >
-                <AddressBlock stop={{ id: "lab-quick", kind: "lab", label: LAB_LABEL, address: LAB_ADDRESS }} />
+                <p className="text-[13px] font-semibold text-slate-800">Crystal Analytical</p>
+                <p className="text-xs text-slate-500">{LAB_ADDRESS.replace(/,\s*(USA|United States)\s*$/i, "")}</p>
               </button>
             )}
             {quickProjects.map((p) => (

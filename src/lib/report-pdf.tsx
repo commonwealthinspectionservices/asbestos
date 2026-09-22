@@ -1226,7 +1226,8 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
   const bulkDiscussionBlocks = blocksFromText(job.mold_bulk_discussion);
   const swabDiscussionBlocks = blocksFromText(job.mold_swab_discussion);
   const isNewtonFireFlood = customer.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID;
-  const standardConclusionBlocks = isNewtonFireFlood ? blocksFromText(NEWTON_FIRE_FLOOD_STANDARD_MOLD_CONCLUSION) : [];
+  const standardConclusionBlocks =
+    isNewtonFireFlood && job.mold_standard_conclusion_included !== false ? blocksFromText(NEWTON_FIRE_FLOOD_STANDARD_MOLD_CONCLUSION) : [];
 
   const moldSampledDate = job.confirmed_date ?? job.requested_date ?? job.mold_date_sampled;
   const samplingDateText = moldSampledDate

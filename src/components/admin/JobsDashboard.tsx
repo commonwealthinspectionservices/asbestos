@@ -4379,6 +4379,22 @@ export function ProjectDetailDialog({
                                   starting with "• " or "1. " render as an actual
                                   bulleted/numbered list in the PDF (see report-pdf.tsx's
                                   blocksFromText), not literal dashes/digits. */}
+                              {job.customers?.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID && (
+                                <label className="mb-2 flex items-start gap-2 text-xs text-slate-600">
+                                  <input
+                                    type="checkbox"
+                                    className="mt-0.5"
+                                    checked={job.mold_standard_conclusion_included !== false}
+                                    onChange={(e) => saveJobField({ mold_standard_conclusion_included: e.target.checked })}
+                                  />
+                                  {/* Per Tim, 2026-09-22 (26-0041, "no mold amplification") —
+                                      NEWTON_FIRE_FLOOD_STANDARD_MOLD_CONCLUSION used to render
+                                      unconditionally on every Newton mold report; wrong when
+                                      nothing was actually found. Defaults checked (current
+                                      behavior every existing report already has). */}
+                                  Include Newton&apos;s standard remediation recommendation (the fixed HEPA-vacuuming/antimicrobial bullets) — uncheck if this job found no mold amplification
+                                </label>
+                              )}
                               <textarea
                                 ref={moldReportNotesRef}
                                 className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"

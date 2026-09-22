@@ -104,6 +104,7 @@ const baseJob: Job = {
   mold_bulk_discussion: null,
   mold_swab_discussion: null,
   mold_report_notes: null,
+  mold_standard_conclusion_included: true,
   mold_lab_name: null,
   lead_report_summary: null,
   lead_report_notes: null,

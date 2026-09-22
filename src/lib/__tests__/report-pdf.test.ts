@@ -175,6 +175,7 @@ const job: Job = {
   source: "portal_booking",
   payment_type: "online",
   created_at: new Date().toISOString(),
+  mold_standard_conclusion_included: true,
 };
 
 describe("renderProjectReportPdf", () => {

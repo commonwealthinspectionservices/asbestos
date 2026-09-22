@@ -293,6 +293,8 @@ export interface Job {
   mold_swab_discussion: string | null;
   /** Mold's own Conclusions & Recommendations content — not split per sample type like the discussion fields above, since real reports give one shared conclusion/recommendation regardless of which sample types are on the job. */
   mold_report_notes: string | null;
+  /** Per Tim, 2026-09-22 (26-0041, "no mold amplification") — gates NEWTON_FIRE_FLOOD_STANDARD_MOLD_CONCLUSION (report-findings.ts), which otherwise renders unconditionally on every Newton mold report regardless of the actual result. Defaults true so every existing report keeps its current text; flip off on a job where nothing was actually found. No effect for any other company. */
+  mold_standard_conclusion_included: boolean;
   /** Mold's own lab name, separate from lab_name (asbestos's) and lead_lab_name (lead's) — a mixed job can use a different lab per service type. */
   mold_lab_name: string | null;
   /** Lead's own Overall Findings sentence/additional remarks — see report_summary/report_notes above for why this isn't shared with asbestos. */

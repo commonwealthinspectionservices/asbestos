@@ -1285,3 +1285,11 @@ create table if not exists monthly_overhead (
   updated_at timestamptz not null default now()
 );
 alter table monthly_overhead enable row level security;
+
+-- Per Tim, 2026-09-22 (26-0041, Somerville — "no mold amplification") —
+-- NEWTON_FIRE_FLOOD_STANDARD_MOLD_CONCLUSION (report-findings.ts) used to
+-- render unconditionally on every Newton mold report; that standing
+-- remediation-recommendation text is wrong when nothing was actually
+-- found. Defaults true (same always-on behavior every existing Newton
+-- report already has) so Tim only has to flip it off case by case.
+alter table jobs add column if not exists mold_standard_conclusion_included boolean not null default true;

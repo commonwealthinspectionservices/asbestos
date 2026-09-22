@@ -188,9 +188,6 @@ function AddStopSearch({
 function DayCard({ day, onSaved, onReset }: { day: MileageDay; onSaved: (d: MileageDay) => void; onReset: () => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Tap-to-move reordering (drag didn't work reliably on a phone): tap a
-  // stop's Move button, then tap where it goes.
-  const [movingIndex, setMovingIndex] = useState<number | null>(null);
   const [addingOpen, setAddingOpen] = useState(false);
   const [projects, setProjects] = useState<{ id: string; project_number: string | null; service_address: string; customers?: { name?: string; company?: string } | null }[]>([]);
 
@@ -216,11 +213,12 @@ function DayCard({ day, onSaved, onReset }: { day: MileageDay; onSaved: (d: Mile
     [day.day, onSaved]
   );
 
-  function move(from: number, to: number) {
-    if (to < 0 || to > day.stops.length - 1 || to === from) return;
+  /** Swaps a stop with its neighbor — simpler and more reliable on a phone than drag or tap-to-move. */
+  function move(i: number, delta: -1 | 1) {
+    const j = i + delta;
+    if (j < 0 || j >= day.stops.length) return;
     const next = [...day.stops];
-    const [item] = next.splice(from, 1);
-    next.splice(to, 0, item);
+    [next[i], next[j]] = [next[j], next[i]];
     save(next);
   }
 
@@ -259,80 +257,26 @@ function DayCard({ day, onSaved, onReset }: { day: MileageDay; onSaved: (d: Mile
         </span>
       </div>
 
-      {movingIndex != null && (
-        <div className="mt-3 flex items-center justify-between gap-2 rounded-lg bg-brand-50 px-3 py-2 text-sm text-brand-700">
-          <span className="min-w-0">Tap where <strong className="font-semibold">{day.stops[movingIndex].address.replace(/,\s*(USA|United States)\s*$/i, "")}</strong> should go</span>
-          <button type="button" onClick={() => setMovingIndex(null)} className="shrink-0 font-medium text-slate-500 hover:underline">Cancel</button>
-        </div>
-      )}
-
       <ol className="mt-3">
-        {movingIndex == null
-          ? day.stops.map((stop, i) => (
-              <li key={stop.id}>
-                <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2 py-2">
-                  {!isSummary && day.stops.length > 2 && (
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => setMovingIndex(i)}
-                      className="shrink-0 rounded px-1.5 py-1 text-xs font-medium text-slate-400 hover:bg-slate-200 hover:text-slate-600 disabled:opacity-30"
-                      aria-label="Move this stop"
-                    >
-                      ⇅
-                    </button>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <AddressBlock stop={stop} />
-                  </div>
-                  {!isSummary && (
-                    <button type="button" disabled={busy || day.stops.length <= 2} onClick={() => remove(i)} className="shrink-0 px-1 text-sm text-red-600 disabled:opacity-30" aria-label="Remove stop">✕</button>
-                  )}
+        {day.stops.map((stop, i) => (
+          <li key={stop.id}>
+            <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2 py-2">
+              <div className="min-w-0 flex-1">
+                <AddressBlock stop={stop} />
+              </div>
+              {!isSummary && (
+                <div className="flex shrink-0 flex-col">
+                  <button type="button" disabled={busy || i === 0} onClick={() => move(i, -1)} className="px-1 leading-none text-slate-500 disabled:opacity-20" aria-label="Move up">▲</button>
+                  <button type="button" disabled={busy || i === day.stops.length - 1} onClick={() => move(i, 1)} className="px-1 leading-none text-slate-500 disabled:opacity-20" aria-label="Move down">▼</button>
                 </div>
-                {i < day.stops.length - 1 && <div className="relative left-12 mx-auto h-4 w-0.5 bg-slate-300" aria-hidden="true" />}
-              </li>
-            ))
-          : day.stops
-              .filter((_, idx) => idx !== movingIndex)
-              .flatMap((stop, otherIdx, others) => {
-                // gapIndex is the drop target's index in the array with the moving stop already removed.
-                const gapIndex = otherIdx;
-                const isNoOp = gapIndex === movingIndex;
-                const gap = (
-                  <button
-                    key={`gap-${gapIndex}`}
-                    type="button"
-                    disabled={isNoOp}
-                    onClick={() => {
-                      move(movingIndex, gapIndex);
-                      setMovingIndex(null);
-                    }}
-                    className={`group my-0.5 flex h-7 w-full items-center justify-center ${isNoOp ? "" : "cursor-pointer"}`}
-                  >
-                    <span className={`h-2 w-full rounded-full ${isNoOp ? "bg-slate-100" : "bg-brand-200 group-hover:bg-brand-500 group-active:bg-brand-600"}`} />
-                  </button>
-                );
-                const card = (
-                  <div key={stop.id} className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-2 opacity-60">
-                    <AddressBlock stop={stop} />
-                  </div>
-                );
-                return [gap, card];
-              })
-              .concat(
-                <button
-                  key="gap-last"
-                  type="button"
-                  disabled={day.stops.length - 1 === movingIndex}
-                  onClick={() => {
-                    move(movingIndex, day.stops.length - 1);
-                    setMovingIndex(null);
-                  }}
-                  className="group my-0.5 flex h-7 w-full items-center justify-center"
-                >
-                  <span className={`h-2 w-full rounded-full ${day.stops.length - 1 === movingIndex ? "bg-slate-100" : "bg-brand-200 group-hover:bg-brand-500 group-active:bg-brand-600"}`} />
-                </button>
               )}
+              {!isSummary && (
+                <button type="button" disabled={busy || day.stops.length <= 2} onClick={() => remove(i)} className="shrink-0 px-1 text-sm text-red-600 disabled:opacity-30" aria-label="Remove stop">✕</button>
+              )}
+            </div>
+            {i < day.stops.length - 1 && <div className="relative left-12 mx-auto h-4 w-0.5 bg-slate-300" aria-hidden="true" />}
+          </li>
+        ))}
       </ol>
 
       <div className="mt-4 flex items-center gap-3">
@@ -354,7 +298,7 @@ function DayCard({ day, onSaved, onReset }: { day: MileageDay; onSaved: (d: Mile
         <span className="text-sm text-slate-500">mi</span>
       </div>
 
-      {!isSummary && movingIndex == null && (
+      {!isSummary && (
         <div className="mt-3">
           <div className="flex justify-end">
             <button type="button" disabled={busy} onClick={() => setAddingOpen((v) => !v)} className={smallLink}>

@@ -281,19 +281,19 @@ export default function ProjectsList() {
       <div className="mt-4 flex flex-wrap items-center gap-2 border-b border-slate-200 pb-4">
         <button
           onClick={() => selectStatusView("all")}
-          className={`rounded-lg px-2.5 py-1 text-sm font-medium uppercase ${!statusFilter && statusView === "all" ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
+          className={`rounded-lg px-4 py-2 text-sm font-medium uppercase ${!statusFilter && statusView === "all" ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
         >
           All Projects
         </button>
         <button
           onClick={() => selectStatusView("open")}
-          className={`rounded-lg px-2.5 py-1 text-sm font-medium uppercase ${!statusFilter && statusView === "open" ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
+          className={`rounded-lg px-4 py-2 text-sm font-medium uppercase ${!statusFilter && statusView === "open" ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
         >
           Open Projects
         </button>
         <button
           onClick={() => selectStatusView("closed")}
-          className={`rounded-lg px-2.5 py-1 text-sm font-medium uppercase ${!statusFilter && statusView === "closed" ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
+          className={`rounded-lg px-4 py-2 text-sm font-medium uppercase ${!statusFilter && statusView === "closed" ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
         >
           Closed Projects
         </button>
@@ -307,7 +307,7 @@ export default function ProjectsList() {
               <button
                 key={f.key}
                 onClick={() => toggleSort(f.key)}
-                className={`rounded-lg px-2.5 py-1 text-sm font-medium uppercase ${sortBy === f.key ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
+                className={`rounded-lg px-4 py-2 text-sm font-medium uppercase ${sortBy === f.key ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
               >
                 {f.label}{sortBy === f.key ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
               </button>
@@ -317,7 +317,7 @@ export default function ProjectsList() {
               onMouseEnter={() => setStatusFilterOpen(true)}
               onMouseLeave={() => setStatusFilterOpen(false)}
             >
-              <button className={`rounded-lg px-2.5 py-1 text-sm font-medium uppercase ${statusFilter ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}>
+              <button className={`rounded-lg px-4 py-2 text-sm font-medium uppercase ${statusFilter ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}>
                 Status ▾
               </button>
               {statusFilterOpen && (
@@ -348,7 +348,7 @@ export default function ProjectsList() {
                 onMouseEnter={() => setServiceTypeFilterOpen(true)}
                 onMouseLeave={() => setServiceTypeFilterOpen(false)}
               >
-                <button className={`rounded-lg px-2.5 py-1 text-sm font-medium uppercase ${serviceTypeFilter.size > 0 ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}>
+                <button className={`rounded-lg px-4 py-2 text-sm font-medium uppercase ${serviceTypeFilter.size > 0 ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}>
                   Service Type{serviceTypeFilter.size > 0 ? ` (${serviceTypeFilter.size})` : ""} ▾
                 </button>
                 {serviceTypeFilterOpen && (

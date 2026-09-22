@@ -50,7 +50,7 @@ export default function PayNowButton({ job, showAmount = true }: { job: Job; sho
       <button
         onClick={pay}
         disabled={loading}
-        className="rounded-lg bg-emerald-600 px-4 py-1.5 text-sm font-medium uppercase text-white disabled:opacity-50"
+        className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium uppercase text-white disabled:opacity-50"
       >
         {loading ? "Loading…" : "Pay now"}
       </button>

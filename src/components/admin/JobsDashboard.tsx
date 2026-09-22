@@ -1220,7 +1220,7 @@ export default function JobsDashboard() {
       <div className="hidden items-center gap-2 border-b border-slate-200 pb-4 sm:flex sm:flex-wrap">
         <button
           onClick={() => selectStatusView("open")}
-          className={`whitespace-nowrap rounded-lg px-2.5 py-1 text-sm font-bold shrink-0 ${statusFilter.size === 0 && statusView === "open" ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
+          className={`whitespace-nowrap rounded-lg px-4 py-2 text-sm font-bold shrink-0 ${statusFilter.size === 0 && statusView === "open" ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
         >
           Open Projects
         </button>
@@ -1229,19 +1229,19 @@ export default function JobsDashboard() {
             use (selectStatusFilter), not a fourth statusView. */}
         <button
           onClick={() => selectStatusFilter("report_invoice_sent")}
-          className={`whitespace-nowrap rounded-lg px-2.5 py-1 text-sm font-bold shrink-0 ${statusFilter.has("report_invoice_sent") ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
+          className={`whitespace-nowrap rounded-lg px-4 py-2 text-sm font-bold shrink-0 ${statusFilter.has("report_invoice_sent") ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
         >
           Payment Pending
         </button>
         <button
           onClick={() => selectStatusView("closed")}
-          className={`whitespace-nowrap rounded-lg px-2.5 py-1 text-sm font-bold shrink-0 ${statusFilter.size === 0 && statusView === "closed" ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
+          className={`whitespace-nowrap rounded-lg px-4 py-2 text-sm font-bold shrink-0 ${statusFilter.size === 0 && statusView === "closed" ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
         >
           Closed Projects
         </button>
         <button
           onClick={() => selectStatusView("all")}
-          className={`whitespace-nowrap rounded-lg px-2.5 py-1 text-sm font-bold shrink-0 ${statusFilter.size === 0 && statusView === "all" ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
+          className={`whitespace-nowrap rounded-lg px-4 py-2 text-sm font-bold shrink-0 ${statusFilter.size === 0 && statusView === "all" ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
         >
           All Projects
         </button>
@@ -1255,7 +1255,7 @@ export default function JobsDashboard() {
             siblings had. */}
         <button
           onClick={() => setAddingProject(true)}
-          className="ml-auto shrink-0 whitespace-nowrap rounded-lg bg-emerald-600 px-2.5 py-1 text-sm font-bold text-white"
+          className="ml-auto shrink-0 whitespace-nowrap rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white"
         >
           Add Project
         </button>

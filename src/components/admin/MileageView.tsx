@@ -47,6 +47,7 @@ function DayCard({ day, onSaved, onReset }: { day: MileageDay; onSaved: (d: Mile
   const [adding, setAdding] = useState(false);
   const [newAddress, setNewAddress] = useState("");
   const [newLabel, setNewLabel] = useState("");
+  const [projects, setProjects] = useState<{ id: string; project_number: string | null; service_address: string; customers?: { name?: string; company?: string } | null }[]>([]);
 
   const save = useCallback(
     async (stops: MileageStop[], legOverride?: { index: number; miles: number | null }, dayTotal?: number) => {
@@ -90,6 +91,13 @@ function DayCard({ day, onSaved, onReset }: { day: MileageDay; onSaved: (d: Mile
     else next.push(stop);
     save(next);
   }
+
+  useEffect(() => {
+    if (!adding || projects.length) return;
+    fetch("/api/admin/mileage/projects")
+      .then(async (r) => (r.ok ? setProjects((await r.json()).projects) : null))
+      .catch(() => {});
+  }, [adding, projects.length]);
 
   const total = totalMiles(day);
   const isSummary = !!day.legs[0]?.total;
@@ -181,6 +189,26 @@ function DayCard({ day, onSaved, onReset }: { day: MileageDay; onSaved: (d: Mile
 
       {isSummary ? null : adding ? (
         <div className="mt-3 space-y-2 rounded-lg border border-slate-200 p-3">
+          <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Add a project</p>
+          <div className="max-h-48 space-y-1 overflow-y-auto">
+            {projects.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                disabled={busy}
+                onClick={() => {
+                  addStop({ id: newStopId(), kind: "job", label: `${p.project_number ?? "Job"} — ${p.service_address}`, address: p.service_address.replace(/,\s*(USA|United States)\s*$/i, ""), job_id: p.id }, true);
+                  setAdding(false);
+                }}
+                className="block w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-left text-[13px] hover:bg-slate-100"
+              >
+                <span className="font-medium text-slate-800">{p.project_number}</span>{" "}
+                <span className="text-slate-500">{p.customers?.company || p.customers?.name || ""}</span>
+                <span className="block text-slate-600">{p.service_address.replace(/,\s*(USA|United States)\s*$/i, "")}</span>
+              </button>
+            ))}
+          </div>
+          <p className="pt-1 text-xs font-bold uppercase tracking-wide text-slate-500">Or another address</p>
           <input value={newLabel} onChange={(e) => setNewLabel(e.target.value)} placeholder="What is it? (e.g. Supply run)" className="h-9 w-full rounded-lg border border-slate-300 px-3 text-sm" />
           <input value={newAddress} onChange={(e) => setNewAddress(e.target.value)} placeholder="Address" className="h-9 w-full rounded-lg border border-slate-300 px-3 text-sm" />
           <div className="flex gap-3">

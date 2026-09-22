@@ -26,6 +26,8 @@ export interface MileageLeg {
   total?: boolean;
   /** A day total typed over the computed one; cleared whenever the stops change. */
   dayTotal?: number;
+  /** Jobs whose stop was deliberately removed from this day, so a schedule sync doesn't put them back. */
+  dismissedJobs?: string[];
 }
 
 export interface MileageDay {

@@ -108,30 +108,50 @@ export async function ensureMileageDays(from: string, to: string): Promise<Milea
   if (error) throw new Error(error.message);
   const byDay = new Map<string, MileageDay>((saved ?? []).map((r) => [r.day as string, r as unknown as MileageDay]));
 
-  if (from <= upper) {
-    const { data: jobs, error: jobsError } = await supabase
-      .from("jobs")
-      .select("id, project_number, service_address, requested_time, requested_date, confirmed_date, confirmed_time, created_at, status")
-      .or(`and(confirmed_date.gte.${from},confirmed_date.lte.${upper}),and(confirmed_date.is.null,requested_date.gte.${from},requested_date.lte.${upper})`)
-      .not("status", "in", `(${SKIP_STATUSES.join(",")})`);
-    if (jobsError) throw new Error(jobsError.message);
-    const jobsByDay = new Map<string, JobRowForRoute[]>();
-    for (const j of (jobs ?? []) as JobRowForRoute[]) {
-      const date = effectiveJobDate(j);
-      if (!date) continue;
-      const list = jobsByDay.get(date) ?? [];
-      list.push(j);
-      jobsByDay.set(date, list);
+  // Every scheduled job in range (future days included), so saved days can be kept in step with the schedule.
+  const { data: jobs, error: jobsError } = await supabase
+    .from("jobs")
+    .select("id, project_number, service_address, requested_time, requested_date, confirmed_date, confirmed_time, created_at, status")
+    .or(`and(confirmed_date.gte.${from},confirmed_date.lte.${to}),and(confirmed_date.is.null,requested_date.gte.${from},requested_date.lte.${to})`)
+    .not("status", "in", `(${SKIP_STATUSES.join(",")})`);
+  if (jobsError) throw new Error(jobsError.message);
+  const jobsByDay = new Map<string, JobRowForRoute[]>();
+  const jobDate = new Map<string, string>();
+  for (const j of (jobs ?? []) as JobRowForRoute[]) {
+    const date = effectiveJobDate(j);
+    if (!date) continue;
+    jobDate.set(j.id, date);
+    const list = jobsByDay.get(date) ?? [];
+    list.push(j);
+    jobsByDay.set(date, list);
+  }
+
+  // Past-or-today days with jobs but no saved route yet: build one.
+  for (const [day, dayJobs] of jobsByDay) {
+    if (byDay.has(day) || day > upper) continue;
+    const stops = await autoStopsForDay(settings.base_address, dayJobs);
+    const legs = await buildLegs(stops, new Map());
+    const row: MileageDay = { day, stops, legs };
+    const { error: upsertError } = await supabase.from("mileage_days").upsert({ day, stops, legs, updated_at: new Date().toISOString() });
+    if (upsertError) throw new Error(upsertError.message);
+    byDay.set(day, row);
+  }
+
+  // Saved route days (not past total-only days): add jobs scheduled onto the day since it was saved, drop jobs moved off it.
+  for (const [day, row] of byDay) {
+    if (row.legs[0]?.total) continue;
+    const dismissed = new Set(row.legs[0]?.dismissedJobs ?? []);
+    let stops = row.stops.filter((s) => s.kind !== "job" || !s.job_id || !jobDate.has(s.job_id) || jobDate.get(s.job_id) === day);
+    const have = new Set(stops.map((s) => s.job_id).filter(Boolean));
+    const missing = (jobsByDay.get(day) ?? []).filter((j) => j.service_address && !have.has(j.id) && !dismissed.has(j.id));
+    if (!missing.length && stops.length === row.stops.length) continue;
+    const ordered = [...missing].sort((a, b) => effectiveJobTime(a).localeCompare(effectiveJobTime(b)));
+    for (const j of ordered) {
+      const lab = stops.findIndex((s) => s.kind === "lab");
+      const at = lab >= 0 ? lab : Math.max(1, stops.length - 1);
+      stops = [...stops.slice(0, at), { id: newStopId(), kind: "job" as const, label: `${j.project_number} — ${j.service_address}`, address: j.service_address!, job_id: j.id }, ...stops.slice(at)];
     }
-    for (const [day, dayJobs] of jobsByDay) {
-      if (byDay.has(day)) continue;
-      const stops = await autoStopsForDay(settings.base_address, dayJobs);
-      const legs = await buildLegs(stops, new Map());
-      const row: MileageDay = { day, stops, legs };
-      const { error: upsertError } = await supabase.from("mileage_days").upsert({ day, stops, legs, updated_at: new Date().toISOString() });
-      if (upsertError) throw new Error(upsertError.message);
-      byDay.set(day, row);
-    }
+    byDay.set(day, await saveMileageDay(day, stops));
   }
   return [...byDay.values()].sort((a, b) => b.day.localeCompare(a.day));
 }
@@ -151,7 +171,15 @@ export async function saveMileageDay(day: string, stops: MileageStop[], legOverr
   const legs: MileageLeg[] = isSummary
     ? [{ miles: legOverride?.miles ?? existingDay!.legs[0].miles, manual: true, total: true }]
     : await buildLegs(stops, manual);
-  if (!isSummary && dayTotal != null && legs[0]) legs[0] = { ...legs[0], dayTotal };
+  if (!isSummary && legs[0]) {
+    // Remember jobs whose stop was removed by hand so the schedule sync doesn't put them back.
+    const before = new Set((existingDay?.stops ?? []).map((st) => st.job_id).filter(Boolean) as string[]);
+    const after = new Set(stops.map((st) => st.job_id).filter(Boolean) as string[]);
+    const dismissed = new Set(existingDay?.legs?.[0]?.dismissedJobs ?? []);
+    for (const id of before) if (!after.has(id)) dismissed.add(id);
+    for (const id of after) dismissed.delete(id);
+    legs[0] = { ...legs[0], ...(dismissed.size ? { dismissedJobs: [...dismissed] } : {}), ...(dayTotal != null ? { dayTotal } : {}) };
+  }
   const { error } = await supabase.from("mileage_days").upsert({ day, stops, legs, updated_at: new Date().toISOString() });
   if (error) throw new Error(error.message);
   return { day, stops, legs };

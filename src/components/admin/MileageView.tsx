@@ -414,7 +414,12 @@ export default function MileageView() {
         />
       )}
 
-      <h2 className="mt-8 text-lg font-bold text-slate-800">Miles by month</h2>
+      <div className="mt-8 flex items-baseline justify-between gap-2">
+        <h2 className="text-lg font-bold text-slate-800">Miles by month</h2>
+        <a href="/api/admin/mileage/export" download className="text-sm font-medium text-brand-600 hover:underline">
+          Download CSV
+        </a>
+      </div>
       <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-white">
         <div className="grid grid-cols-[minmax(0,1fr)_90px_100px] gap-x-2 border-b border-slate-200 bg-slate-50 px-4 py-2 text-xs font-bold uppercase tracking-wide text-slate-500">
           <div>Month</div>

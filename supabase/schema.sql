@@ -1274,3 +1274,14 @@ create table if not exists mileage_days (
   updated_at timestamptz not null default now()
 );
 alter table mileage_days enable row level security;
+
+-- Per Tim, 2026-09-22 — a hand-typed "other costs" figure per month
+-- (equipment, ads, office — whatever QuickBooks tracks that the app
+-- doesn't), netted out of the Monthly earnings table on the Revenue &
+-- Margin Summary. month is "YYYY-MM".
+create table if not exists monthly_overhead (
+  month text primary key,
+  cents integer not null default 0,
+  updated_at timestamptz not null default now()
+);
+alter table monthly_overhead enable row level security;

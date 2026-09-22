@@ -44,9 +44,6 @@ function DayCard({ day, onSaved, onReset }: { day: MileageDay; onSaved: (d: Mile
   const [overIndex, setOverIndex] = useState<number | null>(null);
   // true when the pointer is over the lower half of the hovered card, i.e. drop AFTER it
   const [overAfter, setOverAfter] = useState(false);
-  const [adding, setAdding] = useState(false);
-  const [newAddress, setNewAddress] = useState("");
-  const [newLabel, setNewLabel] = useState("");
   const [projects, setProjects] = useState<{ id: string; project_number: string | null; service_address: string; customers?: { name?: string; company?: string } | null }[]>([]);
 
   const save = useCallback(
@@ -92,15 +89,15 @@ function DayCard({ day, onSaved, onReset }: { day: MileageDay; onSaved: (d: Mile
     save(next);
   }
 
+  const isSummary = !!day.legs[0]?.total;
   useEffect(() => {
-    if (!adding || projects.length) return;
+    if (isSummary) return;
     fetch("/api/admin/mileage/projects")
       .then(async (r) => (r.ok ? setProjects((await r.json()).projects) : null))
       .catch(() => {});
-  }, [adding, projects.length]);
+  }, [isSummary]);
 
   const total = totalMiles(day);
-  const isSummary = !!day.legs[0]?.total;
   const hasLab = day.stops.some((s) => s.kind === "lab");
 
   return (
@@ -187,50 +184,27 @@ function DayCard({ day, onSaved, onReset }: { day: MileageDay; onSaved: (d: Mile
         <span className="text-sm text-slate-500">mi</span>
       </div>
 
-      {isSummary ? null : adding ? (
-        <div className="mt-3 space-y-2 rounded-lg border border-slate-200 p-3">
-          <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Add a project</p>
-          <div className="max-h-48 space-y-1 overflow-y-auto">
+      {!isSummary && (
+        <div className="mt-3 flex flex-wrap items-center justify-end gap-x-4 gap-y-1">
+          {/* A small dropdown of recent projects — pick one to add it as a stop. */}
+          <select
+            value=""
+            disabled={busy}
+            onChange={(e) => {
+              const p = projects.find((x) => x.id === e.target.value);
+              if (!p) return;
+              addStop({ id: newStopId(), kind: "job", label: `${p.project_number ?? "Job"} — ${p.service_address}`, address: p.service_address.replace(/,\s*(USA|United States)\s*$/i, ""), job_id: p.id }, true);
+            }}
+            className="max-w-[9rem] cursor-pointer appearance-none bg-transparent text-right text-sm font-medium text-brand-600 hover:underline"
+            aria-label="Add a stop"
+          >
+            <option value="">+ Stop</option>
             {projects.map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                disabled={busy}
-                onClick={() => {
-                  addStop({ id: newStopId(), kind: "job", label: `${p.project_number ?? "Job"} — ${p.service_address}`, address: p.service_address.replace(/,\s*(USA|United States)\s*$/i, ""), job_id: p.id }, true);
-                  setAdding(false);
-                }}
-                className="block w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-left text-[13px] hover:bg-slate-100"
-              >
-                <span className="font-medium text-slate-800">{p.project_number}</span>{" "}
-                <span className="text-slate-500">{p.customers?.company || p.customers?.name || ""}</span>
-                <span className="block text-slate-600">{p.service_address.replace(/,\s*(USA|United States)\s*$/i, "")}</span>
-              </button>
+              <option key={p.id} value={p.id}>
+                {p.project_number} · {p.service_address.replace(/,\s*(USA|United States)\s*$/i, "").split(",")[0]}
+              </option>
             ))}
-          </div>
-          <p className="pt-1 text-xs font-bold uppercase tracking-wide text-slate-500">Or another address</p>
-          <input value={newLabel} onChange={(e) => setNewLabel(e.target.value)} placeholder="What is it? (e.g. Supply run)" className="h-9 w-full rounded-lg border border-slate-300 px-3 text-sm" />
-          <input value={newAddress} onChange={(e) => setNewAddress(e.target.value)} placeholder="Address" className="h-9 w-full rounded-lg border border-slate-300 px-3 text-sm" />
-          <div className="flex gap-3">
-            <button
-              type="button"
-              disabled={busy || !newAddress.trim()}
-              onClick={() => {
-                addStop({ id: newStopId(), kind: "other", label: newLabel.trim() || newAddress.trim(), address: newAddress.trim() }, true);
-                setAdding(false);
-                setNewAddress("");
-                setNewLabel("");
-              }}
-              className={smallLink}
-            >
-              Add stop
-            </button>
-            <button type="button" onClick={() => setAdding(false)} className="text-sm text-slate-500 hover:underline">Cancel</button>
-          </div>
-        </div>
-      ) : (
-        <div className="mt-3 flex flex-wrap justify-end gap-x-4 gap-y-1">
-          <button type="button" disabled={busy} onClick={() => setAdding(true)} className={smallLink}>+ Stop</button>
+          </select>
           {!hasLab && (
             <button type="button" disabled={busy} onClick={() => addStop({ id: newStopId(), kind: "lab", label: LAB_LABEL, address: LAB_ADDRESS }, true)} className={smallLink}>
               + Crystal

@@ -41,11 +41,10 @@ function AddressBlock({ stop }: { stop: MileageStop }) {
 function DayCard({ day, onSaved, onReset }: { day: MileageDay; onSaved: (d: MileageDay) => void; onReset: () => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [dragIndex, setDragIndex] = useState<number | null>(null);
-  const [overIndex, setOverIndex] = useState<number | null>(null);
-  // true when the pointer is over the lower half of the hovered card, i.e. drop AFTER it
-  const [overAfter, setOverAfter] = useState(false);
-  const [addingAddress, setAddingAddress] = useState(false);
+  // Tap-to-move reordering (drag didn't work reliably on a phone): tap a
+  // stop's Move button, then tap where it goes.
+  const [movingIndex, setMovingIndex] = useState<number | null>(null);
+  const [addingOpen, setAddingOpen] = useState(false);
   const [customAddress, setCustomAddress] = useState("");
   const [projects, setProjects] = useState<{ id: string; project_number: string | null; service_address: string; customers?: { name?: string; company?: string } | null }[]>([]);
 
@@ -72,7 +71,7 @@ function DayCard({ day, onSaved, onReset }: { day: MileageDay; onSaved: (d: Mile
   );
 
   function move(from: number, to: number) {
-    if (to < 0 || to >= day.stops.length || from === to) return;
+    if (to < 0 || to > day.stops.length - 1 || to === from) return;
     const next = [...day.stops];
     const [item] = next.splice(from, 1);
     next.splice(to, 0, item);
@@ -90,6 +89,7 @@ function DayCard({ day, onSaved, onReset }: { day: MileageDay; onSaved: (d: Mile
     if (beforeLastHome && last?.kind === "home") next.splice(next.length - 1, 0, stop);
     else next.push(stop);
     save(next);
+    setAddingOpen(false);
   }
 
   const isSummary = !!day.legs[0]?.total;
@@ -102,6 +102,7 @@ function DayCard({ day, onSaved, onReset }: { day: MileageDay; onSaved: (d: Mile
 
   const total = totalMiles(day);
   const hasLab = day.stops.some((s) => s.kind === "lab");
+  const homeAddress = day.stops.find((s) => s.kind === "home")?.address;
 
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-3">
@@ -112,60 +113,80 @@ function DayCard({ day, onSaved, onReset }: { day: MileageDay; onSaved: (d: Mile
         </span>
       </div>
 
+      {movingIndex != null && (
+        <div className="mt-3 flex items-center justify-between gap-2 rounded-lg bg-brand-50 px-3 py-2 text-sm text-brand-700">
+          <span className="min-w-0 truncate">Tap where <strong className="font-semibold">{splitAddress(day.stops[movingIndex].address).street || day.stops[movingIndex].address}</strong> should go</span>
+          <button type="button" onClick={() => setMovingIndex(null)} className="shrink-0 font-medium text-slate-500 hover:underline">Cancel</button>
+        </div>
+      )}
+
       <ol className="mt-3">
-        {day.stops.map((stop, i) => (
-          <li key={stop.id}>
-            <div
-              data-stop-index={i}
-              className={`relative flex items-center gap-2 rounded-lg border bg-slate-50 px-2 py-2 ${dragIndex === i ? "opacity-50" : ""} border-slate-200`}
-            >
-              {dragIndex != null && overIndex === i && !overAfter && <div className="pointer-events-none absolute -top-1.5 left-0 right-0 h-1 rounded bg-brand-600" />}
-              {dragIndex != null && overIndex === i && overAfter && <div className="pointer-events-none absolute -bottom-1.5 left-0 right-0 h-1 rounded bg-brand-600" />}
-              {!isSummary && (
-                <span
-                  className="cursor-grab touch-none select-none px-1 py-1 text-slate-400"
-                  aria-label="Drag to reorder"
-                  onPointerDown={(e) => {
-                    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-                    setDragIndex(i);
-                    setOverIndex(i);
+        {movingIndex == null
+          ? day.stops.map((stop, i) => (
+              <li key={stop.id}>
+                <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2 py-2">
+                  {!isSummary && day.stops.length > 2 && (
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => setMovingIndex(i)}
+                      className="shrink-0 rounded px-1.5 py-1 text-xs font-medium text-slate-400 hover:bg-slate-200 hover:text-slate-600 disabled:opacity-30"
+                      aria-label="Move this stop"
+                    >
+                      ⇅
+                    </button>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <AddressBlock stop={stop} />
+                  </div>
+                  {!isSummary && (
+                    <button type="button" disabled={busy || day.stops.length <= 2} onClick={() => remove(i)} className="shrink-0 px-1 text-sm text-red-600 disabled:opacity-30" aria-label="Remove stop">✕</button>
+                  )}
+                </div>
+                {i < day.stops.length - 1 && <div className="relative left-12 mx-auto h-4 w-0.5 bg-slate-300" aria-hidden="true" />}
+              </li>
+            ))
+          : day.stops
+              .filter((_, idx) => idx !== movingIndex)
+              .flatMap((stop, otherIdx, others) => {
+                // gapIndex is the drop target's index in the array with the moving stop already removed.
+                const gapIndex = otherIdx;
+                const isNoOp = gapIndex === movingIndex;
+                const gap = (
+                  <button
+                    key={`gap-${gapIndex}`}
+                    type="button"
+                    disabled={isNoOp}
+                    onClick={() => {
+                      move(movingIndex, gapIndex);
+                      setMovingIndex(null);
+                    }}
+                    className={`group my-0.5 flex h-7 w-full items-center justify-center ${isNoOp ? "" : "cursor-pointer"}`}
+                  >
+                    <span className={`h-2 w-full rounded-full ${isNoOp ? "bg-slate-100" : "bg-brand-200 group-hover:bg-brand-500 group-active:bg-brand-600"}`} />
+                  </button>
+                );
+                const card = (
+                  <div key={stop.id} className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-2 opacity-60">
+                    <AddressBlock stop={stop} />
+                  </div>
+                );
+                return [gap, card];
+              })
+              .concat(
+                <button
+                  key="gap-last"
+                  type="button"
+                  disabled={day.stops.length - 1 === movingIndex}
+                  onClick={() => {
+                    move(movingIndex, day.stops.length - 1);
+                    setMovingIndex(null);
                   }}
-                  onPointerMove={(e) => {
-                    if (dragIndex == null) return;
-                    const el = document.elementFromPoint(e.clientX, e.clientY)?.closest("[data-stop-index]");
-                    if (el) {
-                      const rect = el.getBoundingClientRect();
-                      setOverIndex(Number(el.getAttribute("data-stop-index")));
-                      setOverAfter(e.clientY > rect.top + rect.height / 2);
-                    }
-                  }}
-                  onPointerUp={() => {
-                    if (dragIndex != null && overIndex != null) {
-                      // Where the dragged stop lands, as a slot between cards (0 = before the first).
-                      const slot = overAfter ? overIndex + 1 : overIndex;
-                      move(dragIndex, slot > dragIndex ? slot - 1 : slot);
-                    }
-                    setDragIndex(null);
-                    setOverIndex(null);
-                  }}
-                  onPointerCancel={() => {
-                    setDragIndex(null);
-                    setOverIndex(null);
-                  }}
+                  className="group my-0.5 flex h-7 w-full items-center justify-center"
                 >
-                  ⋮⋮
-                </span>
+                  <span className={`h-2 w-full rounded-full ${day.stops.length - 1 === movingIndex ? "bg-slate-100" : "bg-brand-200 group-hover:bg-brand-500 group-active:bg-brand-600"}`} />
+                </button>
               )}
-              <div className="min-w-0 flex-1">
-                <AddressBlock stop={stop} />
-              </div>
-              {!isSummary && (
-                <button type="button" disabled={busy || day.stops.length <= 2} onClick={() => remove(i)} className="px-1 text-sm text-red-600 disabled:opacity-30" aria-label="Remove stop">✕</button>
-              )}
-            </div>
-            {i < day.stops.length - 1 && <div className="relative left-12 mx-auto h-4 w-0.5 bg-slate-300" aria-hidden="true" />}
-          </li>
-        ))}
       </ol>
 
       <div className="mt-4 flex items-center gap-3">
@@ -187,61 +208,77 @@ function DayCard({ day, onSaved, onReset }: { day: MileageDay; onSaved: (d: Mile
         <span className="text-sm text-slate-500">mi</span>
       </div>
 
-      {!isSummary && (
-        <div className="mt-3 flex flex-wrap items-center justify-end gap-x-4 gap-y-1">
-          {/* A small dropdown of recent projects — pick one to add it as a stop. */}
-          <select
-            value=""
-            disabled={busy}
-            onChange={(e) => {
-              const p = projects.find((x) => x.id === e.target.value);
-              if (!p) return;
-              addStop({ id: newStopId(), kind: "job", label: `${p.project_number ?? "Job"} — ${p.service_address}`, address: p.service_address.replace(/,\s*(USA|United States)\s*$/i, ""), job_id: p.id }, true);
-            }}
-            className="max-w-[9rem] cursor-pointer appearance-none bg-transparent text-right text-sm font-medium text-brand-600 hover:underline"
-            aria-label="Add a stop"
-          >
-            <option value="">+ Stop</option>
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.project_number} · {p.service_address.replace(/,\s*(USA|United States)\s*$/i, "").split(",")[0]}
-              </option>
-            ))}
-          </select>
-          <button type="button" disabled={busy} onClick={() => setAddingAddress((v) => !v)} className={smallLink}>
-            + Address
-          </button>
-          {!hasLab && (
-            <button type="button" disabled={busy} onClick={() => addStop({ id: newStopId(), kind: "lab", label: LAB_LABEL, address: LAB_ADDRESS }, true)} className={smallLink}>
-              + Crystal
+      {!isSummary && movingIndex == null && (
+        <div className="mt-3">
+          <div className="flex justify-end">
+            <button type="button" disabled={busy} onClick={() => setAddingOpen((v) => !v)} className={smallLink}>
+              {addingOpen ? "Close" : "+ Add stop"}
             </button>
-          )}
-        </div>
-      )}
-      {!isSummary && addingAddress && (
-        <div className="mt-2 flex items-start gap-2">
-          <div className="min-w-0 flex-1">
-            <AddressAutocompleteInput
-              apiBase="/api/admin"
-              value={customAddress}
-              onChange={setCustomAddress}
-              placeholder="Start typing an address, then pick it"
-              inputClassName="h-9 w-full rounded-lg border border-slate-300 px-3 text-sm"
-            />
           </div>
-          <button
-            type="button"
-            disabled={busy || !/\b\d{5}\b/.test(customAddress)}
-            onClick={() => {
-              const address = customAddress.trim();
-              addStop({ id: newStopId(), kind: "other", label: address, address }, true);
-              setCustomAddress("");
-              setAddingAddress(false);
-            }}
-            className={`${smallLink} h-9`}
-          >
-            Add
-          </button>
+          {addingOpen && (
+            <div className="mt-2 space-y-2 rounded-lg border border-slate-200 p-3">
+              <div className="flex flex-wrap gap-2">
+                {homeAddress && (
+                  <button type="button" disabled={busy} onClick={() => addStop({ id: newStopId(), kind: "home", label: "Home", address: homeAddress }, true)} className="rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40">
+                    + Home
+                  </button>
+                )}
+                {!hasLab && (
+                  <button type="button" disabled={busy} onClick={() => addStop({ id: newStopId(), kind: "lab", label: LAB_LABEL, address: LAB_ADDRESS }, true)} className="rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40">
+                    + Crystal
+                  </button>
+                )}
+              </div>
+
+              {projects.length > 0 && (
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wide text-slate-500">A project</p>
+                  <div className="mt-1 max-h-36 space-y-1 overflow-y-auto">
+                    {projects.map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        disabled={busy}
+                        onClick={() => addStop({ id: newStopId(), kind: "job", label: `${p.project_number ?? "Job"} — ${p.service_address}`, address: p.service_address.replace(/,\s*(USA|United States)\s*$/i, ""), job_id: p.id }, true)}
+                        className="block w-full rounded-lg bg-slate-50 px-2 py-1.5 text-left text-[13px] hover:bg-slate-100 disabled:opacity-40"
+                      >
+                        <span className="font-medium text-slate-800">{p.project_number}</span>{" "}
+                        <span className="text-slate-500">{p.customers?.company || p.customers?.name || ""}</span>
+                        <span className="block text-slate-600">{p.service_address.replace(/,\s*(USA|United States)\s*$/i, "")}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Or another address</p>
+                <div className="mt-1 flex items-start gap-2">
+                  <div className="min-w-0 flex-1">
+                    <AddressAutocompleteInput
+                      apiBase="/api/admin"
+                      value={customAddress}
+                      onChange={setCustomAddress}
+                      placeholder="Start typing, then pick it"
+                      inputClassName="h-9 w-full rounded-lg border border-slate-300 px-3 text-sm"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    disabled={busy || !/\b\d{5}\b/.test(customAddress)}
+                    onClick={() => {
+                      const address = customAddress.trim();
+                      addStop({ id: newStopId(), kind: "other", label: address, address }, true);
+                      setCustomAddress("");
+                    }}
+                    className={`${smallLink} h-9`}
+                  >
+                    Add
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
       {busy && <p className="mt-2 text-xs text-slate-400">Saving…</p>}

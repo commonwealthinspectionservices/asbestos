@@ -328,6 +328,21 @@ function gmailMessageUrl(messageId: string, sent: boolean): string {
   return `https://mail.google.com/mail/u/0/#${sent ? "sent" : "drafts"}/${messageId}`;
 }
 
+// Per Tim, 2026-09-22 — the Project Info "Sent ..." lines must link
+// straight to that exact email in Gmail, not just say "Sent" as plain
+// text. Falls back to plain text when there's no stored message id (an
+// old job predating this tracking, or a send confirmed by hand rather
+// than through this app's own draft flow — e.g. 26-0041's Asbestos Report,
+// confirmed sent outside a combined draft that only ever covered Mold).
+function SentStatusLink({ messageId, text }: { messageId: string | null; text: string }) {
+  if (!messageId) return <>{text}</>;
+  return (
+    <a href={gmailMessageUrl(messageId, true)} target="_blank" rel="noreferrer" className="underline hover:text-brand-700">
+      {text} ↗
+    </a>
+  );
+}
+
 // The job-header draft control — one instance for the common case (a
 // single combined report+invoice draft, `label` omitted, "Create Draft ↗")
 // and two side by side for Boston Harbor's separately-sent report and
@@ -3229,13 +3244,22 @@ export function ProjectDetailDialog({
       {sentStatusDomains.length > 1 ? (
         sentStatusDomains.map((domain) => {
           const sentAt = job.report_sent_domains?.[domain] ?? (!job.report_sent_domains ? job.report_sent_at : null);
+          // report_draft_gmail_message_id is one shared column for the
+          // whole combined draft — only actually points at THIS domain's
+          // email when that draft covered this domain (report_draft_domains).
+          // A domain confirmed sent some other way (by hand, a separate
+          // older draft, etc. — e.g. 26-0041's Asbestos Report, sent
+          // outside the Mold-only draft that message id belongs to) has no
+          // verified message id to link to, so it stays plain text rather
+          // than linking to the wrong email.
+          const linkedMessageId = job.report_draft_domains?.includes(domain) ? job.report_draft_gmail_message_id : null;
           return (
             <DetailField
               key={domain}
               label={`${REPORT_DOMAIN_LABEL[domain]} Report`}
               value={
                 sentAt ? (
-                  `Sent ${formatDateTime(sentAt)}`
+                  <SentStatusLink messageId={linkedMessageId} text={`Sent ${formatDateTime(sentAt)}`} />
                 ) : (
                   <span className="inline-flex items-center gap-1">Not sent <HazardIcon /></span>
                 )
@@ -3248,7 +3272,7 @@ export function ProjectDetailDialog({
           label="Report"
           value={
             job.report_sent_at ? (
-              `Sent ${formatDateTime(job.report_sent_at)}`
+              <SentStatusLink messageId={job.report_draft_gmail_message_id} text={`Sent ${formatDateTime(job.report_sent_at)}`} />
             ) : (
               <span className="inline-flex items-center gap-1">Not sent <HazardIcon /></span>
             )
@@ -3259,7 +3283,7 @@ export function ProjectDetailDialog({
         label="Invoice"
         value={
           job.invoice_sent_at ? (
-            `Sent ${formatDateTime(job.invoice_sent_at)}`
+            <SentStatusLink messageId={job.invoice_draft_gmail_message_id} text={`Sent ${formatDateTime(job.invoice_sent_at)}`} />
           ) : (
             <span className="inline-flex items-center gap-1">Not sent <HazardIcon /></span>
           )

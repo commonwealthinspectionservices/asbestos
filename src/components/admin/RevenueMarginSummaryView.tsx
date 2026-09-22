@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { JobWithCustomer } from "@/lib/types";
 import { formatCents, computeMarginCents, knownStripeFeeCentsForJob } from "@/lib/pricing";
-import { MILEAGE_RATE_CENTS, TAX_SET_ASIDE_PERCENT } from "@/lib/mileage-shared";
+import { TAX_SET_ASIDE_PERCENT } from "@/lib/mileage-shared";
 import {
   totalSampleCount,
   estimatedLabCostCentsForJob,
@@ -43,7 +43,6 @@ export default function RevenueMarginSummaryView() {
   const [summaryTab, setSummaryTab] = useState<"weekly" | "monthly">("weekly");
   // Miles driven per month ("YYYY-MM"), from the Mileage page's saved routes.
   // null until loaded; stays null if the mileage table isn't set up yet.
-  const [monthlyMiles, setMonthlyMiles] = useState<Record<string, number> | null>(null);
   // Hand-typed "other costs" per month (equipment, ads, office — see monthly-overhead route), cents.
   const [overhead, setOverhead] = useState<Record<string, number>>({});
   const [expandedPdfWeeks, setExpandedPdfWeeks] = useState<Set<string>>(new Set());
@@ -60,9 +59,6 @@ export default function RevenueMarginSummaryView() {
   }, []);
 
   useEffect(() => {
-    fetch("/api/admin/mileage?summary=1")
-      .then(async (r) => (r.ok ? setMonthlyMiles((await r.json()).monthlyMiles) : null))
-      .catch(() => {});
     fetch("/api/admin/monthly-overhead")
       .then(async (r) => (r.ok ? setOverhead((await r.json()).overhead) : null))
       .catch(() => {});
@@ -414,26 +410,26 @@ export default function RevenueMarginSummaryView() {
           {/* Per Tim, 2026-09-20 — "one spot that shows me my monthly net
               earnings after all this stuff": only jobs that have actually
               been PAID count (money in hand, bucketed by the month it was
-              paid), net of lab cost and Stripe fee, minus mileage at the
-              IRS rate; the tax set-aside is taken on what's left after
-              mileage, and the rest is that month's take-home. */}
+              paid), net of lab cost and Stripe fee, minus other costs;
+              the tax set-aside is taken on what's left, and the rest is
+              that month's net earnings. Per Tim, 2026-09-22 — mileage is
+              a tax deduction, not out-of-pocket cash, so it no longer
+              reduces this figure (it still has its own Mileage tab). */}
           <h2 className="mt-8 text-lg font-bold text-slate-800">Monthly earnings</h2>
           <p className="mt-1 text-sm text-slate-500">
-            Paid jobs only, after lab costs and Stripe fees, minus mileage and other costs, minus {TAX_SET_ASIDE_PERCENT}% for taxes.
+            Paid jobs only, after lab costs and Stripe fees and other costs, minus {TAX_SET_ASIDE_PERCENT}% for taxes.
           </p>
           <div className="mt-3 space-y-3">
             {(() => {
-              let totalNet = 0, totalMileage = 0, totalOther = 0, totalTax = 0, totalPay = 0;
+              let totalNet = 0, totalOther = 0, totalTax = 0, totalPay = 0;
               const rows = periodHistory.monthly.map((m) => {
                 const netCents = paidMonthly[m.key] ?? 0;
-                const miles = monthlyMiles ? monthlyMiles[m.key] ?? 0 : null;
-                const mileageCents = miles != null ? Math.round(miles * MILEAGE_RATE_CENTS) : 0;
                 const otherCents = overhead[m.key] ?? 0;
-                const afterCosts = netCents - mileageCents - otherCents;
+                const afterCosts = netCents - otherCents;
                 const taxCents = Math.max(0, Math.round((afterCosts * TAX_SET_ASIDE_PERCENT) / 100));
                 const payCents = afterCosts - taxCents;
-                totalNet += netCents; totalMileage += mileageCents; totalOther += otherCents; totalTax += taxCents; totalPay += payCents;
-                return { key: m.key, label: m.label, netCents, miles, mileageCents, otherCents, taxCents, payCents };
+                totalNet += netCents; totalOther += otherCents; totalTax += taxCents; totalPay += payCents;
+                return { key: m.key, label: m.label, netCents, otherCents, taxCents, payCents };
               });
               const line = "flex items-baseline justify-between gap-3 py-1 text-sm";
               return (
@@ -443,10 +439,6 @@ export default function RevenueMarginSummaryView() {
                       <p className="text-sm font-bold text-slate-800">{r.label}</p>
                       <div className="mt-1">
                         <div className={line}><span className="text-slate-600">Net profit (paid jobs)</span><span className="font-medium text-slate-800">{formatCents(r.netCents)}</span></div>
-                        <div className={line}>
-                          <span className="text-slate-600">Mileage{r.miles != null ? ` (${r.miles.toFixed(0)} mi)` : ""}</span>
-                          <span className="font-medium text-slate-800">{r.miles != null ? `− ${formatCents(r.mileageCents)}` : "—"}</span>
-                        </div>
                         <div className="flex items-center justify-between gap-3 py-1 text-sm">
                           <label htmlFor={`overhead-${r.key}`} className="text-slate-600">Other costs (equipment, ads, etc.)</label>
                           <div className="flex shrink-0 items-center gap-1">
@@ -465,7 +457,7 @@ export default function RevenueMarginSummaryView() {
                         </div>
                         <div className={line}><span className="text-slate-600">Set aside for taxes ({TAX_SET_ASIDE_PERCENT}%)</span><span className="font-medium text-slate-800">− {formatCents(r.taxCents)}</span></div>
                         <div className={`${line} border-t border-slate-200 pt-2 font-bold`}>
-                          <span className="text-slate-800">Take-home</span>
+                          <span className="text-slate-800">Net earnings</span>
                           <span className={r.payCents < 0 ? "text-red-600" : "text-emerald-700"}>{r.payCents < 0 ? "−" : ""}{formatCents(Math.abs(r.payCents))}</span>
                         </div>
                       </div>
@@ -475,11 +467,10 @@ export default function RevenueMarginSummaryView() {
                     <p className="text-sm font-bold text-slate-800">All time</p>
                     <div className="mt-1">
                       <div className={line}><span className="text-slate-600">Net profit</span><span className="font-medium text-slate-800">{formatCents(totalNet)}</span></div>
-                      <div className={line}><span className="text-slate-600">Mileage</span><span className="font-medium text-slate-800">− {formatCents(totalMileage)}</span></div>
                       <div className={line}><span className="text-slate-600">Other costs</span><span className="font-medium text-slate-800">− {formatCents(totalOther)}</span></div>
                       <div className={line}><span className="text-slate-600">Set aside for taxes</span><span className="font-medium text-slate-800">− {formatCents(totalTax)}</span></div>
                       <div className={`${line} border-t border-slate-200 pt-2 font-bold`}>
-                        <span className="text-slate-800">Take-home</span>
+                        <span className="text-slate-800">Net earnings</span>
                         <span className={totalPay < 0 ? "text-red-600" : "text-emerald-700"}>{totalPay < 0 ? "−" : ""}{formatCents(Math.abs(totalPay))}</span>
                       </div>
                     </div>

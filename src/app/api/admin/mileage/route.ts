@@ -1,23 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireOwnerApi } from "@/lib/admin-api";
 import { withApiErrors } from "@/lib/api-handler";
-import { ensureMileageDays, totalMiles } from "@/lib/mileage";
+import { ensureMileageDays, sumSavedMileageByMonth } from "@/lib/mileage";
 import { COMPANY_START_DATE } from "@/lib/company-dates";
 
-// ?month=YYYY-MM → that month's days; ?summary=1 → miles per month since the
-// company started (creates any missing auto-routes on the way).
+// ?month=YYYY-MM → that month's days (syncs that month's stops against the
+// schedule); ?summary=1 → miles per month since the company started,
+// read-only (see sumSavedMileageByMonth's own comment for why this must
+// never rewrite an already-saved day).
 export const GET = withApiErrors(async (req: NextRequest) => {
   const unauthorized = requireOwnerApi(req);
   if (unauthorized) return unauthorized;
 
   const url = new URL(req.url);
   if (url.searchParams.get("summary")) {
-    const days = await ensureMileageDays(COMPANY_START_DATE, "9999-12-31");
-    const monthlyMiles: Record<string, number> = {};
-    for (const d of days) {
-      const key = d.day.slice(0, 7);
-      monthlyMiles[key] = Math.round(((monthlyMiles[key] ?? 0) + totalMiles(d)) * 10) / 10;
-    }
+    const monthlyMiles = await sumSavedMileageByMonth(COMPANY_START_DATE, "9999-12-31");
     return NextResponse.json({ monthlyMiles });
   }
 

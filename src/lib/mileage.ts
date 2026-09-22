@@ -156,6 +156,60 @@ export async function ensureMileageDays(from: string, to: string): Promise<Milea
   return [...byDay.values()].sort((a, b) => b.day.localeCompare(a.day));
 }
 
+/**
+ * Read-only totals for the summary table: reads whatever's already saved
+ * and creates a route for any past-or-today day that has jobs but no saved
+ * row yet (a plain upsert of a brand-new row, safe to race). Deliberately
+ * does NOT run the job-diff/rewrite step ensureMileageDays does for the
+ * visible month — running that over this wide a range on every page load
+ * raced against the month view's own sync and corrupted a real day's
+ * stops (see MileageView.tsx's own comment, 2026-09-22). Only the month
+ * actually being viewed gets its stops rewritten.
+ */
+export async function sumSavedMileageByMonth(from: string, to: string): Promise<Record<string, number>> {
+  const supabase = getSupabaseAdminFresh();
+  const settings = await getSettingsFresh();
+  const today = nowInTimeZone(settings.timezone).dateIso;
+  const upper = to < today ? to : today;
+
+  const { data: saved, error } = await supabase.from("mileage_days").select("day, stops, legs").gte("day", from).lte("day", to);
+  if (error) throw new Error(error.message);
+  const savedDays = new Set((saved ?? []).map((r) => r.day as string));
+
+  if (from <= upper) {
+    const { data: jobs, error: jobsError } = await supabase
+      .from("jobs")
+      .select("id, project_number, service_address, requested_time, requested_date, confirmed_date, confirmed_time, created_at, status")
+      .or(`and(confirmed_date.gte.${from},confirmed_date.lte.${upper}),and(confirmed_date.is.null,requested_date.gte.${from},requested_date.lte.${upper})`)
+      .not("status", "in", `(${SKIP_STATUSES.join(",")})`);
+    if (jobsError) throw new Error(jobsError.message);
+    const jobsByDay = new Map<string, JobRowForRoute[]>();
+    for (const j of (jobs ?? []) as JobRowForRoute[]) {
+      const date = effectiveJobDate(j);
+      if (!date || savedDays.has(date)) continue;
+      const list = jobsByDay.get(date) ?? [];
+      list.push(j);
+      jobsByDay.set(date, list);
+    }
+    for (const [day, dayJobs] of jobsByDay) {
+      const stops = await autoStopsForDay(settings.base_address, dayJobs);
+      const legs = await buildLegs(stops, new Map());
+      // upsert, not insert — if another request created this day first, this just overwrites with an equivalent fresh build, never a partial/racy merge.
+      const { error: upsertError } = await supabase.from("mileage_days").upsert({ day, stops, legs, updated_at: new Date().toISOString() });
+      if (upsertError) throw new Error(upsertError.message);
+      saved!.push({ day, stops, legs } as never);
+    }
+  }
+
+  const monthlyMiles: Record<string, number> = {};
+  for (const row of saved ?? []) {
+    const key = (row.day as string).slice(0, 7);
+    const miles = totalMiles(row as unknown as MileageDay);
+    monthlyMiles[key] = Math.round(((monthlyMiles[key] ?? 0) + miles) * 10) / 10;
+  }
+  return monthlyMiles;
+}
+
 export async function saveMileageDay(day: string, stops: MileageStop[], legOverride?: { index: number; miles: number | null }, dayTotal?: number): Promise<MileageDay> {
   const supabase = getSupabaseAdminFresh();
   const { data: existing } = await supabase.from("mileage_days").select("day, stops, legs").eq("day", day).maybeSingle();

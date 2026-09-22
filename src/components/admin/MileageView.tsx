@@ -261,7 +261,7 @@ function DayCard({ day, onSaved, onReset }: { day: MileageDay; onSaved: (d: Mile
 
       {movingIndex != null && (
         <div className="mt-3 flex items-center justify-between gap-2 rounded-lg bg-brand-50 px-3 py-2 text-sm text-brand-700">
-          <span className="min-w-0 truncate">Tap where <strong className="font-semibold">{splitAddress(day.stops[movingIndex].address).street || day.stops[movingIndex].address}</strong> should go</span>
+          <span className="min-w-0">Tap where <strong className="font-semibold">{day.stops[movingIndex].address.replace(/,\s*(USA|United States)\s*$/i, "")}</strong> should go</span>
           <button type="button" onClick={() => setMovingIndex(null)} className="shrink-0 font-medium text-slate-500 hover:underline">Cancel</button>
         </div>
       )}
@@ -406,11 +406,29 @@ export default function MileageView() {
     load(month);
   }, [month, load]);
 
-  // Refresh the by-month totals whenever the visible month's days change (an edit, a reset, a new day).
+  // Miles-by-month totals: fetched once (read-only, no schedule sync — see
+  // route.ts) on mount, then kept in step locally as the visible month's
+  // days change, instead of re-fetching on every edit. Per Tim, 2026-09-22
+  // (26-0042/44/45) — refetching the wide-range summary on every save raced
+  // against this page's own month sync and corrupted a real day's stops
+  // (a duplicate Home, the lab stop dropped). Two concurrent syncs of
+  // overlapping day ranges, each working off its own stale read, is
+  // unsafe — so only one path (the visible month, below) is ever allowed
+  // to rewrite a day's stops; the summary path only reads/creates.
   useEffect(() => {
     fetch("/api/admin/mileage?summary=1")
       .then(async (r) => (r.ok ? setMonthlyMiles((await r.json()).monthlyMiles) : null))
       .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (days.length === 0) return;
+    const byMonth: Record<string, number> = {};
+    for (const d of days) {
+      const key = d.day.slice(0, 7);
+      byMonth[key] = Math.round(((byMonth[key] ?? 0) + totalMiles(d)) * 10) / 10;
+    }
+    setMonthlyMiles((cur) => ({ ...cur, ...byMonth }));
   }, [days]);
 
   const monthMiles = Math.round(days.reduce((s, d) => s + totalMiles(d), 0) * 10) / 10;

@@ -4392,7 +4392,7 @@ export function ProjectDetailDialog({
                                       unconditionally on every Newton mold report; wrong when
                                       nothing was actually found. Defaults checked (current
                                       behavior every existing report already has). */}
-                                  Include Newton&apos;s standard remediation recommendation
+                                  Include standard remediation recommendation
                                 </label>
                               )}
                               <textarea

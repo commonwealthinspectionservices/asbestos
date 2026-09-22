@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { splitAddress } from "@/lib/address";
+import AddressAutocompleteInput from "@/components/shared/AddressAutocompleteInput";
 import { LAB_ADDRESS, LAB_LABEL, MILEAGE_RATE_CENTS, newStopId, totalMiles, type MileageDay, type MileageStop } from "@/lib/mileage-shared";
 import { formatCents } from "@/lib/pricing";
 import { COMPANY_START_DATE } from "@/lib/company-dates";
@@ -44,6 +45,8 @@ function DayCard({ day, onSaved, onReset }: { day: MileageDay; onSaved: (d: Mile
   const [overIndex, setOverIndex] = useState<number | null>(null);
   // true when the pointer is over the lower half of the hovered card, i.e. drop AFTER it
   const [overAfter, setOverAfter] = useState(false);
+  const [addingAddress, setAddingAddress] = useState(false);
+  const [customAddress, setCustomAddress] = useState("");
   const [projects, setProjects] = useState<{ id: string; project_number: string | null; service_address: string; customers?: { name?: string; company?: string } | null }[]>([]);
 
   const save = useCallback(
@@ -205,11 +208,40 @@ function DayCard({ day, onSaved, onReset }: { day: MileageDay; onSaved: (d: Mile
               </option>
             ))}
           </select>
+          <button type="button" disabled={busy} onClick={() => setAddingAddress((v) => !v)} className={smallLink}>
+            + Address
+          </button>
           {!hasLab && (
             <button type="button" disabled={busy} onClick={() => addStop({ id: newStopId(), kind: "lab", label: LAB_LABEL, address: LAB_ADDRESS }, true)} className={smallLink}>
               + Crystal
             </button>
           )}
+        </div>
+      )}
+      {!isSummary && addingAddress && (
+        <div className="mt-2 flex items-start gap-2">
+          <div className="min-w-0 flex-1">
+            <AddressAutocompleteInput
+              apiBase="/api/admin"
+              value={customAddress}
+              onChange={setCustomAddress}
+              placeholder="Start typing an address, then pick it"
+              inputClassName="h-9 w-full rounded-lg border border-slate-300 px-3 text-sm"
+            />
+          </div>
+          <button
+            type="button"
+            disabled={busy || !/\b\d{5}\b/.test(customAddress)}
+            onClick={() => {
+              const address = customAddress.trim();
+              addStop({ id: newStopId(), kind: "other", label: address, address }, true);
+              setCustomAddress("");
+              setAddingAddress(false);
+            }}
+            className={`${smallLink} h-9`}
+          >
+            Add
+          </button>
         </div>
       )}
       {busy && <p className="mt-2 text-xs text-slate-400">Saving…</p>}

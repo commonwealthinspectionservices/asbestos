@@ -134,7 +134,6 @@ function AddStopSearch({
             onClick={() => onPick({ id: newStopId(), kind: "home", label: "Home", address: homeAddress! })}
             className="flex w-full items-center gap-2 rounded-lg bg-white px-3 py-2 text-left text-sm hover:bg-brand-50 disabled:opacity-40"
           >
-            <span aria-hidden="true">🏠</span>
             <span className="font-medium text-slate-800">Home</span>
           </button>
         )}
@@ -145,7 +144,6 @@ function AddStopSearch({
             onClick={() => onPick({ id: newStopId(), kind: "lab", label: LAB_LABEL, address: LAB_ADDRESS })}
             className="flex w-full items-center gap-2 rounded-lg bg-white px-3 py-2 text-left text-sm hover:bg-brand-50 disabled:opacity-40"
           >
-            <span aria-hidden="true">🧪</span>
             <span className="font-medium text-slate-800">Crystal Analytical</span>
           </button>
         )}
@@ -179,7 +177,6 @@ function AddStopSearch({
             onClick={() => pickAddress(s)}
             className="flex w-full items-start gap-2 rounded-lg bg-white px-3 py-2 text-left text-sm hover:bg-brand-50 disabled:opacity-40"
           >
-            <span aria-hidden="true">📍</span>
             <span className="text-slate-700">{s.description}</span>
           </button>
         ))}

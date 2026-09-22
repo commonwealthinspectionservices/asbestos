@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { splitAddress } from "@/lib/address";
-import AddressAutocompleteInput from "@/components/shared/AddressAutocompleteInput";
+import { withZip } from "@/lib/address";
 import { LAB_ADDRESS, LAB_LABEL, MILEAGE_RATE_CENTS, newStopId, totalMiles, type MileageDay, type MileageStop } from "@/lib/mileage-shared";
 import { formatCents } from "@/lib/pricing";
 import { COMPANY_START_DATE } from "@/lib/company-dates";
@@ -38,6 +38,158 @@ function AddressBlock({ stop }: { stop: MileageStop }) {
   return <p className="min-w-0 text-[13px] font-medium leading-snug text-slate-800">{full}</p>;
 }
 
+type Project = { id: string; project_number: string | null; service_address: string; customers?: { name?: string; company?: string } | null };
+
+/**
+ * One search box for adding a stop, instead of separate Home/Crystal
+ * buttons + a project list + an address field always shown at once — Tim,
+ * 2026-09-21: "doesn't look very clean with all the projects open." Typing
+ * filters recent projects by number/address/company and (once it looks
+ * like an address) queries Google's autocomplete; Home/Crystal only show
+ * up top when relevant.
+ */
+function AddStopSearch({
+  busy, homeAddress, hasLab, projects, onPick,
+}: {
+  busy: boolean;
+  homeAddress: string | undefined;
+  hasLab: boolean;
+  projects: Project[];
+  onPick: (stop: MileageStop) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [addressSuggestions, setAddressSuggestions] = useState<{ placeId: string; description: string }[]>([]);
+  const [loadingAddr, setLoadingAddr] = useState(false);
+  const [resolving, setResolving] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (query.trim().length < 4) {
+      setAddressSuggestions([]);
+      return;
+    }
+    debounceRef.current = setTimeout(async () => {
+      setLoadingAddr(true);
+      try {
+        const res = await fetch(`/api/admin/places-autocomplete?input=${encodeURIComponent(query)}`);
+        const data = await res.json();
+        setAddressSuggestions(data.suggestions ?? []);
+      } finally {
+        setLoadingAddr(false);
+      }
+    }, 300);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [query]);
+
+  const q = query.trim().toLowerCase();
+  const showHome = !!homeAddress && (q === "" || "home".includes(q));
+  const showLab = !hasLab && (q === "" || "crystal".includes(q) || "lab".includes(q) || "analytical".includes(q));
+  const matchingProjects = projects
+    .filter((p) => {
+      if (!q) return true;
+      return (
+        (p.project_number ?? "").toLowerCase().includes(q) ||
+        p.service_address.toLowerCase().includes(q) ||
+        (p.customers?.company ?? "").toLowerCase().includes(q) ||
+        (p.customers?.name ?? "").toLowerCase().includes(q)
+      );
+    })
+    .slice(0, q ? 8 : 4);
+
+  async function pickAddress(s: { placeId: string; description: string }) {
+    setResolving(true);
+    try {
+      const res = await fetch(`/api/admin/place-details?placeId=${s.placeId}`);
+      const data = await res.json();
+      const formatted = withZip(data.formattedAddress ?? s.description, data.zip);
+      onPick({ id: newStopId(), kind: "other", label: formatted, address: formatted });
+    } catch {
+      onPick({ id: newStopId(), kind: "other", label: s.description, address: s.description });
+    } finally {
+      setResolving(false);
+      setQuery("");
+      setAddressSuggestions([]);
+    }
+  }
+
+  const nothingYet = !showHome && !showLab && matchingProjects.length === 0 && addressSuggestions.length === 0 && !loadingAddr;
+
+  return (
+    <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50 p-2">
+      <input
+        autoFocus
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="Search a project, or type an address"
+        className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
+      />
+      <div className="mt-2 max-h-64 space-y-1 overflow-y-auto">
+        {showHome && (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => onPick({ id: newStopId(), kind: "home", label: "Home", address: homeAddress! })}
+            className="flex w-full items-center gap-2 rounded-lg bg-white px-3 py-2 text-left text-sm hover:bg-brand-50 disabled:opacity-40"
+          >
+            <span aria-hidden="true">🏠</span>
+            <span className="font-medium text-slate-800">Home</span>
+          </button>
+        )}
+        {showLab && (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => onPick({ id: newStopId(), kind: "lab", label: LAB_LABEL, address: LAB_ADDRESS })}
+            className="flex w-full items-center gap-2 rounded-lg bg-white px-3 py-2 text-left text-sm hover:bg-brand-50 disabled:opacity-40"
+          >
+            <span aria-hidden="true">🧪</span>
+            <span className="font-medium text-slate-800">Crystal Analytical</span>
+          </button>
+        )}
+        {matchingProjects.map((p) => (
+          <button
+            key={p.id}
+            type="button"
+            disabled={busy}
+            onClick={() =>
+              onPick({
+                id: newStopId(),
+                kind: "job",
+                label: `${p.project_number ?? "Job"} — ${p.service_address}`,
+                address: p.service_address.replace(/,\s*(USA|United States)\s*$/i, ""),
+                job_id: p.id,
+              })
+            }
+            className="block w-full rounded-lg bg-white px-3 py-2 text-left hover:bg-brand-50 disabled:opacity-40"
+          >
+            <p className="text-[13px] font-semibold text-slate-800">
+              {p.project_number} <span className="font-normal text-slate-500">— {p.customers?.company || p.customers?.name || ""}</span>
+            </p>
+            <p className="text-xs text-slate-500">{p.service_address.replace(/,\s*(USA|United States)\s*$/i, "")}</p>
+          </button>
+        ))}
+        {addressSuggestions.map((s) => (
+          <button
+            key={s.placeId}
+            type="button"
+            disabled={busy || resolving}
+            onClick={() => pickAddress(s)}
+            className="flex w-full items-start gap-2 rounded-lg bg-white px-3 py-2 text-left text-sm hover:bg-brand-50 disabled:opacity-40"
+          >
+            <span aria-hidden="true">📍</span>
+            <span className="text-slate-700">{s.description}</span>
+          </button>
+        ))}
+        {loadingAddr && <p className="px-3 py-1.5 text-xs text-slate-400">Searching…</p>}
+        {nothingYet && q && <p className="px-3 py-2 text-sm text-slate-400">No matches — keep typing for an address</p>}
+      </div>
+    </div>
+  );
+}
+
 function DayCard({ day, onSaved, onReset }: { day: MileageDay; onSaved: (d: MileageDay) => void; onReset: () => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,7 +197,6 @@ function DayCard({ day, onSaved, onReset }: { day: MileageDay; onSaved: (d: Mile
   // stop's Move button, then tap where it goes.
   const [movingIndex, setMovingIndex] = useState<number | null>(null);
   const [addingOpen, setAddingOpen] = useState(false);
-  const [customAddress, setCustomAddress] = useState("");
   const [projects, setProjects] = useState<{ id: string; project_number: string | null; service_address: string; customers?: { name?: string; company?: string } | null }[]>([]);
 
   const save = useCallback(
@@ -216,77 +367,13 @@ function DayCard({ day, onSaved, onReset }: { day: MileageDay; onSaved: (d: Mile
             </button>
           </div>
           {addingOpen && (
-            <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
-              <div className="grid grid-cols-2 gap-2">
-                {homeAddress && (
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => addStop({ id: newStopId(), kind: "home", label: "Home", address: homeAddress }, true)}
-                    className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:border-brand-300 hover:bg-brand-50 disabled:opacity-40"
-                  >
-                    🏠 Home
-                  </button>
-                )}
-                {!hasLab && (
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => addStop({ id: newStopId(), kind: "lab", label: LAB_LABEL, address: LAB_ADDRESS }, true)}
-                    className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:border-brand-300 hover:bg-brand-50 disabled:opacity-40"
-                  >
-                    🧪 Crystal
-                  </button>
-                )}
-              </div>
-
-              {projects.length > 0 && (
-                <div className="mt-4">
-                  <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">A project</p>
-                  <div className="mt-1.5 max-h-40 space-y-1.5 overflow-y-auto pr-0.5">
-                    {projects.map((p) => (
-                      <button
-                        key={p.id}
-                        type="button"
-                        disabled={busy}
-                        onClick={() => addStop({ id: newStopId(), kind: "job", label: `${p.project_number ?? "Job"} — ${p.service_address}`, address: p.service_address.replace(/,\s*(USA|United States)\s*$/i, ""), job_id: p.id }, true)}
-                        className="block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-left hover:border-brand-300 hover:bg-brand-50 disabled:opacity-40"
-                      >
-                        <p className="text-[13px] font-semibold text-slate-800">
-                          {p.project_number} <span className="font-normal text-slate-500">— {p.customers?.company || p.customers?.name || ""}</span>
-                        </p>
-                        <p className="text-xs text-slate-500">{p.service_address.replace(/,\s*(USA|United States)\s*$/i, "")}</p>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="mt-4">
-                <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Or another address</p>
-                <div className="mt-1.5">
-                  <AddressAutocompleteInput
-                    apiBase="/api/admin"
-                    value={customAddress}
-                    onChange={setCustomAddress}
-                    placeholder="Start typing, then pick it"
-                    inputClassName="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
-                  />
-                  <button
-                    type="button"
-                    disabled={busy || !/\b\d{5}\b/.test(customAddress)}
-                    onClick={() => {
-                      const address = customAddress.trim();
-                      addStop({ id: newStopId(), kind: "other", label: address, address }, true);
-                      setCustomAddress("");
-                    }}
-                    className="mt-1.5 w-full rounded-lg bg-brand-600 px-3 py-2 text-sm font-bold text-white hover:bg-brand-700 disabled:opacity-40"
-                  >
-                    Add this address
-                  </button>
-                </div>
-              </div>
-            </div>
+            <AddStopSearch
+              busy={busy}
+              homeAddress={homeAddress}
+              hasLab={hasLab}
+              projects={projects}
+              onPick={(stop) => addStop(stop, true)}
+            />
           )}
         </div>
       )}

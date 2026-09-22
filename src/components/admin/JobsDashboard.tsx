@@ -4360,6 +4360,28 @@ export function ProjectDetailDialog({
                             upload station. */}
                         {group.domain === "mold" && (
                           <>
+                            {/* Per Tim, 2026-09-22 — its own cell off to the
+                                side, not lumped inside the Conclusions &
+                                Recommendations box below (it toggles the
+                                fixed standard-remediation text, not
+                                Tim's own typed notes in that box). */}
+                            {job.customers?.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID && (
+                              <div className="mt-5 flex justify-end">
+                                <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-600">
+                                  <input
+                                    type="checkbox"
+                                    checked={job.mold_standard_conclusion_included !== false}
+                                    onChange={(e) => saveJobField({ mold_standard_conclusion_included: e.target.checked })}
+                                  />
+                                  {/* Per Tim, 2026-09-22 (26-0041, "no mold amplification") —
+                                      NEWTON_FIRE_FLOOD_STANDARD_MOLD_CONCLUSION used to render
+                                      unconditionally on every Newton mold report; wrong when
+                                      nothing was actually found. Defaults checked (current
+                                      behavior every existing report already has). */}
+                                  Include standard remediation recommendation
+                                </label>
+                              </div>
+                            )}
                             <div className="mt-5 rounded-lg border border-slate-200 p-3">
                               <div className="flex flex-wrap items-center justify-between gap-2">
                                 <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
@@ -4375,26 +4397,13 @@ export function ProjectDetailDialog({
                               {/* The two fixed generic-IAQ paragraphs (air-inclusive
                                   jobs only) render unconditionally in the PDF — see
                                   MoldReportDocument — so this cell is purely for the
-                                  admin's own case-specific recommendations. Lines
-                                  starting with "• " or "1. " render as an actual
+                                  admin's own case-specific recommendations, entirely
+                                  optional — never required to draft/send a report (see
+                                  reportChecklist in this file: mold's checklist only
+                                  requires Sample count/Lab info/Results, not this text).
+                                  Lines starting with "• " or "1. " render as an actual
                                   bulleted/numbered list in the PDF (see report-pdf.tsx's
                                   blocksFromText), not literal dashes/digits. */}
-                              {job.customers?.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID && (
-                                <label className="mb-2 flex items-start gap-2 text-xs text-slate-600">
-                                  <input
-                                    type="checkbox"
-                                    className="mt-0.5"
-                                    checked={job.mold_standard_conclusion_included !== false}
-                                    onChange={(e) => saveJobField({ mold_standard_conclusion_included: e.target.checked })}
-                                  />
-                                  {/* Per Tim, 2026-09-22 (26-0041, "no mold amplification") —
-                                      NEWTON_FIRE_FLOOD_STANDARD_MOLD_CONCLUSION used to render
-                                      unconditionally on every Newton mold report; wrong when
-                                      nothing was actually found. Defaults checked (current
-                                      behavior every existing report already has). */}
-                                  Include standard remediation recommendation
-                                </label>
-                              )}
                               <textarea
                                 ref={moldReportNotesRef}
                                 className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
@@ -4402,7 +4411,7 @@ export function ProjectDetailDialog({
                                 value={moldReportNotesInput}
                                 onChange={(e) => setMoldReportNotesInput(e.target.value)}
                                 onBlur={(e) => saveMoldReportNotes(e.target.value)}
-                                placeholder="Case-specific recommendations for this job."
+                                placeholder="Case-specific recommendations for this job (optional)."
                               />
                             </div>
                           </>

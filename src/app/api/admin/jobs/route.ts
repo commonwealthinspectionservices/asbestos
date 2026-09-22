@@ -110,7 +110,14 @@ export const POST = withApiErrors(async (req: NextRequest) => {
     company = await upsertCompany(body.company, { billingAddress: body.billingAddress });
   }
 
-  const name: string = body.name?.trim() || company?.name || "Unknown contact";
+  // Per Tim, 2026-09-22 (Clean Joe) — this used to fall back to the
+  // company's own name when no individual contact name was given, which
+  // created a "contact" literally named after the company (read as a real
+  // person everywhere the app shows a contact name). Falls straight to the
+  // same "Unknown contact" placeholder the no-company case already used —
+  // see report-pdf.tsx and JobsDashboard.tsx, which both already know to
+  // treat that string as "no real name yet," not a person.
+  const name: string = body.name?.trim() || "Unknown contact";
   // Per Tim, 2026-09-19 — never a made-up placeholder address: an unknown
   // email is stored as NULL (customers.email is nullable, and a unique index
   // allows any number of NULLs).

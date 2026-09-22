@@ -147,6 +147,26 @@ export const POST = withApiErrors(async (req: NextRequest) => {
     throw new Error(`Failed to create customer: ${customerError?.message}`);
   }
 
+  // Per Tim, 2026-09-22 (Clean Joe/Bonnie) — "Email results to"/"Email
+  // invoice to" should already be filled in on a new job, not left blank
+  // for the admin to type every time. Uses the resolved contact's own
+  // email first (the common case — a real person was picked/typed); if
+  // that's empty (e.g. the admin only picked the company, no specific
+  // contact — the "Unknown contact" case), falls back to the company's
+  // designated billing contact, then to its one real contact if it only
+  // has one — never guesses among several.
+  let fallbackRecipientEmail: string | null = customer.email ?? null;
+  if (!fallbackRecipientEmail && company?.id) {
+    if (company.billing_contact_id) {
+      const { data: billingContact } = await supabase.from("customers").select("email").eq("id", company.billing_contact_id).maybeSingle();
+      fallbackRecipientEmail = billingContact?.email ?? null;
+    }
+    if (!fallbackRecipientEmail) {
+      const { data: companyContacts } = await supabase.from("customers").select("email").eq("company_id", company.id).not("email", "is", null).neq("id", customer.id);
+      if (companyContacts && companyContacts.length === 1) fallbackRecipientEmail = companyContacts[0].email;
+    }
+  }
+
   const projectNumber = body.projectNumber?.trim() || (await generateProjectNumber());
 
   // The admin can pick an explicit starting status; otherwise fall back to
@@ -208,8 +228,8 @@ export const POST = withApiErrors(async (req: NextRequest) => {
     invoice_number: body.invoiceNumber || null,
     paid_date: body.paidDate || null,
     payment_due_date: body.paymentDueDate || null,
-    report_emails: body.reportEmails || null,
-    invoice_emails: body.invoiceEmails || null,
+    report_emails: body.reportEmails || fallbackRecipientEmail || null,
+    invoice_emails: body.invoiceEmails || fallbackRecipientEmail || null,
     disclaimer_ack: true,
     // Defaults from the customer's portal-signup account type (see
     // customers.is_individual); the Invoice tab checkbox still lets the

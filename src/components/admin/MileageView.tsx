@@ -84,20 +84,12 @@ function AddStopSearch({
     };
   }, [query]);
 
-  const q = query.trim().toLowerCase();
-  const showHome = !!homeAddress && (q === "" || "home".includes(q));
-  const showLab = !hasLab && (q === "" || "crystal".includes(q) || "lab".includes(q) || "analytical".includes(q));
-  const matchingProjects = projects
-    .filter((p) => {
-      if (!q) return true;
-      return (
-        (p.project_number ?? "").toLowerCase().includes(q) ||
-        p.service_address.toLowerCase().includes(q) ||
-        (p.customers?.company ?? "").toLowerCase().includes(q) ||
-        (p.customers?.name ?? "").toLowerCase().includes(q)
-      );
-    })
-    .slice(0, q ? 8 : 4);
+  // The box is a pure address search once you start typing — Home/Crystal/
+  // a few recent projects are just quick-tap defaults shown while it's
+  // empty, not something the typed text filters.
+  const q = query.trim();
+  const isSearching = q.length > 0;
+  const quickProjects = projects.slice(0, 4);
 
   async function pickAddress(s: { placeId: string; description: string }) {
     setResolving(true);
@@ -115,73 +107,77 @@ function AddStopSearch({
     }
   }
 
-  const nothingYet = !showHome && !showLab && matchingProjects.length === 0 && addressSuggestions.length === 0 && !loadingAddr;
-
   return (
     <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50 p-2">
       <input
         autoFocus
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        placeholder="Search a project, or type an address"
+        placeholder="Type an address"
         className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
       />
       <div className="mt-2 max-h-64 space-y-1 overflow-y-auto">
-        {showHome && (
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => onPick({ id: newStopId(), kind: "home", label: "Home", address: homeAddress! })}
-            className="flex w-full items-center gap-2 rounded-lg bg-white px-3 py-2 text-left text-sm hover:bg-brand-50 disabled:opacity-40"
-          >
-            <span className="font-medium text-slate-800">Home</span>
-          </button>
+        {!isSearching && (
+          <>
+            {homeAddress && (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => onPick({ id: newStopId(), kind: "home", label: "Home", address: homeAddress })}
+                className="block w-full rounded-lg bg-white px-3 py-2 text-left hover:bg-brand-50 disabled:opacity-40"
+              >
+                <AddressBlock stop={{ id: "home-quick", kind: "home", label: "Home", address: homeAddress }} />
+              </button>
+            )}
+            {!hasLab && (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => onPick({ id: newStopId(), kind: "lab", label: LAB_LABEL, address: LAB_ADDRESS })}
+                className="block w-full rounded-lg bg-white px-3 py-2 text-left hover:bg-brand-50 disabled:opacity-40"
+              >
+                <AddressBlock stop={{ id: "lab-quick", kind: "lab", label: LAB_LABEL, address: LAB_ADDRESS }} />
+              </button>
+            )}
+            {quickProjects.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                disabled={busy}
+                onClick={() =>
+                  onPick({
+                    id: newStopId(),
+                    kind: "job",
+                    label: `${p.project_number ?? "Job"} — ${p.service_address}`,
+                    address: p.service_address.replace(/,\s*(USA|United States)\s*$/i, ""),
+                    job_id: p.id,
+                  })
+                }
+                className="block w-full rounded-lg bg-white px-3 py-2 text-left hover:bg-brand-50 disabled:opacity-40"
+              >
+                <p className="text-[13px] font-semibold text-slate-800">
+                  {p.project_number} <span className="font-normal text-slate-500">— {p.customers?.company || p.customers?.name || ""}</span>
+                </p>
+                <p className="text-xs text-slate-500">{p.service_address.replace(/,\s*(USA|United States)\s*$/i, "")}</p>
+              </button>
+            ))}
+          </>
         )}
-        {showLab && (
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => onPick({ id: newStopId(), kind: "lab", label: LAB_LABEL, address: LAB_ADDRESS })}
-            className="flex w-full items-center gap-2 rounded-lg bg-white px-3 py-2 text-left text-sm hover:bg-brand-50 disabled:opacity-40"
-          >
-            <span className="font-medium text-slate-800">Crystal Analytical</span>
-          </button>
-        )}
-        {matchingProjects.map((p) => (
-          <button
-            key={p.id}
-            type="button"
-            disabled={busy}
-            onClick={() =>
-              onPick({
-                id: newStopId(),
-                kind: "job",
-                label: `${p.project_number ?? "Job"} — ${p.service_address}`,
-                address: p.service_address.replace(/,\s*(USA|United States)\s*$/i, ""),
-                job_id: p.id,
-              })
-            }
-            className="block w-full rounded-lg bg-white px-3 py-2 text-left hover:bg-brand-50 disabled:opacity-40"
-          >
-            <p className="text-[13px] font-semibold text-slate-800">
-              {p.project_number} <span className="font-normal text-slate-500">— {p.customers?.company || p.customers?.name || ""}</span>
-            </p>
-            <p className="text-xs text-slate-500">{p.service_address.replace(/,\s*(USA|United States)\s*$/i, "")}</p>
-          </button>
-        ))}
-        {addressSuggestions.map((s) => (
-          <button
-            key={s.placeId}
-            type="button"
-            disabled={busy || resolving}
-            onClick={() => pickAddress(s)}
-            className="flex w-full items-start gap-2 rounded-lg bg-white px-3 py-2 text-left text-sm hover:bg-brand-50 disabled:opacity-40"
-          >
-            <span className="text-slate-700">{s.description}</span>
-          </button>
-        ))}
-        {loadingAddr && <p className="px-3 py-1.5 text-xs text-slate-400">Searching…</p>}
-        {nothingYet && q && <p className="px-3 py-2 text-sm text-slate-400">No matches — keep typing for an address</p>}
+        {isSearching &&
+          addressSuggestions.map((s) => (
+            <button
+              key={s.placeId}
+              type="button"
+              disabled={busy || resolving}
+              onClick={() => pickAddress(s)}
+              className="flex w-full items-start gap-2 rounded-lg bg-white px-3 py-2 text-left text-sm hover:bg-brand-50 disabled:opacity-40"
+            >
+              <span className="text-slate-700">{s.description}</span>
+            </button>
+          ))}
+        {isSearching && loadingAddr && <p className="px-3 py-1.5 text-xs text-slate-400">Searching…</p>}
+        {isSearching && !loadingAddr && q.length < 4 && <p className="px-3 py-2 text-sm text-slate-400">Keep typing…</p>}
+        {isSearching && !loadingAddr && q.length >= 4 && addressSuggestions.length === 0 && <p className="px-3 py-2 text-sm text-slate-400">No matches</p>}
       </div>
     </div>
   );

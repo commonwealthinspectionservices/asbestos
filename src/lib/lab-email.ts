@@ -253,7 +253,7 @@ export function invoiceDraftBodyHtml(job: Job & { customers?: Customer }, settin
     ...(payNowUrl ? ["", `${payLinkPrefix}<a href="${escapeHtml(payNowUrl)}">Link to pay</a>`] : []),
     "",
     // The phone number itself never wraps mid-digit — see reportDraftBodyHtml's own comment on this.
-    `If you have any questions, please call Tim at <span style="white-space:nowrap;">${escapeHtml(settings.business_phone)}</span>`,
+    `If you have any questions, please call me at <span style="white-space:nowrap;">${escapeHtml(settings.business_phone)}</span>`,
     "",
     ...SIGNATURE_LINES,
   ].join("<br>");
@@ -2439,7 +2439,7 @@ async function draftPaymentReminderForIndividual(params: {
       // reportDraftBodyHtml/combinedDraftBodyHtml already got on 2026-08-26
       // (see REVIEW_LINK_LINE's own comment above), missed on this template
       // at the time since the payment-reminder note is a separate body.
-      `Should you have any questions, please contact Tim at <span style="white-space:nowrap;">${escapeHtml(settings.business_phone)}</span>.`,
+      `Should you have any questions, please contact me at <span style="white-space:nowrap;">${escapeHtml(settings.business_phone)}</span>.`,
       "",
       "Thank you for the opportunity to provide you with our services.",
       "",

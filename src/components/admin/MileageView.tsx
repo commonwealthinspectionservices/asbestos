@@ -216,53 +216,62 @@ function DayCard({ day, onSaved, onReset }: { day: MileageDay; onSaved: (d: Mile
             </button>
           </div>
           {addingOpen && (
-            <div className="mt-2 space-y-2 rounded-lg border border-slate-200 p-3">
-              <div className="flex flex-wrap gap-2">
+            <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <div className="grid grid-cols-2 gap-2">
                 {homeAddress && (
-                  <button type="button" disabled={busy} onClick={() => addStop({ id: newStopId(), kind: "home", label: "Home", address: homeAddress }, true)} className="rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40">
-                    + Home
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => addStop({ id: newStopId(), kind: "home", label: "Home", address: homeAddress }, true)}
+                    className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:border-brand-300 hover:bg-brand-50 disabled:opacity-40"
+                  >
+                    🏠 Home
                   </button>
                 )}
                 {!hasLab && (
-                  <button type="button" disabled={busy} onClick={() => addStop({ id: newStopId(), kind: "lab", label: LAB_LABEL, address: LAB_ADDRESS }, true)} className="rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40">
-                    + Crystal
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => addStop({ id: newStopId(), kind: "lab", label: LAB_LABEL, address: LAB_ADDRESS }, true)}
+                    className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:border-brand-300 hover:bg-brand-50 disabled:opacity-40"
+                  >
+                    🧪 Crystal
                   </button>
                 )}
               </div>
 
               {projects.length > 0 && (
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-wide text-slate-500">A project</p>
-                  <div className="mt-1 max-h-36 space-y-1 overflow-y-auto">
+                <div className="mt-4">
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">A project</p>
+                  <div className="mt-1.5 max-h-40 space-y-1.5 overflow-y-auto pr-0.5">
                     {projects.map((p) => (
                       <button
                         key={p.id}
                         type="button"
                         disabled={busy}
                         onClick={() => addStop({ id: newStopId(), kind: "job", label: `${p.project_number ?? "Job"} — ${p.service_address}`, address: p.service_address.replace(/,\s*(USA|United States)\s*$/i, ""), job_id: p.id }, true)}
-                        className="block w-full rounded-lg bg-slate-50 px-2 py-1.5 text-left text-[13px] hover:bg-slate-100 disabled:opacity-40"
+                        className="block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-left hover:border-brand-300 hover:bg-brand-50 disabled:opacity-40"
                       >
-                        <span className="font-medium text-slate-800">{p.project_number}</span>{" "}
-                        <span className="text-slate-500">{p.customers?.company || p.customers?.name || ""}</span>
-                        <span className="block text-slate-600">{p.service_address.replace(/,\s*(USA|United States)\s*$/i, "")}</span>
+                        <p className="text-[13px] font-semibold text-slate-800">
+                          {p.project_number} <span className="font-normal text-slate-500">— {p.customers?.company || p.customers?.name || ""}</span>
+                        </p>
+                        <p className="text-xs text-slate-500">{p.service_address.replace(/,\s*(USA|United States)\s*$/i, "")}</p>
                       </button>
                     ))}
                   </div>
                 </div>
               )}
 
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Or another address</p>
-                <div className="mt-1 flex items-start gap-2">
-                  <div className="min-w-0 flex-1">
-                    <AddressAutocompleteInput
-                      apiBase="/api/admin"
-                      value={customAddress}
-                      onChange={setCustomAddress}
-                      placeholder="Start typing, then pick it"
-                      inputClassName="h-9 w-full rounded-lg border border-slate-300 px-3 text-sm"
-                    />
-                  </div>
+              <div className="mt-4">
+                <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Or another address</p>
+                <div className="mt-1.5">
+                  <AddressAutocompleteInput
+                    apiBase="/api/admin"
+                    value={customAddress}
+                    onChange={setCustomAddress}
+                    placeholder="Start typing, then pick it"
+                    inputClassName="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                  />
                   <button
                     type="button"
                     disabled={busy || !/\b\d{5}\b/.test(customAddress)}
@@ -271,9 +280,9 @@ function DayCard({ day, onSaved, onReset }: { day: MileageDay; onSaved: (d: Mile
                       addStop({ id: newStopId(), kind: "other", label: address, address }, true);
                       setCustomAddress("");
                     }}
-                    className={`${smallLink} h-9`}
+                    className="mt-1.5 w-full rounded-lg bg-brand-600 px-3 py-2 text-sm font-bold text-white hover:bg-brand-700 disabled:opacity-40"
                   >
-                    Add
+                    Add this address
                   </button>
                 </div>
               </div>

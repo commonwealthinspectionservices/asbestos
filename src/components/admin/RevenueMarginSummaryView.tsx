@@ -402,7 +402,7 @@ export default function RevenueMarginSummaryView() {
           <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white">
             <div className="grid grid-cols-[minmax(0,1fr)_64px_68px_68px_78px_78px] gap-x-1.5 border-b border-slate-200 bg-slate-50 px-2 py-2 text-[9px] font-bold uppercase leading-tight tracking-wide text-slate-500 sm:gap-x-3 sm:px-4 sm:text-xs">
               <div>{isWeekly ? "Week" : "Month"}</div>
-              <div className="text-right">Revenue</div>
+              <div className="text-right">Paid</div>
               <div className="text-right">Lab Cost</div>
               <div className="text-right">Mileage</div>
               <div className="text-right">Net Earnings</div>
@@ -418,7 +418,7 @@ export default function RevenueMarginSummaryView() {
                 className="grid cursor-pointer grid-cols-[minmax(0,1fr)_64px_68px_68px_78px_78px] gap-x-1.5 items-center border-b border-slate-100 px-2 py-3 text-sm last:border-b-0 hover:bg-slate-50 sm:gap-x-3 sm:px-4"
               >
                 <div className="text-[11px] leading-tight text-slate-700 sm:text-sm">{row.shortLabel}</div>
-                <div className="whitespace-nowrap text-right text-[12px] font-medium text-slate-800 sm:text-sm">{formatWhole(row.grossCents)}</div>
+                <div className="whitespace-nowrap text-right text-[12px] font-medium text-slate-800 sm:text-sm">{formatWhole(row.paidGrossCents)}</div>
                 <div className="text-right text-[12px] text-red-600 sm:text-sm">
                   {row.pdfHrefs && row.pdfHrefs.length > 0 ? (
                     // The Crystal report is where this number comes from,
@@ -459,7 +459,7 @@ export default function RevenueMarginSummaryView() {
             ))}
             <div className="grid grid-cols-[minmax(0,1fr)_64px_68px_68px_78px_78px] gap-x-1.5 items-center bg-slate-50 px-2 py-3 text-sm font-semibold text-slate-800 sm:gap-x-3 sm:px-4">
               <div className="text-[11px] sm:text-sm">All time</div>
-              <div className="whitespace-nowrap text-right text-[12px] sm:text-sm">{formatWhole(allTimeTotal.grossCents)}</div>
+              <div className="whitespace-nowrap text-right text-[12px] sm:text-sm">{formatWhole(allTimeEarnings.totalPaidGross)}</div>
               <div className="whitespace-nowrap text-right text-[12px] text-red-600 sm:text-sm">
                 {allTimeTotal.labCostCents > 0 ? `−${formatWhole(allTimeTotal.labCostCents)}` : formatWhole(allTimeTotal.labCostCents)}
               </div>

@@ -401,7 +401,7 @@ export default function RevenueMarginSummaryView() {
       <Link href="/admin/billing" className="mb-2 inline-flex items-center gap-1 text-sm text-brand-600 hover:text-brand-700">
         ← Billing
       </Link>
-      <h1 className="text-lg font-bold text-slate-800">Revenue &amp; Margin Summary</h1>
+      <h1 className="text-lg font-bold text-slate-800">Revenue &amp; Earnings Summary</h1>
 
       {error && <div className="mt-4 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>}
 

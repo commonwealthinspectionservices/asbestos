@@ -41,6 +41,15 @@ export default function RevenueMarginSummaryView() {
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [summaryTab, setSummaryTab] = useState<"weekly" | "monthly">("weekly");
+  // Per Tim, 2026-09-23 — "show me the list of what's not been billed":
+  // reuses the existing audit-invoices route (already scans every job for
+  // exactly this — no lab invoice on file yet, or one on file with no cost
+  // recorded — see that route's own comment for the FLI exclusion/
+  // week-completion gating) rather than re-deriving the same logic here
+  // and risking it drifting out of sync.
+  const [unbilledLabCosts, setUnbilledLabCosts] = useState<
+    { project_number: string | null; company: string | null; issue: string; detail?: string }[]
+  >([]);
   // Miles driven per month ("YYYY-MM"), from the Mileage page's saved routes.
   // null until loaded; stays null if the mileage table isn't set up yet.
   // Hand-typed "other costs" per month (equipment, ads, office — see
@@ -70,6 +79,17 @@ export default function RevenueMarginSummaryView() {
   useEffect(() => {
     fetch("/api/admin/monthly-overhead")
       .then(async (r) => (r.ok ? setOverhead((await r.json()).overhead) : null))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/admin/audit-invoices")
+      .then(async (r) => {
+        if (!r.ok) return;
+        const data = await r.json();
+        const issues = (data.issues ?? []) as { category: string; severity?: string; project_number: string | null; company: string | null; issue: string; detail?: string }[];
+        setUnbilledLabCosts(issues.filter((i) => i.category === "lab_invoice" && i.severity === "waiting"));
+      })
       .catch(() => {});
   }, []);
 
@@ -448,6 +468,23 @@ export default function RevenueMarginSummaryView() {
               <div className={`whitespace-nowrap text-right text-[13px] sm:text-sm ${isMarginEstimated ? "italic" : ""}`}>{allTimeMarginText.replace("≈ ", "")}</div>
             </div>
           </div>
+
+          {unbilledLabCosts.length > 0 && (
+            <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white">
+              <div className="border-b border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold uppercase tracking-wide text-slate-500 sm:px-4">
+                Not yet billed by the lab
+              </div>
+              {unbilledLabCosts.map((i, idx) => (
+                <div key={idx} className="border-b border-slate-100 px-3 py-2 text-sm last:border-b-0 sm:px-4">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="font-medium text-slate-800">{i.project_number ?? "—"}</span>
+                    <span className="text-slate-500">{i.company}</span>
+                  </div>
+                  <div className="text-xs text-slate-500">{i.issue}{i.detail ? ` — ${i.detail}` : ""}</div>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Per Tim, 2026-09-20 — "one spot that shows me my monthly net
               earnings after all this stuff": only jobs that have actually

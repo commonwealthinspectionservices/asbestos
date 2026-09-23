@@ -2176,13 +2176,13 @@ async function processMatchedLabEmail(params: {
     // notify; the manual "Create Invoice Draft"/"Create Report Draft"
     // buttons are the only path to a draft from here for any mold job.
     if (jobReportDomains(updatedJob.service_type).includes("mold")) {
+      // Per Tim, 2026-09-22 — "just say lab results landed and for which
+      // job, a lot simpler": dropped the why-no-autodraft explanation
+      // (mold always needs it, every time — not news) down to one line.
       await sendEmail({
         to: process.env.OWNER_EMAIL!,
-        subject: `Lab results landed (mold job — no auto-draft) — ${updatedJob.project_number ?? updatedJob.id}`,
-        html: emailShell(`
-          <p style="font-size:15px;">Lab results just came in and were filed on this job. No invoice or report was auto-drafted — this job includes mold, which always needs your own Conclusions &amp; Recommendations added by hand first.</p>
-          <p>Add that on the job's Final Report tab, then use "Create Invoice Draft" / "Create Report Draft" when it's ready.</p>
-        `),
+        subject: `Lab results landed — ${updatedJob.project_number ?? updatedJob.id}`,
+        html: emailShell(`<p style="font-size:15px;">Lab results landed on ${escapeHtml(updatedJob.project_number ?? updatedJob.id)}. Add Conclusions &amp; Recommendations on the Final Report tab, then create the drafts.</p>`),
       }).catch(() => {});
       return;
     }

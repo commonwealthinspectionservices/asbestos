@@ -127,8 +127,21 @@ export function invoiceStatus(job: JobWithCustomer): InvoiceStatus {
 // could put a job in a different week than its own invoice actually
 // shows and make the weekly total impossible to verify by eye against
 // the job list below.
+//
+// REVERSED per Tim, 2026-09-23 — "everything needs to be apples to
+// apples": invoice_sent_at bucketing put a job's Lab Cost in a different
+// week than Crystal's own PDF for that job (matched separately, by
+// report_date_range — see weeklyLabInvoicePdfHrefs in
+// RevenueMarginSummaryView.tsx), since when Commonwealth happens to send
+// its own invoice has nothing to do with when the lab actually did the
+// work/billed for it. confirmed_date (fieldwork/"Completed date") is what
+// both Lab Cost and the Crystal PDF link are actually about, so bucketing
+// by it keeps the dollar figure and the linked PDF always describing the
+// same week's real lab activity. Still no fallback date, same reasoning
+// as before — a job with no confirmed_date yet just doesn't count toward
+// any week/month row.
 export function billingDateFor(job: JobWithCustomer): string | null {
-  return job.invoice_sent_at ? ymd(new Date(job.invoice_sent_at)) : null;
+  return job.confirmed_date ?? null;
 }
 
 // netCents already includes the same lab cost estimate as Lab Costs above
@@ -789,8 +802,8 @@ export default function BillingView() {
   // and gross for weeks and months over time": a plain, non-interactive
   // table of the last few weeks and last few months — not the browsable
   // grouped view he'd already had removed once for being too much.
-  // Bucketed by billingDateFor (see its own comment — invoice date,
-  // shared with Lab Costs below).
+  // Bucketed by billingDateFor (see its own comment — fieldwork/
+  // confirmed_date as of 2026-09-23, shared with Lab Costs below).
   //
   // Per Tim, 2026-08-30 (follow-up) — "I don't want the weekly and
   // monthly at the top to get too crowded": capped at 4 rows each

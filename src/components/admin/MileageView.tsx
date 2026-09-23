@@ -49,11 +49,10 @@ type Project = { id: string; project_number: string | null; service_address: str
  * up top when relevant.
  */
 function AddStopSearch({
-  busy, homeAddress, hasLab, projects, onPick,
+  busy, homeAddress, projects, onPick,
 }: {
   busy: boolean;
   homeAddress: string | undefined;
-  hasLab: boolean;
   projects: Project[];
   onPick: (stop: MileageStop) => void;
 }) {
@@ -130,17 +129,20 @@ function AddStopSearch({
                 <p className="text-xs text-slate-500">{homeAddress.replace(/,\s*(USA|United States)\s*$/i, "")}</p>
               </button>
             )}
-            {!hasLab && (
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => onPick({ id: newStopId(), kind: "lab", label: LAB_LABEL, address: LAB_ADDRESS })}
-                className="block w-full rounded-lg bg-white px-3 py-2 text-left hover:bg-brand-50 disabled:opacity-40"
-              >
-                <p className="text-[13px] font-semibold text-slate-800">Crystal Analytical</p>
-                <p className="text-xs text-slate-500">{LAB_ADDRESS.replace(/,\s*(USA|United States)\s*$/i, "")}</p>
-              </button>
-            )}
+            {/* Per Tim, 2026-09-22 — "the first two options should always
+                be home and lab": shown even on a day that already has a
+                Crystal stop, since a second lab trip the same day is a
+                real thing (a morning drop-off and an afternoon pickup,
+                say), not something to hide once the day has one. */}
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => onPick({ id: newStopId(), kind: "lab", label: LAB_LABEL, address: LAB_ADDRESS })}
+              className="block w-full rounded-lg bg-white px-3 py-2 text-left hover:bg-brand-50 disabled:opacity-40"
+            >
+              <p className="text-[13px] font-semibold text-slate-800">Crystal Analytical</p>
+              <p className="text-xs text-slate-500">{LAB_ADDRESS.replace(/,\s*(USA|United States)\s*$/i, "")}</p>
+            </button>
             {quickProjects.map((p) => (
               <button
                 key={p.id}
@@ -309,7 +311,6 @@ function DayCard({ day, onSaved, onReset }: { day: MileageDay; onSaved: (d: Mile
             <AddStopSearch
               busy={busy}
               homeAddress={homeAddress}
-              hasLab={hasLab}
               projects={projects}
               onPick={(stop) => addStop(stop, true)}
             />

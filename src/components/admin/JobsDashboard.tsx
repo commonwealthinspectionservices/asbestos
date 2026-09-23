@@ -4492,25 +4492,28 @@ export function ProjectDetailDialog({
                     same as lead_report_notes/mold_report_notes; never
                     required to draft/send a report. */}
                 {reportDomainTab === "asbestos" && (
-                  <div className="mt-5 rounded-lg border border-slate-200 p-3">
-                    <button
-                      type="button"
-                      onClick={() => setReportNotesOpen((v) => !v)}
-                      className="flex w-full items-center justify-between gap-2 text-left"
-                    >
-                      <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                        Additional Remarks
-                      </span>
-                      <span className={`text-slate-400 transition-transform ${reportNotesOpen ? "rotate-180" : ""}`}>▾</span>
-                    </button>
-                    {reportNotesOpen && (
-                      <textarea
-                        className="mt-2 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
-                        rows={4}
-                        value={reportNotesInput}
-                        onChange={(e) => setReportNotesInput(e.target.value)}
-                        onBlur={(e) => saveReportNotes(e.target.value)}
-                      />
+                  <div className="mt-5">
+                    {reportNotesOpen ? (
+                      <>
+                        <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
+                          Additional Remarks
+                        </label>
+                        <textarea
+                          className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+                          rows={4}
+                          value={reportNotesInput}
+                          onChange={(e) => setReportNotesInput(e.target.value)}
+                          onBlur={(e) => saveReportNotes(e.target.value)}
+                        />
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setReportNotesOpen(true)}
+                        className="text-xs font-medium text-brand-600"
+                      >
+                        + Add additional remarks
+                      </button>
                     )}
                   </div>
                 )}

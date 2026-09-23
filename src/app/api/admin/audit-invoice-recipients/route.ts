@@ -49,6 +49,17 @@ export const GET = withApiErrors(async (req: NextRequest) => {
     severity: "warning" | "info";
   }[] = [];
 
+  // Per Tim, 2026-09-23 — "it doesn't work" turned out to mean "it didn't
+  // flag the company I expected," not a real error: the audit only ever
+  // looks at a company that already HAS billing_contact_id set, so if that
+  // was never actually saved (e.g. the dropdown pick didn't take, or the
+  // new contact was added but never selected), the company's jobs are
+  // silently skipped rather than flagged — which looks identical to "no
+  // problem found" from the response alone. This makes that visible: every
+  // company currently on file with a billing contact set, so a missing
+  // one shows up immediately instead of by absence.
+  const companiesWithBillingContact = new Map<string, { company: string; billing_contact: string; billing_contact_email: string | null; jobs: number }>();
+
   let jobsUnderBilledCompanies = 0;
 
   for (const job of jobs) {
@@ -57,6 +68,10 @@ export const GET = withApiErrors(async (req: NextRequest) => {
     jobsUnderBilledCompanies++;
 
     const billingContact = contactsById.get(company.billing_contact_id);
+    const existing = companiesWithBillingContact.get(company.id);
+    if (existing) existing.jobs++;
+    else companiesWithBillingContact.set(company.id, { company: company.name, billing_contact: billingContact?.name ?? "(contact not found)", billing_contact_email: billingContact?.email ?? null, jobs: 1 });
+
     const billingEmail = billingContact?.email?.trim().toLowerCase() || null;
     if (!billingEmail) continue; // billing contact on file but has no email of their own — nothing to check against
 
@@ -90,6 +105,7 @@ export const GET = withApiErrors(async (req: NextRequest) => {
   return NextResponse.json({
     jobsScanned: jobs.length,
     jobsUnderCompaniesWithBillingContact: jobsUnderBilledCompanies,
+    companiesWithBillingContact: Array.from(companiesWithBillingContact.values()),
     issues,
   });
 });

@@ -506,13 +506,9 @@ function AsbestosReportDocument({ job, customer, settings }: ProjectReportData) 
   if (job.report_summary && job.report_summary !== ASBESTOS_POSITIVE_REMARK && job.report_summary !== ASBESTOS_NEGATIVE_REMARK) {
     remarks.push(job.report_summary);
   }
-  // report_notes deliberately NOT included here — asbestos Remarks and
-  // Limitations is always exactly the boilerplate + the result-based
-  // canned remark (2 items), or that plus a genuinely custom finding
-  // typed into the Result field instead of picking a canned option (3).
-  // report_notes has no UI to reach in the admin dashboard at all, so
-  // any 3rd/4th remark it would add could only ever come from something
-  // set directly in the database — never a real admin edit.
+  // report_notes — same "Additional Remarks" admin field Full Inspection
+  // reports already use, now also available here. One line per remark.
+  remarks.push(...paragraphsFromText(job.report_notes));
 
   const { knownCustomerName, dateText, billingStreet, billing, serviceStreet, service } = commonLetterFields(job, customer, settings, job.confirmed_date ?? job.requested_date ?? job.lab_date_sampled);
   const positiveMaterialRows = computePositiveMaterialRows(job);
@@ -648,6 +644,7 @@ function FliAsbestosReportDocument({ job, customer, settings }: ProjectReportDat
   if (job.report_summary && job.report_summary !== ASBESTOS_POSITIVE_REMARK && job.report_summary !== ASBESTOS_NEGATIVE_REMARK) {
     remarks.push(job.report_summary);
   }
+  remarks.push(...paragraphsFromText(job.report_notes));
 
   const { dateText, serviceStreet, service } = commonLetterFields(job, customer, settings, job.confirmed_date ?? job.requested_date ?? job.lab_date_sampled);
   const positiveMaterialRows = computePositiveMaterialRows(job);

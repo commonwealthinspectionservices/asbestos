@@ -4477,7 +4477,19 @@ export function ProjectDetailDialog({
                       {savingMaterials && <p className="text-xs text-slate-400">Saving…</p>}
                     </div>
                     <MaterialsEditor items={fullInspectionMaterials} setItems={setFullInspectionMaterials} />
-                    <label className="mt-5 block text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  </div>
+                )}
+
+                {/* report_notes: same field, but now also rendered (and
+                    included in the PDF's Remarks and Limitations) for the
+                    ordinary Limited Asbestos Inspection template, not just
+                    Full Inspection — see AsbestosReportDocument/
+                    FliAsbestosReportDocument in report-pdf.tsx. Optional,
+                    same as lead_report_notes/mold_report_notes; never
+                    required to draft/send a report. */}
+                {reportDomainTab === "asbestos" && (
+                  <div className="mt-5 rounded-lg border border-slate-200 p-3">
+                    <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
                       Additional Remarks
                     </label>
                     <p className="mt-1 text-xs text-slate-500">
@@ -4489,7 +4501,7 @@ export function ProjectDetailDialog({
                       value={reportNotesInput}
                       onChange={(e) => setReportNotesInput(e.target.value)}
                       onBlur={(e) => saveReportNotes(e.target.value)}
-                      placeholder="Any per-finding notes specific to this job (e.g. contamination, supplemental sampling)."
+                      placeholder="Any per-finding notes specific to this job (e.g. contamination, supplemental sampling, limited access)."
                     />
                   </div>
                 )}

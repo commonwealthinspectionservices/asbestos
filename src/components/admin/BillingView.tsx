@@ -873,9 +873,6 @@ export default function BillingView() {
         <Link href="/admin/payment-calendar" className="text-brand-600 underline hover:text-brand-700">
           Payment Calendar
         </Link>
-        <Link href="/admin/open-invoices" className="text-brand-600 underline hover:text-brand-700">
-          Open Invoices
-        </Link>
       </div>
 
       {error && <div className="mt-3 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>}

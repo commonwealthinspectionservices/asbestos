@@ -11,7 +11,6 @@ import { FLI_ENVIRONMENTAL_COMPANY_ID } from "@/lib/report-findings";
 import {
   billingDateFor,
   parseReportDateRange,
-  marginPercentOf,
   ordinal,
   ymd,
   MONTH_NAMES,
@@ -323,7 +322,6 @@ export default function RevenueMarginSummaryView() {
         shortLabel: p.shortLabel,
         grossCents: p.grossCents,
         labCents: p.labCostCents,
-        marginPercent: marginPercentOf(p),
         pdfHrefs: isWeekly ? weeklyLabInvoicePdfHrefs[p.label] : undefined,
         paidGrossCents: p.paidGrossCents,
         miles,
@@ -334,10 +332,6 @@ export default function RevenueMarginSummaryView() {
       };
     });
   }, [isWeekly, periodHistory, weeklyLabInvoicePdfHrefs, weeklyMiles, monthlyMiles]);
-
-  const allTimeMarginPercent = allTimeTotal.grossCents > 0
-    ? ((allTimeTotal.grossCents - allTimeTotal.labCostCents - allTimeTotal.stripeFeeCents) / allTimeTotal.grossCents) * 100
-    : null;
 
   return (
     <div>
@@ -387,29 +381,32 @@ export default function RevenueMarginSummaryView() {
               Net should be their own separate columns... calculate
               absolutely everything" (9 columns, horizontally scrollable)
               → "I don't have to scroll across" + "delete the other costs
-              tab". Landed here: Other Costs is gone entirely (its own
-              feature, not just this column — monthly-overhead route
-              removed too). Mileage Deduction and Taxable are no longer
-              their own columns either — folded into the "To Tax Savings"
-              cell's title tooltip instead, since dropping them (plus
-              whole-dollar formatting via formatWhole, plus short period
-              labels) is what actually gets this under a phone's width with
-              zero horizontal scroll. Revenue/Lab Cost/Margin stayed —
-              per Tim, "I don't think I'm trying to use this as my entire
-              business overview... but I do need [it] pre-calculated in
-              terms of what I need to move to my general checking account
-              and what I need to move to my 35% tax savings account" — so
-              "To Tax Savings"/"To Checking" are named for the two accounts
-              he's actually moving money into, not generic "Tax"/"Net". */}
+              tab" → "this column [Margin] def delete it doesnt matter".
+              Landed here: Other Costs is gone entirely (its own feature,
+              not just this column — monthly-overhead route removed too).
+              Margin, Mileage Deduction, and Taxable are no longer their
+              own columns — Mileage Deduction/Taxable folded into the "Tax
+              Savings" cell's title tooltip instead, since dropping all
+              three (plus whole-dollar formatting via formatWhole, plus
+              short period labels) is what actually gets this under a
+              phone's width with zero horizontal scroll. Revenue/Lab Cost
+              stayed — per Tim, "I don't think I'm trying to use this as my
+              entire business overview... but I do need [it] pre-calculated
+              in terms of what I need to move to my general checking
+              account and what I need to move to my 35% tax savings
+              account" — so "Tax Savings"/"Checking" are named for the two
+              accounts he's actually moving money into, not generic
+              "Tax"/"Net". Lab Cost renders in red with a "−" prefix (per
+              Tim) since it's the one column here that's actually a cost,
+              not incoming/outgoing money. */}
           <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white">
-            <div className="grid grid-cols-[minmax(0,1fr)_54px_58px_42px_52px_62px_60px] gap-x-1.5 border-b border-slate-200 bg-slate-50 px-2 py-2 text-[9px] font-bold uppercase leading-tight tracking-wide text-slate-500 sm:gap-x-3 sm:px-4 sm:text-xs">
+            <div className="grid grid-cols-[minmax(0,1fr)_64px_68px_68px_78px_78px] gap-x-1.5 border-b border-slate-200 bg-slate-50 px-2 py-2 text-[9px] font-bold uppercase leading-tight tracking-wide text-slate-500 sm:gap-x-3 sm:px-4 sm:text-xs">
               <div>{isWeekly ? "Week" : "Month"}</div>
-              <div className="text-right">Rev</div>
-              <div className="text-right">Lab</div>
-              <div className="text-right">Mgn</div>
+              <div className="text-right">Revenue</div>
+              <div className="text-right">Lab Cost</div>
               <div className="text-right">Paid</div>
-              <div className="text-right">Tax Sav.</div>
-              <div className="text-right">Check.</div>
+              <div className="text-right">Tax Savings</div>
+              <div className="text-right">Checking</div>
             </div>
             {summaryRows.map((row) => (
               <div
@@ -418,11 +415,11 @@ export default function RevenueMarginSummaryView() {
                 role="button"
                 tabIndex={0}
                 onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && goToPeriod(row.label)}
-                className="grid cursor-pointer grid-cols-[minmax(0,1fr)_54px_58px_42px_52px_62px_60px] gap-x-1.5 items-center border-b border-slate-100 px-2 py-3 text-sm last:border-b-0 hover:bg-slate-50 sm:gap-x-3 sm:px-4"
+                className="grid cursor-pointer grid-cols-[minmax(0,1fr)_64px_68px_68px_78px_78px] gap-x-1.5 items-center border-b border-slate-100 px-2 py-3 text-sm last:border-b-0 hover:bg-slate-50 sm:gap-x-3 sm:px-4"
               >
                 <div className="text-[11px] leading-tight text-slate-700 sm:text-sm">{row.shortLabel}</div>
                 <div className="whitespace-nowrap text-right text-[12px] font-medium text-slate-800 sm:text-sm">{formatWhole(row.grossCents)}</div>
-                <div className="text-right text-[12px] text-slate-700 sm:text-sm">
+                <div className="text-right text-[12px] text-red-600 sm:text-sm">
                   {row.pdfHrefs && row.pdfHrefs.length > 0 ? (
                     // The Crystal report is where this number comes from,
                     // so the number itself is the link (newest summary —
@@ -436,16 +433,13 @@ export default function RevenueMarginSummaryView() {
                       rel="noreferrer"
                       title="Open this week's Crystal report"
                       onClick={(e) => e.stopPropagation()}
-                      className="whitespace-nowrap underline decoration-slate-300 underline-offset-2 hover:decoration-slate-500"
+                      className="whitespace-nowrap underline decoration-red-300 underline-offset-2 hover:decoration-red-500"
                     >
-                      {formatWhole(row.labCents)}
+                      {row.labCents > 0 ? `−${formatWhole(row.labCents)}` : formatWhole(row.labCents)}
                     </a>
                   ) : (
-                    <span className="whitespace-nowrap">{formatWhole(row.labCents)}</span>
+                    <span className="whitespace-nowrap">{row.labCents > 0 ? `−${formatWhole(row.labCents)}` : formatWhole(row.labCents)}</span>
                   )}
-                </div>
-                <div className="whitespace-nowrap text-right text-[12px] text-slate-700 sm:text-sm">
-                  {row.marginPercent != null ? `${row.marginPercent.toFixed(0)}%` : "—"}
                 </div>
                 <div className="whitespace-nowrap text-right text-[12px] text-slate-800 sm:text-sm">{formatWhole(row.paidGrossCents)}</div>
                 <div
@@ -461,11 +455,12 @@ export default function RevenueMarginSummaryView() {
                 </div>
               </div>
             ))}
-            <div className="grid grid-cols-[minmax(0,1fr)_54px_58px_42px_52px_62px_60px] gap-x-1.5 items-center bg-slate-50 px-2 py-3 text-sm font-semibold text-slate-800 sm:gap-x-3 sm:px-4">
+            <div className="grid grid-cols-[minmax(0,1fr)_64px_68px_68px_78px_78px] gap-x-1.5 items-center bg-slate-50 px-2 py-3 text-sm font-semibold text-slate-800 sm:gap-x-3 sm:px-4">
               <div className="text-[11px] sm:text-sm">All time</div>
               <div className="whitespace-nowrap text-right text-[12px] sm:text-sm">{formatWhole(allTimeTotal.grossCents)}</div>
-              <div className="whitespace-nowrap text-right text-[12px] sm:text-sm">{formatWhole(allTimeTotal.labCostCents)}</div>
-              <div className="whitespace-nowrap text-right text-[12px] sm:text-sm">{allTimeMarginPercent != null ? `${allTimeMarginPercent.toFixed(0)}%` : "—"}</div>
+              <div className="whitespace-nowrap text-right text-[12px] text-red-600 sm:text-sm">
+                {allTimeTotal.labCostCents > 0 ? `−${formatWhole(allTimeTotal.labCostCents)}` : formatWhole(allTimeTotal.labCostCents)}
+              </div>
               <div className="whitespace-nowrap text-right text-[12px] sm:text-sm">{formatWhole(allTimeEarnings.totalPaidGross)}</div>
               <div
                 className="whitespace-nowrap text-right text-[12px] text-amber-700 sm:text-sm"

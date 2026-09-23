@@ -100,6 +100,32 @@ export default function RevenueMarginSummaryView() {
     [jobs]
   );
 
+  // Per Tim, 2026-09-23 — "how are you going to make sure that you track
+  // everything that gets paid... I need a way to verify that everything
+  // that gets into this column is actually being tracked": every dollar
+  // column on this page is bucketed by confirmed_date (billingDateFor) —
+  // a job that's genuinely paid but has no confirmed_date recorded would
+  // silently never land in any week/month row, invisible everywhere on
+  // this page including "All time". Same idea for invoice_total_cents,
+  // which invoicedJobs itself requires be non-null to be counted at all.
+  // This is the real, literal answer to "how do I verify" — every paid
+  // job that this page's own math would actually drop, and exactly why.
+  // Excludes subcontractor jobs on purpose (they're never invoiced by
+  // Commonwealth at all, same exclusion invoicedJobs uses — not a gap).
+  const paidButNotTracked = useMemo(
+    () =>
+      jobs
+        .filter((j) => (j.status === "paid" || j.paid_date) && j.source !== "subcontractor" && (!j.confirmed_date || j.invoice_total_cents == null))
+        .map((j) => ({
+          job: j,
+          reason: !j.confirmed_date
+            ? "No fieldwork date recorded — can't be placed in any week/month"
+            : "No invoice total recorded",
+        }))
+        .sort((a, b) => (b.job.paid_date ?? "").localeCompare(a.job.paid_date ?? "")),
+    [jobs]
+  );
+
   const periodHistory = useMemo(() => {
     const today = new Date();
 
@@ -504,6 +530,30 @@ export default function RevenueMarginSummaryView() {
                     <div className="font-medium text-slate-800">{j.project_number}</div>
                     <div className="truncate text-slate-600">{j.customers?.company || j.customers?.name}</div>
                     <div className="whitespace-nowrap text-right text-slate-500">{formatDateMDY(j.confirmed_date)}</div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* Per Tim, 2026-09-23 — "how are you going to make sure that
+              you track everything that gets paid... I need a way to
+              verify": see paidButNotTracked's own comment for exactly
+              which two gaps this catches. */}
+          {paidButNotTracked.length > 0 && (
+            <>
+              <h2 className="mt-8 text-lg font-bold text-slate-800">Paid, but not showing up above</h2>
+              <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-white">
+                <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_1fr] gap-x-3 border-b border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold uppercase tracking-wide text-slate-500 sm:px-4">
+                  <div>Project</div>
+                  <div>Company</div>
+                  <div>Why</div>
+                </div>
+                {paidButNotTracked.map(({ job: j, reason }) => (
+                  <div key={j.id} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_1fr] items-center gap-x-3 border-b border-slate-100 px-3 py-2.5 text-sm last:border-b-0 sm:px-4">
+                    <div className="font-medium text-slate-800">{j.project_number}</div>
+                    <div className="truncate text-slate-600">{j.customers?.company || j.customers?.name}</div>
+                    <div className="text-slate-500">{reason}</div>
                   </div>
                 ))}
               </div>

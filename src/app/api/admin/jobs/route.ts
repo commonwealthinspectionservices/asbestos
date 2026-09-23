@@ -149,23 +149,33 @@ export const POST = withApiErrors(async (req: NextRequest) => {
 
   // Per Tim, 2026-09-22 (Clean Joe/Bonnie) — "Email results to"/"Email
   // invoice to" should already be filled in on a new job, not left blank
-  // for the admin to type every time. Uses the resolved contact's own
-  // email first (the common case — a real person was picked/typed); if
+  // for the admin to type every time. Report defaults to the resolved
+  // contact's own email first (the common case — a real person was
+  // picked/typed, and reports go to whoever's actually on the job); if
   // that's empty (e.g. the admin only picked the company, no specific
   // contact — the "Unknown contact" case), falls back to the company's
   // designated billing contact, then to its one real contact if it only
   // has one — never guesses among several.
-  let fallbackRecipientEmail: string | null = customer.email ?? null;
-  if (!fallbackRecipientEmail && company?.id) {
-    if (company.billing_contact_id) {
-      const { data: billingContact } = await supabase.from("customers").select("email").eq("id", company.billing_contact_id).maybeSingle();
-      fallbackRecipientEmail = billingContact?.email ?? null;
-    }
-    if (!fallbackRecipientEmail) {
+  let reportFallbackEmail: string | null = customer.email ?? null;
+  let billingContactEmail: string | null = null;
+  if (company?.billing_contact_id) {
+    const { data: billingContact } = await supabase.from("customers").select("email").eq("id", company.billing_contact_id).maybeSingle();
+    billingContactEmail = billingContact?.email ?? null;
+  }
+  if (!reportFallbackEmail && company?.id) {
+    reportFallbackEmail = billingContactEmail;
+    if (!reportFallbackEmail) {
       const { data: companyContacts } = await supabase.from("customers").select("email").eq("company_id", company.id).not("email", "is", null).neq("id", customer.id);
-      if (companyContacts && companyContacts.length === 1) fallbackRecipientEmail = companyContacts[0].email;
+      if (companyContacts && companyContacts.length === 1) reportFallbackEmail = companyContacts[0].email;
     }
   }
+  // Per Tim, 2026-09-23 (Clean Joe/Donna) — invoices default to the
+  // company's designated billing contact FIRST, ahead of the job's own
+  // contact — a company can (and Clean Joe does) want its billing handled
+  // by someone other than whoever's the on-site/project contact. Only
+  // falls back to the job contact's own email when the company has no
+  // billing contact set at all.
+  const invoiceFallbackEmail: string | null = billingContactEmail || reportFallbackEmail;
 
   const projectNumber = body.projectNumber?.trim() || (await generateProjectNumber());
 
@@ -228,8 +238,8 @@ export const POST = withApiErrors(async (req: NextRequest) => {
     invoice_number: body.invoiceNumber || null,
     paid_date: body.paidDate || null,
     payment_due_date: body.paymentDueDate || null,
-    report_emails: body.reportEmails || fallbackRecipientEmail || null,
-    invoice_emails: body.invoiceEmails || fallbackRecipientEmail || null,
+    report_emails: body.reportEmails || reportFallbackEmail || null,
+    invoice_emails: body.invoiceEmails || invoiceFallbackEmail || null,
     disclaimer_ack: true,
     // Defaults from the customer's portal-signup account type (see
     // customers.is_individual); the Invoice tab checkbox still lets the

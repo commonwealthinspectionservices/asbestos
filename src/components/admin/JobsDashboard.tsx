@@ -6937,9 +6937,33 @@ export function EditProjectDialog({
   }
 
   function selectContact(contact: Customer) {
+    // Per Tim, 2026-09-23 (Clean Joe, Bonnie → Donaldo) — "I changed the
+    // company contact... but the phone number and email did not change
+    // with it": picking a different contact updated the Contact section's
+    // own email/phone, but Email results to/Email invoice to are a
+    // separate editable list (see their own state comment — deliberately
+    // NOT a locked mirror of this section, so typing in the list doesn't
+    // overwrite the contact). That decoupling only ever covered someone
+    // editing the list itself; swapping the whole contact is different —
+    // wherever the OUTGOING contact's own email appears in either list,
+    // swap it for the new contact's, so a plain contact change doesn't
+    // silently leave an old person's address as the actual recipient.
+    // Anything else the admin added to either list by hand (a CC, a
+    // second recipient) is left untouched.
+    const previousEmail = email.trim().toLowerCase();
+    const newEmail = contact.email ?? "";
+    const swap = (list: string[]) => {
+      if (previousEmail) return list.map((e) => (e.trim().toLowerCase() === previousEmail ? newEmail : e));
+      // The outgoing contact never had an email on file, so the list is
+      // still sitting on its original blank placeholder — fill it in now
+      // that there's a real address, rather than leaving it empty.
+      return list.length === 1 && !list[0].trim() && newEmail ? [newEmail] : list;
+    };
+    setReportEmailsList((list) => swap(list));
+    setInvoiceEmailsList((list) => swap(list));
     setCustomerId(contact.id);
     setContactName(contact.name);
-    setEmail(contact.email ?? "");
+    setEmail(newEmail);
     setPhone(contact.phone ?? "");
   }
 

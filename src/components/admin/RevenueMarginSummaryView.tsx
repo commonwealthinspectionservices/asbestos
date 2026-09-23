@@ -55,7 +55,6 @@ export default function RevenueMarginSummaryView() {
   // day granularity (not pre-summed by month) so it can be re-bucketed into
   // either weeks or months depending on the same toggle as the table above.
   const [dailyMiles, setDailyMiles] = useState<Record<string, number>>({});
-  const [expandedPdfWeeks, setExpandedPdfWeeks] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetch("/api/admin/jobs")
@@ -425,56 +424,22 @@ export default function RevenueMarginSummaryView() {
                 <div className="whitespace-nowrap text-right text-[13px] font-medium text-slate-800 sm:text-sm">{formatCents(row.grossCents)}</div>
                 <div className={`text-right text-[13px] text-slate-700 sm:text-sm ${row.estimated ? "italic" : ""}`}>
                   {row.pdfHrefs && row.pdfHrefs.length > 0 ? (
-                    <>
-                      {/* The Crystal report is where this number comes from,
-                          so the number itself is the link (newest summary —
-                          each is a running total that includes the earlier
-                          ones); older snapshots sit behind the small arrow. */}
-                      <a
-                        href={row.pdfHrefs[0].href}
-                        target="_blank"
-                        rel="noreferrer"
-                        title="Open this week's Crystal report"
-                        onClick={(e) => e.stopPropagation()}
-                        className="whitespace-nowrap underline decoration-slate-300 underline-offset-2 hover:decoration-slate-500"
-                      >
-                        {row.estimated ? "≈ " : ""}{formatCents(row.labCents)}
-                      </a>
-                      {row.pdfHrefs.length > 1 && (
-                        <button
-                          type="button"
-                          title="Earlier versions of this week's report"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setExpandedPdfWeeks((prev) => {
-                              const next = new Set(prev);
-                              if (next.has(row.label)) next.delete(row.label);
-                              else next.add(row.label);
-                              return next;
-                            });
-                          }}
-                          className="ml-1 text-xs text-slate-400 hover:text-slate-600"
-                        >
-                          {expandedPdfWeeks.has(row.label) ? "▴" : "▾"}
-                        </button>
-                      )}
-                      {expandedPdfWeeks.has(row.label) && (
-                        <div className="mt-1 flex flex-col items-end gap-0.5 text-xs text-slate-500">
-                          {row.pdfHrefs.slice(1).map((p) => (
-                            <a
-                              key={p.href}
-                              href={p.href}
-                              target="_blank"
-                              rel="noreferrer"
-                              onClick={(e) => e.stopPropagation()}
-                              className="underline"
-                            >
-                              {new Date(p.uploadedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                            </a>
-                          ))}
-                        </div>
-                      )}
-                    </>
+                    // The Crystal report is where this number comes from,
+                    // so the number itself is the link (newest summary —
+                    // each is a running total that includes the earlier
+                    // ones). Per Tim, 2026-09-23 — dropped the "earlier
+                    // versions" dropdown that used to sit behind this;
+                    // just the current one.
+                    <a
+                      href={row.pdfHrefs[0].href}
+                      target="_blank"
+                      rel="noreferrer"
+                      title="Open this week's Crystal report"
+                      onClick={(e) => e.stopPropagation()}
+                      className="whitespace-nowrap underline decoration-slate-300 underline-offset-2 hover:decoration-slate-500"
+                    >
+                      {row.estimated ? "≈ " : ""}{formatCents(row.labCents)}
+                    </a>
                   ) : (
                     <span className="whitespace-nowrap">{row.estimated ? "≈ " : ""}{formatCents(row.labCents)}</span>
                   )}

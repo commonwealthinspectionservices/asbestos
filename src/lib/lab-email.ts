@@ -2176,13 +2176,17 @@ async function processMatchedLabEmail(params: {
     // notify; the manual "Create Invoice Draft"/"Create Report Draft"
     // buttons are the only path to a draft from here for any mold job.
     if (jobReportDomains(updatedJob.service_type).includes("mold")) {
-      // Per Tim, 2026-09-22 — "just say lab results landed and for which
-      // job, a lot simpler": dropped the why-no-autodraft explanation
-      // (mold always needs it, every time — not news) down to one line.
+      // Per Tim, 2026-09-22 — "I don't even need it to say all of that...
+      // just say like the client name and the address": no instructional
+      // text at all now — the mold-needs-manual-work fact lives in this
+      // email existing at all (see the branch comment above), not in its
+      // body. Client name falls back to the contact's own name for an
+      // individual/homeowner job (no company).
+      const clientName = updatedJob.customers?.company || updatedJob.customers?.name || "";
       await sendEmail({
         to: process.env.OWNER_EMAIL!,
         subject: `Lab results landed — ${updatedJob.project_number ?? updatedJob.id}`,
-        html: emailShell(`<p style="font-size:15px;">Lab results landed on ${escapeHtml(updatedJob.project_number ?? updatedJob.id)}. Add Conclusions &amp; Recommendations on the Final Report tab, then create the drafts.</p>`),
+        html: emailShell(`<p style="font-size:15px;">${escapeHtml(updatedJob.project_number ?? updatedJob.id)} — ${escapeHtml(clientName)}<br>${escapeHtml(expandAddress(updatedJob.service_address))}</p>`),
       }).catch(() => {});
       return;
     }

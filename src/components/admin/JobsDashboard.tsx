@@ -4374,7 +4374,7 @@ export function ProjectDetailDialog({
                                   }}
                                   onEnter={(v) => (group.domain === "lead" ? saveLeadReportSummary(v) : saveReportSummary(v))}
                                   onBlur={(v) => (group.domain === "lead" ? saveLeadReportSummary(v) : saveReportSummary(v))}
-                                  placeholder={group.domain === "lead" ? "e.g. None of the paint chip samples were determined to contain lead." : "e.g. None of the suspect materials sampled were determined to have asbestos fibers present."}
+                                  placeholder={group.domain === "lead" ? "e.g. None of the paint chip samples were determined to contain lead." : undefined}
                                 />
                               </div>
                             )}

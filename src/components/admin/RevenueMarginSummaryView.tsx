@@ -359,6 +359,9 @@ export default function RevenueMarginSummaryView() {
         pdfHrefs: isWeekly ? weeklyLabInvoicePdfHrefs[p.label] : undefined,
         otherCents,
         paidGrossCents: p.paidGrossCents,
+        miles,
+        mileageDeductionCents,
+        taxCents,
         netEarningsCents,
       };
     });
@@ -414,33 +417,47 @@ export default function RevenueMarginSummaryView() {
               links sit under the period name so the number columns stay
               narrow enough for a phone.
               Per Tim, 2026-09-23 — "my goal is to just have one big table
-              that calculates everything": merged in what used to be the
-              separate Weekly/Monthly earnings section below (Net column) —
-              see summaryRows' own comment for how those two genuinely
-              different bases (invoiced-that-period vs. paid-that-period)
-              coexist in one row. Other costs (monthly only, no weekly
-              breakdown exists) is still editable, now as a small line
-              under the row instead of its own section. */}
-          <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white">
-            <div className="grid grid-cols-[minmax(0,1fr)_60px_66px_38px_74px] gap-x-1.5 sm:grid-cols-[minmax(0,1fr)_100px_110px_60px_130px] sm:gap-x-3 border-b border-slate-200 bg-slate-50 px-3 py-2 text-[10px] font-bold uppercase leading-tight tracking-wide text-slate-500 sm:px-4 sm:text-xs">
-              <div>{isWeekly ? "Week" : "Month"}</div>
-              <div className="text-right">Revenue</div>
-              <div className="text-right">Lab Cost</div>
-              <div className="text-right">Margin</div>
-              <div className="text-right">Paid / Net</div>
-            </div>
-            {summaryRows.map((row) => (
-              <div key={row.id} className="border-b border-slate-100 last:border-b-0">
+              that calculates everything", then "Paid and Net should be
+              their own separate columns... I want to calculate absolutely
+              everything": every step of the calculation is now its own
+              real column — Revenue, Lab Cost, Margin, Paid, Other Costs,
+              Mileage Deduction, Tax, Net — instead of compressing several
+              into one cell. That's too many columns to fit a phone width
+              by shrinking them further (already tried, per Tim, 2026-09-19
+              — don't re-compress), so the table scrolls horizontally
+              instead (min-width forces a scrollbar rather than squeezing
+              columns unreadably thin) — same "wide content gets its own
+              horizontal scroll" pattern as everywhere else wide content
+              shows up in this app. Other Costs is the one column that's
+              also an editable input, monthly-only (no weekly breakdown
+              exists for it — shows "—" in weekly view). Mileage Deduction
+              and Tax are shown for transparency even though neither
+              subtracts from Paid directly — only Net (Paid − Other costs −
+              Tax) reflects actual cash; Mileage Deduction's only real
+              effect is shrinking Tax. */}
+          <div className="mt-4 overflow-x-auto rounded-xl border border-slate-200 bg-white">
+            <div className="min-w-[880px]">
+              <div className="grid grid-cols-[minmax(170px,1fr)_90px_90px_60px_90px_120px_100px_80px_90px] gap-x-3 border-b border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold uppercase tracking-wide text-slate-500 sm:px-4">
+                <div>{isWeekly ? "Week" : "Month"}</div>
+                <div className="text-right">Revenue</div>
+                <div className="text-right">Lab Cost</div>
+                <div className="text-right">Margin</div>
+                <div className="text-right">Paid</div>
+                <div className="text-right">Other Costs</div>
+                <div className="text-right">Mileage Ded.</div>
+                <div className="text-right">Tax</div>
+                <div className="text-right">Net</div>
+              </div>
+              {summaryRows.map((row) => (
                 <div
+                  key={row.id}
                   onClick={() => goToPeriod(row.label)}
                   role="button"
                   tabIndex={0}
                   onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && goToPeriod(row.label)}
-                  className="grid cursor-pointer grid-cols-[minmax(0,1fr)_60px_66px_38px_74px] gap-x-1.5 sm:grid-cols-[minmax(0,1fr)_100px_110px_60px_130px] sm:gap-x-3 items-start px-3 py-3 text-sm hover:bg-slate-50 sm:px-4"
+                  className="grid cursor-pointer grid-cols-[minmax(170px,1fr)_90px_90px_60px_90px_120px_100px_80px_90px] gap-x-3 items-center border-b border-slate-100 px-3 py-3 text-sm last:border-b-0 hover:bg-slate-50 sm:px-4"
                 >
-                  <div className="text-slate-700">
-                    {row.label}
-                  </div>
+                  <div className="text-slate-700">{row.label}</div>
                   <div className="whitespace-nowrap text-right text-[13px] font-medium text-slate-800 sm:text-sm">{formatCents(row.grossCents)}</div>
                   <div className={`text-right text-[13px] text-slate-700 sm:text-sm ${row.estimated ? "italic" : ""}`}>
                     {row.pdfHrefs && row.pdfHrefs.length > 0 ? (
@@ -467,46 +484,55 @@ export default function RevenueMarginSummaryView() {
                   <div className={`whitespace-nowrap text-right text-[13px] text-slate-700 sm:text-sm ${row.estimated ? "italic" : ""}`}>
                     {row.marginPercent != null ? `${row.marginPercent.toFixed(1)}%` : "—"}
                   </div>
-                  <div className="text-right">
-                    <div className="whitespace-nowrap text-[10px] text-slate-400 sm:text-xs">Paid {formatCents(row.paidGrossCents)}</div>
-                    <div className="whitespace-nowrap text-[13px] font-semibold sm:text-sm">
-                      <span className={row.netEarningsCents < 0 ? "text-red-600" : "text-emerald-700"}>
-                        {row.netEarningsCents < 0 ? "−" : ""}{formatCents(Math.abs(row.netEarningsCents))}
-                      </span>
-                    </div>
+                  <div className="whitespace-nowrap text-right text-[13px] text-slate-800 sm:text-sm">{formatCents(row.paidGrossCents)}</div>
+                  <div className="text-right" onClick={(e) => e.stopPropagation()}>
+                    {isWeekly ? (
+                      <span className="text-[13px] text-slate-300 sm:text-sm">—</span>
+                    ) : (
+                      <div className="flex items-center justify-end gap-1">
+                        <span className="text-xs text-slate-400">−$</span>
+                        <input
+                          id={`overhead-${row.id}`}
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          defaultValue={row.otherCents ? (row.otherCents / 100).toFixed(2) : ""}
+                          placeholder="0.00"
+                          onBlur={(e) => saveOverhead(row.id, e.target.value)}
+                          className="h-7 w-16 rounded border border-slate-300 bg-white px-1 text-right text-xs text-slate-700"
+                        />
+                      </div>
+                    )}
+                  </div>
+                  <div className="whitespace-nowrap text-right text-[13px] text-slate-400 sm:text-sm" title="Reduces Tax, not Net directly">
+                    {row.mileageDeductionCents > 0 ? `−${formatCents(row.mileageDeductionCents)}` : "—"}
+                  </div>
+                  <div className="whitespace-nowrap text-right text-[13px] text-slate-700 sm:text-sm">
+                    {row.taxCents > 0 ? `−${formatCents(row.taxCents)}` : "—"}
+                  </div>
+                  <div className="whitespace-nowrap text-right text-[13px] font-semibold sm:text-sm">
+                    <span className={row.netEarningsCents < 0 ? "text-red-600" : "text-emerald-700"}>
+                      {row.netEarningsCents < 0 ? "−" : ""}{formatCents(Math.abs(row.netEarningsCents))}
+                    </span>
                   </div>
                 </div>
-                {!isWeekly && (
-                  <div className="flex items-center justify-end gap-1 px-3 pb-2 text-xs text-slate-400 sm:px-4">
-                    <label htmlFor={`overhead-${row.id}`}>Other costs (equipment, ads, etc.)</label>
-                    <span>−$</span>
-                    <input
-                      id={`overhead-${row.id}`}
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      defaultValue={row.otherCents ? (row.otherCents / 100).toFixed(2) : ""}
-                      placeholder="0.00"
-                      onClick={(e) => e.stopPropagation()}
-                      onBlur={(e) => saveOverhead(row.id, e.target.value)}
-                      className="h-6 w-16 rounded border border-slate-300 bg-white px-1 text-right text-xs text-slate-700"
-                    />
-                  </div>
-                )}
-              </div>
-            ))}
-            <div className="grid grid-cols-[minmax(0,1fr)_60px_66px_38px_74px] gap-x-1.5 sm:grid-cols-[minmax(0,1fr)_100px_110px_60px_130px] sm:gap-x-3 items-start bg-slate-50 px-3 py-3 text-sm font-semibold text-slate-800 sm:px-4">
-              <div>All time</div>
-              <div className="whitespace-nowrap text-right text-[13px] sm:text-sm">{formatCents(allTimeTotal.grossCents)}</div>
-              <div className={`whitespace-nowrap text-right text-[13px] sm:text-sm ${allTimeTotal.estimatedLabCostCents > 0 ? "italic" : ""}`}>
-                {allTimeTotal.estimatedLabCostCents > 0 ? "≈" : ""}{formatCents(allTimeTotal.labCostCents + allTimeTotal.estimatedLabCostCents)}
-              </div>
-              <div className={`whitespace-nowrap text-right text-[13px] sm:text-sm ${isMarginEstimated ? "italic" : ""}`}>{allTimeMarginText.replace("≈ ", "")}</div>
-              {/* Always the monthly-basis total (see allTimeEarnings' own
-                  comment) — doesn't change when you flip Weekly/Monthly. */}
-              <div className="text-right">
-                <div className="whitespace-nowrap text-[10px] font-normal text-slate-400 sm:text-xs">Paid {formatCents(allTimeEarnings.totalPaidGross)}</div>
-                <div className="whitespace-nowrap text-[13px] sm:text-sm">
+              ))}
+              <div className="grid grid-cols-[minmax(170px,1fr)_90px_90px_60px_90px_120px_100px_80px_90px] gap-x-3 items-center bg-slate-50 px-3 py-3 text-sm font-semibold text-slate-800 sm:px-4">
+                <div>All time</div>
+                <div className="whitespace-nowrap text-right text-[13px] sm:text-sm">{formatCents(allTimeTotal.grossCents)}</div>
+                <div className={`whitespace-nowrap text-right text-[13px] sm:text-sm ${allTimeTotal.estimatedLabCostCents > 0 ? "italic" : ""}`}>
+                  {allTimeTotal.estimatedLabCostCents > 0 ? "≈" : ""}{formatCents(allTimeTotal.labCostCents + allTimeTotal.estimatedLabCostCents)}
+                </div>
+                <div className={`whitespace-nowrap text-right text-[13px] sm:text-sm ${isMarginEstimated ? "italic" : ""}`}>{allTimeMarginText.replace("≈ ", "")}</div>
+                <div className="whitespace-nowrap text-right text-[13px] sm:text-sm">{formatCents(allTimeEarnings.totalPaidGross)}</div>
+                <div className="whitespace-nowrap text-right text-[13px] font-normal text-slate-500 sm:text-sm">− {formatCents(allTimeEarnings.totalOther)}</div>
+                <div className="whitespace-nowrap text-right text-[13px] font-normal text-slate-400 sm:text-sm">
+                  {allTimeEarnings.totalMileageCents > 0 ? `−${formatCents(allTimeEarnings.totalMileageCents)}` : "—"}
+                </div>
+                <div className="whitespace-nowrap text-right text-[13px] font-normal text-slate-500 sm:text-sm">− {formatCents(allTimeEarnings.totalTax)}</div>
+                {/* Always the monthly-basis total (see allTimeEarnings' own
+                    comment) — doesn't change when you flip Weekly/Monthly. */}
+                <div className="whitespace-nowrap text-right text-[13px] sm:text-sm">
                   <span className={allTimeEarnings.totalPay < 0 ? "text-red-600" : "text-emerald-700"}>
                     {allTimeEarnings.totalPay < 0 ? "−" : ""}{formatCents(Math.abs(allTimeEarnings.totalPay))}
                   </span>

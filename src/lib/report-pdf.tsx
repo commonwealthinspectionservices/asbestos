@@ -506,11 +506,11 @@ function AsbestosReportDocument({ job, customer, settings }: ProjectReportData) 
   if (job.report_summary && job.report_summary !== ASBESTOS_POSITIVE_REMARK && job.report_summary !== ASBESTOS_NEGATIVE_REMARK) {
     remarks.push(job.report_summary);
   }
-  // report_notes — same "Additional Remarks" admin field Full Inspection
-  // reports already use, now also available here. One line per remark.
-  remarks.push(...paragraphsFromText(job.report_notes));
+  // report_notes renders inline at the end of the Sampling Summary
+  // paragraph below (not as its own numbered remark) — per Tim, 2026-09-23.
 
   const { knownCustomerName, dateText, billingStreet, billing, serviceStreet, service } = commonLetterFields(job, customer, settings, job.confirmed_date ?? job.requested_date ?? job.lab_date_sampled);
+  const reportNotesInline = job.report_notes ? sanitizeForPdf(job.report_notes).replace(/\s*\n+\s*/g, " ").trim() : "";
   const positiveMaterialRows = computePositiveMaterialRows(job);
 
   return (
@@ -580,7 +580,7 @@ function AsbestosReportDocument({ job, customer, settings }: ProjectReportData) 
           asbestos containing material. Any homogeneous material having at least one (1) sample analyzed to contain any amount
           of asbestos is categorized as an asbestos containing waste material. Homogeneous materials where each sample analyzed
           was determined not to contain asbestos are categorized as non-asbestos. Laboratory Analytical Data Sheets are attached
-          and provide details about each sample collected.
+          and provide details about each sample collected.{reportNotesInline ? ` ${reportNotesInline}` : ""}
         </Text>
 
         <Text style={styles.sectionTitle}>Remarks and Limitations:</Text>
@@ -644,10 +644,12 @@ function FliAsbestosReportDocument({ job, customer, settings }: ProjectReportDat
   if (job.report_summary && job.report_summary !== ASBESTOS_POSITIVE_REMARK && job.report_summary !== ASBESTOS_NEGATIVE_REMARK) {
     remarks.push(job.report_summary);
   }
-  remarks.push(...paragraphsFromText(job.report_notes));
+  // report_notes renders inline at the end of the Sampling Summary
+  // paragraph below (not as its own numbered remark) — per Tim, 2026-09-23.
 
   const { dateText, serviceStreet, service } = commonLetterFields(job, customer, settings, job.confirmed_date ?? job.requested_date ?? job.lab_date_sampled);
   const positiveMaterialRows = computePositiveMaterialRows(job);
+  const reportNotesInline = job.report_notes ? sanitizeForPdf(job.report_notes).replace(/\s*\n+\s*/g, " ").trim() : "";
 
   // Per Tim, 2026-09-01 — an FLI-subcontracted report is addressed to FLI's
   // own client's contact (subcontractor_client_contact_name, e.g. RestoreONE
@@ -741,7 +743,7 @@ function FliAsbestosReportDocument({ job, customer, settings }: ProjectReportDat
           asbestos containing material. Any homogeneous material having at least one (1) sample analyzed to contain any amount
           of asbestos is categorized as an asbestos containing waste material. Homogeneous materials where each sample analyzed
           was determined not to contain asbestos are categorized as non-asbestos. Laboratory Analytical Data Sheets are attached
-          and provide details about each sample collected.
+          and provide details about each sample collected.{reportNotesInline ? ` ${reportNotesInline}` : ""}
         </Text>
 
         <Text style={styles.sectionTitle}>Remarks and Limitations:</Text>

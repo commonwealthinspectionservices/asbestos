@@ -278,7 +278,7 @@ export default function RevenueMarginSummaryView() {
   // only Other costs (and what it does to tax/Net earnings) actually
   // differs — using the monthly basis here keeps this one number stable.
   const allTimeEarnings = useMemo(() => {
-    let totalPaidGross = 0, totalNet = 0, totalOther = 0, totalMileageCents = 0, totalTax = 0, totalPay = 0;
+    let totalPaidGross = 0, totalNet = 0, totalOther = 0, totalMileageCents = 0, totalTaxable = 0, totalTax = 0, totalPay = 0;
     for (const m of periodHistory.monthly) {
       const netCents = m.paidNetCents;
       const otherCents = overhead[m.key] ?? 0;
@@ -286,9 +286,9 @@ export default function RevenueMarginSummaryView() {
       const mileageDeductionCents = Math.round((monthlyMiles[m.key] ?? 0) * MILEAGE_RATE_CENTS);
       const taxableCents = Math.max(0, afterCosts - mileageDeductionCents);
       const taxCents = Math.max(0, Math.round((taxableCents * TAX_SET_ASIDE_PERCENT) / 100));
-      totalPaidGross += m.paidGrossCents; totalNet += netCents; totalOther += otherCents; totalMileageCents += mileageDeductionCents; totalTax += taxCents; totalPay += afterCosts - taxCents;
+      totalPaidGross += m.paidGrossCents; totalNet += netCents; totalOther += otherCents; totalMileageCents += mileageDeductionCents; totalTaxable += taxableCents; totalTax += taxCents; totalPay += afterCosts - taxCents;
     }
-    return { totalPaidGross, totalNet, totalOther, totalMileageCents, totalTax, totalPay };
+    return { totalPaidGross, totalNet, totalOther, totalMileageCents, totalTaxable, totalTax, totalPay };
   }, [periodHistory.monthly, overhead, monthlyMiles]);
 
   const isWeekly = summaryTab === "weekly";
@@ -340,6 +340,7 @@ export default function RevenueMarginSummaryView() {
         paidGrossCents: p.paidGrossCents,
         miles,
         mileageDeductionCents,
+        taxableCents,
         taxCents,
         netEarningsCents,
       };
@@ -399,23 +400,33 @@ export default function RevenueMarginSummaryView() {
               their own separate columns... I want to calculate absolutely
               everything": every step of the calculation is now its own
               real column — Revenue, Lab Cost, Margin, Paid, Other Costs,
-              Mileage Deduction, Tax, Net — instead of compressing several
-              into one cell. That's too many columns to fit a phone width
-              by shrinking them further (already tried, per Tim, 2026-09-19
-              — don't re-compress), so the table scrolls horizontally
-              instead (min-width forces a scrollbar rather than squeezing
-              columns unreadably thin) — same "wide content gets its own
-              horizontal scroll" pattern as everywhere else wide content
-              shows up in this app. Other Costs is the one column that's
-              also an editable input, monthly-only (no weekly breakdown
-              exists for it — shows "—" in weekly view). Mileage Deduction
-              and Tax are shown for transparency even though neither
-              subtracts from Paid directly — only Net (Paid − Other costs −
-              Tax) reflects actual cash; Mileage Deduction's only real
-              effect is shrinking Tax. */}
+              Mileage Deduction, Taxable, To Tax Savings, To Checking —
+              instead of compressing several into one cell. That's too many
+              columns to fit a phone width by shrinking them further
+              (already tried, per Tim, 2026-09-19 — don't re-compress), so
+              the table scrolls horizontally instead (min-width forces a
+              scrollbar rather than squeezing columns unreadably thin) —
+              same "wide content gets its own horizontal scroll" pattern as
+              everywhere else wide content shows up in this app. Other
+              Costs is the one column that's also an editable input,
+              monthly-only (no weekly breakdown exists for it — shows "—"
+              in weekly view).
+              Per Tim, 2026-09-23 — "I don't think I'm trying to use this
+              as like my entire business overview... I do need to have it
+              pre-calculated in terms of what I need to move to my general
+              checking account and what I need to move to my 35% tax
+              savings account": the actual point of this whole row, spelled
+              out as three connected columns instead of implied math —
+              Taxable (= Paid − Other Costs − Mileage Deduction, what the
+              35% actually applies to — added specifically because "is Tax
+              really 35% of X" wasn't visible/provable before, see
+              session's own back-and-forth on this same day) → To Tax
+              Savings (Taxable × 35%) → To Checking (Taxable − that). Named
+              for the two accounts he's actually moving money into, not
+              generic "Tax"/"Net" labels. */}
           <div className="mt-4 overflow-x-auto rounded-xl border border-slate-200 bg-white">
-            <div className="min-w-[880px]">
-              <div className="grid grid-cols-[minmax(170px,1fr)_90px_90px_60px_90px_120px_100px_80px_90px] gap-x-3 border-b border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold uppercase tracking-wide text-slate-500 sm:px-4">
+            <div className="min-w-[1080px]">
+              <div className="grid grid-cols-[minmax(170px,1fr)_90px_90px_60px_90px_120px_100px_100px_120px_120px] gap-x-3 border-b border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold uppercase tracking-wide text-slate-500 sm:px-4">
                 <div>{isWeekly ? "Week" : "Month"}</div>
                 <div className="text-right">Revenue</div>
                 <div className="text-right">Lab Cost</div>
@@ -423,8 +434,9 @@ export default function RevenueMarginSummaryView() {
                 <div className="text-right">Paid</div>
                 <div className="text-right">Other Costs</div>
                 <div className="text-right">Mileage Ded.</div>
-                <div className="text-right">Tax</div>
-                <div className="text-right">Net</div>
+                <div className="text-right">Taxable</div>
+                <div className="text-right">To Tax Savings</div>
+                <div className="text-right">To Checking</div>
               </div>
               {summaryRows.map((row) => (
                 <div
@@ -433,7 +445,7 @@ export default function RevenueMarginSummaryView() {
                   role="button"
                   tabIndex={0}
                   onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && goToPeriod(row.label)}
-                  className="grid cursor-pointer grid-cols-[minmax(170px,1fr)_90px_90px_60px_90px_120px_100px_80px_90px] gap-x-3 items-center border-b border-slate-100 px-3 py-3 text-sm last:border-b-0 hover:bg-slate-50 sm:px-4"
+                  className="grid cursor-pointer grid-cols-[minmax(170px,1fr)_90px_90px_60px_90px_120px_100px_100px_120px_120px] gap-x-3 items-center border-b border-slate-100 px-3 py-3 text-sm last:border-b-0 hover:bg-slate-50 sm:px-4"
                 >
                   <div className="text-slate-700">{row.label}</div>
                   <div className="whitespace-nowrap text-right text-[13px] font-medium text-slate-800 sm:text-sm">{formatCents(row.grossCents)}</div>
@@ -482,11 +494,14 @@ export default function RevenueMarginSummaryView() {
                       </div>
                     )}
                   </div>
-                  <div className="whitespace-nowrap text-right text-[13px] text-slate-400 sm:text-sm" title="Reduces Tax, not Net directly">
+                  <div className="whitespace-nowrap text-right text-[13px] text-slate-400 sm:text-sm" title="Reduces what's taxable, not To Checking directly">
                     {row.mileageDeductionCents > 0 ? `−${formatCents(row.mileageDeductionCents)}` : "—"}
                   </div>
-                  <div className="whitespace-nowrap text-right text-[13px] text-slate-700 sm:text-sm">
-                    {row.taxCents > 0 ? `−${formatCents(row.taxCents)}` : "—"}
+                  <div className="whitespace-nowrap text-right text-[13px] font-medium text-slate-800 sm:text-sm" title="Paid − Other Costs − Mileage Deduction — what the 35% below is taken on">
+                    {formatCents(row.taxableCents)}
+                  </div>
+                  <div className="whitespace-nowrap text-right text-[13px] text-amber-700 sm:text-sm">
+                    {row.taxCents > 0 ? formatCents(row.taxCents) : "—"}
                   </div>
                   <div className="whitespace-nowrap text-right text-[13px] font-semibold sm:text-sm">
                     <span className={row.netEarningsCents < 0 ? "text-red-600" : "text-emerald-700"}>
@@ -495,7 +510,7 @@ export default function RevenueMarginSummaryView() {
                   </div>
                 </div>
               ))}
-              <div className="grid grid-cols-[minmax(170px,1fr)_90px_90px_60px_90px_120px_100px_80px_90px] gap-x-3 items-center bg-slate-50 px-3 py-3 text-sm font-semibold text-slate-800 sm:px-4">
+              <div className="grid grid-cols-[minmax(170px,1fr)_90px_90px_60px_90px_120px_100px_100px_120px_120px] gap-x-3 items-center bg-slate-50 px-3 py-3 text-sm font-semibold text-slate-800 sm:px-4">
                 <div>All time</div>
                 <div className="whitespace-nowrap text-right text-[13px] sm:text-sm">{formatCents(allTimeTotal.grossCents)}</div>
                 <div className="whitespace-nowrap text-right text-[13px] sm:text-sm">{formatCents(allTimeTotal.labCostCents)}</div>
@@ -505,7 +520,8 @@ export default function RevenueMarginSummaryView() {
                 <div className="whitespace-nowrap text-right text-[13px] font-normal text-slate-400 sm:text-sm">
                   {allTimeEarnings.totalMileageCents > 0 ? `−${formatCents(allTimeEarnings.totalMileageCents)}` : "—"}
                 </div>
-                <div className="whitespace-nowrap text-right text-[13px] font-normal text-slate-500 sm:text-sm">− {formatCents(allTimeEarnings.totalTax)}</div>
+                <div className="whitespace-nowrap text-right text-[13px] sm:text-sm">{formatCents(allTimeEarnings.totalTaxable)}</div>
+                <div className="whitespace-nowrap text-right text-[13px] text-amber-700 sm:text-sm">{formatCents(allTimeEarnings.totalTax)}</div>
                 {/* Always the monthly-basis total (see allTimeEarnings' own
                     comment) — doesn't change when you flip Weekly/Monthly. */}
                 <div className="whitespace-nowrap text-right text-[13px] sm:text-sm">

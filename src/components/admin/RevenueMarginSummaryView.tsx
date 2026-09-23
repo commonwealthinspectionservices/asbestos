@@ -544,7 +544,6 @@ export default function RevenueMarginSummaryView() {
           {notYetBilled.length > 0 && (
             <>
               <h2 className="mt-8 text-lg font-bold text-slate-800">Not yet billed by the lab</h2>
-              <p className="mt-1 text-sm text-slate-500">Fieldwork done, no lab cost recorded yet.</p>
               <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-white">
                 <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_90px] gap-x-3 border-b border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold uppercase tracking-wide text-slate-500 sm:px-4">
                   <div>Project</div>

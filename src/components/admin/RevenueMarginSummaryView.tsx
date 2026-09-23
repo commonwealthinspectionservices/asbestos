@@ -404,7 +404,7 @@ export default function RevenueMarginSummaryView() {
               <div>{isWeekly ? "Week" : "Month"}</div>
               <div className="text-right">Revenue</div>
               <div className="text-right">Lab Cost</div>
-              <div className="text-right">Paid</div>
+              <div className="text-right">Mileage</div>
               <div className="text-right">Tax Savings</div>
               <div className="text-right">Checking</div>
             </div>
@@ -441,7 +441,9 @@ export default function RevenueMarginSummaryView() {
                     <span className="whitespace-nowrap">{row.labCents > 0 ? `−${formatWhole(row.labCents)}` : formatWhole(row.labCents)}</span>
                   )}
                 </div>
-                <div className="whitespace-nowrap text-right text-[12px] text-slate-800 sm:text-sm">{formatWhole(row.paidGrossCents)}</div>
+                <div className="whitespace-nowrap text-right text-[12px] text-red-600 sm:text-sm">
+                  {row.mileageDeductionCents > 0 ? `−${formatWhole(row.mileageDeductionCents)}` : "—"}
+                </div>
                 <div
                   className="whitespace-nowrap text-right text-[12px] text-amber-700 sm:text-sm"
                   title={`Taxable (Paid − Mileage Deduction): ${formatCents(row.taxableCents)}${row.mileageDeductionCents > 0 ? ` (mileage deduction: ${formatCents(row.mileageDeductionCents)})` : ""}`}
@@ -461,7 +463,9 @@ export default function RevenueMarginSummaryView() {
               <div className="whitespace-nowrap text-right text-[12px] text-red-600 sm:text-sm">
                 {allTimeTotal.labCostCents > 0 ? `−${formatWhole(allTimeTotal.labCostCents)}` : formatWhole(allTimeTotal.labCostCents)}
               </div>
-              <div className="whitespace-nowrap text-right text-[12px] sm:text-sm">{formatWhole(allTimeEarnings.totalPaidGross)}</div>
+              <div className="whitespace-nowrap text-right text-[12px] text-red-600 sm:text-sm">
+                {allTimeEarnings.totalMileageCents > 0 ? `−${formatWhole(allTimeEarnings.totalMileageCents)}` : "—"}
+              </div>
               <div
                 className="whitespace-nowrap text-right text-[12px] text-amber-700 sm:text-sm"
                 title={`Taxable: ${formatCents(allTimeEarnings.totalTaxable)}${allTimeEarnings.totalMileageCents > 0 ? ` (mileage deduction: ${formatCents(allTimeEarnings.totalMileageCents)})` : ""}`}

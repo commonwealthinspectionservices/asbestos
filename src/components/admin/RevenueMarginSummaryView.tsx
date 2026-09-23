@@ -156,7 +156,7 @@ export default function RevenueMarginSummaryView() {
         start.getMonth() === end.getMonth()
           ? `${MONTH_NAMES[start.getMonth()].slice(0, 3)} ${start.getDate()}-${end.getDate()}`
           : `${MONTH_NAMES[start.getMonth()].slice(0, 3)} ${start.getDate()}-${MONTH_NAMES[end.getMonth()].slice(0, 3)} ${end.getDate()}`;
-      return { label, shortLabel, startStr: ymd(start), endStr: ymd(end), grossCents: 0, netCents: 0, labCostCents: 0, paidGrossCents: 0, paidNetCents: 0 };
+      return { label, shortLabel, startStr: ymd(start), endStr: ymd(end), grossCents: 0, netCents: 0, labCostCents: 0, paidGrossCents: 0, paidNetCents: 0, paidStripeFeeCents: 0 };
     }).filter((b) => b.endStr >= COMPANY_START_DATE);
 
     const monthly = Array.from({ length: ALL_PERIODS_COUNT }, (_, i) => {
@@ -164,7 +164,7 @@ export default function RevenueMarginSummaryView() {
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
       const label = `${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`;
       const shortLabel = `${MONTH_NAMES[d.getMonth()].slice(0, 3)} '${String(d.getFullYear()).slice(2)}`;
-      return { label, shortLabel, key, grossCents: 0, netCents: 0, labCostCents: 0, paidGrossCents: 0, paidNetCents: 0 };
+      return { label, shortLabel, key, grossCents: 0, netCents: 0, labCostCents: 0, paidGrossCents: 0, paidNetCents: 0, paidStripeFeeCents: 0 };
     }).filter((b) => b.key >= COMPANY_START_DATE.slice(0, 7));
 
     for (const job of invoicedJobs) {
@@ -178,7 +178,8 @@ export default function RevenueMarginSummaryView() {
       // notYetBilled below for how that gap is surfaced instead). A job
       // with no real cost recorded yet contributes $0 here, not a guess.
       const labCostCents = job.lab_cost_cents ?? 0;
-      const netCents = computeMarginCents(grossCents, labCostCents, knownStripeFeeCentsForJob(job) ?? 0);
+      const stripeFeeCents = knownStripeFeeCentsForJob(job) ?? 0;
+      const netCents = computeMarginCents(grossCents, labCostCents, stripeFeeCents);
       // Per Tim, 2026-09-23 — "for a given week what I billed out and what
       // I actually got paid also": paidGrossCents/paidNetCents are the
       // SAME job population as grossCents above (this period's own
@@ -194,7 +195,7 @@ export default function RevenueMarginSummaryView() {
         w.grossCents += grossCents;
         w.netCents += netCents;
         w.labCostCents += labCostCents;
-        if (isPaid) { w.paidGrossCents += grossCents; w.paidNetCents += netCents; }
+        if (isPaid) { w.paidGrossCents += grossCents; w.paidNetCents += netCents; w.paidStripeFeeCents += stripeFeeCents; }
       }
 
       const monthKey = bucketDate.slice(0, 7);
@@ -203,7 +204,7 @@ export default function RevenueMarginSummaryView() {
         m.grossCents += grossCents;
         m.netCents += netCents;
         m.labCostCents += labCostCents;
-        if (isPaid) { m.paidGrossCents += grossCents; m.paidNetCents += netCents; }
+        if (isPaid) { m.paidGrossCents += grossCents; m.paidNetCents += netCents; m.paidStripeFeeCents += stripeFeeCents; }
       }
     }
 
@@ -295,14 +296,18 @@ export default function RevenueMarginSummaryView() {
   // job/day falls into exactly one week and exactly one month, so this is
   // now the same number regardless of which tab is selected. Kept on the
   // monthly basis anyway, purely for a stable computation source.
+  // Per Tim, 2026-09-23 — same fix as summaryRows' own comment: a real
+  // waterfall (Paid − ALL Lab Cost − paid Stripe fee − Mileage), allowed
+  // to go negative, not floored/hidden behind the paid-jobs-only lab cost
+  // that used to silently undercount real costs here.
   const allTimeEarnings = useMemo(() => {
     let totalPaidGross = 0, totalNet = 0, totalMileageCents = 0, totalTaxable = 0, totalTax = 0, totalPay = 0;
     for (const m of periodHistory.monthly) {
-      const netCents = m.paidNetCents;
       const mileageDeductionCents = Math.round((monthlyMiles[m.key] ?? 0) * MILEAGE_RATE_CENTS);
-      const taxableCents = Math.max(0, netCents - mileageDeductionCents);
+      const netBeforeTaxCents = m.paidGrossCents - m.labCostCents - m.paidStripeFeeCents - mileageDeductionCents;
+      const taxableCents = Math.max(0, netBeforeTaxCents);
       const taxCents = Math.max(0, Math.round((taxableCents * TAX_SET_ASIDE_PERCENT) / 100));
-      totalPaidGross += m.paidGrossCents; totalNet += netCents; totalMileageCents += mileageDeductionCents; totalTaxable += taxableCents; totalTax += taxCents; totalPay += netCents - taxCents;
+      totalPaidGross += m.paidGrossCents; totalNet += netBeforeTaxCents; totalMileageCents += mileageDeductionCents; totalTaxable += taxableCents; totalTax += taxCents; totalPay += netBeforeTaxCents - taxCents;
     }
     return { totalPaidGross, totalNet, totalMileageCents, totalTaxable, totalTax, totalPay };
   }, [periodHistory.monthly, monthlyMiles]);
@@ -339,9 +344,25 @@ export default function RevenueMarginSummaryView() {
       const id = isWeekly ? (p as typeof periodHistory.weekly[number]).label : (p as typeof periodHistory.monthly[number]).key;
       const miles = (isWeekly ? weeklyMiles : monthlyMiles)[id] ?? 0;
       const mileageDeductionCents = Math.round(miles * MILEAGE_RATE_CENTS);
-      const taxableCents = Math.max(0, p.paidNetCents - mileageDeductionCents);
+      // Per Tim, 2026-09-23 — "this math doesn't make sense, I should be
+      // way in the negative" / "I've been getting charged so many lab
+      // costs, but I haven't been getting paid": a real bug, not a display
+      // quirk. Lab Cost (the column) already shows every real cost for
+      // this period's jobs regardless of paid status — per Tim's own
+      // explicit "lab costs are always charged to me no matter what" — but
+      // Net Earnings was still only ever subtracting the PAID subset's own
+      // lab cost (via paidNetCents), so a period with lots of unpaid lab
+      // work silently never reflected those costs here at all. Now a real
+      // waterfall: what actually came in (paidGrossCents) minus every real
+      // cost for the period (labCostCents — ALL of it, paid or not) minus
+      // the paid jobs' own Stripe fee minus mileage. Allowed to go
+      // negative — no floor — since that's the actual, honest cash
+      // position when lab costs outrun collections. Only the *taxable*
+      // step floors at 0 (never tax a loss).
+      const netBeforeTaxCents = p.paidGrossCents - p.labCostCents - p.paidStripeFeeCents - mileageDeductionCents;
+      const taxableCents = Math.max(0, netBeforeTaxCents);
       const taxCents = Math.max(0, Math.round((taxableCents * TAX_SET_ASIDE_PERCENT) / 100));
-      const netEarningsCents = p.paidNetCents - taxCents;
+      const netEarningsCents = netBeforeTaxCents - taxCents;
       return {
         id,
         label: p.label,

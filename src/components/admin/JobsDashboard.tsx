@@ -4504,19 +4504,13 @@ export function ProjectDetailDialog({
                       <span className={`text-slate-400 transition-transform ${reportNotesOpen ? "rotate-180" : ""}`}>▾</span>
                     </button>
                     {reportNotesOpen && (
-                      <>
-                        <p className="mt-1 text-xs text-slate-500">
-                          One line per remark — continues the Remarks and Limitations numbering after the fixed items.
-                        </p>
-                        <textarea
-                          className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
-                          rows={4}
-                          value={reportNotesInput}
-                          onChange={(e) => setReportNotesInput(e.target.value)}
-                          onBlur={(e) => saveReportNotes(e.target.value)}
-                          placeholder="Any per-finding notes specific to this job (e.g. contamination, supplemental sampling, limited access)."
-                        />
-                      </>
+                      <textarea
+                        className="mt-2 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+                        rows={4}
+                        value={reportNotesInput}
+                        onChange={(e) => setReportNotesInput(e.target.value)}
+                        onBlur={(e) => saveReportNotes(e.target.value)}
+                      />
                     )}
                   </div>
                 )}

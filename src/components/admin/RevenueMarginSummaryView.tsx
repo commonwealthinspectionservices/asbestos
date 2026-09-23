@@ -405,8 +405,8 @@ export default function RevenueMarginSummaryView() {
               <div className="text-right">Revenue</div>
               <div className="text-right">Lab Cost</div>
               <div className="text-right">Mileage</div>
-              <div className="text-right">Tax Savings</div>
-              <div className="text-right">Checking</div>
+              <div className="text-right">Net Earnings</div>
+              <div className="text-right">35% for Taxes</div>
             </div>
             {summaryRows.map((row) => (
               <div
@@ -444,16 +444,16 @@ export default function RevenueMarginSummaryView() {
                 <div className="whitespace-nowrap text-right text-[12px] text-red-600 sm:text-sm">
                   {row.mileageDeductionCents > 0 ? `−${formatWhole(row.mileageDeductionCents)}` : "—"}
                 </div>
+                <div className="whitespace-nowrap text-right text-[12px] font-semibold sm:text-sm">
+                  <span className={row.netEarningsCents < 0 ? "text-red-600" : "text-emerald-700"}>
+                    {row.netEarningsCents < 0 ? "−" : ""}{formatWhole(Math.abs(row.netEarningsCents))}
+                  </span>
+                </div>
                 <div
                   className="whitespace-nowrap text-right text-[12px] text-amber-700 sm:text-sm"
                   title={`Taxable (Paid − Mileage Deduction): ${formatCents(row.taxableCents)}${row.mileageDeductionCents > 0 ? ` (mileage deduction: ${formatCents(row.mileageDeductionCents)})` : ""}`}
                 >
                   {row.taxCents > 0 ? formatWhole(row.taxCents) : "—"}
-                </div>
-                <div className="whitespace-nowrap text-right text-[12px] font-semibold sm:text-sm">
-                  <span className={row.netEarningsCents < 0 ? "text-red-600" : "text-emerald-700"}>
-                    {row.netEarningsCents < 0 ? "−" : ""}{formatWhole(Math.abs(row.netEarningsCents))}
-                  </span>
                 </div>
               </div>
             ))}
@@ -466,18 +466,18 @@ export default function RevenueMarginSummaryView() {
               <div className="whitespace-nowrap text-right text-[12px] text-red-600 sm:text-sm">
                 {allTimeEarnings.totalMileageCents > 0 ? `−${formatWhole(allTimeEarnings.totalMileageCents)}` : "—"}
               </div>
-              <div
-                className="whitespace-nowrap text-right text-[12px] text-amber-700 sm:text-sm"
-                title={`Taxable: ${formatCents(allTimeEarnings.totalTaxable)}${allTimeEarnings.totalMileageCents > 0 ? ` (mileage deduction: ${formatCents(allTimeEarnings.totalMileageCents)})` : ""}`}
-              >
-                {formatWhole(allTimeEarnings.totalTax)}
-              </div>
               {/* Always the monthly-basis total (see allTimeEarnings' own
                   comment) — doesn't change when you flip Weekly/Monthly. */}
               <div className="whitespace-nowrap text-right text-[12px] sm:text-sm">
                 <span className={allTimeEarnings.totalPay < 0 ? "text-red-600" : "text-emerald-700"}>
                   {allTimeEarnings.totalPay < 0 ? "−" : ""}{formatWhole(Math.abs(allTimeEarnings.totalPay))}
                 </span>
+              </div>
+              <div
+                className="whitespace-nowrap text-right text-[12px] text-amber-700 sm:text-sm"
+                title={`Taxable: ${formatCents(allTimeEarnings.totalTaxable)}${allTimeEarnings.totalMileageCents > 0 ? ` (mileage deduction: ${formatCents(allTimeEarnings.totalMileageCents)})` : ""}`}
+              >
+                {formatWhole(allTimeEarnings.totalTax)}
               </div>
             </div>
           </div>

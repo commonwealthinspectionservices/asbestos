@@ -6,6 +6,8 @@ import Link from "next/link";
 import type { JobWithCustomer } from "@/lib/types";
 import { formatCents, computeMarginCents, knownStripeFeeCentsForJob } from "@/lib/pricing";
 import { TAX_SET_ASIDE_PERCENT, MILEAGE_RATE_CENTS } from "@/lib/mileage-shared";
+import { formatDateMDY } from "@/lib/date-format";
+import { FLI_ENVIRONMENTAL_COMPANY_ID } from "@/lib/report-findings";
 import {
   totalSampleCount,
   estimatedLabCostCentsForJob,
@@ -41,15 +43,6 @@ export default function RevenueMarginSummaryView() {
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [summaryTab, setSummaryTab] = useState<"weekly" | "monthly">("weekly");
-  // Per Tim, 2026-09-23 — "show me the list of what's not been billed":
-  // reuses the existing audit-invoices route (already scans every job for
-  // exactly this — no lab invoice on file yet, or one on file with no cost
-  // recorded — see that route's own comment for the FLI exclusion/
-  // week-completion gating) rather than re-deriving the same logic here
-  // and risking it drifting out of sync.
-  const [unbilledLabCosts, setUnbilledLabCosts] = useState<
-    { project_number: string | null; company: string | null; issue: string; detail?: string }[]
-  >([]);
   // Miles driven per month ("YYYY-MM"), from the Mileage page's saved routes.
   // null until loaded; stays null if the mileage table isn't set up yet.
   // Hand-typed "other costs" per month (equipment, ads, office — see
@@ -83,17 +76,6 @@ export default function RevenueMarginSummaryView() {
   }, []);
 
   useEffect(() => {
-    fetch("/api/admin/audit-invoices")
-      .then(async (r) => {
-        if (!r.ok) return;
-        const data = await r.json();
-        const issues = (data.issues ?? []) as { category: string; severity?: string; project_number: string | null; company: string | null; issue: string; detail?: string }[];
-        setUnbilledLabCosts(issues.filter((i) => i.category === "lab_invoice" && i.severity === "waiting"));
-      })
-      .catch(() => {});
-  }, []);
-
-  useEffect(() => {
     fetch("/api/admin/mileage?summary=1")
       .then(async (r) => (r.ok ? setDailyMiles((await r.json()).dailyMiles ?? {}) : null))
       .catch(() => {});
@@ -114,6 +96,24 @@ export default function RevenueMarginSummaryView() {
   // same predicate as BillingView's own invoicedJobs.
   const invoicedJobs = useMemo(
     () => jobs.filter((j) => j.source !== "subcontractor" && j.invoice_total_cents != null && (j.invoice_sent_at || j.paid_date)),
+    [jobs]
+  );
+
+  // Per Tim, 2026-09-23 — "show me the list of what's not been billed":
+  // every job with fieldwork actually done (confirmed_date set) and no
+  // lab_cost_cents recorded yet — deliberately NOT the same, narrower set
+  // audit-invoices flags (that one only surfaces a job once its own week
+  // is over, to avoid noise on fieldwork from the last day or two that
+  // just hasn't been billed yet — worth worrying about vs. worth knowing
+  // about are different lists, and Tim wants the second, complete one
+  // here). Same FLI exclusion as everywhere else — FLI jobs never get a
+  // real Commonwealth lab invoice at all (see knownLabCostCentsForJob's
+  // own comment), so $0 there is correct, not "unbilled".
+  const notYetBilled = useMemo(
+    () =>
+      jobs
+        .filter((j) => j.confirmed_date && j.source !== "subcontractor" && j.customers?.company_id !== FLI_ENVIRONMENTAL_COMPANY_ID && !j.lab_cost_cents)
+        .sort((a, b) => (b.confirmed_date ?? "").localeCompare(a.confirmed_date ?? "")),
     [jobs]
   );
 
@@ -469,23 +469,6 @@ export default function RevenueMarginSummaryView() {
             </div>
           </div>
 
-          {unbilledLabCosts.length > 0 && (
-            <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white">
-              <div className="border-b border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold uppercase tracking-wide text-slate-500 sm:px-4">
-                Not yet billed by the lab
-              </div>
-              {unbilledLabCosts.map((i, idx) => (
-                <div key={idx} className="border-b border-slate-100 px-3 py-2 text-sm last:border-b-0 sm:px-4">
-                  <div className="flex items-baseline justify-between gap-2">
-                    <span className="font-medium text-slate-800">{i.project_number ?? "—"}</span>
-                    <span className="text-slate-500">{i.company}</span>
-                  </div>
-                  <div className="text-xs text-slate-500">{i.issue}{i.detail ? ` — ${i.detail}` : ""}</div>
-                </div>
-              ))}
-            </div>
-          )}
-
           {/* Per Tim, 2026-09-20 — "one spot that shows me my monthly net
               earnings after all this stuff": only jobs that have actually
               been PAID count (money in hand, bucketed by the date it was
@@ -591,6 +574,35 @@ export default function RevenueMarginSummaryView() {
               );
             })()}
           </div>
+
+          {/* Per Tim, 2026-09-23 — "show me the list of what's not been
+              billed" / "feel like it's more than this no??" (the earlier,
+              audit-invoices-based version only surfaced a job once its own
+              week was over, so it under-reported — see notYetBilled's own
+              comment) / "i dont love the format" / "it should be at the
+              very bottom" — three rounds of feedback landing here: a plain
+              table matching the period table's own look, at the bottom of
+              the page. */}
+          {notYetBilled.length > 0 && (
+            <>
+              <h2 className="mt-8 text-lg font-bold text-slate-800">Not yet billed by the lab</h2>
+              <p className="mt-1 text-sm text-slate-500">Fieldwork done, no lab cost recorded yet.</p>
+              <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-white">
+                <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_90px] gap-x-3 border-b border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold uppercase tracking-wide text-slate-500 sm:px-4">
+                  <div>Project</div>
+                  <div>Company</div>
+                  <div className="text-right">Fieldwork</div>
+                </div>
+                {notYetBilled.map((j) => (
+                  <div key={j.id} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_90px] items-center gap-x-3 border-b border-slate-100 px-3 py-2.5 text-sm last:border-b-0 sm:px-4">
+                    <div className="font-medium text-slate-800">{j.project_number}</div>
+                    <div className="truncate text-slate-600">{j.customers?.company || j.customers?.name}</div>
+                    <div className="whitespace-nowrap text-right text-slate-500">{formatDateMDY(j.confirmed_date)}</div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </>
       )}
     </div>

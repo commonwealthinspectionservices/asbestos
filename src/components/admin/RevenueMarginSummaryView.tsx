@@ -9,8 +9,6 @@ import { TAX_SET_ASIDE_PERCENT, MILEAGE_RATE_CENTS } from "@/lib/mileage-shared"
 import { formatDateMDY } from "@/lib/date-format";
 import { FLI_ENVIRONMENTAL_COMPANY_ID } from "@/lib/report-findings";
 import {
-  totalSampleCount,
-  estimatedLabCostCentsForJob,
   billingDateFor,
   parseReportDateRange,
   marginPercentOf,
@@ -117,25 +115,6 @@ export default function RevenueMarginSummaryView() {
     [jobs]
   );
 
-  // Per Tim, 2026-09-04 — "estimate a lab cost based off of the number of
-  // samples I entered on the invoice": the average $/sample across every
-  // job that DOES have a real lab invoice in, applied to jobs that don't
-  // yet — same formula as BillingView's own copy (there, feeding each job
-  // card's own MoneyGrid estimate too, so kept as a real function import
-  // rather than shared state neither page actually has here).
-  const avgLabCostPerSampleCents = useMemo(() => {
-    let totalCents = 0;
-    let totalSamples = 0;
-    for (const job of invoicedJobs) {
-      if (job.lab_cost_cents == null || job.lab_cost_cents <= 0) continue;
-      const samples = totalSampleCount(job);
-      if (samples <= 0) continue;
-      totalCents += job.lab_cost_cents;
-      totalSamples += samples;
-    }
-    return totalSamples > 0 ? totalCents / totalSamples : 0;
-  }, [invoicedJobs]);
-
   const periodHistory = useMemo(() => {
     const today = new Date();
 
@@ -157,23 +136,28 @@ export default function RevenueMarginSummaryView() {
         start.getMonth() === end.getMonth()
           ? `${MONTH_NAMES[start.getMonth()]} ${ordinal(start.getDate())} - ${ordinal(end.getDate())}`
           : `${MONTH_NAMES[start.getMonth()]} ${ordinal(start.getDate())} - ${MONTH_NAMES[end.getMonth()]} ${ordinal(end.getDate())}`;
-      return { label, startStr: ymd(start), endStr: ymd(end), grossCents: 0, netCents: 0, labCostCents: 0, estimatedLabCostCents: 0, paidGrossCents: 0, paidNetCents: 0 };
+      return { label, startStr: ymd(start), endStr: ymd(end), grossCents: 0, netCents: 0, labCostCents: 0, paidGrossCents: 0, paidNetCents: 0 };
     }).filter((b) => b.endStr >= COMPANY_START_DATE);
 
     const monthly = Array.from({ length: ALL_PERIODS_COUNT }, (_, i) => {
       const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
       const label = `${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`;
-      return { label, key, grossCents: 0, netCents: 0, labCostCents: 0, estimatedLabCostCents: 0, paidGrossCents: 0, paidNetCents: 0 };
+      return { label, key, grossCents: 0, netCents: 0, labCostCents: 0, paidGrossCents: 0, paidNetCents: 0 };
     }).filter((b) => b.key >= COMPANY_START_DATE.slice(0, 7));
 
     for (const job of invoicedJobs) {
       const bucketDate = billingDateFor(job);
       if (!bucketDate) continue;
       const grossCents = job.invoice_total_cents ?? 0;
+      // Per Tim, 2026-09-23 — "I would just remove the estimate and show
+      // it when the real number actually lands": labCostCents is only ever
+      // the job's own real, Crystal-reported lab_cost_cents now — no more
+      // avg-$/sample guess filling the gap before that lands (see
+      // notYetBilled below for how that gap is surfaced instead). A job
+      // with no real cost recorded yet contributes $0 here, not a guess.
       const labCostCents = job.lab_cost_cents ?? 0;
-      const estimatedCents = estimatedLabCostCentsForJob(job, avgLabCostPerSampleCents);
-      const netCents = computeMarginCents(grossCents, labCostCents + estimatedCents, knownStripeFeeCentsForJob(job) ?? 0);
+      const netCents = computeMarginCents(grossCents, labCostCents, knownStripeFeeCentsForJob(job) ?? 0);
       // Per Tim, 2026-09-23 — "for a given week what I billed out and what
       // I actually got paid also": paidGrossCents/paidNetCents are the
       // SAME job population as grossCents above (this period's own
@@ -189,7 +173,6 @@ export default function RevenueMarginSummaryView() {
         w.grossCents += grossCents;
         w.netCents += netCents;
         w.labCostCents += labCostCents;
-        w.estimatedLabCostCents += estimatedCents;
         if (isPaid) { w.paidGrossCents += grossCents; w.paidNetCents += netCents; }
       }
 
@@ -199,13 +182,12 @@ export default function RevenueMarginSummaryView() {
         m.grossCents += grossCents;
         m.netCents += netCents;
         m.labCostCents += labCostCents;
-        m.estimatedLabCostCents += estimatedCents;
         if (isPaid) { m.paidGrossCents += grossCents; m.paidNetCents += netCents; }
       }
     }
 
     return { weekly, monthly };
-  }, [invoicedJobs, avgLabCostPerSampleCents]);
+  }, [invoicedJobs]);
 
   // Per Tim, 2026-09-05 — "a small PDF text only link... a link to the PDF
   // for each week from Crystal": one link per distinct real weekly/daily
@@ -246,16 +228,14 @@ export default function RevenueMarginSummaryView() {
   const allTimeTotal = useMemo(() => {
     let grossCents = 0;
     let labCostCents = 0;
-    let estimatedLabCostCents = 0;
     let stripeFeeCents = 0;
     for (const job of invoicedJobs) {
       grossCents += job.invoice_total_cents ?? 0;
       labCostCents += job.lab_cost_cents ?? 0;
       stripeFeeCents += knownStripeFeeCentsForJob(job) ?? 0;
-      estimatedLabCostCents += estimatedLabCostCentsForJob(job, avgLabCostPerSampleCents);
     }
-    return { grossCents, labCostCents, estimatedLabCostCents, stripeFeeCents };
-  }, [invoicedJobs, avgLabCostPerSampleCents]);
+    return { grossCents, labCostCents, stripeFeeCents };
+  }, [invoicedJobs]);
 
   // Per Tim, 2026-09-18 — moved here from BillingView ("this part should
   // not be on the billing page, it should be on the revenue and margin
@@ -353,8 +333,7 @@ export default function RevenueMarginSummaryView() {
         id,
         label: p.label,
         grossCents: p.grossCents,
-        labCents: p.labCostCents + p.estimatedLabCostCents,
-        estimated: p.estimatedLabCostCents > 0,
+        labCents: p.labCostCents,
         marginPercent: marginPercentOf(p),
         pdfHrefs: isWeekly ? weeklyLabInvoicePdfHrefs[p.label] : undefined,
         otherCents,
@@ -368,10 +347,9 @@ export default function RevenueMarginSummaryView() {
   }, [isWeekly, periodHistory, weeklyLabInvoicePdfHrefs, overhead, weeklyMiles, monthlyMiles]);
 
   const allTimeMarginPercent = allTimeTotal.grossCents > 0
-    ? ((allTimeTotal.grossCents - allTimeTotal.labCostCents - allTimeTotal.estimatedLabCostCents - allTimeTotal.stripeFeeCents) / allTimeTotal.grossCents) * 100
+    ? ((allTimeTotal.grossCents - allTimeTotal.labCostCents - allTimeTotal.stripeFeeCents) / allTimeTotal.grossCents) * 100
     : null;
-  const isMarginEstimated = allTimeTotal.estimatedLabCostCents > 0;
-  const allTimeMarginText = allTimeMarginPercent != null ? `${isMarginEstimated ? "≈ " : ""}${allTimeMarginPercent.toFixed(1)}%` : "—";
+  const allTimeMarginText = allTimeMarginPercent != null ? `${allTimeMarginPercent.toFixed(1)}%` : "—";
 
   return (
     <div>
@@ -459,7 +437,7 @@ export default function RevenueMarginSummaryView() {
                 >
                   <div className="text-slate-700">{row.label}</div>
                   <div className="whitespace-nowrap text-right text-[13px] font-medium text-slate-800 sm:text-sm">{formatCents(row.grossCents)}</div>
-                  <div className={`text-right text-[13px] text-slate-700 sm:text-sm ${row.estimated ? "italic" : ""}`}>
+                  <div className="text-right text-[13px] text-slate-700 sm:text-sm">
                     {row.pdfHrefs && row.pdfHrefs.length > 0 ? (
                       // The Crystal report is where this number comes from,
                       // so the number itself is the link (newest summary —
@@ -475,13 +453,13 @@ export default function RevenueMarginSummaryView() {
                         onClick={(e) => e.stopPropagation()}
                         className="whitespace-nowrap underline decoration-slate-300 underline-offset-2 hover:decoration-slate-500"
                       >
-                        {row.estimated ? "≈" : ""}{formatCents(row.labCents)}
+                        {formatCents(row.labCents)}
                       </a>
                     ) : (
-                      <span className="whitespace-nowrap">{row.estimated ? "≈" : ""}{formatCents(row.labCents)}</span>
+                      <span className="whitespace-nowrap">{formatCents(row.labCents)}</span>
                     )}
                   </div>
-                  <div className={`whitespace-nowrap text-right text-[13px] text-slate-700 sm:text-sm ${row.estimated ? "italic" : ""}`}>
+                  <div className="whitespace-nowrap text-right text-[13px] text-slate-700 sm:text-sm">
                     {row.marginPercent != null ? `${row.marginPercent.toFixed(1)}%` : "—"}
                   </div>
                   <div className="whitespace-nowrap text-right text-[13px] text-slate-800 sm:text-sm">{formatCents(row.paidGrossCents)}</div>
@@ -520,10 +498,8 @@ export default function RevenueMarginSummaryView() {
               <div className="grid grid-cols-[minmax(170px,1fr)_90px_90px_60px_90px_120px_100px_80px_90px] gap-x-3 items-center bg-slate-50 px-3 py-3 text-sm font-semibold text-slate-800 sm:px-4">
                 <div>All time</div>
                 <div className="whitespace-nowrap text-right text-[13px] sm:text-sm">{formatCents(allTimeTotal.grossCents)}</div>
-                <div className={`whitespace-nowrap text-right text-[13px] sm:text-sm ${allTimeTotal.estimatedLabCostCents > 0 ? "italic" : ""}`}>
-                  {allTimeTotal.estimatedLabCostCents > 0 ? "≈" : ""}{formatCents(allTimeTotal.labCostCents + allTimeTotal.estimatedLabCostCents)}
-                </div>
-                <div className={`whitespace-nowrap text-right text-[13px] sm:text-sm ${isMarginEstimated ? "italic" : ""}`}>{allTimeMarginText.replace("≈ ", "")}</div>
+                <div className="whitespace-nowrap text-right text-[13px] sm:text-sm">{formatCents(allTimeTotal.labCostCents)}</div>
+                <div className="whitespace-nowrap text-right text-[13px] sm:text-sm">{allTimeMarginText}</div>
                 <div className="whitespace-nowrap text-right text-[13px] sm:text-sm">{formatCents(allTimeEarnings.totalPaidGross)}</div>
                 <div className="whitespace-nowrap text-right text-[13px] font-normal text-slate-500 sm:text-sm">− {formatCents(allTimeEarnings.totalOther)}</div>
                 <div className="whitespace-nowrap text-right text-[13px] font-normal text-slate-400 sm:text-sm">

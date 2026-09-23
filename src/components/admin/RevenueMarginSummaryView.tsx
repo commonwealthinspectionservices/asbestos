@@ -370,16 +370,6 @@ export default function RevenueMarginSummaryView() {
             Total Amount Pending <span className="font-semibold text-slate-800">{formatCents(awaitingPaymentCents)}</span>
           </div>
 
-          {/* Per Tim, 2026-09-23 — "not comparing apples to apples": this
-              table and Monthly earnings below use two genuinely different
-              bases (by invoice date vs. by paid date, includes unpaid jobs
-              vs. paid only), so the same month can show very different
-              numbers in each — not a bug in either one, just easy to
-              conflate without this being spelled out. */}
-          <p className="mt-1 text-xs text-slate-400">
-            By invoice date, includes jobs not yet paid. For actual cash earned after tax, see Monthly earnings below.
-          </p>
-
           <div className="mt-4 flex gap-2">
             <button
               onClick={() => setSummaryTab("weekly")}
@@ -485,9 +475,6 @@ export default function RevenueMarginSummaryView() {
               doesn't appear in weekly view; everything else works the same
               at either granularity. */}
           <h2 className="mt-8 text-lg font-bold text-slate-800">{isWeekly ? "Weekly" : "Monthly"} earnings</h2>
-          <p className="mt-1 text-sm text-slate-500">
-            Paid jobs only, after lab costs and Stripe fees{!isWeekly && " and other costs"}, minus {TAX_SET_ASIDE_PERCENT}% for taxes (mileage lowers what's taxed, not the cash total itself).
-          </p>
           <div className="mt-3 space-y-3">
             {(() => {
               const rows = (isWeekly ? periodHistory.weekly : periodHistory.monthly).map((p) => {

@@ -2460,6 +2460,10 @@ export function ProjectDetailDialog({
   const [labs, setLabs] = useState<LabProfile[]>([]);
   const [reportSummaryInput, setReportSummaryInput] = useState(job.report_summary ?? "");
   const [reportNotesInput, setReportNotesInput] = useState(job.report_notes ?? "");
+  // Additional Remarks is a rarely-used, job-specific field — collapsed by
+  // default so it doesn't clutter every report, but starts open on a job
+  // that already has one saved so it's never hidden by accident.
+  const [reportNotesOpen, setReportNotesOpen] = useState(Boolean(job.report_notes?.trim()));
   const [fliProjectNumberInputValue, setFliProjectNumberInputValue] = useState(job.fli_project_number ?? "");
   // Lead's own Overall Findings sentence — separate from asbestos's
   // report_summary above, since a job combining asbestos and lead produces
@@ -4489,20 +4493,31 @@ export function ProjectDetailDialog({
                     required to draft/send a report. */}
                 {reportDomainTab === "asbestos" && (
                   <div className="mt-5 rounded-lg border border-slate-200 p-3">
-                    <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
-                      Additional Remarks
-                    </label>
-                    <p className="mt-1 text-xs text-slate-500">
-                      One line per remark — continues the Remarks and Limitations numbering after the fixed items.
-                    </p>
-                    <textarea
-                      className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
-                      rows={4}
-                      value={reportNotesInput}
-                      onChange={(e) => setReportNotesInput(e.target.value)}
-                      onBlur={(e) => saveReportNotes(e.target.value)}
-                      placeholder="Any per-finding notes specific to this job (e.g. contamination, supplemental sampling, limited access)."
-                    />
+                    <button
+                      type="button"
+                      onClick={() => setReportNotesOpen((v) => !v)}
+                      className="flex w-full items-center justify-between gap-2 text-left"
+                    >
+                      <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                        Additional Remarks
+                      </span>
+                      <span className={`text-slate-400 transition-transform ${reportNotesOpen ? "rotate-180" : ""}`}>▾</span>
+                    </button>
+                    {reportNotesOpen && (
+                      <>
+                        <p className="mt-1 text-xs text-slate-500">
+                          One line per remark — continues the Remarks and Limitations numbering after the fixed items.
+                        </p>
+                        <textarea
+                          className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+                          rows={4}
+                          value={reportNotesInput}
+                          onChange={(e) => setReportNotesInput(e.target.value)}
+                          onBlur={(e) => saveReportNotes(e.target.value)}
+                          placeholder="Any per-finding notes specific to this job (e.g. contamination, supplemental sampling, limited access)."
+                        />
+                      </>
+                    )}
                   </div>
                 )}
               </div>

@@ -157,14 +157,14 @@ export default function RevenueMarginSummaryView() {
         start.getMonth() === end.getMonth()
           ? `${MONTH_NAMES[start.getMonth()]} ${ordinal(start.getDate())} - ${ordinal(end.getDate())}`
           : `${MONTH_NAMES[start.getMonth()]} ${ordinal(start.getDate())} - ${MONTH_NAMES[end.getMonth()]} ${ordinal(end.getDate())}`;
-      return { label, startStr: ymd(start), endStr: ymd(end), grossCents: 0, netCents: 0, labCostCents: 0, estimatedLabCostCents: 0 };
+      return { label, startStr: ymd(start), endStr: ymd(end), grossCents: 0, netCents: 0, labCostCents: 0, estimatedLabCostCents: 0, paidGrossCents: 0, paidNetCents: 0 };
     }).filter((b) => b.endStr >= COMPANY_START_DATE);
 
     const monthly = Array.from({ length: ALL_PERIODS_COUNT }, (_, i) => {
       const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
       const label = `${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`;
-      return { label, key, grossCents: 0, netCents: 0, labCostCents: 0, estimatedLabCostCents: 0 };
+      return { label, key, grossCents: 0, netCents: 0, labCostCents: 0, estimatedLabCostCents: 0, paidGrossCents: 0, paidNetCents: 0 };
     }).filter((b) => b.key >= COMPANY_START_DATE.slice(0, 7));
 
     for (const job of invoicedJobs) {
@@ -174,6 +174,15 @@ export default function RevenueMarginSummaryView() {
       const labCostCents = job.lab_cost_cents ?? 0;
       const estimatedCents = estimatedLabCostCentsForJob(job, avgLabCostPerSampleCents);
       const netCents = computeMarginCents(grossCents, labCostCents + estimatedCents, knownStripeFeeCentsForJob(job) ?? 0);
+      // Per Tim, 2026-09-23 — "for a given week what I billed out and what
+      // I actually got paid also": paidGrossCents/paidNetCents are the
+      // SAME job population as grossCents above (this period's own
+      // fieldwork), just the subset that's actually been paid — not a
+      // separate paid-date-bucketed population (that was the old
+      // paidWeekly/paidMonthly, removed). Keeps every column in a row
+      // talking about the same jobs, same "apples to apples" reasoning as
+      // billingDateFor's own reversal earlier today.
+      const isPaid = job.status === "paid" || Boolean(job.paid_date);
 
       const w = weekly.find((b) => bucketDate >= b.startStr && bucketDate <= b.endStr);
       if (w) {
@@ -181,6 +190,7 @@ export default function RevenueMarginSummaryView() {
         w.netCents += netCents;
         w.labCostCents += labCostCents;
         w.estimatedLabCostCents += estimatedCents;
+        if (isPaid) { w.paidGrossCents += grossCents; w.paidNetCents += netCents; }
       }
 
       const monthKey = bucketDate.slice(0, 7);
@@ -190,6 +200,7 @@ export default function RevenueMarginSummaryView() {
         m.netCents += netCents;
         m.labCostCents += labCostCents;
         m.estimatedLabCostCents += estimatedCents;
+        if (isPaid) { m.paidGrossCents += grossCents; m.paidNetCents += netCents; }
       }
     }
 
@@ -259,43 +270,6 @@ export default function RevenueMarginSummaryView() {
     return cents;
   }, [invoicedJobs]);
 
-  // Net profit (invoice − lab cost − Stripe fee) of PAID jobs, by the exact
-  // day they were paid — what has actually landed, unlike the invoiced-date
-  // tables above. Kept at day granularity, same reasoning as dailyMiles
-  // above: paidMonthly/paidWeekly below both roll this up, one by month key
-  // and one into periodHistory.weekly's own Sun–Sat ranges, so the earnings
-  // section can switch between them with the same toggle as the table above.
-  const paidByDate = useMemo(() => {
-    const byDate: Record<string, number> = {};
-    for (const job of invoicedJobs) {
-      if (job.status !== "paid" && !job.paid_date) continue;
-      const date = job.paid_date ?? billingDateFor(job);
-      if (!date) continue;
-      const labCents = (job.lab_cost_cents ?? 0) + estimatedLabCostCentsForJob(job, avgLabCostPerSampleCents);
-      const net = computeMarginCents(job.invoice_total_cents ?? 0, labCents, knownStripeFeeCentsForJob(job) ?? 0);
-      byDate[date] = (byDate[date] ?? 0) + net;
-    }
-    return byDate;
-  }, [invoicedJobs, avgLabCostPerSampleCents]);
-
-  const paidMonthly = useMemo(() => {
-    const byMonth: Record<string, number> = {};
-    for (const [date, net] of Object.entries(paidByDate)) {
-      const key = date.slice(0, 7);
-      byMonth[key] = (byMonth[key] ?? 0) + net;
-    }
-    return byMonth;
-  }, [paidByDate]);
-
-  const paidWeekly = useMemo(() => {
-    const byWeekLabel: Record<string, number> = {};
-    for (const [date, net] of Object.entries(paidByDate)) {
-      const w = periodHistory.weekly.find((b) => date >= b.startStr && date <= b.endStr);
-      if (w) byWeekLabel[w.label] = (byWeekLabel[w.label] ?? 0) + net;
-    }
-    return byWeekLabel;
-  }, [paidByDate, periodHistory.weekly]);
-
   const monthlyMiles = useMemo(() => {
     const byMonth: Record<string, number> = {};
     for (const [date, miles] of Object.entries(dailyMiles)) {
@@ -324,18 +298,18 @@ export default function RevenueMarginSummaryView() {
   // only Other costs (and what it does to tax/Net earnings) actually
   // differs — using the monthly basis here keeps this one number stable.
   const allTimeEarnings = useMemo(() => {
-    let totalNet = 0, totalOther = 0, totalMileageCents = 0, totalTax = 0, totalPay = 0;
+    let totalPaidGross = 0, totalNet = 0, totalOther = 0, totalMileageCents = 0, totalTax = 0, totalPay = 0;
     for (const m of periodHistory.monthly) {
-      const netCents = paidMonthly[m.key] ?? 0;
+      const netCents = m.paidNetCents;
       const otherCents = overhead[m.key] ?? 0;
       const afterCosts = netCents - otherCents;
       const mileageDeductionCents = Math.round((monthlyMiles[m.key] ?? 0) * MILEAGE_RATE_CENTS);
       const taxableCents = Math.max(0, afterCosts - mileageDeductionCents);
       const taxCents = Math.max(0, Math.round((taxableCents * TAX_SET_ASIDE_PERCENT) / 100));
-      totalNet += netCents; totalOther += otherCents; totalMileageCents += mileageDeductionCents; totalTax += taxCents; totalPay += afterCosts - taxCents;
+      totalPaidGross += m.paidGrossCents; totalNet += netCents; totalOther += otherCents; totalMileageCents += mileageDeductionCents; totalTax += taxCents; totalPay += afterCosts - taxCents;
     }
-    return { totalNet, totalOther, totalMileageCents, totalTax, totalPay };
-  }, [periodHistory.monthly, paidMonthly, overhead, monthlyMiles]);
+    return { totalPaidGross, totalNet, totalOther, totalMileageCents, totalTax, totalPay };
+  }, [periodHistory.monthly, overhead, monthlyMiles]);
 
   const isWeekly = summaryTab === "weekly";
 
@@ -352,23 +326,24 @@ export default function RevenueMarginSummaryView() {
   }
 
   // Per Tim, 2026-09-23 — "my goal is to just have one big table that
-  // calculates everything": merges what used to be two separate things
-  // (this table's own Revenue/Lab Cost/Margin, and the standalone
-  // Weekly/Monthly earnings cards below it) into one row per period.
-  // Revenue/Lab Cost/Margin and Net Earnings are still two genuinely
-  // different bases within that same row (invoiced-that-period vs.
-  // paid-that-period — see the page's own running "these will never
-  // match, on purpose" explanation), just shown side by side now instead
-  // of in separate sections. id is the period's own key (month) or label
-  // (week, which IS unique — see periodHistory) — used for both the
-  // Other-costs input and as this row's own React key.
+  // calculates everything", then "it should pretty much be showing me for
+  // a given week what I billed out and what I actually got paid also,
+  // right?": every column in a row now describes the SAME job population
+  // — this period's own fieldwork (billingDateFor/confirmed_date, same as
+  // Revenue/Lab Cost/Margin) — split into the whole period (Revenue) and
+  // just the paid subset of it (Paid, Net Earnings). Not a separate
+  // paid-date-bucketed population anymore (that was the old
+  // paidWeekly/paidMonthly) — genuinely apples to apples now, same
+  // reasoning as billingDateFor's own reversal earlier today. id is the
+  // period's own key (month) or label (week, which IS unique — see
+  // periodHistory) — used for both the Other-costs input and this row's
+  // own React key.
   const summaryRows = useMemo(() => {
     const source = isWeekly ? periodHistory.weekly : periodHistory.monthly;
     return source.map((p) => {
       const id = isWeekly ? (p as typeof periodHistory.weekly[number]).label : (p as typeof periodHistory.monthly[number]).key;
-      const netCents = (isWeekly ? paidWeekly : paidMonthly)[id] ?? 0;
       const otherCents = isWeekly ? 0 : overhead[id] ?? 0;
-      const afterCosts = netCents - otherCents;
+      const afterCosts = p.paidNetCents - otherCents;
       const miles = (isWeekly ? weeklyMiles : monthlyMiles)[id] ?? 0;
       const mileageDeductionCents = Math.round(miles * MILEAGE_RATE_CENTS);
       const taxableCents = Math.max(0, afterCosts - mileageDeductionCents);
@@ -383,10 +358,11 @@ export default function RevenueMarginSummaryView() {
         marginPercent: marginPercentOf(p),
         pdfHrefs: isWeekly ? weeklyLabInvoicePdfHrefs[p.label] : undefined,
         otherCents,
+        paidGrossCents: p.paidGrossCents,
         netEarningsCents,
       };
     });
-  }, [isWeekly, periodHistory, weeklyLabInvoicePdfHrefs, paidWeekly, paidMonthly, overhead, weeklyMiles, monthlyMiles]);
+  }, [isWeekly, periodHistory, weeklyLabInvoicePdfHrefs, overhead, weeklyMiles, monthlyMiles]);
 
   const allTimeMarginPercent = allTimeTotal.grossCents > 0
     ? ((allTimeTotal.grossCents - allTimeTotal.labCostCents - allTimeTotal.estimatedLabCostCents - allTimeTotal.stripeFeeCents) / allTimeTotal.grossCents) * 100
@@ -446,12 +422,12 @@ export default function RevenueMarginSummaryView() {
               breakdown exists) is still editable, now as a small line
               under the row instead of its own section. */}
           <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white">
-            <div className="grid grid-cols-[minmax(0,1fr)_60px_66px_38px_70px] gap-x-1.5 sm:grid-cols-[minmax(0,1fr)_100px_110px_60px_110px] sm:gap-x-3 border-b border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold uppercase tracking-wide text-slate-500 sm:px-4">
+            <div className="grid grid-cols-[minmax(0,1fr)_60px_66px_38px_74px] gap-x-1.5 sm:grid-cols-[minmax(0,1fr)_100px_110px_60px_130px] sm:gap-x-3 border-b border-slate-200 bg-slate-50 px-3 py-2 text-[10px] font-bold uppercase leading-tight tracking-wide text-slate-500 sm:px-4 sm:text-xs">
               <div>{isWeekly ? "Week" : "Month"}</div>
-              <div className="whitespace-nowrap text-right">Rev</div>
-              <div className="whitespace-nowrap text-right">Lab</div>
-              <div className="whitespace-nowrap text-right">Mgn</div>
-              <div className="whitespace-nowrap text-right">Net</div>
+              <div className="text-right">Revenue</div>
+              <div className="text-right">Lab Cost</div>
+              <div className="text-right">Margin</div>
+              <div className="text-right">Paid / Net</div>
             </div>
             {summaryRows.map((row) => (
               <div key={row.id} className="border-b border-slate-100 last:border-b-0">
@@ -460,7 +436,7 @@ export default function RevenueMarginSummaryView() {
                   role="button"
                   tabIndex={0}
                   onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && goToPeriod(row.label)}
-                  className="grid cursor-pointer grid-cols-[minmax(0,1fr)_60px_66px_38px_70px] gap-x-1.5 sm:grid-cols-[minmax(0,1fr)_100px_110px_60px_110px] sm:gap-x-3 items-start px-3 py-3 text-sm hover:bg-slate-50 sm:px-4"
+                  className="grid cursor-pointer grid-cols-[minmax(0,1fr)_60px_66px_38px_74px] gap-x-1.5 sm:grid-cols-[minmax(0,1fr)_100px_110px_60px_130px] sm:gap-x-3 items-start px-3 py-3 text-sm hover:bg-slate-50 sm:px-4"
                 >
                   <div className="text-slate-700">
                     {row.label}
@@ -491,10 +467,13 @@ export default function RevenueMarginSummaryView() {
                   <div className={`whitespace-nowrap text-right text-[13px] text-slate-700 sm:text-sm ${row.estimated ? "italic" : ""}`}>
                     {row.marginPercent != null ? `${row.marginPercent.toFixed(1)}%` : "—"}
                   </div>
-                  <div className="whitespace-nowrap text-right text-[13px] font-semibold sm:text-sm">
-                    <span className={row.netEarningsCents < 0 ? "text-red-600" : "text-emerald-700"}>
-                      {row.netEarningsCents < 0 ? "−" : ""}{formatCents(Math.abs(row.netEarningsCents))}
-                    </span>
+                  <div className="text-right">
+                    <div className="whitespace-nowrap text-[10px] text-slate-400 sm:text-xs">Paid {formatCents(row.paidGrossCents)}</div>
+                    <div className="whitespace-nowrap text-[13px] font-semibold sm:text-sm">
+                      <span className={row.netEarningsCents < 0 ? "text-red-600" : "text-emerald-700"}>
+                        {row.netEarningsCents < 0 ? "−" : ""}{formatCents(Math.abs(row.netEarningsCents))}
+                      </span>
+                    </div>
                   </div>
                 </div>
                 {!isWeekly && (
@@ -516,7 +495,7 @@ export default function RevenueMarginSummaryView() {
                 )}
               </div>
             ))}
-            <div className="grid grid-cols-[minmax(0,1fr)_60px_66px_38px_70px] gap-x-1.5 sm:grid-cols-[minmax(0,1fr)_100px_110px_60px_110px] sm:gap-x-3 items-start bg-slate-50 px-3 py-3 text-sm font-semibold text-slate-800 sm:px-4">
+            <div className="grid grid-cols-[minmax(0,1fr)_60px_66px_38px_74px] gap-x-1.5 sm:grid-cols-[minmax(0,1fr)_100px_110px_60px_130px] sm:gap-x-3 items-start bg-slate-50 px-3 py-3 text-sm font-semibold text-slate-800 sm:px-4">
               <div>All time</div>
               <div className="whitespace-nowrap text-right text-[13px] sm:text-sm">{formatCents(allTimeTotal.grossCents)}</div>
               <div className={`whitespace-nowrap text-right text-[13px] sm:text-sm ${allTimeTotal.estimatedLabCostCents > 0 ? "italic" : ""}`}>
@@ -525,10 +504,13 @@ export default function RevenueMarginSummaryView() {
               <div className={`whitespace-nowrap text-right text-[13px] sm:text-sm ${isMarginEstimated ? "italic" : ""}`}>{allTimeMarginText.replace("≈ ", "")}</div>
               {/* Always the monthly-basis total (see allTimeEarnings' own
                   comment) — doesn't change when you flip Weekly/Monthly. */}
-              <div className="whitespace-nowrap text-right text-[13px] sm:text-sm">
-                <span className={allTimeEarnings.totalPay < 0 ? "text-red-600" : "text-emerald-700"}>
-                  {allTimeEarnings.totalPay < 0 ? "−" : ""}{formatCents(Math.abs(allTimeEarnings.totalPay))}
-                </span>
+              <div className="text-right">
+                <div className="whitespace-nowrap text-[10px] font-normal text-slate-400 sm:text-xs">Paid {formatCents(allTimeEarnings.totalPaidGross)}</div>
+                <div className="whitespace-nowrap text-[13px] sm:text-sm">
+                  <span className={allTimeEarnings.totalPay < 0 ? "text-red-600" : "text-emerald-700"}>
+                    {allTimeEarnings.totalPay < 0 ? "−" : ""}{formatCents(Math.abs(allTimeEarnings.totalPay))}
+                  </span>
+                </div>
               </div>
             </div>
           </div>

@@ -43,13 +43,18 @@ export default function RevenueMarginSummaryView() {
   const [summaryTab, setSummaryTab] = useState<"weekly" | "monthly">("weekly");
   // Miles driven per month ("YYYY-MM"), from the Mileage page's saved routes.
   // null until loaded; stays null if the mileage table isn't set up yet.
-  // Hand-typed "other costs" per month (equipment, ads, office — see monthly-overhead route), cents.
+  // Hand-typed "other costs" per month (equipment, ads, office — see
+  // monthly-overhead route), cents — monthly only, no such thing per week
+  // (see the earnings section's own comment on why that row just doesn't
+  // show up in weekly view).
   const [overhead, setOverhead] = useState<Record<string, number>>({});
-  // Miles driven per month, from the Mileage page's saved routes — read-only
-  // here (see sumSavedMileageByMonth's own comment). Per Tim, 2026-09-23:
+  // Miles driven per day, from the Mileage page's saved routes — read-only
+  // here (see sumSavedMileageByDay's own comment). Per Tim, 2026-09-23:
   // mileage is back in this page, but only as a tax deduction, not a cash
-  // cost — see the Monthly earnings math below for exactly how.
-  const [monthlyMiles, setMonthlyMiles] = useState<Record<string, number>>({});
+  // cost — see the earnings section's math below for exactly how. Kept at
+  // day granularity (not pre-summed by month) so it can be re-bucketed into
+  // either weeks or months depending on the same toggle as the table above.
+  const [dailyMiles, setDailyMiles] = useState<Record<string, number>>({});
   const [expandedPdfWeeks, setExpandedPdfWeeks] = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -71,7 +76,7 @@ export default function RevenueMarginSummaryView() {
 
   useEffect(() => {
     fetch("/api/admin/mileage?summary=1")
-      .then(async (r) => (r.ok ? setMonthlyMiles((await r.json()).monthlyMiles ?? {}) : null))
+      .then(async (r) => (r.ok ? setDailyMiles((await r.json()).dailyMiles ?? {}) : null))
       .catch(() => {});
   }, []);
 
@@ -235,22 +240,83 @@ export default function RevenueMarginSummaryView() {
     return cents;
   }, [invoicedJobs]);
 
-  // Net profit (invoice − lab cost − Stripe fee) of PAID jobs, by the month
-  // they were paid — what has actually landed, unlike the invoiced-date
-  // tables above.
-  const paidMonthly = useMemo(() => {
-    const byMonth: Record<string, number> = {};
+  // Net profit (invoice − lab cost − Stripe fee) of PAID jobs, by the exact
+  // day they were paid — what has actually landed, unlike the invoiced-date
+  // tables above. Kept at day granularity, same reasoning as dailyMiles
+  // above: paidMonthly/paidWeekly below both roll this up, one by month key
+  // and one into periodHistory.weekly's own Sun–Sat ranges, so the earnings
+  // section can switch between them with the same toggle as the table above.
+  const paidByDate = useMemo(() => {
+    const byDate: Record<string, number> = {};
     for (const job of invoicedJobs) {
       if (job.status !== "paid" && !job.paid_date) continue;
       const date = job.paid_date ?? billingDateFor(job);
       if (!date) continue;
       const labCents = (job.lab_cost_cents ?? 0) + estimatedLabCostCentsForJob(job, avgLabCostPerSampleCents);
       const net = computeMarginCents(job.invoice_total_cents ?? 0, labCents, knownStripeFeeCentsForJob(job) ?? 0);
+      byDate[date] = (byDate[date] ?? 0) + net;
+    }
+    return byDate;
+  }, [invoicedJobs, avgLabCostPerSampleCents]);
+
+  const paidMonthly = useMemo(() => {
+    const byMonth: Record<string, number> = {};
+    for (const [date, net] of Object.entries(paidByDate)) {
       const key = date.slice(0, 7);
       byMonth[key] = (byMonth[key] ?? 0) + net;
     }
     return byMonth;
-  }, [invoicedJobs, avgLabCostPerSampleCents]);
+  }, [paidByDate]);
+
+  const paidWeekly = useMemo(() => {
+    const byWeekLabel: Record<string, number> = {};
+    for (const [date, net] of Object.entries(paidByDate)) {
+      const w = periodHistory.weekly.find((b) => date >= b.startStr && date <= b.endStr);
+      if (w) byWeekLabel[w.label] = (byWeekLabel[w.label] ?? 0) + net;
+    }
+    return byWeekLabel;
+  }, [paidByDate, periodHistory.weekly]);
+
+  const monthlyMiles = useMemo(() => {
+    const byMonth: Record<string, number> = {};
+    for (const [date, miles] of Object.entries(dailyMiles)) {
+      const key = date.slice(0, 7);
+      byMonth[key] = Math.round(((byMonth[key] ?? 0) + miles) * 10) / 10;
+    }
+    return byMonth;
+  }, [dailyMiles]);
+
+  const weeklyMiles = useMemo(() => {
+    const byWeekLabel: Record<string, number> = {};
+    for (const [date, miles] of Object.entries(dailyMiles)) {
+      const w = periodHistory.weekly.find((b) => date >= b.startStr && date <= b.endStr);
+      if (w) byWeekLabel[w.label] = Math.round(((byWeekLabel[w.label] ?? 0) + miles) * 10) / 10;
+    }
+    return byWeekLabel;
+  }, [dailyMiles, periodHistory.weekly]);
+
+  // Always computed on the monthly basis, regardless of the Weekly/Monthly
+  // toggle below — Other costs (monthly_overhead) has no weekly breakdown,
+  // so a weekly-basis "All time" would always read lower than the true
+  // total (missing every dollar of Other costs) and the figure would
+  // visibly jump depending on which tab happened to be selected. Net
+  // profit and the mileage deduction sum identically either way (every
+  // paid job/day falls into exactly one week and exactly one month), so
+  // only Other costs (and what it does to tax/Net earnings) actually
+  // differs — using the monthly basis here keeps this one number stable.
+  const allTimeEarnings = useMemo(() => {
+    let totalNet = 0, totalOther = 0, totalMileageCents = 0, totalTax = 0, totalPay = 0;
+    for (const m of periodHistory.monthly) {
+      const netCents = paidMonthly[m.key] ?? 0;
+      const otherCents = overhead[m.key] ?? 0;
+      const afterCosts = netCents - otherCents;
+      const mileageDeductionCents = Math.round((monthlyMiles[m.key] ?? 0) * MILEAGE_RATE_CENTS);
+      const taxableCents = Math.max(0, afterCosts - mileageDeductionCents);
+      const taxCents = Math.max(0, Math.round((taxableCents * TAX_SET_ASIDE_PERCENT) / 100));
+      totalNet += netCents; totalOther += otherCents; totalMileageCents += mileageDeductionCents; totalTax += taxCents; totalPay += afterCosts - taxCents;
+    }
+    return { totalNet, totalOther, totalMileageCents, totalTax, totalPay };
+  }, [periodHistory.monthly, paidMonthly, overhead, monthlyMiles]);
 
   const isWeekly = summaryTab === "weekly";
 
@@ -430,10 +496,10 @@ export default function RevenueMarginSummaryView() {
 
           {/* Per Tim, 2026-09-20 — "one spot that shows me my monthly net
               earnings after all this stuff": only jobs that have actually
-              been PAID count (money in hand, bucketed by the month it was
+              been PAID count (money in hand, bucketed by the date it was
               paid), net of lab cost and Stripe fee, minus other costs;
               the tax set-aside is taken on what's left, and the rest is
-              that month's net earnings.
+              that period's net earnings.
               Per Tim, 2026-09-22 — mileage is a tax deduction, not
               out-of-pocket cash, so it was pulled out of this cash figure
               entirely. Per Tim, 2026-09-23 — that went too far: mileage
@@ -444,50 +510,59 @@ export default function RevenueMarginSummaryView() {
               minus Other costs minus the mileage deduction is what tax
               gets set aside on; Net profit minus Other costs minus that
               (smaller) tax bill is still what's actually in hand — mileage
-              itself is never subtracted from the cash total directly. */}
-          <h2 className="mt-8 text-lg font-bold text-slate-800">Monthly earnings</h2>
+              itself is never subtracted from the cash total directly.
+              Per Tim, 2026-09-23 — "this shouldn't just be monthly it
+              needs to be weekly and monthly": now driven by the same
+              Weekly/Monthly toggle as the table above (isWeekly), reusing
+              its exact periods/labels/week-boundaries. Other costs stays
+              monthly-only — monthly_overhead has no daily breakdown to
+              slice into weeks, so that row (and its editable input) simply
+              doesn't appear in weekly view; everything else works the same
+              at either granularity. */}
+          <h2 className="mt-8 text-lg font-bold text-slate-800">{isWeekly ? "Weekly" : "Monthly"} earnings</h2>
           <p className="mt-1 text-sm text-slate-500">
-            Paid jobs only, after lab costs and Stripe fees and other costs, minus {TAX_SET_ASIDE_PERCENT}% for taxes (mileage lowers what's taxed, not the cash total itself).
+            Paid jobs only, after lab costs and Stripe fees{!isWeekly && " and other costs"}, minus {TAX_SET_ASIDE_PERCENT}% for taxes (mileage lowers what's taxed, not the cash total itself).
           </p>
           <div className="mt-3 space-y-3">
             {(() => {
-              let totalNet = 0, totalOther = 0, totalMileageCents = 0, totalTax = 0, totalPay = 0;
-              const rows = periodHistory.monthly.map((m) => {
-                const netCents = paidMonthly[m.key] ?? 0;
-                const otherCents = overhead[m.key] ?? 0;
+              const rows = (isWeekly ? periodHistory.weekly : periodHistory.monthly).map((p) => {
+                const id = isWeekly ? (p as typeof periodHistory.weekly[number]).label : (p as typeof periodHistory.monthly[number]).key;
+                const netCents = (isWeekly ? paidWeekly : paidMonthly)[id] ?? 0;
+                const otherCents = isWeekly ? 0 : overhead[id] ?? 0;
                 const afterCosts = netCents - otherCents;
-                const miles = monthlyMiles[m.key] ?? 0;
+                const miles = (isWeekly ? weeklyMiles : monthlyMiles)[id] ?? 0;
                 const mileageDeductionCents = Math.round(miles * MILEAGE_RATE_CENTS);
                 const taxableCents = Math.max(0, afterCosts - mileageDeductionCents);
                 const taxCents = Math.max(0, Math.round((taxableCents * TAX_SET_ASIDE_PERCENT) / 100));
                 const payCents = afterCosts - taxCents;
-                totalNet += netCents; totalOther += otherCents; totalMileageCents += mileageDeductionCents; totalTax += taxCents; totalPay += payCents;
-                return { key: m.key, label: m.label, netCents, otherCents, miles, mileageDeductionCents, taxCents, payCents };
+                return { id, label: p.label, netCents, otherCents, miles, mileageDeductionCents, taxCents, payCents };
               });
               const line = "flex items-baseline justify-between gap-3 py-1 text-sm";
               return (
                 <>
                   {rows.map((r) => (
-                    <div key={r.key} className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                    <div key={r.id} className="rounded-xl border border-slate-200 bg-white px-4 py-3">
                       <p className="text-sm font-bold text-slate-800">{r.label}</p>
                       <div className="mt-1">
                         <div className={line}><span className="text-slate-600">Net profit (paid jobs)</span><span className="font-medium text-slate-800">{formatCents(r.netCents)}</span></div>
-                        <div className="flex items-center justify-between gap-3 py-1 text-sm">
-                          <label htmlFor={`overhead-${r.key}`} className="text-slate-600">Other costs (equipment, ads, etc.)</label>
-                          <div className="flex shrink-0 items-center gap-1">
-                            <span className="text-slate-500">−$</span>
-                            <input
-                              id={`overhead-${r.key}`}
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              defaultValue={r.otherCents ? (r.otherCents / 100).toFixed(2) : ""}
-                              placeholder="0.00"
-                              onBlur={(e) => saveOverhead(r.key, e.target.value)}
-                              className="h-7 w-20 rounded-lg border border-slate-300 bg-white px-1.5 text-right text-sm text-slate-700"
-                            />
+                        {!isWeekly && (
+                          <div className="flex items-center justify-between gap-3 py-1 text-sm">
+                            <label htmlFor={`overhead-${r.id}`} className="text-slate-600">Other costs (equipment, ads, etc.)</label>
+                            <div className="flex shrink-0 items-center gap-1">
+                              <span className="text-slate-500">−$</span>
+                              <input
+                                id={`overhead-${r.id}`}
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                defaultValue={r.otherCents ? (r.otherCents / 100).toFixed(2) : ""}
+                                placeholder="0.00"
+                                onBlur={(e) => saveOverhead(r.id, e.target.value)}
+                                className="h-7 w-20 rounded-lg border border-slate-300 bg-white px-1.5 text-right text-sm text-slate-700"
+                              />
+                            </div>
                           </div>
-                        </div>
+                        )}
                         {r.miles > 0 && (
                           <div className={line}>
                             <span className="text-slate-600">Mileage deduction ({r.miles.toFixed(1)} mi @ {formatCents(MILEAGE_RATE_CENTS)})</span>
@@ -502,21 +577,24 @@ export default function RevenueMarginSummaryView() {
                       </div>
                     </div>
                   ))}
+                  {/* Always the monthly-basis total (see allTimeEarnings'
+                      own comment) — this one number doesn't change when
+                      you flip between Weekly and Monthly above. */}
                   <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
                     <p className="text-sm font-bold text-slate-800">All time</p>
                     <div className="mt-1">
-                      <div className={line}><span className="text-slate-600">Net profit</span><span className="font-medium text-slate-800">{formatCents(totalNet)}</span></div>
-                      <div className={line}><span className="text-slate-600">Other costs</span><span className="font-medium text-slate-800">− {formatCents(totalOther)}</span></div>
-                      {totalMileageCents > 0 && (
+                      <div className={line}><span className="text-slate-600">Net profit</span><span className="font-medium text-slate-800">{formatCents(allTimeEarnings.totalNet)}</span></div>
+                      <div className={line}><span className="text-slate-600">Other costs</span><span className="font-medium text-slate-800">− {formatCents(allTimeEarnings.totalOther)}</span></div>
+                      {allTimeEarnings.totalMileageCents > 0 && (
                         <div className={line}>
                           <span className="text-slate-600">Mileage deduction</span>
-                          <span className="font-medium text-slate-400" title="Reduces what's taxed, not the cash total above">− {formatCents(totalMileageCents)}</span>
+                          <span className="font-medium text-slate-400" title="Reduces what's taxed, not the cash total above">− {formatCents(allTimeEarnings.totalMileageCents)}</span>
                         </div>
                       )}
-                      <div className={line}><span className="text-slate-600">Set aside for taxes</span><span className="font-medium text-slate-800">− {formatCents(totalTax)}</span></div>
+                      <div className={line}><span className="text-slate-600">Set aside for taxes</span><span className="font-medium text-slate-800">− {formatCents(allTimeEarnings.totalTax)}</span></div>
                       <div className={`${line} border-t border-slate-200 pt-2 font-bold`}>
                         <span className="text-slate-800">Net earnings</span>
-                        <span className={totalPay < 0 ? "text-red-600" : "text-emerald-700"}>{totalPay < 0 ? "−" : ""}{formatCents(Math.abs(totalPay))}</span>
+                        <span className={allTimeEarnings.totalPay < 0 ? "text-red-600" : "text-emerald-700"}>{allTimeEarnings.totalPay < 0 ? "−" : ""}{formatCents(Math.abs(allTimeEarnings.totalPay))}</span>
                       </div>
                     </div>
                   </div>

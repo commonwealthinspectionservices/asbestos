@@ -157,16 +157,22 @@ export async function ensureMileageDays(from: string, to: string): Promise<Milea
 }
 
 /**
- * Read-only totals for the summary table: reads whatever's already saved
- * and creates a route for any past-or-today day that has jobs but no saved
- * row yet (a plain upsert of a brand-new row, safe to race). Deliberately
- * does NOT run the job-diff/rewrite step ensureMileageDays does for the
- * visible month — running that over this wide a range on every page load
- * raced against the month view's own sync and corrupted a real day's
- * stops (see MileageView.tsx's own comment, 2026-09-22). Only the month
- * actually being viewed gets its stops rewritten.
+ * Read-only per-day totals — the Mileage page's own "Miles by month" table
+ * and, per Tim, 2026-09-23, the Revenue & Margin Summary's now-weekly-and-
+ * monthly earnings section both roll this up client-side (per month, or
+ * bucketed into the same Sun–Sat weeks the rest of that page already uses
+ * — a month-level total can't be re-sliced that finely, which is exactly
+ * why this returns per-day rather than pre-aggregated). Reads whatever's
+ * already saved and creates a route for any past-or-today day that has
+ * jobs but no saved row yet (a plain upsert of a brand-new row, safe to
+ * race). Deliberately does NOT run the job-diff/rewrite step
+ * ensureMileageDays does for the visible month — running that over this
+ * wide a range on every page load raced against the month view's own sync
+ * and corrupted a real day's stops (see MileageView.tsx's own comment,
+ * 2026-09-22). Only the month actually being viewed gets its stops
+ * rewritten.
  */
-export async function sumSavedMileageByMonth(from: string, to: string): Promise<Record<string, number>> {
+export async function sumSavedMileageByDay(from: string, to: string): Promise<Record<string, number>> {
   const supabase = getSupabaseAdminFresh();
   const settings = await getSettingsFresh();
   const today = nowInTimeZone(settings.timezone).dateIso;
@@ -201,13 +207,11 @@ export async function sumSavedMileageByMonth(from: string, to: string): Promise<
     }
   }
 
-  const monthlyMiles: Record<string, number> = {};
+  const dailyMiles: Record<string, number> = {};
   for (const row of saved ?? []) {
-    const key = (row.day as string).slice(0, 7);
-    const miles = totalMiles(row as unknown as MileageDay);
-    monthlyMiles[key] = Math.round(((monthlyMiles[key] ?? 0) + miles) * 10) / 10;
+    dailyMiles[row.day as string] = totalMiles(row as unknown as MileageDay);
   }
-  return monthlyMiles;
+  return dailyMiles;
 }
 
 export async function saveMileageDay(day: string, stops: MileageStop[], legOverride?: { index: number; miles: number | null }, dayTotal?: number): Promise<MileageDay> {

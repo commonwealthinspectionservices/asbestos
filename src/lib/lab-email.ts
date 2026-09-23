@@ -2181,12 +2181,17 @@ async function processMatchedLabEmail(params: {
       // text at all now — the mold-needs-manual-work fact lives in this
       // email existing at all (see the branch comment above), not in its
       // body. Client name falls back to the contact's own name for an
-      // individual/homeowner job (no company).
+      // individual/homeowner job (no company). Per Tim, same day — "it
+      // should probably say what kind of lab results landed... mold air
+      // samples or bulk samples or whatever": reportLabels is exactly
+      // which label(s) this specific report just reported data for (see
+      // its own comment above — not necessarily every mold label the job
+      // has).
       const clientName = updatedJob.customers?.company || updatedJob.customers?.name || "";
       await sendEmail({
         to: process.env.OWNER_EMAIL!,
         subject: `Lab results landed — ${updatedJob.project_number ?? updatedJob.id}`,
-        html: emailShell(`<p style="font-size:15px;">${escapeHtml(updatedJob.project_number ?? updatedJob.id)} — ${escapeHtml(clientName)}<br>${escapeHtml(expandAddress(updatedJob.service_address))}</p>`),
+        html: emailShell(`<p style="font-size:15px;">${escapeHtml(updatedJob.project_number ?? updatedJob.id)} — ${escapeHtml(clientName)}<br>${escapeHtml(expandAddress(updatedJob.service_address))}<br>${escapeHtml(reportLabels.join(", "))}</p>`),
       }).catch(() => {});
       return;
     }

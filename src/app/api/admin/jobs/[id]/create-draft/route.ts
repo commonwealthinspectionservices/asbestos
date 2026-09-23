@@ -53,7 +53,10 @@ export const POST = withApiErrors(async (
     const includeInvoice = Boolean(body?.includeInvoice);
     const includeMoistureMapping = Boolean(body?.includeMoistureMapping);
     const subject = typeof body?.subject === "string" ? body.subject : undefined;
-    const { messageId } = await createSelectedDraftForJob(params.id, { domains, includeInvoice, includeMoistureMapping, subject });
+    // Defaults true when omitted (older clients/callers) — see
+    // createSelectedDraftForJob's own comment.
+    const includeReviewLink = body?.includeReviewLink === undefined ? true : Boolean(body.includeReviewLink);
+    const { messageId } = await createSelectedDraftForJob(params.id, { domains, includeInvoice, includeMoistureMapping, subject, includeReviewLink });
     return NextResponse.json({ ok: true, messageId });
   }
 

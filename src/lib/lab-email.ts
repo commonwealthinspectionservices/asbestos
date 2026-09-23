@@ -175,7 +175,13 @@ function bestSampledDate(job: Job): string | null {
 // callers (the always-whole-job auto-drafted report and combined paths)
 // for why the default still has to fall back to that when no override is
 // given.
-function reportDraftBodyHtml(job: Job, settings: Settings, domainsOverride?: ReportDomain[]): string {
+// includeReviewLink defaults true — preserves this function's original
+// always-on behavior for its two older callers (the automatic/manual
+// single-report draft paths). The Email tab's checklist (see
+// draftSelectedEmailForJob) is the one caller that passes an explicit,
+// admin-controlled value — per Tim, 2026-09-23, a per-draft checkbox
+// there rather than this being unconditional.
+function reportDraftBodyHtml(job: Job, settings: Settings, domainsOverride?: ReportDomain[], includeReviewLink = true): string {
   const domains = domainsOverride ?? jobReportDomains(job.service_type);
   const domainPhrase = reportDomainListPhrase(domains);
   const isPlural = domains.length > 1;
@@ -195,8 +201,7 @@ function reportDraftBodyHtml(job: Job, settings: Settings, domainsOverride?: Rep
     `If you have any questions, call me at <span style="white-space:nowrap;">${escapeHtml(settings.business_phone)}</span>.`,
     "",
     ...SIGNATURE_LINES,
-    "",
-    REVIEW_LINK_LINE,
+    ...(includeReviewLink ? ["", REVIEW_LINK_LINE] : []),
   ].join("<br>");
 }
 
@@ -290,7 +295,12 @@ const COMBINED_DRAFT_DOMAIN_REPORT_LABEL: Record<ReportDomain, string> = {
 // relationship, not a homeowner or a new referral source being asked
 // to leave a review; confirmed against a real drafted example he
 // pointed to directly as the standard to lock in.
-function combinedDraftBodyHtml(job: Job & { customers: Customer }, settings: Settings, totalCents: number, payNowUrl: string | null, domainsOverride?: ReportDomain[]): string {
+// includeReviewLink defaults true — same reasoning as reportDraftBodyHtml's
+// own comment above. FLI Environmental's exclusion (see the 2026-09-10
+// comment below) is unconditional regardless of this flag — Dave's not
+// someone the checklist's review-link checkbox should ever be able to
+// re-add for.
+function combinedDraftBodyHtml(job: Job & { customers: Customer }, settings: Settings, totalCents: number, payNowUrl: string | null, domainsOverride?: ReportDomain[], includeReviewLink = true): string {
   // Per Tim, 2026-09-17 — "the order that they are listed out in should be
   // the order that they are attached in": the actual attachments always
   // come out in the job's own natural service_type order (see
@@ -331,8 +341,7 @@ function combinedDraftBodyHtml(job: Job & { customers: Customer }, settings: Set
           `Should you have any questions or need additional information, please contact me at <span style="white-space:nowrap;">${escapeHtml(settings.business_phone)}</span>.`,
           "",
           ...SIGNATURE_LINES,
-          "",
-          REVIEW_LINK_LINE,
+          ...(includeReviewLink ? ["", REVIEW_LINK_LINE] : []),
         ]),
   ].join("<br>");
 }
@@ -2802,8 +2811,13 @@ async function draftSelectedEmailForJob(params: {
       back to the same computed default the tab itself shows when omitted
       or blank. */
   subject?: string;
+  /** Per Tim, 2026-09-23 — the Email tab's own "Add review link" checkbox,
+      one per draft rather than reportDraftBodyHtml/combinedDraftBodyHtml's
+      old unconditional default. Defaults true (matches their prior
+      always-on behavior) when omitted. */
+  includeReviewLink?: boolean;
 }): Promise<{ messageId: string }> {
-  const { job, settings, accessToken, domains, includeInvoice, includeMoistureMapping, subject: customSubject } = params;
+  const { job, settings, accessToken, domains, includeInvoice, includeMoistureMapping, subject: customSubject, includeReviewLink = true } = params;
   if (domains.includes("mold")) assertMoldReportReady(job);
   if (domains.includes("lead")) assertLeadReportReady(job);
   if (domains.includes("asbestos")) assertAsbestosReportReady(job);
@@ -2875,8 +2889,8 @@ async function draftSelectedEmailForJob(params: {
   // a mixed asbestos+lead job) can't leave the body text claiming a
   // report that isn't actually attached.
   const bodyHtml = includeInvoice
-    ? (domains.length > 0 ? combinedDraftBodyHtml(pricedJob, settings, totalCents, payNowUrlForEmail, domains) : invoiceDraftBodyHtml(pricedJob, settings, payNowUrlForEmail))
-    : reportDraftBodyHtml(pricedJob, settings, domains);
+    ? (domains.length > 0 ? combinedDraftBodyHtml(pricedJob, settings, totalCents, payNowUrlForEmail, domains, includeReviewLink) : invoiceDraftBodyHtml(pricedJob, settings, payNowUrlForEmail))
+    : reportDraftBodyHtml(pricedJob, settings, domains, includeReviewLink);
 
   // Boston Harbor Water Restoration: per Tim, 2026-09-08 — the people on
   // the original job-intake thread are the fieldworkers, not whoever
@@ -2997,7 +3011,7 @@ export async function createCombinedDraftForJob(jobId: string): Promise<{ messag
 /** The Email tab's checklist button — any combination of report domain(s)/Invoice/Moisture Mapping Report as one Gmail draft. */
 export async function createSelectedDraftForJob(
   jobId: string,
-  selection: { domains: ReportDomain[]; includeInvoice: boolean; includeMoistureMapping: boolean; subject?: string }
+  selection: { domains: ReportDomain[]; includeInvoice: boolean; includeMoistureMapping: boolean; subject?: string; includeReviewLink?: boolean }
 ): Promise<{ messageId: string }> {
   return draftSelectedEmailForJob({ ...(await loadJobForDraft(jobId)), ...selection });
 }

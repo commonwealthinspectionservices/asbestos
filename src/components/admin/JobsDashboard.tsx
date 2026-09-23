@@ -457,6 +457,13 @@ function EmailChecklistPanel({
   const [includeMoistureMapping, setIncludeMoistureMapping] = useState(
     isMoistureMappingJob && hasPhotos && !job.report_sent_at
   );
+  // Per Tim, 2026-09-23 — was unconditional (every report/combined email
+  // got the review-link line), now a per-draft opt-out. Defaults checked,
+  // matching that prior always-on behavior — FLI Environmental jobs never
+  // get one either way (see combinedDraftBodyHtml's own comment), so the
+  // checkbox is hidden there rather than shown-but-pointless.
+  const isFliJob = job.customers?.company_id === FLI_ENVIRONMENTAL_COMPANY_ID;
+  const [includeReviewLink, setIncludeReviewLink] = useState(true);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sendingReminder, setSendingReminder] = useState(false);
@@ -527,6 +534,7 @@ function EmailChecklistPanel({
           includeInvoice,
           includeMoistureMapping,
           subject,
+          includeReviewLink,
         }),
       });
       const data = await res.json();
@@ -614,6 +622,12 @@ function EmailChecklistPanel({
               <span className="text-xs text-slate-400">
                 {job.invoice_sent_at ? `Sent ${formatDateMDY(job.invoice_sent_at)}` : job.invoice_drafted_at ? "Drafted, not sent" : "Not drafted"}
               </span>
+            </label>
+          )}
+          {!isFliJob && (
+            <label className="flex items-center gap-2 px-1 text-xs text-slate-500">
+              <input type="checkbox" checked={includeReviewLink} onChange={(e) => setIncludeReviewLink(e.target.checked)} />
+              <span>Add review link</span>
             </label>
           )}
         </div>

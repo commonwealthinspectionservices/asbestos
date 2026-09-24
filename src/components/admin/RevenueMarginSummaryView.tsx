@@ -397,8 +397,18 @@ export default function RevenueMarginSummaryView() {
                   current From/To range like everything else here, just not
                   the "complete jobs only" restriction the other columns
                   use — see invoicedTotalCents' own comment. */}
+              {/* Per Tim, 2026-09-24 — "isn't it weird that directly
+                  underneath job we have to create range here": the raw
+                  date range sat where a job number would, reading like a
+                  mangled job row instead of a summary. "Total" now carries
+                  the weight (bold, same spot a project number would sit),
+                  with the actual range underneath it as a small subtitle
+                  — same two-line shape job rows themselves use. */}
               <div className="grid grid-cols-[minmax(140px,1fr)_74px_74px_78px_70px_92px_92px] gap-x-2 items-center border-b-2 border-slate-200 bg-slate-50 px-3 py-3 text-sm font-semibold text-slate-800">
-                <div className="text-[11px] leading-tight sm:text-sm">{rangeLabel}</div>
+                <div className="min-w-0">
+                  <div className="text-[11px] leading-tight sm:text-sm">Total</div>
+                  <div className="truncate text-[10px] font-normal leading-tight text-slate-500 sm:text-xs">{rangeLabel}</div>
+                </div>
                 <div className="whitespace-nowrap text-right text-[12px] sm:text-sm">
                   {invoicedTotalCents > 0 ? <span className="text-slate-600">{formatWhole(invoicedTotalCents)}</span> : <span className="text-slate-400">—</span>}
                 </div>

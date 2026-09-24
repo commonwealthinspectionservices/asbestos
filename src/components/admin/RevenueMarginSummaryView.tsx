@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { JobWithCustomer } from "@/lib/types";
 import { formatCents, knownStripeFeeCentsForJob } from "@/lib/pricing";
-import { TAX_SET_ASIDE_PERCENT, effectiveJobDate } from "@/lib/mileage-shared";
+import { effectiveJobDate } from "@/lib/mileage-shared";
 import { formatDateMDY } from "@/lib/date-format";
 import { FLI_ENVIRONMENTAL_COMPANY_ID } from "@/lib/report-findings";
 import { billingDateFor, invoiceStatus, ymd } from "@/components/admin/BillingView";
@@ -170,18 +170,19 @@ export default function RevenueMarginSummaryView() {
     return cents;
   }, [invoicedJobs]);
 
-  // Per Tim, 2026-09-24 — "I just want 35% for taxes to be 35% of my net
-  // earnings. And my net earnings are what I get paid minus lab cost,
-  // stripe fee": one row per job, fully self-contained — no period
-  // bucketing, no date-basis question, nothing to reconcile against a
-  // different row. invoicedCents is what the job was actually billed for,
-  // shown regardless of paid status. paidCents is 0 (shown as "—") until
-  // the job is actually paid; labCents is the job's own real,
-  // Crystal-reported cost regardless of paid status (lab costs are
-  // charged whether or not Commonwealth's own invoice has been paid yet).
-  // netEarningsCents is allowed to go negative (a job can genuinely cost
-  // more than it's brought in so far); taxCents floors at 0 so a loss
-  // never produces a negative tax.
+  // Per Tim, 2026-09-24 — one row per job, fully self-contained — no
+  // period bucketing, no date-basis question, nothing to reconcile
+  // against a different row. invoicedCents is what the job was actually
+  // billed for, shown regardless of paid status. paidCents is 0 (shown as
+  // "—") until the job is actually paid; labCents is the job's own real,
+  // Crystal-reported cost. netEarningsCents is allowed to go negative (a
+  // job can genuinely cost more than it's brought in so far).
+  //
+  // Per Tim, 2026-09-24 (later same day) — "delete the 35% taxes column
+  // entirely... all we should be trying to calculate on this is net
+  // earnings": the whole tax calculation (taxCents, and totalTaxable/
+  // totalTax on the totals row below) is gone. This page is now purely
+  // Invoiced/Paid/Lab Cost/Stripe Fee/Net Earnings — no tax figure at all.
   const jobRows = useMemo(
     () =>
       invoicedJobs
@@ -192,7 +193,6 @@ export default function RevenueMarginSummaryView() {
           const labCents = job.lab_cost_cents ?? 0;
           const stripeFeeCents = knownStripeFeeCentsForJob(job) ?? 0;
           const netEarningsCents = paidCents - labCents - stripeFeeCents;
-          const taxCents = Math.max(0, Math.round((Math.max(0, netEarningsCents) * TAX_SET_ASIDE_PERCENT) / 100));
           const date = billingDateFor(job);
           return {
             id: job.id,
@@ -204,7 +204,6 @@ export default function RevenueMarginSummaryView() {
             labCents,
             stripeFeeCents,
             netEarningsCents,
-            taxCents,
           };
         })
         .sort((a, b) => (b.date ?? "").localeCompare(a.date ?? "")),
@@ -237,31 +236,21 @@ export default function RevenueMarginSummaryView() {
   // page), it just doesn't appear anywhere on THIS page until paid.
   const invoicedTotalCents = useMemo(() => filteredJobRows.reduce((sum, row) => sum + row.invoicedCents, 0), [filteredJobRows]);
 
-  // Per Tim, 2026-09-24 — "the 35% for taxes column should definitely
-  // total up": totalTax is the direct sum of each row's own taxCents
-  // (each already independently floored at $0 — see jobRows' own
-  // comment), same as totalLabCost sums each row's own labCents. totalPay
-  // (Net Earnings) still comes from totalPaid − totalLabCost −
-  // totalStripeFee rather than summing each row's own netEarningsCents —
-  // now moot for the paid-vs-unpaid distinction since Lab Cost is also
-  // isPaid-gated, but still avoids any rounding drift between a
-  // row-by-row sum and the aggregate. totalTaxable is informational only
-  // (the tooltip) — sum of each paid row's own taxable base, not
-  // literally reconciled to the cent against totalTax (each row rounds
-  // its own 35% independently).
+  // totalPay (Net Earnings) comes from these three aggregate totals, not
+  // from summing each row's own netEarningsCents (which stays internally
+  // negative-but-hidden on unpaid rows even though Lab Cost display
+  // doesn't show it — summing it directly would double-count).
   const filteredTotals = useMemo(() => {
-    let totalPaid = 0, totalLabCost = 0, totalStripeFee = 0, totalTaxable = 0, totalTax = 0;
+    let totalPaid = 0, totalLabCost = 0, totalStripeFee = 0;
     for (const row of filteredJobRows) {
-      totalTax += row.taxCents;
       if (row.isPaid) {
         totalPaid += row.paidCents;
         totalLabCost += row.labCents;
         totalStripeFee += row.stripeFeeCents;
-        totalTaxable += Math.max(0, row.netEarningsCents);
       }
     }
     const totalPay = totalPaid - totalLabCost - totalStripeFee;
-    return { totalPaid, totalLabCost, totalStripeFee, totalPay, totalTaxable, totalTax };
+    return { totalPaid, totalLabCost, totalStripeFee, totalPay };
   }, [filteredJobRows]);
 
   function goToJob(jobId: string) {
@@ -300,10 +289,10 @@ export default function RevenueMarginSummaryView() {
               links straight to that job's own page instead of a
               period-filtered list, since a row already IS one job. Same
               cents precision (formatCents) and horizontal scroll pattern
-              as before — 5 dollar columns still don't fit a phone's width.
-              Lab Cost/Stripe Fee render as plain positive red numbers (a
-              real cost); Net Earnings/Tax same treatment as before (Net
-              Earnings signed, Tax floored at $0). */}
+              as before. Lab Cost/Stripe Fee render as plain positive red
+              numbers (a real cost); Net Earnings is signed (red if
+              negative). No tax column — see jobRows' own comment for why
+              it was dropped. */}
           {/* Per Tim, 2026-09-24 — "this should all be one line across":
               quick-select buttons and the From/To inputs used to be two
               separate flex-wrap rows, which could each wrap onto a second
@@ -360,15 +349,14 @@ export default function RevenueMarginSummaryView() {
           </div>
 
           <div className="mt-3 overflow-x-auto rounded-xl border border-slate-200 bg-white">
-            <div className="min-w-[715px]">
-              <div className="grid grid-cols-[minmax(140px,1fr)_74px_74px_78px_70px_92px_92px] gap-x-2 border-b border-slate-200 bg-slate-50 px-3 py-2 text-[8px] font-bold uppercase text-slate-500 sm:text-xs">
+            <div className="min-w-[620px]">
+              <div className="grid grid-cols-[minmax(140px,1fr)_74px_74px_78px_70px_92px] gap-x-2 border-b border-slate-200 bg-slate-50 px-3 py-2 text-[8px] font-bold uppercase text-slate-500 sm:text-xs">
                 <div>Job</div>
                 <div className="text-right">Invoiced</div>
                 <div className="text-right">Paid</div>
                 <div className="text-right">Lab Cost</div>
                 <div className="text-right">Stripe Fee</div>
                 <div className="text-right">Net Earnings</div>
-                <div className="text-right">35% for Taxes</div>
               </div>
               {filteredJobRows.length === 0 && (
                 <div className="px-3 py-6 text-center text-sm text-slate-500">No jobs in this range.</div>
@@ -380,7 +368,7 @@ export default function RevenueMarginSummaryView() {
                   role="button"
                   tabIndex={0}
                   onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && goToJob(row.id)}
-                  className="group grid cursor-pointer grid-cols-[minmax(140px,1fr)_74px_74px_78px_70px_92px_92px] gap-x-2 items-center border-b border-slate-100 px-3 py-3 text-sm last:border-b-0 hover:bg-slate-50"
+                  className="group grid cursor-pointer grid-cols-[minmax(140px,1fr)_74px_74px_78px_70px_92px] gap-x-2 items-center border-b border-slate-100 px-3 py-3 text-sm last:border-b-0 hover:bg-slate-50"
                 >
                   <div className="min-w-0">
                     <div className="text-[11px] font-medium leading-tight text-slate-800 group-hover:underline sm:text-sm">{row.project_number}</div>
@@ -421,12 +409,6 @@ export default function RevenueMarginSummaryView() {
                       </span>
                     )}
                   </div>
-                  <div
-                    className="whitespace-nowrap text-right text-[12px] sm:text-sm"
-                    title={`Taxable (Paid − Lab Cost − Stripe Fee): ${formatCents(Math.max(0, row.netEarningsCents))}`}
-                  >
-                    {row.taxCents > 0 ? <span className="text-amber-700">{formatWhole(row.taxCents)}</span> : <span className="text-slate-400">—</span>}
-                  </div>
                 </div>
               ))}
               {/* Per Tim, 2026-09-24 — went from bottom row → second row
@@ -437,7 +419,7 @@ export default function RevenueMarginSummaryView() {
                   From/To range like everything else here, just not the
                   "complete jobs only" restriction the other columns use —
                   see invoicedTotalCents' own comment. */}
-              <div className="grid grid-cols-[minmax(140px,1fr)_74px_74px_78px_70px_92px_92px] gap-x-2 items-center border-t-2 border-slate-200 bg-slate-50 px-3 py-3 text-sm font-semibold text-slate-800">
+              <div className="grid grid-cols-[minmax(140px,1fr)_74px_74px_78px_70px_92px] gap-x-2 items-center border-t-2 border-slate-200 bg-slate-50 px-3 py-3 text-sm font-semibold text-slate-800">
                 <div className="text-[11px] uppercase leading-tight sm:text-sm">Total</div>
                 <div className="whitespace-nowrap text-right text-[12px] sm:text-sm">
                   {invoicedTotalCents > 0 ? <span className="text-slate-600">{formatWhole(invoicedTotalCents)}</span> : <span className="text-slate-400">—</span>}
@@ -460,12 +442,6 @@ export default function RevenueMarginSummaryView() {
                       {formatWhole(Math.abs(filteredTotals.totalPay))}
                     </span>
                   )}
-                </div>
-                <div
-                  className="whitespace-nowrap text-right text-[12px] sm:text-sm"
-                  title={`Taxable: ${formatCents(filteredTotals.totalTaxable)}`}
-                >
-                  {filteredTotals.totalTax > 0 ? <span className="text-amber-700">{formatWhole(filteredTotals.totalTax)}</span> : <span className="text-slate-400">—</span>}
                 </div>
               </div>
             </div>

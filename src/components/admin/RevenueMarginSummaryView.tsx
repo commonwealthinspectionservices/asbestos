@@ -260,26 +260,6 @@ export default function RevenueMarginSummaryView() {
     return result;
   }, [jobs, periodHistory.weekly]);
 
-  // Per Tim, 2026-09-23 — "go check the numbers": this used to sum
-  // job.lab_cost_cents across every invoiced job directly, independent of
-  // periodHistory — including a job with no confirmed_date, which
-  // periodHistory's own loop skips entirely (`if (!bucketDate) continue`)
-  // since it can't be placed in any week/month row. That meant All Time
-  // could (and did — caught live, $5,583 shown vs. $3,761 actually summing
-  // the visible weeks) run higher than the true sum of every row on the
-  // page, with the gap coming from jobs invisible to the table itself.
-  // Now literally a sum of periodHistory.monthly's own labCostCents, so
-  // All Time can never disagree with what's actually shown above it —
-  // see paidButNotTracked below for how a job excluded this way (missing
-  // confirmed_date) is still surfaced instead of just silently dropped.
-  const allTimeTotal = useMemo(() => {
-    let labCostCents = 0;
-    for (const m of periodHistory.monthly) {
-      labCostCents += m.labCostCents;
-    }
-    return { labCostCents };
-  }, [periodHistory.monthly]);
-
   // Per Tim, 2026-09-18 — moved here from BillingView ("this part should
   // not be on the billing page, it should be on the revenue and margin
   // summary page"), unchanged math (same invoicedJobs, same invoiceStatus
@@ -311,29 +291,35 @@ export default function RevenueMarginSummaryView() {
     return byWeekLabel;
   }, [dailyMiles, periodHistory.weekly]);
 
-  // Per Tim, 2026-09-23 — Other costs (monthly_overhead) removed entirely
-  // ("delete the other costs tab"), which also removes the one thing that
-  // used to make weekly vs. monthly "All time" totals differ — every paid
-  // job/day falls into exactly one week and exactly one month, so this is
-  // now the same number regardless of which tab is selected. Kept on the
-  // monthly basis anyway, purely for a stable computation source.
-  // Per Tim, 2026-09-23 — same fix as summaryRows' own comment: a real
-  // waterfall (Paid − ALL Lab Cost − paid Stripe fee − Mileage), allowed
-  // to go negative, not floored/hidden behind the paid-jobs-only lab cost
-  // that used to silently undercount real costs here.
+  const isWeekly = summaryTab === "weekly";
+
+  // Per Tim, 2026-09-23 — "go check it live" caught a second edge case in
+  // the first fix: this used to always sum periodHistory.monthly
+  // regardless of which tab was active, but monthly bucket inclusion is
+  // looser than weekly's (a whole calendar month vs. an exact date range
+  // — see periodHistory's own two .filter() calls), so a job right at the
+  // company's own start-date boundary could count in the monthly sum
+  // without ever appearing in any *weekly* row. All time disagreeing with
+  // the weekly rows while agreeing with the (invisible, on this tab)
+  // monthly ones was exactly as broken as the original bug. Now always
+  // sums whichever set of rows (weekly or monthly) is actually on screen,
+  // so "All time" can never mathematically disagree with what's shown
+  // above it, on either tab. Real waterfall unchanged from before: Paid −
+  // ALL Lab Cost − paid Stripe fee − Mileage, allowed to go negative.
   const allTimeEarnings = useMemo(() => {
-    let totalPaidGross = 0, totalNet = 0, totalMileageCents = 0, totalTaxable = 0, totalTax = 0, totalPay = 0;
-    for (const m of periodHistory.monthly) {
-      const mileageDeductionCents = Math.round((monthlyMiles[m.key] ?? 0) * MILEAGE_RATE_CENTS);
-      const netBeforeTaxCents = m.paidGrossCents - m.labCostCents - m.paidStripeFeeCents - mileageDeductionCents;
+    const source = isWeekly ? periodHistory.weekly : periodHistory.monthly;
+    const miles = isWeekly ? weeklyMiles : monthlyMiles;
+    let totalPaidGross = 0, totalLabCost = 0, totalStripeFee = 0, totalMileageCents = 0, totalTaxable = 0, totalTax = 0, totalPay = 0;
+    for (const p of source) {
+      const id = isWeekly ? (p as typeof periodHistory.weekly[number]).label : (p as typeof periodHistory.monthly[number]).key;
+      const mileageDeductionCents = Math.round((miles[id] ?? 0) * MILEAGE_RATE_CENTS);
+      const netBeforeTaxCents = p.paidGrossCents - p.labCostCents - p.paidStripeFeeCents - mileageDeductionCents;
       const taxableCents = Math.max(0, netBeforeTaxCents);
       const taxCents = Math.max(0, Math.round((taxableCents * TAX_SET_ASIDE_PERCENT) / 100));
-      totalPaidGross += m.paidGrossCents; totalNet += netBeforeTaxCents; totalMileageCents += mileageDeductionCents; totalTaxable += taxableCents; totalTax += taxCents; totalPay += netBeforeTaxCents - taxCents;
+      totalPaidGross += p.paidGrossCents; totalLabCost += p.labCostCents; totalStripeFee += p.paidStripeFeeCents; totalMileageCents += mileageDeductionCents; totalTaxable += taxableCents; totalTax += taxCents; totalPay += netBeforeTaxCents - taxCents;
     }
-    return { totalPaidGross, totalNet, totalMileageCents, totalTaxable, totalTax, totalPay };
-  }, [periodHistory.monthly, monthlyMiles]);
-
-  const isWeekly = summaryTab === "weekly";
+    return { totalPaidGross, totalLabCost, totalStripeFee, totalMileageCents, totalTaxable, totalTax, totalPay };
+  }, [isWeekly, periodHistory, weeklyMiles, monthlyMiles]);
 
   // A period row navigates to Billing pre-filtered to that period, instead
   // of setting local state here — see this file's own top-of-file comment.
@@ -392,6 +378,7 @@ export default function RevenueMarginSummaryView() {
         labCents: p.labCostCents,
         pdfHrefs: isWeekly ? weeklyLabInvoicePdfHrefs[p.label] : undefined,
         paidGrossCents: p.paidGrossCents,
+        stripeFeeCents: p.paidStripeFeeCents,
         miles,
         mileageDeductionCents,
         taxableCents,
@@ -468,10 +455,11 @@ export default function RevenueMarginSummaryView() {
               Tim) since it's the one column here that's actually a cost,
               not incoming/outgoing money. */}
           <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white">
-            <div className="grid grid-cols-[minmax(0,1fr)_64px_68px_68px_78px_78px] gap-x-1.5 border-b border-slate-200 bg-slate-50 px-2 py-2 text-[9px] font-bold uppercase leading-tight tracking-wide text-slate-500 sm:gap-x-3 sm:px-4 sm:text-xs">
+            <div className="grid grid-cols-[minmax(0,1fr)_58px_62px_58px_62px_74px_74px] gap-x-1.5 border-b border-slate-200 bg-slate-50 px-2 py-2 text-[9px] font-bold uppercase leading-tight tracking-wide text-slate-500 sm:gap-x-3 sm:px-4 sm:text-xs">
               <div>{isWeekly ? "Week" : "Month"}</div>
               <div className="text-right">Paid</div>
               <div className="text-right">Lab Cost</div>
+              <div className="text-right">Stripe Fee</div>
               <div className="text-right">Mileage</div>
               <div className="text-right">Net Earnings</div>
               <div className="text-right">35% for Taxes</div>
@@ -483,7 +471,7 @@ export default function RevenueMarginSummaryView() {
                 role="button"
                 tabIndex={0}
                 onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && goToPeriod(row.label)}
-                className="grid cursor-pointer grid-cols-[minmax(0,1fr)_64px_68px_68px_78px_78px] gap-x-1.5 items-center border-b border-slate-100 px-2 py-3 text-sm last:border-b-0 hover:bg-slate-50 sm:gap-x-3 sm:px-4"
+                className="grid cursor-pointer grid-cols-[minmax(0,1fr)_58px_62px_58px_62px_74px_74px] gap-x-1.5 items-center border-b border-slate-100 px-2 py-3 text-sm last:border-b-0 hover:bg-slate-50 sm:gap-x-3 sm:px-4"
               >
                 <div className="text-[11px] leading-tight text-slate-700 sm:text-sm">{row.shortLabel}</div>
                 <div className="whitespace-nowrap text-right text-[12px] font-medium text-slate-800 sm:text-sm">{formatWhole(row.paidGrossCents)}</div>
@@ -510,6 +498,9 @@ export default function RevenueMarginSummaryView() {
                   )}
                 </div>
                 <div className="whitespace-nowrap text-right text-[12px] text-red-600 sm:text-sm">
+                  {row.stripeFeeCents > 0 ? `−${formatWhole(row.stripeFeeCents)}` : "—"}
+                </div>
+                <div className="whitespace-nowrap text-right text-[12px] text-red-600 sm:text-sm">
                   {row.mileageDeductionCents > 0 ? `−${formatWhole(row.mileageDeductionCents)}` : "—"}
                 </div>
                 <div className="whitespace-nowrap text-right text-[12px] font-semibold sm:text-sm">
@@ -519,23 +510,27 @@ export default function RevenueMarginSummaryView() {
                 </div>
                 <div
                   className="whitespace-nowrap text-right text-[12px] text-amber-700 sm:text-sm"
-                  title={`Taxable (Paid − Mileage Deduction): ${formatCents(row.taxableCents)}${row.mileageDeductionCents > 0 ? ` (mileage deduction: ${formatCents(row.mileageDeductionCents)})` : ""}`}
+                  title={`Taxable (Paid − Lab Cost − Stripe Fee − Mileage Deduction): ${formatCents(row.taxableCents)}`}
                 >
                   {row.taxCents > 0 ? formatWhole(row.taxCents) : "—"}
                 </div>
               </div>
             ))}
-            <div className="grid grid-cols-[minmax(0,1fr)_64px_68px_68px_78px_78px] gap-x-1.5 items-center bg-slate-50 px-2 py-3 text-sm font-semibold text-slate-800 sm:gap-x-3 sm:px-4">
+            <div className="grid grid-cols-[minmax(0,1fr)_58px_62px_58px_62px_74px_74px] gap-x-1.5 items-center bg-slate-50 px-2 py-3 text-sm font-semibold text-slate-800 sm:gap-x-3 sm:px-4">
               <div className="text-[11px] sm:text-sm">All time</div>
               <div className="whitespace-nowrap text-right text-[12px] sm:text-sm">{formatWhole(allTimeEarnings.totalPaidGross)}</div>
               <div className="whitespace-nowrap text-right text-[12px] text-red-600 sm:text-sm">
-                {allTimeTotal.labCostCents > 0 ? `−${formatWhole(allTimeTotal.labCostCents)}` : formatWhole(allTimeTotal.labCostCents)}
+                {allTimeEarnings.totalLabCost > 0 ? `−${formatWhole(allTimeEarnings.totalLabCost)}` : formatWhole(allTimeEarnings.totalLabCost)}
+              </div>
+              <div className="whitespace-nowrap text-right text-[12px] text-red-600 sm:text-sm">
+                {allTimeEarnings.totalStripeFee > 0 ? `−${formatWhole(allTimeEarnings.totalStripeFee)}` : "—"}
               </div>
               <div className="whitespace-nowrap text-right text-[12px] text-red-600 sm:text-sm">
                 {allTimeEarnings.totalMileageCents > 0 ? `−${formatWhole(allTimeEarnings.totalMileageCents)}` : "—"}
               </div>
-              {/* Always the monthly-basis total (see allTimeEarnings' own
-                  comment) — doesn't change when you flip Weekly/Monthly. */}
+              {/* Sums whichever set of rows (weekly or monthly) is actually
+                  on screen — see allTimeEarnings' own comment for why this
+                  can (correctly) shift slightly when you flip the tab. */}
               <div className="whitespace-nowrap text-right text-[12px] sm:text-sm">
                 <span className={allTimeEarnings.totalPay < 0 ? "text-red-600" : "text-emerald-700"}>
                   {allTimeEarnings.totalPay < 0 ? "−" : ""}{formatWhole(Math.abs(allTimeEarnings.totalPay))}

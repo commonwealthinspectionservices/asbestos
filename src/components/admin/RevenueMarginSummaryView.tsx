@@ -6,7 +6,7 @@ import Link from "next/link";
 import type { JobWithCustomer } from "@/lib/types";
 import { formatCents, knownStripeFeeCentsForJob } from "@/lib/pricing";
 import { effectiveJobDate } from "@/lib/mileage-shared";
-import { billingDateFor, invoiceStatus, ymd } from "@/components/admin/BillingView";
+import { billingDateFor, ymd } from "@/components/admin/BillingView";
 
 // Per Tim, 2026-09-24 — "I feel like it's better than having daily and
 // weekly and monthly because I can just do it on there": replaced the
@@ -139,19 +139,6 @@ export default function RevenueMarginSummaryView() {
     [jobs]
   );
 
-  // Per Tim, 2026-09-18 — moved here from BillingView ("this part should
-  // not be on the billing page, it should be on the revenue and margin
-  // summary page"), unchanged math (same invoicedJobs, same invoiceStatus
-  // predicate as its old home there).
-  const awaitingPaymentCents = useMemo(() => {
-    let cents = 0;
-    for (const job of invoicedJobs) {
-      const status = invoiceStatus(job);
-      if (status === "sent" || status === "overdue") cents += job.invoice_total_cents ?? 0;
-    }
-    return cents;
-  }, [invoicedJobs]);
-
   // Per Tim, 2026-09-24 — one row per job, fully self-contained — no
   // period bucketing, no date-basis question, nothing to reconcile
   // against a different row. invoicedCents is what the job was actually
@@ -270,12 +257,6 @@ export default function RevenueMarginSummaryView() {
 
       {loaded && !error && (
         <>
-          {/* Per Tim, 2026-09-18 — moved here from the Billing page; an
-              all-time total, not tied to any per-row basis below. */}
-          <div className="mt-3 text-sm text-slate-500">
-            Total Amount Pending <span className="font-semibold text-slate-800">{formatCents(awaitingPaymentCents)}</span>
-          </div>
-
           {/* Per Tim, 2026-09-24 — quick-select buttons and the From/To
               inputs went through several rounds the same day (moved onto
               the Pending line, deleted, restored) before landing here: all

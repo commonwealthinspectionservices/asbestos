@@ -560,9 +560,12 @@ export function ContactDetailDialog({
                 pieces — this button is just what starts it. */}
             {customer.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID && (
               <div className="mt-4 border-t border-slate-100 pt-4">
-                <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Automatic Payment</h4>
+                {/* Per Tim, 2026-09-24 — auto-charge is off; he charges
+                    Newton manually in Stripe. The card on file is still
+                    what he charges. */}
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Card on File</h4>
                 <p className="mt-1 text-sm text-slate-500">
-                  Once a card is on file, invoices are charged automatically 30 days after they go out.
+                  Invoices are not charged automatically — charge the card on file manually in Stripe when an invoice comes due.
                 </p>
                 {cardLinkError && <p className="mt-2 text-sm text-red-600">{cardLinkError}</p>}
                 <button

@@ -4685,7 +4685,10 @@ export function ProjectDetailDialog({
                     // not the full explanatory sentence.
                     <div className="mb-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
                       <p className="text-xs font-bold uppercase text-emerald-800">
-                        Automatic payment to be charged on {formatDate(dueDateFor(job)) || "the invoice due date"}
+                        {/* Per Tim, 2026-09-24 — auto-charge is off (he charges
+                            Newton manually in Stripe), so this no longer says
+                            "Automatic payment to be charged on…". */}
+                        Charged manually — payment due {formatDate(dueDateFor(job)) || "the invoice due date"}
                       </p>
                     </div>
                   )}

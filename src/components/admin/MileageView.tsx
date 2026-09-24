@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { splitAddress } from "@/lib/address";
 import { withZip } from "@/lib/address";
-import { LAB_ADDRESS, LAB_LABEL, MILEAGE_RATE_CENTS, newStopId, totalMiles, type MileageDay, type MileageStop } from "@/lib/mileage-shared";
+import { LAB_ADDRESS, LAB_LABEL, mileageRateCentsForDay, newStopId, totalMiles, type MileageDay, type MileageStop } from "@/lib/mileage-shared";
 import { formatCents } from "@/lib/pricing";
 import { COMPANY_START_DATE } from "@/lib/company-dates";
 
@@ -255,7 +255,7 @@ function DayCard({ day, onSaved, onReset }: { day: MileageDay; onSaved: (d: Mile
       <div className="flex items-baseline justify-between gap-2">
         <h3 className="text-base font-bold text-slate-800">{dayLabel(day.day)}</h3>
         <span className="text-sm font-semibold text-slate-800">
-          {total.toFixed(1)} mi <span className="font-normal text-slate-500">· {formatCents(Math.round(total * MILEAGE_RATE_CENTS))}</span>
+          {total.toFixed(1)} mi <span className="font-normal text-slate-500">· {formatCents(Math.round(total * mileageRateCentsForDay(day.day)))}</span>
         </span>
       </div>
 
@@ -388,7 +388,7 @@ export default function MileageView() {
       <div className="mt-5 flex items-center justify-between gap-2">
         <button type="button" disabled={!canGoBack} onClick={() => setMonth(shiftMonth(month, -1))} className={`${smallLink} px-1 text-lg leading-none`} aria-label="Previous month">←</button>
         <p className="whitespace-nowrap text-center text-sm text-slate-600">
-          <span className="font-bold text-slate-800">{monthLabel(month)}</span> · {monthMiles.toFixed(1)} mi · {formatCents(Math.round(monthMiles * MILEAGE_RATE_CENTS))}
+          <span className="font-bold text-slate-800">{monthLabel(month)}</span> · {monthMiles.toFixed(1)} mi · {formatCents(Math.round(monthMiles * mileageRateCentsForDay(`${month}-01`)))}
         </p>
         <button type="button" disabled={!canGoForward} onClick={() => setMonth(shiftMonth(month, 1))} className={`${smallLink} px-1 text-lg leading-none`} aria-label="Next month">→</button>
       </div>
@@ -436,13 +436,19 @@ export default function MileageView() {
           >
             <div className="text-slate-700">{monthLabel(key)}</div>
             <div className="text-right text-slate-800">{monthlyMiles[key].toFixed(1)}</div>
-            <div className="text-right font-medium text-slate-800">{formatCents(Math.round(monthlyMiles[key] * MILEAGE_RATE_CENTS))}</div>
+            <div className="text-right font-medium text-slate-800">{formatCents(Math.round(monthlyMiles[key] * mileageRateCentsForDay(`${key}-01`)))}</div>
           </button>
         ))}
         <div className="grid grid-cols-[minmax(0,1fr)_90px_100px] gap-x-2 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-800">
           <div>All time</div>
           <div className="text-right">{Object.values(monthlyMiles).reduce((a, b) => a + b, 0).toFixed(1)}</div>
-          <div className="text-right">{formatCents(Math.round(Object.values(monthlyMiles).reduce((a, b) => a + b, 0) * MILEAGE_RATE_CENTS))}</div>
+          {/* Per-month rate, not one flat rate over the whole sum — the
+              IRS rate can change mid-year (see mileageRateCentsForDay's
+              own comment), and a whole calendar month is always entirely
+              on one side of any such split. */}
+          <div className="text-right">
+            {formatCents(Math.round(Object.entries(monthlyMiles).reduce((sum, [key, miles]) => sum + miles * mileageRateCentsForDay(`${key}-01`), 0)))}
+          </div>
         </div>
       </div>
 

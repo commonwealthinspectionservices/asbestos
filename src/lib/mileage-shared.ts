@@ -3,9 +3,27 @@
 // then dragged/edited by hand. Feeds the monthly payout table.
 export const LAB_ADDRESS = "55 Accord Park Dr, Rockland, MA 02370";
 export const LAB_LABEL = "Crystal Analytical";
-// IRS standard business mileage rate, cents per mile. Update when the IRS
-// publishes a new one each January.
-export const MILEAGE_RATE_CENTS = 76; // 2026 rate, matches what QuickBooks uses ($0.76/mi)
+// IRS standard business mileage rate, cents per mile — the IRS sometimes
+// revises it mid-year (2026: 72.5¢/mi Jan 1–Jun 30, then 76¢/mi Jul 1–Dec
+// 31, matching what QuickBooks uses). Per Tim, 2026-09-24 — the app had
+// been applying a flat 76¢ to the whole year. Each entry's rate applies
+// from its own "from" date up to the next entry's — append new entries as
+// the IRS publishes new rates (each January, sometimes also mid-year);
+// never edit a past entry once that period is closed out, so a day's rate
+// stays what it truly was even if it's calculated again later.
+const MILEAGE_RATE_SCHEDULE: { from: string; centsPerMile: number }[] = [
+  { from: "2026-01-01", centsPerMile: 72.5 },
+  { from: "2026-07-01", centsPerMile: 76 },
+];
+
+/** The IRS mileage rate (cents/mile) in effect for a given YYYY-MM-DD day. */
+export function mileageRateCentsForDay(day: string): number {
+  let rate = MILEAGE_RATE_SCHEDULE[0].centsPerMile;
+  for (const entry of MILEAGE_RATE_SCHEDULE) {
+    if (day >= entry.from) rate = entry.centsPerMile;
+  }
+  return rate;
+}
 // Share of each month's profit (after mileage) set aside for taxes.
 export const TAX_SET_ASIDE_PERCENT = 35;
 

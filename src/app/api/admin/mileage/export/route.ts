@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireOwnerApi } from "@/lib/admin-api";
 import { withApiErrors } from "@/lib/api-handler";
 import { getSupabaseAdminFresh } from "@/lib/supabase";
-import { MILEAGE_RATE_CENTS, type MileageStop, type MileageLeg } from "@/lib/mileage-shared";
+import { mileageRateCentsForDay, type MileageStop, type MileageLeg } from "@/lib/mileage-shared";
 import { COMPANY_START_DATE } from "@/lib/company-dates";
 
 function csvField(v: string): string {
@@ -28,13 +28,13 @@ export const GET = withApiErrors(async (req: NextRequest) => {
     const isSummary = !!row.legs[0]?.total;
     if (isSummary) {
       const miles = row.legs.reduce((s, l) => s + l.miles, 0);
-      rows.push([row.day, csvField("Day total"), "", miles.toFixed(1), (miles * MILEAGE_RATE_CENTS / 100).toFixed(2)].join(","));
+      rows.push([row.day, csvField("Day total"), "", miles.toFixed(1), (miles * mileageRateCentsForDay(row.day) / 100).toFixed(2)].join(","));
       continue;
     }
     row.legs.forEach((leg, i) => {
       const from = row.stops[i]?.label ?? "";
       const to = row.stops[i + 1]?.label ?? "";
-      rows.push([row.day, csvField(from), csvField(to), leg.miles.toFixed(1), (leg.miles * MILEAGE_RATE_CENTS / 100).toFixed(2)].join(","));
+      rows.push([row.day, csvField(from), csvField(to), leg.miles.toFixed(1), (leg.miles * mileageRateCentsForDay(row.day) / 100).toFixed(2)].join(","));
     });
   }
 

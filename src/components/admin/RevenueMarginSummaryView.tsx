@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { JobWithCustomer } from "@/lib/types";
 import { formatCents, knownStripeFeeCentsForJob } from "@/lib/pricing";
-import { effectiveJobDate, MILEAGE_RATE_CENTS, TAX_SET_ASIDE_PERCENT } from "@/lib/mileage-shared";
+import { effectiveJobDate, mileageRateCentsForDay, TAX_SET_ASIDE_PERCENT } from "@/lib/mileage-shared";
 import { formatDateMDY } from "@/lib/date-format";
 import { FLI_ENVIRONMENTAL_COMPANY_ID } from "@/lib/report-findings";
 import { billingDateFor, invoiceStatus, ymd } from "@/components/admin/BillingView";
@@ -300,7 +300,22 @@ export default function RevenueMarginSummaryView() {
     return Math.round(total * 10) / 10;
   }, [dailyMiles, effectiveRange]);
 
-  const mileageDeductionCents = Math.round(filteredMiles * MILEAGE_RATE_CENTS);
+  // Per-day rate, not filteredMiles × one flat rate — the IRS rate can
+  // change mid-year (mileageRateCentsForDay), and a selected range can
+  // span that change (e.g. an "All Time" range crossing July 1). Summed
+  // in fractional cents, rounded once at the end, same as everywhere
+  // else this schedule is used.
+  const mileageDeductionCents = useMemo(() => {
+    const { lo, hi } = effectiveRange;
+    let cents = 0;
+    for (const [day, miles] of Object.entries(dailyMiles)) {
+      if (lo && day < lo) continue;
+      if (hi && day > hi) continue;
+      cents += miles * mileageRateCentsForDay(day);
+    }
+    return Math.round(cents);
+  }, [dailyMiles, effectiveRange]);
+
   const taxableIncomeCents = filteredTotals.totalPay - mileageDeductionCents;
   // Nothing to set aside once mileage wipes out (or exceeds) Net Earnings
   // for the range — there's no such thing as negative taxes owed.
@@ -523,9 +538,11 @@ export default function RevenueMarginSummaryView() {
               </span>
             </div>
             <div className="mt-1.5 flex items-center justify-between">
-              <span className="text-slate-500">
-                Mileage Deduction ({filteredMiles} mi @ {formatCents(MILEAGE_RATE_CENTS)}/mi)
-              </span>
+              {/* No single "@ rate/mi" shown — the IRS rate can change
+                  mid-year (mileageRateCentsForDay), so a range spanning
+                  that change has no one flat rate to display; the dollar
+                  figure itself is always the true per-day sum regardless. */}
+              <span className="text-slate-500">Mileage Deduction ({filteredMiles} mi)</span>
               <span className="text-red-600">−{formatWhole(mileageDeductionCents)}</span>
             </div>
             <div className="mt-2.5 flex items-center justify-between border-t border-slate-100 pt-2.5">

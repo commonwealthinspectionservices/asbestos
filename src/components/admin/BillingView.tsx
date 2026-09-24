@@ -890,7 +890,7 @@ export default function BillingView() {
           Lab Invoices
         </Link>
         <Link href="/admin/revenue-summary" className="text-brand-600 underline hover:text-brand-700">
-          Revenue &amp; Earnings Summary
+          Revenue &amp; Earnings
         </Link>
         <Link href="/admin/payment-calendar" className="text-brand-600 underline hover:text-brand-700">
           Payment Calendar

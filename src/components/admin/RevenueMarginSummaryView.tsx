@@ -479,7 +479,7 @@ export default function RevenueMarginSummaryView() {
               Tim) since it's the one column here that's actually a cost,
               not incoming/outgoing money. */}
           <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white">
-            <div className="grid grid-cols-[minmax(0,1fr)_58px_62px_58px_62px_74px_74px] gap-x-1.5 border-b border-slate-200 bg-slate-50 px-2 py-2 text-[9px] font-bold uppercase leading-tight tracking-wide text-slate-500 sm:gap-x-3 sm:px-4 sm:text-xs">
+            <div className="grid grid-cols-[minmax(0,1fr)_50px_56px_52px_56px_82px_86px] gap-x-1 border-b border-slate-200 bg-slate-50 px-2 py-2 text-[8px] font-bold uppercase text-slate-500 sm:gap-x-3 sm:px-4 sm:text-xs">
               <div>{isWeekly ? "Week" : "Month"}</div>
               <div className="text-right">Paid</div>
               <div className="text-right">Lab Cost</div>
@@ -495,7 +495,7 @@ export default function RevenueMarginSummaryView() {
                 role="button"
                 tabIndex={0}
                 onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && goToPeriod(row.label)}
-                className="grid cursor-pointer grid-cols-[minmax(0,1fr)_58px_62px_58px_62px_74px_74px] gap-x-1.5 items-center border-b border-slate-100 px-2 py-3 text-sm last:border-b-0 hover:bg-slate-50 sm:gap-x-3 sm:px-4"
+                className="grid cursor-pointer grid-cols-[minmax(0,1fr)_50px_56px_52px_56px_82px_86px] gap-x-1 items-center border-b border-slate-100 px-2 py-3 text-sm last:border-b-0 hover:bg-slate-50 sm:gap-x-3 sm:px-4"
               >
                 <div className="text-[11px] leading-tight text-slate-700 sm:text-sm">{row.shortLabel}</div>
                 <div className="whitespace-nowrap text-right text-[12px] font-medium text-slate-800 sm:text-sm">{formatWhole(row.paidGrossCents)}</div>
@@ -540,7 +540,7 @@ export default function RevenueMarginSummaryView() {
                 </div>
               </div>
             ))}
-            <div className="grid grid-cols-[minmax(0,1fr)_58px_62px_58px_62px_74px_74px] gap-x-1.5 items-center bg-slate-50 px-2 py-3 text-sm font-semibold text-slate-800 sm:gap-x-3 sm:px-4">
+            <div className="grid grid-cols-[minmax(0,1fr)_50px_56px_52px_56px_82px_86px] gap-x-1 items-center bg-slate-50 px-2 py-3 text-sm font-semibold text-slate-800 sm:gap-x-3 sm:px-4">
               <div className="text-[11px] sm:text-sm">All time</div>
               <div className="whitespace-nowrap text-right text-[12px] sm:text-sm">{formatWhole(allTimeEarnings.totalPaidGross)}</div>
               <div className="whitespace-nowrap text-right text-[12px] text-red-600 sm:text-sm">

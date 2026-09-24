@@ -263,11 +263,17 @@ export default function RevenueMarginSummaryView() {
   return (
     <div>
       {/* Per Tim, 2026-09-16 — "when I go into any of those tabs, they
-          should all have a back arrow to get me back to the last window". */}
-      <Link href="/admin/billing" className="mb-2 inline-flex items-center gap-1 text-sm text-brand-600 hover:text-brand-700">
-        ← Billing
-      </Link>
-      <h1 className="text-lg font-bold text-slate-800">Revenue &amp; Earnings Summary</h1>
+          should all have a back arrow to get me back to the last window",
+          then 2026-09-24 — "the back button to the billing link thing
+          should be on the same line as revenue and earnings summary
+          title aligned right directly across from it": title and back
+          link share one row now instead of the link sitting above it. */}
+      <div className="flex items-center justify-between gap-2">
+        <h1 className="text-lg font-bold text-slate-800">Revenue &amp; Earnings Summary</h1>
+        <Link href="/admin/billing" className="inline-flex shrink-0 items-center gap-1 text-sm text-brand-600 hover:text-brand-700">
+          ← Billing
+        </Link>
+      </div>
 
       {error && <div className="mt-4 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>}
 
@@ -277,12 +283,11 @@ export default function RevenueMarginSummaryView() {
         <>
           {/* Per Tim, 2026-09-18 — moved here from the Billing page; an
               all-time total, not tied to any per-row basis below.
-              Per Tim, 2026-09-24 — "delete the today this week this month
-              and all time buttons and then make the two date cells on the
-              same line as the total amount pending": quick-select buttons
-              are gone (From/To typed directly, or left blank for
-              everything); the date inputs sit on this same line instead
-              of their own row below. */}
+              Per Tim, 2026-09-24 — "make the two date cells on the same
+              line as the total amount pending": From/To sit on this same
+              line instead of their own row below (the quick-select
+              buttons below this were briefly deleted the same day, then
+              brought back — see that row's own comment). */}
           <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-500">
             <span>
               Total Amount Pending <span className="font-semibold text-slate-800">{formatCents(awaitingPaymentCents)}</span>
@@ -305,6 +310,41 @@ export default function RevenueMarginSummaryView() {
                 className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm text-slate-800"
               />
             </label>
+          </div>
+
+          {/* Per Tim, 2026-09-24 — deleted, then same day: "let's put those
+              buttons back that we used to have in there, the ones that we
+              just deleted." Same as before: just a fast way to fill in
+              From/To, not a separate mode. */}
+          <div className="mt-2 flex flex-nowrap items-center gap-2 overflow-x-auto pb-1">
+            <button
+              onClick={() => { const t = ymd(new Date()); setFromDate(t); setToDate(t); }}
+              className="shrink-0 whitespace-nowrap rounded-lg bg-slate-100 px-4 py-2 text-sm font-medium text-slate-600"
+            >
+              Today
+            </button>
+            <button
+              onClick={() => { const now = new Date(); setFromDate(ymd(startOfWeek(now))); setToDate(ymd(endOfWeek(now))); }}
+              className="shrink-0 whitespace-nowrap rounded-lg bg-slate-100 px-4 py-2 text-sm font-medium text-slate-600"
+            >
+              This Week
+            </button>
+            <button
+              onClick={() => {
+                const now = new Date();
+                setFromDate(ymd(new Date(now.getFullYear(), now.getMonth(), 1)));
+                setToDate(ymd(new Date(now.getFullYear(), now.getMonth() + 1, 0)));
+              }}
+              className="shrink-0 whitespace-nowrap rounded-lg bg-slate-100 px-4 py-2 text-sm font-medium text-slate-600"
+            >
+              This Month
+            </button>
+            <button
+              onClick={() => { setFromDate(""); setToDate(""); }}
+              className="shrink-0 whitespace-nowrap rounded-lg bg-slate-100 px-4 py-2 text-sm font-medium text-slate-600"
+            >
+              All Time
+            </button>
           </div>
 
           {/* Per Tim, 2026-09-24 — "I think this would be a lot simpler if

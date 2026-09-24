@@ -370,14 +370,14 @@ export default function RevenueMarginSummaryView() {
                     <div className="text-[11px] font-medium leading-tight text-slate-800 sm:text-sm">{row.project_number}</div>
                     <div className="truncate text-[10px] leading-tight text-slate-500 sm:text-xs">{row.company}</div>
                   </div>
-                  <div className="whitespace-nowrap text-right text-[12px] font-medium text-emerald-700 sm:text-sm">
-                    {row.isPaid ? formatWhole(row.paidCents) : "—"}
+                  <div className="whitespace-nowrap text-right text-[12px] font-medium sm:text-sm">
+                    {row.isPaid ? <span className="text-emerald-700">{formatWhole(row.paidCents)}</span> : <span className="text-slate-400">—</span>}
                   </div>
-                  <div className="whitespace-nowrap text-right text-[12px] text-red-600 sm:text-sm">
-                    {row.labCents > 0 ? formatWhole(row.labCents) : "—"}
+                  <div className="whitespace-nowrap text-right text-[12px] sm:text-sm">
+                    {row.labCents > 0 ? <span className="text-red-600">{formatWhole(row.labCents)}</span> : <span className="text-slate-400">—</span>}
                   </div>
-                  <div className="whitespace-nowrap text-right text-[12px] text-red-600 sm:text-sm">
-                    {row.stripeFeeCents > 0 ? formatWhole(row.stripeFeeCents) : "—"}
+                  <div className="whitespace-nowrap text-right text-[12px] sm:text-sm">
+                    {row.stripeFeeCents > 0 ? <span className="text-red-600">{formatWhole(row.stripeFeeCents)}</span> : <span className="text-slate-400">—</span>}
                   </div>
                   <div className="whitespace-nowrap text-right text-[12px] font-semibold sm:text-sm">
                     <span className={row.netEarningsCents < 0 ? "text-red-600" : "text-emerald-700"}>
@@ -386,21 +386,21 @@ export default function RevenueMarginSummaryView() {
                     </span>
                   </div>
                   <div
-                    className="whitespace-nowrap text-right text-[12px] text-amber-700 sm:text-sm"
+                    className="whitespace-nowrap text-right text-[12px] sm:text-sm"
                     title={`Taxable (Paid − Lab Cost − Stripe Fee): ${formatCents(Math.max(0, row.netEarningsCents))}`}
                   >
-                    {row.taxCents > 0 ? formatWhole(row.taxCents) : "—"}
+                    {row.taxCents > 0 ? <span className="text-amber-700">{formatWhole(row.taxCents)}</span> : <span className="text-slate-400">—</span>}
                   </div>
                 </div>
               ))}
               <div className="grid grid-cols-[minmax(140px,1fr)_74px_78px_70px_92px_92px] gap-x-2 items-center border-t-2 border-slate-200 bg-slate-50 px-3 py-3 text-sm font-semibold text-slate-800">
                 <div className="text-[11px] sm:text-sm">{rangeLabel}</div>
                 <div className="whitespace-nowrap text-right text-[12px] text-emerald-700 sm:text-sm">{formatWhole(filteredTotals.totalPaid)}</div>
-                <div className="whitespace-nowrap text-right text-[12px] text-red-600 sm:text-sm">
-                  {filteredTotals.totalLabCost > 0 ? formatWhole(filteredTotals.totalLabCost) : "—"}
+                <div className="whitespace-nowrap text-right text-[12px] sm:text-sm">
+                  {filteredTotals.totalLabCost > 0 ? <span className="text-red-600">{formatWhole(filteredTotals.totalLabCost)}</span> : <span className="text-slate-400">—</span>}
                 </div>
-                <div className="whitespace-nowrap text-right text-[12px] text-red-600 sm:text-sm">
-                  {filteredTotals.totalStripeFee > 0 ? formatWhole(filteredTotals.totalStripeFee) : "—"}
+                <div className="whitespace-nowrap text-right text-[12px] sm:text-sm">
+                  {filteredTotals.totalStripeFee > 0 ? <span className="text-red-600">{formatWhole(filteredTotals.totalStripeFee)}</span> : <span className="text-slate-400">—</span>}
                 </div>
                 <div className="whitespace-nowrap text-right text-[12px] sm:text-sm">
                   <span className={filteredTotals.totalPay < 0 ? "text-red-600" : "text-emerald-700"}>

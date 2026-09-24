@@ -8,7 +8,34 @@ import { formatCents, knownStripeFeeCentsForJob } from "@/lib/pricing";
 import { TAX_SET_ASIDE_PERCENT, effectiveJobDate } from "@/lib/mileage-shared";
 import { formatDateMDY } from "@/lib/date-format";
 import { FLI_ENVIRONMENTAL_COMPANY_ID } from "@/lib/report-findings";
-import { billingDateFor, invoiceStatus } from "@/components/admin/BillingView";
+import { billingDateFor, invoiceStatus, ymd, MONTH_NAMES } from "@/components/admin/BillingView";
+
+type Granularity = "daily" | "weekly" | "monthly";
+
+// Per Tim, 2026-09-24 — "it needs to be daily, weekly, monthly. One huge
+// row/list isn't going to work... if we can break it down smaller": the
+// per-job table itself stays (each row still fully self-contained, no
+// bucketing math to get wrong — see the file's own top comment), but 48+
+// flat rows is a lot to scroll. This groups those same rows under a
+// period header + subtotal, without changing how any individual row is
+// computed. Sunday-start weeks match Crystal's own report convention
+// (see BillingView's old periodHistory comment, now removed but the
+// reasoning still applies): "Commonwealth Inspection Weekly Report,
+// September 6-12, 2026".
+function periodInfo(dateStr: string, granularity: Granularity): { key: string; label: string } {
+  if (granularity === "daily") return { key: dateStr, label: formatDateMDY(dateStr) ?? dateStr };
+  const d = new Date(`${dateStr}T00:00:00`);
+  if (granularity === "monthly") return { key: dateStr.slice(0, 7), label: `${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}` };
+  const start = new Date(d);
+  start.setDate(d.getDate() - d.getDay());
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+  const label =
+    start.getMonth() === end.getMonth()
+      ? `${MONTH_NAMES[start.getMonth()]} ${start.getDate()}-${end.getDate()}`
+      : `${MONTH_NAMES[start.getMonth()]} ${start.getDate()}-${MONTH_NAMES[end.getMonth()]} ${end.getDate()}`;
+  return { key: ymd(start), label };
+}
 
 // Per Tim, 2026-09-15 — split out of BillingView's own collapsed-by-
 // default "Revenue & Margin Summary" dropdown into its own page. Runs its
@@ -38,6 +65,7 @@ export default function RevenueMarginSummaryView() {
   const [jobs, setJobs] = useState<JobWithCustomer[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [granularity, setGranularity] = useState<Granularity>("weekly");
   // Per Tim, 2026-09-23 — "make sure all stripe fees are recorded":
   // reuses audit-invoices' existing check for this rather than
   // re-deriving it — it already does the important part right (a live
@@ -184,6 +212,55 @@ export default function RevenueMarginSummaryView() {
     [invoicedJobs]
   );
 
+  // Per Tim, 2026-09-24 — "it needs to be daily, weekly, monthly... if we
+  // can break it down smaller": groups the same jobRows (unchanged, still
+  // sorted newest-first) under a period header + subtotal. A job with no
+  // fieldwork/requested date at all (rare — see paidButNotTracked) can't
+  // be grouped by period, so it lands in its own "No fieldwork date"
+  // group at the very end rather than being silently dropped. Each
+  // group's own subtotal uses the same computed-once-floored-once pattern
+  // as allJobsTotals below — see that memo's own comment for why summing
+  // each job's already-floored tax instead would be wrong.
+  const groupedJobRows = useMemo(() => {
+    const dated = new Map<string, { label: string; rows: typeof jobRows; totalPaid: number; totalLabCost: number; totalStripeFee: number }>();
+    const undated: typeof jobRows = [];
+    for (const row of jobRows) {
+      if (!row.date) {
+        undated.push(row);
+        continue;
+      }
+      const { key, label } = periodInfo(row.date, granularity);
+      let g = dated.get(key);
+      if (!g) {
+        g = { label, rows: [], totalPaid: 0, totalLabCost: 0, totalStripeFee: 0 };
+        dated.set(key, g);
+      }
+      g.rows.push(row);
+      g.totalPaid += row.paidCents;
+      g.totalLabCost += row.labCents;
+      g.totalStripeFee += row.stripeFeeCents;
+    }
+    const groups = Array.from(dated.entries())
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .map(([key, g]) => ({ key, ...g }));
+    if (undated.length > 0) {
+      groups.push({
+        key: "no-date",
+        label: "No fieldwork date",
+        rows: undated,
+        totalPaid: undated.reduce((s, r) => s + r.paidCents, 0),
+        totalLabCost: undated.reduce((s, r) => s + r.labCents, 0),
+        totalStripeFee: undated.reduce((s, r) => s + r.stripeFeeCents, 0),
+      });
+    }
+    return groups.map((g) => {
+      const totalPay = g.totalPaid - g.totalLabCost - g.totalStripeFee;
+      const totalTaxable = Math.max(0, totalPay);
+      const totalTax = Math.max(0, Math.round((totalTaxable * TAX_SET_ASIDE_PERCENT) / 100));
+      return { ...g, totalPay, totalTaxable, totalTax };
+    });
+  }, [jobRows, granularity]);
+
   // Per Tim, 2026-09-24 — "why want the numbers to match is the point...
   // I want these numbers to be showing all the same thing": the same
   // "All time" fix from the old period table applies here too — sum every
@@ -232,16 +309,31 @@ export default function RevenueMarginSummaryView() {
           </div>
 
           {/* Per Tim, 2026-09-24 — "I think this would be a lot simpler if
-              it was by job": one row per job, newest fieldwork first. Job
-              links straight to that job's own page instead of a
-              period-filtered list, since a row already IS one job — no
-              click-through ambiguity like the old table's Paid-vs-Lab-Cost
-              links had. Same cents precision (formatCents) and horizontal
-              scroll pattern as before — 5 dollar columns still don't fit a
-              phone's width. Lab Cost/Stripe Fee render as plain positive
-              red numbers (a real cost); Net Earnings/Tax same treatment as
-              before (Net Earnings signed, Tax floored at $0). */}
-          <div className="mt-4 overflow-x-auto rounded-xl border border-slate-200 bg-white">
+              it was by job", then "it needs to be daily, weekly, monthly...
+              if we can break it down smaller": one row per job (newest
+              fieldwork first), grouped under a period header + subtotal so
+              a 48+ row flat list isn't one huge scroll. Job links straight
+              to that job's own page instead of a period-filtered list,
+              since a row already IS one job — no click-through ambiguity
+              like the old table's Paid-vs-Lab-Cost links had. Same cents
+              precision (formatCents) and horizontal scroll pattern as
+              before — 5 dollar columns still don't fit a phone's width.
+              Lab Cost/Stripe Fee render as plain positive red numbers (a
+              real cost); Net Earnings/Tax same treatment as before (Net
+              Earnings signed, Tax floored at $0). */}
+          <div className="mt-4 flex gap-2">
+            {(["daily", "weekly", "monthly"] as const).map((g) => (
+              <button
+                key={g}
+                onClick={() => setGranularity(g)}
+                className={`shrink-0 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium capitalize ${granularity === g ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}
+              >
+                {g}
+              </button>
+            ))}
+          </div>
+
+          <div className="mt-3 overflow-x-auto rounded-xl border border-slate-200 bg-white">
             <div className="min-w-[640px]">
               <div className="grid grid-cols-[minmax(140px,1fr)_74px_78px_70px_92px_92px] gap-x-2 border-b border-slate-200 bg-slate-50 px-3 py-2 text-[8px] font-bold uppercase text-slate-500 sm:text-xs">
                 <div>Job</div>
@@ -251,41 +343,65 @@ export default function RevenueMarginSummaryView() {
                 <div className="text-right">Net Earnings</div>
                 <div className="text-right">35% for Taxes</div>
               </div>
-              {jobRows.map((row) => (
-                <div
-                  key={row.id}
-                  onClick={() => goToJob(row.id)}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && goToJob(row.id)}
-                  className="grid cursor-pointer grid-cols-[minmax(140px,1fr)_74px_78px_70px_92px_92px] gap-x-2 items-center border-b border-slate-100 px-3 py-3 text-sm last:border-b-0 hover:bg-slate-50"
-                >
-                  <div className="min-w-0">
-                    <div className="text-[11px] font-medium leading-tight text-slate-800 sm:text-sm">{row.project_number}</div>
-                    <div className="truncate text-[10px] leading-tight text-slate-500 sm:text-xs">{row.company}</div>
+              {groupedJobRows.map((group) => (
+                <div key={group.key}>
+                  <div className="grid grid-cols-[minmax(140px,1fr)_74px_78px_70px_92px_92px] gap-x-2 items-center bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-700">
+                    <div className="text-[11px] sm:text-sm">{group.label}</div>
+                    <div className="whitespace-nowrap text-right text-[12px] text-emerald-700 sm:text-sm">{formatWhole(group.totalPaid)}</div>
+                    <div className="whitespace-nowrap text-right text-[12px] text-red-600 sm:text-sm">{formatWhole(group.totalLabCost)}</div>
+                    <div className="whitespace-nowrap text-right text-[12px] text-red-600 sm:text-sm">
+                      {group.totalStripeFee > 0 ? formatWhole(group.totalStripeFee) : "—"}
+                    </div>
+                    <div className="whitespace-nowrap text-right text-[12px] sm:text-sm">
+                      <span className={group.totalPay < 0 ? "text-red-600" : "text-emerald-700"}>
+                        {group.totalPay < 0 ? "−" : ""}
+                        {formatWhole(Math.abs(group.totalPay))}
+                      </span>
+                    </div>
+                    <div
+                      className="whitespace-nowrap text-right text-[12px] text-amber-700 sm:text-sm"
+                      title={`Taxable: ${formatCents(group.totalTaxable)}`}
+                    >
+                      {group.totalTax > 0 ? formatWhole(group.totalTax) : "—"}
+                    </div>
                   </div>
-                  <div className="whitespace-nowrap text-right text-[12px] font-medium text-emerald-700 sm:text-sm">
-                    {row.isPaid ? formatWhole(row.paidCents) : "—"}
-                  </div>
-                  <div className="whitespace-nowrap text-right text-[12px] text-red-600 sm:text-sm">{formatWhole(row.labCents)}</div>
-                  <div className="whitespace-nowrap text-right text-[12px] text-red-600 sm:text-sm">
-                    {row.stripeFeeCents > 0 ? formatWhole(row.stripeFeeCents) : "—"}
-                  </div>
-                  <div className="whitespace-nowrap text-right text-[12px] font-semibold sm:text-sm">
-                    <span className={row.netEarningsCents < 0 ? "text-red-600" : "text-emerald-700"}>
-                      {row.netEarningsCents < 0 ? "−" : ""}
-                      {formatWhole(Math.abs(row.netEarningsCents))}
-                    </span>
-                  </div>
-                  <div
-                    className="whitespace-nowrap text-right text-[12px] text-amber-700 sm:text-sm"
-                    title={`Taxable (Paid − Lab Cost − Stripe Fee): ${formatCents(Math.max(0, row.netEarningsCents))}`}
-                  >
-                    {row.taxCents > 0 ? formatWhole(row.taxCents) : "—"}
-                  </div>
+                  {group.rows.map((row) => (
+                    <div
+                      key={row.id}
+                      onClick={() => goToJob(row.id)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && goToJob(row.id)}
+                      className="grid cursor-pointer grid-cols-[minmax(140px,1fr)_74px_78px_70px_92px_92px] gap-x-2 items-center border-b border-slate-100 px-3 py-3 text-sm last:border-b-0 hover:bg-slate-50"
+                    >
+                      <div className="min-w-0">
+                        <div className="text-[11px] font-medium leading-tight text-slate-800 sm:text-sm">{row.project_number}</div>
+                        <div className="truncate text-[10px] leading-tight text-slate-500 sm:text-xs">{row.company}</div>
+                      </div>
+                      <div className="whitespace-nowrap text-right text-[12px] font-medium text-emerald-700 sm:text-sm">
+                        {row.isPaid ? formatWhole(row.paidCents) : "—"}
+                      </div>
+                      <div className="whitespace-nowrap text-right text-[12px] text-red-600 sm:text-sm">{formatWhole(row.labCents)}</div>
+                      <div className="whitespace-nowrap text-right text-[12px] text-red-600 sm:text-sm">
+                        {row.stripeFeeCents > 0 ? formatWhole(row.stripeFeeCents) : "—"}
+                      </div>
+                      <div className="whitespace-nowrap text-right text-[12px] font-semibold sm:text-sm">
+                        <span className={row.netEarningsCents < 0 ? "text-red-600" : "text-emerald-700"}>
+                          {row.netEarningsCents < 0 ? "−" : ""}
+                          {formatWhole(Math.abs(row.netEarningsCents))}
+                        </span>
+                      </div>
+                      <div
+                        className="whitespace-nowrap text-right text-[12px] text-amber-700 sm:text-sm"
+                        title={`Taxable (Paid − Lab Cost − Stripe Fee): ${formatCents(Math.max(0, row.netEarningsCents))}`}
+                      >
+                        {row.taxCents > 0 ? formatWhole(row.taxCents) : "—"}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ))}
-              <div className="grid grid-cols-[minmax(140px,1fr)_74px_78px_70px_92px_92px] gap-x-2 items-center bg-slate-50 px-3 py-3 text-sm font-semibold text-slate-800">
+              <div className="grid grid-cols-[minmax(140px,1fr)_74px_78px_70px_92px_92px] gap-x-2 items-center border-t-2 border-slate-200 bg-slate-50 px-3 py-3 text-sm font-semibold text-slate-800">
                 <div className="text-[11px] sm:text-sm">All jobs</div>
                 <div className="whitespace-nowrap text-right text-[12px] text-emerald-700 sm:text-sm">{formatWhole(allJobsTotals.totalPaid)}</div>
                 <div className="whitespace-nowrap text-right text-[12px] text-red-600 sm:text-sm">{formatWhole(allJobsTotals.totalLabCost)}</div>

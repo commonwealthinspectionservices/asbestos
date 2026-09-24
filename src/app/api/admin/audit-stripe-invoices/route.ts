@@ -109,5 +109,30 @@ export const GET = withApiErrors(async (req: NextRequest) => {
     });
   }
 
-  return NextResponse.json({ jobsScanned: jobs.length, issues, strayOpenInvoices });
+  // Per Tim, 2026-09-24 — "so are you saying all the data here matches all
+  // the data on Stripe?": the check above only ever looked for a stray
+  // OPEN invoice (uncollected money nobody's chasing) — it never checked
+  // whether real, PAID money in Stripe has a job pointing at it at all.
+  // That's the direction that actually answers "does it all match": a
+  // paid Stripe invoice with no job on record would be real revenue this
+  // app has never tracked anywhere.
+  const strayPaidInvoices: { id: string; number: string | null; amount: string; created: string }[] = [];
+  for await (const invoice of stripe.invoices.list({ status: "paid", limit: 100 })) {
+    if (stripeInvoiceIdsOnRecord.has(invoice.id ?? "")) continue;
+    strayPaidInvoices.push({
+      id: invoice.id ?? "",
+      number: invoice.number,
+      amount: `$${(invoice.amount_paid / 100).toFixed(2)}`,
+      created: new Date(invoice.created * 1000).toISOString(),
+    });
+  }
+  if (strayPaidInvoices.length > 0) {
+    issues.push({
+      project_number: null,
+      issue: `${strayPaidInvoices.length} PAID Stripe invoice(s) with no job pointing at them — real money with no job record`,
+      detail: JSON.stringify(strayPaidInvoices),
+    });
+  }
+
+  return NextResponse.json({ jobsScanned: jobs.length, issues, strayOpenInvoices, strayPaidInvoices });
 });

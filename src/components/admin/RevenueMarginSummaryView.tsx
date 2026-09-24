@@ -8,33 +8,28 @@ import { formatCents, knownStripeFeeCentsForJob } from "@/lib/pricing";
 import { TAX_SET_ASIDE_PERCENT, effectiveJobDate } from "@/lib/mileage-shared";
 import { formatDateMDY } from "@/lib/date-format";
 import { FLI_ENVIRONMENTAL_COMPANY_ID } from "@/lib/report-findings";
-import { billingDateFor, invoiceStatus, ymd, MONTH_NAMES } from "@/components/admin/BillingView";
+import { billingDateFor, invoiceStatus, ymd } from "@/components/admin/BillingView";
 
-type Granularity = "daily" | "weekly" | "monthly";
-
-// Per Tim, 2026-09-24 — "it needs to be daily, weekly, monthly. One huge
-// row/list isn't going to work... if we can break it down smaller": the
-// per-job table itself stays (each row still fully self-contained, no
-// bucketing math to get wrong — see the file's own top comment), but 48+
-// flat rows is a lot to scroll. This groups those same rows under a
-// period header + subtotal, without changing how any individual row is
-// computed. Sunday-start weeks match Crystal's own report convention
-// (see BillingView's old periodHistory comment, now removed but the
-// reasoning still applies): "Commonwealth Inspection Weekly Report,
-// September 6-12, 2026".
-function periodInfo(dateStr: string, granularity: Granularity): { key: string; label: string } {
-  if (granularity === "daily") return { key: dateStr, label: formatDateMDY(dateStr) ?? dateStr };
-  const d = new Date(`${dateStr}T00:00:00`);
-  if (granularity === "monthly") return { key: dateStr.slice(0, 7), label: `${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}` };
-  const start = new Date(d);
-  start.setDate(d.getDate() - d.getDay());
-  const end = new Date(start);
-  end.setDate(start.getDate() + 6);
-  const label =
-    start.getMonth() === end.getMonth()
-      ? `${MONTH_NAMES[start.getMonth()]} ${start.getDate()}-${end.getDate()}`
-      : `${MONTH_NAMES[start.getMonth()]} ${start.getDate()}-${MONTH_NAMES[end.getMonth()]} ${end.getDate()}`;
-  return { key: ymd(start), label };
+// Per Tim, 2026-09-24 — "I feel like it's better than having daily and
+// weekly and monthly because I can just do it on there": replaced the
+// Daily/Weekly/Monthly toggle (itself only hours old) with a real date
+// range — one shared "From"/"To" pair covers a single day (From === To),
+// any custom range, or everything (both left blank), instead of being
+// locked into three fixed granularities. Quick-select buttons just
+// pre-fill the same two dates; there's no separate "mode," so the
+// selected range and its own total can never disagree the way period
+// groupings vs. an "All time" row once did (see
+// project_mileage_and_taxable_income for that whole history).
+function startOfWeek(d: Date): Date {
+  const s = new Date(d);
+  s.setHours(0, 0, 0, 0);
+  s.setDate(s.getDate() - s.getDay());
+  return s;
+}
+function endOfWeek(d: Date): Date {
+  const e = startOfWeek(d);
+  e.setDate(e.getDate() + 6);
+  return e;
 }
 
 // Per Tim, 2026-09-15 — split out of BillingView's own collapsed-by-
@@ -65,7 +60,9 @@ export default function RevenueMarginSummaryView() {
   const [jobs, setJobs] = useState<JobWithCustomer[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
-  const [granularity, setGranularity] = useState<Granularity>("weekly");
+  // Empty string means "no bound" — both blank together means "All time".
+  const [fromDate, setFromDate] = useState(() => ymd(startOfWeek(new Date())));
+  const [toDate, setToDate] = useState(() => ymd(endOfWeek(new Date())));
   // Per Tim, 2026-09-23 — "make sure all stripe fees are recorded":
   // reuses audit-invoices' existing check for this rather than
   // re-deriving it — it already does the important part right (a live
@@ -212,67 +209,29 @@ export default function RevenueMarginSummaryView() {
     [invoicedJobs]
   );
 
-  // Per Tim, 2026-09-24 — "it needs to be daily, weekly, monthly... if we
-  // can break it down smaller": groups the same jobRows (unchanged, still
-  // sorted newest-first) under a period header + subtotal. A job with no
-  // fieldwork/requested date at all (rare — see paidButNotTracked) can't
-  // be grouped by period, so it lands in its own "No fieldwork date"
-  // group at the very end rather than being silently dropped. Each
-  // group's own subtotal uses the same computed-once-floored-once pattern
-  // as allJobsTotals below — see that memo's own comment for why summing
-  // each job's already-floored tax instead would be wrong.
-  const groupedJobRows = useMemo(() => {
-    const dated = new Map<string, { label: string; rows: typeof jobRows; totalPaid: number; totalLabCost: number; totalStripeFee: number }>();
-    const undated: typeof jobRows = [];
-    for (const row of jobRows) {
-      if (!row.date) {
-        undated.push(row);
-        continue;
-      }
-      const { key, label } = periodInfo(row.date, granularity);
-      let g = dated.get(key);
-      if (!g) {
-        g = { label, rows: [], totalPaid: 0, totalLabCost: 0, totalStripeFee: 0 };
-        dated.set(key, g);
-      }
-      g.rows.push(row);
-      g.totalPaid += row.paidCents;
-      g.totalLabCost += row.labCents;
-      g.totalStripeFee += row.stripeFeeCents;
-    }
-    const groups = Array.from(dated.entries())
-      .sort((a, b) => b[0].localeCompare(a[0]))
-      .map(([key, g]) => ({ key, ...g }));
-    if (undated.length > 0) {
-      groups.push({
-        key: "no-date",
-        label: "No fieldwork date",
-        rows: undated,
-        totalPaid: undated.reduce((s, r) => s + r.paidCents, 0),
-        totalLabCost: undated.reduce((s, r) => s + r.labCents, 0),
-        totalStripeFee: undated.reduce((s, r) => s + r.stripeFeeCents, 0),
-      });
-    }
-    return groups.map((g) => {
-      const totalPay = g.totalPaid - g.totalLabCost - g.totalStripeFee;
-      const totalTaxable = Math.max(0, totalPay);
-      const totalTax = Math.max(0, Math.round((totalTaxable * TAX_SET_ASIDE_PERCENT) / 100));
-      return { ...g, totalPay, totalTaxable, totalTax };
-    });
-  }, [jobRows, granularity]);
+  // Per Tim, 2026-09-24 — "I feel like it's better... because I can just
+  // do it on there": jobRows (unchanged, still sorted newest-first)
+  // filtered down to whichever From/To range is set. Swaps the two bounds
+  // if Tim picks them out of order rather than silently showing nothing.
+  // Both blank = no filter at all (every job, including ones with no
+  // fieldwork date — those can never match a real bound anyway).
+  const filteredJobRows = useMemo(() => {
+    if (!fromDate && !toDate) return jobRows;
+    const lo = !fromDate || (toDate && toDate < fromDate) ? toDate : fromDate;
+    const hi = !toDate || (fromDate && toDate < fromDate) ? fromDate : toDate;
+    return jobRows.filter((row) => row.date && (!lo || row.date >= lo) && (!hi || row.date <= hi));
+  }, [jobRows, fromDate, toDate]);
 
   // Per Tim, 2026-09-24 — "why want the numbers to match is the point...
-  // I want these numbers to be showing all the same thing": the same
-  // "All time" fix from the old period table applies here too — sum every
-  // job's own Paid/Lab Cost/Stripe Fee first into one true totalPay, then
-  // compute totalTaxable/totalTax from THAT one number, floored once at
-  // the end. Never sum each job's own already-floored tax — a job that
-  // lost money contributes $0 tax with no credit toward a different job's
-  // profit, same reasoning as before, just per-job now instead of
-  // per-week.
-  const allJobsTotals = useMemo(() => {
+  // I want these numbers to be showing all the same thing": sum every
+  // visible job's own Paid/Lab Cost/Stripe Fee first into one true
+  // totalPay, then compute totalTaxable/totalTax from THAT one number,
+  // floored once at the end — never sum each job's own already-floored
+  // tax. Scoped to whatever's currently filtered, so this total can never
+  // disagree with the rows sitting right above it.
+  const filteredTotals = useMemo(() => {
     let totalPaid = 0, totalLabCost = 0, totalStripeFee = 0;
-    for (const row of jobRows) {
+    for (const row of filteredJobRows) {
       totalPaid += row.paidCents;
       totalLabCost += row.labCents;
       totalStripeFee += row.stripeFeeCents;
@@ -281,7 +240,14 @@ export default function RevenueMarginSummaryView() {
     const totalTaxable = Math.max(0, totalPay);
     const totalTax = Math.max(0, Math.round((totalTaxable * TAX_SET_ASIDE_PERCENT) / 100));
     return { totalPaid, totalLabCost, totalStripeFee, totalPay, totalTaxable, totalTax };
-  }, [jobRows]);
+  }, [filteredJobRows]);
+
+  const rangeLabel =
+    !fromDate && !toDate
+      ? "All time"
+      : fromDate === toDate
+        ? formatDateMDY(fromDate) ?? fromDate
+        : `${formatDateMDY(fromDate) ?? (fromDate || "…")} – ${formatDateMDY(toDate) ?? (toDate || "…")}`;
 
   function goToJob(jobId: string) {
     router.push(`/admin/dashboard?jobId=${jobId}`);
@@ -309,28 +275,69 @@ export default function RevenueMarginSummaryView() {
           </div>
 
           {/* Per Tim, 2026-09-24 — "I think this would be a lot simpler if
-              it was by job", then "it needs to be daily, weekly, monthly...
-              if we can break it down smaller": one row per job (newest
-              fieldwork first), grouped under a period header + subtotal so
-              a 48+ row flat list isn't one huge scroll. Job links straight
-              to that job's own page instead of a period-filtered list,
-              since a row already IS one job — no click-through ambiguity
-              like the old table's Paid-vs-Lab-Cost links had. Same cents
-              precision (formatCents) and horizontal scroll pattern as
-              before — 5 dollar columns still don't fit a phone's width.
+              it was by job", then "I feel like it's better [than
+              Daily/Weekly/Monthly] because I can just do it on there": one
+              row per job (newest fieldwork first), filtered to a real
+              From/To date range instead of fixed period buckets — pick a
+              single day (From === To), any custom stretch, or leave both
+              blank for everything. Quick-select buttons are just a fast
+              way to fill in the same two fields, not a separate mode. Job
+              links straight to that job's own page instead of a
+              period-filtered list, since a row already IS one job. Same
+              cents precision (formatCents) and horizontal scroll pattern
+              as before — 5 dollar columns still don't fit a phone's width.
               Lab Cost/Stripe Fee render as plain positive red numbers (a
               real cost); Net Earnings/Tax same treatment as before (Net
               Earnings signed, Tax floored at $0). */}
-          <div className="mt-4 flex gap-2">
-            {(["daily", "weekly", "monthly"] as const).map((g) => (
-              <button
-                key={g}
-                onClick={() => setGranularity(g)}
-                className={`shrink-0 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium capitalize ${granularity === g ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}
-              >
-                {g}
-              </button>
-            ))}
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              onClick={() => { const t = ymd(new Date()); setFromDate(t); setToDate(t); }}
+              className="shrink-0 whitespace-nowrap rounded-lg bg-slate-100 px-4 py-2 text-sm font-medium text-slate-600"
+            >
+              Today
+            </button>
+            <button
+              onClick={() => { const now = new Date(); setFromDate(ymd(startOfWeek(now))); setToDate(ymd(endOfWeek(now))); }}
+              className="shrink-0 whitespace-nowrap rounded-lg bg-slate-100 px-4 py-2 text-sm font-medium text-slate-600"
+            >
+              This Week
+            </button>
+            <button
+              onClick={() => {
+                const now = new Date();
+                setFromDate(ymd(new Date(now.getFullYear(), now.getMonth(), 1)));
+                setToDate(ymd(new Date(now.getFullYear(), now.getMonth() + 1, 0)));
+              }}
+              className="shrink-0 whitespace-nowrap rounded-lg bg-slate-100 px-4 py-2 text-sm font-medium text-slate-600"
+            >
+              This Month
+            </button>
+            <button
+              onClick={() => { setFromDate(""); setToDate(""); }}
+              className="shrink-0 whitespace-nowrap rounded-lg bg-slate-100 px-4 py-2 text-sm font-medium text-slate-600"
+            >
+              All Time
+            </button>
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-600">
+            <label className="flex items-center gap-1.5">
+              From
+              <input
+                type="date"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+                className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+              />
+            </label>
+            <label className="flex items-center gap-1.5">
+              To
+              <input
+                type="date"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+                className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+              />
+            </label>
           </div>
 
           <div className="mt-3 overflow-x-auto rounded-xl border border-slate-200 bg-white">
@@ -343,82 +350,61 @@ export default function RevenueMarginSummaryView() {
                 <div className="text-right">Net Earnings</div>
                 <div className="text-right">35% for Taxes</div>
               </div>
-              {groupedJobRows.map((group) => (
-                <div key={group.key}>
-                  <div className="grid grid-cols-[minmax(140px,1fr)_74px_78px_70px_92px_92px] gap-x-2 items-center bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-700">
-                    <div className="text-[11px] sm:text-sm">{group.label}</div>
-                    <div className="whitespace-nowrap text-right text-[12px] text-emerald-700 sm:text-sm">{formatWhole(group.totalPaid)}</div>
-                    <div className="whitespace-nowrap text-right text-[12px] text-red-600 sm:text-sm">{formatWhole(group.totalLabCost)}</div>
-                    <div className="whitespace-nowrap text-right text-[12px] text-red-600 sm:text-sm">
-                      {group.totalStripeFee > 0 ? formatWhole(group.totalStripeFee) : "—"}
-                    </div>
-                    <div className="whitespace-nowrap text-right text-[12px] sm:text-sm">
-                      <span className={group.totalPay < 0 ? "text-red-600" : "text-emerald-700"}>
-                        {group.totalPay < 0 ? "−" : ""}
-                        {formatWhole(Math.abs(group.totalPay))}
-                      </span>
-                    </div>
-                    <div
-                      className="whitespace-nowrap text-right text-[12px] text-amber-700 sm:text-sm"
-                      title={`Taxable: ${formatCents(group.totalTaxable)}`}
-                    >
-                      {group.totalTax > 0 ? formatWhole(group.totalTax) : "—"}
-                    </div>
+              {filteredJobRows.length === 0 && (
+                <div className="px-3 py-6 text-center text-sm text-slate-500">No jobs in this range.</div>
+              )}
+              {filteredJobRows.map((row) => (
+                <div
+                  key={row.id}
+                  onClick={() => goToJob(row.id)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && goToJob(row.id)}
+                  className="grid cursor-pointer grid-cols-[minmax(140px,1fr)_74px_78px_70px_92px_92px] gap-x-2 items-center border-b border-slate-100 px-3 py-3 text-sm last:border-b-0 hover:bg-slate-50"
+                >
+                  <div className="min-w-0">
+                    <div className="text-[11px] font-medium leading-tight text-slate-800 sm:text-sm">{row.project_number}</div>
+                    <div className="truncate text-[10px] leading-tight text-slate-500 sm:text-xs">{row.company}</div>
                   </div>
-                  {group.rows.map((row) => (
-                    <div
-                      key={row.id}
-                      onClick={() => goToJob(row.id)}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && goToJob(row.id)}
-                      className="grid cursor-pointer grid-cols-[minmax(140px,1fr)_74px_78px_70px_92px_92px] gap-x-2 items-center border-b border-slate-100 px-3 py-3 text-sm last:border-b-0 hover:bg-slate-50"
-                    >
-                      <div className="min-w-0">
-                        <div className="text-[11px] font-medium leading-tight text-slate-800 sm:text-sm">{row.project_number}</div>
-                        <div className="truncate text-[10px] leading-tight text-slate-500 sm:text-xs">{row.company}</div>
-                      </div>
-                      <div className="whitespace-nowrap text-right text-[12px] font-medium text-emerald-700 sm:text-sm">
-                        {row.isPaid ? formatWhole(row.paidCents) : "—"}
-                      </div>
-                      <div className="whitespace-nowrap text-right text-[12px] text-red-600 sm:text-sm">{formatWhole(row.labCents)}</div>
-                      <div className="whitespace-nowrap text-right text-[12px] text-red-600 sm:text-sm">
-                        {row.stripeFeeCents > 0 ? formatWhole(row.stripeFeeCents) : "—"}
-                      </div>
-                      <div className="whitespace-nowrap text-right text-[12px] font-semibold sm:text-sm">
-                        <span className={row.netEarningsCents < 0 ? "text-red-600" : "text-emerald-700"}>
-                          {row.netEarningsCents < 0 ? "−" : ""}
-                          {formatWhole(Math.abs(row.netEarningsCents))}
-                        </span>
-                      </div>
-                      <div
-                        className="whitespace-nowrap text-right text-[12px] text-amber-700 sm:text-sm"
-                        title={`Taxable (Paid − Lab Cost − Stripe Fee): ${formatCents(Math.max(0, row.netEarningsCents))}`}
-                      >
-                        {row.taxCents > 0 ? formatWhole(row.taxCents) : "—"}
-                      </div>
-                    </div>
-                  ))}
+                  <div className="whitespace-nowrap text-right text-[12px] font-medium text-emerald-700 sm:text-sm">
+                    {row.isPaid ? formatWhole(row.paidCents) : "—"}
+                  </div>
+                  <div className="whitespace-nowrap text-right text-[12px] text-red-600 sm:text-sm">{formatWhole(row.labCents)}</div>
+                  <div className="whitespace-nowrap text-right text-[12px] text-red-600 sm:text-sm">
+                    {row.stripeFeeCents > 0 ? formatWhole(row.stripeFeeCents) : "—"}
+                  </div>
+                  <div className="whitespace-nowrap text-right text-[12px] font-semibold sm:text-sm">
+                    <span className={row.netEarningsCents < 0 ? "text-red-600" : "text-emerald-700"}>
+                      {row.netEarningsCents < 0 ? "−" : ""}
+                      {formatWhole(Math.abs(row.netEarningsCents))}
+                    </span>
+                  </div>
+                  <div
+                    className="whitespace-nowrap text-right text-[12px] text-amber-700 sm:text-sm"
+                    title={`Taxable (Paid − Lab Cost − Stripe Fee): ${formatCents(Math.max(0, row.netEarningsCents))}`}
+                  >
+                    {row.taxCents > 0 ? formatWhole(row.taxCents) : "—"}
+                  </div>
                 </div>
               ))}
               <div className="grid grid-cols-[minmax(140px,1fr)_74px_78px_70px_92px_92px] gap-x-2 items-center border-t-2 border-slate-200 bg-slate-50 px-3 py-3 text-sm font-semibold text-slate-800">
-                <div className="text-[11px] sm:text-sm">All jobs</div>
-                <div className="whitespace-nowrap text-right text-[12px] text-emerald-700 sm:text-sm">{formatWhole(allJobsTotals.totalPaid)}</div>
-                <div className="whitespace-nowrap text-right text-[12px] text-red-600 sm:text-sm">{formatWhole(allJobsTotals.totalLabCost)}</div>
+                <div className="text-[11px] sm:text-sm">{rangeLabel}</div>
+                <div className="whitespace-nowrap text-right text-[12px] text-emerald-700 sm:text-sm">{formatWhole(filteredTotals.totalPaid)}</div>
+                <div className="whitespace-nowrap text-right text-[12px] text-red-600 sm:text-sm">{formatWhole(filteredTotals.totalLabCost)}</div>
                 <div className="whitespace-nowrap text-right text-[12px] text-red-600 sm:text-sm">
-                  {allJobsTotals.totalStripeFee > 0 ? formatWhole(allJobsTotals.totalStripeFee) : "—"}
+                  {filteredTotals.totalStripeFee > 0 ? formatWhole(filteredTotals.totalStripeFee) : "—"}
                 </div>
                 <div className="whitespace-nowrap text-right text-[12px] sm:text-sm">
-                  <span className={allJobsTotals.totalPay < 0 ? "text-red-600" : "text-emerald-700"}>
-                    {allJobsTotals.totalPay < 0 ? "−" : ""}
-                    {formatWhole(Math.abs(allJobsTotals.totalPay))}
+                  <span className={filteredTotals.totalPay < 0 ? "text-red-600" : "text-emerald-700"}>
+                    {filteredTotals.totalPay < 0 ? "−" : ""}
+                    {formatWhole(Math.abs(filteredTotals.totalPay))}
                   </span>
                 </div>
                 <div
                   className="whitespace-nowrap text-right text-[12px] text-amber-700 sm:text-sm"
-                  title={`Taxable: ${formatCents(allJobsTotals.totalTaxable)}`}
+                  title={`Taxable: ${formatCents(filteredTotals.totalTaxable)}`}
                 >
-                  {formatWhole(allJobsTotals.totalTax)}
+                  {formatWhole(filteredTotals.totalTax)}
                 </div>
               </div>
             </div>

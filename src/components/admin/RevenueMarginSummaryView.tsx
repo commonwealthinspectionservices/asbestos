@@ -10,7 +10,6 @@ import { formatDateMDY } from "@/lib/date-format";
 import { FLI_ENVIRONMENTAL_COMPANY_ID } from "@/lib/report-findings";
 import {
   billingDateFor,
-  parseReportDateRange,
   ordinal,
   ymd,
   MONTH_NAMES,
@@ -248,38 +247,27 @@ export default function RevenueMarginSummaryView() {
     return { weekly, monthly };
   }, [invoicedJobs]);
 
-  // Per Tim, 2026-09-05 — "a small PDF text only link... a link to the PDF
-  // for each week from Crystal": one link per distinct real weekly/daily
-  // summary document, deduped by content_hash. Scans every job, not just
-  // invoicedJobs — a lab PDF can arrive before Commonwealth's own invoice
-  // for that job goes out.
-  const weeklyLabInvoicePdfHrefs = useMemo(() => {
-    const seenKeys = new Set<string>();
-    const docs: { jobId: string; docId: string; startStr: string; endStr: string; uploadedAt: string }[] = [];
-    for (const job of jobs) {
-      for (const doc of job.documents ?? []) {
-        if (doc.kind !== "lab_invoice" || !doc.report_date_range || !doc.file_name.startsWith("weekly-lab-summary")) continue;
-        const key = doc.content_hash ?? doc.storage_path;
-        if (seenKeys.has(key)) continue;
-        const range = parseReportDateRange(doc.report_date_range);
-        if (!range) continue;
-        seenKeys.add(key);
-        docs.push({ jobId: job.id, docId: doc.id, uploadedAt: doc.uploaded_at, ...range });
-      }
-    }
-    const result: Record<string, { href: string; uploadedAt: string }[]> = {};
-    for (const week of periodHistory.weekly) {
-      // Newest first — each Crystal summary is a running total that
-      // includes everything in the earlier ones, so the newest is the one
-      // that matters and the rest are just older snapshots.
-      const hrefs = docs
-        .filter((d) => d.startStr >= week.startStr && d.startStr <= week.endStr)
-        .sort((a, b) => b.uploadedAt.localeCompare(a.uploadedAt))
-        .map((d) => ({ href: `/api/admin/jobs/${d.jobId}/documents/${d.docId}`, uploadedAt: d.uploadedAt }));
-      if (hrefs.length > 0) result[week.label] = hrefs;
-    }
-    return result;
-  }, [jobs, periodHistory.weekly]);
+  // Per Tim, 2026-09-24 — "these links don't actually match the lab
+  // costs... I don't trust this thing": this used to link the Lab Cost
+  // number to whichever single Crystal PDF's own printed date range
+  // happened to start in that calendar week — a different question from
+  // "which jobs make up this number" (Lab Cost sums each job's own
+  // lab_cost_cents, bucketed by that JOB's fieldwork date, not by any
+  // report's date range — see the periodHistory loop above). The two
+  // could legitimately disagree, and worse, tracing a truly correct
+  // per-report total back out client-side turned out to be unsafe to
+  // reconstruct: a resend that only bumps one job's own amount_cents
+  // updates that job's document in place without touching its
+  // content_hash (see the resend-handling block in
+  // processWeeklyLabSummaryEmail, lib/lab-email.ts), so grouping by
+  // content_hash to find "one real report" can silently split or
+  // duplicate a report's total depending on exactly which jobs got
+  // touched by which resend — not something worth risking on real money
+  // without being able to verify it against production data. Simpler and
+  // provably correct instead: the Lab Cost link now goes to the exact
+  // same jobs the number is computed from (see goToPeriod below), not a
+  // PDF guess — click through and every job listed there is one this
+  // total actually includes, full stop.
 
   // Per Tim, 2026-09-18 — moved here from BillingView ("this part should
   // not be on the billing page, it should be on the revenue and margin
@@ -344,20 +332,26 @@ export default function RevenueMarginSummaryView() {
 
   // A period row navigates to Billing pre-filtered to that period, instead
   // of setting local state here — see this file's own top-of-file comment.
-  function goToPeriod(label: string) {
-    // Per Tim, 2026-09-24 — "instead of bringing me to all the projects
-    // from that week, bring me to the paid projects it's calculating
-    // from": this row's own Paid figure only ever sums the period's PAID
-    // jobs (see periodHistory's own isPaid gate above), so the click-
-    // through should land on that same subset, not every invoiced job in
-    // the period. paidOnly=1 tells BillingView to filter down to
-    // invoiceStatus === "paid" on top of the usual period-date filter.
+  //
+  // Per Tim, 2026-09-24 — "instead of bringing me to all the projects from
+  // that week, bring me to the paid projects it's calculating from": the
+  // row's own Paid figure only ever sums the period's PAID jobs (see
+  // periodHistory's own isPaid gate above), so clicking the row should
+  // land on that same subset, not every invoiced job in the period —
+  // paidOnly=1 tells BillingView to filter down to invoiceStatus ===
+  // "paid" on top of the usual period-date filter. Lab Cost, by contrast,
+  // sums every job in the period regardless of paid status (lab costs are
+  // charged whether or not Commonwealth's own invoice is paid), so its own
+  // click-through (see the Lab Cost cell below) passes paidOnly=false —
+  // same period-date filter, no paid gate, landing on exactly the job
+  // population Lab Cost is actually summed from.
+  function goToPeriod(label: string, paidOnly: boolean) {
     if (isWeekly) {
       const row = periodHistory.weekly.find((w) => w.label === label);
-      if (row) router.push(`/admin/billing?ptype=week&label=${encodeURIComponent(row.label)}&start=${row.startStr}&end=${row.endStr}&paidOnly=1`);
+      if (row) router.push(`/admin/billing?ptype=week&label=${encodeURIComponent(row.label)}&start=${row.startStr}&end=${row.endStr}${paidOnly ? "&paidOnly=1" : ""}`);
     } else {
       const row = periodHistory.monthly.find((m) => m.label === label);
-      if (row) router.push(`/admin/billing?ptype=month&label=${encodeURIComponent(row.label)}&key=${row.key}&paidOnly=1`);
+      if (row) router.push(`/admin/billing?ptype=month&label=${encodeURIComponent(row.label)}&key=${row.key}${paidOnly ? "&paidOnly=1" : ""}`);
     }
   }
 
@@ -403,7 +397,6 @@ export default function RevenueMarginSummaryView() {
         label: p.label,
         shortLabel: p.shortLabel,
         labCents: p.labCostCents,
-        pdfHrefs: isWeekly ? weeklyLabInvoicePdfHrefs[p.label] : undefined,
         paidGrossCents: p.paidGrossCents,
         stripeFeeCents: p.paidStripeFeeCents,
         miles,
@@ -413,7 +406,7 @@ export default function RevenueMarginSummaryView() {
         netEarningsCents,
       };
     });
-  }, [isWeekly, periodHistory, weeklyLabInvoicePdfHrefs, weeklyMiles, monthlyMiles]);
+  }, [isWeekly, periodHistory, weeklyMiles, monthlyMiles]);
 
   return (
     <div>
@@ -454,10 +447,10 @@ export default function RevenueMarginSummaryView() {
           {/* Per Tim, 2026-09-19 — "is this page really formatted the
               best": three separate boxes (revenue, lab costs, margin)
               listing the same weeks three times became one table, a row
-              per period, so a week reads left to right. Same math and the
-              same click-through to Billing as before. The lab-invoice PDF
-              links sit under the period name so the number columns stay
-              narrow enough for a phone.
+              per period, so a week reads left to right. Same click-through
+              to Billing as before (see goToPeriod and the Lab Cost cell's
+              own comments for how each column's click-through targets the
+              exact job population that column is summed from).
               Per Tim, 2026-09-23 — went through several rounds the same
               day: "one big table that calculates everything" → "Paid and
               Net should be their own separate columns... calculate
@@ -501,35 +494,34 @@ export default function RevenueMarginSummaryView() {
             {summaryRows.map((row) => (
               <div
                 key={row.id}
-                onClick={() => goToPeriod(row.label)}
+                onClick={() => goToPeriod(row.label, true)}
                 role="button"
                 tabIndex={0}
-                onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && goToPeriod(row.label)}
+                onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && goToPeriod(row.label, true)}
                 className="grid cursor-pointer grid-cols-[minmax(100px,1fr)_74px_78px_70px_70px_92px_92px] gap-x-2 items-center border-b border-slate-100 px-3 py-3 text-sm last:border-b-0 hover:bg-slate-50"
               >
                 <div className="text-[11px] leading-tight text-slate-700 sm:text-sm">{row.shortLabel}</div>
                 <div className="whitespace-nowrap text-right text-[12px] font-medium text-emerald-700 sm:text-sm">{formatWhole(row.paidGrossCents)}</div>
                 <div className="text-right text-[12px] text-red-600 sm:text-sm">
-                  {row.pdfHrefs && row.pdfHrefs.length > 0 ? (
-                    // The Crystal report is where this number comes from,
-                    // so the number itself is the link (newest summary —
-                    // each is a running total that includes the earlier
-                    // ones). Per Tim, 2026-09-23 — dropped the "earlier
-                    // versions" dropdown that used to sit behind this;
-                    // just the current one.
-                    <a
-                      href={row.pdfHrefs[0].href}
-                      target="_blank"
-                      rel="noreferrer"
-                      title="Open this week's Crystal report"
-                      onClick={(e) => e.stopPropagation()}
-                      className="whitespace-nowrap underline decoration-red-300 underline-offset-2 hover:decoration-red-500"
-                    >
-                      {row.labCents > 0 ? `−${formatWhole(row.labCents)}` : formatWhole(row.labCents)}
-                    </a>
-                  ) : (
-                    <span className="whitespace-nowrap">{row.labCents > 0 ? `−${formatWhole(row.labCents)}` : formatWhole(row.labCents)}</span>
-                  )}
+                  {/* Per Tim, 2026-09-24 — "these links don't actually
+                      match the lab costs": used to link straight to a
+                      "best guess" Crystal PDF, which could legitimately be
+                      a different real report than what this number is
+                      summed from (see this section's own top comment).
+                      Now the number links to the exact same jobs it's
+                      computed from instead — no guessing, every job listed
+                      there is one this total actually includes. */}
+                  <button
+                    type="button"
+                    title="See the jobs this total is calculated from"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      goToPeriod(row.label, false);
+                    }}
+                    className="whitespace-nowrap underline decoration-red-300 underline-offset-2 hover:decoration-red-500"
+                  >
+                    {row.labCents > 0 ? `−${formatWhole(row.labCents)}` : formatWhole(row.labCents)}
+                  </button>
                 </div>
                 <div className="whitespace-nowrap text-right text-[12px] text-red-600 sm:text-sm">
                   {row.stripeFeeCents > 0 ? `−${formatWhole(row.stripeFeeCents)}` : "—"}

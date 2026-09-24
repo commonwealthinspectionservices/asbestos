@@ -6,31 +6,25 @@ import Link from "next/link";
 import type { JobWithCustomer } from "@/lib/types";
 import { formatCents, knownStripeFeeCentsForJob } from "@/lib/pricing";
 import { effectiveJobDate } from "@/lib/mileage-shared";
-import { billingDateFor, ymd } from "@/components/admin/BillingView";
+import { billingDateFor } from "@/components/admin/BillingView";
+import { COMPANY_START_DATE } from "@/lib/company-dates";
 
-// Per Tim, 2026-09-24 — "I feel like it's better than having daily and
-// weekly and monthly because I can just do it on there": replaced the
-// Daily/Weekly/Monthly toggle (itself only hours old) with a real date
-// range — one shared "From"/"To" pair covers a single day (From === To),
-// any custom range, or everything (both left blank), instead of being
-// locked into three fixed granularities. There's no separate "mode," so
-// the selected range and its own total can never disagree the way period
-// groupings vs. an "All time" row once did (see
-// project_mileage_and_taxable_income for that whole history). Quick-select
-// buttons (Today/This Week/This Month/All Time) existed briefly the same
-// day, then Tim asked to drop them — From/To are typed directly now.
-// startOfWeek/endOfWeek still used for the page's own default range on
-// load (the current week).
-function startOfWeek(d: Date): Date {
-  const s = new Date(d);
-  s.setHours(0, 0, 0, 0);
-  s.setDate(s.getDate() - s.getDay());
-  return s;
+// Per Tim, 2026-09-24 — "the net earnings by job should just be month by
+// month": one month at a time, stepped with ← / → arrows, no custom date
+// range and (his call, after first asking for one) no All Time option. It
+// went through Weekly/Monthly buckets → Daily/Weekly/Monthly toggle →
+// free From/To range with quick-select buttons the same day before landing
+// here. The month a job belongs to is its fieldwork date (billingDateFor).
+function monthKeyOf(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
-function endOfWeek(d: Date): Date {
-  const e = startOfWeek(d);
-  e.setDate(e.getDate() + 6);
-  return e;
+function shiftMonth(key: string, delta: number): string {
+  const [y, m] = key.split("-").map(Number);
+  return monthKeyOf(new Date(y, m - 1 + delta, 1));
+}
+function monthLabel(key: string): string {
+  const [y, m] = key.split("-").map(Number);
+  return new Date(y, m - 1, 1).toLocaleString("en-US", { month: "long", year: "numeric" });
 }
 
 // Per Tim, 2026-09-15 — split out of BillingView's own collapsed-by-
@@ -60,9 +54,10 @@ export default function RevenueMarginSummaryView() {
   const [jobs, setJobs] = useState<JobWithCustomer[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
-  // Empty string means "no bound" — both blank together means "All time".
-  const [fromDate, setFromDate] = useState(() => ymd(startOfWeek(new Date())));
-  const [toDate, setToDate] = useState(() => ymd(endOfWeek(new Date())));
+  const currentMonth = monthKeyOf(new Date());
+  const [month, setMonth] = useState(currentMonth);
+  const canGoBack = shiftMonth(month, -1) >= COMPANY_START_DATE.slice(0, 7);
+  const canGoForward = month < currentMonth;
   // Per Tim, 2026-09-23 — "make sure all stripe fees are recorded":
   // reuses audit-invoices' existing check for this rather than
   // re-deriving it — it already does the important part right (a live
@@ -183,24 +178,10 @@ export default function RevenueMarginSummaryView() {
     [invoicedJobs]
   );
 
-  // Per Tim, 2026-09-24 — "I feel like it's better... because I can just
-  // do it on there": jobRows (unchanged, still sorted newest-first)
-  // filtered down to whichever From/To range is set. Swaps the two bounds
-  // if Tim picks them out of order rather than silently showing nothing.
-  // Both blank = no filter at all (every job, including ones with no
-  // fieldwork date — those can never match a real bound anyway).
-  const effectiveRange = useMemo(() => {
-    if (!fromDate && !toDate) return { lo: null as string | null, hi: null as string | null };
-    const lo = !fromDate || (toDate && toDate < fromDate) ? toDate : fromDate;
-    const hi = !toDate || (fromDate && toDate < fromDate) ? fromDate : toDate;
-    return { lo, hi };
-  }, [fromDate, toDate]);
-
-  const filteredJobRows = useMemo(() => {
-    const { lo, hi } = effectiveRange;
-    if (!lo && !hi) return jobRows;
-    return jobRows.filter((row) => row.date && (!lo || row.date >= lo) && (!hi || row.date <= hi));
-  }, [jobRows, effectiveRange]);
+  // jobRows (still sorted by project number, high to low) filtered to
+  // the selected month by fieldwork date. A job with no fieldwork date
+  // can't belong to any month — see "Not showing up above" for those.
+  const filteredJobRows = useMemo(() => jobRows.filter((row) => row.date?.startsWith(month)), [jobRows, month]);
 
   // Per Tim, 2026-09-24 — reversed course, same day: "lab costs should
   // only ever appear on jobs that have been paid. All we care about here
@@ -257,70 +238,31 @@ export default function RevenueMarginSummaryView() {
 
       {loaded && !error && (
         <>
-          {/* Per Tim, 2026-09-24 — quick-select buttons and the From/To
-              inputs went through several rounds the same day (moved onto
-              the Pending line, deleted, restored) before landing here: all
-              one row, buttons left / date range right — "let's make sure
-              that the height of the cells and buttons over there are the
-              exact same height. And then let's make sure that the date
-              feature is aligned right. And the buttons should be aligned
-              left, like they are." Buttons and date inputs share a fixed
-              h-10 (not just matching padding — a native <input
-              type="date"> and a <button> can render at slightly different
-              heights from UA defaults even with identical padding). */}
-          <div className="mt-3 flex flex-nowrap items-center justify-between gap-2 overflow-x-auto pb-1">
-            <div className="flex flex-nowrap items-center gap-2">
-              <button
-                onClick={() => { const t = ymd(new Date()); setFromDate(t); setToDate(t); }}
-                className="inline-flex h-10 shrink-0 items-center justify-center whitespace-nowrap rounded-lg bg-slate-100 px-4 text-sm font-medium text-slate-600"
-              >
-                Today
-              </button>
-              <button
-                onClick={() => { const now = new Date(); setFromDate(ymd(startOfWeek(now))); setToDate(ymd(endOfWeek(now))); }}
-                className="inline-flex h-10 shrink-0 items-center justify-center whitespace-nowrap rounded-lg bg-slate-100 px-4 text-sm font-medium text-slate-600"
-              >
-                This Week
-              </button>
-              <button
-                onClick={() => {
-                  const now = new Date();
-                  setFromDate(ymd(new Date(now.getFullYear(), now.getMonth(), 1)));
-                  setToDate(ymd(new Date(now.getFullYear(), now.getMonth() + 1, 0)));
-                }}
-                className="inline-flex h-10 shrink-0 items-center justify-center whitespace-nowrap rounded-lg bg-slate-100 px-4 text-sm font-medium text-slate-600"
-              >
-                This Month
-              </button>
-              <button
-                onClick={() => { setFromDate(""); setToDate(""); }}
-                className="inline-flex h-10 shrink-0 items-center justify-center whitespace-nowrap rounded-lg bg-slate-100 px-4 text-sm font-medium text-slate-600"
-              >
-                All Time
-              </button>
-            </div>
-            <div className="flex flex-nowrap items-center gap-2">
-              <input
-                type="date"
-                value={fromDate}
-                onChange={(e) => setFromDate(e.target.value)}
-                className="h-10 shrink-0 rounded-lg border border-slate-300 px-4 text-sm text-slate-800"
-              />
-              <span className="shrink-0 text-slate-400">–</span>
-              <input
-                type="date"
-                value={toDate}
-                onChange={(e) => setToDate(e.target.value)}
-                className="h-10 shrink-0 rounded-lg border border-slate-300 px-4 text-sm text-slate-800"
-              />
-            </div>
+          <div className="mt-3 flex items-center justify-between gap-2">
+            <button
+              type="button"
+              disabled={!canGoBack}
+              onClick={() => setMonth(shiftMonth(month, -1))}
+              aria-label="Previous month"
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-lg leading-none text-slate-600 disabled:opacity-40"
+            >
+              ←
+            </button>
+            <div className="text-center text-base font-bold text-slate-800">{monthLabel(month)}</div>
+            <button
+              type="button"
+              disabled={!canGoForward}
+              onClick={() => setMonth(shiftMonth(month, 1))}
+              aria-label="Next month"
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-lg leading-none text-slate-600 disabled:opacity-40"
+            >
+              →
+            </button>
           </div>
 
           {/* Per Tim, 2026-09-24 — "I think this would be a lot simpler if
               it was by job": one row per job (newest fieldwork first),
-              filtered to a real From/To date range instead of fixed
-              period buckets — pick a single day (From === To), any custom
-              stretch, or leave both blank for everything. Job links
+              filtered to the selected month (see the ← / → row above). Job links
               straight to that job's own page instead of a period-filtered
               list, since a row already IS one job. Lab Cost/Stripe Fee
               render as plain positive red numbers (a real cost); Net
@@ -343,7 +285,7 @@ export default function RevenueMarginSummaryView() {
                 <div className="text-left">Net Earnings</div>
               </div>
               {filteredJobRows.length === 0 && (
-                <div className="px-3 py-6 text-center text-sm text-slate-500">No jobs in this range.</div>
+                <div className="px-3 py-6 text-center text-sm text-slate-500">No jobs in this month.</div>
               )}
               {filteredJobRows.map((row) => (
                 <div
@@ -400,7 +342,7 @@ export default function RevenueMarginSummaryView() {
                   without scrolling") → back to the bottom row: "make it so
                   that total is the bottom row." Also "let's make it so
                   that total is all caps." Invoiced respects the current
-                  From/To range like everything else here, just not the
+                  selected month like everything else here, just not the
                   "complete jobs only" restriction the other columns use —
                   see invoicedTotalCents' own comment. */}
               <div className="grid grid-cols-[repeat(6,minmax(96px,1fr))] gap-x-2 items-center border-t-2 border-slate-200 bg-slate-50 px-3 py-3 text-sm font-semibold text-slate-800">

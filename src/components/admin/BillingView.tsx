@@ -656,7 +656,9 @@ export default function BillingView() {
   // from that on load — same "check a figure against the job list" outcome,
   // just via a page link instead of a same-page click.
   const [periodFilter, setPeriodFilter] = useState<
-    { type: "week"; label: string; startStr: string; endStr: string } | { type: "month"; label: string; key: string } | null
+    | { type: "week"; label: string; startStr: string; endStr: string; paidOnly: boolean }
+    | { type: "month"; label: string; key: string; paidOnly: boolean }
+    | null
   >(null);
   const [projectNumberQuery, setProjectNumberQuery] = useState("");
   const [companyQuery, setCompanyQuery] = useState("");
@@ -696,10 +698,11 @@ export default function BillingView() {
     const params = new URLSearchParams(window.location.search);
     const ptype = params.get("ptype");
     const label = params.get("label");
+    const paidOnly = params.get("paidOnly") === "1";
     if (ptype === "week" && label && params.get("start") && params.get("end")) {
-      setPeriodFilter({ type: "week", label, startStr: params.get("start")!, endStr: params.get("end")! });
+      setPeriodFilter({ type: "week", label, startStr: params.get("start")!, endStr: params.get("end")!, paidOnly });
     } else if (ptype === "month" && label && params.get("key")) {
-      setPeriodFilter({ type: "month", label, key: params.get("key")! });
+      setPeriodFilter({ type: "month", label, key: params.get("key")!, paidOnly });
     }
   }, []);
 
@@ -747,12 +750,14 @@ export default function BillingView() {
   const rows = useMemo(() => {
     let result = invoicedJobs.map((job) => ({ job, status: invoiceStatus(job) }));
     if (periodFilter) {
-      result = result.filter(({ job }) => {
+      result = result.filter(({ job, status }) => {
         const bucketDate = billingDateFor(job);
         if (!bucketDate) return false;
-        return periodFilter.type === "week"
-          ? bucketDate >= periodFilter.startStr && bucketDate <= periodFilter.endStr
-          : bucketDate.slice(0, 7) === periodFilter.key;
+        const inPeriod =
+          periodFilter.type === "week"
+            ? bucketDate >= periodFilter.startStr && bucketDate <= periodFilter.endStr
+            : bucketDate.slice(0, 7) === periodFilter.key;
+        return inPeriod && (!periodFilter.paidOnly || status === "paid");
       });
     } else {
       result = result.filter(({ status }) => status === filter);
@@ -1046,6 +1051,7 @@ export default function BillingView() {
             <div className="mt-3 flex items-baseline justify-between gap-2 text-sm text-slate-500">
               <span className="whitespace-nowrap">
                 <span className="font-semibold text-slate-800">{periodFilter.label}</span>
+                {periodFilter.paidOnly && " (paid only)"}
                 {"  "}
                 {formatCents(rows.reduce((sum, { job }) => sum + (job.invoice_total_cents ?? 0), 0))}
               </span>

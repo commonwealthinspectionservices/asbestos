@@ -345,12 +345,19 @@ export default function RevenueMarginSummaryView() {
   // A period row navigates to Billing pre-filtered to that period, instead
   // of setting local state here — see this file's own top-of-file comment.
   function goToPeriod(label: string) {
+    // Per Tim, 2026-09-24 — "instead of bringing me to all the projects
+    // from that week, bring me to the paid projects it's calculating
+    // from": this row's own Paid figure only ever sums the period's PAID
+    // jobs (see periodHistory's own isPaid gate above), so the click-
+    // through should land on that same subset, not every invoiced job in
+    // the period. paidOnly=1 tells BillingView to filter down to
+    // invoiceStatus === "paid" on top of the usual period-date filter.
     if (isWeekly) {
       const row = periodHistory.weekly.find((w) => w.label === label);
-      if (row) router.push(`/admin/billing?ptype=week&label=${encodeURIComponent(row.label)}&start=${row.startStr}&end=${row.endStr}`);
+      if (row) router.push(`/admin/billing?ptype=week&label=${encodeURIComponent(row.label)}&start=${row.startStr}&end=${row.endStr}&paidOnly=1`);
     } else {
       const row = periodHistory.monthly.find((m) => m.label === label);
-      if (row) router.push(`/admin/billing?ptype=month&label=${encodeURIComponent(row.label)}&key=${row.key}`);
+      if (row) router.push(`/admin/billing?ptype=month&label=${encodeURIComponent(row.label)}&key=${row.key}&paidOnly=1`);
     }
   }
 

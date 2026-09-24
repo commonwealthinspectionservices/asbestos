@@ -322,22 +322,18 @@ export default function RevenueMarginSummaryView() {
     for (const p of source) {
       const id = isWeekly ? (p as typeof periodHistory.weekly[number]).label : (p as typeof periodHistory.monthly[number]).key;
       const mileageDeductionCents = Math.round((miles[id] ?? 0) * MILEAGE_RATE_CENTS);
-      // Per Tim, 2026-09-24 — "it's calculating mileage like it's a cost
-      // of mine. But that's the dollar value of the miles that I drove
-      // that I can write off": mileage was being subtracted into
-      // cashCents below, which then fed BOTH taxableCents AND totalPay —
-      // treating it as real money leaving his pocket twice over, once as
-      // a "cost" and again by lowering what he keeps. It's a tax
-      // deduction only, never a cash cost — see
-      // project_mileage_and_taxable_income. cashCents (real money in
-      // minus real money out, no mileage) is the true cash position;
-      // mileage only ever lowers taxableCents (what he owes 35% on), and
-      // totalPay is cashCents minus that already-lowered tax bill — mileage
-      // helps by shrinking the tax, not by subtracting again.
-      const cashCents = p.paidGrossCents - p.labCostCents - p.paidStripeFeeCents;
-      const taxableCents = Math.max(0, cashCents - mileageDeductionCents);
+      // Per Tim, 2026-09-24 — settled with a direct, explicit formula: "I
+      // just want 35% for taxes to be 35% of my net earnings. And my net
+      // earnings are what I get paid minus lab cost, stripe fee, and the
+      // mileage numeric value for dollars." totalPay (Net Earnings) IS the
+      // pre-tax figure — mileage subtracts into it directly, same as Lab
+      // Cost/Stripe Fee — and totalTax is just 35% of that (floored at 0,
+      // never a negative tax on a loss). See summaryRows' own comment for
+      // the same formula, worked through in more detail.
+      const netEarningsCents = p.paidGrossCents - p.labCostCents - p.paidStripeFeeCents - mileageDeductionCents;
+      const taxableCents = Math.max(0, netEarningsCents);
       const taxCents = Math.max(0, Math.round((taxableCents * TAX_SET_ASIDE_PERCENT) / 100));
-      totalPaidGross += p.paidGrossCents; totalLabCost += p.labCostCents; totalStripeFee += p.paidStripeFeeCents; totalMileageCents += mileageDeductionCents; totalTaxable += taxableCents; totalTax += taxCents; totalPay += cashCents - taxCents;
+      totalPaidGross += p.paidGrossCents; totalLabCost += p.labCostCents; totalStripeFee += p.paidStripeFeeCents; totalMileageCents += mileageDeductionCents; totalTaxable += taxableCents; totalTax += taxCents; totalPay += netEarningsCents;
     }
     return { totalPaidGross, totalLabCost, totalStripeFee, totalMileageCents, totalTaxable, totalTax, totalPay };
   }, [isWeekly, periodHistory, weeklyMiles, monthlyMiles]);
@@ -400,20 +396,20 @@ export default function RevenueMarginSummaryView() {
       // since that's the actual, honest cash position when lab costs
       // outrun collections.
       //
-      // Per Tim, 2026-09-24 — "it's calculating mileage like it's a cost
-      // of mine, but that's the dollar value of the miles I drove that I
-      // can write off": mileage is a tax deduction, not cash leaving his
-      // pocket, so it must never touch cashCents/Net Earnings directly —
-      // it only ever lowers taxableCents (what he owes 35% on). It used to
-      // get folded into netBeforeTaxCents, which fed BOTH the taxable step
-      // AND Net Earnings — subtracting it from his take-home twice over,
-      // once as a fake "cost" and again through a smaller tax bill built
-      // on that already-reduced number. See allTimeEarnings' own comment
-      // for the same fix.
-      const cashCents = p.paidGrossCents - p.labCostCents - p.paidStripeFeeCents;
-      const taxableCents = Math.max(0, cashCents - mileageDeductionCents);
+      // Per Tim, 2026-09-24 — settled the mileage question with a direct,
+      // explicit formula after the "is it a cost or a tax deduction"
+      // back-and-forth above: "I just want 35% for taxes to be 35% of my
+      // net earnings. And my net earnings are what I get paid minus lab
+      // cost, stripe fee, and the mileage numeric value for dollars."
+      // Net Earnings IS the pre-tax figure now (Paid − Lab Cost − Stripe
+      // Fee − Mileage, allowed to go negative — same "honest cash
+      // position" reasoning as Lab Cost above), and Tax is simply 35% of
+      // it (floored at 0 so a loss never produces a negative tax). No
+      // separate "taxable" concept anymore — it's the same number, just
+      // floored for the tax step specifically.
+      const netEarningsCents = p.paidGrossCents - p.labCostCents - p.paidStripeFeeCents - mileageDeductionCents;
+      const taxableCents = Math.max(0, netEarningsCents);
       const taxCents = Math.max(0, Math.round((taxableCents * TAX_SET_ASIDE_PERCENT) / 100));
-      const netEarningsCents = cashCents - taxCents;
       return {
         id,
         label: p.label,

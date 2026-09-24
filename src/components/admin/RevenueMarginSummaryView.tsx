@@ -373,7 +373,9 @@ export default function RevenueMarginSummaryView() {
                   <div className="whitespace-nowrap text-right text-[12px] font-medium text-emerald-700 sm:text-sm">
                     {row.isPaid ? formatWhole(row.paidCents) : "—"}
                   </div>
-                  <div className="whitespace-nowrap text-right text-[12px] text-red-600 sm:text-sm">{formatWhole(row.labCents)}</div>
+                  <div className="whitespace-nowrap text-right text-[12px] text-red-600 sm:text-sm">
+                    {row.labCents > 0 ? formatWhole(row.labCents) : "—"}
+                  </div>
                   <div className="whitespace-nowrap text-right text-[12px] text-red-600 sm:text-sm">
                     {row.stripeFeeCents > 0 ? formatWhole(row.stripeFeeCents) : "—"}
                   </div>
@@ -394,7 +396,9 @@ export default function RevenueMarginSummaryView() {
               <div className="grid grid-cols-[minmax(140px,1fr)_74px_78px_70px_92px_92px] gap-x-2 items-center border-t-2 border-slate-200 bg-slate-50 px-3 py-3 text-sm font-semibold text-slate-800">
                 <div className="text-[11px] sm:text-sm">{rangeLabel}</div>
                 <div className="whitespace-nowrap text-right text-[12px] text-emerald-700 sm:text-sm">{formatWhole(filteredTotals.totalPaid)}</div>
-                <div className="whitespace-nowrap text-right text-[12px] text-red-600 sm:text-sm">{formatWhole(filteredTotals.totalLabCost)}</div>
+                <div className="whitespace-nowrap text-right text-[12px] text-red-600 sm:text-sm">
+                  {filteredTotals.totalLabCost > 0 ? formatWhole(filteredTotals.totalLabCost) : "—"}
+                </div>
                 <div className="whitespace-nowrap text-right text-[12px] text-red-600 sm:text-sm">
                   {filteredTotals.totalStripeFee > 0 ? formatWhole(filteredTotals.totalStripeFee) : "—"}
                 </div>

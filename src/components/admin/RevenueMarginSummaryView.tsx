@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { JobWithCustomer } from "@/lib/types";
-import { formatCents, computeMarginCents, knownStripeFeeCentsForJob } from "@/lib/pricing";
+import { formatCents, knownStripeFeeCentsForJob } from "@/lib/pricing";
 import { TAX_SET_ASIDE_PERCENT, MILEAGE_RATE_CENTS, effectiveJobDate } from "@/lib/mileage-shared";
 import { formatDateMDY } from "@/lib/date-format";
 import { FLI_ENVIRONMENTAL_COMPANY_ID } from "@/lib/report-findings";
@@ -196,7 +196,7 @@ export default function RevenueMarginSummaryView() {
         start.getMonth() === end.getMonth()
           ? `${MONTH_NAMES[start.getMonth()].slice(0, 3)} ${start.getDate()}-${end.getDate()}`
           : `${MONTH_NAMES[start.getMonth()].slice(0, 3)} ${start.getDate()}-${MONTH_NAMES[end.getMonth()].slice(0, 3)} ${end.getDate()}`;
-      return { label, shortLabel, startStr: ymd(start), endStr: ymd(end), grossCents: 0, netCents: 0, labCostCents: 0, paidGrossCents: 0, paidNetCents: 0, paidStripeFeeCents: 0 };
+      return { label, shortLabel, startStr: ymd(start), endStr: ymd(end), labCostCents: 0, paidGrossCents: 0, paidStripeFeeCents: 0 };
     }).filter((b) => b.endStr >= COMPANY_START_DATE);
 
     const monthly = Array.from({ length: ALL_PERIODS_COUNT }, (_, i) => {
@@ -204,12 +204,16 @@ export default function RevenueMarginSummaryView() {
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
       const label = `${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`;
       const shortLabel = `${MONTH_NAMES[d.getMonth()].slice(0, 3)} '${String(d.getFullYear()).slice(2)}`;
-      return { label, shortLabel, key, grossCents: 0, netCents: 0, labCostCents: 0, paidGrossCents: 0, paidNetCents: 0, paidStripeFeeCents: 0 };
+      return { label, shortLabel, key, labCostCents: 0, paidGrossCents: 0, paidStripeFeeCents: 0 };
     }).filter((b) => b.key >= COMPANY_START_DATE.slice(0, 7));
 
     for (const job of invoicedJobs) {
       const bucketDate = billingDateFor(job);
       if (!bucketDate) continue;
+      // This period's own invoice total for the job — used below only for
+      // the paid subset (paidGrossCents); every job in the period
+      // contributes to Lab Cost regardless of paid status, per Tim's own
+      // "lab costs are always charged to me no matter what".
       const grossCents = job.invoice_total_cents ?? 0;
       // Per Tim, 2026-09-23 — "I would just remove the estimate and show
       // it when the real number actually lands": labCostCents is only ever
@@ -219,32 +223,26 @@ export default function RevenueMarginSummaryView() {
       // with no real cost recorded yet contributes $0 here, not a guess.
       const labCostCents = job.lab_cost_cents ?? 0;
       const stripeFeeCents = knownStripeFeeCentsForJob(job) ?? 0;
-      const netCents = computeMarginCents(grossCents, labCostCents, stripeFeeCents);
       // Per Tim, 2026-09-23 — "for a given week what I billed out and what
-      // I actually got paid also": paidGrossCents/paidNetCents are the
-      // SAME job population as grossCents above (this period's own
-      // fieldwork), just the subset that's actually been paid — not a
-      // separate paid-date-bucketed population (that was the old
-      // paidWeekly/paidMonthly, removed). Keeps every column in a row
-      // talking about the same jobs, same "apples to apples" reasoning as
-      // billingDateFor's own reversal earlier today.
+      // I actually got paid also": paidGrossCents is the SAME job
+      // population as this period's own fieldwork, just the subset that's
+      // actually been paid — not a separate paid-date-bucketed population
+      // (that was the old paidWeekly/paidMonthly, removed). Keeps every
+      // column in a row talking about the same jobs, same "apples to
+      // apples" reasoning as billingDateFor's own reversal earlier today.
       const isPaid = job.status === "paid" || Boolean(job.paid_date);
 
       const w = weekly.find((b) => bucketDate >= b.startStr && bucketDate <= b.endStr);
       if (w) {
-        w.grossCents += grossCents;
-        w.netCents += netCents;
         w.labCostCents += labCostCents;
-        if (isPaid) { w.paidGrossCents += grossCents; w.paidNetCents += netCents; w.paidStripeFeeCents += stripeFeeCents; }
+        if (isPaid) { w.paidGrossCents += grossCents; w.paidStripeFeeCents += stripeFeeCents; }
       }
 
       const monthKey = bucketDate.slice(0, 7);
       const m = monthly.find((b) => b.key === monthKey);
       if (m) {
-        m.grossCents += grossCents;
-        m.netCents += netCents;
         m.labCostCents += labCostCents;
-        if (isPaid) { m.paidGrossCents += grossCents; m.paidNetCents += netCents; m.paidStripeFeeCents += stripeFeeCents; }
+        if (isPaid) { m.paidGrossCents += grossCents; m.paidStripeFeeCents += stripeFeeCents; }
       }
     }
 
@@ -382,7 +380,7 @@ export default function RevenueMarginSummaryView() {
       // this period's jobs regardless of paid status — per Tim's own
       // explicit "lab costs are always charged to me no matter what" — but
       // Net Earnings was still only ever subtracting the PAID subset's own
-      // lab cost (via paidNetCents), so a period with lots of unpaid lab
+      // lab cost, so a period with lots of unpaid lab
       // work silently never reflected those costs here at all. Now a real
       // waterfall: what actually came in (paidGrossCents) minus every real
       // cost for the period (labCostCents — ALL of it, paid or not) minus
@@ -398,7 +396,6 @@ export default function RevenueMarginSummaryView() {
         id,
         label: p.label,
         shortLabel: p.shortLabel,
-        grossCents: p.grossCents,
         labCents: p.labCostCents,
         pdfHrefs: isWeekly ? weeklyLabInvoicePdfHrefs[p.label] : undefined,
         paidGrossCents: p.paidGrossCents,
@@ -463,21 +460,21 @@ export default function RevenueMarginSummaryView() {
               tab" → "this column [Margin] def delete it doesnt matter".
               Landed here: Other Costs is gone entirely (its own feature,
               not just this column — monthly-overhead route removed too).
-              Margin, Mileage Deduction, and Taxable are no longer their
-              own columns — Mileage Deduction/Taxable folded into the "Tax
-              Savings" cell's title tooltip instead, since dropping all
-              three (plus whole-dollar formatting via formatWhole, plus
-              short period labels) is what actually gets this under a
-              phone's width with zero horizontal scroll. Revenue/Lab Cost
-              stayed — per Tim, "I don't think I'm trying to use this as my
-              entire business overview... but I do need [it] pre-calculated
-              in terms of what I need to move to my general checking
-              account and what I need to move to my 35% tax savings
-              account" — so "Tax Savings"/"Checking" are named for the two
-              accounts he's actually moving money into, not generic
-              "Tax"/"Net". Lab Cost renders in red with a "−" prefix (per
-              Tim) since it's the one column here that's actually a cost,
-              not incoming/outgoing money. */}
+              Margin and Taxable are no longer their own columns — Taxable
+              folded into the "35% for Taxes" cell's title tooltip instead,
+              since dropping both (plus whole-dollar formatting via
+              formatWhole, plus short period labels) is what actually gets
+              this under a phone's width with zero horizontal scroll. Paid
+              and Lab Cost stayed — per Tim, "I don't think I'm trying to
+              use this as my entire business overview... but I do need [it]
+              pre-calculated in terms of what I need to move to my general
+              checking account and what I need to move to my 35% tax
+              savings account" — so "35% for Taxes" and "Net Earnings" are
+              named for what he's actually doing with each figure (move it
+              to that tax account vs. keep it), not generic "Tax"/"Net".
+              Lab Cost renders in red with a "−" prefix (per Tim) since
+              it's the one column here that's actually a cost, not
+              incoming/outgoing money. */}
           <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white">
             <div className="grid grid-cols-[minmax(0,1fr)_50px_56px_52px_56px_82px_86px] gap-x-1 border-b border-slate-200 bg-slate-50 px-2 py-2 text-[8px] font-bold uppercase text-slate-500 sm:gap-x-3 sm:px-4 sm:text-xs">
               <div>{isWeekly ? "Week" : "Month"}</div>

@@ -153,13 +153,6 @@ export function billingDateFor(job: JobWithCustomer): string | null {
   return effectiveJobDate(job);
 }
 
-// netCents already includes the same lab cost estimate as Lab Costs above
-// (see the periodHistory loop) — null when there's no revenue yet to
-// divide by, rather than a misleading 0%.
-export function marginPercentOf(bucket: { grossCents: number; netCents: number }): number | null {
-  return bucket.grossCents > 0 ? (bucket.netCents / bucket.grossCents) * 100 : null;
-}
-
 // Per Tim, 2026-09-04 — "estimate a lab cost based off of the number of
 // samples I entered on the invoice": sample_counts only ever gets
 // populated by parsing an actual uploaded lab report, so a job still

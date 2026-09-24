@@ -321,6 +321,26 @@ export default function RevenueMarginSummaryView() {
   // for the range — there's no such thing as negative taxes owed.
   const taxSetAsideCents = Math.max(0, Math.round((taxableIncomeCents * TAX_SET_ASIDE_PERCENT) / 100));
 
+  // Per Tim, 2026-09-24 — "yes add that projected line": the figures above
+  // only count PAID jobs against ALL of the range's driving, so with most
+  // invoices still unpaid the set-aside looks far too low (Tim saw ~$400-500
+  // against ~$34k pending). This is the same math as if every invoiced job
+  // in the range were already paid: full invoiced total, less every job's
+  // lab cost (not just paid jobs'), less Stripe fees already known (unpaid
+  // jobs have none recorded yet, so this slightly overstates), less the same
+  // mileage deduction.
+  const projected = useMemo(() => {
+    let labCents = 0, stripeFeeCents = 0;
+    for (const row of filteredJobRows) {
+      labCents += row.labCents;
+      stripeFeeCents += row.stripeFeeCents;
+    }
+    const netEarningsCents = invoicedTotalCents - labCents - stripeFeeCents;
+    const taxableCents = netEarningsCents - mileageDeductionCents;
+    const setAsideCents = Math.max(0, Math.round((taxableCents * TAX_SET_ASIDE_PERCENT) / 100));
+    return { taxableCents, setAsideCents };
+  }, [filteredJobRows, invoicedTotalCents, mileageDeductionCents]);
+
   function goToJob(jobId: string) {
     router.push(`/admin/dashboard?jobId=${jobId}`);
   }
@@ -555,6 +575,20 @@ export default function RevenueMarginSummaryView() {
             <div className="mt-1.5 flex items-center justify-between">
               <span className="font-medium text-slate-600">Set Aside for Taxes ({TAX_SET_ASIDE_PERCENT}%)</span>
               <span className="font-semibold text-amber-700">{formatWhole(taxSetAsideCents)}</span>
+            </div>
+            <div className="mt-2.5 border-t border-slate-100 pt-2.5">
+              <div className="text-xs font-bold uppercase tracking-wide text-slate-500">If everything invoiced gets paid</div>
+              <div className="mt-1.5 flex items-center justify-between">
+                <span className="text-slate-500">Taxable Income</span>
+                <span className={projected.taxableCents < 0 ? "text-red-600" : "text-slate-800"}>
+                  {projected.taxableCents < 0 ? "−" : ""}
+                  {formatWhole(Math.abs(projected.taxableCents))}
+                </span>
+              </div>
+              <div className="mt-1.5 flex items-center justify-between">
+                <span className="font-medium text-slate-600">Set Aside for Taxes ({TAX_SET_ASIDE_PERCENT}%)</span>
+                <span className="font-semibold text-amber-700">{formatWhole(projected.setAsideCents)}</span>
+              </div>
             </div>
           </div>
 

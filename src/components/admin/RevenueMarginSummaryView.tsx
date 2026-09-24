@@ -34,14 +34,13 @@ import {
 // COMPANY_START_DATE filter below trims the excess.
 const ALL_PERIODS_COUNT = 520;
 
-// Per Tim, 2026-09-23 — "I don't have to scroll across": whole dollars,
-// no cents, just for this compact table — every other dollar figure in
-// the app (invoices, the job list, etc.) still uses formatCents' full
-// precision; this is purely a display-width concession for a table with
-// 6 dollar columns across a phone-width screen.
-function formatWhole(cents: number): string {
-  return `$${Math.round(cents / 100).toLocaleString("en-US")}`;
-}
+// Per Tim, 2026-09-23 — first whole dollars only ("I don't have to scroll
+// across"), then same day, reversed ("I want to display everything,
+// including the cents"): now just formatCents, kept as its own name since
+// every call site below already reads as "the compact table's own
+// formatter" — same full precision as every other dollar figure in the
+// app (invoices, the job list, etc.).
+const formatWhole = formatCents;
 
 export default function RevenueMarginSummaryView() {
   const router = useRouter();
@@ -461,10 +460,16 @@ export default function RevenueMarginSummaryView() {
               Landed here: Other Costs is gone entirely (its own feature,
               not just this column — monthly-overhead route removed too).
               Margin and Taxable are no longer their own columns — Taxable
-              folded into the "35% for Taxes" cell's title tooltip instead,
-              since dropping both (plus whole-dollar formatting via
-              formatWhole, plus short period labels) is what actually gets
-              this under a phone's width with zero horizontal scroll. Paid
+              folded into the "35% for Taxes" cell's title tooltip instead.
+              Per Tim, 2026-09-23 (later same day) — "I want to display
+              everything, including the cents": reversed the whole-dollar
+              formatWhole rounding from earlier the same day, which brings
+              back horizontal scroll on this table (only this table, not
+              the page) — cents-precision figures across 6 dollar columns
+              genuinely don't fit a phone's width no matter how tight the
+              rest gets; verified in a throwaway mobile mockup that
+              min-w-[700px] + overflow-x-auto on just this table's own
+              wrapper renders every column cleanly, just scrollable. Paid
               and Lab Cost stayed — per Tim, "I don't think I'm trying to
               use this as my entire business overview... but I do need [it]
               pre-calculated in terms of what I need to move to my general
@@ -475,8 +480,9 @@ export default function RevenueMarginSummaryView() {
               Lab Cost renders in red with a "−" prefix (per Tim) since
               it's the one column here that's actually a cost, not
               incoming/outgoing money. */}
-          <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white">
-            <div className="grid grid-cols-[minmax(0,1fr)_50px_56px_52px_56px_82px_86px] gap-x-1 border-b border-slate-200 bg-slate-50 px-2 py-2 text-[8px] font-bold uppercase text-slate-500 sm:gap-x-3 sm:px-4 sm:text-xs">
+          <div className="mt-4 overflow-x-auto rounded-xl border border-slate-200 bg-white">
+            <div className="min-w-[700px]">
+            <div className="grid grid-cols-[minmax(100px,1fr)_74px_78px_70px_70px_92px_92px] gap-x-2 border-b border-slate-200 bg-slate-50 px-3 py-2 text-[8px] font-bold uppercase text-slate-500 sm:text-xs">
               <div>{isWeekly ? "Week" : "Month"}</div>
               <div className="text-right">Paid</div>
               <div className="text-right">Lab Cost</div>
@@ -492,7 +498,7 @@ export default function RevenueMarginSummaryView() {
                 role="button"
                 tabIndex={0}
                 onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && goToPeriod(row.label)}
-                className="grid cursor-pointer grid-cols-[minmax(0,1fr)_50px_56px_52px_56px_82px_86px] gap-x-1 items-center border-b border-slate-100 px-2 py-3 text-sm last:border-b-0 hover:bg-slate-50 sm:gap-x-3 sm:px-4"
+                className="grid cursor-pointer grid-cols-[minmax(100px,1fr)_74px_78px_70px_70px_92px_92px] gap-x-2 items-center border-b border-slate-100 px-3 py-3 text-sm last:border-b-0 hover:bg-slate-50"
               >
                 <div className="text-[11px] leading-tight text-slate-700 sm:text-sm">{row.shortLabel}</div>
                 <div className="whitespace-nowrap text-right text-[12px] font-medium text-emerald-700 sm:text-sm">{formatWhole(row.paidGrossCents)}</div>
@@ -537,7 +543,7 @@ export default function RevenueMarginSummaryView() {
                 </div>
               </div>
             ))}
-            <div className="grid grid-cols-[minmax(0,1fr)_50px_56px_52px_56px_82px_86px] gap-x-1 items-center bg-slate-50 px-2 py-3 text-sm font-semibold text-slate-800 sm:gap-x-3 sm:px-4">
+            <div className="grid grid-cols-[minmax(100px,1fr)_74px_78px_70px_70px_92px_92px] gap-x-2 items-center bg-slate-50 px-3 py-3 text-sm font-semibold text-slate-800">
               <div className="text-[11px] sm:text-sm">All time</div>
               <div className="whitespace-nowrap text-right text-[12px] text-emerald-700 sm:text-sm">{formatWhole(allTimeEarnings.totalPaidGross)}</div>
               <div className="whitespace-nowrap text-right text-[12px] text-red-600 sm:text-sm">
@@ -563,6 +569,7 @@ export default function RevenueMarginSummaryView() {
               >
                 {formatWhole(allTimeEarnings.totalTax)}
               </div>
+            </div>
             </div>
           </div>
 

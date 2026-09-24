@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { JobWithCustomer } from "@/lib/types";
 import { formatCents, knownStripeFeeCentsForJob } from "@/lib/pricing";
-import { effectiveJobDate } from "@/lib/mileage-shared";
+import { effectiveJobDate, MILEAGE_RATE_CENTS, TAX_SET_ASIDE_PERCENT } from "@/lib/mileage-shared";
 import { formatDateMDY } from "@/lib/date-format";
 import { FLI_ENVIRONMENTAL_COMPANY_ID } from "@/lib/report-findings";
 import { billingDateFor, invoiceStatus, ymd } from "@/components/admin/BillingView";
@@ -50,10 +50,13 @@ function endOfWeek(d: Date): Date {
 // because a WEEK is an artificial container that different jobs' money
 // flows through at different times — a job-per-row table sidesteps it: no
 // bucketing, no date-basis question, each row is fully self-contained.
-// Mileage is dropped from this page entirely (Tim's explicit choice) —
-// miles aren't a property of any one job (a day of driving can touch
-// several jobs or none), so it never had a clean home in a per-job table;
-// it stays tracked on its own Mileage page.
+// The per-job table itself has no mileage column — miles aren't a
+// property of any one job (a day of driving can touch several jobs or
+// none), so it never had a clean home in a per-job row. Per Tim, same
+// day (later): mileage still needs to net against the range as a whole,
+// for an accurate tax set-aside — see the "Mileage & Taxes" card below
+// the table, which pulls the Mileage calendar's own per-day totals
+// rather than trying to attribute miles to individual jobs.
 function formatWhole(cents: number): string {
   return formatCents(cents);
 }
@@ -77,6 +80,15 @@ export default function RevenueMarginSummaryView() {
   const [stripeFeeGaps, setStripeFeeGaps] = useState<
     { project_number: string | null; company: string | null; issue: string; severity?: string }[]
   >([]);
+  // Per Tim, 2026-09-24 — "we can't do mileage job by job... so now after
+  // the fact we have to apply mileage deduction": miles aren't a property
+  // of any one job (see the top-of-file comment on why the job table
+  // itself has no mileage column), but a tax set-aside for a date range
+  // still needs to net out that range's real driving. Sourced from the
+  // same per-day totals the Mileage page itself is built on
+  // (sumSavedMileageByDay via the mileage API's own ?summary=1), not
+  // re-derived here.
+  const [dailyMiles, setDailyMiles] = useState<Record<string, number>>({});
 
   useEffect(() => {
     fetch("/api/admin/jobs")
@@ -87,6 +99,16 @@ export default function RevenueMarginSummaryView() {
       })
       .catch((e) => setError(e instanceof Error ? e.message : "Failed to load revenue summary"))
       .finally(() => setLoaded(true));
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/admin/mileage?summary=1")
+      .then(async (r) => {
+        if (!r.ok) return;
+        const data = await r.json();
+        setDailyMiles(data.dailyMiles ?? {});
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -219,12 +241,18 @@ export default function RevenueMarginSummaryView() {
   // if Tim picks them out of order rather than silently showing nothing.
   // Both blank = no filter at all (every job, including ones with no
   // fieldwork date — those can never match a real bound anyway).
-  const filteredJobRows = useMemo(() => {
-    if (!fromDate && !toDate) return jobRows;
+  const effectiveRange = useMemo(() => {
+    if (!fromDate && !toDate) return { lo: null as string | null, hi: null as string | null };
     const lo = !fromDate || (toDate && toDate < fromDate) ? toDate : fromDate;
     const hi = !toDate || (fromDate && toDate < fromDate) ? fromDate : toDate;
+    return { lo, hi };
+  }, [fromDate, toDate]);
+
+  const filteredJobRows = useMemo(() => {
+    const { lo, hi } = effectiveRange;
+    if (!lo && !hi) return jobRows;
     return jobRows.filter((row) => row.date && (!lo || row.date >= lo) && (!hi || row.date <= hi));
-  }, [jobRows, fromDate, toDate]);
+  }, [jobRows, effectiveRange]);
 
   // Per Tim, 2026-09-24 — reversed course, same day: "lab costs should
   // only ever appear on jobs that have been paid. All we care about here
@@ -255,6 +283,28 @@ export default function RevenueMarginSummaryView() {
     const totalPay = totalPaid - totalLabCost - totalStripeFee;
     return { totalPaid, totalLabCost, totalStripeFee, totalPay };
   }, [filteredJobRows]);
+
+  // Per Tim, 2026-09-24 — "the whole overall goal of this is to ensure
+  // that I'm saving 35% of the correct amount for taxes and the correct
+  // amount is always going to be after my mileage deduction": same
+  // fromDate/toDate range as the job table above, summed against the
+  // Mileage calendar's own per-day totals rather than any per-job figure.
+  const filteredMiles = useMemo(() => {
+    const { lo, hi } = effectiveRange;
+    let total = 0;
+    for (const [day, miles] of Object.entries(dailyMiles)) {
+      if (lo && day < lo) continue;
+      if (hi && day > hi) continue;
+      total += miles;
+    }
+    return Math.round(total * 10) / 10;
+  }, [dailyMiles, effectiveRange]);
+
+  const mileageDeductionCents = Math.round(filteredMiles * MILEAGE_RATE_CENTS);
+  const taxableIncomeCents = filteredTotals.totalPay - mileageDeductionCents;
+  // Nothing to set aside once mileage wipes out (or exceeds) Net Earnings
+  // for the range — there's no such thing as negative taxes owed.
+  const taxSetAsideCents = Math.max(0, Math.round((taxableIncomeCents * TAX_SET_ASIDE_PERCENT) / 100));
 
   function goToJob(jobId: string) {
     router.push(`/admin/dashboard?jobId=${jobId}`);
@@ -452,6 +502,42 @@ export default function RevenueMarginSummaryView() {
                   )}
                 </div>
               </div>
+            </div>
+          </div>
+
+          {/* Per Tim, 2026-09-24 — "the whole overall goal of this is to
+              ensure that I'm saving 35% of the correct amount for taxes
+              and the correct amount is always going to be after my
+              mileage deduction": Net Earnings from the table above (same
+              filteredTotals, same date range), less this range's real
+              miles driven (from the Mileage calendar, not a per-job
+              figure — see filteredMiles' own comment) at the current IRS
+              rate, then 35% of what's left. */}
+          <h2 className="mt-8 text-lg font-bold text-slate-800">Mileage &amp; Taxes</h2>
+          <div className="mt-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-slate-500">Net Earnings (this range)</span>
+              <span className={`font-semibold ${filteredTotals.totalPay < 0 ? "text-red-600" : "text-slate-800"}`}>
+                {filteredTotals.totalPay < 0 ? "−" : ""}
+                {formatWhole(Math.abs(filteredTotals.totalPay))}
+              </span>
+            </div>
+            <div className="mt-1.5 flex items-center justify-between">
+              <span className="text-slate-500">
+                Mileage Deduction ({filteredMiles} mi @ {formatCents(MILEAGE_RATE_CENTS)}/mi)
+              </span>
+              <span className="text-red-600">−{formatWhole(mileageDeductionCents)}</span>
+            </div>
+            <div className="mt-2.5 flex items-center justify-between border-t border-slate-100 pt-2.5">
+              <span className="font-medium text-slate-600">Taxable Income</span>
+              <span className={`font-semibold ${taxableIncomeCents < 0 ? "text-red-600" : "text-slate-800"}`}>
+                {taxableIncomeCents < 0 ? "−" : ""}
+                {formatWhole(Math.abs(taxableIncomeCents))}
+              </span>
+            </div>
+            <div className="mt-1.5 flex items-center justify-between">
+              <span className="font-medium text-slate-600">Set Aside for Taxes ({TAX_SET_ASIDE_PERCENT}%)</span>
+              <span className="font-semibold text-amber-700">{formatWhole(taxSetAsideCents)}</span>
             </div>
           </div>
 

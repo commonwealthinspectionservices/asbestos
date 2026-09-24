@@ -179,10 +179,6 @@ export default function RevenueMarginSummaryView() {
   // the job is actually paid; labCents is the job's own real,
   // Crystal-reported cost regardless of paid status (lab costs are
   // charged whether or not Commonwealth's own invoice has been paid yet).
-  // hasLabCost tracks whether a real cost has been recorded at all
-  // (job.lab_cost_cents != null) — distinct from labCents itself being 0,
-  // which is a legitimate real value on some jobs (e.g. FLI, billed to
-  // its own separate Crystal account), not a "missing" one.
   // netEarningsCents is allowed to go negative (a job can genuinely cost
   // more than it's brought in so far); taxCents floors at 0 so a loss
   // never produces a negative tax.
@@ -194,7 +190,6 @@ export default function RevenueMarginSummaryView() {
           const invoicedCents = job.invoice_total_cents ?? 0;
           const paidCents = isPaid ? invoicedCents : 0;
           const labCents = job.lab_cost_cents ?? 0;
-          const hasLabCost = job.lab_cost_cents != null;
           const stripeFeeCents = knownStripeFeeCentsForJob(job) ?? 0;
           const netEarningsCents = paidCents - labCents - stripeFeeCents;
           const taxCents = Math.max(0, Math.round((Math.max(0, netEarningsCents) * TAX_SET_ASIDE_PERCENT) / 100));
@@ -207,7 +202,6 @@ export default function RevenueMarginSummaryView() {
             invoicedCents,
             paidCents,
             labCents,
-            hasLabCost,
             stripeFeeCents,
             netEarningsCents,
             taxCents,
@@ -230,51 +224,42 @@ export default function RevenueMarginSummaryView() {
     return jobRows.filter((row) => row.date && (!lo || row.date >= lo) && (!hi || row.date <= hi));
   }, [jobRows, fromDate, toDate]);
 
-  // Per Tim, 2026-09-24 — "the very bottom row that calculates all the
-  // totals... should only be calculating jobs that are entirely filled
-  // out. That means jobs that have an invoice amount, have been paid,
-  // have a lab cost, have everything else. It needs to have every single
-  // row filled out to be calculated": an unpaid job, or one whose lab
-  // cost hasn't come in from Crystal yet, is still a work in progress —
-  // folding its numbers into the total would move the total every time
-  // any one of those pieces later arrives, for a job that was never
-  // "done" to begin with. Only isPaid && hasLabCost jobs count here. Not
-  // gated on Stripe Fee being non-zero — a real $0 fee on a check-paid job
-  // is a known, correct value, not a missing one, same distinction
-  // hasLabCost draws for lab_cost_cents.
-  const completeJobRows = useMemo(() => filteredJobRows.filter((row) => row.isPaid && row.hasLabCost), [filteredJobRows]);
-
-  // Per Tim, 2026-09-24 — first "a true sum of everything that's been
-  // invoiced of all time," then clarified same day: "it should fit the
-  // date range that's been selected... if it's weekly, it should fit
-  // what's been invoiced for those weeks." "All time" in his first
-  // message meant the From/To range he happened to have selected right
-  // then (both blank), not "always ignore the date range" — Invoiced
-  // still respects fromDate/toDate like everything else on this page, it
-  // just isn't restricted to "complete" jobs the way Paid/Lab Cost/Net
-  // Earnings/Tax are (see completeJobRows' own comment) — a job billed
-  // in the selected range counts here whether or not it's been paid or
-  // has a recorded lab cost yet.
+  // Per Tim, 2026-09-24 — "why is this not totaling my lab costs?": briefly
+  // required isPaid && hasLabCost for every total column ("jobs that are
+  // entirely filled out"), which meant a job with a real, visible Lab Cost
+  // but not yet paid was excluded from the Lab Cost total entirely — the
+  // exact number sitting right there in the column above it wasn't in the
+  // sum below it. Reverted per-column instead, matching the same
+  // "lab costs are always charged to me no matter what" principle already
+  // used for each job's own row: Lab Cost totals every filtered job
+  // regardless of paid status (nothing to wait on — it's already a known,
+  // real number the moment Crystal reports it). Paid/Stripe Fee only sum
+  // jobs that are actually paid (can't have a payment or a processing fee
+  // without one) — not additionally gated on that job's own lab cost
+  // having arrived yet, since that's an unrelated fact about a different
+  // column.
   const invoicedTotalCents = useMemo(() => filteredJobRows.reduce((sum, row) => sum + row.invoicedCents, 0), [filteredJobRows]);
 
   // Per Tim, 2026-09-24 — "why want the numbers to match is the point...
-  // I want these numbers to be showing all the same thing": sum every
-  // complete job's own Paid/Lab Cost/Stripe Fee first into one
-  // true totalPay, then compute totalTaxable/totalTax from THAT one
-  // number, floored once at the end — never sum each job's own
-  // already-floored tax.
+  // I want these numbers to be showing all the same thing": totalPay is
+  // computed from these same three totals (never re-derived per job and
+  // re-summed), and totalTaxable/totalTax are computed from totalPay,
+  // floored once at the end — never sum each job's own already-floored
+  // tax.
   const filteredTotals = useMemo(() => {
     let totalPaid = 0, totalLabCost = 0, totalStripeFee = 0;
-    for (const row of completeJobRows) {
-      totalPaid += row.paidCents;
+    for (const row of filteredJobRows) {
       totalLabCost += row.labCents;
-      totalStripeFee += row.stripeFeeCents;
+      if (row.isPaid) {
+        totalPaid += row.paidCents;
+        totalStripeFee += row.stripeFeeCents;
+      }
     }
     const totalPay = totalPaid - totalLabCost - totalStripeFee;
     const totalTaxable = Math.max(0, totalPay);
     const totalTax = Math.max(0, Math.round((totalTaxable * TAX_SET_ASIDE_PERCENT) / 100));
     return { totalPaid, totalLabCost, totalStripeFee, totalPay, totalTaxable, totalTax };
-  }, [completeJobRows]);
+  }, [filteredJobRows]);
 
   function goToJob(jobId: string) {
     router.push(`/admin/dashboard?jobId=${jobId}`);

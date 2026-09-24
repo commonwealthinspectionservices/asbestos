@@ -1724,15 +1724,14 @@ function JobRow({
       done: (job.sample_counts?.[label] || 0) > 0,
     }));
   });
-  const labResultsChecklist = job.status === "pending_lab_results" && job.source !== "subcontractor" && checklistItems.length > 1 && (
-    <span className="flex shrink-0 flex-col items-end gap-0.5 text-sm">
-      {checklistItems.map((item) => (
-        <span key={item.key} className={`flex items-center gap-1 ${item.done ? "text-emerald-600" : "text-slate-400"}`}>
-          {item.text} {item.done ? "☑" : "☐"}
-        </span>
-      ))}
-    </span>
-  );
+  // Per Tim, 2026-09-24 — "the service types should just turn into the
+  // checkbox instead of having mold air sampling and an air sampling
+  // checkbox": the checklist no longer renders as its own right-hand
+  // column of chips; each service type in the middle column gets its
+  // checkbox directly to its right instead (see below). Same conditions
+  // as before — only a pending-lab-results, non-subcontractor job with
+  // more than one item to tell apart.
+  const showLabChecklist = job.status === "pending_lab_results" && job.source !== "subcontractor" && checklistItems.length > 1;
   // Mobile only — see the address block below. Desktop already opens
   // straight to Google Maps in the detail dialog, and a driver picking a
   // nav app is a phone-in-hand, on-the-way-there thing, not a desktop one.
@@ -2077,11 +2076,25 @@ function JobRow({
         <div className="min-w-0 w-full sm:w-auto sm:flex-[1.2]">
           {(() => {
             const labels = (job.service_type ?? "").split(",").map((s) => s.trim()).filter(Boolean);
-            return labels.map((label, i) => (
-              <div key={i} className="whitespace-nowrap text-sm text-slate-500">
-                {serviceTypeLabel(label)}{i < labels.length - 1 ? "," : ""}
-              </div>
-            ));
+            return labels.map((label, i) => {
+              // A label's own checklist item (mold air/bulk are tracked
+              // per label), else its domain's (asbestos/mold with a
+              // single label). No item — e.g. a label outside the report
+              // domains — just shows plain text, no checkbox.
+              const item = showLabChecklist
+                ? checklistItems.find((c) => c.key === label) ?? checklistItems.find((c) => c.key === domainForServiceTypeLabel(label))
+                : undefined;
+              return (
+                <div key={i} className="whitespace-nowrap text-sm text-slate-500">
+                  {serviceTypeLabel(label)}
+                  {item ? (
+                    <span className={`ml-1.5 ${item.done ? "text-emerald-600" : "text-slate-400"}`}>{item.done ? "☑" : "☐"}</span>
+                  ) : (
+                    i < labels.length - 1 ? "," : ""
+                  )}
+                </div>
+              );
+            });
           })()}
         </div>
 
@@ -2263,7 +2276,6 @@ function JobRow({
                     ? extractTimeRange(job.subcontractor_preferred_window) ?? formatTime(job.confirmed_time)
                     : formatTime(job.confirmed_time ?? job.requested_time) || "—"}
                 </div>
-                {labResultsChecklist && <div className="mt-0.5 flex justify-end">{labResultsChecklist}</div>}
               </div>
             </div>
           )}

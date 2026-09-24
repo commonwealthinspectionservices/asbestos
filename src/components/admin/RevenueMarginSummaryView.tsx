@@ -174,20 +174,27 @@ export default function RevenueMarginSummaryView() {
   // earnings. And my net earnings are what I get paid minus lab cost,
   // stripe fee": one row per job, fully self-contained — no period
   // bucketing, no date-basis question, nothing to reconcile against a
-  // different row. paidCents is 0 (shown as "—") until the job is
-  // actually paid; labCents is the job's own real, Crystal-reported cost
-  // regardless of paid status (lab costs are charged whether or not
-  // Commonwealth's own invoice has been paid yet). netEarningsCents is
-  // allowed to go negative (a job can genuinely cost more than it's
-  // brought in so far); taxCents floors at 0 so a loss never produces a
-  // negative tax.
+  // different row. invoicedCents is what the job was actually billed for,
+  // shown regardless of paid status. paidCents is 0 (shown as "—") until
+  // the job is actually paid; labCents is the job's own real,
+  // Crystal-reported cost regardless of paid status (lab costs are
+  // charged whether or not Commonwealth's own invoice has been paid yet).
+  // hasLabCost tracks whether a real cost has been recorded at all
+  // (job.lab_cost_cents != null) — distinct from labCents itself being 0,
+  // which is a legitimate real value on some jobs (e.g. FLI, billed to
+  // its own separate Crystal account), not a "missing" one.
+  // netEarningsCents is allowed to go negative (a job can genuinely cost
+  // more than it's brought in so far); taxCents floors at 0 so a loss
+  // never produces a negative tax.
   const jobRows = useMemo(
     () =>
       invoicedJobs
         .map((job) => {
           const isPaid = job.status === "paid" || Boolean(job.paid_date);
-          const paidCents = isPaid ? job.invoice_total_cents ?? 0 : 0;
+          const invoicedCents = job.invoice_total_cents ?? 0;
+          const paidCents = isPaid ? invoicedCents : 0;
           const labCents = job.lab_cost_cents ?? 0;
+          const hasLabCost = job.lab_cost_cents != null;
           const stripeFeeCents = knownStripeFeeCentsForJob(job) ?? 0;
           const netEarningsCents = paidCents - labCents - stripeFeeCents;
           const taxCents = Math.max(0, Math.round((Math.max(0, netEarningsCents) * TAX_SET_ASIDE_PERCENT) / 100));
@@ -198,8 +205,10 @@ export default function RevenueMarginSummaryView() {
             company: job.customers?.company || job.customers?.name || null,
             date,
             isPaid,
+            invoicedCents,
             paidCents,
             labCents,
+            hasLabCost,
             stripeFeeCents,
             netEarningsCents,
             taxCents,
@@ -222,16 +231,30 @@ export default function RevenueMarginSummaryView() {
     return jobRows.filter((row) => row.date && (!lo || row.date >= lo) && (!hi || row.date <= hi));
   }, [jobRows, fromDate, toDate]);
 
+  // Per Tim, 2026-09-24 — "the very bottom row that calculates all the
+  // totals... should only be calculating jobs that are entirely filled
+  // out. That means jobs that have an invoice amount, have been paid,
+  // have a lab cost, have everything else. It needs to have every single
+  // row filled out to be calculated": an unpaid job, or one whose lab
+  // cost hasn't come in from Crystal yet, is still a work in progress —
+  // folding its numbers into the total would move the total every time
+  // any one of those pieces later arrives, for a job that was never
+  // "done" to begin with. Only isPaid && hasLabCost jobs count here. Not
+  // gated on Stripe Fee being non-zero — a real $0 fee on a check-paid job
+  // is a known, correct value, not a missing one, same distinction
+  // hasLabCost draws for lab_cost_cents.
+  const completeJobRows = useMemo(() => filteredJobRows.filter((row) => row.isPaid && row.hasLabCost), [filteredJobRows]);
+
   // Per Tim, 2026-09-24 — "why want the numbers to match is the point...
   // I want these numbers to be showing all the same thing": sum every
-  // visible job's own Paid/Lab Cost/Stripe Fee first into one true
-  // totalPay, then compute totalTaxable/totalTax from THAT one number,
-  // floored once at the end — never sum each job's own already-floored
-  // tax. Scoped to whatever's currently filtered, so this total can never
-  // disagree with the rows sitting right above it.
+  // complete job's own Invoiced/Paid/Lab Cost/Stripe Fee first into one
+  // true totalPay, then compute totalTaxable/totalTax from THAT one
+  // number, floored once at the end — never sum each job's own
+  // already-floored tax.
   const filteredTotals = useMemo(() => {
-    let totalPaid = 0, totalLabCost = 0, totalStripeFee = 0;
-    for (const row of filteredJobRows) {
+    let totalInvoiced = 0, totalPaid = 0, totalLabCost = 0, totalStripeFee = 0;
+    for (const row of completeJobRows) {
+      totalInvoiced += row.invoicedCents;
       totalPaid += row.paidCents;
       totalLabCost += row.labCents;
       totalStripeFee += row.stripeFeeCents;
@@ -239,8 +262,8 @@ export default function RevenueMarginSummaryView() {
     const totalPay = totalPaid - totalLabCost - totalStripeFee;
     const totalTaxable = Math.max(0, totalPay);
     const totalTax = Math.max(0, Math.round((totalTaxable * TAX_SET_ASIDE_PERCENT) / 100));
-    return { totalPaid, totalLabCost, totalStripeFee, totalPay, totalTaxable, totalTax };
-  }, [filteredJobRows]);
+    return { totalInvoiced, totalPaid, totalLabCost, totalStripeFee, totalPay, totalTaxable, totalTax };
+  }, [completeJobRows]);
 
   const rangeLabel =
     !fromDate && !toDate
@@ -345,9 +368,10 @@ export default function RevenueMarginSummaryView() {
           </div>
 
           <div className="mt-3 overflow-x-auto rounded-xl border border-slate-200 bg-white">
-            <div className="min-w-[640px]">
-              <div className="grid grid-cols-[minmax(140px,1fr)_74px_78px_70px_92px_92px] gap-x-2 border-b border-slate-200 bg-slate-50 px-3 py-2 text-[8px] font-bold uppercase text-slate-500 sm:text-xs">
+            <div className="min-w-[715px]">
+              <div className="grid grid-cols-[minmax(140px,1fr)_74px_74px_78px_70px_92px_92px] gap-x-2 border-b border-slate-200 bg-slate-50 px-3 py-2 text-[8px] font-bold uppercase text-slate-500 sm:text-xs">
                 <div>Job</div>
+                <div className="text-right">Invoiced</div>
                 <div className="text-right">Paid</div>
                 <div className="text-right">Lab Cost</div>
                 <div className="text-right">Stripe Fee</div>
@@ -364,11 +388,14 @@ export default function RevenueMarginSummaryView() {
                   role="button"
                   tabIndex={0}
                   onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && goToJob(row.id)}
-                  className="grid cursor-pointer grid-cols-[minmax(140px,1fr)_74px_78px_70px_92px_92px] gap-x-2 items-center border-b border-slate-100 px-3 py-3 text-sm last:border-b-0 hover:bg-slate-50"
+                  className="grid cursor-pointer grid-cols-[minmax(140px,1fr)_74px_74px_78px_70px_92px_92px] gap-x-2 items-center border-b border-slate-100 px-3 py-3 text-sm last:border-b-0 hover:bg-slate-50"
                 >
                   <div className="min-w-0">
                     <div className="text-[11px] font-medium leading-tight text-slate-800 sm:text-sm">{row.project_number}</div>
                     <div className="truncate text-[10px] leading-tight text-slate-500 sm:text-xs">{row.company}</div>
+                  </div>
+                  <div className="whitespace-nowrap text-right text-[12px] sm:text-sm">
+                    {row.invoicedCents > 0 ? <span className="text-slate-600">{formatWhole(row.invoicedCents)}</span> : <span className="text-slate-400">—</span>}
                   </div>
                   <div className="whitespace-nowrap text-right text-[12px] font-medium sm:text-sm">
                     {row.isPaid ? <span className="text-emerald-700">{formatWhole(row.paidCents)}</span> : <span className="text-slate-400">—</span>}
@@ -379,8 +406,16 @@ export default function RevenueMarginSummaryView() {
                   <div className="whitespace-nowrap text-right text-[12px] sm:text-sm">
                     {row.stripeFeeCents > 0 ? <span className="text-red-600">{formatWhole(row.stripeFeeCents)}</span> : <span className="text-slate-400">—</span>}
                   </div>
-                  <div className="whitespace-nowrap text-right text-[12px] font-semibold sm:text-sm">
-                    {row.netEarningsCents === 0 ? (
+                  <div className="whitespace-nowrap text-right text-[12px] sm:text-sm">
+                    {/* Per Tim, 2026-09-24 — "it should never be negative
+                        when there are lab costs... but the job has not
+                        been paid yet, we need to just leave that section
+                        blank": Net Earnings only ever shows a real number
+                        once the job is actually paid — a real cost against
+                        a job that hasn't been paid yet isn't a confirmed
+                        loss, it's just pending. Also never bold anymore
+                        (was font-semibold). */}
+                    {!row.isPaid || row.netEarningsCents === 0 ? (
                       <span className="text-slate-400">—</span>
                     ) : (
                       <span className={row.netEarningsCents < 0 ? "text-red-600" : "text-emerald-700"}>
@@ -397,8 +432,18 @@ export default function RevenueMarginSummaryView() {
                   </div>
                 </div>
               ))}
-              <div className="grid grid-cols-[minmax(140px,1fr)_74px_78px_70px_92px_92px] gap-x-2 items-center border-t-2 border-slate-200 bg-slate-50 px-3 py-3 text-sm font-semibold text-slate-800">
-                <div className="text-[11px] sm:text-sm">{rangeLabel}</div>
+              {/* Per Tim, 2026-09-24 — "the very bottom row... should only
+                  be calculating jobs that are entirely filled out": see
+                  completeJobRows' own comment. Labeled explicitly so it's
+                  never mistaken for a sum of every row shown above it. */}
+              <div className="grid grid-cols-[minmax(140px,1fr)_74px_74px_78px_70px_92px_92px] gap-x-2 items-center border-t-2 border-slate-200 bg-slate-50 px-3 py-3 text-sm font-semibold text-slate-800">
+                <div className="text-[11px] leading-tight sm:text-sm">
+                  {rangeLabel}
+                  <div className="text-[9px] font-normal normal-case text-slate-500 sm:text-[11px]">completed jobs only</div>
+                </div>
+                <div className="whitespace-nowrap text-right text-[12px] sm:text-sm">
+                  {filteredTotals.totalInvoiced > 0 ? <span className="text-slate-600">{formatWhole(filteredTotals.totalInvoiced)}</span> : <span className="text-slate-400">—</span>}
+                </div>
                 <div className="whitespace-nowrap text-right text-[12px] sm:text-sm">
                   {filteredTotals.totalPaid > 0 ? <span className="text-emerald-700">{formatWhole(filteredTotals.totalPaid)}</span> : <span className="text-slate-400">—</span>}
                 </div>

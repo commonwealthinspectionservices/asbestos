@@ -289,7 +289,13 @@ export default function RevenueMarginSummaryView() {
               Lab Cost/Stripe Fee render as plain positive red numbers (a
               real cost); Net Earnings/Tax same treatment as before (Net
               Earnings signed, Tax floored at $0). */}
-          <div className="mt-4 flex flex-wrap gap-2">
+          {/* Per Tim, 2026-09-24 — "this should all be one line across":
+              quick-select buttons and the From/To inputs used to be two
+              separate flex-wrap rows, which could each wrap onto a second
+              line on a narrow phone. One flex-nowrap row with its own
+              horizontal scroll instead — same pattern as the job table
+              below, so nothing wraps, it just scrolls. */}
+          <div className="mt-4 flex flex-nowrap items-center gap-2 overflow-x-auto pb-1">
             <button
               onClick={() => { const t = ymd(new Date()); setFromDate(t); setToDate(t); }}
               className="shrink-0 whitespace-nowrap rounded-lg bg-slate-100 px-4 py-2 text-sm font-medium text-slate-600"
@@ -318,9 +324,7 @@ export default function RevenueMarginSummaryView() {
             >
               All Time
             </button>
-          </div>
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-600">
-            <label className="flex items-center gap-1.5">
+            <label className="flex shrink-0 items-center gap-1.5 text-sm text-slate-600">
               From
               <input
                 type="date"
@@ -329,7 +333,7 @@ export default function RevenueMarginSummaryView() {
                 className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
               />
             </label>
-            <label className="flex items-center gap-1.5">
+            <label className="flex shrink-0 items-center gap-1.5 text-sm text-slate-600">
               To
               <input
                 type="date"

@@ -245,15 +245,18 @@ export default function RevenueMarginSummaryView() {
   // hasLabCost draws for lab_cost_cents.
   const completeJobRows = useMemo(() => filteredJobRows.filter((row) => row.isPaid && row.hasLabCost), [filteredJobRows]);
 
-  // Per Tim, 2026-09-24 — "make sure that the second row invoiced section
-  // is a true sum of everything that's been invoiced of all time": the
-  // Invoiced total is its own, separate number — every job ever invoiced,
-  // full stop, not scoped to the current From/To range and not restricted
-  // to "complete" jobs the way Paid/Lab Cost/Net Earnings/Tax still are
-  // below (those stay real, checkable numbers tied to fully-settled work
-  // — see completeJobRows' own comment). Invoiced is just "how much have I
-  // billed, ever," so it's summed from jobRows directly, unfiltered.
-  const allTimeInvoicedCents = useMemo(() => jobRows.reduce((sum, row) => sum + row.invoicedCents, 0), [jobRows]);
+  // Per Tim, 2026-09-24 — first "a true sum of everything that's been
+  // invoiced of all time," then clarified same day: "it should fit the
+  // date range that's been selected... if it's weekly, it should fit
+  // what's been invoiced for those weeks." "All time" in his first
+  // message meant the From/To range he happened to have selected right
+  // then (both blank), not "always ignore the date range" — Invoiced
+  // still respects fromDate/toDate like everything else on this page, it
+  // just isn't restricted to "complete" jobs the way Paid/Lab Cost/Net
+  // Earnings/Tax are (see completeJobRows' own comment) — a job billed
+  // in the selected range counts here whether or not it's been paid or
+  // has a recorded lab cost yet.
+  const invoicedTotalCents = useMemo(() => filteredJobRows.reduce((sum, row) => sum + row.invoicedCents, 0), [filteredJobRows]);
 
   // Per Tim, 2026-09-24 — "why want the numbers to match is the point...
   // I want these numbers to be showing all the same thing": sum every
@@ -391,19 +394,14 @@ export default function RevenueMarginSummaryView() {
                   be all the totals, the totals should be in the very
                   second row. All the time": moved from the bottom to right
                   under the header, so the summary is visible without
-                  scrolling through every job first. Invoiced is its own
-                  true all-time sum (see allTimeInvoicedCents' own comment,
-                  not scoped to the current date range or job completeness)
-                  — Paid/Lab Cost/Stripe Fee/Net Earnings/Tax still only
-                  count jobs that are entirely filled out, see
-                  completeJobRows' own comment. Dropped the "completed jobs
-                  only" caption per Tim, 2026-09-24 (same day) — it no
-                  longer describes the whole row now that Invoiced doesn't
-                  follow that rule. */}
+                  scrolling through every job first. Invoiced respects the
+                  current From/To range like everything else here, just not
+                  the "complete jobs only" restriction the other columns
+                  use — see invoicedTotalCents' own comment. */}
               <div className="grid grid-cols-[minmax(140px,1fr)_74px_74px_78px_70px_92px_92px] gap-x-2 items-center border-b-2 border-slate-200 bg-slate-50 px-3 py-3 text-sm font-semibold text-slate-800">
                 <div className="text-[11px] leading-tight sm:text-sm">{rangeLabel}</div>
                 <div className="whitespace-nowrap text-right text-[12px] sm:text-sm">
-                  {allTimeInvoicedCents > 0 ? <span className="text-slate-600">{formatWhole(allTimeInvoicedCents)}</span> : <span className="text-slate-400">—</span>}
+                  {invoicedTotalCents > 0 ? <span className="text-slate-600">{formatWhole(invoicedTotalCents)}</span> : <span className="text-slate-400">—</span>}
                 </div>
                 <div className="whitespace-nowrap text-right text-[12px] sm:text-sm">
                   {filteredTotals.totalPaid > 0 ? <span className="text-emerald-700">{formatWhole(filteredTotals.totalPaid)}</span> : <span className="text-slate-400">—</span>}

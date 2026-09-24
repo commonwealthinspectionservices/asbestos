@@ -290,55 +290,60 @@ export default function RevenueMarginSummaryView() {
           {/* Per Tim, 2026-09-24 — quick-select buttons and the From/To
               inputs went through several rounds the same day (moved onto
               the Pending line, deleted, restored) before landing here: all
-              one row — "this should be on the same line as the today,
-              this week, this month, all time buttons. The heights of the
-              cells should be the same. Make sure the two in the middle is
-              just a dash. And then also delete where it says from." No
-              more "From"/"To" labels — just the two date inputs with a
-              plain "–" between them, same px-4 py-2 sizing as the
-              buttons so every cell in the row is the same height. */}
-          <div className="mt-3 flex flex-nowrap items-center gap-2 overflow-x-auto pb-1">
-            <button
-              onClick={() => { const t = ymd(new Date()); setFromDate(t); setToDate(t); }}
-              className="shrink-0 whitespace-nowrap rounded-lg bg-slate-100 px-4 py-2 text-sm font-medium text-slate-600"
-            >
-              Today
-            </button>
-            <button
-              onClick={() => { const now = new Date(); setFromDate(ymd(startOfWeek(now))); setToDate(ymd(endOfWeek(now))); }}
-              className="shrink-0 whitespace-nowrap rounded-lg bg-slate-100 px-4 py-2 text-sm font-medium text-slate-600"
-            >
-              This Week
-            </button>
-            <button
-              onClick={() => {
-                const now = new Date();
-                setFromDate(ymd(new Date(now.getFullYear(), now.getMonth(), 1)));
-                setToDate(ymd(new Date(now.getFullYear(), now.getMonth() + 1, 0)));
-              }}
-              className="shrink-0 whitespace-nowrap rounded-lg bg-slate-100 px-4 py-2 text-sm font-medium text-slate-600"
-            >
-              This Month
-            </button>
-            <button
-              onClick={() => { setFromDate(""); setToDate(""); }}
-              className="shrink-0 whitespace-nowrap rounded-lg bg-slate-100 px-4 py-2 text-sm font-medium text-slate-600"
-            >
-              All Time
-            </button>
-            <input
-              type="date"
-              value={fromDate}
-              onChange={(e) => setFromDate(e.target.value)}
-              className="shrink-0 rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-800"
-            />
-            <span className="shrink-0 text-slate-400">–</span>
-            <input
-              type="date"
-              value={toDate}
-              onChange={(e) => setToDate(e.target.value)}
-              className="shrink-0 rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-800"
-            />
+              one row, buttons left / date range right — "let's make sure
+              that the height of the cells and buttons over there are the
+              exact same height. And then let's make sure that the date
+              feature is aligned right. And the buttons should be aligned
+              left, like they are." Buttons and date inputs share a fixed
+              h-10 (not just matching padding — a native <input
+              type="date"> and a <button> can render at slightly different
+              heights from UA defaults even with identical padding). */}
+          <div className="mt-3 flex flex-nowrap items-center justify-between gap-2 overflow-x-auto pb-1">
+            <div className="flex flex-nowrap items-center gap-2">
+              <button
+                onClick={() => { const t = ymd(new Date()); setFromDate(t); setToDate(t); }}
+                className="inline-flex h-10 shrink-0 items-center justify-center whitespace-nowrap rounded-lg bg-slate-100 px-4 text-sm font-medium text-slate-600"
+              >
+                Today
+              </button>
+              <button
+                onClick={() => { const now = new Date(); setFromDate(ymd(startOfWeek(now))); setToDate(ymd(endOfWeek(now))); }}
+                className="inline-flex h-10 shrink-0 items-center justify-center whitespace-nowrap rounded-lg bg-slate-100 px-4 text-sm font-medium text-slate-600"
+              >
+                This Week
+              </button>
+              <button
+                onClick={() => {
+                  const now = new Date();
+                  setFromDate(ymd(new Date(now.getFullYear(), now.getMonth(), 1)));
+                  setToDate(ymd(new Date(now.getFullYear(), now.getMonth() + 1, 0)));
+                }}
+                className="inline-flex h-10 shrink-0 items-center justify-center whitespace-nowrap rounded-lg bg-slate-100 px-4 text-sm font-medium text-slate-600"
+              >
+                This Month
+              </button>
+              <button
+                onClick={() => { setFromDate(""); setToDate(""); }}
+                className="inline-flex h-10 shrink-0 items-center justify-center whitespace-nowrap rounded-lg bg-slate-100 px-4 text-sm font-medium text-slate-600"
+              >
+                All Time
+              </button>
+            </div>
+            <div className="flex flex-nowrap items-center gap-2">
+              <input
+                type="date"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+                className="h-10 shrink-0 rounded-lg border border-slate-300 px-4 text-sm text-slate-800"
+              />
+              <span className="shrink-0 text-slate-400">–</span>
+              <input
+                type="date"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+                className="h-10 shrink-0 rounded-lg border border-slate-300 px-4 text-sm text-slate-800"
+              />
+            </div>
           </div>
 
           {/* Per Tim, 2026-09-24 — "I think this would be a lot simpler if

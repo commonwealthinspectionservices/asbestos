@@ -499,11 +499,17 @@ export default function RevenueMarginSummaryView() {
               savings account" — so "35% for Taxes" and "Net Earnings" are
               named for what he's actually doing with each figure (move it
               to that tax account vs. keep it), not generic "Tax"/"Net".
-              Lab Cost/Stripe Fee/Mileage render in red as plain positive
-              numbers, not a signed "−" figure — per Tim, 2026-09-24, the
-              red color alone already says "this is a cost," and a minus
-              sign on top of it was redundant clutter on a table already
-              tight on width. Net Earnings keeps its own "−" since that one
+              Lab Cost/Stripe Fee render in red as plain positive numbers,
+              not a signed "−" figure — per Tim, 2026-09-24, the red color
+              alone already says "this is a cost," and a minus sign on top
+              of it was redundant clutter on a table already tight on
+              width. Mileage renders in neutral slate instead of red — per
+              Tim the same day, "it's calculating mileage like it's a cost
+              of mine, but that's the dollar value of the miles I drove
+              that I can write off": it's a tax deduction (see the waterfall
+              math above), not a cash cost, so it shouldn't carry the same
+              "this is money leaving your pocket" color as the columns that
+              actually are. Net Earnings keeps its own "−" since that one
               can genuinely go negative as a real bottom-line figure, not
               just a cost being subtracted. */}
           <div className="mt-4 overflow-x-auto rounded-xl border border-slate-200 bg-white">
@@ -552,7 +558,7 @@ export default function RevenueMarginSummaryView() {
                 <div className="whitespace-nowrap text-right text-[12px] text-red-600 sm:text-sm">
                   {row.stripeFeeCents > 0 ? formatWhole(row.stripeFeeCents) : "—"}
                 </div>
-                <div className="whitespace-nowrap text-right text-[12px] text-red-600 sm:text-sm">
+                <div className="whitespace-nowrap text-right text-[12px] text-slate-500 sm:text-sm">
                   {row.mileageDeductionCents > 0 ? formatWhole(row.mileageDeductionCents) : "—"}
                 </div>
                 <div className="whitespace-nowrap text-right text-[12px] font-semibold sm:text-sm">
@@ -577,7 +583,7 @@ export default function RevenueMarginSummaryView() {
               <div className="whitespace-nowrap text-right text-[12px] text-red-600 sm:text-sm">
                 {allTimeEarnings.totalStripeFee > 0 ? formatWhole(allTimeEarnings.totalStripeFee) : "—"}
               </div>
-              <div className="whitespace-nowrap text-right text-[12px] text-red-600 sm:text-sm">
+              <div className="whitespace-nowrap text-right text-[12px] text-slate-500 sm:text-sm">
                 {allTimeEarnings.totalMileageCents > 0 ? formatWhole(allTimeEarnings.totalMileageCents) : "—"}
               </div>
               {/* Sums whichever set of rows (weekly or monthly) is actually

@@ -632,30 +632,31 @@ function EmailChecklistPanel({
           )}
         </div>
         {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
-        <button
-          onClick={createDraft}
-          disabled={nothingSelected || creating}
-          className="mt-4 rounded-lg bg-brand-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
-        >
-          {creating ? "Creating draft…" : "Create Draft ↗"}
-        </button>
-
-        {job.is_individual && job.status !== "paid" && (
-          <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
-            <p className="text-xs text-slate-600">
-              Individual job, not yet paid — the report is being held until payment.
-              {job.payment_reminder_drafted_at ? ` Reminder draft last created ${formatDateMDY(job.payment_reminder_drafted_at)}.` : ""}
-            </p>
-            {reminderError && <p className="mt-1 text-xs text-red-600">{reminderError}</p>}
+        {reminderError && <p className="mt-2 text-sm text-red-600">{reminderError}</p>}
+        {/* Per Tim, 2026-09-24 — "instead of having this whole cell in the
+            text above it, I want it to be just the button... it should be
+            the same height as the draft button above it and it should be
+            directly right of [it]": the explanatory card (held-until-paid
+            text, last-drafted date) is gone — just the two buttons, same
+            size, side by side. */}
+        <div className="mt-4 flex flex-wrap gap-2">
+          <button
+            onClick={createDraft}
+            disabled={nothingSelected || creating}
+            className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+          >
+            {creating ? "Creating draft…" : "Create Draft ↗"}
+          </button>
+          {job.is_individual && job.status !== "paid" && (
             <button
               onClick={sendPaymentReminder}
               disabled={sendingReminder}
-              className="mt-2 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50"
+              className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
             >
               {sendingReminder ? "Creating…" : job.payment_reminder_draft_gmail_message_id ? "Recreate Payment Reminder ↗" : "Create Payment Reminder ↗"}
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
       <div className="order-first max-w-md flex-1">
         <h3 className="mb-2 text-xs font-bold uppercase text-slate-500">Subject</h3>

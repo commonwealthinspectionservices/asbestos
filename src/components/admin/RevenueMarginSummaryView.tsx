@@ -112,17 +112,33 @@ export default function RevenueMarginSummaryView() {
   // job that this page's own math would actually drop, and exactly why.
   // Excludes subcontractor jobs on purpose (they're never invoiced by
   // Commonwealth at all, same exclusion invoicedJobs uses — not a gap).
+  // Per Tim, 2026-09-23 — "go check the numbers" surfaced a second, wider
+  // gap than the original paid-only check covered: ANY invoiced job
+  // missing confirmed_date (not just a paid one) is invisible to every
+  // week/month row on this page (Lab Cost included — see allTimeTotal's
+  // own comment for the real live mismatch this caused, $5,583 vs $3,761).
+  // Two distinct reasons, checked per job:
+  //   1. Invoiced (has a total, sent or paid) but no fieldwork date —
+  //      excluded from every row, paid or not.
+  //   2. Marked paid but has no invoice total at all — a different gap,
+  //      not caught by #1 since invoicedJobs itself requires a total.
   const paidButNotTracked = useMemo(
     () =>
       jobs
-        .filter((j) => (j.status === "paid" || j.paid_date) && j.source !== "subcontractor" && (!j.confirmed_date || j.invoice_total_cents == null))
-        .map((j) => ({
-          job: j,
-          reason: !j.confirmed_date
-            ? "No fieldwork date recorded — can't be placed in any week/month"
-            : "No invoice total recorded",
-        }))
-        .sort((a, b) => (b.job.paid_date ?? "").localeCompare(a.job.paid_date ?? "")),
+        .filter((j) => j.source !== "subcontractor")
+        .map((j) => {
+          const isInvoiced = j.invoice_total_cents != null && Boolean(j.invoice_sent_at || j.paid_date);
+          const isPaid = j.status === "paid" || Boolean(j.paid_date);
+          if (isInvoiced && !j.confirmed_date) {
+            return { job: j, reason: "No fieldwork date recorded — excluded from every week/month row on this page" };
+          }
+          if (isPaid && j.invoice_total_cents == null) {
+            return { job: j, reason: "Marked paid but has no invoice total recorded" };
+          }
+          return null;
+        })
+        .filter((x): x is { job: JobWithCustomer; reason: string } => x !== null)
+        .sort((a, b) => (b.job.paid_date ?? b.job.confirmed_date ?? "").localeCompare(a.job.paid_date ?? a.job.confirmed_date ?? "")),
     [jobs]
   );
 
@@ -244,20 +260,25 @@ export default function RevenueMarginSummaryView() {
     return result;
   }, [jobs, periodHistory.weekly]);
 
-  // Per Tim, 2026-09-02 — all-time total, not just what the capped
-  // weekly/monthly tables above happen to show. Every invoiced job counts,
-  // same gross computation as each period bucket above.
+  // Per Tim, 2026-09-23 — "go check the numbers": this used to sum
+  // job.lab_cost_cents across every invoiced job directly, independent of
+  // periodHistory — including a job with no confirmed_date, which
+  // periodHistory's own loop skips entirely (`if (!bucketDate) continue`)
+  // since it can't be placed in any week/month row. That meant All Time
+  // could (and did — caught live, $5,583 shown vs. $3,761 actually summing
+  // the visible weeks) run higher than the true sum of every row on the
+  // page, with the gap coming from jobs invisible to the table itself.
+  // Now literally a sum of periodHistory.monthly's own labCostCents, so
+  // All Time can never disagree with what's actually shown above it —
+  // see paidButNotTracked below for how a job excluded this way (missing
+  // confirmed_date) is still surfaced instead of just silently dropped.
   const allTimeTotal = useMemo(() => {
-    let grossCents = 0;
     let labCostCents = 0;
-    let stripeFeeCents = 0;
-    for (const job of invoicedJobs) {
-      grossCents += job.invoice_total_cents ?? 0;
-      labCostCents += job.lab_cost_cents ?? 0;
-      stripeFeeCents += knownStripeFeeCentsForJob(job) ?? 0;
+    for (const m of periodHistory.monthly) {
+      labCostCents += m.labCostCents;
     }
-    return { grossCents, labCostCents, stripeFeeCents };
-  }, [invoicedJobs]);
+    return { labCostCents };
+  }, [periodHistory.monthly]);
 
   // Per Tim, 2026-09-18 — moved here from BillingView ("this part should
   // not be on the billing page, it should be on the revenue and margin
@@ -563,7 +584,7 @@ export default function RevenueMarginSummaryView() {
               which two gaps this catches. */}
           {paidButNotTracked.length > 0 && (
             <>
-              <h2 className="mt-8 text-lg font-bold text-slate-800">Paid, but not showing up above</h2>
+              <h2 className="mt-8 text-lg font-bold text-slate-800">Not showing up above</h2>
               <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-white">
                 <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_1fr] gap-x-3 border-b border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold uppercase tracking-wide text-slate-500 sm:px-4">
                   <div>Project</div>

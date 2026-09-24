@@ -315,26 +315,35 @@ export default function RevenueMarginSummaryView() {
   // so "All time" can never mathematically disagree with what's shown
   // above it, on either tab. Real waterfall unchanged from before: Paid −
   // ALL Lab Cost − paid Stripe fee − Mileage, allowed to go negative.
+  // Per Tim, 2026-09-24 — "why want the numbers to match is the point...
+  // I want these numbers to be showing all the same thing": caught a real
+  // internal inconsistency, not just a confusing juxtaposition. totalTax
+  // used to be the SUM of each week's own already-floored tax (a
+  // profitable week kicks in its own 35% with no credit for a different
+  // week's loss, since each row floors independently — the right call for
+  // a single row deciding what to set aside in real time, without
+  // hindsight about weeks that haven't happened yet). But summed up that
+  // way, "All time" could show real, positive tax owed while its own Net
+  // Earnings sat deeply negative — the exact "these should agree" problem
+  // Tim flagged (Sept 6-12 alone was profitable and owed $247.33; the
+  // all-time total, dragged down by other weeks, was -$3,986.47). Fixed
+  // by treating "All time" as one single period, same formula as any row:
+  // totalPay is the true sum of every week's own Net Earnings first, and
+  // totalTax/totalTaxable are computed from THAT one number, floored once
+  // — not accumulated from each week's own separate floor. If the true
+  // all-time total is negative, all-time tax is exactly $0, full stop.
   const allTimeEarnings = useMemo(() => {
     const source = isWeekly ? periodHistory.weekly : periodHistory.monthly;
     const miles = isWeekly ? weeklyMiles : monthlyMiles;
-    let totalPaidGross = 0, totalLabCost = 0, totalStripeFee = 0, totalMileageCents = 0, totalTaxable = 0, totalTax = 0, totalPay = 0;
+    let totalPaidGross = 0, totalLabCost = 0, totalStripeFee = 0, totalMileageCents = 0, totalPay = 0;
     for (const p of source) {
       const id = isWeekly ? (p as typeof periodHistory.weekly[number]).label : (p as typeof periodHistory.monthly[number]).key;
       const mileageDeductionCents = Math.round((miles[id] ?? 0) * MILEAGE_RATE_CENTS);
-      // Per Tim, 2026-09-24 — settled with a direct, explicit formula: "I
-      // just want 35% for taxes to be 35% of my net earnings. And my net
-      // earnings are what I get paid minus lab cost, stripe fee, and the
-      // mileage numeric value for dollars." totalPay (Net Earnings) IS the
-      // pre-tax figure — mileage subtracts into it directly, same as Lab
-      // Cost/Stripe Fee — and totalTax is just 35% of that (floored at 0,
-      // never a negative tax on a loss). See summaryRows' own comment for
-      // the same formula, worked through in more detail.
       const netEarningsCents = p.paidGrossCents - p.labCostCents - p.paidStripeFeeCents - mileageDeductionCents;
-      const taxableCents = Math.max(0, netEarningsCents);
-      const taxCents = Math.max(0, Math.round((taxableCents * TAX_SET_ASIDE_PERCENT) / 100));
-      totalPaidGross += p.paidGrossCents; totalLabCost += p.labCostCents; totalStripeFee += p.paidStripeFeeCents; totalMileageCents += mileageDeductionCents; totalTaxable += taxableCents; totalTax += taxCents; totalPay += netEarningsCents;
+      totalPaidGross += p.paidGrossCents; totalLabCost += p.labCostCents; totalStripeFee += p.paidStripeFeeCents; totalMileageCents += mileageDeductionCents; totalPay += netEarningsCents;
     }
+    const totalTaxable = Math.max(0, totalPay);
+    const totalTax = Math.max(0, Math.round((totalTaxable * TAX_SET_ASIDE_PERCENT) / 100));
     return { totalPaidGross, totalLabCost, totalStripeFee, totalMileageCents, totalTaxable, totalTax, totalPay };
   }, [isWeekly, periodHistory, weeklyMiles, monthlyMiles]);
 

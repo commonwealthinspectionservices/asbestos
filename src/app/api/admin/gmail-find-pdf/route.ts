@@ -23,7 +23,7 @@ export const GET = withApiErrors(async (req: NextRequest) => {
     const part = findPdfParts(message.payload)[partIndex];
     if (!part) return NextResponse.json({ error: "No such PDF part" }, { status: 404 });
     const data = await getAttachmentData(accessToken, messageId, part.attachmentId);
-    return new NextResponse(data, { headers: { "Content-Type": "application/pdf" } });
+    return new NextResponse(new Uint8Array(data), { headers: { "Content-Type": "application/pdf" } });
   }
 
   const q = url.searchParams.get("q");

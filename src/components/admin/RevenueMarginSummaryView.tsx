@@ -6,8 +6,6 @@ import Link from "next/link";
 import type { JobWithCustomer } from "@/lib/types";
 import { formatCents, knownStripeFeeCentsForJob } from "@/lib/pricing";
 import { effectiveJobDate } from "@/lib/mileage-shared";
-import { formatDateMDY } from "@/lib/date-format";
-import { FLI_ENVIRONMENTAL_COMPANY_ID } from "@/lib/report-findings";
 import { billingDateFor, invoiceStatus, ymd } from "@/components/admin/BillingView";
 
 // Per Tim, 2026-09-24 — "I feel like it's better than having daily and
@@ -106,24 +104,6 @@ export default function RevenueMarginSummaryView() {
   // same predicate as BillingView's own invoicedJobs.
   const invoicedJobs = useMemo(
     () => jobs.filter((j) => j.source !== "subcontractor" && j.invoice_total_cents != null && (j.invoice_sent_at || j.paid_date)),
-    [jobs]
-  );
-
-  // Per Tim, 2026-09-23 — "show me the list of what's not been billed":
-  // every job with fieldwork actually done (confirmed_date set) and no
-  // lab_cost_cents recorded yet — deliberately NOT the same, narrower set
-  // audit-invoices flags (that one only surfaces a job once its own week
-  // is over, to avoid noise on fieldwork from the last day or two that
-  // just hasn't been billed yet — worth worrying about vs. worth knowing
-  // about are different lists, and Tim wants the second, complete one
-  // here). Same FLI exclusion as everywhere else — FLI jobs never get a
-  // real Commonwealth lab invoice at all (see knownLabCostCentsForJob's
-  // own comment), so $0 there is correct, not "unbilled".
-  const notYetBilled = useMemo(
-    () =>
-      jobs
-        .filter((j) => effectiveJobDate(j) && j.source !== "subcontractor" && j.customers?.company_id !== FLI_ENVIRONMENTAL_COMPANY_ID && !j.lab_cost_cents)
-        .sort((a, b) => (effectiveJobDate(b) ?? "").localeCompare(effectiveJobDate(a) ?? "")),
     [jobs]
   );
 
@@ -240,7 +220,7 @@ export default function RevenueMarginSummaryView() {
   // when it's surfaced here). Lab Cost — per row and in the total — now
   // only shows/counts for jobs where isPaid, same gate Paid/Stripe Fee
   // already use. An unpaid job's real recorded lab cost still exists
-  // (still visible via "Not yet billed by the lab" and the job's own
+  // (still visible on the job's own
   // page), it just doesn't appear anywhere on THIS page until paid.
   const invoicedTotalCents = useMemo(() => filteredJobRows.reduce((sum, row) => sum + row.invoicedCents, 0), [filteredJobRows]);
 
@@ -459,34 +439,6 @@ export default function RevenueMarginSummaryView() {
               </div>
             </div>
           </div>
-
-          {/* Per Tim, 2026-09-23 — "show me the list of what's not been
-              billed" / "feel like it's more than this no??" (the earlier,
-              audit-invoices-based version only surfaced a job once its own
-              week was over, so it under-reported — see notYetBilled's own
-              comment) / "i dont love the format" / "it should be at the
-              very bottom" — three rounds of feedback landing here: a plain
-              table matching the job table's own look, at the bottom of
-              the page. */}
-          {notYetBilled.length > 0 && (
-            <>
-              <h2 className="mt-8 text-lg font-bold text-slate-800">Not yet billed by the lab</h2>
-              <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-white">
-                <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_90px] gap-x-3 border-b border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold uppercase tracking-wide text-slate-500 sm:px-4">
-                  <div>Project</div>
-                  <div>Company</div>
-                  <div className="text-right">Fieldwork</div>
-                </div>
-                {notYetBilled.map((j) => (
-                  <div key={j.id} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_90px] items-center gap-x-3 border-b border-slate-100 px-3 py-2.5 text-sm last:border-b-0 sm:px-4">
-                    <div className="font-medium text-slate-800">{j.project_number}</div>
-                    <div className="truncate text-slate-600">{j.customers?.company || j.customers?.name}</div>
-                    <div className="whitespace-nowrap text-right text-slate-500">{formatDateMDY(effectiveJobDate(j))}</div>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
 
           {/* Per Tim, 2026-09-23 — "how are you going to make sure that
               you track everything that gets paid... I need a way to

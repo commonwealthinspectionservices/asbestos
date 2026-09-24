@@ -890,6 +890,9 @@ export default function BillingView() {
         <Link href="/admin/revenue-summary" className="text-brand-600 underline hover:text-brand-700">
           Net Earnings by Job
         </Link>
+        <Link href="/admin/weekly-revenue" className="text-brand-600 underline hover:text-brand-700">
+          Weekly Revenue
+        </Link>
         <Link href="/admin/payment-calendar" className="text-brand-600 underline hover:text-brand-700">
           Payment Calendar
         </Link>

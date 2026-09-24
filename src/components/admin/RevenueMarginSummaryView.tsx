@@ -202,7 +202,6 @@ export default function RevenueMarginSummaryView() {
           return {
             id: job.id,
             project_number: job.project_number,
-            company: job.customers?.company || job.customers?.name || null,
             date,
             isPaid,
             invoicedCents,
@@ -439,11 +438,10 @@ export default function RevenueMarginSummaryView() {
                   role="button"
                   tabIndex={0}
                   onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && goToJob(row.id)}
-                  className="grid cursor-pointer grid-cols-[minmax(140px,1fr)_74px_74px_78px_70px_92px_92px] gap-x-2 items-center border-b border-slate-100 px-3 py-3 text-sm last:border-b-0 hover:bg-slate-50"
+                  className="group grid cursor-pointer grid-cols-[minmax(140px,1fr)_74px_74px_78px_70px_92px_92px] gap-x-2 items-center border-b border-slate-100 px-3 py-3 text-sm last:border-b-0 hover:bg-slate-50"
                 >
                   <div className="min-w-0">
-                    <div className="text-[11px] font-medium leading-tight text-slate-800 sm:text-sm">{row.project_number}</div>
-                    <div className="truncate text-[10px] leading-tight text-slate-500 sm:text-xs">{row.company}</div>
+                    <div className="text-[11px] font-medium leading-tight text-slate-800 group-hover:underline sm:text-sm">{row.project_number}</div>
                   </div>
                   <div className="whitespace-nowrap text-right text-[12px] sm:text-sm">
                     {row.invoicedCents > 0 ? <span className="text-slate-600">{formatWhole(row.invoicedCents)}</span> : <span className="text-slate-400">—</span>}

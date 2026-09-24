@@ -240,24 +240,31 @@ export default function RevenueMarginSummaryView() {
   // column.
   const invoicedTotalCents = useMemo(() => filteredJobRows.reduce((sum, row) => sum + row.invoicedCents, 0), [filteredJobRows]);
 
-  // Per Tim, 2026-09-24 — "why want the numbers to match is the point...
-  // I want these numbers to be showing all the same thing": totalPay is
-  // computed from these same three totals (never re-derived per job and
-  // re-summed), and totalTaxable/totalTax are computed from totalPay,
-  // floored once at the end — never sum each job's own already-floored
-  // tax.
+  // Per Tim, 2026-09-24 — "the 35% for taxes column should definitely
+  // total up": totalTax is now the direct sum of each row's own taxCents
+  // (each already independently floored at $0 — see jobRows' own
+  // comment), same as totalLabCost sums each row's own labCents. totalPay
+  // (Net Earnings) still comes from totalPaid − totalLabCost −
+  // totalStripeFee, not from summing each row's own netEarningsCents —
+  // those stay blank on unpaid rows for display, but the underlying value
+  // still reflects that job's own lab cost even while unpaid (matches
+  // Lab Cost's own "always charged" rule), so summing it directly would
+  // double up the unpaid-job cost effect already captured in
+  // totalLabCost. totalTaxable is informational only (the tooltip) — sum
+  // of each paid row's own taxable base, not literally reconciled to the
+  // cent against totalTax (each row rounds its own 35% independently).
   const filteredTotals = useMemo(() => {
-    let totalPaid = 0, totalLabCost = 0, totalStripeFee = 0;
+    let totalPaid = 0, totalLabCost = 0, totalStripeFee = 0, totalTaxable = 0, totalTax = 0;
     for (const row of filteredJobRows) {
       totalLabCost += row.labCents;
+      totalTax += row.taxCents;
       if (row.isPaid) {
         totalPaid += row.paidCents;
         totalStripeFee += row.stripeFeeCents;
+        totalTaxable += Math.max(0, row.netEarningsCents);
       }
     }
     const totalPay = totalPaid - totalLabCost - totalStripeFee;
-    const totalTaxable = Math.max(0, totalPay);
-    const totalTax = Math.max(0, Math.round((totalTaxable * TAX_SET_ASIDE_PERCENT) / 100));
     return { totalPaid, totalLabCost, totalStripeFee, totalPay, totalTaxable, totalTax };
   }, [filteredJobRows]);
 

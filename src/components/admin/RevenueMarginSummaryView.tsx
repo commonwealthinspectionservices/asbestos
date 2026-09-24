@@ -382,51 +382,6 @@ export default function RevenueMarginSummaryView() {
                 <div className="text-right">Net Earnings</div>
                 <div className="text-right">35% for Taxes</div>
               </div>
-              {/* Per Tim, 2026-09-24 — "instead of having the very last row
-                  be all the totals, the totals should be in the very
-                  second row. All the time": moved from the bottom to right
-                  under the header, so the summary is visible without
-                  scrolling through every job first. Invoiced respects the
-                  current From/To range like everything else here, just not
-                  the "complete jobs only" restriction the other columns
-                  use — see invoicedTotalCents' own comment. */}
-              {/* Per Tim, 2026-09-24 — first tried "Total" + the date
-                  range as a subtitle, then: "this all looks weird... I
-                  think the range title shouldn't even be there." Redundant
-                  anyway — the From/To inputs right above the table already
-                  show the selected range, no need to repeat it here. Just
-                  "Total" now, plain and simple. */}
-              <div className="grid grid-cols-[minmax(140px,1fr)_74px_74px_78px_70px_92px_92px] gap-x-2 items-center border-b-2 border-slate-200 bg-slate-50 px-3 py-3 text-sm font-semibold text-slate-800">
-                <div className="text-[11px] leading-tight sm:text-sm">Total</div>
-                <div className="whitespace-nowrap text-right text-[12px] sm:text-sm">
-                  {invoicedTotalCents > 0 ? <span className="text-slate-600">{formatWhole(invoicedTotalCents)}</span> : <span className="text-slate-400">—</span>}
-                </div>
-                <div className="whitespace-nowrap text-right text-[12px] sm:text-sm">
-                  {filteredTotals.totalPaid > 0 ? <span className="text-emerald-700">{formatWhole(filteredTotals.totalPaid)}</span> : <span className="text-slate-400">—</span>}
-                </div>
-                <div className="whitespace-nowrap text-right text-[12px] sm:text-sm">
-                  {filteredTotals.totalLabCost > 0 ? <span className="text-red-600">{formatWhole(filteredTotals.totalLabCost)}</span> : <span className="text-slate-400">—</span>}
-                </div>
-                <div className="whitespace-nowrap text-right text-[12px] sm:text-sm">
-                  {filteredTotals.totalStripeFee > 0 ? <span className="text-red-600">{formatWhole(filteredTotals.totalStripeFee)}</span> : <span className="text-slate-400">—</span>}
-                </div>
-                <div className="whitespace-nowrap text-right text-[12px] sm:text-sm">
-                  {filteredTotals.totalPay === 0 ? (
-                    <span className="text-slate-400">—</span>
-                  ) : (
-                    <span className={filteredTotals.totalPay < 0 ? "text-red-600" : "text-emerald-700"}>
-                      {filteredTotals.totalPay < 0 ? "−" : ""}
-                      {formatWhole(Math.abs(filteredTotals.totalPay))}
-                    </span>
-                  )}
-                </div>
-                <div
-                  className="whitespace-nowrap text-right text-[12px] sm:text-sm"
-                  title={`Taxable: ${formatCents(filteredTotals.totalTaxable)}`}
-                >
-                  {filteredTotals.totalTax > 0 ? <span className="text-amber-700">{formatWhole(filteredTotals.totalTax)}</span> : <span className="text-slate-400">—</span>}
-                </div>
-              </div>
               {filteredJobRows.length === 0 && (
                 <div className="px-3 py-6 text-center text-sm text-slate-500">No jobs in this range.</div>
               )}
@@ -480,6 +435,45 @@ export default function RevenueMarginSummaryView() {
                   </div>
                 </div>
               ))}
+              {/* Per Tim, 2026-09-24 — went from bottom row → second row
+                  (right under the header, "so the summary is visible
+                  without scrolling") → back to the bottom row: "make it so
+                  that total is the bottom row." Also "let's make it so
+                  that total is all caps." Invoiced respects the current
+                  From/To range like everything else here, just not the
+                  "complete jobs only" restriction the other columns use —
+                  see invoicedTotalCents' own comment. */}
+              <div className="grid grid-cols-[minmax(140px,1fr)_74px_74px_78px_70px_92px_92px] gap-x-2 items-center border-t-2 border-slate-200 bg-slate-50 px-3 py-3 text-sm font-semibold text-slate-800">
+                <div className="text-[11px] uppercase leading-tight sm:text-sm">Total</div>
+                <div className="whitespace-nowrap text-right text-[12px] sm:text-sm">
+                  {invoicedTotalCents > 0 ? <span className="text-slate-600">{formatWhole(invoicedTotalCents)}</span> : <span className="text-slate-400">—</span>}
+                </div>
+                <div className="whitespace-nowrap text-right text-[12px] sm:text-sm">
+                  {filteredTotals.totalPaid > 0 ? <span className="text-emerald-700">{formatWhole(filteredTotals.totalPaid)}</span> : <span className="text-slate-400">—</span>}
+                </div>
+                <div className="whitespace-nowrap text-right text-[12px] sm:text-sm">
+                  {filteredTotals.totalLabCost > 0 ? <span className="text-red-600">{formatWhole(filteredTotals.totalLabCost)}</span> : <span className="text-slate-400">—</span>}
+                </div>
+                <div className="whitespace-nowrap text-right text-[12px] sm:text-sm">
+                  {filteredTotals.totalStripeFee > 0 ? <span className="text-red-600">{formatWhole(filteredTotals.totalStripeFee)}</span> : <span className="text-slate-400">—</span>}
+                </div>
+                <div className="whitespace-nowrap text-right text-[12px] sm:text-sm">
+                  {filteredTotals.totalPay === 0 ? (
+                    <span className="text-slate-400">—</span>
+                  ) : (
+                    <span className={filteredTotals.totalPay < 0 ? "text-red-600" : "text-emerald-700"}>
+                      {filteredTotals.totalPay < 0 ? "−" : ""}
+                      {formatWhole(Math.abs(filteredTotals.totalPay))}
+                    </span>
+                  )}
+                </div>
+                <div
+                  className="whitespace-nowrap text-right text-[12px] sm:text-sm"
+                  title={`Taxable: ${formatCents(filteredTotals.totalTaxable)}`}
+                >
+                  {filteredTotals.totalTax > 0 ? <span className="text-amber-700">{formatWhole(filteredTotals.totalTax)}</span> : <span className="text-slate-400">—</span>}
+                </div>
+              </div>
             </div>
           </div>
 

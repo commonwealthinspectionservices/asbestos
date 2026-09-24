@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { JobWithCustomer } from "@/lib/types";
 import { formatCents, computeMarginCents, knownStripeFeeCentsForJob } from "@/lib/pricing";
-import { TAX_SET_ASIDE_PERCENT, MILEAGE_RATE_CENTS } from "@/lib/mileage-shared";
+import { TAX_SET_ASIDE_PERCENT, MILEAGE_RATE_CENTS, effectiveJobDate } from "@/lib/mileage-shared";
 import { formatDateMDY } from "@/lib/date-format";
 import { FLI_ENVIRONMENTAL_COMPANY_ID } from "@/lib/report-findings";
 import {
@@ -119,8 +119,8 @@ export default function RevenueMarginSummaryView() {
   const notYetBilled = useMemo(
     () =>
       jobs
-        .filter((j) => j.confirmed_date && j.source !== "subcontractor" && j.customers?.company_id !== FLI_ENVIRONMENTAL_COMPANY_ID && !j.lab_cost_cents)
-        .sort((a, b) => (b.confirmed_date ?? "").localeCompare(a.confirmed_date ?? "")),
+        .filter((j) => effectiveJobDate(j) && j.source !== "subcontractor" && j.customers?.company_id !== FLI_ENVIRONMENTAL_COMPANY_ID && !j.lab_cost_cents)
+        .sort((a, b) => (effectiveJobDate(b) ?? "").localeCompare(effectiveJobDate(a) ?? "")),
     [jobs]
   );
 
@@ -153,8 +153,8 @@ export default function RevenueMarginSummaryView() {
         .map((j) => {
           const isInvoiced = j.invoice_total_cents != null && Boolean(j.invoice_sent_at || j.paid_date);
           const isPaid = j.status === "paid" || Boolean(j.paid_date);
-          if (isInvoiced && !j.confirmed_date) {
-            return { job: j, reason: "No fieldwork date recorded — excluded from every week/month row on this page" };
+          if (isInvoiced && !effectiveJobDate(j)) {
+            return { job: j, reason: "No fieldwork or requested date recorded — excluded from every week/month row on this page" };
           }
           if (isPaid && j.invoice_total_cents == null) {
             return { job: j, reason: "Marked paid but has no invoice total recorded" };
@@ -162,7 +162,7 @@ export default function RevenueMarginSummaryView() {
           return null;
         })
         .filter((x): x is { job: JobWithCustomer; reason: string } => x !== null)
-        .sort((a, b) => (b.job.paid_date ?? b.job.confirmed_date ?? "").localeCompare(a.job.paid_date ?? a.job.confirmed_date ?? "")),
+        .sort((a, b) => (b.job.paid_date ?? effectiveJobDate(b.job) ?? "").localeCompare(a.job.paid_date ?? effectiveJobDate(a.job) ?? "")),
     [jobs]
   );
 
@@ -590,7 +590,7 @@ export default function RevenueMarginSummaryView() {
                   <div key={j.id} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_90px] items-center gap-x-3 border-b border-slate-100 px-3 py-2.5 text-sm last:border-b-0 sm:px-4">
                     <div className="font-medium text-slate-800">{j.project_number}</div>
                     <div className="truncate text-slate-600">{j.customers?.company || j.customers?.name}</div>
-                    <div className="whitespace-nowrap text-right text-slate-500">{formatDateMDY(j.confirmed_date)}</div>
+                    <div className="whitespace-nowrap text-right text-slate-500">{formatDateMDY(effectiveJobDate(j))}</div>
                   </div>
                 ))}
               </div>

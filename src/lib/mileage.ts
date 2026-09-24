@@ -2,7 +2,7 @@ import { getSupabaseAdminFresh } from "@/lib/supabase";
 import { getSettingsFresh } from "@/lib/settings";
 import { nowInTimeZone } from "@/lib/tz";
 
-import { LAB_ADDRESS, LAB_LABEL, newStopId, normalizeAddress, totalMiles, type MileageDay, type MileageLeg, type MileageStop } from "@/lib/mileage-shared";
+import { LAB_ADDRESS, LAB_LABEL, newStopId, normalizeAddress, totalMiles, effectiveJobDate, type MileageDay, type MileageLeg, type MileageStop } from "@/lib/mileage-shared";
 
 export * from "@/lib/mileage-shared";
 
@@ -69,10 +69,6 @@ interface JobRowForRoute {
   created_at: string;
 }
 
-/** The day a job was actually scheduled/done — confirmed_date when set (Boston Harbor-style jobs never have requested_date), else requested_date. */
-export function effectiveJobDate(j: Pick<JobRowForRoute, "confirmed_date" | "requested_date">): string | null {
-  return j.confirmed_date ?? j.requested_date ?? null;
-}
 function effectiveJobTime(j: JobRowForRoute): string {
   return j.confirmed_time ?? j.requested_time ?? "99:99";
 }

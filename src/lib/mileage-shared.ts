@@ -52,3 +52,18 @@ export function totalMiles(day: Pick<MileageDay, "legs">): number {
   return Math.round(day.legs.reduce((s, l) => s + (l.miles || 0), 0) * 10) / 10;
 }
 
+/** The day a job was actually scheduled/done — confirmed_date when set
+    (Boston Harbor-style jobs never have requested_date), else
+    requested_date. Lives here (not mileage.ts, which pulls in
+    getSupabaseAdminFresh and other server-only imports) specifically so
+    client components — Revenue & Earnings Summary's own billingDateFor
+    and its "Not showing up above" gap check — can use the exact same
+    fallback the mileage/routing code already uses, per Tim, 2026-09-23:
+    a job whose Project Info tab already shows this same fallback for
+    "Completed date" was confusingly still getting flagged as missing a
+    fieldwork date, since that display fallback was never actually
+    reflected in what this page bucketed jobs by. */
+export function effectiveJobDate(j: { confirmed_date?: string | null; requested_date: string | null }): string | null {
+  return j.confirmed_date ?? j.requested_date ?? null;
+}
+

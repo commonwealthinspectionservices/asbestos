@@ -10,6 +10,7 @@ import { NEWTON_FIRE_FLOOD_COMPANY_ID } from "@/lib/report-findings";
 import { dueDateFor } from "@/lib/invoice-due-date";
 import { COMPANY_START_DATE } from "@/lib/company-dates";
 import { expandAddress, splitAddress } from "@/lib/address";
+import { effectiveJobDate } from "@/lib/mileage-shared";
 
 // Per Tim, 2026-08-30 — "too many clicks to get an answer, and I feel like
 // maybe there's a lot of repeating information": Invoices, Lab Costs, and
@@ -137,11 +138,19 @@ export function invoiceStatus(job: JobWithCustomer): InvoiceStatus {
 // work/billed for it. confirmed_date (fieldwork/"Completed date") is what
 // both Lab Cost and the Crystal PDF link are actually about, so bucketing
 // by it keeps the dollar figure and the linked PDF always describing the
-// same week's real lab activity. Still no fallback date, same reasoning
-// as before — a job with no confirmed_date yet just doesn't count toward
-// any week/month row.
+// same week's real lab activity.
+//
+// Per Tim, 2026-09-23 (same day, follow-up) — falls back to
+// requested_date now, via the shared effectiveJobDate (same fallback the
+// mileage/routing code already uses — see its own comment). Found via a
+// real false alarm: the Project Info tab's own "Completed date" field
+// already silently falls back to showing requested_date when
+// confirmed_date is empty (`formatDate(job.confirmed_date ?? job.requested_date)`),
+// so several real jobs looked fully filled in there while still getting
+// flagged as "no fieldwork date" on this page — this page just wasn't
+// using the same fallback everything else already treats as good enough.
 export function billingDateFor(job: JobWithCustomer): string | null {
-  return job.confirmed_date ?? null;
+  return effectiveJobDate(job);
 }
 
 // netCents already includes the same lab cost estimate as Lab Costs above

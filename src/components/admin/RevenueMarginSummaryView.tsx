@@ -223,21 +223,6 @@ export default function RevenueMarginSummaryView() {
     return jobRows.filter((row) => row.date && (!lo || row.date >= lo) && (!hi || row.date <= hi));
   }, [jobRows, fromDate, toDate]);
 
-  // Per Tim, 2026-09-24 — "you'd probably be able to toggle back and forth
-  // between jobs that are paid and jobs that are not paid," then
-  // clarified: "maybe what I mean is jobs that are paid and then all
-  // jobs" — two options, not three (no separate "Unpaid" toggle). A
-  // second filter on top of the date range, independent of it. Applied
-  // before both the list AND the totals below (not just the list), so the
-  // totals row can never show a number for a job the toggle has hidden —
-  // same "what's visible is what's summed" principle as everywhere else
-  // on this page.
-  const [paidFilter, setPaidFilter] = useState<"all" | "paid">("all");
-  const visibleJobRows = useMemo(
-    () => (paidFilter === "paid" ? filteredJobRows.filter((row) => row.isPaid) : filteredJobRows),
-    [filteredJobRows, paidFilter]
-  );
-
   // Per Tim, 2026-09-24 — reversed course, same day: "lab costs should
   // only ever appear on jobs that have been paid. All we care about here
   // is jobs that have been paid." Supersedes the earlier "lab costs are
@@ -249,7 +234,7 @@ export default function RevenueMarginSummaryView() {
   // already use. An unpaid job's real recorded lab cost still exists
   // (still visible via "Not yet billed by the lab" and the job's own
   // page), it just doesn't appear anywhere on THIS page until paid.
-  const invoicedTotalCents = useMemo(() => visibleJobRows.reduce((sum, row) => sum + row.invoicedCents, 0), [visibleJobRows]);
+  const invoicedTotalCents = useMemo(() => filteredJobRows.reduce((sum, row) => sum + row.invoicedCents, 0), [filteredJobRows]);
 
   // totalPay (Net Earnings) comes from these three aggregate totals, not
   // from summing each row's own netEarningsCents (which stays internally
@@ -257,7 +242,7 @@ export default function RevenueMarginSummaryView() {
   // doesn't show it — summing it directly would double-count).
   const filteredTotals = useMemo(() => {
     let totalPaid = 0, totalLabCost = 0, totalStripeFee = 0;
-    for (const row of visibleJobRows) {
+    for (const row of filteredJobRows) {
       if (row.isPaid) {
         totalPaid += row.paidCents;
         totalLabCost += row.labCents;
@@ -266,7 +251,7 @@ export default function RevenueMarginSummaryView() {
     }
     const totalPay = totalPaid - totalLabCost - totalStripeFee;
     return { totalPaid, totalLabCost, totalStripeFee, totalPay };
-  }, [visibleJobRows]);
+  }, [filteredJobRows]);
 
   function goToJob(jobId: string) {
     router.push(`/admin/dashboard?jobId=${jobId}`);
@@ -363,21 +348,6 @@ export default function RevenueMarginSummaryView() {
             </label>
           </div>
 
-          <div className="mt-2 flex gap-2">
-            <button
-              onClick={() => setPaidFilter("all")}
-              className={`shrink-0 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium ${paidFilter === "all" ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}
-            >
-              All
-            </button>
-            <button
-              onClick={() => setPaidFilter("paid")}
-              className={`shrink-0 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium ${paidFilter === "paid" ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}
-            >
-              Paid
-            </button>
-          </div>
-
           <div className="mt-3 overflow-x-auto rounded-xl border border-slate-200 bg-white">
             <div className="min-w-[620px]">
               <div className="grid grid-cols-[minmax(140px,1fr)_74px_74px_78px_70px_92px] gap-x-2 border-b border-slate-200 bg-slate-50 px-3 py-2 text-[8px] font-bold uppercase text-slate-500 sm:text-xs">
@@ -388,10 +358,10 @@ export default function RevenueMarginSummaryView() {
                 <div className="text-right">Stripe Fee</div>
                 <div className="text-right">Net Earnings</div>
               </div>
-              {visibleJobRows.length === 0 && (
+              {filteredJobRows.length === 0 && (
                 <div className="px-3 py-6 text-center text-sm text-slate-500">No jobs in this range.</div>
               )}
-              {visibleJobRows.map((row) => (
+              {filteredJobRows.map((row) => (
                 <div
                   key={row.id}
                   onClick={() => goToJob(row.id)}

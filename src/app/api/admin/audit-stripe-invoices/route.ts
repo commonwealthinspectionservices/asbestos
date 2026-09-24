@@ -55,7 +55,7 @@ export const GET = withApiErrors(async (req: NextRequest) => {
 
     let invoice: Stripe.Invoice;
     try {
-      invoice = await stripe.invoices.retrieve(job.stripe_invoice_id);
+      invoice = await stripe.invoices.retrieve(job.stripe_invoice_id, { expand: ["payment_intent"] });
     } catch (e) {
       issues.push({ project_number: label, issue: "stripe_invoice_id on record no longer exists in Stripe", detail: e instanceof Error ? e.message : String(e) });
       continue;
@@ -68,7 +68,20 @@ export const GET = withApiErrors(async (req: NextRequest) => {
     if (invoice.status !== "void" && invoice.status !== "uncollectible" && job.invoice_total_cents != null && invoice.total !== job.invoice_total_cents) {
       issues.push({ project_number: label, issue: "Stripe invoice amount doesn't match the job's invoice total", detail: `Stripe ${(invoice.total / 100).toFixed(2)} vs job ${(job.invoice_total_cents / 100).toFixed(2)}` });
     }
-    if (job.paid_date && !job.payment_reversed_at && invoice.status !== "paid") {
+    // Per Tim, 2026-09-24 — false alarm confirmed live on 26-0019: an ACH
+    // (us_bank_account) payment can sit with invoice.status "open" and its
+    // own charge.status "pending" for several business days while the
+    // bank debit is still clearing — Stripe's Invoice object doesn't flip
+    // to "paid" until that finishes, even though the balance_transaction
+    // can already show real, available money. Same signal
+    // findAchPendingJobIds already uses elsewhere (payment_intent.status
+    // === "processing") to tell "still settling" apart from "actually
+    // wrong" — an invoice stuck open for a genuinely different reason
+    // (voided, missed webhook, wrong total) won't have a processing
+    // payment_intent, so this only suppresses the real, expected case.
+    const paymentIntent = invoice.payment_intent && typeof invoice.payment_intent !== "string" ? invoice.payment_intent : null;
+    const achStillProcessing = paymentIntent?.status === "processing";
+    if (job.paid_date && !job.payment_reversed_at && invoice.status !== "paid" && !achStillProcessing) {
       issues.push({ project_number: label, issue: "Job marked paid but its Stripe invoice isn't", detail: `Stripe status: ${invoice.status}` });
     }
     // Per Tim, 2026-08-30 — false alarm on 26-0007/26-0008: both were

@@ -258,7 +258,7 @@ export default function RevenueMarginSummaryView() {
           title aligned right directly across from it": title and back
           link share one row now instead of the link sitting above it. */}
       <div className="flex items-center justify-between gap-2">
-        <h1 className="text-lg font-bold text-slate-800">Revenue &amp; Earnings Summary</h1>
+        <h1 className="text-lg font-bold text-slate-800">Net Earnings by Job</h1>
         <Link href="/admin/billing" className="inline-flex shrink-0 items-center gap-1 text-sm text-brand-600 hover:text-brand-700">
           ← Billing
         </Link>

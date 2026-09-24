@@ -188,7 +188,11 @@ export default function RevenueMarginSummaryView() {
             netEarningsCents,
           };
         })
-        .sort((a, b) => (b.date ?? "").localeCompare(a.date ?? "")),
+        // Per Tim, 2026-09-24 — "jobs should always just be in order by
+        // number high to low": project number, numeric-aware so 26-0100
+        // sorts above 26-0099 and a revisit (26-0002.1) sits right after
+        // its parent's number, not by fieldwork date.
+        .sort((a, b) => (b.project_number ?? "").localeCompare(a.project_number ?? "", undefined, { numeric: true })),
     [invoicedJobs]
   );
 

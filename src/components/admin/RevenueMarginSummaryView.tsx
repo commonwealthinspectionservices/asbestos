@@ -224,42 +224,38 @@ export default function RevenueMarginSummaryView() {
     return jobRows.filter((row) => row.date && (!lo || row.date >= lo) && (!hi || row.date <= hi));
   }, [jobRows, fromDate, toDate]);
 
-  // Per Tim, 2026-09-24 — "why is this not totaling my lab costs?": briefly
-  // required isPaid && hasLabCost for every total column ("jobs that are
-  // entirely filled out"), which meant a job with a real, visible Lab Cost
-  // but not yet paid was excluded from the Lab Cost total entirely — the
-  // exact number sitting right there in the column above it wasn't in the
-  // sum below it. Reverted per-column instead, matching the same
-  // "lab costs are always charged to me no matter what" principle already
-  // used for each job's own row: Lab Cost totals every filtered job
-  // regardless of paid status (nothing to wait on — it's already a known,
-  // real number the moment Crystal reports it). Paid/Stripe Fee only sum
-  // jobs that are actually paid (can't have a payment or a processing fee
-  // without one) — not additionally gated on that job's own lab cost
-  // having arrived yet, since that's an unrelated fact about a different
-  // column.
+  // Per Tim, 2026-09-24 — reversed course, same day: "lab costs should
+  // only ever appear on jobs that have been paid. All we care about here
+  // is jobs that have been paid." Supersedes the earlier "lab costs are
+  // always charged to me no matter what" rule for THIS page (that rule
+  // still governs job.lab_cost_cents itself and the Lab Cost column on
+  // other pages — nothing about how the cost is recorded changed, only
+  // when it's surfaced here). Lab Cost — per row and in the total — now
+  // only shows/counts for jobs where isPaid, same gate Paid/Stripe Fee
+  // already use. An unpaid job's real recorded lab cost still exists
+  // (still visible via "Not yet billed by the lab" and the job's own
+  // page), it just doesn't appear anywhere on THIS page until paid.
   const invoicedTotalCents = useMemo(() => filteredJobRows.reduce((sum, row) => sum + row.invoicedCents, 0), [filteredJobRows]);
 
   // Per Tim, 2026-09-24 — "the 35% for taxes column should definitely
-  // total up": totalTax is now the direct sum of each row's own taxCents
+  // total up": totalTax is the direct sum of each row's own taxCents
   // (each already independently floored at $0 — see jobRows' own
   // comment), same as totalLabCost sums each row's own labCents. totalPay
   // (Net Earnings) still comes from totalPaid − totalLabCost −
-  // totalStripeFee, not from summing each row's own netEarningsCents —
-  // those stay blank on unpaid rows for display, but the underlying value
-  // still reflects that job's own lab cost even while unpaid (matches
-  // Lab Cost's own "always charged" rule), so summing it directly would
-  // double up the unpaid-job cost effect already captured in
-  // totalLabCost. totalTaxable is informational only (the tooltip) — sum
-  // of each paid row's own taxable base, not literally reconciled to the
-  // cent against totalTax (each row rounds its own 35% independently).
+  // totalStripeFee rather than summing each row's own netEarningsCents —
+  // now moot for the paid-vs-unpaid distinction since Lab Cost is also
+  // isPaid-gated, but still avoids any rounding drift between a
+  // row-by-row sum and the aggregate. totalTaxable is informational only
+  // (the tooltip) — sum of each paid row's own taxable base, not
+  // literally reconciled to the cent against totalTax (each row rounds
+  // its own 35% independently).
   const filteredTotals = useMemo(() => {
     let totalPaid = 0, totalLabCost = 0, totalStripeFee = 0, totalTaxable = 0, totalTax = 0;
     for (const row of filteredJobRows) {
-      totalLabCost += row.labCents;
       totalTax += row.taxCents;
       if (row.isPaid) {
         totalPaid += row.paidCents;
+        totalLabCost += row.labCents;
         totalStripeFee += row.stripeFeeCents;
         totalTaxable += Math.max(0, row.netEarningsCents);
       }
@@ -396,7 +392,13 @@ export default function RevenueMarginSummaryView() {
                     {row.isPaid ? <span className="text-emerald-700">{formatWhole(row.paidCents)}</span> : <span className="text-slate-400">—</span>}
                   </div>
                   <div className="whitespace-nowrap text-right text-[12px] sm:text-sm">
-                    {row.labCents > 0 ? <span className="text-red-600">{formatWhole(row.labCents)}</span> : <span className="text-slate-400">—</span>}
+                    {/* Per Tim, 2026-09-24 — "lab costs should only ever
+                        appear on jobs that have been paid. All we care
+                        about here is jobs that have been paid": gated on
+                        isPaid now, same as Paid/Net Earnings, reversing
+                        the earlier "always shows regardless of paid
+                        status" rule for this page specifically. */}
+                    {row.isPaid && row.labCents > 0 ? <span className="text-red-600">{formatWhole(row.labCents)}</span> : <span className="text-slate-400">—</span>}
                   </div>
                   <div className="whitespace-nowrap text-right text-[12px] sm:text-sm">
                     {row.stripeFeeCents > 0 ? <span className="text-red-600">{formatWhole(row.stripeFeeCents)}</span> : <span className="text-slate-400">—</span>}

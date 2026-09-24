@@ -3723,8 +3723,12 @@ export function ProjectDetailDialog({
                       business, not the person — wasn't shown anywhere in
                       this top block at all. Same source/formatting as the
                       "Name" field further down in Company/Customer
-                      contact (toTitleCase(job.customers.name)). */}
-                  <DetailField label="Client Name" value={job.customers?.name ? toTitleCase(job.customers.name) : undefined} />
+                      contact (toTitleCase(job.customers.name), nowrap —
+                      "always one line across and in the same form as
+                      everything else": those other "Name" fields for
+                      this same value already use nowrap; this one had
+                      been left off). */}
+                  <DetailField label="Client Name" value={job.customers?.name ? toTitleCase(job.customers.name) : undefined} nowrap />
                   <DetailField label="Status" value={statusDisplayLabel(job)} />
                   {/* Per Tim, 2026-08-27 — listed as plain fields here,
                       between Status and Company, left-aligned like

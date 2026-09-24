@@ -498,7 +498,7 @@ export default function RevenueMarginSummaryView() {
                 className="grid cursor-pointer grid-cols-[minmax(0,1fr)_50px_56px_52px_56px_82px_86px] gap-x-1 items-center border-b border-slate-100 px-2 py-3 text-sm last:border-b-0 hover:bg-slate-50 sm:gap-x-3 sm:px-4"
               >
                 <div className="text-[11px] leading-tight text-slate-700 sm:text-sm">{row.shortLabel}</div>
-                <div className="whitespace-nowrap text-right text-[12px] font-medium text-slate-800 sm:text-sm">{formatWhole(row.paidGrossCents)}</div>
+                <div className="whitespace-nowrap text-right text-[12px] font-medium text-emerald-700 sm:text-sm">{formatWhole(row.paidGrossCents)}</div>
                 <div className="text-right text-[12px] text-red-600 sm:text-sm">
                   {row.pdfHrefs && row.pdfHrefs.length > 0 ? (
                     // The Crystal report is where this number comes from,
@@ -542,7 +542,7 @@ export default function RevenueMarginSummaryView() {
             ))}
             <div className="grid grid-cols-[minmax(0,1fr)_50px_56px_52px_56px_82px_86px] gap-x-1 items-center bg-slate-50 px-2 py-3 text-sm font-semibold text-slate-800 sm:gap-x-3 sm:px-4">
               <div className="text-[11px] sm:text-sm">All time</div>
-              <div className="whitespace-nowrap text-right text-[12px] sm:text-sm">{formatWhole(allTimeEarnings.totalPaidGross)}</div>
+              <div className="whitespace-nowrap text-right text-[12px] text-emerald-700 sm:text-sm">{formatWhole(allTimeEarnings.totalPaidGross)}</div>
               <div className="whitespace-nowrap text-right text-[12px] text-red-600 sm:text-sm">
                 {allTimeEarnings.totalLabCost > 0 ? `−${formatWhole(allTimeEarnings.totalLabCost)}` : formatWhole(allTimeEarnings.totalLabCost)}
               </div>

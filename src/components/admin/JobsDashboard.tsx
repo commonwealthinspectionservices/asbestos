@@ -2465,10 +2465,6 @@ export function ProjectDetailDialog({
       .then((data) => setCompanyContactsForDisplay(data.customers ?? []));
   }, []);
   const [linkingEmailThread, setLinkingEmailThread] = useState(false);
-  const [confirmingReleaseOverride, setConfirmingReleaseOverride] = useState(false);
-  useLockBodyScroll(confirmingReleaseOverride);
-  const [submittingReleaseOverride, setSubmittingReleaseOverride] = useState(false);
-  const [releaseOverrideError, setReleaseOverrideError] = useState<string | null>(null);
   const [serviceTypeSettings, setServiceTypeSettings] = useState<ServiceType[]>([]);
   const [pricingZones, setPricingZones] = useState<PricingZone[]>([]);
   const [labs, setLabs] = useState<LabProfile[]>([]);
@@ -2889,17 +2885,6 @@ export function ProjectDetailDialog({
       body: JSON.stringify({ mold_swab_discussion: value.trim() || null }),
     });
     onChanged();
-  }
-
-  async function saveReportReleaseOverride(value: boolean): Promise<boolean> {
-    const res = await fetch(`/api/admin/jobs/${job.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ report_release_override: value }),
-    });
-    if (!res.ok) return false;
-    onChanged();
-    return true;
   }
 
   async function saveMoldReportNotes(value: string) {
@@ -4714,68 +4699,6 @@ export function ProjectDetailDialog({
                     <span className="text-sm text-slate-400">Not ready yet</span>
                   )}
                 </div>
-                {job.is_individual && job.status !== "paid" && (
-                  job.report_release_override ? (
-                    <div className="flex items-center gap-2 text-xs text-slate-600">
-                      <span className="uppercase text-emerald-700">Visible without payment</span>
-                      <button
-                        type="button"
-                        onClick={() => saveReportReleaseOverride(false)}
-                        className="uppercase text-slate-500 underline hover:text-slate-700"
-                      >
-                        Require payment again
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setReleaseOverrideError(null);
-                        setConfirmingReleaseOverride(true);
-                      }}
-                      className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-bold uppercase text-slate-700 hover:bg-slate-50"
-                    >
-                      Make visible without payment
-                    </button>
-                  )
-                )}
-                {confirmingReleaseOverride && (
-                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-                    <div className="w-full max-w-sm rounded-xl bg-white p-5">
-                      <h3 className="font-semibold text-slate-800">Release this report without payment?</h3>
-                      <p className="mt-2 text-sm text-slate-600">
-                        The customer will be able to view and download their report in the portal even though this job isn&apos;t marked Paid. You can undo this later.
-                      </p>
-                      {releaseOverrideError && <p className="mt-2 text-sm text-red-600">{releaseOverrideError}</p>}
-                      <div className="mt-4 flex gap-2">
-                        <button
-                          disabled={submittingReleaseOverride}
-                          onClick={async () => {
-                            setSubmittingReleaseOverride(true);
-                            setReleaseOverrideError(null);
-                            const ok = await saveReportReleaseOverride(true);
-                            setSubmittingReleaseOverride(false);
-                            if (ok) {
-                              setConfirmingReleaseOverride(false);
-                            } else {
-                              setReleaseOverrideError("Couldn't save — try again.");
-                            }
-                          }}
-                          className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
-                        >
-                          {submittingReleaseOverride ? "Saving…" : "Yes, make it visible"}
-                        </button>
-                        <button
-                          disabled={submittingReleaseOverride}
-                          onClick={() => setConfirmingReleaseOverride(false)}
-                          className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-bold disabled:opacity-50"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
 

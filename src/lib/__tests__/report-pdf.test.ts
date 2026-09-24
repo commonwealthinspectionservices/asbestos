@@ -170,7 +170,6 @@ const job: Job = {
   payment_reminder_draft_gmail_message_id: null,
   payment_reminder_sent_at: null,
   is_individual: false,
-  report_release_override: false,
   is_revisit: false,
   source: "portal_booking",
   payment_type: "online",

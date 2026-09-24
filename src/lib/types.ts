@@ -400,8 +400,6 @@ export interface Job {
   payment_reminder_sent_at: string | null;
   /** Checked on the Invoice tab for jobs billed directly to an individual (most are company-billed) — holds the report back until the job is marked Paid instead of drafting it immediately alongside the invoice. */
   is_individual: boolean;
-  /** Manual admin escape hatch for the payment gate above — off by default; once on, the portal treats this job's report as released exactly like a paid one, regardless of actual payment status. Persists on the job (not a one-time action) until the admin turns it back off. */
-  report_release_override: boolean;
   /** Per Tim, 2026-08-27 — a job going back to sample more at a site he's already inspected (his own convention: "26-0002.1" for a revisit to 26-0002), not a fresh inspection with its own base fee. resolveBaseFeeCents checks this first and returns 0 immediately, ahead of the usual zone/service-type lookup. Off by default; set from the Edit Project dialog. */
   is_revisit: boolean;
   /** How this job was created — "portal_booking" for a real customer request, "email_intake" for one parsed from a known repeat company's job-request email (see lib/job-intake.ts), "admin" for one the owner entered directly via Add Project. AcceptScheduleControl/ProjectsList's "awaiting review" treatment applies to both "portal_booking" and "email_intake" — both are real unreviewed requests, just from a different intake channel. Existing rows predating this column default to "portal_booking". */

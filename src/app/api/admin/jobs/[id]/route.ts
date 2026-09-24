@@ -64,7 +64,6 @@ const EDITABLE_FIELDS = [
   "lead_lab_name",
   "lead_lab_cert",
   "is_individual",
-  "report_release_override",
   "is_revisit",
   "payment_reversed_at",
   // Per Tim, 2026-09-16 — the backfill's own bulk assumption (every domain
@@ -376,7 +375,7 @@ export const PATCH = withApiErrors(async (
   // Columns added after this route was first written — tolerated in case
   // the migration adding them hasn't been run against this database yet,
   // so a save never hard-fails over one of them being missing.
-  const TOLERATED_MISSING_COLUMNS = ["paid_date", "sample_counts", "report_emails", "invoice_emails", "scope_of_work", "payment_due_date", "asbestos_result", "lead_result", "invoice_auto", "confirmed_date", "confirmed_time", "schedule_visible_to_customer", "report_release_override", "full_inspection_materials", "lead_report_summary", "lead_report_notes", "lead_lab_name", "lead_lab_cert", "subcontractor_client_company", "sample_findings", "fli_project_number", "subcontractor_client_address", "subcontractor_client_contact_name", "subcontractor_client_contact_phone", "subcontractor_client_contact_email"];
+  const TOLERATED_MISSING_COLUMNS = ["paid_date", "sample_counts", "report_emails", "invoice_emails", "scope_of_work", "payment_due_date", "asbestos_result", "lead_result", "invoice_auto", "confirmed_date", "confirmed_time", "schedule_visible_to_customer", "full_inspection_materials", "lead_report_summary", "lead_report_notes", "lead_lab_name", "lead_lab_cert", "subcontractor_client_company", "sample_findings", "fli_project_number", "subcontractor_client_address", "subcontractor_client_contact_name", "subcontractor_client_contact_phone", "subcontractor_client_contact_email"];
 
   let currentPatch = patch;
   let data: Record<string, unknown> | null = null;

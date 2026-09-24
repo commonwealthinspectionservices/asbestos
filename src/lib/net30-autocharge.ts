@@ -24,7 +24,15 @@ import Stripe from "stripe";
 // doesn't need a new column on `jobs` — Tim would otherwise need to run a
 // migration by hand for something this app can already track natively on
 // the object it's about to touch anyway.
+//
+// Per Tim, 2026-09-24 — "I want to make sure that the Newton Fire and
+// Flood jobs do not auto-charge to start": the schedule was already
+// removed from vercel.json on 2026-09-19, and this is a second lock so it
+// can't charge even if that schedule comes back or the endpoint gets hit.
+// Does nothing unless NET30_AUTOCHARGE_ENABLED is exactly "true" in the
+// environment.
 export async function runNet30AutoCharges(): Promise<{ attempted: number; charged: number; failed: number }> {
+  if (process.env.NET30_AUTOCHARGE_ENABLED !== "true") return { attempted: 0, charged: 0, failed: 0 };
   const supabase = getSupabaseAdmin();
   const stripe = getStripe();
 

@@ -3716,6 +3716,15 @@ export function ProjectDetailDialog({
                     <span className="hidden shrink-0 sm:inline-flex">{portalBadge}</span>
                   </div>
                   {isFliJob && <DetailField label="FLI Project #" value={job.fli_project_number} />}
+                  {/* Per Tim, 2026-09-24 — "the project info tab does not
+                      have client name... client name is the row between
+                      project number and status": the actual customer's
+                      name — distinct from Company above, which is the
+                      business, not the person — wasn't shown anywhere in
+                      this top block at all. Same source/formatting as the
+                      "Name" field further down in Company/Customer
+                      contact (toTitleCase(job.customers.name)). */}
+                  <DetailField label="Client Name" value={job.customers?.name ? toTitleCase(job.customers.name) : undefined} />
                   <DetailField label="Status" value={statusDisplayLabel(job)} />
                   {/* Per Tim, 2026-08-27 — listed as plain fields here,
                       between Status and Company, left-aligned like

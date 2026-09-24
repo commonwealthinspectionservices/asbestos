@@ -355,11 +355,11 @@ export default function RevenueMarginSummaryView() {
             <div className="min-w-[640px]">
               <div className="grid grid-cols-[repeat(6,minmax(96px,1fr))] gap-x-2 border-b border-slate-200 bg-slate-50 px-3 py-2 text-[8px] font-bold uppercase text-slate-500 sm:text-xs">
                 <div>Job</div>
-                <div className="text-center">Invoiced</div>
-                <div className="text-center">Paid</div>
-                <div className="text-center">Lab Cost</div>
-                <div className="text-center">Stripe Fee</div>
-                <div className="text-center">Net Earnings</div>
+                <div className="text-left">Invoiced</div>
+                <div className="text-left">Paid</div>
+                <div className="text-left">Lab Cost</div>
+                <div className="text-left">Stripe Fee</div>
+                <div className="text-left">Net Earnings</div>
               </div>
               {filteredJobRows.length === 0 && (
                 <div className="px-3 py-6 text-center text-sm text-slate-500">No jobs in this range.</div>
@@ -376,13 +376,13 @@ export default function RevenueMarginSummaryView() {
                   <div className="min-w-0">
                     <div className="text-[11px] font-medium leading-tight text-slate-800 group-hover:underline sm:text-sm">{row.project_number}</div>
                   </div>
-                  <div className="whitespace-nowrap text-center text-[12px] sm:text-sm">
+                  <div className="whitespace-nowrap text-left text-[12px] sm:text-sm">
                     {row.invoicedCents > 0 ? <span className="text-slate-600">{formatWhole(row.invoicedCents)}</span> : <span className="text-slate-400">—</span>}
                   </div>
-                  <div className="whitespace-nowrap text-center text-[12px] font-medium sm:text-sm">
+                  <div className="whitespace-nowrap text-left text-[12px] font-medium sm:text-sm">
                     {row.isPaid ? <span className="text-emerald-700">{formatWhole(row.paidCents)}</span> : <span className="text-slate-400">—</span>}
                   </div>
-                  <div className="whitespace-nowrap text-center text-[12px] sm:text-sm">
+                  <div className="whitespace-nowrap text-left text-[12px] sm:text-sm">
                     {/* Per Tim, 2026-09-24 — "lab costs should only ever
                         appear on jobs that have been paid. All we care
                         about here is jobs that have been paid": gated on
@@ -391,10 +391,10 @@ export default function RevenueMarginSummaryView() {
                         status" rule for this page specifically. */}
                     {row.isPaid && row.labCents > 0 ? <span className="text-red-600">{formatWhole(row.labCents)}</span> : <span className="text-slate-400">—</span>}
                   </div>
-                  <div className="whitespace-nowrap text-center text-[12px] sm:text-sm">
+                  <div className="whitespace-nowrap text-left text-[12px] sm:text-sm">
                     {row.stripeFeeCents > 0 ? <span className="text-red-600">{formatWhole(row.stripeFeeCents)}</span> : <span className="text-slate-400">—</span>}
                   </div>
-                  <div className="whitespace-nowrap text-center text-[12px] sm:text-sm">
+                  <div className="whitespace-nowrap text-left text-[12px] sm:text-sm">
                     {/* Per Tim, 2026-09-24 — "it should never be negative
                         when there are lab costs... but the job has not
                         been paid yet, we need to just leave that section
@@ -424,19 +424,19 @@ export default function RevenueMarginSummaryView() {
                   see invoicedTotalCents' own comment. */}
               <div className="grid grid-cols-[repeat(6,minmax(96px,1fr))] gap-x-2 items-center border-t-2 border-slate-200 bg-slate-50 px-3 py-3 text-sm font-semibold text-slate-800">
                 <div className="text-[11px] uppercase leading-tight sm:text-sm">Total</div>
-                <div className="whitespace-nowrap text-center text-[12px] sm:text-sm">
+                <div className="whitespace-nowrap text-left text-[12px] sm:text-sm">
                   {invoicedTotalCents > 0 ? <span className="text-slate-600">{formatWhole(invoicedTotalCents)}</span> : <span className="text-slate-400">—</span>}
                 </div>
-                <div className="whitespace-nowrap text-center text-[12px] sm:text-sm">
+                <div className="whitespace-nowrap text-left text-[12px] sm:text-sm">
                   {filteredTotals.totalPaid > 0 ? <span className="text-emerald-700">{formatWhole(filteredTotals.totalPaid)}</span> : <span className="text-slate-400">—</span>}
                 </div>
-                <div className="whitespace-nowrap text-center text-[12px] sm:text-sm">
+                <div className="whitespace-nowrap text-left text-[12px] sm:text-sm">
                   {filteredTotals.totalLabCost > 0 ? <span className="text-red-600">{formatWhole(filteredTotals.totalLabCost)}</span> : <span className="text-slate-400">—</span>}
                 </div>
-                <div className="whitespace-nowrap text-center text-[12px] sm:text-sm">
+                <div className="whitespace-nowrap text-left text-[12px] sm:text-sm">
                   {filteredTotals.totalStripeFee > 0 ? <span className="text-red-600">{formatWhole(filteredTotals.totalStripeFee)}</span> : <span className="text-slate-400">—</span>}
                 </div>
-                <div className="whitespace-nowrap text-center text-[12px] sm:text-sm">
+                <div className="whitespace-nowrap text-left text-[12px] sm:text-sm">
                   {filteredTotals.totalPay === 0 ? (
                     <span className="text-slate-400">—</span>
                   ) : (

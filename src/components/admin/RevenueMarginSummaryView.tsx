@@ -15,11 +15,14 @@ import { billingDateFor, invoiceStatus, ymd } from "@/components/admin/BillingVi
 // Daily/Weekly/Monthly toggle (itself only hours old) with a real date
 // range — one shared "From"/"To" pair covers a single day (From === To),
 // any custom range, or everything (both left blank), instead of being
-// locked into three fixed granularities. Quick-select buttons just
-// pre-fill the same two dates; there's no separate "mode," so the
-// selected range and its own total can never disagree the way period
+// locked into three fixed granularities. There's no separate "mode," so
+// the selected range and its own total can never disagree the way period
 // groupings vs. an "All time" row once did (see
-// project_mileage_and_taxable_income for that whole history).
+// project_mileage_and_taxable_income for that whole history). Quick-select
+// buttons (Today/This Week/This Month/All Time) existed briefly the same
+// day, then Tim asked to drop them — From/To are typed directly now.
+// startOfWeek/endOfWeek still used for the page's own default range on
+// load (the current week).
 function startOfWeek(d: Date): Date {
   const s = new Date(d);
   s.setHours(0, 0, 0, 0);
@@ -273,81 +276,47 @@ export default function RevenueMarginSummaryView() {
       {loaded && !error && (
         <>
           {/* Per Tim, 2026-09-18 — moved here from the Billing page; an
-              all-time total, not tied to any per-row basis below. */}
-          <div className="mt-3 text-sm text-slate-500">
-            Total Amount Pending <span className="font-semibold text-slate-800">{formatCents(awaitingPaymentCents)}</span>
-          </div>
-
-          {/* Per Tim, 2026-09-24 — "I think this would be a lot simpler if
-              it was by job", then "I feel like it's better [than
-              Daily/Weekly/Monthly] because I can just do it on there": one
-              row per job (newest fieldwork first), filtered to a real
-              From/To date range instead of fixed period buckets — pick a
-              single day (From === To), any custom stretch, or leave both
-              blank for everything. Quick-select buttons are just a fast
-              way to fill in the same two fields, not a separate mode. Job
-              links straight to that job's own page instead of a
-              period-filtered list, since a row already IS one job. Same
-              cents precision (formatCents) and horizontal scroll pattern
-              as before. Lab Cost/Stripe Fee render as plain positive red
-              numbers (a real cost); Net Earnings is signed (red if
-              negative). No tax column — see jobRows' own comment for why
-              it was dropped. */}
-          {/* Per Tim, 2026-09-24 — "this should all be one line across":
-              quick-select buttons and the From/To inputs used to be two
-              separate flex-wrap rows, which could each wrap onto a second
-              line on a narrow phone. One flex-nowrap row with its own
-              horizontal scroll instead — same pattern as the job table
-              below, so nothing wraps, it just scrolls. */}
-          <div className="mt-4 flex flex-nowrap items-center gap-2 overflow-x-auto pb-1">
-            <button
-              onClick={() => { const t = ymd(new Date()); setFromDate(t); setToDate(t); }}
-              className="shrink-0 whitespace-nowrap rounded-lg bg-slate-100 px-4 py-2 text-sm font-medium text-slate-600"
-            >
-              Today
-            </button>
-            <button
-              onClick={() => { const now = new Date(); setFromDate(ymd(startOfWeek(now))); setToDate(ymd(endOfWeek(now))); }}
-              className="shrink-0 whitespace-nowrap rounded-lg bg-slate-100 px-4 py-2 text-sm font-medium text-slate-600"
-            >
-              This Week
-            </button>
-            <button
-              onClick={() => {
-                const now = new Date();
-                setFromDate(ymd(new Date(now.getFullYear(), now.getMonth(), 1)));
-                setToDate(ymd(new Date(now.getFullYear(), now.getMonth() + 1, 0)));
-              }}
-              className="shrink-0 whitespace-nowrap rounded-lg bg-slate-100 px-4 py-2 text-sm font-medium text-slate-600"
-            >
-              This Month
-            </button>
-            <button
-              onClick={() => { setFromDate(""); setToDate(""); }}
-              className="shrink-0 whitespace-nowrap rounded-lg bg-slate-100 px-4 py-2 text-sm font-medium text-slate-600"
-            >
-              All Time
-            </button>
-            <label className="flex shrink-0 items-center gap-1.5 text-sm text-slate-600">
+              all-time total, not tied to any per-row basis below.
+              Per Tim, 2026-09-24 — "delete the today this week this month
+              and all time buttons and then make the two date cells on the
+              same line as the total amount pending": quick-select buttons
+              are gone (From/To typed directly, or left blank for
+              everything); the date inputs sit on this same line instead
+              of their own row below. */}
+          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-500">
+            <span>
+              Total Amount Pending <span className="font-semibold text-slate-800">{formatCents(awaitingPaymentCents)}</span>
+            </span>
+            <label className="flex items-center gap-1.5">
               From
               <input
                 type="date"
                 value={fromDate}
                 onChange={(e) => setFromDate(e.target.value)}
-                className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+                className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm text-slate-800"
               />
             </label>
-            <label className="flex shrink-0 items-center gap-1.5 text-sm text-slate-600">
+            <label className="flex items-center gap-1.5">
               To
               <input
                 type="date"
                 value={toDate}
                 onChange={(e) => setToDate(e.target.value)}
-                className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+                className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm text-slate-800"
               />
             </label>
           </div>
 
+          {/* Per Tim, 2026-09-24 — "I think this would be a lot simpler if
+              it was by job": one row per job (newest fieldwork first),
+              filtered to a real From/To date range instead of fixed
+              period buckets — pick a single day (From === To), any custom
+              stretch, or leave both blank for everything. Job links
+              straight to that job's own page instead of a period-filtered
+              list, since a row already IS one job. Lab Cost/Stripe Fee
+              render as plain positive red numbers (a real cost); Net
+              Earnings is signed (red if negative). No tax column — see
+              jobRows' own comment for why it was dropped. */}
           <div className="mt-3 overflow-x-auto rounded-xl border border-slate-200 bg-white">
             <div className="min-w-[620px]">
               <div className="grid grid-cols-[minmax(140px,1fr)_74px_74px_78px_70px_92px] gap-x-2 border-b border-slate-200 bg-slate-50 px-3 py-2 text-[8px] font-bold uppercase text-slate-500 sm:text-xs">

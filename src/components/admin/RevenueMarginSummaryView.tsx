@@ -282,41 +282,22 @@ export default function RevenueMarginSummaryView() {
       {loaded && !error && (
         <>
           {/* Per Tim, 2026-09-18 — moved here from the Billing page; an
-              all-time total, not tied to any per-row basis below.
-              Per Tim, 2026-09-24 — "make the two date cells on the same
-              line as the total amount pending": From/To sit on this same
-              line instead of their own row below (the quick-select
-              buttons below this were briefly deleted the same day, then
-              brought back — see that row's own comment). */}
-          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-500">
-            <span>
-              Total Amount Pending <span className="font-semibold text-slate-800">{formatCents(awaitingPaymentCents)}</span>
-            </span>
-            <label className="flex items-center gap-1.5">
-              From
-              <input
-                type="date"
-                value={fromDate}
-                onChange={(e) => setFromDate(e.target.value)}
-                className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm text-slate-800"
-              />
-            </label>
-            <label className="flex items-center gap-1.5">
-              To
-              <input
-                type="date"
-                value={toDate}
-                onChange={(e) => setToDate(e.target.value)}
-                className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm text-slate-800"
-              />
-            </label>
+              all-time total, not tied to any per-row basis below. */}
+          <div className="mt-3 text-sm text-slate-500">
+            Total Amount Pending <span className="font-semibold text-slate-800">{formatCents(awaitingPaymentCents)}</span>
           </div>
 
-          {/* Per Tim, 2026-09-24 — deleted, then same day: "let's put those
-              buttons back that we used to have in there, the ones that we
-              just deleted." Same as before: just a fast way to fill in
-              From/To, not a separate mode. */}
-          <div className="mt-2 flex flex-nowrap items-center gap-2 overflow-x-auto pb-1">
+          {/* Per Tim, 2026-09-24 — quick-select buttons and the From/To
+              inputs went through several rounds the same day (moved onto
+              the Pending line, deleted, restored) before landing here: all
+              one row — "this should be on the same line as the today,
+              this week, this month, all time buttons. The heights of the
+              cells should be the same. Make sure the two in the middle is
+              just a dash. And then also delete where it says from." No
+              more "From"/"To" labels — just the two date inputs with a
+              plain "–" between them, same px-4 py-2 sizing as the
+              buttons so every cell in the row is the same height. */}
+          <div className="mt-3 flex flex-nowrap items-center gap-2 overflow-x-auto pb-1">
             <button
               onClick={() => { const t = ymd(new Date()); setFromDate(t); setToDate(t); }}
               className="shrink-0 whitespace-nowrap rounded-lg bg-slate-100 px-4 py-2 text-sm font-medium text-slate-600"
@@ -345,6 +326,19 @@ export default function RevenueMarginSummaryView() {
             >
               All Time
             </button>
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
+              className="shrink-0 rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-800"
+            />
+            <span className="shrink-0 text-slate-400">–</span>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => setToDate(e.target.value)}
+              className="shrink-0 rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-800"
+            />
           </div>
 
           {/* Per Tim, 2026-09-24 — "I think this would be a lot simpler if

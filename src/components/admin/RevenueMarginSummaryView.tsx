@@ -56,6 +56,17 @@ export default function RevenueMarginSummaryView() {
   // day granularity (not pre-summed by month) so it can be re-bucketed into
   // either weeks or months depending on the same toggle as the table above.
   const [dailyMiles, setDailyMiles] = useState<Record<string, number>>({});
+  // Per Tim, 2026-09-23 — "make sure all stripe fees are recorded":
+  // reuses audit-invoices' existing check for this rather than
+  // re-deriving it — it already does the important part right (a live
+  // Stripe lookup to tell "still processing" apart from "genuinely
+  // missing," see that route's own isPaymentStillProcessing comment).
+  // Filtered down to just the two Stripe-fee issues out of that route's
+  // full "invoice" category (which also covers unrelated things like
+  // base-fee mismatches).
+  const [stripeFeeGaps, setStripeFeeGaps] = useState<
+    { project_number: string | null; company: string | null; issue: string; severity?: string }[]
+  >([]);
 
   useEffect(() => {
     fetch("/api/admin/jobs")
@@ -66,6 +77,19 @@ export default function RevenueMarginSummaryView() {
       })
       .catch((e) => setError(e instanceof Error ? e.message : "Failed to load revenue summary"))
       .finally(() => setLoaded(true));
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/admin/audit-invoices")
+      .then(async (r) => {
+        if (!r.ok) return;
+        const data = await r.json();
+        const issues = (data.issues ?? []) as { category: string; severity?: string; project_number: string | null; company: string | null; issue: string }[];
+        setStripeFeeGaps(
+          issues.filter((i) => i.category === "invoice" && (i.issue.startsWith("Paid via ACH, still waiting") || i.issue.startsWith("Paid via Stripe but no processing fee")))
+        );
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -591,6 +615,30 @@ export default function RevenueMarginSummaryView() {
                     <div className="font-medium text-slate-800">{j.project_number}</div>
                     <div className="truncate text-slate-600">{j.customers?.company || j.customers?.name}</div>
                     <div className="text-slate-500">{reason}</div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* Per Tim, 2026-09-23 — "make sure all stripe fees are
+              recorded" — see stripeFeeGaps' own comment. */}
+          {stripeFeeGaps.length > 0 && (
+            <>
+              <h2 className="mt-8 text-lg font-bold text-slate-800">Stripe fee not recorded</h2>
+              <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-white">
+                <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_1fr] gap-x-3 border-b border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold uppercase tracking-wide text-slate-500 sm:px-4">
+                  <div>Project</div>
+                  <div>Company</div>
+                  <div>Status</div>
+                </div>
+                {stripeFeeGaps.map((i, idx) => (
+                  <div key={idx} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_1fr] items-center gap-x-3 border-b border-slate-100 px-3 py-2.5 text-sm last:border-b-0 sm:px-4">
+                    <div className="font-medium text-slate-800">{i.project_number ?? "—"}</div>
+                    <div className="truncate text-slate-600">{i.company}</div>
+                    <div className={i.severity === "waiting" ? "text-slate-500" : "text-red-600"}>
+                      {i.severity === "waiting" ? "Still processing (ACH)" : "Missing"}
+                    </div>
                   </div>
                 ))}
               </div>

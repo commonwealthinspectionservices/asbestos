@@ -1040,6 +1040,31 @@ describe("extractMoldSampleCount", () => {
   it("counts all 7 real Crystal spore-trap samples split across two tables, not just the first table's 4", () => {
     expect(extractMoldSampleCount(CRYSTAL_MOLD_AIR_TWO_TABLE_REPORT, "Mold Air Sampling")).toBe(7);
   });
+
+  // 26-0041.1, 2026-09-25 — a real Direct Analysis (tape-lift) report with
+  // samples 1, 2A, 2B and 3: the letter-suffixed codes were missed, and 2B
+  // is printed with no space after its colon.
+  const CRYSTAL_TAPE_LIFT_LETTER_SUFFIX_REPORT = [
+    "26-0041.1 50 Broadway, Unit 2 Somerville. MA BIO-SOP-002 Lab ID: 2601004121",
+    "1: Plaster Ceiling basidiospores Trace Moderate None",
+    "2A: Paper on Top Side of Ceiling Under Pipes Trace Moderate None",
+    "2B:Paper on Top Side of Ceiling Under Pipes Tape-Lift Debris Epithelial Cells",
+    "3: Behind Baseboard in Closet basidiospores Trace Moderate None",
+  ].join("\n");
+
+  it("counts letter-suffixed tape-lift samples (2A, 2B) and one printed with no space after the colon", () => {
+    expect(extractMoldSampleCount(CRYSTAL_TAPE_LIFT_LETTER_SUFFIX_REPORT, "Mold Bulk Sampling")).toBe(4);
+    expect(extractMoldSampleResults(CRYSTAL_TAPE_LIFT_LETTER_SUFFIX_REPORT, "Mold Bulk Sampling").map((r) => r.fieldCode)).toEqual(["1", "2A", "2B", "3"]);
+  });
+
+  it("sorts sample codes numerically then by letter, so 10 comes after 2B", () => {
+    const text = ["10: Kitchen Wall Trace", "2B:Attic Trace", "2A: Attic Trace", "1: Bath Trace"].join("\n");
+    expect(extractMoldSampleResults(text, "Mold Bulk Sampling").map((r) => r.fieldCode)).toEqual(["1", "2A", "2B", "10"]);
+  });
+
+  it("does not treat a bare digit followed by a colon and no space as a sample row", () => {
+    expect(extractMoldSampleCount("Analyzed:09/24/26\n9:Foo", "Mold Bulk Sampling")).toBeNull();
+  });
 });
 
 describe("extractMoldSampleResults", () => {

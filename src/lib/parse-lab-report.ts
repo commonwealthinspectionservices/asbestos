@@ -417,11 +417,25 @@ const CRYSTAL_SPORE_TRAP_COUNT_PATTERN = /(?<!\d)((?:\d{4}\s*){2,})Count\s*\n?\s
 // debris/spore-load scale's own dash ranges ("0-5%", "25-75%",
 // "1000-9999") never have surrounding spaces, and nothing else in either
 // format has a 1-2 digit number immediately followed by ": ".
-const CRYSTAL_DIRECT_ANALYSIS_SAMPLE_PATTERN = /(?<!\d)(\d{1,2})(?:\s-\s|:\s)[A-Z]/g;
+// Per Tim, 2026-09-25 (26-0041.1) — a sample code can carry a letter suffix
+// ("2A", "2B": two tape lifts off the same material), and Crystal doesn't
+// always leave a space after the colon ("2B:Paper on Top Side…") — the old
+// plain-digits, colon-then-whitespace pattern found only samples 1 and 3
+// on a report with four. The colon may be followed by no space only when
+// the code has a letter suffix, which keeps a bare "9:" from ever matching
+// something that isn't a sample row.
+const CRYSTAL_DIRECT_ANALYSIS_SAMPLE_PATTERN = /(?<!\d)(\d{1,2}(?:[A-Z](?=:\s*[A-Z])|(?=\s-\s|:\s)))(?:\s-\s|:\s*)[A-Z]/g;
+
+/** Orders sample codes numerically, then by letter suffix: 1, 2A, 2B, 3, 10. */
+export function compareSampleFieldCodes(a: string, b: string): number {
+  const [, an, al] = /^(\d+)([A-Z]?)$/.exec(a) ?? [, "0", ""];
+  const [, bn, bl] = /^(\d+)([A-Z]?)$/.exec(b) ?? [, "0", ""];
+  return Number(an) - Number(bn) || String(al).localeCompare(String(bl));
+}
 
 function crystalDirectAnalysisFieldCodes(pdfText: string): string[] {
   const matches = [...pdfText.matchAll(CRYSTAL_DIRECT_ANALYSIS_SAMPLE_PATTERN)];
-  return [...new Set(matches.map((m) => m[1]))].sort((a, b) => Number(a) - Number(b));
+  return [...new Set(matches.map((m) => m[1]))].sort(compareSampleFieldCodes);
 }
 
 // Per Tim, 2026-09-18 (26-0030) — a job with more air samples than fit in
@@ -509,7 +523,7 @@ export interface MoldDirectAnalysisFinding {
 // continuation line isn't cleanly just debris/pollen/epithelial values is
 // dropped from the results entirely (not guessed at) — see
 // summarizeElevatedMoldFindings's own comment on how that's surfaced.
-const DIRECT_ANALYSIS_SAMPLE_ROW = /^(\d{1,2})(?:\s-\s|:\s)(.+?)\s+([A-Za-z][A-Za-z/.]*(?:\s\([^)]*\))?)\s+(Very Heavy|Moderate|Heavy|Light|Trace|None)\s*$/;
+const DIRECT_ANALYSIS_SAMPLE_ROW = /^(\d{1,2}[A-Z]?)(?:\s-\s|:\s*)(.+?)\s+([A-Za-z][A-Za-z/.]*(?:\s\([^)]*\))?)\s+(Very Heavy|Moderate|Heavy|Light|Trace|None)\s*$/;
 const SPORE_LOAD_WORDS = new Set<MoldSporeLoad>(["None", "Trace", "Light", "Moderate", "Heavy"]);
 
 function isCleanTrailingMetadataLine(line: string): boolean {

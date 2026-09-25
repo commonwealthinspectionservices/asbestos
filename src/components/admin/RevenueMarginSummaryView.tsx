@@ -7,6 +7,8 @@ import type { JobWithCustomer } from "@/lib/types";
 import { formatCents, knownStripeFeeCentsForJob } from "@/lib/pricing";
 import { effectiveJobDate } from "@/lib/mileage-shared";
 import { billingDateFor } from "@/components/admin/BillingView";
+import { dueDateFor } from "@/lib/invoice-due-date";
+import { formatDateMDY } from "@/lib/date-format";
 import { COMPANY_START_DATE } from "@/lib/company-dates";
 
 // Per Tim, 2026-09-24 — "the net earnings by job should just be month by
@@ -162,6 +164,7 @@ export default function RevenueMarginSummaryView() {
             id: job.id,
             project_number: job.project_number,
             date,
+            dueDate: dueDateFor(job),
             isPaid,
             invoicedCents,
             paidCents,
@@ -275,9 +278,10 @@ export default function RevenueMarginSummaryView() {
                 "NET EARNINGS"/"STRIPE FEE" and a five-figure dollar amount)
                 instead of one stretchy Job column with five cramped fixed
                 ones. On a narrow screen the table scrolls sideways. */}
-            <div className="min-w-[640px]">
-              <div className="grid grid-cols-[repeat(6,minmax(96px,1fr))] gap-x-2 border-b border-slate-200 bg-slate-50 px-3 py-2 text-[8px] font-bold uppercase text-slate-500 sm:text-xs">
+            <div className="min-w-[744px]">
+              <div className="grid grid-cols-[repeat(7,minmax(96px,1fr))] gap-x-2 border-b border-slate-200 bg-slate-50 px-3 py-2 text-[8px] font-bold uppercase text-slate-500 sm:text-xs">
                 <div>Job</div>
+                <div>Payment Due</div>
                 <div className="text-left">Invoiced</div>
                 <div className="text-left">Paid</div>
                 <div className="text-left">Lab Cost</div>
@@ -294,10 +298,16 @@ export default function RevenueMarginSummaryView() {
                   role="button"
                   tabIndex={0}
                   onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && goToJob(row.id)}
-                  className="group grid cursor-pointer grid-cols-[repeat(6,minmax(96px,1fr))] gap-x-2 items-center border-b border-slate-100 px-3 py-3 text-sm last:border-b-0 hover:bg-slate-50"
+                  className="group grid cursor-pointer grid-cols-[repeat(7,minmax(96px,1fr))] gap-x-2 items-center border-b border-slate-100 px-3 py-3 text-sm last:border-b-0 hover:bg-slate-50"
                 >
                   <div className="min-w-0">
                     <div className="text-[11px] font-medium leading-tight text-slate-800 group-hover:underline sm:text-sm">{row.project_number}</div>
+                  </div>
+                  {/* Per Tim, 2026-09-25 — "add a payment due column next to
+                      job #": the job's own due date (dueDateFor — a manually
+                      set date wins, else 30 days after the invoice went out). */}
+                  <div className="whitespace-nowrap text-left text-[12px] text-slate-600 sm:text-sm">
+                    {row.dueDate ? formatDateMDY(row.dueDate) : <span className="text-slate-400">—</span>}
                   </div>
                   <div className="whitespace-nowrap text-left text-[12px] sm:text-sm">
                     {row.invoicedCents > 0 ? <span className="text-slate-600">{formatWhole(row.invoicedCents)}</span> : <span className="text-slate-400">—</span>}
@@ -345,8 +355,9 @@ export default function RevenueMarginSummaryView() {
                   selected month like everything else here, just not the
                   "complete jobs only" restriction the other columns use —
                   see invoicedTotalCents' own comment. */}
-              <div className="grid grid-cols-[repeat(6,minmax(96px,1fr))] gap-x-2 items-center border-t-2 border-slate-200 bg-slate-50 px-3 py-3 text-sm font-semibold text-slate-800">
+              <div className="grid grid-cols-[repeat(7,minmax(96px,1fr))] gap-x-2 items-center border-t-2 border-slate-200 bg-slate-50 px-3 py-3 text-sm font-semibold text-slate-800">
                 <div className="text-[11px] uppercase leading-tight sm:text-sm">Total</div>
+                <div />
                 <div className="whitespace-nowrap text-left text-[12px] sm:text-sm">
                   {invoicedTotalCents > 0 ? <span className="text-slate-600">{formatWhole(invoicedTotalCents)}</span> : <span className="text-slate-400">—</span>}
                 </div>

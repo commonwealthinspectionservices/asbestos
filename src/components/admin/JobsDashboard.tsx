@@ -738,11 +738,41 @@ export function formatDate(date: string | null | undefined): string {
   return formatDateMDY(date) ?? "";
 }
 
+// For jobs that were paid before Stripe's paid invoice started saving itself
+// (see lib/paid-invoice.ts) — pulls it in on demand.
+function SavePaidInvoiceButton({ jobId, onSaved }: { jobId: string; onSaved: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  async function save() {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/jobs/${jobId}/paid-invoice`, { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Couldn't save the paid invoice");
+      onSaved();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't save the paid invoice");
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="flex shrink-0 flex-col items-end gap-1">
+      <button onClick={save} disabled={busy} className={ACTION_BUTTON_CLASS}>
+        {busy ? "Saving…" : "Save from Stripe"}
+      </button>
+      {error && <span className="max-w-[240px] text-right text-xs text-red-600">{error}</span>}
+    </div>
+  );
+}
+
 const DOCUMENT_KIND_LABEL: Record<JobDocument["kind"], string> = {
   coc: "Chain of Custody",
   lab_report: "Laboratory Results",
   lab_invoice: "Laboratory Invoice",
   report: "Finished report",
+  paid_invoice: "Paid invoice",
   other: "Other",
 };
 
@@ -4728,6 +4758,31 @@ export function ProjectDetailDialog({
                     <span className="text-sm text-slate-400">Not ready yet</span>
                   )}
                 </div>
+                {/* Per Tim, 2026-09-25 — "the paid invoice from stripe needs
+                    to save w each job": Stripe's own paid-invoice PDF, filed
+                    automatically the moment a job is paid (lib/paid-invoice.ts). */}
+                {(() => {
+                  const paidInvoice = (job.documents ?? []).find((d) => d.kind === "paid_invoice");
+                  return (
+                    <div className="flex items-center justify-between gap-2">
+                      <h4 className="min-w-0 text-xs font-semibold uppercase tracking-wide text-slate-700">Paid Invoice (Stripe)</h4>
+                      {paidInvoice ? (
+                        <div className="flex shrink-0 items-center gap-2">
+                          <a href={`/api/admin/jobs/${job.id}/documents/${paidInvoice.id}`} target="_blank" rel="noreferrer" className={ACTION_BUTTON_CLASS}>
+                            View
+                          </a>
+                          <a href={`/api/admin/jobs/${job.id}/documents/${paidInvoice.id}?download=1`} download={paidInvoice.file_name} className={ACTION_BUTTON_CLASS}>
+                            Download
+                          </a>
+                        </div>
+                      ) : job.status === "paid" && job.stripe_invoice_id ? (
+                        <SavePaidInvoiceButton jobId={job.id} onSaved={onChanged} />
+                      ) : (
+                        <span className="text-sm text-slate-400">Saved when paid</span>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             </div>
 

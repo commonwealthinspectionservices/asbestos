@@ -62,6 +62,7 @@ import { extractPositionOrderedText, extractSporeTrapSampleNames, extractSporeTr
 import { jobReportDomains, domainForServiceTypeLabel, moldDiscussionFieldForLabel, isFullInspectionAsbestosJob, hasAllLabReports, ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, NEWTON_FIRE_FLOOD_COMPANY_ID, BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID, FLI_ENVIRONMENTAL_COMPANY_ID, reportEmailAttachmentFilename, type ReportDomain } from "@/lib/report-findings";
 import { sendEmail, emailShell } from "@/lib/email";
 import { sendJobPaidNotification } from "@/lib/booking-notify";
+import { savePaidInvoiceDocument } from "@/lib/paid-invoice";
 import { getAppUrl } from "@/lib/app-url";
 import { escapeHtml } from "@/lib/html";
 import { expandAddress, splitAddress } from "@/lib/address";
@@ -3149,6 +3150,10 @@ export async function markJobPaid(jobId: string, source = "unknown"): Promise<vo
   update.notes = current?.notes ? `${current.notes}\n${auditLine}` : auditLine;
   await supabase.from("jobs").update(update).eq("id", jobId);
 
+  // Per Tim, 2026-09-25 — Stripe's paid invoice PDF gets filed on the job.
+  await savePaidInvoiceDocument(jobId).then((r) => {
+    if (!r.saved) console.log(`markJobPaid: paid invoice PDF not saved for job ${jobId} — ${r.reason}`);
+  }).catch((e) => console.error(`markJobPaid: failed to save paid invoice PDF for job ${jobId}:`, e));
   await autoDraftReportIfJustPaid(jobId);
   await sendJobPaidNotification(jobId).catch((e) =>
     console.error(`markJobPaid: failed to send paid notification for job ${jobId}:`, e)

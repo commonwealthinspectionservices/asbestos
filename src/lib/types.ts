@@ -203,8 +203,8 @@ export interface RaysLibraryPhoto {
 
 export interface JobDocument {
   id: string;
-  /** "report" = a finished report packet (his own, possibly retroactively archived from before this system existed). */
-  kind: "coc" | "lab_report" | "lab_invoice" | "report" | "other";
+  /** "report" = a finished report packet (his own, possibly retroactively archived from before this system existed). "paid_invoice" = Stripe's own PDF of this job's invoice once paid, saved automatically (see lib/paid-invoice.ts). */
+  kind: "coc" | "lab_report" | "lab_invoice" | "report" | "paid_invoice" | "other";
   /** Which service type on the job this belongs to (e.g. "Mold Air Sampling") — each service type gets its own set of upload stations. Empty for documents predating this (or not tied to one). */
   service_type: string;
   file_name: string;

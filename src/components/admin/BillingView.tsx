@@ -597,6 +597,32 @@ export default function BillingView() {
   const [jobs, setJobs] = useState<JobWithCustomer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Per Tim, 2026-09-25 — "save them all retroactively": one click files
+  // Stripe's paid invoice PDF on every already-paid job (see
+  // /api/admin/backfill-paid-invoices).
+  const [savingPaidInvoices, setSavingPaidInvoices] = useState(false);
+  const [paidInvoicesMessage, setPaidInvoicesMessage] = useState<string | null>(null);
+  async function saveAllPaidInvoices() {
+    setSavingPaidInvoices(true);
+    setPaidInvoicesMessage(null);
+    try {
+      const res = await fetch("/api/admin/backfill-paid-invoices", { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Couldn't save paid invoices");
+      const results = (data.results ?? []) as { project: string | null; saved: boolean; reason?: string }[];
+      const saved = results.filter((r) => r.saved).length;
+      const failed = results.filter((r) => !r.saved);
+      setPaidInvoicesMessage(
+        results.length === 0
+          ? "Every paid job already has its paid invoice saved."
+          : `Saved ${saved} of ${results.length}.${failed.length ? ` Couldn't save: ${failed.map((f) => `${f.project ?? "?"} (${f.reason})`).join("; ")}` : ""}`
+      );
+    } catch (e) {
+      setPaidInvoicesMessage(e instanceof Error ? e.message : "Couldn't save paid invoices");
+    } finally {
+      setSavingPaidInvoices(false);
+    }
+  }
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [editingJobId, setEditingJobId] = useState<string | null>(null);
 
@@ -896,6 +922,16 @@ export default function BillingView() {
         <Link href="/admin/payment-calendar" className="text-brand-600 underline hover:text-brand-700">
           Payment Calendar
         </Link>
+      </div>
+      <div className="-mt-1 mb-3 flex flex-col items-end gap-1 text-xs">
+        <button
+          onClick={saveAllPaidInvoices}
+          disabled={savingPaidInvoices}
+          className="font-semibold text-brand-600 underline hover:text-brand-700 disabled:opacity-50"
+        >
+          {savingPaidInvoices ? "Saving paid invoices…" : "Save paid invoices from Stripe"}
+        </button>
+        {paidInvoicesMessage && <span className="max-w-md text-right text-slate-500">{paidInvoicesMessage}</span>}
       </div>
 
       {error && <div className="mt-3 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>}

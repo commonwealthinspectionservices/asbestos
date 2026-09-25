@@ -173,15 +173,20 @@ export default function RevenueMarginSummaryView() {
             netEarningsCents,
           };
         })
-        // Per Tim, 2026-09-24 — "jobs should always just be in order by
-        // number high to low": project number, numeric-aware so 26-0100
-        // sorts above 26-0099 and a revisit (26-0002.1) sits right after
-        // its parent's number, not by fieldwork date.
-        .sort((a, b) => (b.project_number ?? "").localeCompare(a.project_number ?? "", undefined, { numeric: true })),
+        // Per Tim, 2026-09-25 — "organize by payment due like new to
+        // old": latest due date first (replaces the earlier project-number
+        // order, 2026-09-24). Ties fall back to project number high to low,
+        // numeric-aware so 26-0100 sorts above 26-0099; a job with no due
+        // date sorts last.
+        .sort(
+          (a, b) =>
+            (b.dueDate ?? "").localeCompare(a.dueDate ?? "") ||
+            (b.project_number ?? "").localeCompare(a.project_number ?? "", undefined, { numeric: true })
+        ),
     [invoicedJobs]
   );
 
-  // jobRows (still sorted by project number, high to low) filtered to
+  // jobRows (sorted by payment due date, newest first) filtered to
   // the selected month by fieldwork date. A job with no fieldwork date
   // can't belong to any month — see "Not showing up above" for those.
   const filteredJobRows = useMemo(() => jobRows.filter((row) => row.date?.startsWith(month)), [jobRows, month]);

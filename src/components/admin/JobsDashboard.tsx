@@ -8295,16 +8295,19 @@ function LineItemsEditor({
           {/* Per Tim, 2026-09-13 — the real Stripe processing fee (see
               stripeFeeCents's own comment above) was already factored into
               Profit below, but never shown as its own line the way Lab fees
-              is. Only rendered once there's a real fee to show — null for a
-              job paid by hand or not yet paid via Stripe, same condition
-              Profit's own calculation already treats as "nothing to
-              deduct." */}
-          {stripeFeeCents != null && (
-            <div className="flex items-baseline justify-between gap-4">
-              <p className="text-sm font-bold uppercase text-red-600">Stripe fee</p>
+              is. Per Tim, 2026-09-25 — "this should still list 'stripe fee'
+              even if it is blank": always listed now; a dash until there's
+              a real fee (null for a job paid by hand or not yet paid via
+              Stripe — Profit's own calculation treats that as "nothing to
+              deduct"). */}
+          <div className="flex items-baseline justify-between gap-4">
+            <p className="text-sm font-bold uppercase text-red-600">Stripe fee</p>
+            {stripeFeeCents != null ? (
               <p className="text-lg font-bold text-red-600">{currency(stripeFeeCents / 100)}</p>
-            </div>
-          )}
+            ) : (
+              <p className="text-lg font-bold text-slate-400">—</p>
+            )}
+          </div>
           <div className="flex items-baseline justify-between gap-4 border-t border-slate-200 pt-3">
             <p className="text-sm font-bold uppercase text-slate-500">Profit</p>
             <p className="text-lg font-bold text-slate-500">

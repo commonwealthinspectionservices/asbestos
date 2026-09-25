@@ -3,6 +3,8 @@ import { getSupabaseAdmin } from "@/lib/supabase";
 import { expandAddress } from "@/lib/address";
 import type { Customer, Job } from "@/lib/types";
 import { NEWTON_FIRE_FLOOD_COMPANY_ID } from "@/lib/report-findings";
+import { getSettingsFresh } from "@/lib/settings";
+import { zonedTimeToUtc } from "@/lib/tz";
 
 let stripeClient: Stripe | null = null;
 
@@ -202,10 +204,24 @@ export async function createStripeInvoiceForJob(
     throw new Error("Job has no invoice line items — cannot create a Stripe invoice");
   }
 
+  // Per Tim, 2026-09-25 (26-0002) — a regenerated invoice (the old one was
+  // voided/refunded) used to always get a fresh 30 days from now, so a job
+  // that had always been due 9/25 suddenly showed "due October 25." A job
+  // with its own payment_due_date keeps it, through the end of that day in
+  // the business timezone. Only when that moment is still comfortably in
+  // the future — an already-past date can't be set on a new invoice, so
+  // that case keeps the old 30-day terms rather than failing to create one.
+  let dueTerms: { due_date: number } | { days_until_due: number } = { days_until_due: 30 };
+  if (job.payment_due_date) {
+    const { timezone } = await getSettingsFresh();
+    const dueTs = Math.floor(zonedTimeToUtc(job.payment_due_date, "23:59", timezone).getTime() / 1000);
+    if (dueTs > Math.floor(Date.now() / 1000) + 3600) dueTerms = { due_date: dueTs };
+  }
+
   const invoice = await createInvoiceWithProjectNumber(stripe, {
     customer: stripeCustomerId,
     collection_method: "send_invoice",
-    days_until_due: 30,
+    ...dueTerms,
     metadata: { job_id: job.id },
     // metadata above is Stripe-dashboard-only — the customer's own hosted
     // invoice page needs the project number and job site address visibly

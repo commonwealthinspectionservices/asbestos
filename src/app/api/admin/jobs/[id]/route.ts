@@ -419,7 +419,13 @@ export const PATCH = withApiErrors(async (
     try {
       const { getStripe } = await import("@/lib/stripe");
       const stripe = getStripe();
-      const dueDateUnix = Math.floor(new Date(`${patch.payment_due_date}T00:00:00`).getTime() / 1000);
+      // End of that day in the business timezone — midnight server-local
+      // (UTC on Vercel) landed on the previous evening in Eastern, and is
+      // already in the past for a due date of today.
+      const { getSettingsFresh } = await import("@/lib/settings");
+      const { zonedTimeToUtc } = await import("@/lib/tz");
+      const { timezone } = await getSettingsFresh();
+      const dueDateUnix = Math.floor(zonedTimeToUtc(String(patch.payment_due_date), "23:59", timezone).getTime() / 1000);
       await stripe.invoices.update(data.stripe_invoice_id, { due_date: dueDateUnix });
     } catch (e) {
       console.error(`PATCH /api/admin/jobs/${params.id}: failed to sync payment_due_date to Stripe:`, e);

@@ -2535,6 +2535,14 @@ export function ProjectDetailDialog({
   const moldBulkDiscussionRef = useRef<HTMLTextAreaElement>(null);
   const moldSwabDiscussionRef = useRef<HTMLTextAreaElement>(null);
   const moldReportNotesRef = useRef<HTMLTextAreaElement>(null);
+  // Per Tim, 2026-09-25 (26-0041.1) — the corrected Discussion of Results
+  // sentence kept reverting to the old wrong one: a browser tab that still
+  // had the old text loaded re-saved it whenever the box lost focus, even
+  // untouched (the resync below only helps if the app happens to refetch
+  // the job). A box now only saves on blur when the admin actually typed in
+  // it since it last matched the server — an untouched, stale box never
+  // writes anything back.
+  const moldFieldDirty = useRef({ air: false, bulk: false, swab: false, notes: false });
   // Per Tim, 2026-09-18 (26-0030) — real data loss: these four fields only
   // ever read job.mold_*_discussion/mold_report_notes once, at mount. A
   // correction made a different way (a direct fix like this session's own,
@@ -2546,19 +2554,19 @@ export function ProjectDetailDialog({
   // isn't currently focused — an admin actively typing a correction still
   // wins over a same-moment refetch.
   useEffect(() => {
-    if (document.activeElement !== moldAirDiscussionRef.current) setMoldAirDiscussionInput(job.mold_air_discussion ?? "");
+    if (document.activeElement !== moldAirDiscussionRef.current) { setMoldAirDiscussionInput(job.mold_air_discussion ?? ""); moldFieldDirty.current.air = false; }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [job.mold_air_discussion]);
   useEffect(() => {
-    if (document.activeElement !== moldBulkDiscussionRef.current) setMoldBulkDiscussionInput(job.mold_bulk_discussion ?? "");
+    if (document.activeElement !== moldBulkDiscussionRef.current) { setMoldBulkDiscussionInput(job.mold_bulk_discussion ?? ""); moldFieldDirty.current.bulk = false; }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [job.mold_bulk_discussion]);
   useEffect(() => {
-    if (document.activeElement !== moldSwabDiscussionRef.current) setMoldSwabDiscussionInput(job.mold_swab_discussion ?? "");
+    if (document.activeElement !== moldSwabDiscussionRef.current) { setMoldSwabDiscussionInput(job.mold_swab_discussion ?? ""); moldFieldDirty.current.swab = false; }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [job.mold_swab_discussion]);
   useEffect(() => {
-    if (document.activeElement !== moldReportNotesRef.current) setMoldReportNotesInput(job.mold_report_notes ?? "");
+    if (document.activeElement !== moldReportNotesRef.current) { setMoldReportNotesInput(job.mold_report_notes ?? ""); moldFieldDirty.current.notes = false; }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [job.mold_report_notes]);
   // Which domain's report is showing on the Report tab — a job combining
@@ -4334,8 +4342,8 @@ export function ProjectDetailDialog({
                                   className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
                                   rows={4}
                                   value={moldAirDiscussionInput}
-                                  onChange={(e) => setMoldAirDiscussionInput(e.target.value)}
-                                  onBlur={(e) => saveMoldAirDiscussion(e.target.value)}
+                                  onChange={(e) => { setMoldAirDiscussionInput(e.target.value); moldFieldDirty.current.air = true; }}
+                                  onBlur={(e) => { if (moldFieldDirty.current.air) { moldFieldDirty.current.air = false; saveMoldAirDiscussion(e.target.value); } }}
                                   placeholder="Notable air sampling findings for this job — sample count and date are added automatically."
                                 />
                               </div>
@@ -4356,8 +4364,8 @@ export function ProjectDetailDialog({
                                   className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
                                   rows={4}
                                   value={moldBulkDiscussionInput}
-                                  onChange={(e) => setMoldBulkDiscussionInput(e.target.value)}
-                                  onBlur={(e) => saveMoldBulkDiscussion(e.target.value)}
+                                  onChange={(e) => { setMoldBulkDiscussionInput(e.target.value); moldFieldDirty.current.bulk = true; }}
+                                  onBlur={(e) => { if (moldFieldDirty.current.bulk) { moldFieldDirty.current.bulk = false; saveMoldBulkDiscussion(e.target.value); } }}
                                   placeholder="Notable bulk sampling findings for this job — sample count and date are added automatically."
                                 />
                               </div>
@@ -4378,8 +4386,8 @@ export function ProjectDetailDialog({
                                   className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
                                   rows={4}
                                   value={moldSwabDiscussionInput}
-                                  onChange={(e) => setMoldSwabDiscussionInput(e.target.value)}
-                                  onBlur={(e) => saveMoldSwabDiscussion(e.target.value)}
+                                  onChange={(e) => { setMoldSwabDiscussionInput(e.target.value); moldFieldDirty.current.swab = true; }}
+                                  onBlur={(e) => { if (moldFieldDirty.current.swab) { moldFieldDirty.current.swab = false; saveMoldSwabDiscussion(e.target.value); } }}
                                   placeholder="Notable swab sampling findings for this job — sample count and date are added automatically."
                                 />
                               </div>
@@ -4470,8 +4478,8 @@ export function ProjectDetailDialog({
                                 className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
                                 rows={6}
                                 value={moldReportNotesInput}
-                                onChange={(e) => setMoldReportNotesInput(e.target.value)}
-                                onBlur={(e) => saveMoldReportNotes(e.target.value)}
+                                onChange={(e) => { setMoldReportNotesInput(e.target.value); moldFieldDirty.current.notes = true; }}
+                                onBlur={(e) => { if (moldFieldDirty.current.notes) { moldFieldDirty.current.notes = false; saveMoldReportNotes(e.target.value); } }}
                                 placeholder="Case-specific recommendations for this job (optional)."
                               />
                             </div>

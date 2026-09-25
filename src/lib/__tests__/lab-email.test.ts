@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { extractProjectNumberFromCocSubject, normalizeAddressForMatch, isMoldLabReport, hasLabReportForEveryDomain, invoiceDraftBodyHtml } from "@/lib/lab-email";
+import { extractProjectNumberFromCocSubject, normalizeAddressForMatch, isMoldLabReport, hasLabReportForEveryDomain, invoiceDraftBodyHtml, reportDraftBodyHtml, combinedDraftBodyHtml, projectNumberLine } from "@/lib/lab-email";
 import type { Job, JobDocument, Settings } from "@/lib/types";
 
 function labReportDoc(serviceType: string): JobDocument {
@@ -161,5 +161,47 @@ describe("invoiceDraftBodyHtml", () => {
     const job = { service_address: "85 Child St, Boston, MA 02130", service_type: "Mold Bulk Sampling", is_individual: false } as Job;
     const html = invoiceDraftBodyHtml(job, settings, null);
     expect(html).not.toContain("Payment must be completed");
+  });
+});
+
+// Per Tim, 2026-09-25 — "let's just make it a habit to include the project
+// number directly above the address... project number then address then date
+// of sampling in that order."
+describe("project number leads the address in client emails", () => {
+  const settings = { business_phone: "617-390-4778" } as Settings;
+  const job = {
+    project_number: "26-0041.1",
+    service_address: "50 Broadway Unit 2, Somerville, MA 02145",
+    service_type: "Mold Air Sampling, Mold Bulk Sampling",
+    confirmed_date: "2026-09-23",
+    requested_date: "2026-09-23",
+  } as Job;
+  const order = (html: string, ...needles: string[]) => needles.map((n) => html.indexOf(n));
+
+  it("report email: Project #, then Address, then Date of Sampling", () => {
+    const html = reportDraftBodyHtml(job, settings);
+    const [p, a, d] = order(html, "Project #: 26-0041.1", "Address: ", "Date of Sampling: ");
+    expect(p).toBeGreaterThanOrEqual(0);
+    expect(p).toBeLessThan(a);
+    expect(a).toBeLessThan(d);
+  });
+
+  it("combined report+invoice email: Project #, then Site, then Date of Sampling", () => {
+    const html = combinedDraftBodyHtml({ ...job, customers: { company_id: null } } as never, settings, 86600, null);
+    const [p, a, d] = order(html, "Project #:</strong> 26-0041.1", "Site:</strong>", "Date of Sampling:</strong>");
+    expect(p).toBeGreaterThanOrEqual(0);
+    expect(p).toBeLessThan(a);
+    expect(a).toBeLessThan(d);
+  });
+
+  it("invoice email: Project # sits directly above the address", () => {
+    const html = invoiceDraftBodyHtml(job, settings, null);
+    expect(html.indexOf("Project #: 26-0041.1")).toBeGreaterThanOrEqual(0);
+    expect(html.indexOf("Project #: 26-0041.1")).toBeLessThan(html.indexOf("50 Broadway Unit 2"));
+  });
+
+  it("leaves the line out when a job has no project number yet", () => {
+    expect(projectNumberLine({ project_number: null })).toEqual([]);
+    expect(reportDraftBodyHtml({ ...job, project_number: null } as Job, settings)).not.toContain("Project #");
   });
 });

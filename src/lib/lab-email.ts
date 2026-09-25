@@ -135,6 +135,17 @@ const SIGNATURE_LINES = ["Tim Hall", "Commonwealth Inspection Services"];
 // the wrong moment to ask for a review.
 const REVIEW_LINK_LINE = '<a href="https://g.page/r/CXrf5GqjFZJjECE/review">Leave a review</a>';
 
+// Per Tim, 2026-09-25 — "in any report, email going out... let's just make
+// it a habit to include the project number directly above the address":
+// every client-facing body that shows the job site address now leads with
+// its project number, in this order — project number, address, then (where
+// the email has one) date of sampling. Empty when the job has no number yet.
+export function projectNumberLine(job: Pick<Job, "project_number">, boldLabel = false): string[] {
+  if (!job.project_number) return [];
+  const label = boldLabel ? "<strong>Project #:</strong>" : "Project #:";
+  return [`${label} ${escapeHtml(job.project_number)}`];
+}
+
 // Per Tim, 2026-08-26 — replaces the old FLI-inherited template with his
 // own wording: domain-labeled ("final asbestos inspection report", not a
 // generic "final report"), address and sampling date labeled on their own
@@ -182,7 +193,7 @@ function bestSampledDate(job: Job): string | null {
 // draftSelectedEmailForJob) is the one caller that passes an explicit,
 // admin-controlled value — per Tim, 2026-09-23, a per-draft checkbox
 // there rather than this being unconditional.
-function reportDraftBodyHtml(job: Job, settings: Settings, domainsOverride?: ReportDomain[], includeReviewLink = true): string {
+export function reportDraftBodyHtml(job: Job, settings: Settings, domainsOverride?: ReportDomain[], includeReviewLink = true): string {
   const domains = domainsOverride ?? jobReportDomains(job.service_type);
   const domainPhrase = reportDomainListPhrase(domains);
   const isPlural = domains.length > 1;
@@ -193,6 +204,7 @@ function reportDraftBodyHtml(job: Job, settings: Settings, domainsOverride?: Rep
     "",
     `The final ${domainPhrase} ${reportNoun} ${reportVerb} attached here.`,
     "",
+    ...projectNumberLine(job),
     `Address: ${escapeHtml(expandAddress(job.service_address))}`,
     `Date of Sampling: ${escapeHtml(formatDateMMDDYYYY(bestSampledDate(job)))}`,
     "",
@@ -242,6 +254,7 @@ export function invoiceDraftBodyHtml(job: Job & { customers?: Customer }, settin
     "",
     `Please find attached the invoice for the ${domainPhrase} inspection completed at:`,
     "",
+    ...projectNumberLine(job),
     escapeHtml(expandAddress(street)),
     escapeHtml(expandAddress(cityStateZip)),
     // Per Tim, 2026-09-03 — individual/homeowner jobs only: this invoice
@@ -301,7 +314,7 @@ const COMBINED_DRAFT_DOMAIN_REPORT_LABEL: Record<ReportDomain, string> = {
 // comment below) is unconditional regardless of this flag — Dave's not
 // someone the checklist's review-link checkbox should ever be able to
 // re-add for.
-function combinedDraftBodyHtml(job: Job & { customers: Customer }, settings: Settings, totalCents: number, payNowUrl: string | null, domainsOverride?: ReportDomain[], includeReviewLink = true): string {
+export function combinedDraftBodyHtml(job: Job & { customers: Customer }, settings: Settings, totalCents: number, payNowUrl: string | null, domainsOverride?: ReportDomain[], includeReviewLink = true): string {
   // Per Tim, 2026-09-17 — "the order that they are listed out in should be
   // the order that they are attached in": the actual attachments always
   // come out in the job's own natural service_type order (see
@@ -325,6 +338,7 @@ function combinedDraftBodyHtml(job: Job & { customers: Customer }, settings: Set
     ? ""
     : "Pay online by bank transfer: ";
   return [
+    ...projectNumberLine(job, true),
     `<strong>Site:</strong> ${escapeHtml(expandAddress(job.service_address))}`,
     `<strong>Date of Sampling:</strong> ${escapeHtml(formatDateMMDDYYYY(bestSampledDate(job)))}`,
     "",
@@ -2452,6 +2466,7 @@ async function draftPaymentReminderForIndividual(params: {
       "",
       "Your final report is ready. As soon as payment is received, we'll send it right over.",
       "",
+      ...projectNumberLine(job),
       `Site: ${escapeHtml(expandAddress(job.service_address))}`,
       ...(payNowUrl ? ["", `<a href="${escapeHtml(payNowUrl)}">Link to pay</a>`] : []),
       "",

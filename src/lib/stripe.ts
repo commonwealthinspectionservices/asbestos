@@ -68,6 +68,16 @@ export async function getOrCreateStripeCustomer(customer: Customer): Promise<str
 // falling back to Stripe's own unrelated auto-numbering. Gives up after a
 // handful of attempts and lets Stripe auto-number rather than ever
 // blocking invoice creation over what's ultimately a cosmetic field.
+// Per Tim, 2026-09-25 — "the memo should always have the job number and
+// address": the memo (Stripe's invoice `description`, shown right under the
+// header on the hosted page) used to be the address alone, with the project
+// number only in a lower custom field. Falls back to whichever one exists.
+function invoiceMemoFor(job: Pick<Job, "project_number" | "service_address">): string | null {
+  const address = job.service_address ? expandAddress(job.service_address) : null;
+  if (job.project_number && address) return `${job.project_number} — ${address}`;
+  return job.project_number ?? address;
+}
+
 async function createInvoiceWithProjectNumber(
   stripe: Stripe,
   params: Stripe.InvoiceCreateParams,
@@ -166,7 +176,12 @@ export async function createStripeInvoiceForJob(
       }
       const hasCurrentProjectNumber = !job.project_number
         || existing.custom_fields?.some((f) => f.name === "Project #" && f.value === job.project_number);
-      const hasCurrentAddress = !job.service_address || existing.description === expandAddress(job.service_address);
+      // Accepts the older address-only memo too — otherwise every open
+      // invoice created before the memo gained the project number would
+      // read as stale and get voided and recreated the next time it's touched.
+      const hasCurrentAddress = !job.service_address
+        || existing.description === expandAddress(job.service_address)
+        || existing.description === invoiceMemoFor(job);
       const hasCurrentNumber = !job.project_number
         || (existing.number != null && existing.number.startsWith(job.project_number));
       // Confirmed live 2026-08-27 (26-0002): the admin deleted a duplicate
@@ -232,7 +247,7 @@ export async function createStripeInvoiceForJob(
     // limit that would realistically bite) while the short project number
     // still gets its own custom_field.
     ...(job.project_number ? { custom_fields: [{ name: "Project #", value: job.project_number }] } : {}),
-    ...(job.service_address ? { description: expandAddress(job.service_address) } : {}),
+    ...(invoiceMemoFor(job) ? { description: invoiceMemoFor(job)! } : {}),
     // Per Tim, 2026-09-14 — card fees can run high (~2.9%+30¢, see
     // captureStripeFee's own comment), so the hosted invoice page no
     // longer offers card at all; ACH bank transfer (~0.8%, capped) is the

@@ -56,6 +56,17 @@ export async function extractPositionOrderedText(pdfBuffer: Buffer): Promise<str
   return data.text;
 }
 
+const COLUMN_EDGE_TOLERANCE = 10;
+
+/** Which table column a sample-name fragment belongs to: the last column whose left edge is at or before it (within a small tolerance). -1 when it sits left of every column. */
+export function columnIndexForNameFragment(fragmentX: number, columnLeftEdges: number[], tolerance = COLUMN_EDGE_TOLERANCE): number {
+  let columnIndex = -1;
+  columnLeftEdges.forEach((edgeX, i) => {
+    if (edgeX - tolerance <= fragmentX) columnIndex = i;
+  });
+  return columnIndex;
+}
+
 // Per Tim, 2026-09-17 — pushed back on "a sample's real-world location
 // name isn't reliably recoverable from this table's text" after seeing
 // "Sample Name" right there in the report, and he was right: that
@@ -123,6 +134,19 @@ export async function extractSporeTrapSampleNames(pdfBuffer: Buffer): Promise<st
     // column anchor.
     const columnAnchors = fieldCodeItems.filter((_, i) => i % 2 === 1).map((it) => it.x);
     if (columnAnchors.length === 0) { failed = true; return ""; }
+    // Per Tim, 2026-09-25 (26-0041.1) — the auto-written air sentence had the
+    // two sample locations swapped against their numbers. A name fragment
+    // was matched to whichever column's SHORT sample-number cell ("1", "2")
+    // its own start-x was nearest — but those short cells sit toward the
+    // middle of a column, so a long name starting near its column's left
+    // edge ("Inside Ceiling Opening, Containment Zone in" at x=311, column 1
+    // starting at x=314 but its short "1" at x=391) landed nearer the
+    // PREVIOUS column's anchor and got glued onto the wrong sample, shifting
+    // every name after it. The long-form lab number in the same row
+    // ("0001", "0002") starts at each column's own left edge, so a fragment
+    // belongs to the last column whose left edge is at or before it.
+    const columnLeftEdges = fieldCodeItems.filter((_, i) => i % 2 === 0).map((it) => it.x);
+    const EDGE_TOLERANCE = COLUMN_EDGE_TOLERANCE;
 
     const upperBound = (sampleNumberLabel.y + sampleNameLabel.y) / 2;
     const lowerBound = (sampleNameLabel.y + sampleVolumeLabel.y) / 2;
@@ -132,16 +156,11 @@ export async function extractSporeTrapSampleNames(pdfBuffer: Buffer): Promise<st
 
     const byColumn = new Map<number, PositionedItem[]>();
     for (const fragment of nameFragments) {
-      let nearestIndex = -1;
-      let nearestDist = Infinity;
-      columnAnchors.forEach((anchorX, i) => {
-        const dist = Math.abs(fragment.x - anchorX);
-        if (dist < nearestDist) { nearestDist = dist; nearestIndex = i; }
-      });
-      if (nearestIndex < 0) continue;
-      const list = byColumn.get(nearestIndex) ?? [];
+      const columnIndex = columnIndexForNameFragment(fragment.x, columnLeftEdges, EDGE_TOLERANCE);
+      if (columnIndex < 0) continue;
+      const list = byColumn.get(columnIndex) ?? [];
       list.push(fragment);
-      byColumn.set(nearestIndex, list);
+      byColumn.set(columnIndex, list);
     }
 
     if (byColumn.size !== columnAnchors.length) { failed = true; return ""; }

@@ -3,6 +3,7 @@ import { requireCronAuth, withCronAlert } from "@/lib/cron-auth";
 import { withApiErrors } from "@/lib/api-handler";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { checkDraftSentStatus, checkForBouncedSends, reconcileFullySentJobStatuses } from "@/lib/lab-email";
+import { backfillMissingStripeFees } from "@/lib/stripe-fee-backfill";
 
 // Reads req.headers (via requireCronAuth) — without this, Next tries to
 // statically render the route at build time and throws "Dynamic server
@@ -55,5 +56,15 @@ export const GET = withApiErrors(withCronAlert("check-sent-drafts", async (req: 
   // check every run, not just a fix inside the loop above.
   const reconciled = await reconcileFullySentJobStatuses();
 
-  return NextResponse.json({ checked: jobs?.length ?? 0, newlySent: results, bounces, reconciled });
+  // Per Tim, 2026-09-25 (26-0002) — retries any recent payment whose Stripe
+  // fee lookup came back empty at the moment it was paid (see
+  // backfillMissingStripeFees' own comment). Last 14 days only, same window
+  // findAchPendingJobIds uses; a failure here must never fail the rest of
+  // this cron.
+  const stripeFees = await backfillMissingStripeFees(14).catch((e) => {
+    console.error("check-sent-drafts: Stripe fee backfill failed:", e);
+    return null;
+  });
+
+  return NextResponse.json({ checked: jobs?.length ?? 0, newlySent: results, bounces, reconciled, stripeFees });
 }));

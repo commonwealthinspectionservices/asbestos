@@ -20,6 +20,7 @@
 // bestReportSamples's "backward fallback" comment) that this must not
 // disturb.
 import pdfParse from "pdf-parse/lib/pdf-parse.js";
+import type { MoldSporeLoad } from "@/lib/parse-lab-report";
 
 interface PositionedItem {
   str: string;
@@ -317,4 +318,94 @@ function chunkTriplets(items: PositionedItem[]): PositionedItem[][] | null {
     groups.push(group);
   }
   return groups;
+}
+
+// Per Tim, 2026-09-25 (26-0041.1) — "just do a separate sentence for each
+// that have different mold types": Crystal's Direct Analysis (tape-lift/
+// bulk) page prints one block per sample — a header row ("Fungal Structure
+// ID | Spore/Material Load | Debris | Pollen | Epithelial Cells"), then one
+// row per mold type with its name in the Fungal Structure ID column and its
+// own load in the Spore/Material Load column, right beside it. The text-only
+// extractor (extractMoldDirectAnalysisFindings) dropped any sample with more
+// than one mold type because the flattened text can't say which load goes
+// with which type — and, worse, its "clean trailing line" check took the
+// DEBRIS rating for a load (26-0002's Insulation sample: Alternaria is
+// Trace; "Very Heavy" is its debris, a different column). Reading each
+// value's own x/y position settles both: the load is whatever sits in the
+// load column on the same row as the mold name, and the sample's own label
+// is the first row's left-hand cell.
+export interface DirectAnalysisPositionFinding {
+  location: string;
+  taxon: string;
+  load: MoldSporeLoad;
+}
+
+const DIRECT_ANALYSIS_LOAD_WORD = /^(Very Heavy|Moderate|Heavy|Light|Trace|None)$/;
+const DIRECT_ANALYSIS_NAME_ROW = /^(\d{1,2}[A-Z]?)(?:\s-\s|:\s*)(.+)$/;
+
+export function parseDirectAnalysisPageItems(rawItems: PositionedItem[]): DirectAnalysisPositionFinding[] {
+  const items = rawItems.map((it) => ({ ...it, str: it.str.trim() })).filter((it) => it.str.length > 0);
+  const headers = items.filter((it) => it.str === "Fungal Structure ID").sort((a, b) => b.y - a.y);
+  const loadHeader = items.find((it) => it.str === "Spore/Material Load");
+  const debrisHeader = items.find((it) => it.str === "Debris");
+  if (headers.length === 0 || !loadHeader || !debrisHeader) return [];
+
+  const taxonX = headers[0].x;
+  const taxonMin = taxonX - 20;
+  const taxonMax = (taxonX + loadHeader.x) / 2;
+  const loadMax = (loadHeader.x + debrisHeader.x) / 2;
+  const findings: DirectAnalysisPositionFinding[] = [];
+
+  headers.forEach((header, index) => {
+    const top = header.y - 1;
+    const bottom = index + 1 < headers.length ? headers[index + 1].y : 100;
+    const block = items.filter((it) => it.y < top && it.y > bottom);
+
+    const nameCells = block.filter((it) => it.x < taxonMin).sort((a, b) => b.y - a.y);
+    const first = nameCells.find((it) => DIRECT_ANALYSIS_NAME_ROW.test(it.str));
+    if (!first) return;
+    const continuation = nameCells
+      .filter((it) => it !== first && it.y < first.y && it.y > first.y - 30 && Math.abs(it.x - first.x) <= 4 && !DIRECT_ANALYSIS_NAME_ROW.test(it.str))
+      .map((it) => it.str);
+    const location = [DIRECT_ANALYSIS_NAME_ROW.exec(first.str)![2], ...continuation].join(" ").replace(/\s+/g, " ").trim();
+
+    // Group the block's taxon-column and load-column cells into rows.
+    const cells = block.filter((it) => it.x >= taxonMin && it.x < loadMax).sort((a, b) => b.y - a.y || a.x - b.x);
+    const rows: PositionedItem[][] = [];
+    for (const cell of cells) {
+      const row = rows[rows.length - 1];
+      if (row && Math.abs(row[0].y - cell.y) <= 2) row.push(cell);
+      else rows.push([cell]);
+    }
+    for (const row of rows) {
+      const taxon = row.filter((c) => c.x < taxonMax).sort((a, b) => a.x - b.x).map((c) => c.str).join(" ").trim();
+      const load = row.filter((c) => c.x >= taxonMax).sort((a, b) => a.x - b.x).map((c) => c.str).join(" ").trim();
+      if (taxon && DIRECT_ANALYSIS_LOAD_WORD.test(load)) findings.push({ location, taxon, load: load as MoldSporeLoad });
+    }
+  });
+  return findings;
+}
+
+/** Every mold type found on a Crystal Direct Analysis report, with its own load, read by position. Null when the report isn't in that layout (caller falls back to the text-based reader). */
+export async function extractDirectAnalysisFindingsByPosition(pdfBuffer: Buffer): Promise<DirectAnalysisPositionFinding[] | null> {
+  const findings: DirectAnalysisPositionFinding[] = [];
+  let sawDirectAnalysisPage = false;
+
+  async function renderPage(pageData: {
+    getTextContent: (opts: { normalizeWhitespace: boolean; disableCombineTextItems: boolean }) => Promise<{
+      items: { str: string; transform: number[] }[];
+    }>;
+  }): Promise<string> {
+    const textContent = await pageData.getTextContent({ normalizeWhitespace: false, disableCombineTextItems: false });
+    const items: PositionedItem[] = textContent.items
+      .map((it) => ({ str: it.str, x: it.transform[4], y: Math.round(it.transform[5]) }))
+      .filter((it) => it.str.trim().length > 0);
+    if (!items.some((it) => it.str.trim() === "Fungal Structure ID")) return "";
+    sawDirectAnalysisPage = true;
+    findings.push(...parseDirectAnalysisPageItems(items));
+    return "";
+  }
+
+  await pdfParse(pdfBuffer, { pagerender: renderPage });
+  return sawDirectAnalysisPage ? findings : null;
 }

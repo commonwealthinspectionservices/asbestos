@@ -58,7 +58,7 @@ import { computeLabCostCentsFromDocuments } from "@/lib/lab-cost";
 import { formatCents } from "@/lib/pricing";
 import { createStripeInvoiceForJob, tagInvoiceEmailed, getStripe } from "@/lib/stripe";
 import { splitTrailingCocPages } from "@/lib/split-lab-report-coc";
-import { extractPositionOrderedText, extractSporeTrapSampleNames, extractSporeTrapTaxonColumns } from "@/lib/pdf-position-text";
+import { extractPositionOrderedText, extractSporeTrapSampleNames, extractSporeTrapTaxonColumns, extractDirectAnalysisFindingsByPosition } from "@/lib/pdf-position-text";
 import { jobReportDomains, domainForServiceTypeLabel, moldDiscussionFieldForLabel, isFullInspectionAsbestosJob, hasAllLabReports, ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, NEWTON_FIRE_FLOOD_COMPANY_ID, BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID, FLI_ENVIRONMENTAL_COMPANY_ID, reportEmailAttachmentFilename, type ReportDomain } from "@/lib/report-findings";
 import { sendEmail, emailShell } from "@/lib/email";
 import { sendJobPaidNotification } from "@/lib/booking-notify";
@@ -1947,7 +1947,8 @@ async function processMatchedLabEmail(params: {
           const sporeTrap = extractMoldSporeTrapFindings(positionOrderedText, sampleNames, taxonColumnsByPage);
           if (sporeTrap) sentences = summarizeMoldSporeTrapFindings(sporeTrap);
         } else {
-          const findings = extractMoldDirectAnalysisFindings(positionOrderedText);
+          // Position-based first (every mold type per sample, each with its own load); the text-based reader stays as the fallback for any layout it doesn't recognize.
+          const findings = (await extractDirectAnalysisFindingsByPosition(pdfBuffer).catch(() => null)) ?? extractMoldDirectAnalysisFindings(positionOrderedText);
           sentences = summarizeMoldDirectAnalysisFindings(findings);
         }
         if (sentences.length > 0) update[discussionField] = sentences.join(" ");

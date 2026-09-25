@@ -12,7 +12,7 @@ import { extractSampleCount, detectAsbestosResult, extractSampleResults, extract
 import { isLabInvoiceText, extractLabInvoiceTotalCents, extractInvoiceNumber } from "@/lib/parse-lab-invoice";
 import { computeLabCostCentsFromDocuments } from "@/lib/lab-cost";
 import { splitTrailingCocPages } from "@/lib/split-lab-report-coc";
-import { extractPositionOrderedText, extractSporeTrapSampleNames, extractSporeTrapTaxonColumns } from "@/lib/pdf-position-text";
+import { extractPositionOrderedText, extractSporeTrapSampleNames, extractSporeTrapTaxonColumns, extractDirectAnalysisFindingsByPosition } from "@/lib/pdf-position-text";
 import { ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, isFullInspectionAsbestosJob, moldDiscussionFieldForLabel, hasAllLabReports } from "@/lib/report-findings";
 import { deriveFullInspectionMaterials } from "@/lib/sample-items";
 import type { Job, JobDocument } from "@/lib/types";
@@ -177,7 +177,8 @@ export const POST = withApiErrors(async (
             const sporeTrap = extractMoldSporeTrapFindings(positionOrderedText, sampleNames, taxonColumnsByPage);
             if (sporeTrap) sentences = summarizeMoldSporeTrapFindings(sporeTrap);
           } else {
-            const findings = extractMoldDirectAnalysisFindings(positionOrderedText);
+            // Position-based first (every mold type per sample, each with its own load); the text-based reader stays as the fallback for any layout it doesn't recognize.
+          const findings = (await extractDirectAnalysisFindingsByPosition(fileBuffer).catch(() => null)) ?? extractMoldDirectAnalysisFindings(positionOrderedText);
             sentences = summarizeMoldDirectAnalysisFindings(findings);
           }
           if (sentences.length > 0) update[discussionField] = sentences.join(" ");

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { extractSampleCount, detectAsbestosResult, extractSampleResults, extractReportProjectNumber, extractReportProjectAddress, detectLabInfo, extractMoldSampleCount, extractMoldSampleResults, extractCrystalAnalyticalMaterialDescriptions, extractSampledDate, extractMoldDirectAnalysisFindings, summarizeMoldDirectAnalysisFindings, extractMoldSporeTrapFindings, summarizeMoldSporeTrapFindings, type MoldSporeTrapResult } from "../parse-lab-report";
+import { extractSampleCount, detectAsbestosResult, extractSampleResults, extractReportProjectNumber, extractReportProjectAddress, detectLabInfo, extractMoldSampleCount, extractMoldSampleResults, extractCrystalAnalyticalMaterialDescriptions, extractSampledDate, extractMoldDirectAnalysisFindings, summarizeMoldDirectAnalysisFindings, isRecognizedMoldType, extractMoldSporeTrapFindings, summarizeMoldSporeTrapFindings, type MoldSporeTrapResult } from "../parse-lab-report";
 
 // Excerpts of real EMSL bulk asbestos PLM report text, exactly as pdf-parse
 // extracts it (value-before-label ordering and all — PDF text extraction
@@ -1174,10 +1174,10 @@ describe("summarizeMoldDirectAnalysisFindings", () => {
   it("writes one plain sentence per Moderate-or-above finding", () => {
     expect(summarizeMoldDirectAnalysisFindings([
       { location: "Basement Closet", taxon: "Stachybotrys", load: "Heavy" },
-      { location: "Kitchen Ceiling", taxon: "aspergillus", load: "Very Heavy" },
+      { location: "Kitchen Ceiling", taxon: "Penicillium/Aspergillus", load: "Very Heavy" },
     ])).toEqual([
       "Stachybotrys was elevated (Heavy) at Basement Closet.",
-      "Aspergillus was elevated (Very Heavy) at Kitchen Ceiling.",
+      "Penicillium/Aspergillus was elevated (Very Heavy) at Kitchen Ceiling.",
     ]);
   });
 
@@ -1195,14 +1195,28 @@ describe("summarizeMoldDirectAnalysisFindings", () => {
     ]);
   });
 
-  it("groups multiple different Trace/Light taxa into one sentence per load level", () => {
+  // Per Tim, 2026-09-25 — "a separate sentence for each that have different
+  // mold types": one sentence per mold type, higher load first.
+  it("writes a separate sentence for each different Trace/Light mold type, higher load first", () => {
     expect(summarizeMoldDirectAnalysisFindings([
       { location: "Wall", taxon: "basidiospores", load: "Trace" },
       { location: "Ceiling", taxon: "Cladosporium", load: "Light" },
-      { location: "Floor", taxon: "Aspergillus", load: "Light" },
+      { location: "Floor", taxon: "Penicillium/Aspergillus", load: "Light" },
     ])).toEqual([
-      "Light amounts of Cladosporium and Aspergillus were found in the samples.",
+      "Light amounts of Cladosporium were found in the samples.",
+      "Light amounts of Penicillium/Aspergillus were found in the samples.",
       "Trace amounts of basidiospores were found in the samples.",
+    ]);
+  });
+
+  // Per Tim, 2026-09-25 — the Taxa/Organism rows on Crystal's own table are
+  // "the only rows we care about for type."
+  it("only writes sentences for mold types on Crystal's Taxa/Organism list", () => {
+    expect(summarizeMoldDirectAnalysisFindings([
+      { location: "Wall", taxon: "Alternaria", load: "Trace" },
+      { location: "Wall", taxon: "Some Unlisted Fungus", load: "Heavy" },
+    ])).toEqual([
+      "Trace amounts of Alternaria were found in the samples.",
     ]);
   });
 
@@ -1453,5 +1467,19 @@ describe("extractSampledDate", () => {
 
   it("returns null when no recognized label is present", () => {
     expect(extractSampledDate("not a lab report")).toBeNull();
+  });
+});
+
+describe("isRecognizedMoldType", () => {
+  it("matches the listed rows case-insensitively and a printed name that starts a listed one", () => {
+    expect(isRecognizedMoldType("basidiospores")).toBe(true);
+    expect(isRecognizedMoldType("Penicillium/Aspergillus")).toBe(true);
+    expect(isRecognizedMoldType("Alternaria")).toBe(true);
+    expect(isRecognizedMoldType("Alternaria (syn. Ulocladium)")).toBe(true);
+  });
+  it("rejects anything that isn't a listed row", () => {
+    expect(isRecognizedMoldType("Aspergillus")).toBe(false);
+    expect(isRecognizedMoldType("Debris")).toBe(false);
+    expect(isRecognizedMoldType("")).toBe(false);
   });
 });

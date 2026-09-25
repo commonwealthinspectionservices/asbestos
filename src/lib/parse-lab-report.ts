@@ -560,7 +560,22 @@ export function extractMoldDirectAnalysisFindings(positionOrderedText: string): 
 // dropped entirely — nothing to say about a taxon that wasn't found) gets
 // grouped into one plain background line per taxon, at that taxon's own
 // highest load across every sample it showed up in.
-export function summarizeMoldDirectAnalysisFindings(findings: MoldDirectAnalysisFinding[]): string[] {
+// Per Tim, 2026-09-25 — shown Crystal's Taxa/Organism list and told "these
+// are the only rows we care about for type": a mold type only gets a
+// sentence when it's one of SPORE_TRAP_KNOWN_TAXA. Matched by name,
+// case-insensitively, and a printed name may be the start of a listed one
+// ("Alternaria" is the list's "Alternaria (syn. Ulocladium)").
+export function isRecognizedMoldType(taxon: string): boolean {
+  const name = taxon.trim().toLowerCase();
+  if (!name) return false;
+  return SPORE_TRAP_KNOWN_TAXA.some((known) => {
+    const k = known.toLowerCase();
+    return k === name || k.startsWith(`${name} `) || k.startsWith(`${name}(`);
+  });
+}
+
+export function summarizeMoldDirectAnalysisFindings(allFindings: MoldDirectAnalysisFinding[]): string[] {
+  const findings = allFindings.filter((f) => isRecognizedMoldType(f.taxon));
   const ELEVATED: MoldSporeLoad[] = ["Moderate", "Heavy", "Very Heavy"];
   const elevated = findings.filter((f) => (ELEVATED as string[]).includes(f.load));
   const sentences = elevated.map((f) => {
@@ -579,19 +594,13 @@ export function summarizeMoldDirectAnalysisFindings(findings: MoldDirectAnalysis
       const current = highestByTaxon.get(f.taxon);
       if (!current || LOAD_RANK[f.load] > LOAD_RANK[current]) highestByTaxon.set(f.taxon, f.load);
     }
-    // Grouped by load level so "Trace amounts of X and Y" reads naturally
-    // instead of one sentence per taxon.
-    const byLoad = new Map<MoldSporeLoad, string[]>();
-    for (const [taxon, load] of highestByTaxon) {
-      const list = byLoad.get(load) ?? [];
-      list.push(taxon);
-      byLoad.set(load, list);
-    }
-    for (const load of ["Light", "Trace"] as MoldSporeLoad[]) {
-      const taxa = byLoad.get(load);
-      if (!taxa || taxa.length === 0) continue;
-      const joined = taxa.length === 1 ? taxa[0] : `${taxa.slice(0, -1).join(", ")} and ${taxa[taxa.length - 1]}`;
-      sentences.push(`${load} amounts of ${joined} were found in the samples.`);
+    // Per Tim, 2026-09-25 — "just do a separate sentence for each that have
+    // different mold types": one sentence per taxon (at that taxon's own
+    // highest load), rather than grouping different taxa into "Trace amounts
+    // of X and Y". Higher load first; ties keep the order first seen.
+    const ordered = [...highestByTaxon.entries()].sort((a, b) => LOAD_RANK[b[1]] - LOAD_RANK[a[1]]);
+    for (const [taxon, load] of ordered) {
+      sentences.push(`${load} amounts of ${taxon} were found in the samples.`);
     }
   }
   return sentences;

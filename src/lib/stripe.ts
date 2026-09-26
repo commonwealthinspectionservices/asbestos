@@ -68,21 +68,6 @@ export async function getOrCreateStripeCustomer(customer: Customer): Promise<str
 // falling back to Stripe's own unrelated auto-numbering. Gives up after a
 // handful of attempts and lets Stripe auto-number rather than ever
 // blocking invoice creation over what's ultimately a cosmetic field.
-// Per Tim, 2026-09-26 (26-0008) — an open invoice made before regenerated
-// invoices kept the job's own due date still said "Due October 19" while the
-// job said 9/26 (it had been given a fresh 30 days when regenerated on 9/19).
-// Returns the unix due date an EXISTING open invoice should be moved to so it
-// matches the job's own payment_due_date, or null when it already matches
-// (same day), the job has no due date of its own, or that moment is no
-// longer comfortably in the future (Stripe won't take a past due date).
-export function dueDateSyncTarget(existingDueUnix: number | null, jobDueDate: string | null, timeZone: string, nowUnix: number): number | null {
-  if (!jobDueDate) return null;
-  const target = Math.floor(zonedTimeToUtc(jobDueDate, "23:59", timeZone).getTime() / 1000);
-  if (target <= nowUnix + 3600) return null;
-  if (existingDueUnix != null && Math.abs(existingDueUnix - target) < 12 * 3600) return null;
-  return target;
-}
-
 // Per Tim, 2026-09-25 — "the memo should always have the job number and
 // address": the memo (Stripe's invoice `description`, shown right under the
 // header on the hosted page) used to be the address alone, with the project
@@ -216,17 +201,13 @@ export async function createStripeInvoiceForJob(
         || existing.total !== job.invoice_total_cents
         || !hasCurrentProjectNumber || !hasCurrentAddress || !hasCurrentNumber || !belongsToCurrentCustomer;
       if (!isStale) {
-        // Keep an already-open invoice's due date in step with the job's own
-        // (best-effort — never let a Stripe hiccup break handing back the link).
-        if (existing.status === "open") {
-          try {
-            const { timezone } = await getSettingsFresh();
-            const target = dueDateSyncTarget(existing.due_date ?? null, job.payment_due_date, timezone, Math.floor(Date.now() / 1000));
-            if (target != null) await stripe.invoices.update(existing.id, { due_date: target });
-          } catch (err) {
-            console.error(`createStripeInvoiceForJob: couldn't sync due date on invoice ${existing.id} for job ${job.id}:`, err);
-          }
-        }
+        // Per Tim, 2026-09-26 (26-0008 showed "Due October 19" while the job
+        // was due 9/26): an open invoice's due date can NOT be changed once
+        // it's out — Stripe answers "Non-draft invoices can't be updated"
+        // (confirmed in the live logs; an attempt to sync it here was
+        // removed for that reason). A wrong date on an existing invoice can
+        // only be fixed by voiding it in Stripe, after which the branch
+        // above creates a fresh one carrying the job's own payment_due_date.
         return { stripeInvoiceId: existing.id, hostedInvoiceUrl: existing.hosted_invoice_url ?? null };
       }
       // A void attempt against an invoice on a deleted customer 400s

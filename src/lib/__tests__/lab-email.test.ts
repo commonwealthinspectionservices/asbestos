@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { extractProjectNumberFromCocSubject, normalizeAddressForMatch, isMoldLabReport, hasLabReportForEveryDomain, invoiceDraftBodyHtml, reportDraftBodyHtml, combinedDraftBodyHtml, projectNumberLine } from "@/lib/lab-email";
+import { openInvoiceDueDateNeedsReissue } from "@/lib/stripe";
 import type { Job, JobDocument, Settings } from "@/lib/types";
 
 function labReportDoc(serviceType: string): JobDocument {
@@ -203,5 +204,27 @@ describe("project number leads the address in client emails", () => {
   it("leaves the line out when a job has no project number yet", () => {
     expect(projectNumberLine({ project_number: null })).toEqual([]);
     expect(reportDraftBodyHtml({ ...job, project_number: null } as Job, settings)).not.toContain("Project #");
+  });
+});
+
+// 26-0008, 2026-09-26 — its open invoice said "Due October 19" while the job
+// (and the payment calendar) said 9/26.
+describe("openInvoiceDueDateNeedsReissue", () => {
+  const tz = "America/New_York";
+  const now = Math.floor(new Date("2026-09-26T14:00:00Z").getTime() / 1000); // 10am ET on 9/26
+  const oct19 = Math.floor(new Date("2026-10-19T12:00:00Z").getTime() / 1000);
+  const endOfSep26ET = Math.floor(new Date("2026-09-27T03:59:00Z").getTime() / 1000);
+
+  it("flags an invoice showing October 19 when the job is due today", () => {
+    expect(openInvoiceDueDateNeedsReissue(oct19, "2026-09-26", tz, now)).toBe(true);
+  });
+  it("leaves an invoice that already has the job's due date alone", () => {
+    expect(openInvoiceDueDateNeedsReissue(endOfSep26ET, "2026-09-26", tz, now)).toBe(false);
+  });
+  it("leaves an invoice alone when the job has no due date of its own", () => {
+    expect(openInvoiceDueDateNeedsReissue(oct19, null, tz, now)).toBe(false);
+  });
+  it("does not reissue when the job's due date has passed (a new invoice couldn't carry it, so it would repeat forever)", () => {
+    expect(openInvoiceDueDateNeedsReissue(oct19, "2026-09-20", tz, now)).toBe(false);
   });
 });

@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { extractProjectNumberFromCocSubject, normalizeAddressForMatch, isMoldLabReport, hasLabReportForEveryDomain, invoiceDraftBodyHtml, reportDraftBodyHtml, combinedDraftBodyHtml, projectNumberLine } from "@/lib/lab-email";
+import { dueDateSyncTarget } from "@/lib/stripe";
 import type { Job, JobDocument, Settings } from "@/lib/types";
 
 function labReportDoc(serviceType: string): JobDocument {
@@ -203,5 +204,27 @@ describe("project number leads the address in client emails", () => {
   it("leaves the line out when a job has no project number yet", () => {
     expect(projectNumberLine({ project_number: null })).toEqual([]);
     expect(reportDraftBodyHtml({ ...job, project_number: null } as Job, settings)).not.toContain("Project #");
+  });
+});
+
+// 26-0008, 2026-09-26 — its regenerated invoice said "Due October 19" while
+// the job was due 9/26.
+describe("dueDateSyncTarget", () => {
+  const tz = "America/New_York";
+  const now = Math.floor(new Date("2026-09-26T14:00:00Z").getTime() / 1000); // 10am ET on 9/26
+  const oct19 = Math.floor(new Date("2026-10-19T12:00:00Z").getTime() / 1000);
+  const endOfSep26ET = Math.floor(new Date("2026-09-27T03:59:00Z").getTime() / 1000);
+
+  it("moves an invoice showing October 19 to end of day on the job's own 9/26 due date", () => {
+    expect(dueDateSyncTarget(oct19, "2026-09-26", tz, now)).toBe(endOfSep26ET);
+  });
+  it("does nothing when the invoice already has the job's due date", () => {
+    expect(dueDateSyncTarget(endOfSep26ET, "2026-09-26", tz, now)).toBeNull();
+  });
+  it("does nothing when the job has no due date of its own", () => {
+    expect(dueDateSyncTarget(oct19, null, tz, now)).toBeNull();
+  });
+  it("does nothing for a due date that has already passed", () => {
+    expect(dueDateSyncTarget(oct19, "2026-09-20", tz, now)).toBeNull();
   });
 });

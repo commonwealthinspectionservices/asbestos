@@ -120,7 +120,10 @@ export default function PaymentCalendarView() {
                           <span className="truncate text-slate-700">{job.customers?.company || job.customers?.name}</span>
                           {isNewton && (
                             <span className="whitespace-nowrap rounded-full bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-700">
-                              Scheduled to auto-charge
+                              {/* Per Tim, 2026-09-26 — auto-charge is off (he charges
+                                  Newton manually in Stripe), so this no longer says
+                                  "Scheduled to auto-charge". */}
+                              Charge manually
                             </span>
                           )}
                         </div>

@@ -241,9 +241,16 @@ async function qbFetch(conn: QuickBooksConnection, path: string, init?: RequestI
       ...(init?.headers ?? {}),
     },
   });
+  // Intuit's own recommendation: capture intuit_tid from every response so
+  // a support ticket can be traced to the exact request on their side,
+  // without having to reproduce the failure. Included on both the error
+  // path (most useful there) and logged even on success, in case a
+  // response looked fine here but Intuit support needs to check it later.
+  const intuitTid = res.headers.get("intuit_tid");
   if (!res.ok) {
-    throw new Error(`QuickBooks API ${path} failed (${res.status}): ${await res.text()}`);
+    throw new Error(`QuickBooks API ${path} failed (${res.status}, intuit_tid=${intuitTid ?? "none"}): ${await res.text()}`);
   }
+  if (intuitTid) console.log(`QuickBooks API ${path} intuit_tid=${intuitTid}`);
   return res.json();
 }
 

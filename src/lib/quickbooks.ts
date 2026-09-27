@@ -1,5 +1,7 @@
 import { getSupabaseAdminFresh } from "@/lib/supabase";
 import { mileageRateCentsForDay, totalMiles, type MileageDay } from "@/lib/mileage-shared";
+import { sendEmail, emailShell } from "@/lib/email";
+import { escapeHtml } from "@/lib/html";
 
 // Per Tim, 2026-09-27 — a real, ongoing sync of the app's own mileage
 // tracking (mileage_days) into QuickBooks, so the standard-mileage-rate
@@ -12,13 +14,56 @@ import { mileageRateCentsForDay, totalMiles, type MileageDay } from "@/lib/milea
 // (Tim personally supplied the vehicle, same pattern as every other
 // personally-paid business expense already flowing through that account).
 
-const OAUTH_AUTHORIZE_URL = "https://appcenter.intuit.com/connect/oauth2";
-const OAUTH_TOKEN_URL = "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer";
+// Fallback endpoints if the discovery document (below) can't be reached —
+// these are Intuit's own well-known, stable OAuth URLs, unchanged in years.
+const FALLBACK_AUTHORIZE_URL = "https://appcenter.intuit.com/connect/oauth2";
+const FALLBACK_TOKEN_URL = "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer";
+
+const DISCOVERY_URLS: Record<string, string> = {
+  production: "https://developer.api.intuit.com/.well-known/openid_configuration",
+  sandbox: "https://developer.api.intuit.com/.well-known/openid_sandbox_configuration",
+};
+
+// Cached per server process (a cold start re-fetches) — Intuit's own docs
+// recommend pulling the current authorize/token endpoints from this
+// discovery document rather than hardcoding them, in case they're ever
+// rotated. Best-effort: falls back to the hardcoded URLs above on any
+// failure, since a discovery-fetch outage must never block the real OAuth
+// flow it's only meant to keep pointed at the right place.
+let discoveryCache: { authorizeUrl: string; tokenUrl: string } | null = null;
+
+async function discoveryEndpoints(environment: string): Promise<{ authorizeUrl: string; tokenUrl: string }> {
+  if (discoveryCache) return discoveryCache;
+  try {
+    const res = await fetch(DISCOVERY_URLS[environment] ?? DISCOVERY_URLS.sandbox);
+    if (!res.ok) throw new Error(`discovery document ${res.status}`);
+    const doc = await res.json();
+    if (!doc.authorization_endpoint || !doc.token_endpoint) throw new Error("discovery document missing endpoints");
+    discoveryCache = { authorizeUrl: doc.authorization_endpoint, tokenUrl: doc.token_endpoint };
+  } catch {
+    discoveryCache = { authorizeUrl: FALLBACK_AUTHORIZE_URL, tokenUrl: FALLBACK_TOKEN_URL };
+  }
+  return discoveryCache;
+}
 
 function apiBaseUrl(environment: string): string {
   return environment === "production"
     ? "https://quickbooks.api.intuit.com"
     : "https://sandbox-quickbooks.api.intuit.com";
+}
+
+/** One retry, after a short delay, for a transient network failure or 5xx — never for a real 4xx rejection (bad credentials, invalid_grant, etc.), which retrying can't fix. */
+async function fetchWithRetry(url: string, init: RequestInit): Promise<Response> {
+  const attempt = () => fetch(url, init);
+  try {
+    const res = await attempt();
+    if (res.status < 500) return res;
+    await new Promise((r) => setTimeout(r, 1000));
+    return attempt();
+  } catch (err) {
+    await new Promise((r) => setTimeout(r, 1000));
+    return attempt();
+  }
 }
 
 function requireEnv(name: string): string {
@@ -36,8 +81,13 @@ function redirectUri(): string {
   return `${base.replace(/\/$/, "")}/api/admin/quickbooks/callback`;
 }
 
+function connectionEnvironment(): string {
+  return process.env.QUICKBOOKS_ENVIRONMENT === "production" ? "production" : "sandbox";
+}
+
 /** The URL to send the admin to for the one-time "Connect to QuickBooks" consent screen. */
-export function quickbooksAuthorizeUrl(state: string): string {
+export async function quickbooksAuthorizeUrl(state: string): Promise<string> {
+  const { authorizeUrl } = await discoveryEndpoints(connectionEnvironment());
   const params = new URLSearchParams({
     client_id: requireEnv("QUICKBOOKS_CLIENT_ID"),
     response_type: "code",
@@ -45,7 +95,7 @@ export function quickbooksAuthorizeUrl(state: string): string {
     redirect_uri: redirectUri(),
     state,
   });
-  return `${OAUTH_AUTHORIZE_URL}?${params.toString()}`;
+  return `${authorizeUrl}?${params.toString()}`;
 }
 
 interface TokenResponse {
@@ -55,12 +105,22 @@ interface TokenResponse {
   x_refresh_token_expires_in: number; // seconds
 }
 
-async function requestTokens(body: URLSearchParams): Promise<TokenResponse> {
+/**
+ * A failed refresh specifically because the refresh_token itself is no
+ * longer valid (revoked, or past its ~100-day life) — the one failure mode
+ * retrying can never fix, and the one QuickBooks' own docs say to handle
+ * by clearing the stored connection and asking the admin to reconnect
+ * (see notifyReconnectNeeded below), rather than just erroring out.
+ */
+class QuickBooksReauthRequired extends Error {}
+
+async function requestTokens(body: URLSearchParams, { isRefresh = false } = {}): Promise<TokenResponse> {
   const clientId = requireEnv("QUICKBOOKS_CLIENT_ID");
   const clientSecret = requireEnv("QUICKBOOKS_CLIENT_SECRET");
   const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
+  const { tokenUrl } = await discoveryEndpoints(connectionEnvironment());
 
-  const res = await fetch(OAUTH_TOKEN_URL, {
+  const res = await fetchWithRetry(tokenUrl, {
     method: "POST",
     headers: {
       Authorization: `Basic ${basicAuth}`,
@@ -70,14 +130,35 @@ async function requestTokens(body: URLSearchParams): Promise<TokenResponse> {
     body: body.toString(),
   });
   if (!res.ok) {
-    throw new Error(`QuickBooks token request failed (${res.status}): ${await res.text()}`);
+    const text = await res.text();
+    if (isRefresh && res.status === 400 && /invalid_grant/.test(text)) {
+      throw new QuickBooksReauthRequired(text);
+    }
+    throw new Error(`QuickBooks token request failed (${res.status}): ${text}`);
   }
   return res.json();
 }
 
+/** Best-effort email to the owner with a direct reconnect link — never blocks or masks the real error it's reporting alongside. */
+async function notifyReconnectNeeded(reason: string): Promise<void> {
+  try {
+    await sendEmail({
+      to: process.env.OWNER_EMAIL!,
+      subject: "QuickBooks needs to be reconnected",
+      html: emailShell(`
+        <p style="font-size:15px;">The QuickBooks connection for mileage sync has expired or was revoked and needs to be reconnected.</p>
+        <p style="font-size:13px; color:#64748b;">${escapeHtml(reason)}</p>
+        <p style="font-size:15px;"><a href="https://commonwealthinspectionservices.com/api/admin/quickbooks/connect">Click here to reconnect</a>.</p>
+      `),
+    });
+  } catch {
+    // Best-effort — see cron-auth.ts's own withCronAlert for the same pattern.
+  }
+}
+
 /** Called once, from the OAuth callback route, with the ?code and ?realmId Intuit sends back. */
 export async function exchangeCodeForConnection(code: string, realmId: string): Promise<void> {
-  const environment = process.env.QUICKBOOKS_ENVIRONMENT === "production" ? "production" : "sandbox";
+  const environment = connectionEnvironment();
   const tokens = await requestTokens(
     new URLSearchParams({ grant_type: "authorization_code", code, redirect_uri: redirectUri() })
   );
@@ -125,9 +206,19 @@ async function getValidConnection(): Promise<QuickBooksConnection> {
     return data as QuickBooksConnection;
   }
 
-  const tokens = await requestTokens(
-    new URLSearchParams({ grant_type: "refresh_token", refresh_token: data.refresh_token })
-  );
+  let tokens: TokenResponse;
+  try {
+    tokens = await requestTokens(
+      new URLSearchParams({ grant_type: "refresh_token", refresh_token: data.refresh_token }),
+      { isRefresh: true }
+    );
+  } catch (err) {
+    if (err instanceof QuickBooksReauthRequired) {
+      await supabase.from("quickbooks_connection").delete().eq("id", 1);
+      await notifyReconnectNeeded(err.message);
+    }
+    throw err;
+  }
   const now = Date.now();
   const updated = {
     access_token: tokens.access_token,
@@ -141,7 +232,7 @@ async function getValidConnection(): Promise<QuickBooksConnection> {
 }
 
 async function qbFetch(conn: QuickBooksConnection, path: string, init?: RequestInit): Promise<any> {
-  const res = await fetch(`${apiBaseUrl(conn.environment)}/v3/company/${conn.realm_id}${path}`, {
+  const res = await fetchWithRetry(`${apiBaseUrl(conn.environment)}/v3/company/${conn.realm_id}${path}`, {
     ...init,
     headers: {
       Authorization: `Bearer ${conn.access_token}`,

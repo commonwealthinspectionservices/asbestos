@@ -13,7 +13,7 @@ export const GET = withApiErrors(async (req: NextRequest) => {
   if (unauthorized) return unauthorized;
 
   const state = crypto.randomBytes(24).toString("hex");
-  const res = NextResponse.redirect(quickbooksAuthorizeUrl(state));
+  const res = NextResponse.redirect(await quickbooksAuthorizeUrl(state));
   res.cookies.set("qb_oauth_state", state, { httpOnly: true, maxAge: 600, sameSite: "lax", secure: true });
   return res;
 });

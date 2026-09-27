@@ -323,6 +323,74 @@ function DayCard({ day, onSaved, onReset }: { day: MileageDay; onSaved: (d: Mile
   );
 }
 
+type QuickBooksStatus = { connected: boolean; environment: string | null; lastSyncedDay: string | null; lastSyncedAt: string | null };
+
+/**
+ * Small status/action widget — Connect button when nothing's linked yet,
+ * else the last-synced day plus a manual "Sync now" (the daily cron does
+ * this automatically; this is just for "did it actually work" reassurance
+ * and catching up right after first connecting, before the cron's next run).
+ */
+function QuickBooksSyncStatus() {
+  const [status, setStatus] = useState<QuickBooksStatus | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  const loadStatus = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/quickbooks/status");
+      if (res.ok) setStatus(await res.json());
+    } catch {
+      // Best-effort — the rest of the page works fine without this.
+    }
+  }, []);
+
+  useEffect(() => {
+    loadStatus();
+    if (new URLSearchParams(window.location.search).get("quickbooks") === "connected") {
+      setMessage("QuickBooks connected.");
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+  }, [loadStatus]);
+
+  const syncNow = async () => {
+    setSyncing(true);
+    setMessage(null);
+    try {
+      const res = await fetch("/api/admin/quickbooks/sync-mileage", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Sync failed");
+      setMessage(`Synced — ${data.created} new, ${data.updated} updated, ${data.skipped} already up to date.`);
+      await loadStatus();
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : "Sync failed");
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  if (!status) return null;
+
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-3 rounded-lg bg-slate-50 px-3 py-2 text-sm">
+      {status.connected ? (
+        <>
+          <span className="text-slate-600">
+            QuickBooks connected{status.environment === "sandbox" ? " (sandbox)" : ""}
+            {status.lastSyncedDay ? ` · last synced ${status.lastSyncedDay}` : " · not yet synced"}
+          </span>
+          <button type="button" disabled={syncing} onClick={syncNow} className={smallLink}>
+            {syncing ? "Syncing…" : "Sync now"}
+          </button>
+        </>
+      ) : (
+        <a href="/api/admin/quickbooks/connect" className={smallLink}>Connect to QuickBooks</a>
+      )}
+      {message && <span className="text-slate-500">{message}</span>}
+    </div>
+  );
+}
+
 export default function MileageView() {
   const [month, setMonth] = useState(currentMonthKey);
   const [days, setDays] = useState<MileageDay[]>([]);
@@ -384,6 +452,8 @@ export default function MileageView() {
     <div>
       <Link href="/admin/billing" className="text-sm text-brand-600 hover:underline">← Billing</Link>
       <h1 className="mt-3 text-2xl font-bold text-slate-800">Mileage</h1>
+
+      <QuickBooksSyncStatus />
 
       <div className="mt-5 flex items-center justify-between gap-2">
         <button type="button" disabled={!canGoBack} onClick={() => setMonth(shiftMonth(month, -1))} className={`${smallLink} px-1 text-lg leading-none`} aria-label="Previous month">←</button>

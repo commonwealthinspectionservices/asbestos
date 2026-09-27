@@ -1283,3 +1283,34 @@ alter table monthly_overhead enable row level security;
 -- found. Defaults true (same always-on behavior every existing Newton
 -- report already has) so Tim only has to flip it off case by case.
 alter table jobs add column if not exists mold_standard_conclusion_included boolean not null default true;
+
+-- Per Tim, 2026-09-27 — a single-row (id=1) OAuth connection to Tim's own
+-- QuickBooks company, for the mileage-sync cron (see lib/quickbooks.ts).
+-- access_token is short-lived (~1hr) and refreshed automatically before
+-- every use; refresh_token has a rolling ~100-day expiry that resets every
+-- time it's used, so as long as the sync runs at least that often the
+-- connection never needs re-authorizing by hand. environment is
+-- "sandbox" or "production" (matches which Intuit API host to call).
+create table if not exists quickbooks_connection (
+  id integer primary key default 1,
+  realm_id text not null,
+  access_token text not null,
+  refresh_token text not null,
+  access_token_expires_at timestamptz not null,
+  refresh_token_expires_at timestamptz not null,
+  environment text not null default 'sandbox',
+  vehicle_expense_account_id text,
+  owner_paid_account_id text,
+  updated_at timestamptz not null default now(),
+  constraint quickbooks_connection_singleton check (id = 1)
+);
+alter table quickbooks_connection enable row level security;
+
+-- Per Tim, 2026-09-27 — tracks whether a given mileage_days row has been
+-- synced to QuickBooks as a Journal Entry, and at what dollar amount, so a
+-- re-run of the sync (daily cron) can tell "never synced" (both null) from
+-- "synced, unchanged" (skip) from "synced, but the day's miles changed
+-- since" (update the existing QBO entry rather than create a duplicate).
+alter table mileage_days add column if not exists qb_journal_entry_id text;
+alter table mileage_days add column if not exists qb_synced_amount_cents integer;
+alter table mileage_days add column if not exists qb_synced_at timestamptz;

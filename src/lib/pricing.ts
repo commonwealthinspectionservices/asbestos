@@ -52,9 +52,32 @@ export function knownLabCostCentsForJob(job: { lab_cost_cents: number | null; cu
  * job.stripe_fee_cents directly to decide "do we know the real fee yet"
  * should read this instead.
  */
-export function knownStripeFeeCentsForJob(job: { stripe_fee_cents: number | null; payment_type?: string | null }): number | null {
+export function knownStripeFeeCentsForJob(job: { stripe_fee_cents: number | null; payment_type?: string | null; invoice_total_cents?: number | null }): number | null {
   if (job.payment_type === "check") return 0;
-  return job.stripe_fee_cents ?? null;
+  return totalStripeFeeCents(job);
+}
+
+// Per Tim, 2026-09-26 — "yes add it to net earnings": Stripe charges a
+// separate Invoicing fee on every paid invoice (Invoicing Starter: 0.4% of
+// the invoice, published at stripe.com/invoicing/pricing) on top of the
+// card/bank processing fee this app captures into job.stripe_fee_cents, plus
+// 6.25% Massachusetts sales tax on that fee. It shows on the Stripe balance
+// as one bundled "Invoicing (date)" line per day, not per invoice, so it's
+// estimated per job from the invoice total; that estimate matched every one
+// of Tim's real ledger lines to the cent (26-0007 + 26-0008 on 9/26: $10.46
+// + $0.65 tax). Card, ACH and everything else pay it alike.
+export const STRIPE_INVOICING_FEE_RATE = 0.004;
+export const STRIPE_INVOICING_FEE_TAX_RATE = 0.0625;
+
+export function stripeInvoicingFeeCents(invoiceTotalCents: number | null | undefined): number {
+  if (!invoiceTotalCents || invoiceTotalCents <= 0) return 0;
+  return Math.round(invoiceTotalCents * STRIPE_INVOICING_FEE_RATE * (1 + STRIPE_INVOICING_FEE_TAX_RATE));
+}
+
+/** Processing fee + estimated Invoicing fee (with tax), or null until Stripe has actually processed the payment (no processing fee captured yet). */
+export function totalStripeFeeCents(job: { stripe_fee_cents: number | null; invoice_total_cents?: number | null }): number | null {
+  if (job.stripe_fee_cents == null) return null;
+  return job.stripe_fee_cents + stripeInvoicingFeeCents(job.invoice_total_cents);
 }
 
 export function computeInvoiceTotalCents(

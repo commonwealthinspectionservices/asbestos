@@ -16,7 +16,7 @@ import { ContactForm } from "@/components/admin/ContactDetailDialog";
 import { formatDateMDY } from "@/lib/date-format";
 import { subcontractorSenderForJob, isKnownSubcontractorCompanyName, isKnownSubcontractingForName } from "@/lib/subcontractor-senders";
 import { timeSelectOptions } from "@/lib/time-options";
-import { computeMarginCents, knownLabCostCentsForJob } from "@/lib/pricing";
+import { totalStripeFeeCents, computeMarginCents, knownLabCostCentsForJob } from "@/lib/pricing";
 import { dueDateFor, paymentDueDate, localDateOnly } from "@/lib/invoice-due-date";
 import { useLockBodyScroll } from "@/lib/use-lock-body-scroll";
 
@@ -4674,7 +4674,7 @@ export function ProjectDetailDialog({
                   paymentDueDate={dueDateFor(job) || ""}
                   onPaymentDueDateChange={(v) => saveJobField({ payment_due_date: v || null })}
                   labCostCents={knownLabCostCentsForJob(job)}
-                  stripeFeeCents={job.stripe_fee_cents}
+                  stripeFeeCents={totalStripeFeeCents(job)}
                   isRush={job.lab_turnaround === "Rush"}
                 />
                 {savingInvoice && <p className="mt-1 text-xs text-slate-400">Saving…</p>}
@@ -8063,8 +8063,11 @@ function LineItemsEditor({
   labCostCents: number | null;
   /** Per Tim, 2026-08-28 — the real Stripe processing fee (see stripe_fee_cents
       on Job), factored into Profit below once the invoice is actually paid
-      through Stripe. Null for a job paid by hand or not yet paid, in which
-      case Profit just doesn't deduct a fee that was never charged. */
+      through Stripe. Per Tim, 2026-09-26 this is now the WHOLE Stripe cost —
+      processing fee plus the estimated Invoicing fee (see totalStripeFeeCents
+      in lib/pricing.ts) — in this one number, not a separate line. Null for a
+      job paid by hand or not yet paid, in which case Profit just doesn't
+      deduct a fee that was never charged. */
   stripeFeeCents: number | null;
 }) {
   function update(i: number, patch: Partial<LineItemRowState>) {

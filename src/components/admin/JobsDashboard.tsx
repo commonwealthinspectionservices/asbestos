@@ -8387,7 +8387,9 @@ function LineItemsEditor({
             )}
           </div>
           <div className="flex items-baseline justify-between gap-4 border-t border-slate-200 pt-3">
-            <p className="text-sm font-bold uppercase text-slate-500">Profit</p>
+            {/* Per Tim, 2026-09-26 — "anywhere it says profit, it should just say
+                net earnings": same number, same name as Net Earnings by Job. */}
+            <p className="text-sm font-bold uppercase text-slate-500">Net earnings</p>
             <p className="text-lg font-bold text-slate-500">
               {labCostCents != null ? currency(computeMarginCents(Math.round(total * 100), labCostCents, (stripeFeeCents ?? 0) + (invoicingFeeCents ?? 0)) / 100) : "—"}
             </p>

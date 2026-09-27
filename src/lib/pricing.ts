@@ -52,12 +52,13 @@ export function knownLabCostCentsForJob(job: { lab_cost_cents: number | null; cu
  * job.stripe_fee_cents directly to decide "do we know the real fee yet"
  * should read this instead.
  */
-export function knownStripeFeeCentsForJob(job: { stripe_fee_cents: number | null; payment_type?: string | null; invoice_total_cents?: number | null }): number | null {
+export function knownStripeFeeCentsForJob(job: { stripe_fee_cents: number | null; payment_type?: string | null }): number | null {
   if (job.payment_type === "check") return 0;
-  return totalStripeFeeCents(job);
+  return job.stripe_fee_cents ?? null;
 }
 
-// Per Tim, 2026-09-26 — "yes add it to net earnings": Stripe charges a
+// Per Tim, 2026-09-26 — "yes add it to net earnings", then "list those out
+// separate if they are separate fees": Stripe charges a
 // separate Invoicing fee on every paid invoice (Invoicing Starter: 0.4% of
 // the invoice, published at stripe.com/invoicing/pricing) on top of the
 // card/bank processing fee this app captures into job.stripe_fee_cents, plus
@@ -74,10 +75,24 @@ export function stripeInvoicingFeeCents(invoiceTotalCents: number | null | undef
   return Math.round(invoiceTotalCents * STRIPE_INVOICING_FEE_RATE * (1 + STRIPE_INVOICING_FEE_TAX_RATE));
 }
 
-/** Processing fee + estimated Invoicing fee (with tax), or null until Stripe has actually processed the payment (no processing fee captured yet). */
-export function totalStripeFeeCents(job: { stripe_fee_cents: number | null; invoice_total_cents?: number | null }): number | null {
+/**
+ * The estimated Invoicing fee for a job, kept SEPARATE from the processing fee
+ * (Per Tim, 2026-09-26: "list those out separate if they are separate fees").
+ * Null until Stripe has actually processed the payment (no processing fee
+ * captured yet); known-zero for a check-paid job.
+ */
+export function knownInvoicingFeeCentsForJob(job: { stripe_fee_cents: number | null; payment_type?: string | null; invoice_total_cents?: number | null }): number | null {
+  if (job.payment_type === "check") return 0;
   if (job.stripe_fee_cents == null) return null;
-  return job.stripe_fee_cents + stripeInvoicingFeeCents(job.invoice_total_cents);
+  return stripeInvoicingFeeCents(job.invoice_total_cents);
+}
+
+/** Both Stripe costs together (processing + Invoicing), for margin math only — null until the payment has been processed. */
+export function knownTotalStripeCostCentsForJob(job: { stripe_fee_cents: number | null; payment_type?: string | null; invoice_total_cents?: number | null }): number | null {
+  const processing = knownStripeFeeCentsForJob(job);
+  const invoicing = knownInvoicingFeeCentsForJob(job);
+  if (processing == null || invoicing == null) return null;
+  return processing + invoicing;
 }
 
 export function computeInvoiceTotalCents(

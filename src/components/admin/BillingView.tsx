@@ -3,7 +3,7 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { JobWithCustomer } from "@/lib/types";
-import { formatCents, computeMarginCents, knownLabCostCentsForJob, knownStripeFeeCentsForJob } from "@/lib/pricing";
+import { formatCents, computeMarginCents, knownLabCostCentsForJob, knownStripeFeeCentsForJob, knownInvoicingFeeCentsForJob, knownTotalStripeCostCentsForJob } from "@/lib/pricing";
 import { ProjectDetailDialog, EditProjectDialog, formatDateTime } from "@/components/admin/JobsDashboard";
 import { formatDateMDY } from "@/lib/date-format";
 import { NEWTON_FIRE_FLOOD_COMPANY_ID } from "@/lib/report-findings";
@@ -273,7 +273,7 @@ function JobRow({
 // $0. Same size/format for every row per Tim's follow-up — Margin isn't
 // visually singled out, just colored red if it's negative.
 function MoneyGrid({
-  revenueCents, labCostCents, estimatedLabCostCents, stripeFeeCents, marginCents, invoiceHref, labInvoiceHref, labInvoiceIssues, invoiceIssues,
+  revenueCents, labCostCents, estimatedLabCostCents, stripeFeeCents, invoicingFeeCents, marginCents, invoiceHref, labInvoiceHref, labInvoiceIssues, invoiceIssues,
 }: {
   revenueCents: number; labCostCents: number | null;
   /** Per Tim, 2026-09-04 — shown (with "≈") in place of "—" when the lab
@@ -291,6 +291,8 @@ function MoneyGrid({
       live options) cost much less or nothing. null (not yet paid, or a
       check payment in progress) shows "—", not a guess. */
   stripeFeeCents: number | null;
+  /** Per Tim, 2026-09-26 — Stripe's separate Invoicing fee (0.4% + tax, estimated), its own line under Stripe Fee. Same null rule. */
+  invoicingFeeCents: number | null;
   marginCents: number | null;
   invoiceHref?: string | null; labInvoiceHref?: string | null;
   /** Per Tim, 2026-09-05 — "instead of it being a red dot maybe it should
@@ -382,6 +384,10 @@ function MoneyGrid({
       <span className="whitespace-nowrap text-right text-slate-700">
         {stripeFeeCents != null ? formatCents(stripeFeeCents) : "—"}
       </span>
+      <span className="text-left text-slate-400">Invoicing Fee</span>
+      <span className="whitespace-nowrap text-right text-slate-700">
+        {invoicingFeeCents != null ? formatCents(invoicingFeeCents) : "—"}
+      </span>
       <span className="text-left text-slate-400">Margin</span>
       <span className={`whitespace-nowrap text-right ${marginCents != null && marginCents < 0 ? "text-red-600" : "text-slate-700"}`}>
         {(() => {
@@ -394,7 +400,7 @@ function MoneyGrid({
           // reads as $0 within this estimate, same simplification Margin
           // always used for it.
           if (estimatedLabCostCents) {
-            const estimatedMarginCents = revenueCents - estimatedLabCostCents - (stripeFeeCents ?? 0);
+            const estimatedMarginCents = revenueCents - estimatedLabCostCents - (stripeFeeCents ?? 0) - (invoicingFeeCents ?? 0);
             return <span className="italic"><span className="text-slate-400">≈ </span>{formatCents(estimatedMarginCents)}</span>;
           }
           return "—";
@@ -1094,9 +1100,10 @@ export default function BillingView() {
                         labCostCents={knownLabCostCentsForJob(job)}
                         estimatedLabCostCents={estimatedLabCostCentsForJob(job, avgLabCostPerSampleCents) || undefined}
                         stripeFeeCents={knownStripeFeeCentsForJob(job)}
+                        invoicingFeeCents={knownInvoicingFeeCentsForJob(job)}
                         marginCents={
-                          knownLabCostCentsForJob(job) != null && knownStripeFeeCentsForJob(job) != null
-                            ? computeMarginCents(job.invoice_total_cents ?? 0, knownLabCostCentsForJob(job)!, knownStripeFeeCentsForJob(job)!)
+                          knownLabCostCentsForJob(job) != null && knownTotalStripeCostCentsForJob(job) != null
+                            ? computeMarginCents(job.invoice_total_cents ?? 0, knownLabCostCentsForJob(job)!, knownTotalStripeCostCentsForJob(job)!)
                             : null
                         }
                         invoiceHref={job.invoice_total_cents != null ? `/api/admin/jobs/${job.id}/invoice` : null}

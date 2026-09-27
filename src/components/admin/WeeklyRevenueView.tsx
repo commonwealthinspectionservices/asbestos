@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { JobWithCustomer } from "@/lib/types";
-import { formatCents, knownStripeFeeCentsForJob } from "@/lib/pricing";
+import { formatCents, knownStripeFeeCentsForJob, knownInvoicingFeeCentsForJob } from "@/lib/pricing";
 import { billingDateFor, ymd } from "@/components/admin/BillingView";
 
 // Per Tim, 2026-09-24 — "what I was talking about was just wanting to see
@@ -11,7 +11,7 @@ import { billingDateFor, ymd } from "@/components/admin/BillingView";
 // Crystal Analytical's own weekly report uses), newest first. Same rules
 // as Net Earnings by Job so the two pages always agree: a job belongs to
 // the week of its fieldwork date (billingDateFor), Invoiced counts every
-// invoiced job, and Paid / Lab Cost / Stripe Fee / Net Earnings only
+// invoiced job, and Paid / Lab Cost / Stripe Fee / Invoicing Fee / Net Earnings only
 // count jobs that are actually paid.
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -21,7 +21,7 @@ function weekLabel(start: Date, end: Date): string {
     : `${MONTHS[start.getMonth()]} ${start.getDate()}-${MONTHS[end.getMonth()]} ${end.getDate()}`;
 }
 
-const GRID = "grid grid-cols-[repeat(6,minmax(96px,1fr))] gap-x-2";
+const GRID = "grid grid-cols-[repeat(7,minmax(96px,1fr))] gap-x-2";
 
 export default function WeeklyRevenueView() {
   const [jobs, setJobs] = useState<JobWithCustomer[]>([]);
@@ -52,14 +52,14 @@ export default function WeeklyRevenueView() {
     const dates = invoiced.map((j) => billingDateFor(j)).filter((d): d is string => Boolean(d));
     const earliest = dates.length ? dates.reduce((a, b) => (a < b ? a : b)) : ymd(currentStart);
 
-    const list: { label: string; start: string; end: string; invoiced: number; paid: number; lab: number; fee: number }[] = [];
+    const list: { label: string; start: string; end: string; invoiced: number; paid: number; lab: number; fee: number; invoicing: number }[] = [];
     for (let i = 0; i < 200; i++) {
       const start = new Date(currentStart);
       start.setDate(start.getDate() - i * 7);
       const end = new Date(start);
       end.setDate(start.getDate() + 6);
       if (ymd(end) < earliest) break;
-      list.push({ label: weekLabel(start, end), start: ymd(start), end: ymd(end), invoiced: 0, paid: 0, lab: 0, fee: 0 });
+      list.push({ label: weekLabel(start, end), start: ymd(start), end: ymd(end), invoiced: 0, paid: 0, lab: 0, fee: 0, invoicing: 0 });
     }
 
     for (const job of invoiced) {
@@ -73,13 +73,14 @@ export default function WeeklyRevenueView() {
         week.paid += cents;
         week.lab += job.lab_cost_cents ?? 0;
         week.fee += knownStripeFeeCentsForJob(job) ?? 0;
+        week.invoicing += knownInvoicingFeeCentsForJob(job) ?? 0;
       }
     }
     return list;
   }, [jobs]);
 
   const totals = useMemo(
-    () => weeks.reduce((t, w) => ({ invoiced: t.invoiced + w.invoiced, paid: t.paid + w.paid, lab: t.lab + w.lab, fee: t.fee + w.fee }), { invoiced: 0, paid: 0, lab: 0, fee: 0 }),
+    () => weeks.reduce((t, w) => ({ invoiced: t.invoiced + w.invoiced, paid: t.paid + w.paid, lab: t.lab + w.lab, fee: t.fee + w.fee, invoicing: t.invoicing + w.invoicing }), { invoiced: 0, paid: 0, lab: 0, fee: 0, invoicing: 0 }),
     [weeks]
   );
 
@@ -108,13 +109,14 @@ export default function WeeklyRevenueView() {
 
       {loaded && !error && (
         <div className="mt-3 overflow-x-auto rounded-xl border border-slate-200 bg-white">
-          <div className="min-w-[640px]">
+          <div className="min-w-[744px]">
             <div className={`${GRID} border-b border-slate-200 bg-slate-50 px-3 py-2 text-[8px] font-bold uppercase text-slate-500 sm:text-xs`}>
               <div>Week</div>
               <div>Invoiced</div>
               <div>Paid</div>
               <div>Lab Cost</div>
               <div>Stripe Fee</div>
+              <div>Invoicing Fee</div>
               <div>Net Earnings</div>
             </div>
             {weeks.map((w) => (
@@ -124,7 +126,8 @@ export default function WeeklyRevenueView() {
                 <div className="whitespace-nowrap text-[12px] font-medium sm:text-sm">{money(w.paid, "text-emerald-700")}</div>
                 <div className="whitespace-nowrap text-[12px] sm:text-sm">{money(w.lab, "text-red-600")}</div>
                 <div className="whitespace-nowrap text-[12px] sm:text-sm">{money(w.fee, "text-red-600")}</div>
-                <div className="whitespace-nowrap text-[12px] sm:text-sm">{net(w.paid - w.lab - w.fee)}</div>
+                <div className="whitespace-nowrap text-[12px] sm:text-sm">{money(w.invoicing, "text-red-600")}</div>
+                <div className="whitespace-nowrap text-[12px] sm:text-sm">{net(w.paid - w.lab - w.fee - w.invoicing)}</div>
               </div>
             ))}
             <div className={`${GRID} items-center border-t-2 border-slate-200 bg-slate-50 px-3 py-3 text-sm font-semibold text-slate-800`}>
@@ -133,7 +136,8 @@ export default function WeeklyRevenueView() {
               <div className="whitespace-nowrap text-[12px] sm:text-sm">{money(totals.paid, "text-emerald-700")}</div>
               <div className="whitespace-nowrap text-[12px] sm:text-sm">{money(totals.lab, "text-red-600")}</div>
               <div className="whitespace-nowrap text-[12px] sm:text-sm">{money(totals.fee, "text-red-600")}</div>
-              <div className="whitespace-nowrap text-[12px] sm:text-sm">{net(totals.paid - totals.lab - totals.fee)}</div>
+              <div className="whitespace-nowrap text-[12px] sm:text-sm">{money(totals.invoicing, "text-red-600")}</div>
+              <div className="whitespace-nowrap text-[12px] sm:text-sm">{net(totals.paid - totals.lab - totals.fee - totals.invoicing)}</div>
             </div>
           </div>
         </div>

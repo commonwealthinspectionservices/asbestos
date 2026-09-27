@@ -16,7 +16,7 @@ import { ContactForm } from "@/components/admin/ContactDetailDialog";
 import { formatDateMDY } from "@/lib/date-format";
 import { subcontractorSenderForJob, isKnownSubcontractorCompanyName, isKnownSubcontractingForName } from "@/lib/subcontractor-senders";
 import { timeSelectOptions } from "@/lib/time-options";
-import { totalStripeFeeCents, computeMarginCents, knownLabCostCentsForJob } from "@/lib/pricing";
+import { stripeInvoicingFeeCents, computeMarginCents, knownLabCostCentsForJob } from "@/lib/pricing";
 import { dueDateFor, paymentDueDate, localDateOnly } from "@/lib/invoice-due-date";
 import { useLockBodyScroll } from "@/lib/use-lock-body-scroll";
 
@@ -4674,7 +4674,8 @@ export function ProjectDetailDialog({
                   paymentDueDate={dueDateFor(job) || ""}
                   onPaymentDueDateChange={(v) => saveJobField({ payment_due_date: v || null })}
                   labCostCents={knownLabCostCentsForJob(job)}
-                  stripeFeeCents={totalStripeFeeCents(job)}
+                  stripeFeeCents={job.stripe_fee_cents}
+                  invoicingFeeCents={job.stripe_fee_cents != null ? stripeInvoicingFeeCents(job.invoice_total_cents) : null}
                   isRush={job.lab_turnaround === "Rush"}
                 />
                 {savingInvoice && <p className="mt-1 text-xs text-slate-400">Saving…</p>}
@@ -8046,7 +8047,7 @@ function MaterialsEditor({
 }
 
 function LineItemsEditor({
-  items, setItems, serviceTypeSettings, paymentDueDate, onPaymentDueDateChange, labCostCents, stripeFeeCents, isRush,
+  items, setItems, serviceTypeSettings, paymentDueDate, onPaymentDueDateChange, labCostCents, stripeFeeCents, invoicingFeeCents, isRush,
 }: {
   /** Shows a plain "RUSH" label beside each per-sample total on a rush job. */
   isRush?: boolean;
@@ -8063,12 +8064,15 @@ function LineItemsEditor({
   labCostCents: number | null;
   /** Per Tim, 2026-08-28 — the real Stripe processing fee (see stripe_fee_cents
       on Job), factored into Profit below once the invoice is actually paid
-      through Stripe. Per Tim, 2026-09-26 this is now the WHOLE Stripe cost —
-      processing fee plus the estimated Invoicing fee (see totalStripeFeeCents
-      in lib/pricing.ts) — in this one number, not a separate line. Null for a
-      job paid by hand or not yet paid, in which case Profit just doesn't
-      deduct a fee that was never charged. */
+      through Stripe. Null for a job paid by hand or not yet paid, in which
+      case Profit just doesn't deduct a fee that was never charged. The
+      separate Invoicing fee (invoicingFeeCents below) is its own line. */
   stripeFeeCents: number | null;
+  /** Per Tim, 2026-09-26 — Stripe's separate Invoicing fee (0.4% of the
+      invoice + tax, estimated — see stripeInvoicingFeeCents in
+      lib/pricing.ts), listed on its own line under the Stripe fee and also
+      deducted from Profit. Same null rule as stripeFeeCents. */
+  invoicingFeeCents: number | null;
 }) {
   function update(i: number, patch: Partial<LineItemRowState>) {
     setItems((rows) =>
@@ -8374,10 +8378,18 @@ function LineItemsEditor({
               <p className="text-lg font-bold text-red-600">—</p>
             )}
           </div>
+          <div className="flex items-baseline justify-between gap-4">
+            <p className="text-sm font-bold uppercase text-red-600">Invoicing fee</p>
+            {invoicingFeeCents != null ? (
+              <p className="text-lg font-bold text-red-600">{currency(invoicingFeeCents / 100)}</p>
+            ) : (
+              <p className="text-lg font-bold text-red-600">—</p>
+            )}
+          </div>
           <div className="flex items-baseline justify-between gap-4 border-t border-slate-200 pt-3">
             <p className="text-sm font-bold uppercase text-slate-500">Profit</p>
             <p className="text-lg font-bold text-slate-500">
-              {labCostCents != null ? currency(computeMarginCents(Math.round(total * 100), labCostCents, stripeFeeCents ?? 0) / 100) : "—"}
+              {labCostCents != null ? currency(computeMarginCents(Math.round(total * 100), labCostCents, (stripeFeeCents ?? 0) + (invoicingFeeCents ?? 0)) / 100) : "—"}
             </p>
           </div>
         </div>

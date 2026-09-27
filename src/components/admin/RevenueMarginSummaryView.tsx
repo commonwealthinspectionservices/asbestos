@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { JobWithCustomer } from "@/lib/types";
-import { formatCents, knownStripeFeeCentsForJob } from "@/lib/pricing";
+import { formatCents, knownStripeFeeCentsForJob, knownInvoicingFeeCentsForJob } from "@/lib/pricing";
 import { effectiveJobDate } from "@/lib/mileage-shared";
 import { billingDateFor } from "@/components/admin/BillingView";
 import { dueDateFor } from "@/lib/invoice-due-date";
@@ -158,7 +158,8 @@ export default function RevenueMarginSummaryView() {
           const paidCents = isPaid ? invoicedCents : 0;
           const labCents = job.lab_cost_cents ?? 0;
           const stripeFeeCents = knownStripeFeeCentsForJob(job) ?? 0;
-          const netEarningsCents = paidCents - labCents - stripeFeeCents;
+          const invoicingFeeCents = knownInvoicingFeeCentsForJob(job) ?? 0;
+          const netEarningsCents = paidCents - labCents - stripeFeeCents - invoicingFeeCents;
           const date = billingDateFor(job);
           return {
             id: job.id,
@@ -170,6 +171,7 @@ export default function RevenueMarginSummaryView() {
             paidCents,
             labCents,
             stripeFeeCents,
+            invoicingFeeCents,
             netEarningsCents,
           };
         })
@@ -209,16 +211,17 @@ export default function RevenueMarginSummaryView() {
   // negative-but-hidden on unpaid rows even though Lab Cost display
   // doesn't show it — summing it directly would double-count).
   const filteredTotals = useMemo(() => {
-    let totalPaid = 0, totalLabCost = 0, totalStripeFee = 0;
+    let totalPaid = 0, totalLabCost = 0, totalStripeFee = 0, totalInvoicingFee = 0;
     for (const row of filteredJobRows) {
       if (row.isPaid) {
         totalPaid += row.paidCents;
         totalLabCost += row.labCents;
         totalStripeFee += row.stripeFeeCents;
+        totalInvoicingFee += row.invoicingFeeCents;
       }
     }
-    const totalPay = totalPaid - totalLabCost - totalStripeFee;
-    return { totalPaid, totalLabCost, totalStripeFee, totalPay };
+    const totalPay = totalPaid - totalLabCost - totalStripeFee - totalInvoicingFee;
+    return { totalPaid, totalLabCost, totalStripeFee, totalInvoicingFee, totalPay };
   }, [filteredJobRows]);
 
   function goToJob(jobId: string) {
@@ -283,14 +286,15 @@ export default function RevenueMarginSummaryView() {
                 "NET EARNINGS"/"STRIPE FEE" and a five-figure dollar amount)
                 instead of one stretchy Job column with five cramped fixed
                 ones. On a narrow screen the table scrolls sideways. */}
-            <div className="min-w-[744px]">
-              <div className="grid grid-cols-[repeat(7,minmax(96px,1fr))] gap-x-2 border-b border-slate-200 bg-slate-50 px-3 py-2 text-[8px] font-bold uppercase text-slate-500 sm:text-xs">
+            <div className="min-w-[848px]">
+              <div className="grid grid-cols-[repeat(8,minmax(96px,1fr))] gap-x-2 border-b border-slate-200 bg-slate-50 px-3 py-2 text-[8px] font-bold uppercase text-slate-500 sm:text-xs">
                 <div>Job</div>
                 <div>Payment Due</div>
                 <div className="text-left">Invoiced</div>
                 <div className="text-left">Paid</div>
                 <div className="text-left">Lab Cost</div>
                 <div className="text-left">Stripe Fee</div>
+                <div className="text-left">Invoicing Fee</div>
                 <div className="text-left">Net Earnings</div>
               </div>
               {filteredJobRows.length === 0 && (
@@ -303,7 +307,7 @@ export default function RevenueMarginSummaryView() {
                   role="button"
                   tabIndex={0}
                   onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && goToJob(row.id)}
-                  className="group grid cursor-pointer grid-cols-[repeat(7,minmax(96px,1fr))] gap-x-2 items-center border-b border-slate-100 px-3 py-3 text-sm last:border-b-0 hover:bg-slate-50"
+                  className="group grid cursor-pointer grid-cols-[repeat(8,minmax(96px,1fr))] gap-x-2 items-center border-b border-slate-100 px-3 py-3 text-sm last:border-b-0 hover:bg-slate-50"
                 >
                   <div className="min-w-0">
                     <div className="text-[11px] font-medium leading-tight text-slate-800 group-hover:underline sm:text-sm">{row.project_number}</div>
@@ -333,6 +337,9 @@ export default function RevenueMarginSummaryView() {
                     {row.stripeFeeCents > 0 ? <span className="text-red-600">{formatWhole(row.stripeFeeCents)}</span> : <span className="text-slate-400">—</span>}
                   </div>
                   <div className="whitespace-nowrap text-left text-[12px] sm:text-sm">
+                    {row.invoicingFeeCents > 0 ? <span className="text-red-600">{formatWhole(row.invoicingFeeCents)}</span> : <span className="text-slate-400">—</span>}
+                  </div>
+                  <div className="whitespace-nowrap text-left text-[12px] sm:text-sm">
                     {/* Per Tim, 2026-09-24 — "it should never be negative
                         when there are lab costs... but the job has not
                         been paid yet, we need to just leave that section
@@ -360,7 +367,7 @@ export default function RevenueMarginSummaryView() {
                   selected month like everything else here, just not the
                   "complete jobs only" restriction the other columns use —
                   see invoicedTotalCents' own comment. */}
-              <div className="grid grid-cols-[repeat(7,minmax(96px,1fr))] gap-x-2 items-center border-t-2 border-slate-200 bg-slate-50 px-3 py-3 text-sm font-semibold text-slate-800">
+              <div className="grid grid-cols-[repeat(8,minmax(96px,1fr))] gap-x-2 items-center border-t-2 border-slate-200 bg-slate-50 px-3 py-3 text-sm font-semibold text-slate-800">
                 <div className="text-[11px] uppercase leading-tight sm:text-sm">Total</div>
                 <div />
                 <div className="whitespace-nowrap text-left text-[12px] sm:text-sm">
@@ -374,6 +381,9 @@ export default function RevenueMarginSummaryView() {
                 </div>
                 <div className="whitespace-nowrap text-left text-[12px] sm:text-sm">
                   {filteredTotals.totalStripeFee > 0 ? <span className="text-red-600">{formatWhole(filteredTotals.totalStripeFee)}</span> : <span className="text-slate-400">—</span>}
+                </div>
+                <div className="whitespace-nowrap text-left text-[12px] sm:text-sm">
+                  {filteredTotals.totalInvoicingFee > 0 ? <span className="text-red-600">{formatWhole(filteredTotals.totalInvoicingFee)}</span> : <span className="text-slate-400">—</span>}
                 </div>
                 <div className="whitespace-nowrap text-left text-[12px] sm:text-sm">
                   {filteredTotals.totalPay === 0 ? (

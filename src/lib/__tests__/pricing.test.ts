@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { knownStripeFeeCentsForJob, stripeInvoicingFeeCents, totalStripeFeeCents } from "@/lib/pricing";
+import { knownStripeFeeCentsForJob, knownInvoicingFeeCentsForJob, knownTotalStripeCostCentsForJob, stripeInvoicingFeeCents } from "@/lib/pricing";
 
 describe("knownStripeFeeCentsForJob", () => {
   it("is always known-zero for a check-paid job, real fee or not", () => {
@@ -11,9 +11,8 @@ describe("knownStripeFeeCentsForJob", () => {
     expect(knownStripeFeeCentsForJob({ stripe_fee_cents: null, payment_type: "online" })).toBeNull();
   });
 
-  it("is the captured processing fee plus the estimated Invoicing fee for an online job that's been charged", () => {
-    // $525 invoice: 0.4% = $2.10, + 6.25% tax = $2.23 → $15.23 + $2.23
-    expect(knownStripeFeeCentsForJob({ stripe_fee_cents: 1523, payment_type: "online", invoice_total_cents: 52500 })).toBe(1523 + 223);
+  it("is just the captured processing fee for an online job that's been charged (the Invoicing fee is listed separately)", () => {
+    expect(knownStripeFeeCentsForJob({ stripe_fee_cents: 1523, payment_type: "online" })).toBe(1523);
   });
 });
 
@@ -37,12 +36,18 @@ describe("stripeInvoicingFeeCents", () => {
   });
 });
 
-describe("totalStripeFeeCents", () => {
-  it("adds the Invoicing fee to the processing fee (26-0007: $43.80 + $6.38)", () => {
-    expect(totalStripeFeeCents({ stripe_fee_cents: 4380, invoice_total_cents: 150000 })).toBe(4380 + 638);
+describe("knownInvoicingFeeCentsForJob / knownTotalStripeCostCentsForJob", () => {
+  it("lists the Invoicing fee on its own (26-0007: $6.38) once the payment has been processed", () => {
+    expect(knownInvoicingFeeCentsForJob({ stripe_fee_cents: 4380, payment_type: "online", invoice_total_cents: 150000 })).toBe(638);
   });
 
-  it("stays null until Stripe has actually processed the payment", () => {
-    expect(totalStripeFeeCents({ stripe_fee_cents: null, invoice_total_cents: 150000 })).toBeNull();
+  it("is null until Stripe has processed the payment, and zero for a check", () => {
+    expect(knownInvoicingFeeCentsForJob({ stripe_fee_cents: null, payment_type: "online", invoice_total_cents: 150000 })).toBeNull();
+    expect(knownInvoicingFeeCentsForJob({ stripe_fee_cents: null, payment_type: "check", invoice_total_cents: 150000 })).toBe(0);
+  });
+
+  it("adds both together for margin math ($43.80 + $6.38)", () => {
+    expect(knownTotalStripeCostCentsForJob({ stripe_fee_cents: 4380, payment_type: "online", invoice_total_cents: 150000 })).toBe(4380 + 638);
+    expect(knownTotalStripeCostCentsForJob({ stripe_fee_cents: null, payment_type: "online", invoice_total_cents: 150000 })).toBeNull();
   });
 });

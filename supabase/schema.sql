@@ -1314,3 +1314,13 @@ alter table quickbooks_connection enable row level security;
 alter table mileage_days add column if not exists qb_journal_entry_id text;
 alter table mileage_days add column if not exists qb_synced_amount_cents integer;
 alter table mileage_days add column if not exists qb_synced_at timestamptz;
+
+-- Per Tim, 2026-09-27 — confirmed live: switching quickbooks_connection from
+-- the sandbox test company to the real production one left every mileage
+-- day's qb_journal_entry_id pointing at a journal entry that only ever
+-- existed in the sandbox. Without this, the sync's "already up to date"
+-- check had no way to tell that apart from a real prior sync against the
+-- CURRENT company, and silently skipped posting anything to production at
+-- all. Recording which realm a sync actually happened against lets that
+-- check require a match, not just presence.
+alter table mileage_days add column if not exists qb_synced_realm_id text;

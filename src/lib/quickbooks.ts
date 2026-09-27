@@ -300,7 +300,7 @@ export async function syncMileageToQuickBooks(): Promise<{ created: number; upda
 
   const { data: days, error } = await supabase
     .from("mileage_days")
-    .select("day, legs, qb_journal_entry_id, qb_synced_amount_cents");
+    .select("day, legs, qb_journal_entry_id, qb_synced_amount_cents, qb_synced_realm_id");
   if (error) throw error;
 
   let created = 0, updated = 0, skipped = 0;
@@ -308,7 +308,14 @@ export async function syncMileageToQuickBooks(): Promise<{ created: number; upda
   for (const day of days ?? []) {
     const cents = mileageCentsForDay(day as Pick<MileageDay, "day" | "legs">);
     if (cents <= 0) { skipped++; continue; }
-    if (day.qb_journal_entry_id && day.qb_synced_amount_cents === cents) { skipped++; continue; }
+    // A journal_entry_id only means "already posted here" if it was posted
+    // against THIS connection's own company — confirmed live, 2026-09-27: a
+    // reconnect from the sandbox to the real production company left every
+    // day's id pointing at a sandbox-only entry, and without this realm
+    // check the sync silently treated all of them as already up to date,
+    // posting nothing to production at all.
+    const syncedHere = day.qb_journal_entry_id && day.qb_synced_realm_id === conn.realm_id;
+    if (syncedHere && day.qb_synced_amount_cents === cents) { skipped++; continue; }
 
     const amount = Math.round(cents) / 100;
     const line = (id: string, amt: number, postingType: "Debit" | "Credit") => ({
@@ -325,7 +332,7 @@ export async function syncMileageToQuickBooks(): Promise<{ created: number; upda
     };
 
     let entryId: string;
-    if (day.qb_journal_entry_id) {
+    if (syncedHere) {
       // QuickBooks requires the current SyncToken on every update.
       const existing = await qbFetch(conn, `/journalentry/${day.qb_journal_entry_id}`);
       payload.Id = day.qb_journal_entry_id;
@@ -334,6 +341,9 @@ export async function syncMileageToQuickBooks(): Promise<{ created: number; upda
       entryId = result.JournalEntry.Id;
       updated++;
     } else {
+      // Either never synced, or its stored id belongs to a different
+      // company (see the realm check above) — either way, a fresh create
+      // against THIS connection, never an update using a foreign id.
       const result = await qbFetch(conn, "/journalentry", { method: "POST", body: JSON.stringify(payload) });
       entryId = result.JournalEntry.Id;
       created++;
@@ -341,7 +351,12 @@ export async function syncMileageToQuickBooks(): Promise<{ created: number; upda
 
     await supabase
       .from("mileage_days")
-      .update({ qb_journal_entry_id: entryId, qb_synced_amount_cents: cents, qb_synced_at: new Date().toISOString() })
+      .update({
+        qb_journal_entry_id: entryId,
+        qb_synced_amount_cents: cents,
+        qb_synced_realm_id: conn.realm_id,
+        qb_synced_at: new Date().toISOString(),
+      })
       .eq("day", day.day);
   }
 

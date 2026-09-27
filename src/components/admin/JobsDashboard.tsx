@@ -1321,12 +1321,13 @@ export default function JobsDashboard() {
         </button>
       </div>
 
-      {overdueJobs.length > 0 && (
+      {/* Per Tim, 2026-09-27 — only on the Payment Pending tab, not Open/Closed/All Projects. */}
+      {overdueJobs.length > 0 && statusFilter.has("report_invoice_sent") && (
         <button
           onClick={() => selectStatusFilter("overdue")}
           className="mt-3 flex w-full items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-left text-sm font-medium text-red-700"
         >
-          ⚠ {overdueJobs.length} invoice{overdueJobs.length === 1 ? "" : "s"} overdue on payment
+          ⚠ {overdueJobs.length} INVOICE{overdueJobs.length === 1 ? "" : "S"} OVERDUE
         </button>
       )}
 

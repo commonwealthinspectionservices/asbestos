@@ -121,7 +121,7 @@ export default function PaymentCalendarView() {
                         <div className="flex min-w-0 items-center gap-2">
                           <Link
                             href={`/admin/dashboard?jobId=${job.id}`}
-                            className="inline-block w-20 shrink-0 whitespace-nowrap rounded bg-slate-100 px-1.5 py-0.5 text-center font-mono text-xs text-slate-700 hover:bg-slate-200"
+                            className="inline-block w-20 shrink-0 whitespace-nowrap rounded bg-slate-100 px-1.5 py-0.5 text-left font-mono text-xs text-slate-700 hover:bg-slate-200"
                           >
                             {job.project_number}
                           </Link>
@@ -161,7 +161,7 @@ export default function PaymentCalendarView() {
                         <div className="flex min-w-0 items-center gap-2">
                           <Link
                             href={`/admin/dashboard?jobId=${job.id}`}
-                            className="inline-block w-20 shrink-0 whitespace-nowrap rounded bg-slate-100 px-1.5 py-0.5 text-center font-mono text-xs text-slate-700 hover:bg-slate-200"
+                            className="inline-block w-20 shrink-0 whitespace-nowrap rounded bg-slate-100 px-1.5 py-0.5 text-left font-mono text-xs text-slate-700 hover:bg-slate-200"
                           >
                             {job.project_number}
                           </Link>

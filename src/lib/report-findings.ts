@@ -1,5 +1,5 @@
 import { expandAddress } from "@/lib/address";
-import type { JobDocument } from "@/lib/types";
+import type { CocType, JobDocument } from "@/lib/types";
 
 // Canned Remarks-and-Limitations sentences, shared by the PDF report
 // (report-pdf.tsx), the .xlsm template (report-xlsm.ts, asbestos only),
@@ -95,6 +95,42 @@ export function domainForServiceTypeLabel(label: string): ReportDomain {
   if (l.includes("mold")) return "mold";
   if (l.includes("lead")) return "lead";
   return "asbestos";
+}
+
+// Which electronic Chain of Custody form (ChainOfCustodyPanel.tsx) a
+// single service-type label needs — null for lead, which has no COC form
+// at all (Crystal Analytical doesn't take lead samples this app ever
+// deals with). Same "air"/"bulk"/"swab" substring match as
+// moldDiscussionFieldForLabel above, since a mold label's own sub-method
+// is exactly what picks the COC form too.
+export function cocTypeForServiceTypeLabel(label: string): CocType | null {
+  const domain = domainForServiceTypeLabel(label);
+  if (domain === "lead") return null;
+  if (domain === "asbestos") return "asbestos_bulk";
+  const l = label.toLowerCase();
+  if (l.includes("air")) return "mold_air_o_cell";
+  if (l.includes("bulk")) return "mold_bulk";
+  if (l.includes("swab")) return "mold_swab";
+  return null;
+}
+
+// Per Tim, 2026-09-28 — "each service type should get its own chain of
+// custody... if there are multiple service types on a specific job, there
+// will be multiple different chains of custody": one entry per distinct
+// COC type actually on the job (deduped — two labels that both map to the
+// same COC type, unlikely but not impossible, only need one form), each
+// carrying its own originating label for display (e.g. "Mold Air
+// Sampling" as that section's own heading). Same comma-split/Moisture-
+// Mapping-exclusion as jobReportDomains above.
+export function jobCocTypes(serviceType: string | null | undefined): { label: string; cocType: CocType }[] {
+  const rawLabels = (serviceType ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+  const labels = rawLabels.filter((l) => !l.toLowerCase().includes("moisture mapping"));
+  const result: { label: string; cocType: CocType }[] = [];
+  for (const label of labels) {
+    const cocType = cocTypeForServiceTypeLabel(label);
+    if (cocType && !result.some((r) => r.cocType === cocType)) result.push({ label, cocType });
+  }
+  return result;
 }
 
 // Which of the job's three mold Discussion of Results columns (see their

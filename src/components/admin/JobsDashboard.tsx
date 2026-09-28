@@ -4,7 +4,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import type { CocType, Company, Customer, FullInspectionMaterial, InvoiceLineItem, JobDocument, JobWithCustomer, LabProfile, PricingZone, SampleItem, ServiceType } from "@/lib/types";
 import { defaultInvoiceLineItems, sampleDescriptionForServiceType } from "@/lib/invoice-defaults";
-import { ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK, jobReportDomains, domainForServiceTypeLabel, isFullInspectionAsbestosJob, NEWTON_FIRE_FLOOD_COMPANY_ID, BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID, FLI_ENVIRONMENTAL_COMPANY_ID, type ReportDomain } from "@/lib/report-findings";
+import { ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK, jobReportDomains, jobCocTypes, domainForServiceTypeLabel, isFullInspectionAsbestosJob, NEWTON_FIRE_FLOOD_COMPANY_ID, BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID, FLI_ENVIRONMENTAL_COMPANY_ID, type ReportDomain } from "@/lib/report-findings";
 import { splitAddress, parseAddressToFields, buildBillingAddress, googleMapsUrl, wazeUrl, expandAddress } from "@/lib/address";
 import { joinName, splitFullName, toTitleCase } from "@/lib/name";
 import { telHref } from "@/lib/phone";
@@ -683,42 +683,65 @@ function EmailChecklistPanel({
   );
 }
 
-const COC_TYPE_OPTIONS: { value: CocType; label: string; hasMaterial: boolean }[] = [
-  { value: "asbestos_bulk", label: "Asbestos Bulk", hasMaterial: true },
-  { value: "mold_air_o_cell", label: "Mold — Air-O-Cell", hasMaterial: false },
-  { value: "mold_bulk", label: "Mold — Bulk", hasMaterial: true },
-  { value: "mold_swab", label: "Mold — Swab", hasMaterial: true },
-];
+const COC_HAS_MATERIAL: Record<CocType, boolean> = {
+  asbestos_bulk: true,
+  mold_air_o_cell: false,
+  mold_bulk: true,
+  mold_swab: true,
+};
+
+// Common materials the admin can pick from instead of typing one out every
+// time — per Tim, 2026-09-28: "like plaster wall base or textured
+// ceilings or something like that". Still a free-text input underneath
+// (datalist, not a closed dropdown), so an unusual material never blocks
+// him. No list for Air-O-Cell — that form has no Material column at all
+// (see mold-coc-pdf.tsx's own thirdColumnLabel: null).
+const COC_MATERIAL_PRESETS: Record<CocType, string[]> = {
+  asbestos_bulk: [
+    "Joint compound", "Plaster wall/ceiling", "Textured ceiling (\"popcorn\")", "Vinyl floor tile",
+    "Floor tile mastic", "Sheet vinyl flooring", "Pipe wrap/insulation", "Duct wrap/insulation",
+    "Baseboard mastic", "Drywall", "Roofing material", "Siding/shingles", "Caulking/glazing", "Carpet glue/mastic",
+  ],
+  mold_air_o_cell: [],
+  mold_bulk: ["Drywall", "Plaster", "Wood framing", "Subfloor", "Carpet", "Insulation", "Ceiling tile", "Baseboard"],
+  mold_swab: ["Drywall surface", "Wood surface", "HVAC duct surface", "Wall surface", "Window sill", "Baseboard"],
+};
 
 // Electronic Chain of Custody — per Tim, 2026-09-28: "right now everything
 // is written out by hand... I should just be able to fill in what I need
-// to fill in pretty simply and then get it sent off to the lab." Same
-// exact printed form as blank-coc-pdf.tsx/mold-coc-pdf.tsx (the ones
-// ChainOfCustody.tsx's blank-template page prints for filling in by
-// hand), just with real sample rows entered here instead — see
-// createCocDraftForJob's own comment in lab-email.ts for the full picture
-// of what a "Create Draft" click actually does. Draft-only, addressed to
-// the lab (samples@crystalanalytical.com), not the customer.
-function ChainOfCustodyPanel({ job, onChanged }: { job: JobWithCustomer; onChanged: () => void }) {
-  const domains = jobReportDomains(job.service_type);
-  const defaultCocType: CocType = domains.includes("mold") ? "mold_bulk" : "asbestos_bulk";
-  const [cocType, setCocType] = useState<CocType>(defaultCocType);
-  const config = COC_TYPE_OPTIONS.find((o) => o.value === cocType)!;
+// to fill in pretty simply and then get it sent off to the lab", and
+// (correcting the first version of this) "each service type should get
+// its own chain of custody... it needs to be within [the] tab where all
+// the project info and asbestos report is" — one fixed-cocType instance
+// per service-type label actually on the job (see jobCocTypes in
+// report-findings.ts), embedded directly in that domain's Report tab
+// rather than a separate tab of its own, no type-switcher needed since
+// which form this is is no longer a choice made here. Client/Date/Site/
+// Project # are never asked for here — those are already auto-filled
+// straight from the job onto the generated PDF itself (blank-coc-pdf.tsx/
+// mold-coc-pdf.tsx), same as RELINQUISHED BY (the owner's name + the
+// draft's own creation time). Only the variable, per-sampling-trip
+// information lives in this form: the sample rows, turnaround, and date
+// needed. Draft-only (per Tim, 2026-09-28 — "no being drafted is likely
+// preferred actually for now"), addressed to the lab
+// (samples@crystalanalytical.com), not the customer. Mobile-first layout
+// (per Tim — "very important that I am able to fill these out on my
+// phone"): one full-width stacked card per sample row rather than a
+// cramped multi-column row, and a datalist for Material instead of typing
+// a common one out every time.
+function ChainOfCustodyPanel({ job, cocType, label, onChanged }: { job: JobWithCustomer; cocType: CocType; label: string; onChanged: () => void }) {
+  const hasMaterial = COC_HAS_MATERIAL[cocType];
+  const materialPresets = COC_MATERIAL_PRESETS[cocType];
+  const materialListId = `coc-materials-${cocType}`;
 
   // Seeded from whatever this coc_type's rows already hold on the job
   // (e.g. reopening the tab after an earlier draft) — every other
-  // coc_type's rows stay out of view and untouched (see the merge-by-type
-  // comment on createCocDraftForJob).
+  // coc_type's rows on this same job stay untouched (see the
+  // merge-by-type comment on createCocDraftForJob).
   const [rows, setRows] = useState<{ sample_number: string; material: string; location: string }[]>(() => {
     const existing = (job.sample_items ?? []).filter((s) => (s.coc_type ?? "asbestos_bulk") === cocType);
     return existing.length > 0 ? existing.map((s) => ({ sample_number: s.sample_number, material: s.material, location: s.location })) : [{ sample_number: "", material: "", location: "" }];
   });
-  function switchType(next: CocType) {
-    setCocType(next);
-    const existing = (job.sample_items ?? []).filter((s) => (s.coc_type ?? "asbestos_bulk") === next);
-    setRows(existing.length > 0 ? existing.map((s) => ({ sample_number: s.sample_number, material: s.material, location: s.location })) : [{ sample_number: "", material: "", location: "" }]);
-  }
-
   const [turnaround, setTurnaround] = useState<"Rush" | "24-Hr" | null>(job.lab_turnaround === "Rush" ? "Rush" : job.lab_turnaround === "24-Hr" ? "24-Hr" : null);
   const [dateNeeded, setDateNeeded] = useState(job.lab_date_needed ?? "");
   const [creating, setCreating] = useState(false);
@@ -756,77 +779,77 @@ function ChainOfCustodyPanel({ job, onChanged }: { job: JobWithCustomer; onChang
     }
   }
 
-  const history = [...(job.coc_log ?? [])].sort((a, b) => b.drafted_at.localeCompare(a.drafted_at));
+  const history = (job.coc_log ?? []).filter((h) => h.coc_type === cocType).sort((a, b) => b.drafted_at.localeCompare(a.drafted_at));
 
   return (
-    <div className="mt-4 space-y-5">
-      <div>
-        <h3 className="mb-2 text-xs font-bold uppercase text-slate-500">Sample Type</h3>
-        <div className="flex flex-wrap gap-2">
-          {COC_TYPE_OPTIONS.map((o) => (
-            <button
-              key={o.value}
-              onClick={() => switchType(o.value)}
-              className={`rounded-lg px-3 py-1.5 text-sm font-medium ${cocType === o.value ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}`}
-            >
-              {o.label}
-            </button>
-          ))}
-        </div>
-      </div>
+    <div className="mt-5 rounded-lg border border-slate-200 p-3">
+      <h3 className="text-sm font-bold text-slate-800">{label} — Chain of Custody</h3>
 
-      <div>
+      <div className="mt-3">
         <div className="mb-2 flex items-center justify-between">
-          <h3 className="text-xs font-bold uppercase text-slate-500">Samples</h3>
-          <button onClick={addRow} className="text-xs font-medium text-brand-600 hover:underline">+ Add sample</button>
+          <h4 className="text-xs font-bold uppercase text-slate-500">Samples</h4>
+          <button type="button" onClick={addRow} className="text-xs font-medium text-brand-600 hover:underline">+ Add sample</button>
         </div>
-        <div className="space-y-2">
+        <div className="space-y-3">
           {rows.map((r, i) => (
-            <div key={i} className="flex items-center gap-2">
-              <input
-                type="text"
-                placeholder="Sample #"
-                value={r.sample_number}
-                onChange={(e) => updateRow(i, "sample_number", e.target.value)}
-                className="w-24 shrink-0 rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
-              />
-              {config.hasMaterial && (
+            <div key={i} className="rounded-lg border border-slate-200 p-3">
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-400">Sample {i + 1}</span>
+                <button
+                  type="button"
+                  onClick={() => removeRow(i)}
+                  disabled={rows.length === 1}
+                  className="text-xs text-slate-400 hover:text-red-600 disabled:opacity-30"
+                >
+                  Remove
+                </button>
+              </div>
+              <div className="space-y-2">
                 <input
                   type="text"
-                  placeholder="Material"
-                  value={r.material}
-                  onChange={(e) => updateRow(i, "material", e.target.value)}
-                  className="flex-1 rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+                  placeholder="Sample #"
+                  value={r.sample_number}
+                  onChange={(e) => updateRow(i, "sample_number", e.target.value)}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
                 />
-              )}
-              <input
-                type="text"
-                placeholder="Location"
-                value={r.location}
-                onChange={(e) => updateRow(i, "location", e.target.value)}
-                className="flex-1 rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
-              />
-              <button
-                onClick={() => removeRow(i)}
-                disabled={rows.length === 1}
-                className="shrink-0 rounded-lg px-2 py-1.5 text-sm text-slate-400 hover:text-red-600 disabled:opacity-30"
-              >
-                ✕
-              </button>
+                {hasMaterial && (
+                  <>
+                    <input
+                      type="text"
+                      list={materialListId}
+                      placeholder="Material"
+                      value={r.material}
+                      onChange={(e) => updateRow(i, "material", e.target.value)}
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                    />
+                    <datalist id={materialListId}>
+                      {materialPresets.map((m) => <option key={m} value={m} />)}
+                    </datalist>
+                  </>
+                )}
+                <input
+                  type="text"
+                  placeholder="Location"
+                  value={r.location}
+                  onChange={(e) => updateRow(i, "location", e.target.value)}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                />
+              </div>
             </div>
           ))}
         </div>
       </div>
 
-      <div className="flex flex-wrap items-end gap-4">
+      <div className="mt-4 flex flex-wrap items-end gap-4">
         <div>
-          <h3 className="mb-2 text-xs font-bold uppercase text-slate-500">Turnaround</h3>
+          <h4 className="mb-2 text-xs font-bold uppercase text-slate-500">Turnaround</h4>
           <div className="flex gap-2">
             {(["Rush", "24-Hr"] as const).map((t) => (
               <button
                 key={t}
+                type="button"
                 onClick={() => setTurnaround(turnaround === t ? null : t)}
-                className={`rounded-lg px-3 py-1.5 text-sm font-medium ${turnaround === t ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}`}
+                className={`rounded-lg px-3 py-2 text-sm font-medium ${turnaround === t ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}`}
               >
                 {t === "Rush" ? "RUSH" : "24HR"}
               </button>
@@ -834,36 +857,37 @@ function ChainOfCustodyPanel({ job, onChanged }: { job: JobWithCustomer; onChang
           </div>
         </div>
         <div>
-          <h3 className="mb-2 text-xs font-bold uppercase text-slate-500">Date Needed</h3>
+          <h4 className="mb-2 text-xs font-bold uppercase text-slate-500">Date Needed</h4>
           <input
             type="text"
             placeholder="Optional"
             value={dateNeeded}
             onChange={(e) => setDateNeeded(e.target.value)}
-            className="w-40 rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+            className="w-40 rounded-lg border border-slate-300 px-3 py-2 text-sm"
           />
         </div>
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
 
       <button
+        type="button"
         onClick={createCocDraft}
         disabled={creating || realRows.length === 0}
-        className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+        className="mt-4 w-full rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50 sm:w-auto"
       >
         {creating ? "Creating draft…" : "Create Draft ↗"}
       </button>
 
       {history.length > 0 && (
-        <div className="border-t border-slate-200 pt-4">
-          <h3 className="mb-2 text-xs font-bold uppercase text-slate-500">History</h3>
+        <div className="mt-4 border-t border-slate-200 pt-3">
+          <h4 className="mb-2 text-xs font-bold uppercase text-slate-500">History</h4>
           <div className="space-y-1 text-sm text-slate-600">
             {history.map((h, i) => (
               <div key={i}>
                 <SentStatusLink
                   messageId={h.gmail_message_id}
-                  text={`${COC_TITLE_FOR_HISTORY[h.coc_type]} — ${h.sample_count} sample${h.sample_count === 1 ? "" : "s"} — Drafted ${formatDateTime(h.drafted_at)}`}
+                  text={`${h.sample_count} sample${h.sample_count === 1 ? "" : "s"} — Drafted ${formatDateTime(h.drafted_at)}`}
                 />
               </div>
             ))}
@@ -873,13 +897,6 @@ function ChainOfCustodyPanel({ job, onChanged }: { job: JobWithCustomer; onChang
     </div>
   );
 }
-
-const COC_TITLE_FOR_HISTORY: Record<CocType, string> = {
-  asbestos_bulk: "Asbestos Bulk",
-  mold_air_o_cell: "Mold Air-O-Cell",
-  mold_bulk: "Mold Bulk",
-  mold_swab: "Mold Swab",
-};
 
 // Shared by Conclusions & Recommendations and every Discussion of Results
 // cell (air/bulk/swab) — Per Tim, 2026-08-27, these two buttons belong on
@@ -2682,7 +2699,7 @@ export function ProjectDetailDialog({
   onStatusChange: (status: string) => void;
   initialTab?: "info" | "report" | "invoice" | "photos";
 }) {
-  const [tab, setTab] = useState<"info" | "report" | "invoice" | "photos" | "moisture_mapping" | "shipping" | "compensation" | "email" | "coc">(initialTab ?? "info");
+  const [tab, setTab] = useState<"info" | "report" | "invoice" | "photos" | "moisture_mapping" | "shipping" | "compensation" | "email">(initialTab ?? "info");
   // Per Tim, 2026-08-31 — this dialog is only ever mounted while it should
   // be showing (the parent list decides that), so it locks the page behind
   // it for its whole lifetime, not conditionally.
@@ -3650,7 +3667,6 @@ export function ProjectDetailDialog({
                 ...(isMoistureMappingJob ? [{ value: "moisture_mapping", label: "Moisture Mapping", onSelect: () => setTab("moisture_mapping") }] : []),
                 { value: "photos", label: "Photos", onSelect: () => setTab("photos") },
                 { value: "email", label: "Email", onSelect: () => setTab("email") },
-                { value: "coc", label: "Chain of Custody", onSelect: () => setTab("coc") },
               ];
           const selectedValue = tab === "report" ? `report:${reportDomainTab}` : tab;
           // Per Tim, 2026-08-27 — no border-b here on mobile when the
@@ -3723,12 +3739,6 @@ export function ProjectDetailDialog({
                       className={`flex-1 whitespace-nowrap px-0.5 py-1.5 text-center text-[11px] font-bold uppercase sm:flex-none sm:px-3 sm:text-sm ${tab === "email" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
                     >
                       Email
-                    </button>
-                    <button
-                      onClick={() => setTab("coc")}
-                      className={`flex-1 whitespace-nowrap px-0.5 py-1.5 text-center text-[11px] font-bold uppercase sm:flex-none sm:px-3 sm:text-sm ${tab === "coc" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
-                    >
-                      Chain of Custody
                     </button>
                   </>
                 )}
@@ -4720,26 +4730,19 @@ export function ProjectDetailDialog({
                   );
                 })()}
 
-                {reportDomainTab === "asbestos" && job.sample_items.length > 0 && (
-                  <table className="mt-4 w-full text-sm">
-                    <thead>
-                      <tr className="text-left text-xs text-slate-400">
-                        <th className="pb-1 font-medium">Sample #</th>
-                        <th className="pb-1 font-medium">Material</th>
-                        <th className="pb-1 font-medium">Location</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {job.sample_items.map((s, i) => (
-                        <tr key={i} className="border-t border-slate-100">
-                          <td className="py-1 text-slate-800">{s.sample_number}</td>
-                          <td className="py-1 text-slate-600">{s.material}</td>
-                          <td className="py-1 text-slate-600">{s.location}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
+                {/* Electronic Chain of Custody — per Tim, 2026-09-28: one
+                    fixed-type panel per service-type label on the job that
+                    belongs to this Report tab's own domain (a mold job
+                    with both Air Sampling and Bulk Sampling gets two
+                    separate panels here, not a shared one). Replaces the
+                    old read-only sample_items table (asbestos-only, never
+                    had any editor) — any of its rows still show up here,
+                    pre-seeded into whichever panel now owns them. */}
+                {jobCocTypes(job.service_type)
+                  .filter(({ cocType }) => (reportDomainTab === "mold" ? cocType.startsWith("mold_") : reportDomainTab === "asbestos" && cocType === "asbestos_bulk"))
+                  .map(({ label, cocType }) => (
+                    <ChainOfCustodyPanel key={cocType} job={job} cocType={cocType} label={label} onChanged={onChanged} />
+                  ))}
 
                 {reportDomainTab === "asbestos" && isFullInspectionAsbestosJob(job.service_type) && (
                   <div className="mt-5 rounded-lg border border-slate-200 p-3">
@@ -5055,10 +5058,6 @@ export function ProjectDetailDialog({
 
         {tab === "email" && job.source !== "subcontractor" && (
           <EmailChecklistPanel job={job} onChanged={onChanged} onBeforeCreateDraft={flushInvoiceSave} />
-        )}
-
-        {tab === "coc" && job.source !== "subcontractor" && (
-          <ChainOfCustodyPanel job={job} onChanged={onChanged} />
         )}
 
         {/* Per Tim, 2026-09-04 — "this tab should be moisture mapping w

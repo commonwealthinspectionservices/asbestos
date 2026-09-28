@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { domainForServiceTypeLabel, jobReportDomains, isFullInspectionAsbestosJob, inspectionReportSubjectPrefix, hasAllLabReports } from "@/lib/report-findings";
+import { domainForServiceTypeLabel, jobReportDomains, cocTypeForServiceTypeLabel, jobCocTypes, isFullInspectionAsbestosJob, inspectionReportSubjectPrefix, hasAllLabReports } from "@/lib/report-findings";
 import type { JobDocument } from "@/lib/types";
 
 describe("inspectionReportSubjectPrefix", () => {
@@ -118,6 +118,56 @@ describe("jobReportDomains", () => {
 
   it("returns no domains for a Moisture-Mapping-only job (not the asbestos fallback)", () => {
     expect(jobReportDomains("Moisture Mapping")).toEqual([]);
+  });
+});
+
+describe("cocTypeForServiceTypeLabel", () => {
+  it("asbestos labels map to asbestos_bulk", () => {
+    expect(cocTypeForServiceTypeLabel("Limited Asbestos Inspection")).toBe("asbestos_bulk");
+    expect(cocTypeForServiceTypeLabel("Pre-Renovation Asbestos Inspection")).toBe("asbestos_bulk");
+  });
+
+  it("mold labels map by their own air/bulk/swab sub-method", () => {
+    expect(cocTypeForServiceTypeLabel("Mold Air Sampling")).toBe("mold_air_o_cell");
+    expect(cocTypeForServiceTypeLabel("Mold Bulk Sampling")).toBe("mold_bulk");
+    expect(cocTypeForServiceTypeLabel("Mold Swab Sampling")).toBe("mold_swab");
+  });
+
+  it("lead has no COC form at all", () => {
+    expect(cocTypeForServiceTypeLabel("Lead Paint Inspection")).toBeNull();
+  });
+
+  it("an unrecognized mold sub-method has no COC form", () => {
+    expect(cocTypeForServiceTypeLabel("Mold Something Else")).toBeNull();
+  });
+});
+
+describe("jobCocTypes", () => {
+  it("one entry, carrying its own originating label", () => {
+    expect(jobCocTypes("Limited Asbestos Inspection")).toEqual([{ label: "Limited Asbestos Inspection", cocType: "asbestos_bulk" }]);
+  });
+
+  // Per Tim, 2026-09-28 — "each service type should get its own chain of
+  // custody... if there are multiple service types on a specific job,
+  // there will be multiple different chains of custody": a job with three
+  // distinct sampling methods gets three separate entries, not one.
+  it("one entry per distinct service type on the job", () => {
+    expect(jobCocTypes("Limited Asbestos Inspection, Mold Air Sampling, Mold Bulk Sampling")).toEqual([
+      { label: "Limited Asbestos Inspection", cocType: "asbestos_bulk" },
+      { label: "Mold Air Sampling", cocType: "mold_air_o_cell" },
+      { label: "Mold Bulk Sampling", cocType: "mold_bulk" },
+    ]);
+  });
+
+  it("excludes lead (no COC form) and Moisture Mapping (not a lab-sample domain) entirely", () => {
+    expect(jobCocTypes("Lead Paint Inspection, Moisture Mapping, Mold Swab Sampling")).toEqual([
+      { label: "Mold Swab Sampling", cocType: "mold_swab" },
+    ]);
+  });
+
+  it("empty for null/blank service types", () => {
+    expect(jobCocTypes(null)).toEqual([]);
+    expect(jobCocTypes("")).toEqual([]);
   });
 });
 

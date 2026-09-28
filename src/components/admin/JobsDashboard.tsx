@@ -785,71 +785,104 @@ function ChainOfCustodyPanel({ job, cocType, label, onChanged }: { job: JobWithC
     <div className="mt-5 rounded-lg border border-slate-200 p-3">
       <h3 className="text-sm font-bold text-slate-800">{label} — Chain of Custody</h3>
 
+      {/* Per Tim, 2026-09-28 — "I want it to look exactly like the chain
+          of custody documents... formatted exactly the same way [they
+          are] formatted": a real bordered SAMPLE #/MATERIAL/LOCATION
+          table, same column order/labels as the actual printed form
+          (blank-coc-pdf.tsx/mold-coc-pdf.tsx), cell borders standing in
+          for the form's own ruled lines — inputs are borderless inside
+          each cell so it reads as typing directly into the form, not a
+          generic app form next to it. A literal fillable-PDF (his true
+          "ideal world" ask) isn't realistic to build here — this is the
+          closest practical equivalent.
+          overflow-x-auto rather than collapsing to stacked cards on
+          mobile — per Tim, filling these out on his phone matters just as
+          much as the look, and a real 3-column table needs more width
+          than a 375px screen has; each column keeps a real, comfortably
+          tappable min-width and he scrolls sideways to reach Material/
+          Location instead of the table (and the typing experience) being
+          squeezed illegibly thin. */}
       <div className="mt-3">
         <div className="mb-2 flex items-center justify-between">
           <h4 className="text-xs font-bold uppercase text-slate-500">Samples</h4>
           <button type="button" onClick={addRow} className="text-xs font-medium text-brand-600 hover:underline">+ Add sample</button>
         </div>
-        <div className="space-y-3">
-          {rows.map((r, i) => (
-            <div key={i} className="rounded-lg border border-slate-200 p-3">
-              <div className="mb-2 flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-400">Sample {i + 1}</span>
-                <button
-                  type="button"
-                  onClick={() => removeRow(i)}
-                  disabled={rows.length === 1}
-                  className="text-xs text-slate-400 hover:text-red-600 disabled:opacity-30"
-                >
-                  Remove
-                </button>
-              </div>
-              <div className="space-y-2">
-                <input
-                  type="text"
-                  placeholder="Sample #"
-                  value={r.sample_number}
-                  onChange={(e) => updateRow(i, "sample_number", e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                />
-                {hasMaterial && (
-                  <>
+        <div className="overflow-x-auto rounded-lg border border-slate-400">
+          <table className="w-full border-collapse text-sm">
+            <thead>
+              <tr className="border-b border-slate-400 bg-slate-50">
+                <th className="min-w-[100px] border-r border-slate-300 px-3 py-2 text-center text-xs font-bold uppercase text-slate-700">Sample #</th>
+                {hasMaterial && <th className="min-w-[170px] border-r border-slate-300 px-3 py-2 text-center text-xs font-bold uppercase text-slate-700">Material</th>}
+                <th className="min-w-[170px] border-r border-slate-300 px-3 py-2 text-center text-xs font-bold uppercase text-slate-700">Location</th>
+                <th className="w-10" />
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, i) => (
+                <tr key={i} className="border-b border-slate-300 last:border-b-0">
+                  <td className="border-r border-slate-300 p-0">
                     <input
                       type="text"
-                      list={materialListId}
-                      placeholder="Material"
-                      value={r.material}
-                      onChange={(e) => updateRow(i, "material", e.target.value)}
-                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                      value={r.sample_number}
+                      onChange={(e) => updateRow(i, "sample_number", e.target.value)}
+                      className="w-full border-0 bg-transparent px-3 py-2.5 text-center text-sm focus:bg-brand-50 focus:outline-none"
                     />
-                    <datalist id={materialListId}>
-                      {materialPresets.map((m) => <option key={m} value={m} />)}
-                    </datalist>
-                  </>
-                )}
-                <input
-                  type="text"
-                  placeholder="Location"
-                  value={r.location}
-                  onChange={(e) => updateRow(i, "location", e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                />
-              </div>
-            </div>
-          ))}
+                  </td>
+                  {hasMaterial && (
+                    <td className="border-r border-slate-300 p-0">
+                      <input
+                        type="text"
+                        list={materialListId}
+                        value={r.material}
+                        onChange={(e) => updateRow(i, "material", e.target.value)}
+                        className="w-full border-0 bg-transparent px-3 py-2.5 text-sm focus:bg-brand-50 focus:outline-none"
+                      />
+                    </td>
+                  )}
+                  <td className="border-r border-slate-300 p-0">
+                    <input
+                      type="text"
+                      value={r.location}
+                      onChange={(e) => updateRow(i, "location", e.target.value)}
+                      className="w-full border-0 bg-transparent px-3 py-2.5 text-sm focus:bg-brand-50 focus:outline-none"
+                    />
+                  </td>
+                  <td className="p-0 text-center">
+                    <button
+                      type="button"
+                      onClick={() => removeRow(i)}
+                      disabled={rows.length === 1}
+                      className="px-2 py-2.5 text-slate-300 hover:text-red-600 disabled:opacity-30"
+                    >
+                      ✕
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {hasMaterial && (
+            <datalist id={materialListId}>
+              {materialPresets.map((m) => <option key={m} value={m} />)}
+            </datalist>
+          )}
         </div>
       </div>
 
-      <div className="mt-4 flex flex-wrap items-end gap-4">
+      {/* TURNAROUND styled as the two printed words with an outline that
+          appears around whichever one is picked, echoing how the owner
+          circles one by hand on the real form — not a generic filled
+          app-style toggle button. */}
+      <div className="mt-4 flex flex-wrap items-end gap-6">
         <div>
           <h4 className="mb-2 text-xs font-bold uppercase text-slate-500">Turnaround</h4>
-          <div className="flex gap-2">
+          <div className="flex gap-4">
             {(["Rush", "24-Hr"] as const).map((t) => (
               <button
                 key={t}
                 type="button"
                 onClick={() => setTurnaround(turnaround === t ? null : t)}
-                className={`rounded-lg px-3 py-2 text-sm font-medium ${turnaround === t ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}`}
+                className={`rounded-full border-2 px-4 py-1.5 text-sm font-bold ${turnaround === t ? "border-brand-600 text-brand-700" : "border-transparent text-slate-700 hover:border-slate-300"}`}
               >
                 {t === "Rush" ? "RUSH" : "24HR"}
               </button>
@@ -3490,9 +3523,31 @@ export function ProjectDetailDialog({
   // invoice stage," not just a same-instant side effect of reportComplete/
   // invoice_total_cents — those can lag behind a status the admin already
   // set to Ready for Review by hand.
-  const showSentStatus = job.source !== "subcontractor" && (
-    job.status === "ready_to_send" || job.status === "report_invoice_sent"
-    || (reportComplete && job.invoice_total_cents != null)
+  //
+  // Per Tim, 2026-09-28 (26-0051) — split into two independent conditions,
+  // no longer one shared showSentStatus gating both lines together: an
+  // individual/homeowner job's invoice can go out well before its report
+  // does (the early-invoice flow — see invoiceDraftBodyHtml/the homeowner
+  // payment gate), so a job still sitting at Pending Lab Results with a
+  // real invoice already sent used to show NEITHER line at all — hiding
+  // even the Invoice one, despite it genuinely having gone out, until the
+  // report caught up too. Report status still only makes sense once the
+  // report itself is actually ready; Invoice status makes sense the
+  // moment there's a real invoice total to report on, independent of that.
+  //
+  // Invoice condition mirrors JobRow's own showInvoiceOnly exactly, not
+  // just "invoice_total_cents != null" — that field alone false-positives
+  // for every individual job the instant anyone opens its Project Info
+  // tab at all (the Invoice tab's own line-item autosave silently prices
+  // a base-fee-only invoice in the background regardless of which tab is
+  // active — see showInvoiceOnly's own comment). invoice_auto === false
+  // (a real manual price edit happened) + actual line items is the real
+  // "this invoice is genuinely ready/sent early" signal.
+  const showReportStatus = job.source !== "subcontractor" && (
+    job.status === "ready_to_send" || job.status === "report_invoice_sent" || job.status === "paid" || reportComplete
+  );
+  const showInvoiceStatus = job.source !== "subcontractor" && (
+    showReportStatus || (job.is_individual && job.invoice_auto === false && job.invoice_line_items.length > 0)
   );
   // Per Tim — exactly the project card's own format (see JobRow), not the
   // earlier longer-sentence version: "Report: Sent/Not sent" with the
@@ -3509,7 +3564,7 @@ export function ProjectDetailDialog({
   // combined "Report" line that reads as fully sent the moment any single
   // domain's report goes out.
   const sentStatusDomains = jobReportDomains(job.service_type);
-  const sentStatusLines = (
+  const reportStatusLines = (
     <>
       {sentStatusDomains.length > 1 ? (
         sentStatusDomains.map((domain) => {
@@ -3549,17 +3604,19 @@ export function ProjectDetailDialog({
           }
         />
       )}
-      <DetailField
-        label="Invoice"
-        value={
-          job.invoice_sent_at ? (
-            <SentStatusLink messageId={job.invoice_draft_gmail_message_id} text={`Sent ${formatDateTime(job.invoice_sent_at)}`} />
-          ) : (
-            <span className="inline-flex items-center gap-1">Not sent <HazardIcon /></span>
-          )
-        }
-      />
     </>
+  );
+  const invoiceStatusLine = (
+    <DetailField
+      label="Invoice"
+      value={
+        job.invoice_sent_at ? (
+          <SentStatusLink messageId={job.invoice_draft_gmail_message_id} text={`Sent ${formatDateTime(job.invoice_sent_at)}`} />
+        ) : (
+          <span className="inline-flex items-center gap-1">Not sent <HazardIcon /></span>
+        )
+      }
+    />
   );
   // No manual "Create Draft" step — the moment both the report and invoice
   // are actually ready (and nothing's been drafted yet), fire it off on its
@@ -4001,7 +4058,8 @@ export function ProjectDetailDialog({
                       everything else on this tab — not floated in a
                       corner (desktop) or split into its own separate
                       mobile-only block (mobile) like before. */}
-                  {showSentStatus && sentStatusLines}
+                  {showReportStatus && reportStatusLines}
+                  {showInvoiceStatus && invoiceStatusLine}
                 </>
               );
             })()}

@@ -117,27 +117,30 @@ export default function PaymentCalendarView() {
                   {overdueJobs.map(({ job, due }) => {
                     const isNewton = job.customers?.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID;
                     return (
-                      <div key={job.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-sm">
+                      <div
+                        key={job.id}
+                        className="grid grid-cols-[3.5rem_minmax(0,1fr)_6rem_5rem] items-center gap-2 text-sm"
+                      >
+                        <Link
+                          href={`/admin/dashboard?jobId=${job.id}`}
+                          className="whitespace-nowrap font-mono text-xs text-slate-700 hover:text-slate-900 hover:underline"
+                        >
+                          {job.project_number}
+                        </Link>
                         <div className="flex min-w-0 items-center gap-2">
-                          <Link
-                            href={`/admin/dashboard?jobId=${job.id}`}
-                            className="inline-block w-20 shrink-0 whitespace-nowrap rounded bg-slate-100 px-1.5 py-0.5 text-left font-mono text-xs text-slate-700 hover:bg-slate-200"
-                          >
-                            {job.project_number}
-                          </Link>
                           <span className="truncate text-slate-700">{job.customers?.company || job.customers?.name}</span>
-                          {/* Per Tim, 2026-09-27 — every overdue job now lives in
-                              this one combined card instead of its own
-                              per-date group, so each row needs its own due
-                              date shown inline. */}
-                          <span className="whitespace-nowrap text-xs text-red-600">Due on {formatDateMDY(due)}</span>
                           {isNewton && (
                             <span className="whitespace-nowrap rounded-lg bg-brand-50 px-2 py-0.5 text-xs font-medium uppercase text-brand-700">
                               Charge manually
                             </span>
                           )}
                         </div>
-                        <span className="whitespace-nowrap font-medium text-slate-800">{formatCents(job.invoice_total_cents ?? 0)}</span>
+                        {/* Per Tim, 2026-09-27 — every overdue job now lives in
+                            this one combined card instead of its own
+                            per-date group, so each row needs its own due
+                            date shown inline. */}
+                        <span className="whitespace-nowrap text-xs text-red-600">Due on {formatDateMDY(due)}</span>
+                        <span className="whitespace-nowrap text-right font-medium text-slate-800">{formatCents(job.invoice_total_cents ?? 0)}</span>
                       </div>
                     );
                   })}
@@ -157,14 +160,17 @@ export default function PaymentCalendarView() {
                   {g.jobs.map((job) => {
                     const isNewton = job.customers?.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID;
                     return (
-                      <div key={job.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-sm">
+                      <div
+                        key={job.id}
+                        className="grid grid-cols-[3.5rem_minmax(0,1fr)_5rem] items-center gap-2 text-sm"
+                      >
+                        <Link
+                          href={`/admin/dashboard?jobId=${job.id}`}
+                          className="whitespace-nowrap font-mono text-xs text-slate-700 hover:text-slate-900 hover:underline"
+                        >
+                          {job.project_number}
+                        </Link>
                         <div className="flex min-w-0 items-center gap-2">
-                          <Link
-                            href={`/admin/dashboard?jobId=${job.id}`}
-                            className="inline-block w-20 shrink-0 whitespace-nowrap rounded bg-slate-100 px-1.5 py-0.5 text-left font-mono text-xs text-slate-700 hover:bg-slate-200"
-                          >
-                            {job.project_number}
-                          </Link>
                           <span className="truncate text-slate-700">{job.customers?.company || job.customers?.name}</span>
                           {isNewton && (
                             <span className="whitespace-nowrap rounded-lg bg-brand-50 px-2 py-0.5 text-xs font-medium uppercase text-brand-700">
@@ -175,7 +181,7 @@ export default function PaymentCalendarView() {
                             </span>
                           )}
                         </div>
-                        <span className="whitespace-nowrap font-medium text-slate-800">{formatCents(job.invoice_total_cents ?? 0)}</span>
+                        <span className="whitespace-nowrap text-right font-medium text-slate-800">{formatCents(job.invoice_total_cents ?? 0)}</span>
                       </div>
                     );
                   })}

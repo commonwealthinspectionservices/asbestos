@@ -4,7 +4,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import type { CocType, Company, Customer, FullInspectionMaterial, InvoiceLineItem, JobDocument, JobWithCustomer, LabProfile, PricingZone, SampleItem, ServiceType } from "@/lib/types";
 import { defaultInvoiceLineItems, sampleDescriptionForServiceType } from "@/lib/invoice-defaults";
-import { computeSampleCodes } from "@/lib/sample-items";
+import { defaultSampleCode } from "@/lib/sample-items";
 import { ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK, jobReportDomains, jobCocTypes, domainForServiceTypeLabel, isFullInspectionAsbestosJob, NEWTON_FIRE_FLOOD_COMPANY_ID, BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID, FLI_ENVIRONMENTAL_COMPANY_ID, type ReportDomain } from "@/lib/report-findings";
 import { splitAddress, parseAddressToFields, buildBillingAddress, googleMapsUrl, wazeUrl, expandAddress } from "@/lib/address";
 import { joinName, splitFullName, toTitleCase } from "@/lib/name";
@@ -738,14 +738,23 @@ function ChainOfCustodyPanel({ job, cocType, label, onChanged }: { job: JobWithC
   // Seeded from whatever this coc_type's rows already hold on the job
   // (e.g. reopening the tab after an earlier draft) — every other
   // coc_type's rows on this same job stay untouched (see the
-  // merge-by-type comment on createCocDraftForJob). sample_number is
-  // never part of this editable state at all — it's always derived fresh
-  // by computeSampleCodes from material order below, so renaming a
-  // material (or reordering rows) can't leave a stale, now-wrong code
-  // sitting on a row.
-  const [rows, setRows] = useState<{ material: string; location: string }[]>(() => {
+  // merge-by-type comment on createCocDraftForJob).
+  //
+  // Per Tim, 2026-09-28 — sample_number is a real, always-editable field
+  // again (a first pass tried deriving it live from Material text and
+  // showing it read-only; walked back the same day: "I don't know if the
+  // system is ever going to be able to [get that right]... it should just
+  // start out entirely blank and you should just be able to click into it
+  // and edit it"). defaultSampleCode only ever seeds a NEW row's starting
+  // value (see addRow below) — once a row exists, its sample_number is
+  // whatever's in state, never silently recomputed out from under an
+  // edit, so overriding it for a rare third "C" sample (or anything else
+  // that breaks the pattern) sticks.
+  const [rows, setRows] = useState<{ sample_number: string; material: string; location: string }[]>(() => {
     const existing = (job.sample_items ?? []).filter((s) => (s.coc_type ?? "asbestos_bulk") === cocType);
-    return existing.length > 0 ? existing.map((s) => ({ material: s.material, location: s.location })) : [{ material: "", location: "" }];
+    return existing.length > 0
+      ? existing.map((s) => ({ sample_number: s.sample_number, material: s.material, location: s.location }))
+      : [{ sample_number: defaultSampleCode(0, hasMaterial), material: "", location: "" }];
   });
   const [turnaround, setTurnaround] = useState<"Rush" | "24-Hr" | null>(job.lab_turnaround === "Rush" ? "Rush" : job.lab_turnaround === "24-Hr" ? "24-Hr" : null);
   const [dateNeeded, setDateNeeded] = useState(job.lab_date_needed ?? "");
@@ -768,26 +777,25 @@ function ChainOfCustodyPanel({ job, cocType, label, onChanged }: { job: JobWithC
     return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
   });
 
-  function updateRow(i: number, field: "material" | "location", value: string) {
+  function updateRow(i: number, field: "sample_number" | "material" | "location", value: string) {
     setRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, [field]: value } : r)));
   }
   function addRow() {
-    setRows((prev) => [...prev, { material: "", location: "" }]);
+    setRows((prev) => [...prev, { sample_number: defaultSampleCode(prev.length, hasMaterial), material: "", location: "" }]);
   }
   function removeRow(i: number) {
     setRows((prev) => (prev.length > 1 ? prev.filter((_, idx) => idx !== i) : prev));
   }
 
-  const sampleCodes = computeSampleCodes(rows, hasMaterial);
   const realRowIndexes = rows
     .map((r, i) => i)
-    .filter((i) => rows[i].material.trim() || rows[i].location.trim());
+    .filter((i) => rows[i].sample_number.trim() || rows[i].material.trim() || rows[i].location.trim());
 
   async function createCocDraft() {
     setCreating(true);
     setError(null);
     try {
-      const sampleItems = realRowIndexes.map((i) => ({ sample_number: sampleCodes[i], material: rows[i].material, location: rows[i].location }));
+      const sampleItems = realRowIndexes.map((i) => ({ sample_number: rows[i].sample_number, material: rows[i].material, location: rows[i].location }));
       const res = await fetch(`/api/admin/jobs/${job.id}/coc-draft`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -850,10 +858,17 @@ function ChainOfCustodyPanel({ job, cocType, label, onChanged }: { job: JobWithC
             <tbody>
               {rows.map((r, i) => (
                 <tr key={i} className="border-b border-slate-300 last:border-b-0">
-                  {/* Read-only — the whole point of computeSampleCodes is
-                      that the admin never has to work out 01A/02A himself. */}
-                  <td className="border-r border-slate-300 px-3 py-2.5 text-center font-mono text-sm text-slate-700">
-                    {sampleCodes[i] || "—"}
+                  {/* Editable — pre-filled with a positional default
+                      (01A/01B/02A/...), freely overridable (a rare third
+                      "C" sample, or anything else that breaks the
+                      pattern) — see defaultSampleCode's own comment. */}
+                  <td className="border-r border-slate-300 p-0">
+                    <input
+                      type="text"
+                      value={r.sample_number}
+                      onChange={(e) => updateRow(i, "sample_number", e.target.value)}
+                      className="w-full border-0 bg-transparent px-3 py-2.5 text-center font-mono text-sm focus:bg-brand-50 focus:outline-none"
+                    />
                   </td>
                   {hasMaterial && (
                     <td className="border-r border-slate-300 p-0">
@@ -899,18 +914,25 @@ function ChainOfCustodyPanel({ job, cocType, label, onChanged }: { job: JobWithC
         <div className="space-y-3 sm:hidden">
           {rows.map((r, i) => (
             <div key={i} className="overflow-hidden rounded-lg border border-slate-400">
-              {/* Per Tim, 2026-09-28 — the blank title-less header strip
-                  didn't work either: "there's no sample row, and there
-                  should definitely be a sample row... it just needs to be
-                  sample, material, location." Back to a real (now
-                  read-only, auto-derived) Sample # row as the first row,
-                  same label-cell style as Material/Location — Remove
-                  folds into that same row's trailing edge instead of its
-                  own separate blank strip. */}
+              {/* Per Tim, 2026-09-28 — first the blank title-less header
+                  strip didn't work ("there's no sample row, and there
+                  should definitely be a sample row"), then the
+                  auto-derived read-only version didn't either ("it
+                  should just start out entirely blank and you should
+                  just be able to click into it and edit it"): Sample #
+                  is a real editable input again, pre-filled with a
+                  positional default, same label-cell style as Material/
+                  Location — Remove folds into this same row's trailing
+                  edge instead of its own separate blank strip. */}
               <div className="flex items-center justify-between border-b border-slate-400 bg-slate-50">
                 <div className="flex flex-1 items-center">
                   <span className="w-24 shrink-0 border-r border-slate-300 px-3 py-2.5 text-xs font-bold uppercase text-slate-700">Sample #</span>
-                  <span className="flex-1 px-3 py-2.5 font-mono text-sm text-slate-700">{sampleCodes[i] || "—"}</span>
+                  <input
+                    type="text"
+                    value={r.sample_number}
+                    onChange={(e) => updateRow(i, "sample_number", e.target.value)}
+                    className="w-full border-0 bg-transparent px-3 py-2.5 font-mono text-sm focus:bg-brand-50 focus:outline-none"
+                  />
                 </div>
                 <button
                   type="button"

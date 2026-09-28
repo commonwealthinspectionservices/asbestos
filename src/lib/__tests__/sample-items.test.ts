@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { deriveFullInspectionMaterials, computeSampleCodes } from "@/lib/sample-items";
+import { deriveFullInspectionMaterials, defaultSampleCode } from "@/lib/sample-items";
 import type { FullInspectionMaterial } from "@/lib/types";
 
 describe("deriveFullInspectionMaterials", () => {
@@ -88,71 +88,20 @@ describe("deriveFullInspectionMaterials", () => {
   });
 });
 
-describe("computeSampleCodes", () => {
-  // Per Tim, 2026-09-28 — verified against the real field codes on
-  // 26-0051 exactly: same two materials (carpet mastic, then drywall
-  // base) sampled at two locations each.
-  it("reproduces 26-0051's real field codes exactly", () => {
-    const rows = [
-      { material: "Yellow carpet mastic", location: "Basement - Finished half" },
-      { material: "Yellow carpet mastic", location: "Basement - Finished half" },
-      { material: "Drywall wall base", location: "Bottom of stairs" },
-      { material: "Drywall wall base", location: "Bottom of stairs" },
-    ];
-    expect(computeSampleCodes(rows, true)).toEqual(["01A", "01B", "02A", "02B"]);
-  });
-
-  // Per Tim: "drywall is always put into the same bag, and drywall gets
-  // broken down into drywall skim coat and drywall base... the drywall
-  // base is usually 01A, and the drywall skim coat would be 02A... there
-  // would also be a second bag 01B and 02B" — two materials taken
-  // together at each of two locations, interleaved in entry order rather
-  // than grouped by location, still numbers/letters correctly.
-  it("interleaved entry order (base, skim, base, skim) still groups correctly by material", () => {
-    const rows = [
-      { material: "Drywall wall base", location: "Kitchen" },
-      { material: "Drywall wall skim coat", location: "Kitchen" },
-      { material: "Drywall wall base", location: "Bathroom" },
-      { material: "Drywall wall skim coat", location: "Bathroom" },
-    ];
-    expect(computeSampleCodes(rows, true)).toEqual(["01A", "02A", "01B", "02B"]);
-  });
-
-  it("material matching is case/whitespace-insensitive", () => {
-    const rows = [
-      { material: "Drywall Wall Base", location: "Kitchen" },
-      { material: "  drywall wall base  ", location: "Bathroom" },
-    ];
-    expect(computeSampleCodes(rows, true)).toEqual(["01A", "01B"]);
-  });
-
-  it("a third location for the same material gets a third letter", () => {
-    const rows = [
-      { material: "Gray Insulation", location: "Attic" },
-      { material: "Gray Insulation", location: "Mudroom" },
-      { material: "Gray Insulation", location: "Basement" },
-    ];
-    expect(computeSampleCodes(rows, true)).toEqual(["01A", "01B", "01C"]);
-  });
-
-  it("a blank material gets no code yet, without disrupting numbering around it", () => {
-    const rows = [
-      { material: "Plaster ceiling base", location: "Bedroom" },
-      { material: "", location: "" },
-      { material: "Plaster ceiling base", location: "Bedroom 2" },
-    ];
-    expect(computeSampleCodes(rows, true)).toEqual(["01A", "", "01B"]);
+describe("defaultSampleCode", () => {
+  // Per Tim, 2026-09-28 (walking back the earlier material-grouped
+  // version): "the sequence should always go 01A, 01B, 02A, 02B, 03A,
+  // 03B" — purely positional, pairs of rows in entry order.
+  it("pairs rows in entry order: 01A, 01B, 02A, 02B, 03A, 03B", () => {
+    const codes = [0, 1, 2, 3, 4, 5].map((i) => defaultSampleCode(i, true));
+    expect(codes).toEqual(["01A", "01B", "02A", "02B", "03A", "03B"]);
   });
 
   // Per Tim's own real Air-O-Cell COC (coc-air_o_cell-somerville.pdf) —
   // no Material column at all, samples just numbered 1, 2, 3 with no
   // letters.
   it("no material field (Air-O-Cell): plain sequential numbers, no letters", () => {
-    const rows = [
-      { material: "", location: "Bedroom" },
-      { material: "", location: "Closet" },
-      { material: "", location: "Outdoor ambient" },
-    ];
-    expect(computeSampleCodes(rows, false)).toEqual(["1", "2", "3"]);
+    const codes = [0, 1, 2].map((i) => defaultSampleCode(i, false));
+    expect(codes).toEqual(["1", "2", "3"]);
   });
 });

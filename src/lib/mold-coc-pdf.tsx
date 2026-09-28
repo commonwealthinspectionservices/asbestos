@@ -285,32 +285,37 @@ function MoldCocDocument({ job, customer, sampleType, sampleItems, turnaround, r
         </View>
 
         <View style={styles.footer}>
-          {/* No turnaroundNote for this sample type — TURNAROUND has
-              nothing to sit across from up here, so it moves down onto
-              the RELINQUISHED BY row instead of sitting alone with the
-              rest of the row empty. */}
-          {config.turnaroundNote && (
-            <View style={styles.footerTopRow}>
-              <View style={styles.turnaroundLine}>
-                <Text style={styles.turnaroundLabel}>TURNAROUND</Text>
-                {/* Per Tim, 2026-09-28 — same reasoning as
-                    blank-coc-pdf.tsx's own turnaround fix: electronic
-                    draft prints only the real one, plain text, no circle;
-                    the blank template still prints both uncircled. */}
-                {turnaround ? (
-                  <Text style={styles.turnaroundOption}>{turnaround === "Rush" ? "RUSH" : "24HR"}</Text>
-                ) : (
-                  <>
-                    <Text style={styles.turnaroundOption}>RUSH</Text>
-                    <Text style={styles.turnaroundOption}>24HR</Text>
-                  </>
-                )}
-              </View>
-              <Text style={styles.notes}>{config.turnaroundNote}</Text>
+          {/* Per Tim, 2026-09-28 — "the only mistake is this on mold
+              bulk... make the relinquish line here the same format for
+              asbestos bulk and mold air-o-cell, idk why its different":
+              TURNAROUND used to skip this top row entirely for a sample
+              type with no turnaroundNote (bulk/swab), sharing the
+              RELINQUISHED BY row with it instead — which forced that
+              row's signatureLineWrap narrower (240 vs the usual 320),
+              and the date/time overlays inside it (tuned for 320) ended
+              up overlapping. TURNAROUND always gets its own row now,
+              same as Air-O-Cell always has — the trailing note is the
+              only still-optional part. */}
+          <View style={styles.footerTopRow}>
+            <View style={styles.turnaroundLine}>
+              <Text style={styles.turnaroundLabel}>TURNAROUND</Text>
+              {/* Per Tim, 2026-09-28 — same reasoning as
+                  blank-coc-pdf.tsx's own turnaround fix: electronic
+                  draft prints only the real one, plain text, no circle;
+                  the blank template still prints both uncircled. */}
+              {turnaround ? (
+                <Text style={styles.turnaroundOption}>{turnaround === "Rush" ? "RUSH" : "24HR"}</Text>
+              ) : (
+                <>
+                  <Text style={styles.turnaroundOption}>RUSH</Text>
+                  <Text style={styles.turnaroundOption}>24HR</Text>
+                </>
+              )}
             </View>
-          )}
+            {config.turnaroundNote && <Text style={styles.notes}>{config.turnaroundNote}</Text>}
+          </View>
 
-          <Text style={[styles.emailNote, config.turnaroundNote ? {} : { marginTop: 0 }]}>
+          <Text style={styles.emailNote}>
             Please email all results to tim@commonwealthinspectionservices.com
           </Text>
 
@@ -329,10 +334,10 @@ function MoldCocDocument({ job, customer, sampleType, sampleItems, turnaround, r
             </View>
           )}
 
-          <View style={[styles.signatureRow, config.turnaroundNote ? {} : { justifyContent: "space-between" }]}>
+          <View style={styles.signatureRow}>
             <View style={styles.signatureSubRow}>
               <Text style={styles.signatureLabel}>RELINQUISHED BY</Text>
-              <View style={[styles.signatureLineWrap, config.turnaroundNote ? {} : { width: 240 }]}>
+              <View style={styles.signatureLineWrap}>
                 {relinquishedBy ? (
                   <>
                     <Text style={styles.signatureLine} />
@@ -362,25 +367,12 @@ function MoldCocDocument({ job, customer, sampleType, sampleItems, turnaround, r
                 )}
               </View>
             </View>
-            {!config.turnaroundNote && (
-              <View style={[styles.turnaroundLine, { marginLeft: 16 }]}>
-                <Text style={styles.turnaroundLabel}>TURNAROUND</Text>
-                {turnaround ? (
-                  <Text style={styles.turnaroundOption}>{turnaround === "Rush" ? "RUSH" : "24HR"}</Text>
-                ) : (
-                  <>
-                    <Text style={styles.turnaroundOption}>RUSH</Text>
-                    <Text style={styles.turnaroundOption}>24HR</Text>
-                  </>
-                )}
-              </View>
-            )}
           </View>
 
           <View style={[styles.signatureRow, { justifyContent: "space-between" }]}>
             <View style={styles.signatureSubRow}>
               <Text style={styles.signatureLabel}>RECEIVED BY</Text>
-              <View style={[styles.signatureLineWrap, config.turnaroundNote ? {} : { width: 240 }]}>
+              <View style={styles.signatureLineWrap}>
                 <Text style={styles.signatureLine} />
                 <DateTimeField />
                 <TimeField />

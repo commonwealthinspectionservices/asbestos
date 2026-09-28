@@ -889,14 +889,18 @@ function ChainOfCustodyPanel({ job, cocType, label, onChanged }: { job: JobWithC
             ))}
           </div>
         </div>
-        <div>
+        {/* Per Tim, 2026-09-28 — right-aligned. ml-auto (not justify-between
+            on the parent row) so it stays flush right even once it wraps
+            to its own line on a narrow phone screen — justify-between has
+            nothing to space against once it's alone on a line. */}
+        <div className="ml-auto text-right">
           <h4 className="mb-2 text-xs font-bold uppercase text-slate-500">Date Needed</h4>
           <input
             type="text"
             placeholder="Optional"
             value={dateNeeded}
             onChange={(e) => setDateNeeded(e.target.value)}
-            className="w-40 rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            className="w-40 rounded-lg border border-slate-300 px-3 py-2 text-right text-sm"
           />
         </div>
       </div>

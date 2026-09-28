@@ -55,7 +55,10 @@ const styles = StyleSheet.create({
   // CLIENT/SITE share this — a flexible field that fills whatever's left
   // once the fixed-width DATE/PROJECT # column (metaRightField) is placed.
   metaLeftField: { flex: 1, flexDirection: "row", alignItems: "flex-end" },
-  metaLeftValue: { flex: 1, borderBottomWidth: 0.5, borderBottomColor: LINE_COLOR, marginRight: 20 },
+  // Per Tim, 2026-09-28 — "let's make the text always in the middle of
+  // the line, not aligned left on it... centered": same rule as the
+  // sample table's own cells.
+  metaLeftValue: { flex: 1, textAlign: "center", borderBottomWidth: 0.5, borderBottomColor: LINE_COLOR, marginRight: 20 },
   // PROJECT # sits directly under DATE — same fixed width both rows, so
   // their lines end up the exact same length; the label itself is right-
   // aligned within a shared fixed width so "DATE" and "PROJECT #" end at
@@ -63,7 +66,7 @@ const styles = StyleSheet.create({
   // two labels being different lengths.
   metaRightField: { width: 190, flexDirection: "row", alignItems: "flex-end" },
   metaLabelRight: { width: 65, textAlign: "right", fontWeight: 700, marginRight: 4 },
-  metaValueRight: { flex: 1, borderBottomWidth: 0.5, borderBottomColor: LINE_COLOR },
+  metaValueRight: { flex: 1, textAlign: "center", borderBottomWidth: 0.5, borderBottomColor: LINE_COLOR },
   // flex: 1 (with a following sibling — footer below) so the table's rows
   // stretch to fill the page's remaining height, same proven pattern as
   // page2Table. Confirmed live: flex-grow on a *trailing* element (no

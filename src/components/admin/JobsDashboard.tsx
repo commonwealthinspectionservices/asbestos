@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import type { CocType, Company, Customer, InvoiceLineItem, JobDocument, JobWithCustomer, LabProfile, PricingZone, SampleItem, ServiceType } from "@/lib/types";
 import { defaultInvoiceLineItems, sampleDescriptionForServiceType } from "@/lib/invoice-defaults";
@@ -692,17 +692,16 @@ const COC_HAS_MATERIAL: Record<CocType, boolean> = {
 };
 
 // Common materials the admin can pick from instead of typing one out every
-// time — per Tim, 2026-09-28: "like plaster wall base or textured
-// ceilings or something like that". Still a free-text input underneath
-// (datalist, not a closed dropdown), so an unusual material never blocks
-// him. No list for Air-O-Cell — that form has no Material column at all
-// (see mold-coc-pdf.tsx's own thirdColumnLabel: null).
+// time. Per Tim, 2026-09-28 — asbestos_bulk moved to a real source (Ray's
+// Library, see fetchMaterialOptions in ChainOfCustodyPanel) instead of
+// this curated guess-list, since "stuff that I've written in in the
+// past" beats anything made up; mold has no equivalent library built,
+// so those two keep this static list. No list for Air-O-Cell — that
+// form has no Material column at all (see mold-coc-pdf.tsx's own
+// thirdColumnLabel: null).
+const MATERIAL_MIN_CHARS = 2;
 const COC_MATERIAL_PRESETS: Record<CocType, string[]> = {
-  asbestos_bulk: [
-    "Joint compound", "Plaster wall/ceiling", "Textured ceiling (\"popcorn\")", "Vinyl floor tile",
-    "Floor tile mastic", "Sheet vinyl flooring", "Pipe wrap/insulation", "Duct wrap/insulation",
-    "Baseboard mastic", "Drywall", "Roofing material", "Siding/shingles", "Caulking/glazing", "Carpet glue/mastic",
-  ],
+  asbestos_bulk: [],
   mold_air_o_cell: [],
   mold_bulk: ["Drywall", "Plaster", "Wood framing", "Subfloor", "Carpet", "Insulation", "Ceiling tile", "Baseboard"],
   mold_swab: ["Drywall surface", "Wood surface", "HVAC duct surface", "Wall surface", "Window sill", "Baseboard"],
@@ -732,8 +731,33 @@ const COC_MATERIAL_PRESETS: Record<CocType, string[]> = {
 // a common one out every time.
 function ChainOfCustodyPanel({ job, cocType, label, onChanged }: { job: JobWithCustomer; cocType: CocType; label: string; onChanged: () => void }) {
   const hasMaterial = COC_HAS_MATERIAL[cocType];
-  const materialPresets = COC_MATERIAL_PRESETS[cocType];
-  const materialListId = `coc-materials-${cocType}`;
+  // Per Tim, 2026-09-28 — "I only want it to suggest something based off
+  // of what I'm typing... too many different options to just have one
+  // drop-down list... it should sense what I'm writing in and then
+  // suggest autofills... it should probably require me to type at least
+  // [two or three] letters before it makes a suggestion": swapped the
+  // native <datalist> (always shows every option the moment you click
+  // in, no way to suppress that) for ComboboxInput's fetchOptions path,
+  // which only ever calls this once there's real text — MATERIAL_MIN_CHARS
+  // adds the "and at least 2 of them" gate on top of that. Real materials
+  // for asbestos, not a made-up list: Ray's Library (a real reference
+  // catalog of materials seen across his own past full-inspection reports
+  // — "stuff that I've written in in the past") already has a working
+  // search API. Mold has no equivalent library, so those two still use
+  // the curated COC_MATERIAL_PRESETS list, same min-chars gate.
+  const fetchMaterialOptions = useCallback(async (query: string): Promise<string[]> => {
+    const q = query.trim();
+    if (q.length < MATERIAL_MIN_CHARS) return [];
+    if (cocType === "asbestos_bulk") {
+      const res = await fetch(`/api/admin/rays-library?q=${encodeURIComponent(q)}`);
+      if (!res.ok) return [];
+      const data = await res.json();
+      const names: string[] = (data.entries ?? []).map((e: { material: string }) => e.material).filter(Boolean);
+      return Array.from(new Set(names)).slice(0, 20);
+    }
+    const lower = q.toLowerCase();
+    return COC_MATERIAL_PRESETS[cocType].filter((m) => m.toLowerCase().includes(lower));
+  }, [cocType]);
 
   // Seeded from whatever this coc_type's rows already hold on the job
   // (e.g. reopening the tab after an earlier draft) — every other
@@ -926,12 +950,14 @@ function ChainOfCustodyPanel({ job, cocType, label, onChanged }: { job: JobWithC
                   </td>
                   {hasMaterial && (
                     <td className="border-r border-slate-300 p-0">
-                      <input
-                        type="text"
-                        list={materialListId}
+                      <ComboboxInput
                         value={r.material}
-                        onChange={(e) => updateRow(i, "material", e.target.value)}
-                        className="w-full border-0 bg-transparent px-3 py-2.5 text-sm focus:bg-brand-50 focus:outline-none"
+                        onChange={(v) => updateRow(i, "material", v)}
+                        fetchOptions={fetchMaterialOptions}
+                        getLabel={(m) => m}
+                        onSelect={(m) => updateRow(i, "material", m)}
+                        onBlur={(v) => updateRow(i, "material", v)}
+                        inputClassName="w-full border-0 bg-transparent px-3 py-2.5 text-sm focus:bg-brand-50 focus:outline-none"
                       />
                     </td>
                   )}
@@ -1000,12 +1026,14 @@ function ChainOfCustodyPanel({ job, cocType, label, onChanged }: { job: JobWithC
               {hasMaterial && (
                 <div className="flex items-center border-b border-slate-300">
                   <span className="w-24 shrink-0 border-r border-slate-300 px-3 py-2.5 text-xs font-bold uppercase text-slate-700">Material</span>
-                  <input
-                    type="text"
-                    list={materialListId}
+                  <ComboboxInput
                     value={r.material}
-                    onChange={(e) => updateRow(i, "material", e.target.value)}
-                    className="w-full border-0 bg-transparent px-3 py-2.5 text-sm focus:bg-brand-50 focus:outline-none"
+                    onChange={(v) => updateRow(i, "material", v)}
+                    fetchOptions={fetchMaterialOptions}
+                    getLabel={(m) => m}
+                    onSelect={(m) => updateRow(i, "material", m)}
+                    onBlur={(v) => updateRow(i, "material", v)}
+                    inputClassName="w-full border-0 bg-transparent px-3 py-2.5 text-sm focus:bg-brand-50 focus:outline-none"
                   />
                 </div>
               )}
@@ -1021,12 +1049,6 @@ function ChainOfCustodyPanel({ job, cocType, label, onChanged }: { job: JobWithC
             </div>
           ))}
         </div>
-
-        {hasMaterial && (
-          <datalist id={materialListId}>
-            {materialPresets.map((m) => <option key={m} value={m} />)}
-          </datalist>
-        )}
       </div>
 
       {/* Per Tim, 2026-09-28 — "turnaround[,] date needed[,] and then
@@ -5979,7 +6001,7 @@ function DocumentsPanel({ job, onChanged }: { job: JobWithCustomer; onChanged: (
 // invoice_emails/report_emails column comments in lib/types.ts for why
 // these are kept separate rather than one shared list.
 export function ComboboxInput<T>({
-  value, onChange, options, fetchOptions, getLabel, getSublabel, onSelect, placeholder, disabled, onEnter, onBlur, filterOptions = true, showChevron = false, fetchOnFocus = false,
+  value, onChange, options, fetchOptions, getLabel, getSublabel, onSelect, placeholder, disabled, onEnter, onBlur, filterOptions = true, showChevron = false, fetchOnFocus = false, inputClassName,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -5990,6 +6012,12 @@ export function ComboboxInput<T>({
   onSelect: (o: T) => void;
   placeholder?: string;
   disabled?: boolean;
+  /** Overrides the input's default bordered-field look entirely (rather
+      than appending to it) — for a caller embedding this inside its own
+      differently-styled cell (e.g. ChainOfCustodyPanel's borderless
+      table cells). Every existing caller omits this and keeps the
+      default styling untouched. */
+  inputClassName?: string;
   /** Pressing Enter with no suggestion list open — lets a caller add whatever's typed directly (e.g. CcPicker adding a raw email not in the Directory). */
   onEnter?: (value: string) => void;
   /** Free-typed text that was never picked from the list or Entered — saved the same way a plain input's onBlur would. */
@@ -6043,7 +6071,7 @@ export function ComboboxInput<T>({
   return (
     <div className="relative">
       <input
-        className={`w-full rounded-lg border border-slate-300 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-500 ${showChevron ? "pl-3 pr-8" : "px-3"}`}
+        className={inputClassName ?? `w-full rounded-lg border border-slate-300 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-500 ${showChevron ? "pl-3 pr-8" : "px-3"}`}
         value={value}
         placeholder={placeholder}
         disabled={disabled}

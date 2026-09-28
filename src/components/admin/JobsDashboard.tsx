@@ -751,13 +751,6 @@ function ChainOfCustodyPanel({ job, cocType, label, onChanged }: { job: JobWithC
   const [dateNeeded, setDateNeeded] = useState(job.lab_date_needed ?? "");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [inspectorName, setInspectorName] = useState<string | null>(null);
-  useEffect(() => {
-    fetch("/api/admin/settings")
-      .then((res) => res.json())
-      .then((data) => setInspectorName(data.settings?.inspectors?.[0]?.name ?? null))
-      .catch(() => {});
-  }, []);
   // Per Tim, 2026-09-28 — "the relinquishment is the time that I drop it
   // off at the lab... most of the time it won't be [when the draft gets
   // created], so I have to enter that in": real, always-editable date/
@@ -815,7 +808,15 @@ function ChainOfCustodyPanel({ job, cocType, label, onChanged }: { job: JobWithC
 
   return (
     <div className="mt-5 rounded-lg border border-slate-200 p-3">
-      <h3 className="text-sm font-bold text-slate-800">{label} — Chain of Custody</h3>
+      {/* Per Tim, 2026-09-28 — "delete this [the 'Samples' label] and
+          then make the plus add sample button on the same line as
+          [the title]... aligned right like it already is": "+ Add
+          sample" moved up here, right-aligned against the title, instead
+          of its own "Samples" section header row below. */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-bold text-slate-800">{label} — Chain of Custody</h3>
+        <button type="button" onClick={addRow} className="shrink-0 text-xs font-medium text-brand-600 hover:underline">+ Add sample</button>
+      </div>
 
       {/* Per Tim, 2026-09-28 — "I want it to look exactly like the chain
           of custody documents... formatted exactly the same way [they
@@ -835,10 +836,6 @@ function ChainOfCustodyPanel({ job, cocType, label, onChanged }: { job: JobWithC
           handlers, not one responsive layout — desktop keeps this table
           exactly as-is either way. */}
       <div className="mt-3">
-        <div className="mb-2 flex items-center justify-between">
-          <h4 className="text-xs font-bold uppercase text-slate-500">Samples</h4>
-          <button type="button" onClick={addRow} className="text-xs font-medium text-brand-600 hover:underline">+ Add sample</button>
-        </div>
 
         <div className="hidden overflow-x-auto rounded-lg border border-slate-400 sm:block">
           <table className="w-full border-collapse text-sm">
@@ -956,20 +953,21 @@ function ChainOfCustodyPanel({ job, cocType, label, onChanged }: { job: JobWithC
         )}
       </div>
 
+      {/* Per Tim, 2026-09-28 — "turnaround[,] date needed[,] and then
+          relinquish[ed] all should have their own line" (his own revision
+          of an earlier "merge them into one row" ask, same day) — three
+          separate rows now, one shared implementation at every width
+          rather than a desktop/mobile split, since none of these three
+          need that much room on their own. */}
+
       {/* TURNAROUND — the selected option still gets the outline that
           appears around it, echoing how the owner circles one by hand on
-          the real form (per Tim, 2026-09-28: "I like how when you hover
-          over it, the circle appears — that should definitely stay").
-          Unselected options now sit on a light slate chip at rest instead
-          of reading as plain text next to the label — per Tim's very next
-          message, the plain-text look didn't read as an interactive
-          control at all ("right now the feature just looks like plain
-          text... we just need to make it look like more of a button").
-          Desktop-only row (hidden below sm); see the sm:hidden block
-          right after it for mobile's own copy of the same styling.
-          Turnaround and Date Needed share a single row ("this all needs
-          to be one line across"), uniform text-xs styling throughout. */}
-      <div className="mt-4 hidden flex-nowrap items-center gap-6 sm:flex">
+          the real form ("I like how when you hover over it, the circle
+          appears — that should definitely stay"). Unselected options sit
+          on a light slate chip at rest instead of reading as plain text
+          next to the label ("right now the feature just looks like plain
+          text... we just need to make it look like more of a button"). */}
+      <div className="mt-4 flex flex-nowrap items-center gap-3">
         <span className="whitespace-nowrap text-xs font-bold uppercase text-slate-500">Turnaround</span>
         <div className="flex gap-3">
           {(["Rush", "24-Hr"] as const).map((t) => (
@@ -983,73 +981,42 @@ function ChainOfCustodyPanel({ job, cocType, label, onChanged }: { job: JobWithC
             </button>
           ))}
         </div>
-        <span className="ml-auto whitespace-nowrap text-xs font-bold uppercase text-slate-500">Date Needed</span>
+      </div>
+
+      <div className="mt-2 flex flex-nowrap items-center gap-3">
+        <span className="whitespace-nowrap text-xs font-bold uppercase text-slate-500">Date Needed</span>
         <input
           type="text"
           value={dateNeeded}
           onChange={(e) => setDateNeeded(e.target.value)}
-          className="w-40 rounded-lg border border-slate-300 px-3 py-2 text-right text-sm"
+          className="w-40 rounded-lg border border-slate-300 px-3 py-2 text-sm"
         />
       </div>
 
-      {/* Mobile only — per Tim, 2026-09-28: "turnaround and date needed
-          are all their own rows as well[,] and everything in those rows
-          should be one line across" — each is its own full-width bordered
-          row (label + controls on one line within it), stacked instead of
-          side by side. */}
-      <div className="mt-4 space-y-2 sm:hidden">
-        {/* Per Tim, 2026-09-28 — "one line across and same size text and
-            same color text": label and both options are now the exact
-            same text-xs/uppercase/slate-500 styling — the circle border
-            alone signals which one's selected, no color/size shift, and
-            flex-nowrap keeps it from ever wrapping to a second line. */}
-        <div className="flex flex-nowrap items-center justify-between rounded-lg border border-slate-300 px-3 py-2">
-          <h4 className="whitespace-nowrap text-xs font-bold uppercase text-slate-500">Turnaround</h4>
-          <div className="flex gap-3">
-            {(["Rush", "24-Hr"] as const).map((t) => (
-              <button
-                key={t}
-                type="button"
-                onClick={() => setTurnaround(turnaround === t ? null : t)}
-                className={`whitespace-nowrap rounded-full border-2 px-2.5 py-1 text-xs font-bold uppercase transition-colors ${turnaround === t ? "border-brand-600 bg-brand-50 text-brand-700" : "border-transparent bg-slate-100 text-slate-600"}`}
-              >
-                {t === "Rush" ? "RUSH" : "24HR"}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="flex items-center justify-between rounded-lg border border-slate-300 px-3 py-2">
-          <h4 className="text-xs font-bold uppercase text-slate-500">Date Needed</h4>
-          <input
-            type="text"
-            value={dateNeeded}
-            onChange={(e) => setDateNeeded(e.target.value)}
-            className="w-32 border-0 bg-transparent text-right text-sm focus:outline-none"
-          />
-        </div>
-      </div>
-
-      {/* Per Tim, 2026-09-28 — real, always-editable date + time pickers,
-          not a read-only preview (that was the very first pass at this,
-          same day — turned out wrong: "the relinquishment is the time
-          that I drop it off at the lab... I have to enter that in").
-          Name stays fixed (from Settings, same as every report/invoice
-          signature block) — only date/time are his to set. One line
-          across, same as Turnaround/Date Needed above. */}
-      <div className="mt-2 flex flex-nowrap items-center gap-3 overflow-x-auto rounded-lg border border-slate-300 px-3 py-2">
-        <span className="shrink-0 whitespace-nowrap text-xs font-bold uppercase text-slate-500">Relinquished By</span>
-        <span className="shrink-0 whitespace-nowrap text-xs text-slate-700">{inspectorName ?? "—"}</span>
+      {/* Per Tim, 2026-09-28 — "it should just say relinquished and then
+          use the date picker and the time picker... delete the entire
+          cell around it and delete my name. It just needs to say
+          relinquished, date picker, time picker": no bordered box (unlike
+          the two rows above, deliberately — he asked for it gone here
+          specifically), no name shown (still used automatically server-
+          side from Settings, just never displayed here), label shortened
+          from "Relinquished By" to "Relinquished". Always-editable date +
+          time — defaults to right now, but the real moment is whenever he
+          actually drops samples at the lab, not necessarily when this
+          draft gets created. */}
+      <div className="mt-2 flex flex-nowrap items-center gap-3">
+        <span className="whitespace-nowrap text-xs font-bold uppercase text-slate-500">Relinquished</span>
         <input
           type="date"
           value={relinquishedDate}
           onChange={(e) => setRelinquishedDate(e.target.value)}
-          className="ml-auto shrink-0 rounded-lg border border-slate-300 px-2 py-1.5 text-xs"
+          className="rounded-lg border border-slate-300 px-2 py-1.5 text-xs"
         />
         <input
           type="time"
           value={relinquishedTime}
           onChange={(e) => setRelinquishedTime(e.target.value)}
-          className="shrink-0 rounded-lg border border-slate-300 px-2 py-1.5 text-xs"
+          className="rounded-lg border border-slate-300 px-2 py-1.5 text-xs"
         />
       </div>
 

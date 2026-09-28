@@ -22,15 +22,46 @@ export default function PaymentCalendarView() {
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
 
+  // Per Tim, 2026-09-28 — "this should be updated as many of them were
+  // paid this page needs to auto update": a job gets marked paid from
+  // outside this page entirely (a customer's own Stripe payment, a
+  // webhook), so the one-time fetch on mount could sit showing stale
+  // "Overdue"/outstanding jobs indefinitely if he just leaves this tab
+  // open. Refetches whenever the tab regains focus/visibility (the
+  // common case — he switches away and back), plus a 60s poll as a
+  // backstop for whenever he leaves it focused in the foreground the
+  // whole time. No loading flicker on these background refetches —
+  // setLoaded(true) only ever needs to fire once, after the very first
+  // load.
   useEffect(() => {
-    fetch("/api/admin/jobs")
-      .then(async (r) => {
-        const data = await r.json();
-        if (!r.ok) throw new Error(data.error ?? "Failed to load payment calendar");
-        setJobs(data.jobs);
-      })
-      .catch((e) => setError(e instanceof Error ? e.message : "Failed to load payment calendar"))
-      .finally(() => setLoaded(true));
+    let cancelled = false;
+    function load() {
+      fetch("/api/admin/jobs")
+        .then(async (r) => {
+          const data = await r.json();
+          if (!r.ok) throw new Error(data.error ?? "Failed to load payment calendar");
+          if (!cancelled) setJobs(data.jobs);
+        })
+        .catch((e) => {
+          if (!cancelled) setError(e instanceof Error ? e.message : "Failed to load payment calendar");
+        })
+        .finally(() => {
+          if (!cancelled) setLoaded(true);
+        });
+    }
+    load();
+    function onVisible() {
+      if (document.visibilityState === "visible") load();
+    }
+    window.addEventListener("focus", load);
+    document.addEventListener("visibilitychange", onVisible);
+    const interval = setInterval(load, 60000);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("focus", load);
+      document.removeEventListener("visibilitychange", onVisible);
+      clearInterval(interval);
+    };
   }, []);
 
   // Per Tim, 2026-08-28 (Billing's own invoicedJobs) — only invoices that

@@ -127,16 +127,20 @@ const styles = StyleSheet.create({
   colSample: { width: 66, borderRightWidth: 0.5, borderRightColor: LINE_COLOR, justifyContent: "center", alignItems: "center" },
   colThird: { flex: 1, borderRightWidth: 0.5, borderRightColor: LINE_COLOR, justifyContent: "center", alignItems: "center" },
   colLocation: { flex: 1, justifyContent: "center", alignItems: "center" },
-  // Matches the asbestos form's own gaps below the table — not perfectly
-  // uniform, that's genuinely how the real form is spaced.
   footer: { marginTop: 18 },
   footerTopRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end" },
   turnaroundLine: { flexDirection: "row", alignItems: "baseline" },
   turnaroundLabel: { fontSize: 11, fontWeight: 700 },
   turnaroundOption: { fontSize: 11, fontWeight: 400, marginLeft: 20 },
   notes: { fontSize: 11, fontStyle: "italic" },
-  emailNote: { fontSize: 11, fontStyle: "italic", textAlign: "right", marginTop: 10 },
-  dateNeededRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 10 },
+  // Per Tim, 2026-09-28 — "turnaround is not spaced evenly like the
+  // others": emailNote/dateNeededRow's own gaps were 10pt while every
+  // gap from DATE NEEDED down (RELINQUISHED BY, RECEIVED BY) was 24pt —
+  // TURNAROUND read cramped against the row below it relative to how
+  // evenly spaced everything after it was. Same 24pt rhythm now, top to
+  // bottom.
+  emailNote: { fontSize: 11, fontStyle: "italic", textAlign: "right", marginTop: 24 },
+  dateNeededRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 24 },
   dateNeededLabel: { fontSize: 11, fontWeight: 700, marginRight: 4 },
   // Same width as the asbestos form's — wider (220) ran under the
   // "Please email..." note now sitting above this line.

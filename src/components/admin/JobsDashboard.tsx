@@ -1917,7 +1917,7 @@ function JobRow({
             Ready") on one line without truncating. */}
         <div className="flex min-w-0 flex-1 items-center justify-end gap-1.5 sm:w-auto sm:flex-none sm:shrink-0">
           {overdueDays !== null && (
-            <span className="shrink-0 whitespace-nowrap rounded-full bg-red-600 px-2 py-1 text-xs font-bold text-white">
+            <span className="shrink-0 whitespace-nowrap rounded-lg bg-red-600 px-2 py-1 text-xs font-bold uppercase text-white">
               {overdueDays} day{overdueDays === 1 ? "" : "s"} overdue
             </span>
           )}

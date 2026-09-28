@@ -45,11 +45,27 @@ export default function PaymentCalendarView() {
     [jobs]
   );
 
+  // Per Tim, 2026-09-27 — overdue invoices used to get their own small
+  // date-grouped card per past-due date, scattering them across several
+  // tiny cards at the top of the list. Now every overdue job lives in one
+  // combined "Overdue" card instead, each row showing its own due date
+  // inline (since they no longer share a single group date) — upcoming
+  // (not-yet-due) jobs keep the original one-card-per-date grouping.
+  const overdueJobs = useMemo(
+    () =>
+      outstanding
+        .map((job) => ({ job, due: dueDateFor(job) }))
+        .filter((j): j is { job: JobWithCustomer; due: string } => j.due !== null && isPastDue(j.due))
+        .sort((a, b) => a.due.localeCompare(b.due) || (a.job.project_number ?? "").localeCompare(b.job.project_number ?? "")),
+    [outstanding]
+  );
+  const overdueTotalCents = useMemo(() => overdueJobs.reduce((sum, { job }) => sum + (job.invoice_total_cents ?? 0), 0), [overdueJobs]);
+
   const groups = useMemo(() => {
     const byDate = new Map<string, JobWithCustomer[]>();
     for (const job of outstanding) {
       const due = dueDateFor(job);
-      if (!due) continue;
+      if (!due || isPastDue(due)) continue;
       if (!byDate.has(due)) byDate.set(due, []);
       byDate.get(due)!.push(job);
     }
@@ -57,7 +73,6 @@ export default function PaymentCalendarView() {
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([date, jobsForDate]) => ({
         date,
-        overdue: isPastDue(date),
         jobs: jobsForDate.sort((a, b) => (a.project_number ?? "").localeCompare(b.project_number ?? "")),
         totalCents: jobsForDate.reduce((sum, j) => sum + (j.invoice_total_cents ?? 0), 0),
       }));
@@ -81,27 +96,60 @@ export default function PaymentCalendarView() {
 
       {!loaded && !error && <p className="mt-6 text-sm text-slate-500">Loading…</p>}
 
-      {loaded && !error && groups.length === 0 && (
+      {loaded && !error && overdueJobs.length === 0 && groups.length === 0 && (
         <p className="mt-6 text-sm text-slate-500">Nothing outstanding — every sent invoice is paid.</p>
       )}
 
-      {loaded && !error && groups.length > 0 && (
+      {loaded && !error && (overdueJobs.length > 0 || groups.length > 0) && (
         <>
           <div className="mt-4 text-sm text-slate-500">
             Total Outstanding <span className="font-semibold text-slate-800">{formatCents(grandTotalCents)}</span>
           </div>
 
           <div className="mt-4 space-y-4">
+            {overdueJobs.length > 0 && (
+              <div className="rounded-lg border border-slate-200 bg-white p-3">
+                <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-slate-100 pb-2">
+                  <span className="rounded-lg bg-red-600 px-2 py-1 text-xs font-bold uppercase text-white">Overdue</span>
+                  <span className="text-sm text-slate-500">{formatCents(overdueTotalCents)}</span>
+                </div>
+                <div className="mt-2 space-y-1.5">
+                  {overdueJobs.map(({ job, due }) => {
+                    const isNewton = job.customers?.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID;
+                    return (
+                      <div key={job.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-sm">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <Link
+                            href={`/admin/dashboard?jobId=${job.id}`}
+                            className="whitespace-nowrap rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs text-slate-700 hover:bg-slate-200"
+                          >
+                            {job.project_number}
+                          </Link>
+                          <span className="truncate text-slate-700">{job.customers?.company || job.customers?.name}</span>
+                          {/* Per Tim, 2026-09-27 — every overdue job now lives in
+                              this one combined card instead of its own
+                              per-date group, so each row needs its own due
+                              date shown inline. */}
+                          <span className="whitespace-nowrap text-xs text-red-600">Due {formatDateMDY(due)}</span>
+                          {isNewton && (
+                            <span className="whitespace-nowrap rounded-lg bg-brand-50 px-2 py-0.5 text-xs font-medium uppercase text-brand-700">
+                              Charge manually
+                            </span>
+                          )}
+                        </div>
+                        <span className="whitespace-nowrap font-medium text-slate-800">{formatCents(job.invoice_total_cents ?? 0)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {groups.map((g) => (
               <div key={g.date} className="rounded-lg border border-slate-200 bg-white p-3">
                 <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-slate-100 pb-2">
                   <div className="flex items-baseline gap-2">
-                    <span className="text-sm font-semibold text-slate-800">{formatDateMDY(g.date)}</span>
-                    {g.overdue ? (
-                      <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">Overdue</span>
-                    ) : (
-                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">Due</span>
-                    )}
+                    <span className="text-sm font-semibold text-slate-800">Due {formatDateMDY(g.date)}</span>
                   </div>
                   <span className="text-sm text-slate-500">{formatCents(g.totalCents)}</span>
                 </div>
@@ -119,7 +167,7 @@ export default function PaymentCalendarView() {
                           </Link>
                           <span className="truncate text-slate-700">{job.customers?.company || job.customers?.name}</span>
                           {isNewton && (
-                            <span className="whitespace-nowrap rounded-full bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-700">
+                            <span className="whitespace-nowrap rounded-lg bg-brand-50 px-2 py-0.5 text-xs font-medium uppercase text-brand-700">
                               {/* Per Tim, 2026-09-26 — auto-charge is off (he charges
                                   Newton manually in Stripe), so this no longer says
                                   "Scheduled to auto-charge". */}

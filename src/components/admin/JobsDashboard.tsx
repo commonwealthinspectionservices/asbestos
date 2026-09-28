@@ -1159,7 +1159,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
       </div>
 
       <div className="mt-3 flex justify-end">
-        <button type="button" onClick={addRow} className="shrink-0 text-xs font-medium text-brand-600 hover:underline">{hasMaterial ? "+ Add material" : "+ Add sample"}</button>
+        <button type="button" onClick={addRow} className="shrink-0 text-sm font-medium text-brand-600 hover:underline">{hasMaterial ? "+ Add material" : "+ Add sample"}</button>
       </div>
 
       {/* Per Tim, 2026-09-28 — "turnaround[,] date needed[,] and then

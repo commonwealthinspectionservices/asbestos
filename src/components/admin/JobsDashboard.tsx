@@ -752,9 +752,21 @@ function ChainOfCustodyPanel({ job, cocType, label, onChanged }: { job: JobWithC
   // that breaks the pattern) sticks.
   const [rows, setRows] = useState<{ sample_number: string; material: string; location: string }[]>(() => {
     const existing = (job.sample_items ?? []).filter((s) => (s.coc_type ?? "asbestos_bulk") === cocType);
-    return existing.length > 0
-      ? existing.map((s) => ({ sample_number: s.sample_number, material: s.material, location: s.location }))
-      : [{ sample_number: defaultSampleCode(0, hasMaterial), material: "", location: "" }];
+    if (existing.length > 0) {
+      return existing.map((s) => ({ sample_number: s.sample_number, material: s.material, location: s.location }));
+    }
+    // Per Tim, 2026-09-28 — "the default standard for the starting point
+    // should be 01A and 01B... not just 01A like it is now": a fresh
+    // panel starts with the first material's whole A+B pair already
+    // there, same as what "+ Add material" appends from then on — not
+    // just a lone A row. Air-O-Cell (hasMaterial: false) has no A/B
+    // pairing concept at all, so it still starts with just one row.
+    return hasMaterial
+      ? [
+          { sample_number: defaultSampleCode(0, true), material: "", location: "" },
+          { sample_number: defaultSampleCode(1, true), material: "", location: "" },
+        ]
+      : [{ sample_number: defaultSampleCode(0, false), material: "", location: "" }];
   });
   const [turnaround, setTurnaround] = useState<"Rush" | "24-Hr" | null>(job.lab_turnaround === "Rush" ? "Rush" : job.lab_turnaround === "24-Hr" ? "24-Hr" : null);
   const [dateNeeded, setDateNeeded] = useState(job.lab_date_needed ?? "");
@@ -799,8 +811,25 @@ function ChainOfCustodyPanel({ job, cocType, label, onChanged }: { job: JobWithC
       return next;
     });
   }
+  // Per Tim, 2026-09-28 — "instead of add sample, it should be add
+  // material... when you click add material, it should add 02A and 02B
+  // at the same time": the number identifies the material, the letter
+  // which physical sample of it — so adding "one more material" means
+  // adding its whole A+B pair at once, not one bare row at a time.
+  // Doesn't apply to Air-O-Cell (hasMaterial: false) — there's no
+  // material/A-B pairing concept there at all, just plain sequential
+  // samples, so that one stays "+ Add sample", one row at a time.
   function addRow() {
-    setRows((prev) => [...prev, { sample_number: defaultSampleCode(prev.length, hasMaterial), material: "", location: "" }]);
+    setRows((prev) => {
+      if (!hasMaterial) {
+        return [...prev, { sample_number: defaultSampleCode(prev.length, false), material: "", location: "" }];
+      }
+      return [
+        ...prev,
+        { sample_number: defaultSampleCode(prev.length, true), material: "", location: "" },
+        { sample_number: defaultSampleCode(prev.length + 1, true), material: "", location: "" },
+      ];
+    });
   }
   function removeRow(i: number) {
     setRows((prev) => (prev.length > 1 ? prev.filter((_, idx) => idx !== i) : prev));
@@ -842,7 +871,7 @@ function ChainOfCustodyPanel({ job, cocType, label, onChanged }: { job: JobWithC
           of its own "Samples" section header row below. */}
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-bold text-slate-800">{label} — Chain of Custody</h3>
-        <button type="button" onClick={addRow} className="shrink-0 text-xs font-medium text-brand-600 hover:underline">+ Add sample</button>
+        <button type="button" onClick={addRow} className="shrink-0 text-xs font-medium text-brand-600 hover:underline">{hasMaterial ? "+ Add material" : "+ Add sample"}</button>
       </div>
 
       {/* Per Tim, 2026-09-28 — "I want it to look exactly like the chain

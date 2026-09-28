@@ -1065,25 +1065,16 @@ function ChainOfCustodyPanel({ job, cocType, label, onChanged }: { job: JobWithC
           on a light slate chip at rest instead of reading as plain text
           next to the label ("right now the feature just looks like plain
           text... we just need to make it look like more of a button"). */}
-      {/* Per Tim, 2026-09-28 — "a bit more space vertically between
-          turnaround[,] date needed[,] and relinquished" (space-y-4, was
-          mt-2 between each) and "all of the cell sizes should be the
-          same size... let's make a good effort to make them aligned":
-          every label is now a fixed w-28, so Turnaround/Date Needed/
-          Relinquished all start their controls at the same x regardless
-          of label length, and Date Needed's input plus both Relinquished
-          inputs all share the same w-32. */}
-      <div className="mt-4 space-y-4">
-        <div className="flex flex-nowrap items-center gap-3 overflow-x-auto">
+      {/* Desktop only (hidden below sm) — per Tim's follow-up the same
+          day: this same-line/fixed-width layout genuinely required
+          horizontal scrolling on a phone ("turnaround stretches and
+          relinquish stretches... nothing has to be scrolled across to be
+          seen"). Untouched here; see the sm:hidden block right after it
+          for mobile's own stacked-label version that never needs to
+          scroll at any width. */}
+      <div className="mt-4 hidden space-y-4 sm:block">
+        <div className="flex flex-nowrap items-center gap-3">
           <span className="w-28 shrink-0 whitespace-nowrap text-xs font-bold uppercase text-slate-500">Turnaround</span>
-          {/* Per Tim, 2026-09-28 — "make the RUSH and 24-hour buttons more
-              squared, like the cells that are beneath it... fill out the
-              size of the date needed cell... more equal to what the
-              other cells look like": rounded-lg (was rounded-full) and
-              the exact same w-32/px-3/py-2/text-sm sizing as Date Needed/
-              Relinquished's own cells, unselected state now looks like a
-              normal bordered cell rather than a pill, selected gets the
-              same brand border+fill highlight as before. */}
           <div className="flex gap-3">
             {(["Rush", "24-Hr"] as const).map((t) => (
               <button
@@ -1108,26 +1099,7 @@ function ChainOfCustodyPanel({ job, cocType, label, onChanged }: { job: JobWithC
           />
         </div>
 
-        {/* Per Tim, 2026-09-28 — "it should just say relinquished and then
-            use the date picker and the time picker... delete the entire
-            cell around it and delete my name. It just needs to say
-            relinquished, date picker, time picker": no bordered box
-            (unlike the two rows above, deliberately — he asked for it gone
-            here specifically), no name shown (still used automatically
-            server-side from Settings, just never displayed here), label
-            shortened from "Relinquished By" to "Relinquished".
-            Always-editable date + time — defaults to right now, but the
-            real moment is whenever he actually drops samples at the lab,
-            not necessarily when this draft gets created. */}
-        {/* Per Tim, 2026-09-28 — "make the create draft button on the
-            same line as the relinquished line... aligned all the way
-            right... the same size as the cells for the other date
-            needed and relinquished parts": ml-auto pushes it flush right
-            (same trick as the earlier right-aligned Date Needed row),
-            and it shares the exact same w-32/px-3/py-2/text-sm sizing as
-            the date/time inputs next to it instead of its own bigger
-            full-width button below. */}
-        <div className="flex flex-nowrap items-center gap-3 overflow-x-auto">
+        <div className="flex flex-nowrap items-center gap-3">
           <span className="w-28 shrink-0 whitespace-nowrap text-xs font-bold uppercase text-slate-500">Relinquished</span>
           <input
             type="date"
@@ -1150,6 +1122,69 @@ function ChainOfCustodyPanel({ job, cocType, label, onChanged }: { job: JobWithC
             {creating ? "Creating…" : "Create Draft ↗"}
           </button>
         </div>
+      </div>
+
+      {/* Mobile only — per Tim, 2026-09-28: "everything needs to be one
+          line across without having to scroll across... nothing has to
+          be scrolled across to be seen." Label sits on its own line
+          above its controls (not sharing a line with them), so nothing
+          is ever forced past the screen width regardless of label
+          length or how many controls follow it — real, comfortably
+          tappable cells, none of them fighting for the same row's width
+          budget the way the desktop layout's fixed columns do. */}
+      <div className="mt-4 space-y-4 sm:hidden">
+        <div>
+          <div className="text-xs font-bold uppercase text-slate-500">Turnaround</div>
+          <div className="mt-1.5 flex flex-wrap gap-2">
+            {(["Rush", "24-Hr"] as const).map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setTurnaround(turnaround === t ? null : t)}
+                className={`rounded-lg border-2 px-4 py-2 text-sm font-bold uppercase transition-colors ${turnaround === t ? "border-brand-600 bg-brand-50 text-brand-700" : "border-slate-300 bg-white text-slate-600"}`}
+              >
+                {t === "Rush" ? "RUSH" : "24HR"}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <div className="text-xs font-bold uppercase text-slate-500">Date Needed</div>
+          <input
+            type="text"
+            value={dateNeeded}
+            onChange={(e) => setDateNeeded(e.target.value)}
+            className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          />
+        </div>
+
+        <div>
+          <div className="text-xs font-bold uppercase text-slate-500">Relinquished</div>
+          <div className="mt-1.5 flex flex-wrap gap-2">
+            <input
+              type="date"
+              value={relinquishedDate}
+              onChange={(e) => setRelinquishedDate(e.target.value)}
+              className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            />
+            <input
+              type="time"
+              value={relinquishedTime}
+              onChange={(e) => setRelinquishedTime(e.target.value)}
+              className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            />
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={createCocDraft}
+          disabled={creating || realRowIndexes.length === 0}
+          className="w-full rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50"
+        >
+          {creating ? "Creating draft…" : "Create Draft ↗"}
+        </button>
       </div>
 
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
@@ -2974,7 +3009,7 @@ export function ProjectDetailDialog({
   onStatusChange: (status: string) => void;
   initialTab?: "info" | "report" | "invoice" | "photos";
 }) {
-  const [tab, setTab] = useState<"info" | "report" | "invoice" | "photos" | "moisture_mapping" | "shipping" | "compensation" | "email">(initialTab ?? "info");
+  const [tab, setTab] = useState<"info" | "report" | "invoice" | "photos" | "moisture_mapping" | "shipping" | "compensation" | "email" | "coc">(initialTab ?? "info");
   // Per Tim, 2026-08-31 — this dialog is only ever mounted while it should
   // be showing (the parent list decides that), so it locks the page behind
   // it for its whole lifetime, not conditionally.
@@ -3923,6 +3958,14 @@ export function ProjectDetailDialog({
                   label: `${REPORT_DOMAIN_LABEL[domain]} Report`,
                   onSelect: () => { setTab("report"); setReportDomainTab(domain); },
                 })),
+                // Per Tim, 2026-09-28 — "the chain of custody needs its
+                // own separate tab for every single job instead of
+                // lumping it onto the asbestos report page... the chain
+                // of custody is different than the report": back to a
+                // dedicated tab (was briefly embedded per-domain inside
+                // the Report tab), shown whenever the job has at least
+                // one real COC type at all (see jobCocTypes).
+                ...(jobCocTypes(job.service_type).length > 0 ? [{ value: "coc", label: "Chain of Custody", onSelect: () => setTab("coc") }] : []),
                 { value: "invoice", label: "Invoice", onSelect: () => setTab("invoice") },
                 ...(isMoistureMappingJob ? [{ value: "moisture_mapping", label: "Moisture Mapping", onSelect: () => setTab("moisture_mapping") }] : []),
                 { value: "photos", label: "Photos", onSelect: () => setTab("photos") },
@@ -3974,6 +4017,14 @@ export function ProjectDetailDialog({
                         {REPORT_DOMAIN_LABEL[domain]} Report
                       </button>
                     ))}
+                    {jobCocTypes(job.service_type).length > 0 && (
+                      <button
+                        onClick={() => setTab("coc")}
+                        className={`flex-1 whitespace-nowrap px-0.5 py-1.5 text-center text-[11px] font-bold uppercase sm:flex-none sm:px-3 sm:text-sm ${tab === "coc" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
+                      >
+                        Chain of Custody
+                      </button>
+                    )}
                     <button
                       onClick={() => setTab("invoice")}
                       className={`flex-1 whitespace-nowrap px-0.5 py-1.5 text-center text-[11px] font-bold uppercase sm:flex-none sm:px-3 sm:text-sm ${tab === "invoice" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
@@ -4997,20 +5048,6 @@ export function ProjectDetailDialog({
                   );
                 })()}
 
-                {/* Electronic Chain of Custody — per Tim, 2026-09-28: one
-                    fixed-type panel per service-type label on the job that
-                    belongs to this Report tab's own domain (a mold job
-                    with both Air Sampling and Bulk Sampling gets two
-                    separate panels here, not a shared one). Replaces the
-                    old read-only sample_items table (asbestos-only, never
-                    had any editor) — any of its rows still show up here,
-                    pre-seeded into whichever panel now owns them. */}
-                {jobCocTypes(job.service_type)
-                  .filter(({ cocType }) => (reportDomainTab === "mold" ? cocType.startsWith("mold_") : reportDomainTab === "asbestos" && cocType === "asbestos_bulk"))
-                  .map(({ label, cocType }) => (
-                    <ChainOfCustodyPanel key={cocType} job={job} cocType={cocType} label={label} onChanged={onChanged} />
-                  ))}
-
                 {/* report_notes: same field, but now also rendered (and
                     included in the PDF's Remarks and Limitations) for the
                     ordinary Limited Asbestos Inspection template, not just
@@ -5307,6 +5344,21 @@ export function ProjectDetailDialog({
 
         {tab === "email" && job.source !== "subcontractor" && (
           <EmailChecklistPanel job={job} onChanged={onChanged} onBeforeCreateDraft={flushInvoiceSave} />
+        )}
+
+        {/* Per Tim, 2026-09-28 — "the chain of custody needs its own
+            separate tab for every single job instead of lumping it onto
+            the asbestos report page... the chain of custody is different
+            than the report": a dedicated tab, not scoped to whichever
+            report domain happens to be selected — every COC type on the
+            job shows here together (a mold job with both Air Sampling
+            and Bulk Sampling gets both panels, not just one). */}
+        {tab === "coc" && job.source !== "subcontractor" && (
+          <div className="mt-4">
+            {jobCocTypes(job.service_type).map(({ label, cocType }) => (
+              <ChainOfCustodyPanel key={cocType} job={job} cocType={cocType} label={label} onChanged={onChanged} />
+            ))}
+          </div>
         )}
 
         {/* Per Tim, 2026-09-04 — "this tab should be moisture mapping w

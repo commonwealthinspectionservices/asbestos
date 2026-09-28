@@ -921,25 +921,35 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
   // material/A-B pairing concept there at all, just plain sequential
   // samples, so that one stays "+ Add sample", one row at a time.
   //
-  // Per Tim, 2026-09-28 (later the same day) — "01A/01B/02A/02B... a lot
-  // of times those are all in the same bag and they're all pulled from
-  // the same location... I shouldn't have to retype the same location":
-  // a new row's Location starts pre-filled with whatever the row right
-  // above it has (not blank) — Material still starts blank, a new
-  // material is always a genuinely new thing to type. Same rule as A→B's
-  // own auto-copy (updateRow below): this only sets the STARTING value,
-  // still freely editable the moment the next material really did come
-  // from somewhere else.
+  // Per Tim, 2026-09-28 (later the same day) — first "01A/01B/02A/02B...
+  // I shouldn't have to retype the same location" (a new row starting
+  // blank instead of pre-filled), then a real-world correction to that:
+  // "the location for 01A and 01B can sometimes be different... the
+  // location is always going to correspond exactly for 01A and 02A...
+  // 01B and 02B are taken from a different place... for walls, two
+  // pieces of the same wall will always get read, and that's the same
+  // with plaster ceilings" — a wall or ceiling gets sampled at two
+  // physical spots (A and B), and each homogeneous layer of it (wall
+  // base, skim coat, ...) gets its own material row pulled from those
+  // exact same two spots. So a new A's Location default comes from the
+  // PREVIOUS A (two rows back), not the row directly above it (which is
+  // the previous B) — and a new B's default comes from the previous B.
+  // No material-type list needed (walls vs. everything else) — this is
+  // just a better starting guess, applied the same way every time, and
+  // still freely editable the moment a material really did come from
+  // somewhere else (same rule as A→B's own auto-copy in updateRow).
   function addRow() {
     setRows((prev) => {
       const lastLocation = prev[prev.length - 1]?.location ?? "";
       if (!hasMaterial) {
         return [...prev, { sample_number: defaultSampleCode(prev.length, false), material: "", location: lastLocation }];
       }
+      const prevALocation = prev.length >= 2 ? prev[prev.length - 2].location : lastLocation;
+      const prevBLocation = lastLocation;
       return [
         ...prev,
-        { sample_number: defaultSampleCode(prev.length, true), material: "", location: lastLocation },
-        { sample_number: defaultSampleCode(prev.length + 1, true), material: "", location: lastLocation },
+        { sample_number: defaultSampleCode(prev.length, true), material: "", location: prevALocation },
+        { sample_number: defaultSampleCode(prev.length + 1, true), material: "", location: prevBLocation },
       ];
     });
   }

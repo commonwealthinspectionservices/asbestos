@@ -1071,9 +1071,9 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
                     longer claims a whole 100px floor — Material/Location
                     (the two columns admin actually types real sentences
                     into) pick up the freed-up width instead. */}
-                <th className="w-20 border-r border-slate-300 px-3 py-2 text-center text-xs font-bold text-slate-700">Sample #</th>
-                {hasMaterial && <th className="min-w-[220px] border-r border-slate-300 px-3 py-2 text-center text-xs font-bold text-slate-700">Material</th>}
-                <th className="min-w-[220px] border-r border-slate-300 px-3 py-2 text-center text-xs font-bold text-slate-700">Location</th>
+                <th className="w-20 border-r border-slate-300 px-3 py-2 text-center text-xs font-bold uppercase text-slate-700">Sample #</th>
+                {hasMaterial && <th className="min-w-[220px] border-r border-slate-300 px-3 py-2 text-center text-xs font-bold uppercase text-slate-700">Material</th>}
+                <th className="min-w-[220px] border-r border-slate-300 px-3 py-2 text-center text-xs font-bold uppercase text-slate-700">Location</th>
                 <th className="w-10" />
               </tr>
             </thead>
@@ -1154,7 +1154,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
                   edge instead of its own separate blank strip. */}
               <div className="flex items-center justify-between border-b border-slate-400 bg-slate-50">
                 <div className="flex flex-1 items-center">
-                  <span className="w-20 shrink-0 border-r border-slate-300 px-2 py-2.5 text-xs font-bold text-slate-700">Sample #</span>
+                  <span className="w-20 shrink-0 border-r border-slate-300 px-2 py-2.5 text-xs font-bold uppercase text-slate-700">Sample #</span>
                   <input
                     type="text"
                     value={r.sample_number}
@@ -1173,7 +1173,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
               </div>
               {hasMaterial && (
                 <div className="flex items-center border-b border-slate-300">
-                  <span className="w-20 shrink-0 border-r border-slate-300 px-2 py-2.5 text-xs font-bold text-slate-700">Material</span>
+                  <span className="w-20 shrink-0 border-r border-slate-300 px-2 py-2.5 text-xs font-bold uppercase text-slate-700">Material</span>
                   <ComboboxInput
                     value={r.material}
                     onChange={(v) => updateRow(i, "material", v)}
@@ -1186,7 +1186,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
                 </div>
               )}
               <div className="flex items-center">
-                <span className="w-20 shrink-0 border-r border-slate-300 px-2 py-2.5 text-xs font-bold text-slate-700">Location</span>
+                <span className="w-20 shrink-0 border-r border-slate-300 px-2 py-2.5 text-xs font-bold uppercase text-slate-700">Location</span>
                 <ComboboxInput
                   value={r.location}
                   onChange={(v) => updateRow(i, "location", v)}
@@ -1234,7 +1234,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
           scroll at any width. */}
       <div className="mt-6 hidden space-y-4 sm:block">
         <div className="flex flex-nowrap items-center gap-3">
-          <span className="w-28 shrink-0 whitespace-nowrap text-xs font-bold text-slate-700">Turnaround</span>
+          <span className="w-28 shrink-0 whitespace-nowrap text-xs font-bold uppercase text-slate-700">Turnaround</span>
           <div className="flex gap-3">
             {(["Rush", "24-Hr"] as const).map((t) => (
               <button
@@ -1250,7 +1250,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
         </div>
 
         <div className="flex flex-nowrap items-center gap-3">
-          <span className="w-28 shrink-0 whitespace-nowrap text-xs font-bold text-slate-700">Date Needed</span>
+          <span className="w-28 shrink-0 whitespace-nowrap text-xs font-bold uppercase text-slate-700">Date Needed</span>
           <input
             type="date"
             value={dateNeeded}
@@ -1260,7 +1260,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          <span className="w-28 shrink-0 whitespace-nowrap text-xs font-bold text-slate-700">Relinquished</span>
+          <span className="w-28 shrink-0 whitespace-nowrap text-xs font-bold uppercase text-slate-700">Relinquished</span>
           <input
             type="date"
             value={relinquishedDate}
@@ -1337,7 +1337,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
             fixed width on every label lines all three cells' left AND
             right edges up, same as the desktop block's own w-28. */}
         <div className="flex flex-nowrap items-center gap-2">
-          <span className="w-24 shrink-0 whitespace-nowrap text-xs font-bold text-slate-700">Turnaround</span>
+          <span className="w-24 shrink-0 whitespace-nowrap text-xs font-bold uppercase text-slate-700">Turnaround</span>
           <div className="flex min-w-0 flex-1 gap-1.5">
             {(["Rush", "24-Hr"] as const).map((t) => (
               <button
@@ -1353,7 +1353,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
         </div>
 
         <div className="flex flex-nowrap items-center gap-2">
-          <span className="w-24 shrink-0 whitespace-nowrap text-xs font-bold text-slate-700">Date Needed</span>
+          <span className="w-24 shrink-0 whitespace-nowrap text-xs font-bold uppercase text-slate-700">Date Needed</span>
           <input
             type="date"
             value={dateNeeded}
@@ -1363,7 +1363,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
         </div>
 
         <div className="flex flex-nowrap items-center gap-2">
-          <span className="w-24 shrink-0 whitespace-nowrap text-xs font-bold text-slate-700">Relinquished</span>
+          <span className="w-24 shrink-0 whitespace-nowrap text-xs font-bold uppercase text-slate-700">Relinquished</span>
           <div className="flex min-w-0 flex-1 gap-1.5">
             <input
               type="date"
@@ -1418,7 +1418,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
 
       {history.length > 0 && (
         <div className="mt-4 border-t border-slate-200 pt-3">
-          <h4 className="mb-2 text-xs font-bold text-slate-500">History</h4>
+          <h4 className="mb-2 text-xs font-bold uppercase text-slate-500">History</h4>
           <div className="space-y-1 text-sm text-slate-600">
             {history.map((h, i) => (
               <div key={i}>
@@ -3234,9 +3234,9 @@ export function ProjectDetailDialog({
   onChanged: () => void;
   onEdit: () => void;
   onStatusChange: (status: string) => void;
-  initialTab?: "info" | "report" | "invoice" | "photos";
+  initialTab?: "info" | "report" | "invoice";
 }) {
-  const [tab, setTab] = useState<"info" | "report" | "invoice" | "photos" | "moisture_mapping" | "shipping" | "compensation" | "email" | "coc">(initialTab ?? "info");
+  const [tab, setTab] = useState<"info" | "report" | "invoice" | "moisture_mapping" | "shipping" | "compensation" | "email" | "coc">(initialTab ?? "info");
   // Per Tim, 2026-08-31 — this dialog is only ever mounted while it should
   // be showing (the parent list decides that), so it locks the page behind
   // it for its whole lifetime, not conditionally.
@@ -4163,7 +4163,7 @@ export function ProjectDetailDialog({
           with padding + rounded corners on the same scrolling element,
           let content bleed above the header during momentum scroll on
           mobile Safari). */}
-      <div className={`flex w-full max-w-5xl flex-col overflow-hidden rounded-xl bg-white ${tab === "photos" || tab === "email" ? "h-[95vh]" : "max-h-[95vh]"}`}>
+      <div className={`flex w-full max-w-5xl flex-col overflow-hidden rounded-xl bg-white ${tab === "email" ? "h-[95vh]" : "max-h-[95vh]"}`}>
         {(() => {
           // One dropdown option per tab the button row below would otherwise
           // render — a report tab is keyed "report:<domain>" since a job
@@ -4180,22 +4180,23 @@ export function ProjectDetailDialog({
               ]
             : [
                 { value: "info", label: "Project Info", onSelect: () => setTab("info") },
+                // Per Tim, 2026-09-28 — "the chain of custody needs its
+                // own separate tab for every single job instead of
+                // lumping it onto the asbestos report page... the chain
+                // of custody is different than the report": a dedicated
+                // tab, shown whenever the job has at least one real COC
+                // type at all (see jobCocTypes). Then, later the same
+                // day: "project info, chain of custody, and [the] report,
+                // invoice, email" — moved ahead of the report tab(s), not
+                // after.
+                ...(jobCocTypes(job.service_type).length > 0 ? [{ value: "coc", label: "Chain of Custody", onSelect: () => setTab("coc") }] : []),
                 ...jobReportDomains(job.service_type).map((domain) => ({
                   value: `report:${domain}`,
                   label: `${REPORT_DOMAIN_LABEL[domain]} Report`,
                   onSelect: () => { setTab("report"); setReportDomainTab(domain); },
                 })),
-                // Per Tim, 2026-09-28 — "the chain of custody needs its
-                // own separate tab for every single job instead of
-                // lumping it onto the asbestos report page... the chain
-                // of custody is different than the report": back to a
-                // dedicated tab (was briefly embedded per-domain inside
-                // the Report tab), shown whenever the job has at least
-                // one real COC type at all (see jobCocTypes).
-                ...(jobCocTypes(job.service_type).length > 0 ? [{ value: "coc", label: "Chain of Custody", onSelect: () => setTab("coc") }] : []),
                 { value: "invoice", label: "Invoice", onSelect: () => setTab("invoice") },
                 ...(isMoistureMappingJob ? [{ value: "moisture_mapping", label: "Moisture Mapping", onSelect: () => setTab("moisture_mapping") }] : []),
-                { value: "photos", label: "Photos", onSelect: () => setTab("photos") },
                 { value: "email", label: "Email", onSelect: () => setTab("email") },
               ];
           const selectedValue = tab === "report" ? `report:${reportDomainTab}` : tab;
@@ -4230,6 +4231,18 @@ export function ProjectDetailDialog({
                 </button>
                 {job.source !== "subcontractor" && (
                   <>
+                    {/* Per Tim, 2026-09-28 — "project info, chain of
+                        custody, and [the] report, invoice, email": moved
+                        ahead of the Report tab(s), same reasoning as the
+                        mobile dropdown's own order above. */}
+                    {jobCocTypes(job.service_type).length > 0 && (
+                      <button
+                        onClick={() => setTab("coc")}
+                        className={`flex-1 whitespace-nowrap px-0.5 py-1.5 text-center text-[11px] font-bold uppercase sm:flex-none sm:px-3 sm:text-sm ${tab === "coc" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
+                      >
+                        Chain of Custody
+                      </button>
+                    )}
                     {/* One tab per domain actually on the job (asbestos/mold/lead)
                         — a job combining service types from more than one domain
                         used to stack every domain's upload stations into one long
@@ -4244,14 +4257,6 @@ export function ProjectDetailDialog({
                         {REPORT_DOMAIN_LABEL[domain]} Report
                       </button>
                     ))}
-                    {jobCocTypes(job.service_type).length > 0 && (
-                      <button
-                        onClick={() => setTab("coc")}
-                        className={`flex-1 whitespace-nowrap px-0.5 py-1.5 text-center text-[11px] font-bold uppercase sm:flex-none sm:px-3 sm:text-sm ${tab === "coc" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
-                      >
-                        Chain of Custody
-                      </button>
-                    )}
                     <button
                       onClick={() => setTab("invoice")}
                       className={`flex-1 whitespace-nowrap px-0.5 py-1.5 text-center text-[11px] font-bold uppercase sm:flex-none sm:px-3 sm:text-sm ${tab === "invoice" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
@@ -4266,12 +4271,6 @@ export function ProjectDetailDialog({
                         Moisture Mapping
                       </button>
                     )}
-                    <button
-                      onClick={() => setTab("photos")}
-                      className={`flex-1 whitespace-nowrap px-0.5 py-1.5 text-center text-[11px] font-bold uppercase sm:flex-none sm:px-3 sm:text-sm ${tab === "photos" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
-                    >
-                      Photos
-                    </button>
                     <button
                       onClick={() => setTab("email")}
                       className={`flex-1 whitespace-nowrap px-0.5 py-1.5 text-center text-[11px] font-bold uppercase sm:flex-none sm:px-3 sm:text-sm ${tab === "email" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
@@ -5555,19 +5554,6 @@ export function ProjectDetailDialog({
           )
         )}
 
-
-        {tab === "photos" && job.source !== "subcontractor" && (
-          <div className="mt-8">
-            <JobPhotos
-              photos={job.photos ?? []}
-              uploadEndpoint={`/api/admin/jobs/${job.id}/photos`}
-              viewEndpointBase={`/api/admin/jobs/${job.id}/photos`}
-              deleteEndpointBase={`/api/admin/jobs/${job.id}/photos`}
-              onChanged={onChanged}
-              uploadButtonClassName="rounded-lg bg-brand-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
-            />
-          </div>
-        )}
 
         {tab === "email" && job.source !== "subcontractor" && (
           <EmailChecklistPanel job={job} onChanged={onChanged} onBeforeCreateDraft={flushInvoiceSave} />

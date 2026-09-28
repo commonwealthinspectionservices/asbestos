@@ -751,6 +751,18 @@ function ChainOfCustodyPanel({ job, cocType, label, onChanged }: { job: JobWithC
   const [dateNeeded, setDateNeeded] = useState(job.lab_date_needed ?? "");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Per Tim, 2026-09-28 — "we are missing the relinquished part": Relinquished
+  // By was always auto-filled (never an editable field — see the very top
+  // of this component's own comment), but nothing showed that was actually
+  // happening. This is a read-only preview line, not a new input — the
+  // real timestamp only exists once "Create Draft" is actually clicked.
+  const [inspectorName, setInspectorName] = useState<string | null>(null);
+  useEffect(() => {
+    fetch("/api/admin/settings")
+      .then((res) => res.json())
+      .then((data) => setInspectorName(data.settings?.inspectors?.[0]?.name ?? null))
+      .catch(() => {});
+  }, []);
 
   function updateRow(i: number, field: "material" | "location", value: string) {
     setRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, [field]: value } : r)));
@@ -938,36 +950,32 @@ function ChainOfCustodyPanel({ job, cocType, label, onChanged }: { job: JobWithC
           circles one by hand on the real form — not a generic filled
           app-style toggle button. Desktop-only row (hidden below sm); see
           the sm:hidden block right after it for mobile's own two full-
-          width rows. */}
-      <div className="mt-4 hidden flex-wrap items-end gap-6 sm:flex">
-        <div>
-          <h4 className="mb-2 text-xs font-bold uppercase text-slate-500">Turnaround</h4>
-          <div className="flex gap-4">
-            {(["Rush", "24-Hr"] as const).map((t) => (
-              <button
-                key={t}
-                type="button"
-                onClick={() => setTurnaround(turnaround === t ? null : t)}
-                className={`rounded-full border-2 px-4 py-1.5 text-sm font-bold ${turnaround === t ? "border-brand-600 text-brand-700" : "border-transparent text-slate-700 hover:border-slate-300"}`}
-              >
-                {t === "Rush" ? "RUSH" : "24HR"}
-              </button>
-            ))}
-          </div>
+          width rows.
+          Per Tim, 2026-09-28 — "this all needs to be one line across":
+          Turnaround and Date Needed now share a single row (was two
+          label-above-controls columns), same uniform text-xs/slate-500
+          styling as the mobile row for consistency. */}
+      <div className="mt-4 hidden flex-nowrap items-center gap-6 sm:flex">
+        <span className="whitespace-nowrap text-xs font-bold uppercase text-slate-500">Turnaround</span>
+        <div className="flex gap-3">
+          {(["Rush", "24-Hr"] as const).map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setTurnaround(turnaround === t ? null : t)}
+              className={`whitespace-nowrap rounded-full border-2 px-2.5 py-1 text-xs font-bold uppercase text-slate-500 ${turnaround === t ? "border-brand-600" : "border-transparent hover:border-slate-300"}`}
+            >
+              {t === "Rush" ? "RUSH" : "24HR"}
+            </button>
+          ))}
         </div>
-        {/* Per Tim, 2026-09-28 — right-aligned. ml-auto (not justify-between
-            on the parent row) so it stays flush right even once it wraps
-            to its own line on a narrow phone screen — justify-between has
-            nothing to space against once it's alone on a line. */}
-        <div className="ml-auto text-right">
-          <h4 className="mb-2 text-xs font-bold uppercase text-slate-500">Date Needed</h4>
-          <input
-            type="text"
-            value={dateNeeded}
-            onChange={(e) => setDateNeeded(e.target.value)}
-            className="w-40 rounded-lg border border-slate-300 px-3 py-2 text-right text-sm"
-          />
-        </div>
+        <span className="ml-auto whitespace-nowrap text-xs font-bold uppercase text-slate-500">Date Needed</span>
+        <input
+          type="text"
+          value={dateNeeded}
+          onChange={(e) => setDateNeeded(e.target.value)}
+          className="w-40 rounded-lg border border-slate-300 px-3 py-2 text-right text-sm"
+        />
       </div>
 
       {/* Mobile only — per Tim, 2026-09-28: "turnaround and date needed
@@ -1005,6 +1013,14 @@ function ChainOfCustodyPanel({ job, cocType, label, onChanged }: { job: JobWithC
             className="w-32 border-0 bg-transparent text-right text-sm focus:outline-none"
           />
         </div>
+      </div>
+
+      {/* Read-only preview — see the useEffect above for why this can't
+          be an editable field (there's nothing to edit; the real
+          timestamp doesn't exist until the draft is actually created). */}
+      <div className="mt-2 flex flex-nowrap items-center justify-between rounded-lg border border-slate-300 px-3 py-2">
+        <span className="whitespace-nowrap text-xs font-bold uppercase text-slate-500">Relinquished By</span>
+        <span className="truncate text-xs text-slate-500">{inspectorName ?? "—"} · auto-filled when drafted</span>
       </div>
 
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}

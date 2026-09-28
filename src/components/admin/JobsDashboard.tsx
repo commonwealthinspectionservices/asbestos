@@ -1148,7 +1148,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
                 key={t}
                 type="button"
                 onClick={() => setTurnaround(turnaround === t ? null : t)}
-                className={`w-32 shrink-0 rounded-lg border px-3 py-2 text-center text-sm transition-colors ${turnaround === t ? "border-brand-600 bg-brand-50 text-brand-700" : "border-slate-300 bg-white text-slate-600 hover:border-slate-400"}`}
+                className={`w-32 shrink-0 rounded-lg border px-3 py-2 text-center text-sm transition-colors ${turnaround === t ? "border-brand-600 bg-brand-50" : "border-slate-300 bg-white hover:border-slate-400"}`}
               >
                 {t === "Rush" ? "Rush" : "24 Hours"}
               </button>
@@ -1203,11 +1203,14 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
           fixed w-28/w-32, so it compresses to fit instead of overflowing.
           Button text is text-xs now too, matching the labels' size
           ("I don't like how [the button text] is bigger" [than the
-          titles]) — and, same day, one more follow-up dropped the
-          font-bold/uppercase off RUSH/24HR entirely so the button text
-          reads in the exact same size and format as what's typed into
-          Date Needed/Relinquished right next to it, not just the same
-          size while still standing out bolder. */}
+          titles]) — and, same day, two more follow-ups: dropped the
+          font-bold/uppercase off RUSH/24HR entirely, and then dropped
+          their text-slate-600/text-brand-700 color too ("all of this
+          text should be the same size and format... and color"), so the
+          button text reads in the exact same size, format, AND color as
+          what's typed into Date Needed/Relinquished right next to it —
+          selected still reads as selected from the border+fill alone,
+          same as it always has. */}
       <div className="mt-6 space-y-3 sm:hidden">
         {/* Per Tim, 2026-09-28 — "make it so that the date needed,
             relinquished, and turnaround cells all start and end in the
@@ -1225,7 +1228,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
                 key={t}
                 type="button"
                 onClick={() => setTurnaround(turnaround === t ? null : t)}
-                className={`min-w-0 flex-1 rounded-lg border px-2 py-1.5 text-center text-xs transition-colors ${turnaround === t ? "border-brand-600 bg-brand-50 text-brand-700" : "border-slate-300 bg-white text-slate-600"}`}
+                className={`min-w-0 flex-1 rounded-lg border px-2 py-1.5 text-center text-xs transition-colors ${turnaround === t ? "border-brand-600 bg-brand-50" : "border-slate-300 bg-white"}`}
               >
                 {t === "Rush" ? "Rush" : "24 Hours"}
               </button>

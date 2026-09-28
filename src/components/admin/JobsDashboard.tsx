@@ -968,15 +968,20 @@ function ChainOfCustodyPanel({ job, cocType, label, onChanged }: { job: JobWithC
           row (label + controls on one line within it), stacked instead of
           side by side. */}
       <div className="mt-4 space-y-2 sm:hidden">
-        <div className="flex items-center justify-between rounded-lg border border-slate-300 px-3 py-2">
-          <h4 className="text-xs font-bold uppercase text-slate-500">Turnaround</h4>
+        {/* Per Tim, 2026-09-28 — "one line across and same size text and
+            same color text": label and both options are now the exact
+            same text-xs/uppercase/slate-500 styling — the circle border
+            alone signals which one's selected, no color/size shift, and
+            flex-nowrap keeps it from ever wrapping to a second line. */}
+        <div className="flex flex-nowrap items-center justify-between rounded-lg border border-slate-300 px-3 py-2">
+          <h4 className="whitespace-nowrap text-xs font-bold uppercase text-slate-500">Turnaround</h4>
           <div className="flex gap-3">
             {(["Rush", "24-Hr"] as const).map((t) => (
               <button
                 key={t}
                 type="button"
                 onClick={() => setTurnaround(turnaround === t ? null : t)}
-                className={`rounded-full border-2 px-3 py-1 text-sm font-bold ${turnaround === t ? "border-brand-600 text-brand-700" : "border-transparent text-slate-700"}`}
+                className={`whitespace-nowrap rounded-full border-2 px-2.5 py-1 text-xs font-bold uppercase text-slate-500 ${turnaround === t ? "border-brand-600" : "border-transparent"}`}
               >
                 {t === "Rush" ? "RUSH" : "24HR"}
               </button>

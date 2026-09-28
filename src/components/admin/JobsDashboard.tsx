@@ -967,57 +967,67 @@ function ChainOfCustodyPanel({ job, cocType, label, onChanged }: { job: JobWithC
           on a light slate chip at rest instead of reading as plain text
           next to the label ("right now the feature just looks like plain
           text... we just need to make it look like more of a button"). */}
-      <div className="mt-4 flex flex-nowrap items-center gap-3">
-        <span className="whitespace-nowrap text-xs font-bold uppercase text-slate-500">Turnaround</span>
-        <div className="flex gap-3">
-          {(["Rush", "24-Hr"] as const).map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setTurnaround(turnaround === t ? null : t)}
-              className={`whitespace-nowrap rounded-full border-2 px-2.5 py-1 text-xs font-bold uppercase transition-colors ${turnaround === t ? "border-brand-600 bg-brand-50 text-brand-700" : "border-transparent bg-slate-100 text-slate-600 hover:border-slate-300"}`}
-            >
-              {t === "Rush" ? "RUSH" : "24HR"}
-            </button>
-          ))}
+      {/* Per Tim, 2026-09-28 — "a bit more space vertically between
+          turnaround[,] date needed[,] and relinquished" (space-y-4, was
+          mt-2 between each) and "all of the cell sizes should be the
+          same size... let's make a good effort to make them aligned":
+          every label is now a fixed w-28, so Turnaround/Date Needed/
+          Relinquished all start their controls at the same x regardless
+          of label length, and Date Needed's input plus both Relinquished
+          inputs all share the same w-32. */}
+      <div className="mt-4 space-y-4">
+        <div className="flex flex-nowrap items-center gap-3">
+          <span className="w-28 shrink-0 whitespace-nowrap text-xs font-bold uppercase text-slate-500">Turnaround</span>
+          <div className="flex gap-3">
+            {(["Rush", "24-Hr"] as const).map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setTurnaround(turnaround === t ? null : t)}
+                className={`whitespace-nowrap rounded-full border-2 px-2.5 py-1 text-xs font-bold uppercase transition-colors ${turnaround === t ? "border-brand-600 bg-brand-50 text-brand-700" : "border-transparent bg-slate-100 text-slate-600 hover:border-slate-300"}`}
+              >
+                {t === "Rush" ? "RUSH" : "24HR"}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
 
-      <div className="mt-2 flex flex-nowrap items-center gap-3">
-        <span className="whitespace-nowrap text-xs font-bold uppercase text-slate-500">Date Needed</span>
-        <input
-          type="text"
-          value={dateNeeded}
-          onChange={(e) => setDateNeeded(e.target.value)}
-          className="w-40 rounded-lg border border-slate-300 px-3 py-2 text-sm"
-        />
-      </div>
+        <div className="flex flex-nowrap items-center gap-3">
+          <span className="w-28 shrink-0 whitespace-nowrap text-xs font-bold uppercase text-slate-500">Date Needed</span>
+          <input
+            type="text"
+            value={dateNeeded}
+            onChange={(e) => setDateNeeded(e.target.value)}
+            className="w-32 rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          />
+        </div>
 
-      {/* Per Tim, 2026-09-28 — "it should just say relinquished and then
-          use the date picker and the time picker... delete the entire
-          cell around it and delete my name. It just needs to say
-          relinquished, date picker, time picker": no bordered box (unlike
-          the two rows above, deliberately — he asked for it gone here
-          specifically), no name shown (still used automatically server-
-          side from Settings, just never displayed here), label shortened
-          from "Relinquished By" to "Relinquished". Always-editable date +
-          time — defaults to right now, but the real moment is whenever he
-          actually drops samples at the lab, not necessarily when this
-          draft gets created. */}
-      <div className="mt-2 flex flex-nowrap items-center gap-3">
-        <span className="whitespace-nowrap text-xs font-bold uppercase text-slate-500">Relinquished</span>
-        <input
-          type="date"
-          value={relinquishedDate}
-          onChange={(e) => setRelinquishedDate(e.target.value)}
-          className="rounded-lg border border-slate-300 px-2 py-1.5 text-xs"
-        />
-        <input
-          type="time"
-          value={relinquishedTime}
-          onChange={(e) => setRelinquishedTime(e.target.value)}
-          className="rounded-lg border border-slate-300 px-2 py-1.5 text-xs"
-        />
+        {/* Per Tim, 2026-09-28 — "it should just say relinquished and then
+            use the date picker and the time picker... delete the entire
+            cell around it and delete my name. It just needs to say
+            relinquished, date picker, time picker": no bordered box
+            (unlike the two rows above, deliberately — he asked for it gone
+            here specifically), no name shown (still used automatically
+            server-side from Settings, just never displayed here), label
+            shortened from "Relinquished By" to "Relinquished".
+            Always-editable date + time — defaults to right now, but the
+            real moment is whenever he actually drops samples at the lab,
+            not necessarily when this draft gets created. */}
+        <div className="flex flex-nowrap items-center gap-3">
+          <span className="w-28 shrink-0 whitespace-nowrap text-xs font-bold uppercase text-slate-500">Relinquished</span>
+          <input
+            type="date"
+            value={relinquishedDate}
+            onChange={(e) => setRelinquishedDate(e.target.value)}
+            className="w-32 rounded-lg border border-slate-300 px-2 py-1.5 text-xs"
+          />
+          <input
+            type="time"
+            value={relinquishedTime}
+            onChange={(e) => setRelinquishedTime(e.target.value)}
+            className="w-32 rounded-lg border border-slate-300 px-2 py-1.5 text-xs"
+          />
+        </div>
       </div>
 
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}

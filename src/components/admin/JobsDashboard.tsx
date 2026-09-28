@@ -795,19 +795,20 @@ function ChainOfCustodyPanel({ job, cocType, label, onChanged }: { job: JobWithC
           generic app form next to it. A literal fillable-PDF (his true
           "ideal world" ask) isn't realistic to build here — this is the
           closest practical equivalent.
-          overflow-x-auto rather than collapsing to stacked cards on
-          mobile — per Tim, filling these out on his phone matters just as
-          much as the look, and a real 3-column table needs more width
-          than a 375px screen has; each column keeps a real, comfortably
-          tappable min-width and he scrolls sideways to reach Material/
-          Location instead of the table (and the typing experience) being
-          squeezed illegibly thin. */}
+          Desktop only (hidden below sm) — per Tim's follow-up the same
+          day: on mobile a real 3-column row is "just too much to squeeze
+          in," so Sample #/Material/Location each get their own full-width
+          row per sample there instead (see the sm:hidden block right
+          below this one). Two separate renderings of the same rows/
+          handlers, not one responsive layout — desktop keeps this table
+          exactly as-is either way. */}
       <div className="mt-3">
         <div className="mb-2 flex items-center justify-between">
           <h4 className="text-xs font-bold uppercase text-slate-500">Samples</h4>
           <button type="button" onClick={addRow} className="text-xs font-medium text-brand-600 hover:underline">+ Add sample</button>
         </div>
-        <div className="overflow-x-auto rounded-lg border border-slate-400">
+
+        <div className="hidden overflow-x-auto rounded-lg border border-slate-400 sm:block">
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr className="border-b border-slate-400 bg-slate-50">
@@ -861,19 +862,76 @@ function ChainOfCustodyPanel({ job, cocType, label, onChanged }: { job: JobWithC
               ))}
             </tbody>
           </table>
-          {hasMaterial && (
-            <datalist id={materialListId}>
-              {materialPresets.map((m) => <option key={m} value={m} />)}
-            </datalist>
-          )}
         </div>
+
+        {/* Mobile only — per Tim, 2026-09-28: "sample number, material,
+            and location all [get] their own row for each sample... too
+            much to squeeze in[to] one row for mobile." Same bordered-
+            table look (a label cell + a borderless input cell, "one line
+            across" each), just one field per row instead of one sample
+            per row. */}
+        <div className="space-y-3 sm:hidden">
+          {rows.map((r, i) => (
+            <div key={i} className="overflow-hidden rounded-lg border border-slate-400">
+              <div className="flex items-center justify-between border-b border-slate-400 bg-slate-50 px-3 py-1.5">
+                <span className="text-xs font-bold uppercase text-slate-700">Sample {i + 1}</span>
+                <button
+                  type="button"
+                  onClick={() => removeRow(i)}
+                  disabled={rows.length === 1}
+                  className="text-slate-400 hover:text-red-600 disabled:opacity-30"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="flex items-center border-b border-slate-300">
+                <span className="w-24 shrink-0 border-r border-slate-300 px-3 py-2.5 text-xs font-bold uppercase text-slate-700">Sample #</span>
+                <input
+                  type="text"
+                  value={r.sample_number}
+                  onChange={(e) => updateRow(i, "sample_number", e.target.value)}
+                  className="w-full border-0 bg-transparent px-3 py-2.5 text-sm focus:bg-brand-50 focus:outline-none"
+                />
+              </div>
+              {hasMaterial && (
+                <div className="flex items-center border-b border-slate-300">
+                  <span className="w-24 shrink-0 border-r border-slate-300 px-3 py-2.5 text-xs font-bold uppercase text-slate-700">Material</span>
+                  <input
+                    type="text"
+                    list={materialListId}
+                    value={r.material}
+                    onChange={(e) => updateRow(i, "material", e.target.value)}
+                    className="w-full border-0 bg-transparent px-3 py-2.5 text-sm focus:bg-brand-50 focus:outline-none"
+                  />
+                </div>
+              )}
+              <div className="flex items-center">
+                <span className="w-24 shrink-0 border-r border-slate-300 px-3 py-2.5 text-xs font-bold uppercase text-slate-700">Location</span>
+                <input
+                  type="text"
+                  value={r.location}
+                  onChange={(e) => updateRow(i, "location", e.target.value)}
+                  className="w-full border-0 bg-transparent px-3 py-2.5 text-sm focus:bg-brand-50 focus:outline-none"
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {hasMaterial && (
+          <datalist id={materialListId}>
+            {materialPresets.map((m) => <option key={m} value={m} />)}
+          </datalist>
+        )}
       </div>
 
       {/* TURNAROUND styled as the two printed words with an outline that
           appears around whichever one is picked, echoing how the owner
           circles one by hand on the real form — not a generic filled
-          app-style toggle button. */}
-      <div className="mt-4 flex flex-wrap items-end gap-6">
+          app-style toggle button. Desktop-only row (hidden below sm); see
+          the sm:hidden block right after it for mobile's own two full-
+          width rows. */}
+      <div className="mt-4 hidden flex-wrap items-end gap-6 sm:flex">
         <div>
           <h4 className="mb-2 text-xs font-bold uppercase text-slate-500">Turnaround</h4>
           <div className="flex gap-4">
@@ -901,6 +959,39 @@ function ChainOfCustodyPanel({ job, cocType, label, onChanged }: { job: JobWithC
             value={dateNeeded}
             onChange={(e) => setDateNeeded(e.target.value)}
             className="w-40 rounded-lg border border-slate-300 px-3 py-2 text-right text-sm"
+          />
+        </div>
+      </div>
+
+      {/* Mobile only — per Tim, 2026-09-28: "turnaround and date needed
+          are all their own rows as well[,] and everything in those rows
+          should be one line across" — each is its own full-width bordered
+          row (label + controls on one line within it), stacked instead of
+          side by side. */}
+      <div className="mt-4 space-y-2 sm:hidden">
+        <div className="flex items-center justify-between rounded-lg border border-slate-300 px-3 py-2">
+          <h4 className="text-xs font-bold uppercase text-slate-500">Turnaround</h4>
+          <div className="flex gap-3">
+            {(["Rush", "24-Hr"] as const).map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setTurnaround(turnaround === t ? null : t)}
+                className={`rounded-full border-2 px-3 py-1 text-sm font-bold ${turnaround === t ? "border-brand-600 text-brand-700" : "border-transparent text-slate-700"}`}
+              >
+                {t === "Rush" ? "RUSH" : "24HR"}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="flex items-center justify-between rounded-lg border border-slate-300 px-3 py-2">
+          <h4 className="text-xs font-bold uppercase text-slate-500">Date Needed</h4>
+          <input
+            type="text"
+            placeholder="Optional"
+            value={dateNeeded}
+            onChange={(e) => setDateNeeded(e.target.value)}
+            className="w-32 border-0 bg-transparent text-right text-sm focus:outline-none"
           />
         </div>
       </div>

@@ -976,15 +976,23 @@ function ChainOfCustodyPanel({ job, cocType, label, onChanged }: { job: JobWithC
           of label length, and Date Needed's input plus both Relinquished
           inputs all share the same w-32. */}
       <div className="mt-4 space-y-4">
-        <div className="flex flex-nowrap items-center gap-3">
+        <div className="flex flex-nowrap items-center gap-3 overflow-x-auto">
           <span className="w-28 shrink-0 whitespace-nowrap text-xs font-bold uppercase text-slate-500">Turnaround</span>
+          {/* Per Tim, 2026-09-28 — "make the RUSH and 24-hour buttons more
+              squared, like the cells that are beneath it... fill out the
+              size of the date needed cell... more equal to what the
+              other cells look like": rounded-lg (was rounded-full) and
+              the exact same w-32/px-3/py-2/text-sm sizing as Date Needed/
+              Relinquished's own cells, unselected state now looks like a
+              normal bordered cell rather than a pill, selected gets the
+              same brand border+fill highlight as before. */}
           <div className="flex gap-3">
             {(["Rush", "24-Hr"] as const).map((t) => (
               <button
                 key={t}
                 type="button"
                 onClick={() => setTurnaround(turnaround === t ? null : t)}
-                className={`whitespace-nowrap rounded-full border-2 px-2.5 py-1 text-xs font-bold uppercase transition-colors ${turnaround === t ? "border-brand-600 bg-brand-50 text-brand-700" : "border-transparent bg-slate-100 text-slate-600 hover:border-slate-300"}`}
+                className={`w-32 shrink-0 rounded-lg border-2 px-3 py-2 text-center text-sm font-bold uppercase transition-colors ${turnaround === t ? "border-brand-600 bg-brand-50 text-brand-700" : "border-slate-300 bg-white text-slate-600 hover:border-slate-400"}`}
               >
                 {t === "Rush" ? "RUSH" : "24HR"}
               </button>

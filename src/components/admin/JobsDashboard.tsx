@@ -1095,8 +1095,15 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
                 {hasMaterial && <th className="min-w-[220px] border-r border-slate-300 px-3 py-2 text-center text-xs font-bold uppercase text-slate-700">Material</th>}
                 {/* Per Tim, 2026-09-28 — "I need to begin to record time
                     for every [Air-O-Cell] sample... it needs a start
-                    time and end time for each sample": Air-O-Cell only. */}
-                {hasTime && <th className="w-52 border-r border-slate-300 px-3 py-2 text-center text-xs font-bold uppercase text-slate-700">Time</th>}
+                    time and end time for each sample" (Air-O-Cell only),
+                    then after a stacked-caption pass he didn't like:
+                    "it looked nicer before this last change... needs to
+                    say start time [not just] time" — two real columns,
+                    same single-line height as every other column, not
+                    one merged "Time" column with captions stacked inside
+                    it. */}
+                {hasTime && <th className="w-28 border-r border-slate-300 px-3 py-2 text-center text-xs font-bold uppercase text-slate-700">Start Time</th>}
+                {hasTime && <th className="w-28 border-r border-slate-300 px-3 py-2 text-center text-xs font-bold uppercase text-slate-700">End Time</th>}
                 <th className="min-w-[220px] border-r border-slate-300 px-3 py-2 text-center text-xs font-bold uppercase text-slate-700">Location</th>
                 <th className="w-10" />
               </tr>
@@ -1138,32 +1145,30 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
                       seeded from Start Time + 5 minutes (see updateRow's
                       own comment on the auto-fill rule), not a read-only
                       derived value. */}
-                  {/* Per Tim, 2026-09-28 — "it needs to say start time
-                      and end time": a small caption over each half so
-                      it's clear which one's which, not just two
-                      unlabeled clocks side by side under "TIME". */}
+                  {/* Per Tim, 2026-09-28 — went from a merged "Time"
+                      column with stacked captions ("it looked nicer
+                      before this last change... needs to say start time
+                      [not just] time") to two real columns, each single-
+                      line like every other column — same height, no
+                      caption stacked inside the cell. */}
                   {hasTime && (
                     <td className="border-r border-slate-300 p-0">
-                      <div className="flex items-stretch">
-                        <div className="w-1/2 border-r border-slate-300 px-2 py-1.5">
-                          <div className="text-[9px] font-bold uppercase text-slate-400">Start Time</div>
-                          <input
-                            type="time"
-                            value={r.start_time}
-                            onChange={(e) => updateRow(i, "start_time", e.target.value)}
-                            className="w-full border-0 bg-transparent text-sm focus:bg-brand-50 focus:outline-none"
-                          />
-                        </div>
-                        <div className="w-1/2 px-2 py-1.5">
-                          <div className="text-[9px] font-bold uppercase text-slate-400">End Time</div>
-                          <input
-                            type="time"
-                            value={r.end_time}
-                            onChange={(e) => updateRow(i, "end_time", e.target.value)}
-                            className="w-full border-0 bg-transparent text-sm focus:bg-brand-50 focus:outline-none"
-                          />
-                        </div>
-                      </div>
+                      <input
+                        type="time"
+                        value={r.start_time}
+                        onChange={(e) => updateRow(i, "start_time", e.target.value)}
+                        className="w-full border-0 bg-transparent px-3 py-2.5 text-sm focus:bg-brand-50 focus:outline-none"
+                      />
+                    </td>
+                  )}
+                  {hasTime && (
+                    <td className="border-r border-slate-300 p-0">
+                      <input
+                        type="time"
+                        value={r.end_time}
+                        onChange={(e) => updateRow(i, "end_time", e.target.value)}
+                        className="w-full border-0 bg-transparent px-3 py-2.5 text-sm focus:bg-brand-50 focus:outline-none"
+                      />
                     </td>
                   )}
                   <td className="border-r border-slate-300 p-0">
@@ -1259,31 +1264,33 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
                   table's own Time column above: a real 50/50 split, both
                   genuine <input type="time">s, End Time just pre-filled
                   from Start Time + 5 minutes as a default. */}
-              {/* Per Tim, 2026-09-28 — same "Start Time"/"End Time"
-                  caption fix as the desktop table's own Time column. */}
+              {/* Per Tim, 2026-09-28 — "it's also totally okay if we just
+                  make end time its own row as well... two cells in one
+                  row [each]... start time with the time directly across
+                  from it, and end time with the time directly across
+                  from it": two separate full-width rows, same label-left/
+                  value-right, single-line layout as Sample #/Location's
+                  own rows — not one row with captions stacked inside it. */}
               {hasTime && (
-                <div className="flex items-stretch border-b border-slate-300">
-                  <span className="w-20 shrink-0 border-r border-slate-300 px-2 py-2.5 text-xs font-bold uppercase text-slate-700">Time</span>
-                  <div className="flex flex-1 items-stretch">
-                    <div className="w-1/2 border-r border-slate-300 px-3 py-1.5">
-                      <div className="text-[9px] font-bold uppercase text-slate-400">Start Time</div>
-                      <input
-                        type="time"
-                        value={r.start_time}
-                        onChange={(e) => updateRow(i, "start_time", e.target.value)}
-                        className="w-full border-0 bg-transparent text-xs focus:bg-brand-50 focus:outline-none"
-                      />
-                    </div>
-                    <div className="w-1/2 px-3 py-1.5">
-                      <div className="text-[9px] font-bold uppercase text-slate-400">End Time</div>
-                      <input
-                        type="time"
-                        value={r.end_time}
-                        onChange={(e) => updateRow(i, "end_time", e.target.value)}
-                        className="w-full border-0 bg-transparent text-xs focus:bg-brand-50 focus:outline-none"
-                      />
-                    </div>
-                  </div>
+                <div className="flex items-center border-b border-slate-300">
+                  <span className="w-20 shrink-0 border-r border-slate-300 px-2 py-2.5 text-xs font-bold uppercase text-slate-700">Start Time</span>
+                  <input
+                    type="time"
+                    value={r.start_time}
+                    onChange={(e) => updateRow(i, "start_time", e.target.value)}
+                    className="w-full border-0 bg-transparent px-3 py-2.5 text-xs focus:bg-brand-50 focus:outline-none"
+                  />
+                </div>
+              )}
+              {hasTime && (
+                <div className="flex items-center border-b border-slate-300">
+                  <span className="w-20 shrink-0 border-r border-slate-300 px-2 py-2.5 text-xs font-bold uppercase text-slate-700">End Time</span>
+                  <input
+                    type="time"
+                    value={r.end_time}
+                    onChange={(e) => updateRow(i, "end_time", e.target.value)}
+                    className="w-full border-0 bg-transparent px-3 py-2.5 text-xs focus:bg-brand-50 focus:outline-none"
+                  />
                 </div>
               )}
               <div className="flex items-center">

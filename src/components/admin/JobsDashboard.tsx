@@ -792,6 +792,25 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
         ]
       : [{ sample_number: defaultSampleCode(0, false), material: "", location: "" }];
   });
+
+  // Per Tim, 2026-09-28 (a follow-up the same day to the Location
+  // carry-forward fix in addRow, below) — "it's not just because it's
+  // from the same bag... even other stuff, other samples could be from
+  // the same location": carrying a new row's Location forward from the
+  // row right before it only covers the adjacent case. This covers the
+  // general one — every distinct Location already typed anywhere in
+  // this table is one tap away, same fetchOnFocus pattern the Directory
+  // contact-picker already uses ("when I click the... cell I want it to
+  // show all of [them]") — click into an empty/any Location cell, see
+  // every location already used on this job, pick one instead of
+  // retyping it. Still freely editable either way, same as everywhere
+  // else in this table.
+  const fetchLocationOptions = useCallback(async (query: string): Promise<string[]> => {
+    const lower = query.trim().toLowerCase();
+    const distinct = Array.from(new Set(rows.map((r) => r.location.trim()).filter(Boolean)));
+    return lower ? distinct.filter((l) => l.toLowerCase().includes(lower)) : distinct;
+  }, [rows]);
+
   const [turnaround, setTurnaround] = useState<"Rush" | "24-Hr" | null>(job.lab_turnaround === "Rush" ? "Rush" : job.lab_turnaround === "24-Hr" ? "24-Hr" : null);
   const [dateNeeded, setDateNeeded] = useState(job.lab_date_needed ?? "");
   const [creating, setCreating] = useState(false);
@@ -901,15 +920,26 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
   // Doesn't apply to Air-O-Cell (hasMaterial: false) — there's no
   // material/A-B pairing concept there at all, just plain sequential
   // samples, so that one stays "+ Add sample", one row at a time.
+  //
+  // Per Tim, 2026-09-28 (later the same day) — "01A/01B/02A/02B... a lot
+  // of times those are all in the same bag and they're all pulled from
+  // the same location... I shouldn't have to retype the same location":
+  // a new row's Location starts pre-filled with whatever the row right
+  // above it has (not blank) — Material still starts blank, a new
+  // material is always a genuinely new thing to type. Same rule as A→B's
+  // own auto-copy (updateRow below): this only sets the STARTING value,
+  // still freely editable the moment the next material really did come
+  // from somewhere else.
   function addRow() {
     setRows((prev) => {
+      const lastLocation = prev[prev.length - 1]?.location ?? "";
       if (!hasMaterial) {
-        return [...prev, { sample_number: defaultSampleCode(prev.length, false), material: "", location: "" }];
+        return [...prev, { sample_number: defaultSampleCode(prev.length, false), material: "", location: lastLocation }];
       }
       return [
         ...prev,
-        { sample_number: defaultSampleCode(prev.length, true), material: "", location: "" },
-        { sample_number: defaultSampleCode(prev.length + 1, true), material: "", location: "" },
+        { sample_number: defaultSampleCode(prev.length, true), material: "", location: lastLocation },
+        { sample_number: defaultSampleCode(prev.length + 1, true), material: "", location: lastLocation },
       ];
     });
   }
@@ -1021,11 +1051,15 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
                     </td>
                   )}
                   <td className="border-r border-slate-300 p-0">
-                    <input
-                      type="text"
+                    <ComboboxInput
                       value={r.location}
-                      onChange={(e) => updateRow(i, "location", e.target.value)}
-                      className="w-full border-0 bg-transparent px-3 py-2.5 text-sm focus:bg-brand-50 focus:outline-none"
+                      onChange={(v) => updateRow(i, "location", v)}
+                      fetchOptions={fetchLocationOptions}
+                      fetchOnFocus
+                      getLabel={(l) => l}
+                      onSelect={(l) => updateRow(i, "location", l)}
+                      onBlur={(v) => updateRow(i, "location", v)}
+                      inputClassName="w-full border-0 bg-transparent px-3 py-2.5 text-sm focus:bg-brand-50 focus:outline-none"
                     />
                   </td>
                   <td className="p-0 text-center">
@@ -1098,11 +1132,15 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
               )}
               <div className="flex items-center">
                 <span className="w-24 shrink-0 border-r border-slate-300 px-3 py-2.5 text-xs font-bold uppercase text-slate-700">Location</span>
-                <input
-                  type="text"
+                <ComboboxInput
                   value={r.location}
-                  onChange={(e) => updateRow(i, "location", e.target.value)}
-                  className="w-full border-0 bg-transparent px-3 py-2.5 text-sm focus:bg-brand-50 focus:outline-none"
+                  onChange={(v) => updateRow(i, "location", v)}
+                  fetchOptions={fetchLocationOptions}
+                  fetchOnFocus
+                  getLabel={(l) => l}
+                  onSelect={(l) => updateRow(i, "location", l)}
+                  onBlur={(v) => updateRow(i, "location", v)}
+                  inputClassName="w-full border-0 bg-transparent px-3 py-2.5 text-sm focus:bg-brand-50 focus:outline-none"
                 />
               </div>
             </div>

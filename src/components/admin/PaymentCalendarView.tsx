@@ -87,7 +87,14 @@ export default function PaymentCalendarView() {
       <Link href="/admin/billing" className="mb-2 inline-flex items-center gap-1 text-sm text-brand-600 hover:text-brand-700">
         ← Billing
       </Link>
-      <h1 className="text-lg font-bold text-slate-800">Payment Calendar</h1>
+      <div className="flex items-baseline justify-between gap-2">
+        <h1 className="text-lg font-bold text-slate-800">Payment Calendar</h1>
+        {loaded && !error && (overdueJobs.length > 0 || groups.length > 0) && (
+          <div className="whitespace-nowrap text-sm text-slate-500">
+            Total Outstanding <span className="font-semibold text-slate-800">{formatCents(grandTotalCents)}</span>
+          </div>
+        )}
+      </div>
 
       {error && <div className="mt-4 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>}
 
@@ -99,10 +106,6 @@ export default function PaymentCalendarView() {
 
       {loaded && !error && (overdueJobs.length > 0 || groups.length > 0) && (
         <>
-          <div className="mt-4 text-sm text-slate-500">
-            Total Outstanding <span className="font-semibold text-slate-800">{formatCents(grandTotalCents)}</span>
-          </div>
-
           <div className="mt-4 space-y-4">
             {overdueJobs.length > 0 && (
               <div className="rounded-lg border border-slate-200 bg-white p-3">
@@ -127,7 +130,7 @@ export default function PaymentCalendarView() {
                               this one combined card instead of its own
                               per-date group, so each row needs its own due
                               date shown inline. */}
-                          <span className="whitespace-nowrap text-xs text-red-600">Due {formatDateMDY(due)}</span>
+                          <span className="whitespace-nowrap text-xs text-red-600">Due on {formatDateMDY(due)}</span>
                           {isNewton && (
                             <span className="whitespace-nowrap rounded-lg bg-brand-50 px-2 py-0.5 text-xs font-medium uppercase text-brand-700">
                               Charge manually
@@ -146,7 +149,7 @@ export default function PaymentCalendarView() {
               <div key={g.date} className="rounded-lg border border-slate-200 bg-white p-3">
                 <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-slate-100 pb-2">
                   <div className="flex items-baseline gap-2">
-                    <span className="text-sm font-semibold text-slate-800">Due {formatDateMDY(g.date)}</span>
+                    <span className="text-sm font-semibold text-slate-800">Due on {formatDateMDY(g.date)}</span>
                   </div>
                   <span className="text-sm text-slate-500">{formatCents(g.totalCents)}</span>
                 </div>

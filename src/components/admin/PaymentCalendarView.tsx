@@ -119,7 +119,7 @@ export default function PaymentCalendarView() {
                     return (
                       <div
                         key={job.id}
-                        className="grid grid-cols-[3.5rem_minmax(0,1fr)_6rem_5rem] items-center gap-2 text-sm"
+                        className="grid grid-cols-[5rem_minmax(0,1fr)_6rem_5rem] items-center gap-2 text-sm"
                       >
                         <Link
                           href={`/admin/dashboard?jobId=${job.id}`}
@@ -162,7 +162,7 @@ export default function PaymentCalendarView() {
                     return (
                       <div
                         key={job.id}
-                        className="grid grid-cols-[3.5rem_minmax(0,1fr)_5rem] items-center gap-2 text-sm"
+                        className="grid grid-cols-[5rem_minmax(0,1fr)_5rem] items-center gap-2 text-sm"
                       >
                         <Link
                           href={`/admin/dashboard?jobId=${job.id}`}

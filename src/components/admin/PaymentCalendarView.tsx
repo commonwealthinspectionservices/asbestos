@@ -130,7 +130,7 @@ export default function PaymentCalendarView() {
                         <div className="flex min-w-0 items-center gap-2">
                           <span className="truncate text-slate-700">{job.customers?.company || job.customers?.name}</span>
                           {isNewton && (
-                            <span className="whitespace-nowrap rounded-lg bg-brand-50 px-2 py-0.5 text-xs font-medium uppercase text-brand-700">
+                            <span className="whitespace-nowrap text-xs font-medium uppercase text-brand-700">
                               Charge manually
                             </span>
                           )}
@@ -173,7 +173,7 @@ export default function PaymentCalendarView() {
                         <div className="flex min-w-0 items-center gap-2">
                           <span className="truncate text-slate-700">{job.customers?.company || job.customers?.name}</span>
                           {isNewton && (
-                            <span className="whitespace-nowrap rounded-lg bg-brand-50 px-2 py-0.5 text-xs font-medium uppercase text-brand-700">
+                            <span className="whitespace-nowrap text-xs font-medium uppercase text-brand-700">
                               {/* Per Tim, 2026-09-26 — auto-charge is off (he charges
                                   Newton manually in Stripe), so this no longer says
                                   "Scheduled to auto-charge". */}

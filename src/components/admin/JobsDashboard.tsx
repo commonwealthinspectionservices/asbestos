@@ -729,7 +729,7 @@ const COC_MATERIAL_PRESETS: Record<CocType, string[]> = {
 // phone"): one full-width stacked card per sample row rather than a
 // cramped multi-column row, and a datalist for Material instead of typing
 // a common one out every time.
-function ChainOfCustodyPanel({ job, cocType, label, onChanged }: { job: JobWithCustomer; cocType: CocType; label: string; onChanged: () => void }) {
+function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer; cocType: CocType; onChanged: () => void }) {
   const hasMaterial = COC_HAS_MATERIAL[cocType];
   // Per Tim, 2026-09-28 — "I only want it to suggest something based off
   // of what I'm typing... too many different options to just have one
@@ -894,13 +894,15 @@ function ChainOfCustodyPanel({ job, cocType, label, onChanged }: { job: JobWithC
 
   return (
     <div className="mt-5 rounded-lg border border-slate-200 p-3">
-      {/* Per Tim, 2026-09-28 — "delete this [the 'Samples' label] and
-          then make the plus add sample button on the same line as
-          [the title]... aligned right like it already is": "+ Add
-          sample" moved up here, right-aligned against the title, instead
-          of its own "Samples" section header row below. */}
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-bold text-slate-800">{label} — Chain of Custody</h3>
+      {/* Per Tim, 2026-09-28 — first "delete this [the 'Samples' label]
+          and then make the plus add sample button on the same line as
+          [the title]... aligned right like it already is," then a
+          follow-up on mobile: "that title, pre-renovation, asbestos
+          inspection, chain of custody, that should all just be deleted
+          entirely" (it was wrapping to two lines on a phone, and it's
+          redundant with the Chain of Custody tab itself). Title's gone;
+          "+ Add material" stays, just right-aligned on its own. */}
+      <div className="flex items-center justify-end">
         <button type="button" onClick={addRow} className="shrink-0 text-xs font-medium text-brand-600 hover:underline">{hasMaterial ? "+ Add material" : "+ Add sample"}</button>
       </div>
 
@@ -1058,13 +1060,17 @@ function ChainOfCustodyPanel({ job, cocType, label, onChanged }: { job: JobWithC
           rather than a desktop/mobile split, since none of these three
           need that much room on their own. */}
 
-      {/* TURNAROUND — the selected option still gets the outline that
-          appears around it, echoing how the owner circles one by hand on
-          the real form ("I like how when you hover over it, the circle
+      {/* TURNAROUND — the selected option still gets the border-brand-600
+          highlight that echoes how the owner circles one by hand on the
+          real form ("I like how when you hover over it, the circle
           appears — that should definitely stay"). Unselected options sit
           on a light slate chip at rest instead of reading as plain text
           next to the label ("right now the feature just looks like plain
-          text... we just need to make it look like more of a button"). */}
+          text... we just need to make it look like more of a button").
+          Per Tim, 2026-09-28 — "the turnaround buttons are bolder than
+          the date needed cell... the boldness of the outline around the
+          cell": border (1px), not border-2, so it matches every other
+          cell's outline weight instead of standing out heavier. */}
       {/* Desktop only (hidden below sm) — per Tim's follow-up the same
           day: this same-line/fixed-width layout genuinely required
           horizontal scrolling on a phone ("turnaround stretches and
@@ -1081,7 +1087,7 @@ function ChainOfCustodyPanel({ job, cocType, label, onChanged }: { job: JobWithC
                 key={t}
                 type="button"
                 onClick={() => setTurnaround(turnaround === t ? null : t)}
-                className={`w-32 shrink-0 rounded-lg border-2 px-3 py-2 text-center text-sm font-bold uppercase transition-colors ${turnaround === t ? "border-brand-600 bg-brand-50 text-brand-700" : "border-slate-300 bg-white text-slate-600 hover:border-slate-400"}`}
+                className={`w-32 shrink-0 rounded-lg border px-3 py-2 text-center text-sm font-bold uppercase transition-colors ${turnaround === t ? "border-brand-600 bg-brand-50 text-brand-700" : "border-slate-300 bg-white text-slate-600 hover:border-slate-400"}`}
               >
                 {t === "Rush" ? "RUSH" : "24HR"}
               </button>
@@ -1141,7 +1147,7 @@ function ChainOfCustodyPanel({ job, cocType, label, onChanged }: { job: JobWithC
                 key={t}
                 type="button"
                 onClick={() => setTurnaround(turnaround === t ? null : t)}
-                className={`rounded-lg border-2 px-4 py-2 text-sm font-bold uppercase transition-colors ${turnaround === t ? "border-brand-600 bg-brand-50 text-brand-700" : "border-slate-300 bg-white text-slate-600"}`}
+                className={`rounded-lg border px-4 py-2 text-sm font-bold uppercase transition-colors ${turnaround === t ? "border-brand-600 bg-brand-50 text-brand-700" : "border-slate-300 bg-white text-slate-600"}`}
               >
                 {t === "Rush" ? "RUSH" : "24HR"}
               </button>
@@ -5355,8 +5361,8 @@ export function ProjectDetailDialog({
             and Bulk Sampling gets both panels, not just one). */}
         {tab === "coc" && job.source !== "subcontractor" && (
           <div className="mt-4">
-            {jobCocTypes(job.service_type).map(({ label, cocType }) => (
-              <ChainOfCustodyPanel key={cocType} job={job} cocType={cocType} label={label} onChanged={onChanged} />
+            {jobCocTypes(job.service_type).map(({ cocType }) => (
+              <ChainOfCustodyPanel key={cocType} job={job} cocType={cocType} onChanged={onChanged} />
             ))}
           </div>
         )}

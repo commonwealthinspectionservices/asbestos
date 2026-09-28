@@ -1395,13 +1395,14 @@ interface JobForTransactionMatching {
   projectNumber: string;
   serviceAddress: string;
   company: string | null;
+  status: string;
 }
 
 async function loadJobsForTransactionMatching(supabase: ReturnType<typeof getSupabaseAdmin>): Promise<JobForTransactionMatching[]> {
-  const { data } = await supabase.from("jobs").select("project_number, service_address, customers!customer_id(company)");
-  return ((data ?? []) as unknown as { project_number: string | null; service_address: string | null; customers: { company: string | null } | null }[])
+  const { data } = await supabase.from("jobs").select("project_number, service_address, status, customers!customer_id(company)");
+  return ((data ?? []) as unknown as { project_number: string | null; service_address: string | null; status: string; customers: { company: string | null } | null }[])
     .filter((j) => j.project_number)
-    .map((j) => ({ projectNumber: j.project_number!, serviceAddress: j.service_address ?? "", company: j.customers?.company ?? null }));
+    .map((j) => ({ projectNumber: j.project_number!, serviceAddress: j.service_address ?? "", company: j.customers?.company ?? null, status: j.status }));
 }
 
 // The street line only ("14 Heather St., Beverley MA" → "14heatherstreet"),
@@ -1424,7 +1425,18 @@ export function matchTransactionToJobGlobally(address: string | null, jobs: JobF
     matches = jobs.filter((j) => j.company && (j.company.toLowerCase().includes(name) || name.includes(j.company.toLowerCase())));
   }
   const projects = new Set(matches.map((j) => j.projectNumber));
-  return projects.size === 1 ? [...projects][0] : null;
+  if (projects.size === 1) return [...projects][0];
+  // Per Tim, 2026-09-28 (Sales Receipt #6932, "50 Broadway Unit 2,
+  // Somerville" — Newton Fire & Flood) — a revisit reuses its parent's
+  // exact service_address (26-0041, 26-0041.1, 26-0041.2 all share this
+  // one), so a charge for the address alone is genuinely ambiguous by the
+  // check above even though only one of those jobs could possibly be the
+  // right one: the others are already closed out and can't still be
+  // waiting on a lab charge. Same narrowing discipline
+  // findJobByReportAddress already applies for report-address matching —
+  // only take this narrower match when it's unambiguous too.
+  const pendingProjects = new Set(matches.filter((j) => j.status === "pending_lab_results").map((j) => j.projectNumber));
+  return pendingProjects.size === 1 ? [...pendingProjects][0] : null;
 }
 
 async function processWeeklyLabSummaryEmail(params: {

@@ -4,6 +4,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import type { CocType, Company, Customer, FullInspectionMaterial, InvoiceLineItem, JobDocument, JobWithCustomer, LabProfile, PricingZone, SampleItem, ServiceType } from "@/lib/types";
 import { defaultInvoiceLineItems, sampleDescriptionForServiceType } from "@/lib/invoice-defaults";
+import { computeSampleCodes } from "@/lib/sample-items";
 import { ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK, jobReportDomains, jobCocTypes, domainForServiceTypeLabel, isFullInspectionAsbestosJob, NEWTON_FIRE_FLOOD_COMPANY_ID, BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID, FLI_ENVIRONMENTAL_COMPANY_ID, type ReportDomain } from "@/lib/report-findings";
 import { splitAddress, parseAddressToFields, buildBillingAddress, googleMapsUrl, wazeUrl, expandAddress } from "@/lib/address";
 import { joinName, splitFullName, toTitleCase } from "@/lib/name";
@@ -737,36 +738,44 @@ function ChainOfCustodyPanel({ job, cocType, label, onChanged }: { job: JobWithC
   // Seeded from whatever this coc_type's rows already hold on the job
   // (e.g. reopening the tab after an earlier draft) — every other
   // coc_type's rows on this same job stay untouched (see the
-  // merge-by-type comment on createCocDraftForJob).
-  const [rows, setRows] = useState<{ sample_number: string; material: string; location: string }[]>(() => {
+  // merge-by-type comment on createCocDraftForJob). sample_number is
+  // never part of this editable state at all — it's always derived fresh
+  // by computeSampleCodes from material order below, so renaming a
+  // material (or reordering rows) can't leave a stale, now-wrong code
+  // sitting on a row.
+  const [rows, setRows] = useState<{ material: string; location: string }[]>(() => {
     const existing = (job.sample_items ?? []).filter((s) => (s.coc_type ?? "asbestos_bulk") === cocType);
-    return existing.length > 0 ? existing.map((s) => ({ sample_number: s.sample_number, material: s.material, location: s.location })) : [{ sample_number: "", material: "", location: "" }];
+    return existing.length > 0 ? existing.map((s) => ({ material: s.material, location: s.location })) : [{ material: "", location: "" }];
   });
   const [turnaround, setTurnaround] = useState<"Rush" | "24-Hr" | null>(job.lab_turnaround === "Rush" ? "Rush" : job.lab_turnaround === "24-Hr" ? "24-Hr" : null);
   const [dateNeeded, setDateNeeded] = useState(job.lab_date_needed ?? "");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  function updateRow(i: number, field: "sample_number" | "material" | "location", value: string) {
+  function updateRow(i: number, field: "material" | "location", value: string) {
     setRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, [field]: value } : r)));
   }
   function addRow() {
-    setRows((prev) => [...prev, { sample_number: "", material: "", location: "" }]);
+    setRows((prev) => [...prev, { material: "", location: "" }]);
   }
   function removeRow(i: number) {
     setRows((prev) => (prev.length > 1 ? prev.filter((_, idx) => idx !== i) : prev));
   }
 
-  const realRows = rows.filter((r) => r.sample_number.trim() || r.material.trim() || r.location.trim());
+  const sampleCodes = computeSampleCodes(rows, hasMaterial);
+  const realRowIndexes = rows
+    .map((r, i) => i)
+    .filter((i) => rows[i].material.trim() || rows[i].location.trim());
 
   async function createCocDraft() {
     setCreating(true);
     setError(null);
     try {
+      const sampleItems = realRowIndexes.map((i) => ({ sample_number: sampleCodes[i], material: rows[i].material, location: rows[i].location }));
       const res = await fetch(`/api/admin/jobs/${job.id}/coc-draft`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cocType, sampleItems: realRows, turnaround, dateNeeded: dateNeeded || null }),
+        body: JSON.stringify({ cocType, sampleItems, turnaround, dateNeeded: dateNeeded || null }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to create draft");
@@ -821,13 +830,10 @@ function ChainOfCustodyPanel({ job, cocType, label, onChanged }: { job: JobWithC
             <tbody>
               {rows.map((r, i) => (
                 <tr key={i} className="border-b border-slate-300 last:border-b-0">
-                  <td className="border-r border-slate-300 p-0">
-                    <input
-                      type="text"
-                      value={r.sample_number}
-                      onChange={(e) => updateRow(i, "sample_number", e.target.value)}
-                      className="w-full border-0 bg-transparent px-3 py-2.5 text-center text-sm focus:bg-brand-50 focus:outline-none"
-                    />
+                  {/* Read-only — the whole point of computeSampleCodes is
+                      that the admin never has to work out 01A/02A himself. */}
+                  <td className="border-r border-slate-300 px-3 py-2.5 text-center font-mono text-sm text-slate-700">
+                    {sampleCodes[i] || "—"}
                   </td>
                   {hasMaterial && (
                     <td className="border-r border-slate-300 p-0">
@@ -873,8 +879,13 @@ function ChainOfCustodyPanel({ job, cocType, label, onChanged }: { job: JobWithC
         <div className="space-y-3 sm:hidden">
           {rows.map((r, i) => (
             <div key={i} className="overflow-hidden rounded-lg border border-slate-400">
+              {/* Header shows the real, derived field code (e.g. "01A"),
+                  not a meaningless ordinal — per Tim, "currently it just
+                  says sample one and sample two and it doesn't really
+                  work that way." No separate Sample # row underneath;
+                  it's read-only and already right here. */}
               <div className="flex items-center justify-between border-b border-slate-400 bg-slate-50 px-3 py-1.5">
-                <span className="text-xs font-bold uppercase text-slate-700">Sample {i + 1}</span>
+                <span className="font-mono text-xs font-bold uppercase text-slate-700">{sampleCodes[i] || `Sample ${i + 1}`}</span>
                 <button
                   type="button"
                   onClick={() => removeRow(i)}
@@ -883,15 +894,6 @@ function ChainOfCustodyPanel({ job, cocType, label, onChanged }: { job: JobWithC
                 >
                   ✕
                 </button>
-              </div>
-              <div className="flex items-center border-b border-slate-300">
-                <span className="w-24 shrink-0 border-r border-slate-300 px-3 py-2.5 text-xs font-bold uppercase text-slate-700">Sample #</span>
-                <input
-                  type="text"
-                  value={r.sample_number}
-                  onChange={(e) => updateRow(i, "sample_number", e.target.value)}
-                  className="w-full border-0 bg-transparent px-3 py-2.5 text-sm focus:bg-brand-50 focus:outline-none"
-                />
               </div>
               {hasMaterial && (
                 <div className="flex items-center border-b border-slate-300">
@@ -955,7 +957,6 @@ function ChainOfCustodyPanel({ job, cocType, label, onChanged }: { job: JobWithC
           <h4 className="mb-2 text-xs font-bold uppercase text-slate-500">Date Needed</h4>
           <input
             type="text"
-            placeholder="Optional"
             value={dateNeeded}
             onChange={(e) => setDateNeeded(e.target.value)}
             className="w-40 rounded-lg border border-slate-300 px-3 py-2 text-right text-sm"
@@ -988,7 +989,6 @@ function ChainOfCustodyPanel({ job, cocType, label, onChanged }: { job: JobWithC
           <h4 className="text-xs font-bold uppercase text-slate-500">Date Needed</h4>
           <input
             type="text"
-            placeholder="Optional"
             value={dateNeeded}
             onChange={(e) => setDateNeeded(e.target.value)}
             className="w-32 border-0 bg-transparent text-right text-sm focus:outline-none"
@@ -1001,7 +1001,7 @@ function ChainOfCustodyPanel({ job, cocType, label, onChanged }: { job: JobWithC
       <button
         type="button"
         onClick={createCocDraft}
-        disabled={creating || realRows.length === 0}
+        disabled={creating || realRowIndexes.length === 0}
         className="mt-4 w-full rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50 sm:w-auto"
       >
         {creating ? "Creating draft…" : "Create Draft ↗"}

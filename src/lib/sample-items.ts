@@ -21,6 +21,41 @@ export function parseSampleItems(raw: unknown): { items: SampleItem[] } | { erro
   return { items };
 }
 
+// Per Tim, 2026-09-28 — "you need to understand how the sample formats
+// work... drywall is always put into the same bag, and drywall gets
+// broken down into drywall skim coat and drywall base... the drywall base
+// is usually 01A, and the drywall skim coat would be 02A... A means
+// sample one and B means sample two... there would also be a second bag
+// 01B and 02B, and it'll be the same combination". Confirmed against real
+// field codes across a dozen recent jobs (26-0041 through 26-0051): the
+// leading number identifies which distinct MATERIAL this is (assigned in
+// the order a new material is first typed, within this one COC — not a
+// fixed code, 01 means something different on every job), and the letter
+// identifies which physical sampling location/round that material came
+// from (A = first location it was taken at, B = second, ...). So the
+// admin (ChainOfCustodyPanel.tsx) never picks a sample number by hand —
+// it's entirely derived from the order Materials get typed and repeated.
+// No material field on Air-O-Cell (see the coc-pdf files' own
+// thirdColumnLabel: null) — those just number sequentially, matching his
+// own real Air-O-Cell COC, which has no letters at all.
+export function computeSampleCodes(rows: { material: string; location: string }[], hasMaterial: boolean): string[] {
+  if (!hasMaterial) return rows.map((_, i) => String(i + 1));
+  const materialOrder: string[] = [];
+  const letterCounts: Record<string, number> = {};
+  return rows.map((r) => {
+    const norm = r.material.trim().toLowerCase();
+    if (!norm) return "";
+    let idx = materialOrder.indexOf(norm);
+    if (idx === -1) {
+      idx = materialOrder.length;
+      materialOrder.push(norm);
+    }
+    const letterIdx = letterCounts[norm] ?? 0;
+    letterCounts[norm] = letterIdx + 1;
+    return `${String(idx + 1).padStart(2, "0")}${String.fromCharCode(65 + letterIdx)}`;
+  });
+}
+
 /**
  * Validates a raw { [serviceTypeLabel]: count } payload — the per-service-type
  * sample counts shown on the Samples tab (one cell per service type on the

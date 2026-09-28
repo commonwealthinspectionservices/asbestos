@@ -879,16 +879,24 @@ function ChainOfCustodyPanel({ job, cocType, label, onChanged }: { job: JobWithC
         <div className="space-y-3 sm:hidden">
           {rows.map((r, i) => (
             <div key={i} className="overflow-hidden rounded-lg border border-slate-400">
-              {/* Per Tim, 2026-09-28 — no title/label here at all (he
-                  doesn't need to see the derived code while filling this
-                  out, only the final draft needs it) — just a minimal
-                  top-right Remove control. */}
-              <div className="flex items-center justify-end border-b border-slate-400 bg-slate-50 px-3 py-1">
+              {/* Per Tim, 2026-09-28 — the blank title-less header strip
+                  didn't work either: "there's no sample row, and there
+                  should definitely be a sample row... it just needs to be
+                  sample, material, location." Back to a real (now
+                  read-only, auto-derived) Sample # row as the first row,
+                  same label-cell style as Material/Location — Remove
+                  folds into that same row's trailing edge instead of its
+                  own separate blank strip. */}
+              <div className="flex items-center justify-between border-b border-slate-400 bg-slate-50">
+                <div className="flex flex-1 items-center">
+                  <span className="w-24 shrink-0 border-r border-slate-300 px-3 py-2.5 text-xs font-bold uppercase text-slate-700">Sample #</span>
+                  <span className="flex-1 px-3 py-2.5 font-mono text-sm text-slate-700">{sampleCodes[i] || "—"}</span>
+                </div>
                 <button
                   type="button"
                   onClick={() => removeRow(i)}
                   disabled={rows.length === 1}
-                  className="text-slate-400 hover:text-red-600 disabled:opacity-30"
+                  className="shrink-0 px-3 text-slate-400 hover:text-red-600 disabled:opacity-30"
                 >
                   ✕
                 </button>

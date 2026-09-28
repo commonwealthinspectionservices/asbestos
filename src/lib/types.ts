@@ -167,6 +167,18 @@ export interface SampleItem {
   // took both Air-O-Cell and Bulk samples needs two separate tables, not
   // one mixed one) in the same sample_items array without them colliding.
   coc_type?: CocType;
+  // Mold Air-O-Cell only — per Tim, 2026-09-28: "I need to begin to
+  // record time for every sample... time for all of them is always 5
+  // mins... it needs a start time and end time for each sample." Both
+  // are real, independently editable fields (native <input type="time">
+  // values, "HH:MM") — end_time just starts out pre-filled with
+  // start_time + 5 minutes as a default (see airOCellEndTime in
+  // sample-items.ts and ChainOfCustodyPanel.tsx's own updateRow), same
+  // "default, not a hard rule" pattern as every other auto-filled value
+  // in this feature — "editable for both start time and end time but
+  // end time always [pre-filled] defaulting to 5 mins after start time."
+  start_time?: string;
+  end_time?: string;
 }
 
 export type CocType = "asbestos_bulk" | "mold_air_o_cell" | "mold_bulk" | "mold_swab";

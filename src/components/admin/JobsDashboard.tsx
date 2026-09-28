@@ -4,7 +4,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import type { CocType, Company, Customer, InvoiceLineItem, JobDocument, JobWithCustomer, LabProfile, PricingZone, SampleItem, ServiceType } from "@/lib/types";
 import { defaultInvoiceLineItems, sampleDescriptionForServiceType } from "@/lib/invoice-defaults";
-import { defaultSampleCode } from "@/lib/sample-items";
+import { defaultSampleCode, airOCellEndTime } from "@/lib/sample-items";
 import { ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK, jobReportDomains, jobCocTypes, domainForServiceTypeLabel, isFullInspectionAsbestosJob, NEWTON_FIRE_FLOOD_COMPANY_ID, BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID, FLI_ENVIRONMENTAL_COMPANY_ID, type ReportDomain } from "@/lib/report-findings";
 import { splitAddress, parseAddressToFields, buildBillingAddress, googleMapsUrl, wazeUrl, expandAddress } from "@/lib/address";
 import { joinName, splitFullName, toTitleCase } from "@/lib/name";
@@ -774,10 +774,17 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
   // whatever's in state, never silently recomputed out from under an
   // edit, so overriding it for a rare third "C" sample (or anything else
   // that breaks the pattern) sticks.
-  const [rows, setRows] = useState<{ sample_number: string; material: string; location: string }[]>(() => {
+  // Per Tim, 2026-09-28 — "I need to begin to record time for every
+  // [Air-O-Cell] sample... it needs a start time and end time for each
+  // sample": Air-O-Cell only (hasTime), a real Start Time field per row —
+  // End Time is always derived from it (airOCellEndTime), never its own
+  // editable field, since the 5-minute duration is a physical constant,
+  // not a preference.
+  const hasTime = cocType === "mold_air_o_cell";
+  const [rows, setRows] = useState<{ sample_number: string; material: string; location: string; start_time: string; end_time: string }[]>(() => {
     const existing = (job.sample_items ?? []).filter((s) => (s.coc_type ?? "asbestos_bulk") === cocType);
     if (existing.length > 0) {
-      return existing.map((s) => ({ sample_number: s.sample_number, material: s.material, location: s.location }));
+      return existing.map((s) => ({ sample_number: s.sample_number, material: s.material, location: s.location, start_time: s.start_time ?? "", end_time: s.end_time ?? "" }));
     }
     // Per Tim, 2026-09-28 — "the default standard for the starting point
     // should be 01A and 01B... not just 01A like it is now": a fresh
@@ -787,10 +794,10 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
     // pairing concept at all, so it still starts with just one row.
     return hasMaterial
       ? [
-          { sample_number: defaultSampleCode(0, true), material: "", location: "" },
-          { sample_number: defaultSampleCode(1, true), material: "", location: "" },
+          { sample_number: defaultSampleCode(0, true), material: "", location: "", start_time: "", end_time: "" },
+          { sample_number: defaultSampleCode(1, true), material: "", location: "", start_time: "", end_time: "" },
         ]
-      : [{ sample_number: defaultSampleCode(0, false), material: "", location: "" }];
+      : [{ sample_number: defaultSampleCode(0, false), material: "", location: "", start_time: "", end_time: "" }];
   });
 
   // Per Tim, 2026-09-28 (a follow-up the same day to the Location
@@ -860,7 +867,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
     saveDebounceRef.current = setTimeout(() => {
       const otherTypesRows = (job.sample_items ?? []).filter((s) => (s.coc_type ?? "asbestos_bulk") !== cocType);
       const thisTypeRows = rows
-        .filter((r) => r.sample_number.trim() || r.material.trim() || r.location.trim())
+        .filter((r) => r.sample_number.trim() || r.material.trim() || r.location.trim() || r.start_time.trim() || r.end_time.trim())
         .map((r) => ({ ...r, coc_type: cocType }));
       fetch(`/api/admin/jobs/${job.id}`, {
         method: "PATCH",
@@ -900,13 +907,26 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
   // add or change like always": same auto-copy rule as Material, now for
   // Location too — an A row (even index) mirrors its edit into its B row
   // (index+1) only while B hasn't already diverged on its own.
-  function updateRow(i: number, field: "sample_number" | "material" | "location", value: string) {
+  // Per Tim, 2026-09-28 — "editable for both start time and end time but
+  // end time always [pre-filled] defaulting to 5 mins after start time":
+  // same "auto-fill only while it hasn't already diverged" rule as
+  // Material/Location's own A→B copy above — editing Start Time updates
+  // End Time's default too, but only while End Time still equals the OLD
+  // default (or is blank); the moment it's been hand-edited to something
+  // else, further Start Time edits stop overwriting it.
+  function updateRow(i: number, field: "sample_number" | "material" | "location" | "start_time" | "end_time", value: string) {
     setRows((prev) => {
       const next = prev.map((r, idx) => (idx === i ? { ...r, [field]: value } : r));
       if ((field === "material" || field === "location") && hasMaterial && i % 2 === 0 && i + 1 < next.length) {
         const bRow = prev[i + 1];
         if (bRow[field] === prev[i][field] || bRow[field] === "") {
           next[i + 1] = { ...next[i + 1], [field]: value };
+        }
+      }
+      if (field === "start_time" && hasTime) {
+        const oldDefault = airOCellEndTime(prev[i].start_time);
+        if (prev[i].end_time === "" || prev[i].end_time === oldDefault) {
+          next[i] = { ...next[i], end_time: airOCellEndTime(value) };
         }
       }
       return next;
@@ -935,12 +955,12 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
   function addRow() {
     setRows((prev) => {
       if (!hasMaterial) {
-        return [...prev, { sample_number: defaultSampleCode(prev.length, false), material: "", location: "" }];
+        return [...prev, { sample_number: defaultSampleCode(prev.length, false), material: "", location: "", start_time: "", end_time: "" }];
       }
       return [
         ...prev,
-        { sample_number: defaultSampleCode(prev.length, true), material: "", location: "" },
-        { sample_number: defaultSampleCode(prev.length + 1, true), material: "", location: "" },
+        { sample_number: defaultSampleCode(prev.length, true), material: "", location: "", start_time: "", end_time: "" },
+        { sample_number: defaultSampleCode(prev.length + 1, true), material: "", location: "", start_time: "", end_time: "" },
       ];
     });
   }
@@ -950,13 +970,13 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
 
   const realRowIndexes = rows
     .map((r, i) => i)
-    .filter((i) => rows[i].sample_number.trim() || rows[i].material.trim() || rows[i].location.trim());
+    .filter((i) => rows[i].sample_number.trim() || rows[i].material.trim() || rows[i].location.trim() || rows[i].start_time.trim() || rows[i].end_time.trim());
 
   async function createCocDraft() {
     setCreating(true);
     setError(null);
     try {
-      const sampleItems = realRowIndexes.map((i) => ({ sample_number: rows[i].sample_number, material: rows[i].material, location: rows[i].location }));
+      const sampleItems = realRowIndexes.map((i) => ({ sample_number: rows[i].sample_number, material: rows[i].material, location: rows[i].location, ...(rows[i].start_time ? { start_time: rows[i].start_time } : {}), ...(rows[i].end_time ? { end_time: rows[i].end_time } : {}) }));
       const res = await fetch(`/api/admin/jobs/${job.id}/coc-draft`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -991,7 +1011,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
     setViewingPdf(mode);
     setError(null);
     try {
-      const sampleItems = realRowIndexes.map((i) => ({ sample_number: rows[i].sample_number, material: rows[i].material, location: rows[i].location }));
+      const sampleItems = realRowIndexes.map((i) => ({ sample_number: rows[i].sample_number, material: rows[i].material, location: rows[i].location, ...(rows[i].start_time ? { start_time: rows[i].start_time } : {}), ...(rows[i].end_time ? { end_time: rows[i].end_time } : {}) }));
       const res = await fetch(`/api/admin/jobs/${job.id}/coc-pdf`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1073,6 +1093,10 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
                     into) pick up the freed-up width instead. */}
                 <th className="w-20 border-r border-slate-300 px-3 py-2 text-center text-xs font-bold uppercase text-slate-700">Sample #</th>
                 {hasMaterial && <th className="min-w-[220px] border-r border-slate-300 px-3 py-2 text-center text-xs font-bold uppercase text-slate-700">Material</th>}
+                {/* Per Tim, 2026-09-28 — "I need to begin to record time
+                    for every [Air-O-Cell] sample... it needs a start
+                    time and end time for each sample": Air-O-Cell only. */}
+                {hasTime && <th className="w-52 border-r border-slate-300 px-3 py-2 text-center text-xs font-bold uppercase text-slate-700">Time</th>}
                 <th className="min-w-[220px] border-r border-slate-300 px-3 py-2 text-center text-xs font-bold uppercase text-slate-700">Location</th>
                 <th className="w-10" />
               </tr>
@@ -1103,6 +1127,43 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
                         onBlur={(v) => updateRow(i, "material", v)}
                         inputClassName="w-full border-0 bg-transparent px-3 py-2.5 text-sm focus:bg-brand-50 focus:outline-none"
                       />
+                    </td>
+                  )}
+                  {/* Per Tim, 2026-09-28 — "this should be a split row
+                      maybe? 1/2 is start time and 1/2 is end time," then
+                      "editable for both start time and end time but end
+                      time always [pre-filled] defaulting to 5 mins after
+                      start time": a real 50/50 split, both genuine
+                      <input type="time">s — End Time just starts out
+                      seeded from Start Time + 5 minutes (see updateRow's
+                      own comment on the auto-fill rule), not a read-only
+                      derived value. */}
+                  {/* Per Tim, 2026-09-28 — "it needs to say start time
+                      and end time": a small caption over each half so
+                      it's clear which one's which, not just two
+                      unlabeled clocks side by side under "TIME". */}
+                  {hasTime && (
+                    <td className="border-r border-slate-300 p-0">
+                      <div className="flex items-stretch">
+                        <div className="w-1/2 border-r border-slate-300 px-2 py-1.5">
+                          <div className="text-[9px] font-bold uppercase text-slate-400">Start Time</div>
+                          <input
+                            type="time"
+                            value={r.start_time}
+                            onChange={(e) => updateRow(i, "start_time", e.target.value)}
+                            className="w-full border-0 bg-transparent text-sm focus:bg-brand-50 focus:outline-none"
+                          />
+                        </div>
+                        <div className="w-1/2 px-2 py-1.5">
+                          <div className="text-[9px] font-bold uppercase text-slate-400">End Time</div>
+                          <input
+                            type="time"
+                            value={r.end_time}
+                            onChange={(e) => updateRow(i, "end_time", e.target.value)}
+                            className="w-full border-0 bg-transparent text-sm focus:bg-brand-50 focus:outline-none"
+                          />
+                        </div>
+                      </div>
                     </td>
                   )}
                   <td className="border-r border-slate-300 p-0">
@@ -1192,6 +1253,37 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
                     onBlur={(v) => updateRow(i, "material", v)}
                     inputClassName="w-full border-0 bg-transparent px-3 py-2.5 text-xs focus:bg-brand-50 focus:outline-none"
                   />
+                </div>
+              )}
+              {/* Per Tim, 2026-09-28 — same split-cell fix as the desktop
+                  table's own Time column above: a real 50/50 split, both
+                  genuine <input type="time">s, End Time just pre-filled
+                  from Start Time + 5 minutes as a default. */}
+              {/* Per Tim, 2026-09-28 — same "Start Time"/"End Time"
+                  caption fix as the desktop table's own Time column. */}
+              {hasTime && (
+                <div className="flex items-stretch border-b border-slate-300">
+                  <span className="w-20 shrink-0 border-r border-slate-300 px-2 py-2.5 text-xs font-bold uppercase text-slate-700">Time</span>
+                  <div className="flex flex-1 items-stretch">
+                    <div className="w-1/2 border-r border-slate-300 px-3 py-1.5">
+                      <div className="text-[9px] font-bold uppercase text-slate-400">Start Time</div>
+                      <input
+                        type="time"
+                        value={r.start_time}
+                        onChange={(e) => updateRow(i, "start_time", e.target.value)}
+                        className="w-full border-0 bg-transparent text-xs focus:bg-brand-50 focus:outline-none"
+                      />
+                    </div>
+                    <div className="w-1/2 px-3 py-1.5">
+                      <div className="text-[9px] font-bold uppercase text-slate-400">End Time</div>
+                      <input
+                        type="time"
+                        value={r.end_time}
+                        onChange={(e) => updateRow(i, "end_time", e.target.value)}
+                        className="w-full border-0 bg-transparent text-xs focus:bg-brand-50 focus:outline-none"
+                      />
+                    </div>
+                  </div>
                 </div>
               )}
               <div className="flex items-center">

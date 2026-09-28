@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { deriveFullInspectionMaterials, defaultSampleCode } from "@/lib/sample-items";
+import { deriveFullInspectionMaterials, defaultSampleCode, airOCellEndTime } from "@/lib/sample-items";
 import type { FullInspectionMaterial } from "@/lib/types";
 
 describe("deriveFullInspectionMaterials", () => {
@@ -103,5 +103,27 @@ describe("defaultSampleCode", () => {
   it("no material field (Air-O-Cell): plain sequential numbers, no letters", () => {
     const codes = [0, 1, 2].map((i) => defaultSampleCode(i, false));
     expect(codes).toEqual(["1", "2", "3"]);
+  });
+});
+
+describe("airOCellEndTime", () => {
+  // Per Tim, 2026-09-28 — "time for all of them is always 5 mins...
+  // the end time will always be 5 mins after the start time."
+  it("adds 5 minutes to the start time", () => {
+    expect(airOCellEndTime("09:00")).toBe("09:05");
+    expect(airOCellEndTime("14:32")).toBe("14:37");
+  });
+
+  it("rolls over the hour", () => {
+    expect(airOCellEndTime("09:58")).toBe("10:03");
+  });
+
+  it("rolls over midnight", () => {
+    expect(airOCellEndTime("23:58")).toBe("00:03");
+  });
+
+  it("returns an empty string for a blank or malformed start time", () => {
+    expect(airOCellEndTime("")).toBe("");
+    expect(airOCellEndTime("not a time")).toBe("");
   });
 });

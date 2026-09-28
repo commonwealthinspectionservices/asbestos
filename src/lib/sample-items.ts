@@ -15,10 +15,33 @@ export function parseSampleItems(raw: unknown): { items: SampleItem[] } | { erro
     const material = typeof rawItem?.material === "string" ? rawItem.material.trim() : "";
     const location = typeof rawItem?.location === "string" ? rawItem.location.trim() : "";
     const cocType = COC_TYPES.includes(rawItem?.coc_type) ? (rawItem.coc_type as CocType) : undefined;
-    items.push({ sample_number: sampleNumber, material, location, ...(cocType ? { coc_type: cocType } : {}) });
+    const startTime = typeof rawItem?.start_time === "string" && /^\d{2}:\d{2}$/.test(rawItem.start_time) ? rawItem.start_time : undefined;
+    const endTime = typeof rawItem?.end_time === "string" && /^\d{2}:\d{2}$/.test(rawItem.end_time) ? rawItem.end_time : undefined;
+    items.push({ sample_number: sampleNumber, material, location, ...(cocType ? { coc_type: cocType } : {}), ...(startTime ? { start_time: startTime } : {}), ...(endTime ? { end_time: endTime } : {}) });
   }
 
   return { items };
+}
+
+// Per Tim, 2026-09-28 — "time for all of them is always 5 mins... it
+// needs a start time and end time for each sample" (Mold Air-O-Cell
+// only — the pump runs a fixed 5-minute sample), then a follow-up:
+// "editable for both start time and end time but end time always
+// [pre-filled] defaulting to 5 mins after start time" — end_time is a
+// real, independently editable field (see SampleItem in types.ts), this
+// just computes its STARTING default whenever start_time changes (see
+// ChainOfCustodyPanel.tsx's own updateRow for the "only overwrite while
+// it hasn't already diverged" rule, same pattern as every other
+// auto-filled default in this feature). "HH:MM" in, "HH:MM" out,
+// rolling over past midnight the same way a real clock would
+// (23:58 -> 00:03) rather than producing an invalid hour.
+export function airOCellEndTime(startTime: string): string {
+  const match = startTime.match(/^(\d{2}):(\d{2})$/);
+  if (!match) return "";
+  const totalMinutes = (Number(match[1]) * 60 + Number(match[2]) + 5) % (24 * 60);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
 }
 
 // Per Tim, 2026-09-28 — first pass at this derived the number from which

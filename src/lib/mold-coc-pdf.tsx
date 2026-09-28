@@ -4,7 +4,7 @@ import { Document, Page, Text, View, Image, StyleSheet, Font, renderToBuffer } f
 // wrapped word should always move to the next line whole, never split with
 // a hyphen. Same fix as report-pdf.tsx/invoice-pdf.tsx's own copies of this.
 Font.registerHyphenationCallback((word) => [word]);
-import { formatDateMDY } from "@/lib/date-format";
+import { formatDateMDY, formatRequestedTime } from "@/lib/date-format";
 import { expandAddress } from "@/lib/address";
 import type { Job, Customer, Settings, SampleItem } from "@/lib/types";
 
@@ -45,14 +45,17 @@ export type MoldSampleType = "air_o_cell" | "bulk" | "swab";
 // roughly twice as tall instead of leaving half the rows unused. No
 // continuation page either — 10 rows is already more than a real mold
 // job needs, unlike the asbestos form's own two-page design.
-// thirdColumnLabel is null for Air-O-Cell — every sample is the same
-// fixed 75L (see dateNeededNote below), so a per-row VOLUME column would
-// just repeat that on every line. Table collapses to SAMPLE #/LOCATION
-// only, with LOCATION taking the full remaining width.
+// thirdColumnLabel was null for Air-O-Cell (every sample used the same
+// fixed 75L volume, no per-row value to show — see dateNeededNote
+// below), until Tim, 2026-09-28: "I need to begin to record time for
+// every sample... it needs a start time and end time." Reused for TIME
+// instead of leaving the slot empty — same column, sourced from
+// start_time/end_time instead of material (see the table render below,
+// which branches on sampleType === "air_o_cell" specifically).
 const SAMPLE_TYPE_CONFIG: Record<MoldSampleType, { title: string; thirdColumnLabel: string | null; turnaroundNote: string | null; dateNeededNote: string | null; rowCount: number }> = {
   air_o_cell: {
     title: "MOLD AIR-O-CELL SAMPLE CHAIN OF CUSTODY",
-    thirdColumnLabel: null,
+    thirdColumnLabel: "TIME",
     turnaroundNote: "*Samples for analysis by Spore Trap Analysis",
     dateNeededNote: "*The volume for all Air-O-Cell samples is 75L",
     rowCount: 10,
@@ -264,7 +267,15 @@ function MoldCocDocument({ job, customer, sampleType, sampleItems, turnaround, r
           {Array.from({ length: config.rowCount }).map((_, i) => (
             <View style={styles.tableRow} key={i}>
               <View style={[styles.colSample, { padding: 3 }]}><Text style={{ textAlign: "center" }}>{items[i]?.sample_number ?? ""}</Text></View>
-              {config.thirdColumnLabel && <View style={[styles.colThird, { padding: 3 }]}><Text style={{ textAlign: "center" }}>{items[i]?.material ?? ""}</Text></View>}
+              {config.thirdColumnLabel && (
+                <View style={[styles.colThird, { padding: 3 }]}>
+                  <Text style={{ textAlign: "center" }}>
+                    {sampleType === "air_o_cell"
+                      ? (items[i]?.start_time ? `${formatRequestedTime(items[i].start_time) ?? ""} – ${formatRequestedTime(items[i]?.end_time) ?? ""}` : "")
+                      : (items[i]?.material ?? "")}
+                  </Text>
+                </View>
+              )}
               <View style={[styles.colLocation, { padding: 3 }]}><Text style={{ textAlign: "center" }}>{items[i]?.location ?? ""}</Text></View>
             </View>
           ))}

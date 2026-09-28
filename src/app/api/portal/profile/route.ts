@@ -125,6 +125,40 @@ export const POST = withApiErrors(async (req: NextRequest) => {
     throw new Error(`Failed to save profile: ${error?.message}`);
   }
 
+  // Per Tim, 2026-09-28 — "I definitely want to get all of the
+  // information that people provide me when they sign up... it only
+  // shows their email address": the earlier signup-notify alert
+  // (POST /api/portal/signup-notify) fires the moment someone starts
+  // signing in, before they've typed anything but their email — that's
+  // not a bug, it's genuinely all that exists yet at that point. This is
+  // the real one, fired here because this route is the one place the
+  // rest of it (name, phone, account type, company, billing address)
+  // actually lands, right after onboarding finishes for the first time
+  // (the onboarding page's own redirect gate keeps this from running
+  // again for an already-onboarded contact). Best-effort — same pattern
+  // as every other admin alert (see area-health.ts, route-runner.ts): a
+  // failed notification shouldn't fail the signup that already succeeded.
+  {
+    const appUrl = getAppUrl();
+    const contactUrl = appUrl ? `${appUrl}/admin/customers?tab=contacts&contactId=${customer.id}` : null;
+    await sendEmail({
+      to: process.env.OWNER_EMAIL!,
+      subject: `New contact: ${name}`,
+      html: emailShell(`
+        <p style="font-size:15px;">${escapeHtml(name)} just finished signing up. Here's everything they provided:</p>
+        <table style="width:100%; font-size:14px; color:#16213a;">
+          <tr><td style="padding:4px 8px 4px 0; color:#64748b; white-space:nowrap;">Name</td><td>${escapeHtml(name)}</td></tr>
+          <tr><td style="padding:4px 8px 4px 0; color:#64748b; white-space:nowrap;">Email</td><td>${escapeHtml(email)}</td></tr>
+          <tr><td style="padding:4px 8px 4px 0; color:#64748b; white-space:nowrap;">Phone</td><td>${escapeHtml(phone)}</td></tr>
+          <tr><td style="padding:4px 8px 4px 0; color:#64748b; white-space:nowrap;">Account type</td><td>${isIndividual ? "Individual" : "Company"}</td></tr>
+          ${!isIndividual ? `<tr><td style="padding:4px 8px 4px 0; color:#64748b; white-space:nowrap;">Company</td><td>${escapeHtml(company ?? "")}</td></tr>` : ""}
+          ${isIndividual && billingAddress ? `<tr><td style="padding:4px 8px 4px 0; color:#64748b; white-space:nowrap;">Billing address</td><td>${escapeHtml(billingAddress)}</td></tr>` : ""}
+        </table>
+        ${contactUrl ? `<p style="margin-top:12px; font-size:13px;"><a href="${contactUrl}" style="color:#1f3f80;">View this contact</a></p>` : ""}
+      `),
+    });
+  }
+
   // Best-effort — same pattern as every other admin alert (see
   // area-health.ts, route-runner.ts): a failed notification shouldn't fail
   // the signup that already succeeded.

@@ -879,13 +879,11 @@ function ChainOfCustodyPanel({ job, cocType, label, onChanged }: { job: JobWithC
         <div className="space-y-3 sm:hidden">
           {rows.map((r, i) => (
             <div key={i} className="overflow-hidden rounded-lg border border-slate-400">
-              {/* Header shows the real, derived field code (e.g. "01A"),
-                  not a meaningless ordinal — per Tim, "currently it just
-                  says sample one and sample two and it doesn't really
-                  work that way." No separate Sample # row underneath;
-                  it's read-only and already right here. */}
-              <div className="flex items-center justify-between border-b border-slate-400 bg-slate-50 px-3 py-1.5">
-                <span className="font-mono text-xs font-bold uppercase text-slate-700">{sampleCodes[i] || `Sample ${i + 1}`}</span>
+              {/* Per Tim, 2026-09-28 — no title/label here at all (he
+                  doesn't need to see the derived code while filling this
+                  out, only the final draft needs it) — just a minimal
+                  top-right Remove control. */}
+              <div className="flex items-center justify-end border-b border-slate-400 bg-slate-50 px-3 py-1">
                 <button
                   type="button"
                   onClick={() => removeRow(i)}

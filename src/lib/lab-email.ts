@@ -8,7 +8,7 @@ import { deriveFullInspectionMaterials } from "@/lib/sample-items";
 import { renderBlankCocPdf } from "@/lib/blank-coc-pdf";
 import { renderMoldCocPdf, type MoldSampleType } from "@/lib/mold-coc-pdf";
 import { withCompanyBillingAddress } from "@/lib/customer-billing";
-import { formatDateMDY } from "@/lib/date-format";
+import { formatDateMDY, formatRequestedTime } from "@/lib/date-format";
 import { threadSubject, threadHeaders } from "@/lib/email-thread";
 import {
   addLabelToMessage,
@@ -3075,7 +3075,7 @@ const COC_TITLE: Record<CocType, string> = {
  * two independent tables, not one mixed one.
  */
 async function draftCocEmailForJob({
-  job, settings, accessToken, cocType, sampleItems, turnaround, dateNeeded,
+  job, settings, accessToken, cocType, sampleItems, turnaround, dateNeeded, relinquishedDate, relinquishedTime,
 }: {
   job: Job & { customers: Customer & { companies: Company | null } };
   settings: Settings;
@@ -3084,6 +3084,14 @@ async function draftCocEmailForJob({
   sampleItems: SampleItem[];
   turnaround: "Rush" | "24-Hr" | null;
   dateNeeded: string | null;
+  // Per Tim, 2026-09-28 — "the relinquishment is the time that I drop it
+  // off at the lab... most of the time it won't be" [the same moment as
+  // creating the draft], so this has to be a real, always-editable field,
+  // not just auto-stamped with whenever the draft happens to get created.
+  // Optional/nullable only so old callers (none currently) degrade to the
+  // previous now()-based behavior rather than a hard error.
+  relinquishedDate: string | null;
+  relinquishedTime: string | null;
 }): Promise<{ messageId: string }> {
   if (sampleItems.length === 0) {
     throw new Error("Add at least one sample before creating a Chain of Custody draft");
@@ -3094,8 +3102,8 @@ async function draftCocEmailForJob({
   const timeZone = settings.timezone;
   const relinquishedBy = {
     name: inspector.name,
-    date: now.toLocaleDateString("en-US", { timeZone, month: "2-digit", day: "2-digit", year: "numeric" }),
-    time: now.toLocaleTimeString("en-US", { timeZone, hour: "numeric", minute: "2-digit", hour12: true }),
+    date: relinquishedDate ? (formatDateMDY(relinquishedDate) ?? relinquishedDate) : now.toLocaleDateString("en-US", { timeZone, month: "2-digit", day: "2-digit", year: "numeric" }),
+    time: relinquishedTime ? (formatRequestedTime(relinquishedTime) ?? relinquishedTime) : now.toLocaleTimeString("en-US", { timeZone, hour: "numeric", minute: "2-digit", hour12: true }),
   };
 
   const taggedItems: SampleItem[] = sampleItems.map((s) => ({ ...s, coc_type: cocType }));
@@ -3148,7 +3156,14 @@ async function draftCocEmailForJob({
 /** The Chain of Custody tab's "Create Draft" button. */
 export async function createCocDraftForJob(
   jobId: string,
-  selection: { cocType: CocType; sampleItems: SampleItem[]; turnaround: "Rush" | "24-Hr" | null; dateNeeded: string | null }
+  selection: {
+    cocType: CocType;
+    sampleItems: SampleItem[];
+    turnaround: "Rush" | "24-Hr" | null;
+    dateNeeded: string | null;
+    relinquishedDate: string | null;
+    relinquishedTime: string | null;
+  }
 ): Promise<{ messageId: string }> {
   return draftCocEmailForJob({ ...(await loadJobForDraft(jobId)), ...selection });
 }

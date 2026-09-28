@@ -34,7 +34,13 @@ export const POST = withApiErrors(async (
 
   const turnaround = body?.turnaround === "Rush" || body?.turnaround === "24-Hr" ? body.turnaround : null;
   const dateNeeded = typeof body?.dateNeeded === "string" && body.dateNeeded ? body.dateNeeded : null;
+  // Per Tim, 2026-09-28 — real, always-editable date/time pickers (the
+  // relinquish moment is when he actually drops samples at the lab, not
+  // necessarily when this draft gets created) — native <input type="date">/
+  // "time"> values, so a plain shape check is enough here.
+  const relinquishedDate = typeof body?.relinquishedDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.relinquishedDate) ? body.relinquishedDate : null;
+  const relinquishedTime = typeof body?.relinquishedTime === "string" && /^\d{2}:\d{2}$/.test(body.relinquishedTime) ? body.relinquishedTime : null;
 
-  const { messageId } = await createCocDraftForJob(params.id, { cocType, sampleItems, turnaround, dateNeeded });
+  const { messageId } = await createCocDraftForJob(params.id, { cocType, sampleItems, turnaround, dateNeeded, relinquishedDate, relinquishedTime });
   return NextResponse.json({ ok: true, messageId });
 });

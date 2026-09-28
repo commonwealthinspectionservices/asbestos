@@ -751,11 +751,6 @@ function ChainOfCustodyPanel({ job, cocType, label, onChanged }: { job: JobWithC
   const [dateNeeded, setDateNeeded] = useState(job.lab_date_needed ?? "");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Per Tim, 2026-09-28 — "we are missing the relinquished part": Relinquished
-  // By was always auto-filled (never an editable field — see the very top
-  // of this component's own comment), but nothing showed that was actually
-  // happening. This is a read-only preview line, not a new input — the
-  // real timestamp only exists once "Create Draft" is actually clicked.
   const [inspectorName, setInspectorName] = useState<string | null>(null);
   useEffect(() => {
     fetch("/api/admin/settings")
@@ -763,6 +758,22 @@ function ChainOfCustodyPanel({ job, cocType, label, onChanged }: { job: JobWithC
       .then((data) => setInspectorName(data.settings?.inspectors?.[0]?.name ?? null))
       .catch(() => {});
   }, []);
+  // Per Tim, 2026-09-28 — "the relinquishment is the time that I drop it
+  // off at the lab... most of the time it won't be [when the draft gets
+  // created], so I have to enter that in": real, always-editable date/
+  // time pickers, not an auto-stamped read-only preview (which is what
+  // this was until this same day, per the "we are missing the
+  // relinquished part" feedback right before this one) — defaults to
+  // right now as a starting point, since drafting right at drop-off is
+  // still the common case, but he can freely change either.
+  const [relinquishedDate, setRelinquishedDate] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  });
+  const [relinquishedTime, setRelinquishedTime] = useState(() => {
+    const d = new Date();
+    return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  });
 
   function updateRow(i: number, field: "material" | "location", value: string) {
     setRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, [field]: value } : r)));
@@ -787,7 +798,7 @@ function ChainOfCustodyPanel({ job, cocType, label, onChanged }: { job: JobWithC
       const res = await fetch(`/api/admin/jobs/${job.id}/coc-draft`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cocType, sampleItems, turnaround, dateNeeded: dateNeeded || null }),
+        body: JSON.stringify({ cocType, sampleItems, turnaround, dateNeeded: dateNeeded || null, relinquishedDate, relinquishedTime }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to create draft");
@@ -945,16 +956,19 @@ function ChainOfCustodyPanel({ job, cocType, label, onChanged }: { job: JobWithC
         )}
       </div>
 
-      {/* TURNAROUND styled as the two printed words with an outline that
-          appears around whichever one is picked, echoing how the owner
-          circles one by hand on the real form — not a generic filled
-          app-style toggle button. Desktop-only row (hidden below sm); see
-          the sm:hidden block right after it for mobile's own two full-
-          width rows.
-          Per Tim, 2026-09-28 — "this all needs to be one line across":
-          Turnaround and Date Needed now share a single row (was two
-          label-above-controls columns), same uniform text-xs/slate-500
-          styling as the mobile row for consistency. */}
+      {/* TURNAROUND — the selected option still gets the outline that
+          appears around it, echoing how the owner circles one by hand on
+          the real form (per Tim, 2026-09-28: "I like how when you hover
+          over it, the circle appears — that should definitely stay").
+          Unselected options now sit on a light slate chip at rest instead
+          of reading as plain text next to the label — per Tim's very next
+          message, the plain-text look didn't read as an interactive
+          control at all ("right now the feature just looks like plain
+          text... we just need to make it look like more of a button").
+          Desktop-only row (hidden below sm); see the sm:hidden block
+          right after it for mobile's own copy of the same styling.
+          Turnaround and Date Needed share a single row ("this all needs
+          to be one line across"), uniform text-xs styling throughout. */}
       <div className="mt-4 hidden flex-nowrap items-center gap-6 sm:flex">
         <span className="whitespace-nowrap text-xs font-bold uppercase text-slate-500">Turnaround</span>
         <div className="flex gap-3">
@@ -963,7 +977,7 @@ function ChainOfCustodyPanel({ job, cocType, label, onChanged }: { job: JobWithC
               key={t}
               type="button"
               onClick={() => setTurnaround(turnaround === t ? null : t)}
-              className={`whitespace-nowrap rounded-full border-2 px-2.5 py-1 text-xs font-bold uppercase text-slate-500 ${turnaround === t ? "border-brand-600" : "border-transparent hover:border-slate-300"}`}
+              className={`whitespace-nowrap rounded-full border-2 px-2.5 py-1 text-xs font-bold uppercase transition-colors ${turnaround === t ? "border-brand-600 bg-brand-50 text-brand-700" : "border-transparent bg-slate-100 text-slate-600 hover:border-slate-300"}`}
             >
               {t === "Rush" ? "RUSH" : "24HR"}
             </button>
@@ -997,7 +1011,7 @@ function ChainOfCustodyPanel({ job, cocType, label, onChanged }: { job: JobWithC
                 key={t}
                 type="button"
                 onClick={() => setTurnaround(turnaround === t ? null : t)}
-                className={`whitespace-nowrap rounded-full border-2 px-2.5 py-1 text-xs font-bold uppercase text-slate-500 ${turnaround === t ? "border-brand-600" : "border-transparent"}`}
+                className={`whitespace-nowrap rounded-full border-2 px-2.5 py-1 text-xs font-bold uppercase transition-colors ${turnaround === t ? "border-brand-600 bg-brand-50 text-brand-700" : "border-transparent bg-slate-100 text-slate-600"}`}
               >
                 {t === "Rush" ? "RUSH" : "24HR"}
               </button>
@@ -1015,12 +1029,28 @@ function ChainOfCustodyPanel({ job, cocType, label, onChanged }: { job: JobWithC
         </div>
       </div>
 
-      {/* Read-only preview — see the useEffect above for why this can't
-          be an editable field (there's nothing to edit; the real
-          timestamp doesn't exist until the draft is actually created). */}
-      <div className="mt-2 flex flex-nowrap items-center justify-between rounded-lg border border-slate-300 px-3 py-2">
-        <span className="whitespace-nowrap text-xs font-bold uppercase text-slate-500">Relinquished By</span>
-        <span className="truncate text-xs text-slate-500">{inspectorName ?? "—"} · auto-filled when drafted</span>
+      {/* Per Tim, 2026-09-28 — real, always-editable date + time pickers,
+          not a read-only preview (that was the very first pass at this,
+          same day — turned out wrong: "the relinquishment is the time
+          that I drop it off at the lab... I have to enter that in").
+          Name stays fixed (from Settings, same as every report/invoice
+          signature block) — only date/time are his to set. One line
+          across, same as Turnaround/Date Needed above. */}
+      <div className="mt-2 flex flex-nowrap items-center gap-3 overflow-x-auto rounded-lg border border-slate-300 px-3 py-2">
+        <span className="shrink-0 whitespace-nowrap text-xs font-bold uppercase text-slate-500">Relinquished By</span>
+        <span className="shrink-0 whitespace-nowrap text-xs text-slate-700">{inspectorName ?? "—"}</span>
+        <input
+          type="date"
+          value={relinquishedDate}
+          onChange={(e) => setRelinquishedDate(e.target.value)}
+          className="ml-auto shrink-0 rounded-lg border border-slate-300 px-2 py-1.5 text-xs"
+        />
+        <input
+          type="time"
+          value={relinquishedTime}
+          onChange={(e) => setRelinquishedTime(e.target.value)}
+          className="shrink-0 rounded-lg border border-slate-300 px-2 py-1.5 text-xs"
+        />
       </div>
 
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}

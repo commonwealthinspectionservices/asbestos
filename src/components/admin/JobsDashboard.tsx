@@ -921,35 +921,26 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
   // material/A-B pairing concept there at all, just plain sequential
   // samples, so that one stays "+ Add sample", one row at a time.
   //
-  // Per Tim, 2026-09-28 (later the same day) — first "01A/01B/02A/02B...
-  // I shouldn't have to retype the same location" (a new row starting
-  // blank instead of pre-filled), then a real-world correction to that:
-  // "the location for 01A and 01B can sometimes be different... the
-  // location is always going to correspond exactly for 01A and 02A...
-  // 01B and 02B are taken from a different place... for walls, two
-  // pieces of the same wall will always get read, and that's the same
-  // with plaster ceilings" — a wall or ceiling gets sampled at two
-  // physical spots (A and B), and each homogeneous layer of it (wall
-  // base, skim coat, ...) gets its own material row pulled from those
-  // exact same two spots. So a new A's Location default comes from the
-  // PREVIOUS A (two rows back), not the row directly above it (which is
-  // the previous B) — and a new B's default comes from the previous B.
-  // No material-type list needed (walls vs. everything else) — this is
-  // just a better starting guess, applied the same way every time, and
-  // still freely editable the moment a material really did come from
-  // somewhere else (same rule as A→B's own auto-copy in updateRow).
+  // Per Tim, 2026-09-28 — went through a few rounds on Location's default
+  // for a new row (copy from the row above; copy same-letter across
+  // pairs for walls/ceilings' layered materials), then landed on
+  // "instead of trying to have the system recognize which stuff should
+  // autofill where... any location should save for future cells... and
+  // appear in a dropdown... I should only have to type each new location
+  // one time" — no guessing at all: a new row's Location always starts
+  // blank, and every distinct Location already typed anywhere in this
+  // table is one click away via the Location field's own dropdown (see
+  // fetchLocationOptions above) instead of a pre-filled guess that might
+  // be wrong.
   function addRow() {
     setRows((prev) => {
-      const lastLocation = prev[prev.length - 1]?.location ?? "";
       if (!hasMaterial) {
-        return [...prev, { sample_number: defaultSampleCode(prev.length, false), material: "", location: lastLocation }];
+        return [...prev, { sample_number: defaultSampleCode(prev.length, false), material: "", location: "" }];
       }
-      const prevALocation = prev.length >= 2 ? prev[prev.length - 2].location : lastLocation;
-      const prevBLocation = lastLocation;
       return [
         ...prev,
-        { sample_number: defaultSampleCode(prev.length, true), material: "", location: prevALocation },
-        { sample_number: defaultSampleCode(prev.length + 1, true), material: "", location: prevBLocation },
+        { sample_number: defaultSampleCode(prev.length, true), material: "", location: "" },
+        { sample_number: defaultSampleCode(prev.length + 1, true), material: "", location: "" },
       ];
     });
   }
@@ -979,6 +970,54 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
       setError(e instanceof Error ? e.message : "Failed to create draft");
     } finally {
       setCreating(false);
+    }
+  }
+
+  // Per Tim, 2026-09-28 — "a button next to create draft... same height
+  // and format and everything... that allows me to view and another for
+  // download": renders whatever's currently on screen right now (posted
+  // fresh, same shape as Create Draft), never Gmail, never saves
+  // anything — a pure preview. View opens it in a new tab; Download
+  // saves it straight to disk. Both share one request since the PDF
+  // itself is identical either way, just handled differently after.
+  const [viewingPdf, setViewingPdf] = useState<"view" | "download" | null>(null);
+  async function viewOrDownloadCocPdf(mode: "view" | "download") {
+    // A tab opened from inside an async function (after the fetch below
+    // has already awaited) loses the click's "user gesture" and gets
+    // silently blocked as a popup in most browsers — this one has to
+    // open synchronously, right here, before anything is awaited, and
+    // get pointed at the real PDF once it's ready.
+    const newTab = mode === "view" ? window.open("", "_blank") : null;
+    setViewingPdf(mode);
+    setError(null);
+    try {
+      const sampleItems = realRowIndexes.map((i) => ({ sample_number: rows[i].sample_number, material: rows[i].material, location: rows[i].location }));
+      const res = await fetch(`/api/admin/jobs/${job.id}/coc-pdf`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cocType, sampleItems, turnaround, relinquishedDate, relinquishedTime }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? "Failed to render PDF");
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      if (mode === "view") {
+        if (newTab) newTab.location.href = url;
+        else window.open(url, "_blank");
+      } else {
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${job.project_number ?? job.id} COC.pdf`;
+        a.click();
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
+    } catch (e) {
+      newTab?.close();
+      setError(e instanceof Error ? e.message : "Failed to render PDF");
+    } finally {
+      setViewingPdf(null);
     }
   }
 
@@ -1026,9 +1065,15 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr className="border-b border-slate-400 bg-slate-50">
-                <th className="min-w-[100px] border-r border-slate-300 px-3 py-2 text-center text-xs font-bold uppercase text-slate-700">Sample #</th>
-                {hasMaterial && <th className="min-w-[170px] border-r border-slate-300 px-3 py-2 text-center text-xs font-bold uppercase text-slate-700">Material</th>}
-                <th className="min-w-[170px] border-r border-slate-300 px-3 py-2 text-center text-xs font-bold uppercase text-slate-700">Location</th>
+                {/* Per Tim, 2026-09-28 — "fit this column to the size
+                    that's needed and make the other 2 bigger": Sample #
+                    only ever holds a few characters ("01A"), so it no
+                    longer claims a whole 100px floor — Material/Location
+                    (the two columns admin actually types real sentences
+                    into) pick up the freed-up width instead. */}
+                <th className="w-20 border-r border-slate-300 px-3 py-2 text-center text-xs font-bold text-slate-700">Sample #</th>
+                {hasMaterial && <th className="min-w-[220px] border-r border-slate-300 px-3 py-2 text-center text-xs font-bold text-slate-700">Material</th>}
+                <th className="min-w-[220px] border-r border-slate-300 px-3 py-2 text-center text-xs font-bold text-slate-700">Location</th>
                 <th className="w-10" />
               </tr>
             </thead>
@@ -1109,7 +1154,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
                   edge instead of its own separate blank strip. */}
               <div className="flex items-center justify-between border-b border-slate-400 bg-slate-50">
                 <div className="flex flex-1 items-center">
-                  <span className="w-24 shrink-0 border-r border-slate-300 px-3 py-2.5 text-xs font-bold uppercase text-slate-700">Sample #</span>
+                  <span className="w-20 shrink-0 border-r border-slate-300 px-2 py-2.5 text-xs font-bold text-slate-700">Sample #</span>
                   <input
                     type="text"
                     value={r.sample_number}
@@ -1128,7 +1173,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
               </div>
               {hasMaterial && (
                 <div className="flex items-center border-b border-slate-300">
-                  <span className="w-24 shrink-0 border-r border-slate-300 px-3 py-2.5 text-xs font-bold uppercase text-slate-700">Material</span>
+                  <span className="w-20 shrink-0 border-r border-slate-300 px-2 py-2.5 text-xs font-bold text-slate-700">Material</span>
                   <ComboboxInput
                     value={r.material}
                     onChange={(v) => updateRow(i, "material", v)}
@@ -1141,7 +1186,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
                 </div>
               )}
               <div className="flex items-center">
-                <span className="w-24 shrink-0 border-r border-slate-300 px-3 py-2.5 text-xs font-bold uppercase text-slate-700">Location</span>
+                <span className="w-20 shrink-0 border-r border-slate-300 px-2 py-2.5 text-xs font-bold text-slate-700">Location</span>
                 <ComboboxInput
                   value={r.location}
                   onChange={(v) => updateRow(i, "location", v)}
@@ -1189,7 +1234,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
           scroll at any width. */}
       <div className="mt-6 hidden space-y-4 sm:block">
         <div className="flex flex-nowrap items-center gap-3">
-          <span className="w-28 shrink-0 whitespace-nowrap text-xs font-bold uppercase text-slate-700">Turnaround</span>
+          <span className="w-28 shrink-0 whitespace-nowrap text-xs font-bold text-slate-700">Turnaround</span>
           <div className="flex gap-3">
             {(["Rush", "24-Hr"] as const).map((t) => (
               <button
@@ -1205,7 +1250,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
         </div>
 
         <div className="flex flex-nowrap items-center gap-3">
-          <span className="w-28 shrink-0 whitespace-nowrap text-xs font-bold uppercase text-slate-700">Date Needed</span>
+          <span className="w-28 shrink-0 whitespace-nowrap text-xs font-bold text-slate-700">Date Needed</span>
           <input
             type="date"
             value={dateNeeded}
@@ -1214,8 +1259,8 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
           />
         </div>
 
-        <div className="flex flex-nowrap items-center gap-3">
-          <span className="w-28 shrink-0 whitespace-nowrap text-xs font-bold uppercase text-slate-700">Relinquished</span>
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="w-28 shrink-0 whitespace-nowrap text-xs font-bold text-slate-700">Relinquished</span>
           <input
             type="date"
             value={relinquishedDate}
@@ -1228,14 +1273,37 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
             onChange={(e) => setRelinquishedTime(e.target.value)}
             className="w-32 shrink-0 rounded-lg border border-slate-300 px-3 py-2 text-sm"
           />
-          <button
-            type="button"
-            onClick={createCocDraft}
-            disabled={creating || realRowIndexes.length === 0}
-            className="ml-auto w-32 shrink-0 rounded-lg bg-brand-600 px-3 py-2 text-sm font-bold text-white disabled:opacity-50"
-          >
-            {creating ? "Creating…" : "Create Draft ↗"}
-          </button>
+          {/* Per Tim, 2026-09-28 — "a button next to create draft that's
+              same height as it and format and everything that allows me
+              to view and another for download": same bg-brand-600/
+              px-3 py-2/text-sm styling as Create Draft, grouped with it
+              so all three wrap together as one unit. */}
+          <div className="ml-auto flex flex-wrap justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => viewOrDownloadCocPdf("view")}
+              disabled={viewingPdf !== null}
+              className="shrink-0 rounded-lg bg-brand-600 px-3 py-2 text-sm font-bold text-white disabled:opacity-50"
+            >
+              {viewingPdf === "view" ? "Opening…" : "View"}
+            </button>
+            <button
+              type="button"
+              onClick={() => viewOrDownloadCocPdf("download")}
+              disabled={viewingPdf !== null}
+              className="shrink-0 rounded-lg bg-brand-600 px-3 py-2 text-sm font-bold text-white disabled:opacity-50"
+            >
+              {viewingPdf === "download" ? "Downloading…" : "Download"}
+            </button>
+            <button
+              type="button"
+              onClick={createCocDraft}
+              disabled={creating || realRowIndexes.length === 0}
+              className="w-32 shrink-0 rounded-lg bg-brand-600 px-3 py-2 text-sm font-bold text-white disabled:opacity-50"
+            >
+              {creating ? "Creating…" : "Create Draft ↗"}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1269,7 +1337,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
             fixed width on every label lines all three cells' left AND
             right edges up, same as the desktop block's own w-28. */}
         <div className="flex flex-nowrap items-center gap-2">
-          <span className="w-24 shrink-0 whitespace-nowrap text-xs font-bold uppercase text-slate-700">Turnaround</span>
+          <span className="w-24 shrink-0 whitespace-nowrap text-xs font-bold text-slate-700">Turnaround</span>
           <div className="flex min-w-0 flex-1 gap-1.5">
             {(["Rush", "24-Hr"] as const).map((t) => (
               <button
@@ -1285,31 +1353,55 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
         </div>
 
         <div className="flex flex-nowrap items-center gap-2">
-          <span className="w-24 shrink-0 whitespace-nowrap text-xs font-bold uppercase text-slate-700">Date Needed</span>
+          <span className="w-24 shrink-0 whitespace-nowrap text-xs font-bold text-slate-700">Date Needed</span>
           <input
             type="date"
             value={dateNeeded}
             onChange={(e) => setDateNeeded(e.target.value)}
-            className="min-w-0 flex-1 rounded-lg border border-slate-300 px-2 py-1.5 text-xs"
+            className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs"
           />
         </div>
 
         <div className="flex flex-nowrap items-center gap-2">
-          <span className="w-24 shrink-0 whitespace-nowrap text-xs font-bold uppercase text-slate-700">Relinquished</span>
+          <span className="w-24 shrink-0 whitespace-nowrap text-xs font-bold text-slate-700">Relinquished</span>
           <div className="flex min-w-0 flex-1 gap-1.5">
             <input
               type="date"
               value={relinquishedDate}
               onChange={(e) => setRelinquishedDate(e.target.value)}
-              className="min-w-0 flex-1 rounded-lg border border-slate-300 px-2 py-1.5 text-xs"
+              className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs"
             />
             <input
               type="time"
               value={relinquishedTime}
               onChange={(e) => setRelinquishedTime(e.target.value)}
-              className="min-w-0 flex-1 rounded-lg border border-slate-300 px-2 py-1.5 text-xs"
+              className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs"
             />
           </div>
+        </div>
+
+        {/* Per Tim, 2026-09-28 — "a button next to create draft that's
+            same height as it and format and everything that allows me
+            to view and another for download": same bg-brand-600/
+            py-2.5/text-sm/font-bold styling as Create Draft, sharing a
+            row right above it. */}
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => viewOrDownloadCocPdf("view")}
+            disabled={viewingPdf !== null}
+            className="flex-1 rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50"
+          >
+            {viewingPdf === "view" ? "Opening…" : "View"}
+          </button>
+          <button
+            type="button"
+            onClick={() => viewOrDownloadCocPdf("download")}
+            disabled={viewingPdf !== null}
+            className="flex-1 rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50"
+          >
+            {viewingPdf === "download" ? "Downloading…" : "Download"}
+          </button>
         </div>
 
         <button
@@ -1326,7 +1418,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
 
       {history.length > 0 && (
         <div className="mt-4 border-t border-slate-200 pt-3">
-          <h4 className="mb-2 text-xs font-bold uppercase text-slate-500">History</h4>
+          <h4 className="mb-2 text-xs font-bold text-slate-500">History</h4>
           <div className="space-y-1 text-sm text-slate-600">
             {history.map((h, i) => (
               <div key={i}>
@@ -4123,7 +4215,7 @@ export function ProjectDetailDialog({
               <select
                 value={selectedValue}
                 onChange={(e) => tabOptions.find((o) => o.value === e.target.value)?.onSelect()}
-                className="h-9 min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm font-bold uppercase text-slate-700 sm:hidden"
+                className="h-9 min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm font-bold text-slate-700 sm:hidden"
               >
                 {tabOptions.map((o) => (
                   <option key={o.value} value={o.value}>{o.label}</option>

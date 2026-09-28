@@ -3074,16 +3074,20 @@ const COC_TITLE: Record<CocType, string> = {
  * untouched — a mold job that took both Air-O-Cell and Bulk samples needs
  * two independent tables, not one mixed one.
  */
-async function draftCocEmailForJob({
-  job, settings, accessToken, cocType, sampleItems, turnaround, dateNeeded, relinquishedDate, relinquishedTime,
+/**
+ * The actual filled-in PDF render, shared by draftCocEmailForJob (the
+ * emailed attachment) and the Chain of Custody tab's View/Download
+ * buttons (`coc-pdf` route) — same document either way, just two
+ * different things done with the resulting buffer.
+ */
+export async function renderCocPdfBuffer({
+  job, settings, cocType, sampleItems, turnaround, relinquishedDate, relinquishedTime,
 }: {
   job: Job & { customers: Customer & { companies: Company | null } };
   settings: Settings;
-  accessToken: string;
   cocType: CocType;
   sampleItems: SampleItem[];
   turnaround: "Rush" | "24-Hr" | null;
-  dateNeeded: string | null;
   // Per Tim, 2026-09-28 — "the relinquishment is the time that I drop it
   // off at the lab... most of the time it won't be" [the same moment as
   // creating the draft], so this has to be a real, always-editable field,
@@ -3092,11 +3096,7 @@ async function draftCocEmailForJob({
   // previous now()-based behavior rather than a hard error.
   relinquishedDate: string | null;
   relinquishedTime: string | null;
-}): Promise<{ messageId: string }> {
-  if (sampleItems.length === 0) {
-    throw new Error("Add at least one sample before creating a Chain of Custody draft");
-  }
-
+}): Promise<Buffer> {
   const inspector = primaryInspector(settings);
   const now = new Date();
   const timeZone = settings.timezone;
@@ -3107,17 +3107,40 @@ async function draftCocEmailForJob({
   };
 
   const taggedItems: SampleItem[] = sampleItems.map((s) => ({ ...s, coc_type: cocType }));
-  const otherTypeItems = (job.sample_items ?? []).filter((s) => (s.coc_type ?? "asbestos_bulk") !== cocType);
-  const mergedItems = [...otherTypeItems, ...taggedItems];
 
-  const pdfBuffer = cocType === "asbestos_bulk"
+  return cocType === "asbestos_bulk"
     ? await renderBlankCocPdf({ job, customer: job.customers, settings, sampleItems: taggedItems, turnaround, relinquishedBy })
     : await renderMoldCocPdf({
         job, customer: job.customers, settings,
         sampleType: cocType.replace(/^mold_/, "") as MoldSampleType,
         sampleItems: taggedItems, turnaround, relinquishedBy,
       });
+}
 
+async function draftCocEmailForJob({
+  job, settings, accessToken, cocType, sampleItems, turnaround, dateNeeded, relinquishedDate, relinquishedTime,
+}: {
+  job: Job & { customers: Customer & { companies: Company | null } };
+  settings: Settings;
+  accessToken: string;
+  cocType: CocType;
+  sampleItems: SampleItem[];
+  turnaround: "Rush" | "24-Hr" | null;
+  dateNeeded: string | null;
+  relinquishedDate: string | null;
+  relinquishedTime: string | null;
+}): Promise<{ messageId: string }> {
+  if (sampleItems.length === 0) {
+    throw new Error("Add at least one sample before creating a Chain of Custody draft");
+  }
+
+  const taggedItems: SampleItem[] = sampleItems.map((s) => ({ ...s, coc_type: cocType }));
+  const otherTypeItems = (job.sample_items ?? []).filter((s) => (s.coc_type ?? "asbestos_bulk") !== cocType);
+  const mergedItems = [...otherTypeItems, ...taggedItems];
+
+  const pdfBuffer = await renderCocPdfBuffer({ job, settings, cocType, sampleItems, turnaround, relinquishedDate, relinquishedTime });
+
+  const now = new Date();
   const title = COC_TITLE[cocType];
   const address = expandAddress(job.service_address);
   const subject = `${job.project_number ? `${job.project_number} — ` : ""}${title} Chain of Custody — ${address}`;

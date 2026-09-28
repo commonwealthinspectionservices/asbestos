@@ -276,7 +276,18 @@ function BlankCocDocument({ job, customer, settings, sampleItems, turnaround, re
                   </View>
                   <View style={styles.timeOverlay}>
                     <Text style={{ fontSize: 11 }}>{relinquishedBy.time}</Text>
-                    <Text style={styles.timeLabel}>time</Text>
+                    {/* Per Tim, 2026-09-28 — "this needs to be correctly
+                        on the line": timeLabel has no marginTop (correct
+                        for TimeField's blank-template use, where "time"
+                        is the ONLY thing in the box — no slashes above it
+                        to space away from), but once a real value sits
+                        above it here, that missing gap left "time"
+                        crowding its own value instead of sitting on the
+                        line the way "date" does under dateTimeCaption's
+                        marginTop: 10. Same gap, applied only in this
+                        filled-in case — TimeField's shared style stays
+                        untouched for the blank form. */}
+                    <Text style={[styles.timeLabel, { marginTop: 10 }]}>time</Text>
                   </View>
                 </>
               ) : (

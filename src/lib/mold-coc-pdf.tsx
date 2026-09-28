@@ -310,7 +310,14 @@ function MoldCocDocument({ job, customer, sampleType, sampleItems, turnaround, r
                     </View>
                     <View style={styles.timeOverlay}>
                       <Text style={{ fontSize: 11 }}>{relinquishedBy.time}</Text>
-                      <Text style={styles.timeLabel}>time</Text>
+                      {/* Per Tim, 2026-09-28 — "this needs to be correctly
+                          on the line" (same bug/fix as blank-coc-pdf.tsx):
+                          timeLabel has no marginTop, correct for its
+                          blank-template use where "time" is the only
+                          thing in the box, but wrong once a real value
+                          sits above it here — same gap as dateTimeCaption's
+                          marginTop: 10, applied only in this filled case. */}
+                      <Text style={[styles.timeLabel, { marginTop: 10 }]}>time</Text>
                     </View>
                   </>
                 ) : (

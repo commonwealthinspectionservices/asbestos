@@ -246,7 +246,12 @@ export async function createStripeInvoiceForJob(
   // the business timezone. Only when that moment is still comfortably in
   // the future — an already-past date can't be set on a new invoice, so
   // that case keeps the old 30-day terms rather than failing to create one.
-  let dueTerms: { due_date: number } | { days_until_due: number } = { days_until_due: 30 };
+  // Per Tim, 2026-09-28 — homeowner/individual jobs default to due right
+  // away (days_until_due: 0 — Stripe's own "due on receipt"), not net-30
+  // like a repeat contractor/company. Same split as dueDateFor's own copy
+  // of this in invoice-due-date.ts. A manually-set payment_due_date below
+  // still overrides either default.
+  let dueTerms: { due_date: number } | { days_until_due: number } = job.is_individual ? { days_until_due: 0 } : { days_until_due: 30 };
   if (job.payment_due_date) {
     const { timezone } = await getSettingsFresh();
     const dueTs = Math.floor(zonedTimeToUtc(job.payment_due_date, "23:59", timezone).getTime() / 1000);
@@ -373,10 +378,14 @@ export async function createStripeInvoiceForJob(
 // so both the real charge timing and what Newton sees need to agree with
 // "30 days after the report was sent," not 30 days after the draft was
 // made.
-export async function tagInvoiceEmailed(stripeInvoiceId: string, emailedAt: string): Promise<void> {
+// Per Tim, 2026-09-28 — homeowner/individual jobs are due right away, not
+// 30 days after the send date like a repeat contractor/company (same
+// split as createStripeInvoiceForJob's own default above and dueDateFor's
+// in invoice-due-date.ts) — isIndividual controls which offset applies.
+export async function tagInvoiceEmailed(stripeInvoiceId: string, emailedAt: string, isIndividual: boolean): Promise<void> {
   const stripe = getStripe();
   const sentAtMs = new Date(emailedAt).getTime();
-  const dueDate = Math.floor(sentAtMs / 1000) + 30 * 24 * 60 * 60;
+  const dueDate = Math.floor(sentAtMs / 1000) + (isIndividual ? 0 : 30 * 24 * 60 * 60);
   await stripe.invoices.update(stripeInvoiceId, { metadata: { emailed_at: emailedAt }, due_date: dueDate });
 }
 

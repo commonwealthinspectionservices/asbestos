@@ -41,8 +41,18 @@ export function paymentDueDate(projectDate: string): string | null {
 // to the live Stripe invoice's own due_date (see route.ts), so this and
 // Stripe's real auto-charge date can no longer drift apart the way they
 // used to.
+// Per Tim, 2026-09-28 — homeowner/individual jobs shouldn't default to
+// net-30 like a repeat contractor/company; the standard for them is due
+// right away (the same day the invoice actually goes out, or the project
+// date before it's sent yet — same "prefer the real send date" structure
+// as the contractor branch below, just with no +30 offset added). A
+// manually-set payment_due_date still wins either way.
 export function dueDateFor(job: JobWithCustomer): string | null {
   if (job.payment_due_date) return job.payment_due_date;
+  if (job.is_individual) {
+    if (job.invoice_sent_at) return localDateOnly(job.invoice_sent_at);
+    return job.confirmed_date ?? job.requested_date ?? null;
+  }
   if (job.invoice_sent_at) return paymentDueDate(localDateOnly(job.invoice_sent_at));
   return paymentDueDate(job.confirmed_date ?? job.requested_date ?? "");
 }

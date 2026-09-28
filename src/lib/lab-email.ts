@@ -424,9 +424,9 @@ export async function checkDraftSentStatus(
   const supabase = getSupabaseAdmin();
   const { data: job } = await supabase
     .from("jobs")
-    .select(`${gmailIdCol}, ${gmailMessageIdCol}, ${sentAtCol}, ${otherGmailIdCol}, ${otherSentAtCol}, status, stripe_invoice_id`)
+    .select(`${gmailIdCol}, ${gmailMessageIdCol}, ${sentAtCol}, ${otherGmailIdCol}, ${otherSentAtCol}, status, stripe_invoice_id, is_individual`)
     .eq("id", jobId)
-    .maybeSingle<Record<string, string | null>>();
+    .maybeSingle<Record<string, string | null> & { is_individual?: boolean }>();
 
   const sentAt = job?.[sentAtCol];
   if (sentAt) {
@@ -550,7 +550,7 @@ export async function checkDraftSentStatus(
     // comment).
     if ((kind === "invoice" || isCombinedDraft) && job?.stripe_invoice_id) {
       try {
-        await tagInvoiceEmailed(job.stripe_invoice_id, finalSentAt);
+        await tagInvoiceEmailed(job.stripe_invoice_id as string, finalSentAt, Boolean(job.is_individual));
       } catch (e) {
         console.error(`Failed to tag Stripe invoice ${job.stripe_invoice_id} as emailed:`, e);
       }

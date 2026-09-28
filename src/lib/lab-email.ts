@@ -125,7 +125,14 @@ function formatDateMMDDYYYY(date: string | null): string {
 // the trigger is the shape (several short lines in a row), not a literal
 // text match. Two lines side-steps that shape without dropping any info
 // the reader doesn't already have right above it.
-const SIGNATURE_LINES = ["Tim Hall", "Commonwealth Inspection Services"];
+//
+// Per Tim, 2026-09-28 — "always try and make sure that my email signature
+// is in there... name, company name, and the website": name+company are
+// combined onto the first line (rather than each getting its own, as a
+// literal 1:1 match of his Gmail signature would) specifically to keep
+// this at two lines total — adding a plain third short line risked
+// retriggering the exact collapse behavior above.
+const SIGNATURE_LINES = ["Tim Hall, Commonwealth Inspection Services", '<a href="https://commonwealthinspectionservices.com">commonwealthinspectionservices.com</a>'];
 // Per Tim, 2026-09-03 — a review-link line under the signature on every
 // report email (reportDraftBodyHtml, combinedDraftBodyHtml below), not
 // the payment-reminder note further down — that one goes out before
@@ -254,9 +261,15 @@ export function invoiceDraftBodyHtml(job: Job & { customers?: Customer }, settin
     "",
     `Please find attached the invoice for the ${domainPhrase} inspection completed at:`,
     "",
-    ...projectNumberLine(job),
+    // Per Tim, 2026-09-28 — the invoice email specifically leads with the
+    // address, then Project # right under it — the opposite order from
+    // every other client-facing body (reportDraftBodyHtml,
+    // combinedDraftBodyHtml), which still lead with Project # per the
+    // 2026-09-25 standard (see projectNumberLine's own comment). Deliberate
+    // exception for this one email, not a reversal of that standard.
     escapeHtml(expandAddress(street)),
     escapeHtml(expandAddress(cityStateZip)),
+    ...projectNumberLine(job),
     // Per Tim, 2026-09-03 — individual/homeowner jobs only: this invoice
     // can go out well before the report does (see the homeowner payment
     // gate — autoDraftReportIfJustPaid/processMatchedLabEmail), unlike a

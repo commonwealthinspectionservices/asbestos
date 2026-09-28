@@ -195,10 +195,13 @@ describe("project number leads the address in client emails", () => {
     expect(a).toBeLessThan(d);
   });
 
-  it("invoice email: Project # sits directly above the address", () => {
+  // Per Tim, 2026-09-28 — deliberate exception to the "Project # leads"
+  // standard above: the invoice email specifically leads with the
+  // address, then Project # directly under it, the opposite order.
+  it("invoice email: address first, then Project # directly below it", () => {
     const html = invoiceDraftBodyHtml(job, settings, null);
     expect(html.indexOf("Project #: 26-0041.1")).toBeGreaterThanOrEqual(0);
-    expect(html.indexOf("Project #: 26-0041.1")).toBeLessThan(html.indexOf("50 Broadway Unit 2"));
+    expect(html.indexOf("50 Broadway Unit 2")).toBeLessThan(html.indexOf("Project #: 26-0041.1"));
   });
 
   it("leaves the line out when a job has no project number yet", () => {

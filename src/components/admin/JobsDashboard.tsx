@@ -1013,33 +1013,40 @@ function ChainOfCustodyPanel({ job, cocType, label, onChanged }: { job: JobWithC
             Always-editable date + time — defaults to right now, but the
             real moment is whenever he actually drops samples at the lab,
             not necessarily when this draft gets created. */}
-        <div className="flex flex-nowrap items-center gap-3">
+        {/* Per Tim, 2026-09-28 — "make the create draft button on the
+            same line as the relinquished line... aligned all the way
+            right... the same size as the cells for the other date
+            needed and relinquished parts": ml-auto pushes it flush right
+            (same trick as the earlier right-aligned Date Needed row),
+            and it shares the exact same w-32/px-3/py-2/text-sm sizing as
+            the date/time inputs next to it instead of its own bigger
+            full-width button below. */}
+        <div className="flex flex-nowrap items-center gap-3 overflow-x-auto">
           <span className="w-28 shrink-0 whitespace-nowrap text-xs font-bold uppercase text-slate-500">Relinquished</span>
           <input
             type="date"
             value={relinquishedDate}
             onChange={(e) => setRelinquishedDate(e.target.value)}
-            className="w-32 rounded-lg border border-slate-300 px-2 py-1.5 text-xs"
+            className="w-32 shrink-0 rounded-lg border border-slate-300 px-3 py-2 text-sm"
           />
           <input
             type="time"
             value={relinquishedTime}
             onChange={(e) => setRelinquishedTime(e.target.value)}
-            className="w-32 rounded-lg border border-slate-300 px-2 py-1.5 text-xs"
+            className="w-32 shrink-0 rounded-lg border border-slate-300 px-3 py-2 text-sm"
           />
+          <button
+            type="button"
+            onClick={createCocDraft}
+            disabled={creating || realRowIndexes.length === 0}
+            className="ml-auto w-32 shrink-0 rounded-lg bg-brand-600 px-3 py-2 text-sm font-bold text-white disabled:opacity-50"
+          >
+            {creating ? "Creating…" : "Create Draft ↗"}
+          </button>
         </div>
       </div>
 
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
-
-      <button
-        type="button"
-        onClick={createCocDraft}
-        disabled={creating || realRowIndexes.length === 0}
-        className="mt-4 w-full rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50 sm:w-auto"
-      >
-        {creating ? "Creating draft…" : "Create Draft ↗"}
-      </button>
 
       {history.length > 0 && (
         <div className="mt-4 border-t border-slate-200 pt-3">
@@ -2894,7 +2901,7 @@ export function ProjectDetailDialog({
   // Additional Remarks is a rarely-used, job-specific field — collapsed by
   // default so it doesn't clutter every report, but starts open on a job
   // that already has one saved so it's never hidden by accident.
-  const [reportNotesOpen, setReportNotesOpen] = useState(Boolean(job.report_notes?.trim()));
+  const [reportNotesOpen] = useState(Boolean(job.report_notes?.trim()));
   const [fliProjectNumberInputValue, setFliProjectNumberInputValue] = useState(job.fli_project_number ?? "");
   // Lead's own Overall Findings sentence — separate from asbestos's
   // report_summary above, since a job combining asbestos and lead produces
@@ -4950,30 +4957,24 @@ export function ProjectDetailDialog({
                     FliAsbestosReportDocument in report-pdf.tsx. Optional,
                     same as lead_report_notes/mold_report_notes; never
                     required to draft/send a report. */}
-                {reportDomainTab === "asbestos" && (
+                {/* Per Tim, 2026-09-28 — "delete the add additional
+                    remarks button": the textarea itself stays (and still
+                    shows automatically for any job that already has
+                    report_notes on file, per reportNotesOpen's own
+                    initializer), just no more button to open it fresh on
+                    a job that doesn't have one yet. */}
+                {reportDomainTab === "asbestos" && reportNotesOpen && (
                   <div className="mt-5">
-                    {reportNotesOpen ? (
-                      <>
-                        <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
-                          Additional Remarks
-                        </label>
-                        <textarea
-                          className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
-                          rows={4}
-                          value={reportNotesInput}
-                          onChange={(e) => setReportNotesInput(e.target.value)}
-                          onBlur={(e) => saveReportNotes(e.target.value)}
-                        />
-                      </>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => setReportNotesOpen(true)}
-                        className="text-xs font-medium text-brand-600"
-                      >
-                        + Add additional remarks
-                      </button>
-                    )}
+                    <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
+                      Additional Remarks
+                    </label>
+                    <textarea
+                      className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+                      rows={4}
+                      value={reportNotesInput}
+                      onChange={(e) => setReportNotesInput(e.target.value)}
+                      onBlur={(e) => saveReportNotes(e.target.value)}
+                    />
                   </div>
                 )}
               </div>

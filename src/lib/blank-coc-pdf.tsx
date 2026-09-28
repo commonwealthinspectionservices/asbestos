@@ -7,7 +7,7 @@ Font.registerHyphenationCallback((word) => [word]);
 import { primaryInspector } from "@/lib/settings";
 import { formatDateMDY } from "@/lib/date-format";
 import { expandAddress } from "@/lib/address";
-import type { Job, Customer, Settings } from "@/lib/types";
+import type { Job, Customer, Settings, SampleItem } from "@/lib/types";
 
 // The owner's own real asbestos bulk sample form, deliberately kept as an
 // exact pixel-level match — extracted the real letterhead image (own blue,
@@ -79,6 +79,14 @@ const styles = StyleSheet.create({
   turnaroundLine: { flexDirection: "row", alignItems: "baseline" },
   turnaroundLabel: { fontSize: 11, fontWeight: 700 },
   turnaroundOption: { fontSize: 11, fontWeight: 400, marginLeft: 20 },
+  // Electronic COC only (see ChainOfCustodyPanel.tsx) — the owner circles
+  // whichever option applies by hand on a paper form; this is the closest
+  // equivalent for a generated one. Combined with turnaroundOption above
+  // (not a replacement for it), so marginLeft stays on turnaroundOption
+  // and this only adds the oval itself. Padding/radius sized by eye
+  // against a real hand-circled example (coc-air_o_cell-somerville.pdf)
+  // rather than an exact match — an oval around the word, not a rectangle.
+  turnaroundOptionCircled: { borderWidth: 1, borderColor: LINE_COLOR, borderRadius: 9, paddingHorizontal: 7, paddingVertical: 1 },
   notes: { fontSize: 11, fontStyle: "italic" },
   emailNote: { fontSize: 11, fontStyle: "italic", textAlign: "right", marginTop: 8 },
   dateNeededRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 8 },
@@ -155,9 +163,25 @@ export interface BlankCocData {
   job: Job | null;
   customer: Customer | null;
   settings: Settings;
+  // The three fields below are the electronic Chain of Custody feature
+  // (ChainOfCustodyPanel.tsx, 2026-09-28) — every printed/downloaded blank
+  // form still calls this with none of them set, which renders exactly as
+  // it always has (blank rows, no circle, blank signature line).
+  //
+  // Real sample rows to fill into the table instead of leaving it blank —
+  // caller is expected to have already filtered job.sample_items down to
+  // this form's own coc_type (see filterSampleItemsForCoc below).
+  sampleItems?: SampleItem[];
+  turnaround?: "Rush" | "24-Hr" | null;
+  // Electronic signature equivalent — printed name + the date/time the
+  // draft was created, standing in for the owner's own handwritten
+  // signature+date+time on a paper form (see RELINQUISHED BY below).
+  // RECEIVED BY is deliberately never filled in here — that's the lab's
+  // own field, filled out on their end once the samples arrive.
+  relinquishedBy?: { name: string; date: string; time: string } | null;
 }
 
-function BlankCocDocument({ job, customer, settings }: BlankCocData) {
+function BlankCocDocument({ job, customer, settings, sampleItems, turnaround, relinquishedBy }: BlankCocData) {
   const inspector = primaryInspector(settings);
   const clientLabel = customer ? customer.company || customer.name : "";
   // The owner's on-file license number has no internal space
@@ -165,6 +189,8 @@ function BlankCocDocument({ job, customer, settings }: BlankCocData) {
   // matched here for this one form rather than changing the stored value
   // everywhere else it's used.
   const licenseDisplay = inspector.license_number.replace(/^([A-Za-z]+)(\d+)$/, "$1 $2");
+  const page1Items = (sampleItems ?? []).slice(0, BLANK_ROW_COUNT);
+  const page2Items = (sampleItems ?? []).slice(BLANK_ROW_COUNT, BLANK_ROW_COUNT + PAGE_TWO_ROW_COUNT);
   return (
     <Document title={job ? `Chain of Custody — ${expandAddress(job.service_address)}` : "Chain of Custody — Blank"}>
       <Page size="LETTER" style={styles.page}>
@@ -209,9 +235,9 @@ function BlankCocDocument({ job, customer, settings }: BlankCocData) {
           </View>
           {Array.from({ length: BLANK_ROW_COUNT }).map((_, i) => (
             <View style={styles.tableRow} key={i}>
-              <View style={styles.colSample} />
-              <View style={styles.colMaterial} />
-              <View style={styles.colLocation} />
+              <View style={[styles.colSample, { padding: 3 }]}><Text>{page1Items[i]?.sample_number ?? ""}</Text></View>
+              <View style={[styles.colMaterial, { padding: 3 }]}><Text>{page1Items[i]?.material ?? ""}</Text></View>
+              <View style={[styles.colLocation, { padding: 3 }]}><Text>{page1Items[i]?.location ?? ""}</Text></View>
             </View>
           ))}
         </View>
@@ -220,8 +246,8 @@ function BlankCocDocument({ job, customer, settings }: BlankCocData) {
           <View style={styles.footerTopRow}>
             <View style={styles.turnaroundLine}>
               <Text style={styles.turnaroundLabel}>TURNAROUND</Text>
-              <Text style={styles.turnaroundOption}>RUSH</Text>
-              <Text style={styles.turnaroundOption}>24HR</Text>
+              <Text style={[styles.turnaroundOption, turnaround === "Rush" ? styles.turnaroundOptionCircled : {}]}>RUSH</Text>
+              <Text style={[styles.turnaroundOption, turnaround === "24-Hr" ? styles.turnaroundOptionCircled : {}]}>24HR</Text>
             </View>
             <Text style={styles.notes}>*Samples for analysis by Polarized Light Microscopy</Text>
           </View>
@@ -241,9 +267,25 @@ function BlankCocDocument({ job, customer, settings }: BlankCocData) {
           <View style={styles.signatureRow}>
             <Text style={styles.signatureLabel}>RELINQUISHED BY</Text>
             <View style={styles.signatureLineWrap}>
-              <Text style={styles.signatureLine} />
-              <DateTimeField />
-              <TimeField />
+              {relinquishedBy ? (
+                <>
+                  <Text style={[styles.signatureLine, { fontFamily: "Helvetica-Oblique" }]}>{relinquishedBy.name}</Text>
+                  <View style={styles.dateTimeOverlay}>
+                    <Text style={{ fontSize: 11 }}>{relinquishedBy.date}</Text>
+                    <Text style={styles.dateTimeCaption}>date</Text>
+                  </View>
+                  <View style={styles.timeOverlay}>
+                    <Text style={{ fontSize: 11 }}>{relinquishedBy.time}</Text>
+                    <Text style={styles.timeLabel}>time</Text>
+                  </View>
+                </>
+              ) : (
+                <>
+                  <Text style={styles.signatureLine} />
+                  <DateTimeField />
+                  <TimeField />
+                </>
+              )}
             </View>
           </View>
 
@@ -284,9 +326,9 @@ function BlankCocDocument({ job, customer, settings }: BlankCocData) {
           </View>
           {Array.from({ length: PAGE_TWO_ROW_COUNT }).map((_, i) => (
             <View style={styles.tableRow} key={i}>
-              <View style={styles.colSample} />
-              <View style={styles.colMaterial} />
-              <View style={styles.colLocation} />
+              <View style={[styles.colSample, { padding: 3 }]}><Text>{page2Items[i]?.sample_number ?? ""}</Text></View>
+              <View style={[styles.colMaterial, { padding: 3 }]}><Text>{page2Items[i]?.material ?? ""}</Text></View>
+              <View style={[styles.colLocation, { padding: 3 }]}><Text>{page2Items[i]?.location ?? ""}</Text></View>
             </View>
           ))}
         </View>

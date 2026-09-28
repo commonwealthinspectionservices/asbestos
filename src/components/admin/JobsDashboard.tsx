@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
-import type { Company, Customer, FullInspectionMaterial, InvoiceLineItem, JobDocument, JobWithCustomer, LabProfile, PricingZone, SampleItem, ServiceType } from "@/lib/types";
+import type { CocType, Company, Customer, FullInspectionMaterial, InvoiceLineItem, JobDocument, JobWithCustomer, LabProfile, PricingZone, SampleItem, ServiceType } from "@/lib/types";
 import { defaultInvoiceLineItems, sampleDescriptionForServiceType } from "@/lib/invoice-defaults";
 import { ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK, jobReportDomains, domainForServiceTypeLabel, isFullInspectionAsbestosJob, NEWTON_FIRE_FLOOD_COMPANY_ID, BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID, FLI_ENVIRONMENTAL_COMPANY_ID, type ReportDomain } from "@/lib/report-findings";
 import { splitAddress, parseAddressToFields, buildBillingAddress, googleMapsUrl, wazeUrl, expandAddress } from "@/lib/address";
@@ -682,6 +682,204 @@ function EmailChecklistPanel({
     </div>
   );
 }
+
+const COC_TYPE_OPTIONS: { value: CocType; label: string; hasMaterial: boolean }[] = [
+  { value: "asbestos_bulk", label: "Asbestos Bulk", hasMaterial: true },
+  { value: "mold_air_o_cell", label: "Mold — Air-O-Cell", hasMaterial: false },
+  { value: "mold_bulk", label: "Mold — Bulk", hasMaterial: true },
+  { value: "mold_swab", label: "Mold — Swab", hasMaterial: true },
+];
+
+// Electronic Chain of Custody — per Tim, 2026-09-28: "right now everything
+// is written out by hand... I should just be able to fill in what I need
+// to fill in pretty simply and then get it sent off to the lab." Same
+// exact printed form as blank-coc-pdf.tsx/mold-coc-pdf.tsx (the ones
+// ChainOfCustody.tsx's blank-template page prints for filling in by
+// hand), just with real sample rows entered here instead — see
+// createCocDraftForJob's own comment in lab-email.ts for the full picture
+// of what a "Create Draft" click actually does. Draft-only, addressed to
+// the lab (samples@crystalanalytical.com), not the customer.
+function ChainOfCustodyPanel({ job, onChanged }: { job: JobWithCustomer; onChanged: () => void }) {
+  const domains = jobReportDomains(job.service_type);
+  const defaultCocType: CocType = domains.includes("mold") ? "mold_bulk" : "asbestos_bulk";
+  const [cocType, setCocType] = useState<CocType>(defaultCocType);
+  const config = COC_TYPE_OPTIONS.find((o) => o.value === cocType)!;
+
+  // Seeded from whatever this coc_type's rows already hold on the job
+  // (e.g. reopening the tab after an earlier draft) — every other
+  // coc_type's rows stay out of view and untouched (see the merge-by-type
+  // comment on createCocDraftForJob).
+  const [rows, setRows] = useState<{ sample_number: string; material: string; location: string }[]>(() => {
+    const existing = (job.sample_items ?? []).filter((s) => (s.coc_type ?? "asbestos_bulk") === cocType);
+    return existing.length > 0 ? existing.map((s) => ({ sample_number: s.sample_number, material: s.material, location: s.location })) : [{ sample_number: "", material: "", location: "" }];
+  });
+  function switchType(next: CocType) {
+    setCocType(next);
+    const existing = (job.sample_items ?? []).filter((s) => (s.coc_type ?? "asbestos_bulk") === next);
+    setRows(existing.length > 0 ? existing.map((s) => ({ sample_number: s.sample_number, material: s.material, location: s.location })) : [{ sample_number: "", material: "", location: "" }]);
+  }
+
+  const [turnaround, setTurnaround] = useState<"Rush" | "24-Hr" | null>(job.lab_turnaround === "Rush" ? "Rush" : job.lab_turnaround === "24-Hr" ? "24-Hr" : null);
+  const [dateNeeded, setDateNeeded] = useState(job.lab_date_needed ?? "");
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  function updateRow(i: number, field: "sample_number" | "material" | "location", value: string) {
+    setRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, [field]: value } : r)));
+  }
+  function addRow() {
+    setRows((prev) => [...prev, { sample_number: "", material: "", location: "" }]);
+  }
+  function removeRow(i: number) {
+    setRows((prev) => (prev.length > 1 ? prev.filter((_, idx) => idx !== i) : prev));
+  }
+
+  const realRows = rows.filter((r) => r.sample_number.trim() || r.material.trim() || r.location.trim());
+
+  async function createCocDraft() {
+    setCreating(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/jobs/${job.id}/coc-draft`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cocType, sampleItems: realRows, turnaround, dateNeeded: dateNeeded || null }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to create draft");
+      onChanged();
+      if (data.messageId) window.open(gmailMessageUrl(data.messageId, false), "_blank");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to create draft");
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  const history = [...(job.coc_log ?? [])].sort((a, b) => b.drafted_at.localeCompare(a.drafted_at));
+
+  return (
+    <div className="mt-4 space-y-5">
+      <div>
+        <h3 className="mb-2 text-xs font-bold uppercase text-slate-500">Sample Type</h3>
+        <div className="flex flex-wrap gap-2">
+          {COC_TYPE_OPTIONS.map((o) => (
+            <button
+              key={o.value}
+              onClick={() => switchType(o.value)}
+              className={`rounded-lg px-3 py-1.5 text-sm font-medium ${cocType === o.value ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}`}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <div className="mb-2 flex items-center justify-between">
+          <h3 className="text-xs font-bold uppercase text-slate-500">Samples</h3>
+          <button onClick={addRow} className="text-xs font-medium text-brand-600 hover:underline">+ Add sample</button>
+        </div>
+        <div className="space-y-2">
+          {rows.map((r, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <input
+                type="text"
+                placeholder="Sample #"
+                value={r.sample_number}
+                onChange={(e) => updateRow(i, "sample_number", e.target.value)}
+                className="w-24 shrink-0 rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+              />
+              {config.hasMaterial && (
+                <input
+                  type="text"
+                  placeholder="Material"
+                  value={r.material}
+                  onChange={(e) => updateRow(i, "material", e.target.value)}
+                  className="flex-1 rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+                />
+              )}
+              <input
+                type="text"
+                placeholder="Location"
+                value={r.location}
+                onChange={(e) => updateRow(i, "location", e.target.value)}
+                className="flex-1 rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+              />
+              <button
+                onClick={() => removeRow(i)}
+                disabled={rows.length === 1}
+                className="shrink-0 rounded-lg px-2 py-1.5 text-sm text-slate-400 hover:text-red-600 disabled:opacity-30"
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-end gap-4">
+        <div>
+          <h3 className="mb-2 text-xs font-bold uppercase text-slate-500">Turnaround</h3>
+          <div className="flex gap-2">
+            {(["Rush", "24-Hr"] as const).map((t) => (
+              <button
+                key={t}
+                onClick={() => setTurnaround(turnaround === t ? null : t)}
+                className={`rounded-lg px-3 py-1.5 text-sm font-medium ${turnaround === t ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}`}
+              >
+                {t === "Rush" ? "RUSH" : "24HR"}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <h3 className="mb-2 text-xs font-bold uppercase text-slate-500">Date Needed</h3>
+          <input
+            type="text"
+            placeholder="Optional"
+            value={dateNeeded}
+            onChange={(e) => setDateNeeded(e.target.value)}
+            className="w-40 rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+          />
+        </div>
+      </div>
+
+      {error && <p className="text-sm text-red-600">{error}</p>}
+
+      <button
+        onClick={createCocDraft}
+        disabled={creating || realRows.length === 0}
+        className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+      >
+        {creating ? "Creating draft…" : "Create Draft ↗"}
+      </button>
+
+      {history.length > 0 && (
+        <div className="border-t border-slate-200 pt-4">
+          <h3 className="mb-2 text-xs font-bold uppercase text-slate-500">History</h3>
+          <div className="space-y-1 text-sm text-slate-600">
+            {history.map((h, i) => (
+              <div key={i}>
+                <SentStatusLink
+                  messageId={h.gmail_message_id}
+                  text={`${COC_TITLE_FOR_HISTORY[h.coc_type]} — ${h.sample_count} sample${h.sample_count === 1 ? "" : "s"} — Drafted ${formatDateTime(h.drafted_at)}`}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const COC_TITLE_FOR_HISTORY: Record<CocType, string> = {
+  asbestos_bulk: "Asbestos Bulk",
+  mold_air_o_cell: "Mold Air-O-Cell",
+  mold_bulk: "Mold Bulk",
+  mold_swab: "Mold Swab",
+};
 
 // Shared by Conclusions & Recommendations and every Discussion of Results
 // cell (air/bulk/swab) — Per Tim, 2026-08-27, these two buttons belong on
@@ -2484,7 +2682,7 @@ export function ProjectDetailDialog({
   onStatusChange: (status: string) => void;
   initialTab?: "info" | "report" | "invoice" | "photos";
 }) {
-  const [tab, setTab] = useState<"info" | "report" | "invoice" | "photos" | "moisture_mapping" | "shipping" | "compensation" | "email">(initialTab ?? "info");
+  const [tab, setTab] = useState<"info" | "report" | "invoice" | "photos" | "moisture_mapping" | "shipping" | "compensation" | "email" | "coc">(initialTab ?? "info");
   // Per Tim, 2026-08-31 — this dialog is only ever mounted while it should
   // be showing (the parent list decides that), so it locks the page behind
   // it for its whole lifetime, not conditionally.
@@ -3452,6 +3650,7 @@ export function ProjectDetailDialog({
                 ...(isMoistureMappingJob ? [{ value: "moisture_mapping", label: "Moisture Mapping", onSelect: () => setTab("moisture_mapping") }] : []),
                 { value: "photos", label: "Photos", onSelect: () => setTab("photos") },
                 { value: "email", label: "Email", onSelect: () => setTab("email") },
+                { value: "coc", label: "Chain of Custody", onSelect: () => setTab("coc") },
               ];
           const selectedValue = tab === "report" ? `report:${reportDomainTab}` : tab;
           // Per Tim, 2026-08-27 — no border-b here on mobile when the
@@ -3524,6 +3723,12 @@ export function ProjectDetailDialog({
                       className={`flex-1 whitespace-nowrap px-0.5 py-1.5 text-center text-[11px] font-bold uppercase sm:flex-none sm:px-3 sm:text-sm ${tab === "email" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
                     >
                       Email
+                    </button>
+                    <button
+                      onClick={() => setTab("coc")}
+                      className={`flex-1 whitespace-nowrap px-0.5 py-1.5 text-center text-[11px] font-bold uppercase sm:flex-none sm:px-3 sm:text-sm ${tab === "coc" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
+                    >
+                      Chain of Custody
                     </button>
                   </>
                 )}
@@ -4850,6 +5055,10 @@ export function ProjectDetailDialog({
 
         {tab === "email" && job.source !== "subcontractor" && (
           <EmailChecklistPanel job={job} onChanged={onChanged} onBeforeCreateDraft={flushInvoiceSave} />
+        )}
+
+        {tab === "coc" && job.source !== "subcontractor" && (
+          <ChainOfCustodyPanel job={job} onChanged={onChanged} />
         )}
 
         {/* Per Tim, 2026-09-04 — "this tab should be moisture mapping w

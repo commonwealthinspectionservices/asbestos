@@ -159,6 +159,29 @@ export interface SampleItem {
   sample_number: string;
   material: string;
   location: string;
+  // Which electronic Chain of Custody form this row was entered on — see
+  // ChainOfCustodyPanel.tsx. Optional/undefined for every row that existed
+  // before that feature (all of them were asbestos bulk, the only COC type
+  // in use at the time) — treated as "asbestos_bulk" wherever that matters.
+  // Lets one job hold rows for more than one COC type (a mold job that
+  // took both Air-O-Cell and Bulk samples needs two separate tables, not
+  // one mixed one) in the same sample_items array without them colliding.
+  coc_type?: CocType;
+}
+
+export type CocType = "asbestos_bulk" | "mold_air_o_cell" | "mold_bulk" | "mold_swab";
+
+/** One past electronic Chain of Custody draft created for a job — per
+    Tim, 2026-09-28, draft-only for now (same review-before-send pattern as
+    every other document in this app), so this records when a draft was
+    created, not when the lab actually received it. Shown as history on
+    the Chain of Custody tab so re-opening it doesn't look like nothing's
+    ever been sent for a job that already has one out. */
+export interface CocLogEntry {
+  coc_type: CocType;
+  drafted_at: string;
+  sample_count: number;
+  gmail_message_id: string;
 }
 
 /**
@@ -284,6 +307,8 @@ export interface Job {
   lab_massdls_cert: string | null;
   lab_turnaround: string | null;
   lab_date_needed: string | null;
+  /** History of electronic Chain of Custody drafts created for this job — see CocLogEntry. */
+  coc_log: CocLogEntry[];
   /** Asbestos's own Overall Findings sentence/additional remarks — lead has its own lead_report_summary/lead_report_notes below, mold its own mold_report_summary/mold_report_notes, so a job combining domains never shares this between their separate report PDFs. */
   report_summary: string | null;
   report_notes: string | null;

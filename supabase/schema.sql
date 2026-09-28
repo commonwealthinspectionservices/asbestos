@@ -1324,3 +1324,12 @@ alter table mileage_days add column if not exists qb_synced_at timestamptz;
 -- all. Recording which realm a sync actually happened against lets that
 -- check require a match, not just presence.
 alter table mileage_days add column if not exists qb_synced_realm_id text;
+
+-- Per Tim, 2026-09-28 — electronic Chain of Custody: he wants to fill out
+-- a job's COC (previously always handwritten on the printed form — see
+-- blank-coc-pdf.tsx/mold-coc-pdf.tsx) electronically instead, and get it
+-- drafted straight to samples@crystalanalytical.com. This is the history
+-- log (see CocLogEntry in types.ts) — sample_items already exists and is
+-- reused for the row data itself (now with an optional coc_type tag, see
+-- SampleItem in types.ts), no new column needed for that part.
+alter table jobs add column if not exists coc_log jsonb not null default '[]'::jsonb;

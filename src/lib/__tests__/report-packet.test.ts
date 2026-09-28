@@ -88,6 +88,7 @@ const baseJob: Job = {
   duration_minutes: 30,
   sample_count: 4,
   sample_items: [],
+  coc_log: [],
   sample_counts: {},
   full_inspection_materials: [],
   sample_findings: [],

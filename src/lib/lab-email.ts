@@ -5,6 +5,8 @@ import pdfParse from "pdf-parse/lib/pdf-parse.js";
 import { getSupabaseAdmin, updateJobToleratingMissingColumns } from "@/lib/supabase";
 import { getSettingsFresh, primaryInspector } from "@/lib/settings";
 import { deriveFullInspectionMaterials } from "@/lib/sample-items";
+import { renderBlankCocPdf } from "@/lib/blank-coc-pdf";
+import { renderMoldCocPdf, type MoldSampleType } from "@/lib/mold-coc-pdf";
 import { withCompanyBillingAddress } from "@/lib/customer-billing";
 import { formatDateMDY } from "@/lib/date-format";
 import { threadSubject, threadHeaders } from "@/lib/email-thread";
@@ -66,7 +68,7 @@ import { savePaidInvoiceDocument } from "@/lib/paid-invoice";
 import { getAppUrl } from "@/lib/app-url";
 import { escapeHtml } from "@/lib/html";
 import { expandAddress, splitAddress } from "@/lib/address";
-import type { Company, Customer, InvoiceLineItem, Job, JobDocument, JobWithCustomer, PricingZone, ServiceType, Settings } from "@/lib/types";
+import type { CocLogEntry, CocType, Company, Customer, InvoiceLineItem, Job, JobDocument, JobWithCustomer, PricingZone, SampleItem, ServiceType, Settings } from "@/lib/types";
 
 // @react-pdf/renderer (report-pdf.tsx / invoice-pdf.ts) is imported
 // dynamically, not statically, and only after this module's pdf-parse
@@ -3044,6 +3046,111 @@ export async function createSelectedDraftForJob(
   selection: { domains: ReportDomain[]; includeInvoice: boolean; includeMoistureMapping: boolean; subject?: string; includeReviewLink?: boolean }
 ): Promise<{ messageId: string }> {
   return draftSelectedEmailForJob({ ...(await loadJobForDraft(jobId)), ...selection });
+}
+
+const COC_TITLE: Record<CocType, string> = {
+  asbestos_bulk: "Asbestos Bulk Sample",
+  mold_air_o_cell: "Mold Air-O-Cell Sample",
+  mold_bulk: "Mold Bulk Sample",
+  mold_swab: "Mold Swab Sample",
+};
+
+/**
+ * Electronic Chain of Custody — the ChainOfCustodyPanel.tsx tab
+ * (2026-09-28). Draft-only, same review-before-send pattern as every other
+ * document in this app (per Tim, 2026-09-28 — "no being drafted is likely
+ * preferred actually for now"), addressed to the lab rather than the
+ * customer. Renders the exact same printed form (blank-coc-pdf.tsx/
+ * mold-coc-pdf.tsx) with real sample rows filled in instead of blank ones,
+ * the owner's own name + the draft's creation time standing in for a
+ * handwritten RELINQUISHED BY signature — RECEIVED BY is deliberately
+ * never filled in, that's the lab's own field once the samples arrive.
+ *
+ * sample_items is reused for the row data (now optionally tagged with
+ * coc_type — see SampleItem in types.ts) rather than a new column: this
+ * call REPLACES whatever rows already exist for this one coc_type (so
+ * re-opening the tab and adjusting a row before drafting again doesn't
+ * pile up duplicates) while leaving any other coc_type's rows on the job
+ * untouched — a mold job that took both Air-O-Cell and Bulk samples needs
+ * two independent tables, not one mixed one.
+ */
+async function draftCocEmailForJob({
+  job, settings, accessToken, cocType, sampleItems, turnaround, dateNeeded,
+}: {
+  job: Job & { customers: Customer & { companies: Company | null } };
+  settings: Settings;
+  accessToken: string;
+  cocType: CocType;
+  sampleItems: SampleItem[];
+  turnaround: "Rush" | "24-Hr" | null;
+  dateNeeded: string | null;
+}): Promise<{ messageId: string }> {
+  if (sampleItems.length === 0) {
+    throw new Error("Add at least one sample before creating a Chain of Custody draft");
+  }
+
+  const inspector = primaryInspector(settings);
+  const now = new Date();
+  const timeZone = settings.timezone;
+  const relinquishedBy = {
+    name: inspector.name,
+    date: now.toLocaleDateString("en-US", { timeZone, month: "2-digit", day: "2-digit", year: "numeric" }),
+    time: now.toLocaleTimeString("en-US", { timeZone, hour: "numeric", minute: "2-digit", hour12: true }),
+  };
+
+  const taggedItems: SampleItem[] = sampleItems.map((s) => ({ ...s, coc_type: cocType }));
+  const otherTypeItems = (job.sample_items ?? []).filter((s) => (s.coc_type ?? "asbestos_bulk") !== cocType);
+  const mergedItems = [...otherTypeItems, ...taggedItems];
+
+  const pdfBuffer = cocType === "asbestos_bulk"
+    ? await renderBlankCocPdf({ job, customer: job.customers, settings, sampleItems: taggedItems, turnaround, relinquishedBy })
+    : await renderMoldCocPdf({
+        job, customer: job.customers, settings,
+        sampleType: cocType.replace(/^mold_/, "") as MoldSampleType,
+        sampleItems: taggedItems, turnaround, relinquishedBy,
+      });
+
+  const title = COC_TITLE[cocType];
+  const address = expandAddress(job.service_address);
+  const subject = `${job.project_number ? `${job.project_number} — ` : ""}${title} Chain of Custody — ${address}`;
+  const bodyHtml = [
+    "Hi,",
+    "",
+    `Attached is the Chain of Custody for ${sampleItems.length} ${title.toLowerCase()}${sampleItems.length === 1 ? "" : "s"} taken at:`,
+    "",
+    ...projectNumberLine(job),
+    escapeHtml(address),
+    "",
+    `If you have any questions, please call me at <span style="white-space:nowrap;">${escapeHtml(settings.business_phone)}</span>.`,
+    "",
+    ...SIGNATURE_LINES,
+  ].join("<br>");
+
+  const { messageId } = await createDraft(accessToken, {
+    to: "samples@crystalanalytical.com",
+    subject,
+    bodyHtml,
+    attachments: [{ filename: `${job.project_number ?? job.id} COC.pdf`, mimeType: "application/pdf", content: pdfBuffer }],
+  });
+
+  const logEntry: CocLogEntry = { coc_type: cocType, drafted_at: now.toISOString(), sample_count: sampleItems.length, gmail_message_id: messageId };
+  const supabase = getSupabaseAdmin();
+  await supabase.from("jobs").update({
+    sample_items: mergedItems,
+    lab_turnaround: turnaround,
+    lab_date_needed: dateNeeded,
+    coc_log: [...(job.coc_log ?? []), logEntry],
+  }).eq("id", job.id);
+
+  return { messageId };
+}
+
+/** The Chain of Custody tab's "Create Draft" button. */
+export async function createCocDraftForJob(
+  jobId: string,
+  selection: { cocType: CocType; sampleItems: SampleItem[]; turnaround: "Rush" | "24-Hr" | null; dateNeeded: string | null }
+): Promise<{ messageId: string }> {
+  return draftCocEmailForJob({ ...(await loadJobForDraft(jobId)), ...selection });
 }
 
 /**

@@ -1,6 +1,9 @@
-import type { FullInspectionMaterial, SampleItem } from "@/lib/types";
+import type { CocType, FullInspectionMaterial, SampleItem } from "@/lib/types";
 
-/** Validates and normalizes a raw SampleItem[] payload from the Samples tab. */
+const COC_TYPES: CocType[] = ["asbestos_bulk", "mold_air_o_cell", "mold_bulk", "mold_swab"];
+
+/** Validates and normalizes a raw SampleItem[] payload from the Samples tab
+    (and the Chain of Custody tab — see ChainOfCustodyPanel.tsx). */
 export function parseSampleItems(raw: unknown): { items: SampleItem[] } | { error: string } {
   if (!Array.isArray(raw)) {
     return { error: "sample_items must be an array" };
@@ -11,7 +14,8 @@ export function parseSampleItems(raw: unknown): { items: SampleItem[] } | { erro
     const sampleNumber = typeof rawItem?.sample_number === "string" ? rawItem.sample_number.trim() : "";
     const material = typeof rawItem?.material === "string" ? rawItem.material.trim() : "";
     const location = typeof rawItem?.location === "string" ? rawItem.location.trim() : "";
-    items.push({ sample_number: sampleNumber, material, location });
+    const cocType = COC_TYPES.includes(rawItem?.coc_type) ? (rawItem.coc_type as CocType) : undefined;
+    items.push({ sample_number: sampleNumber, material, location, ...(cocType ? { coc_type: cocType } : {}) });
   }
 
   return { items };

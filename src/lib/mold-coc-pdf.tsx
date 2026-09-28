@@ -6,7 +6,7 @@ import { Document, Page, Text, View, Image, StyleSheet, Font, renderToBuffer } f
 Font.registerHyphenationCallback((word) => [word]);
 import { formatDateMDY } from "@/lib/date-format";
 import { expandAddress } from "@/lib/address";
-import type { Job, Customer, Settings } from "@/lib/types";
+import type { Job, Customer, Settings, SampleItem } from "@/lib/types";
 
 // Same exact template as blank-coc-pdf.tsx's asbestos form — own blue
 // letterhead, same spacing/font/row-count values, same footer layout —
@@ -119,6 +119,10 @@ const styles = StyleSheet.create({
   turnaroundLine: { flexDirection: "row", alignItems: "baseline" },
   turnaroundLabel: { fontSize: 11, fontWeight: 700 },
   turnaroundOption: { fontSize: 11, fontWeight: 400, marginLeft: 20 },
+  // Electronic COC only (see ChainOfCustodyPanel.tsx / blank-coc-pdf.tsx's
+  // own copy of this same style) — combined with turnaroundOption above,
+  // not a replacement for it.
+  turnaroundOptionCircled: { borderWidth: 1, borderColor: LINE_COLOR, borderRadius: 9, paddingHorizontal: 7, paddingVertical: 1 },
   notes: { fontSize: 11, fontStyle: "italic" },
   emailNote: { fontSize: 11, fontStyle: "italic", textAlign: "right", marginTop: 10 },
   dateNeededRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 10 },
@@ -194,11 +198,19 @@ export interface MoldCocData {
   customer: Customer | null;
   settings: Settings;
   sampleType: MoldSampleType;
+  // Electronic COC feature (ChainOfCustodyPanel.tsx, 2026-09-28) — see
+  // BlankCocData's own copy of these three fields for the full comment.
+  // Every printed/downloaded blank form still calls this with none of them
+  // set, rendering exactly as it always has.
+  sampleItems?: SampleItem[];
+  turnaround?: "Rush" | "24-Hr" | null;
+  relinquishedBy?: { name: string; date: string; time: string } | null;
 }
 
-function MoldCocDocument({ job, customer, sampleType }: MoldCocData) {
+function MoldCocDocument({ job, customer, sampleType, sampleItems, turnaround, relinquishedBy }: MoldCocData) {
   const config = SAMPLE_TYPE_CONFIG[sampleType];
   const clientLabel = customer ? customer.company || customer.name : "";
+  const items = sampleItems ?? [];
   return (
     <Document title={job ? `${config.title} — ${expandAddress(job.service_address)}` : `${config.title} — Blank`}>
       <Page size="LETTER" style={styles.page}>
@@ -243,9 +255,9 @@ function MoldCocDocument({ job, customer, sampleType }: MoldCocData) {
           </View>
           {Array.from({ length: config.rowCount }).map((_, i) => (
             <View style={styles.tableRow} key={i}>
-              <View style={styles.colSample} />
-              {config.thirdColumnLabel && <View style={styles.colThird} />}
-              <View style={styles.colLocation} />
+              <View style={[styles.colSample, { padding: 3 }]}><Text>{items[i]?.sample_number ?? ""}</Text></View>
+              {config.thirdColumnLabel && <View style={[styles.colThird, { padding: 3 }]}><Text>{items[i]?.material ?? ""}</Text></View>}
+              <View style={[styles.colLocation, { padding: 3 }]}><Text>{items[i]?.location ?? ""}</Text></View>
             </View>
           ))}
         </View>
@@ -259,8 +271,8 @@ function MoldCocDocument({ job, customer, sampleType }: MoldCocData) {
             <View style={styles.footerTopRow}>
               <View style={styles.turnaroundLine}>
                 <Text style={styles.turnaroundLabel}>TURNAROUND</Text>
-                <Text style={styles.turnaroundOption}>RUSH</Text>
-                <Text style={styles.turnaroundOption}>24HR</Text>
+                <Text style={[styles.turnaroundOption, turnaround === "Rush" ? styles.turnaroundOptionCircled : {}]}>RUSH</Text>
+                <Text style={[styles.turnaroundOption, turnaround === "24-Hr" ? styles.turnaroundOptionCircled : {}]}>24HR</Text>
               </View>
               <Text style={styles.notes}>{config.turnaroundNote}</Text>
             </View>
@@ -289,16 +301,32 @@ function MoldCocDocument({ job, customer, sampleType }: MoldCocData) {
             <View style={styles.signatureSubRow}>
               <Text style={styles.signatureLabel}>RELINQUISHED BY</Text>
               <View style={[styles.signatureLineWrap, config.turnaroundNote ? {} : { width: 240 }]}>
-                <Text style={styles.signatureLine} />
-                <DateTimeField />
-                <TimeField />
+                {relinquishedBy ? (
+                  <>
+                    <Text style={[styles.signatureLine, { fontFamily: "Helvetica-Oblique" }]}>{relinquishedBy.name}</Text>
+                    <View style={styles.dateTimeOverlay}>
+                      <Text style={{ fontSize: 11 }}>{relinquishedBy.date}</Text>
+                      <Text style={styles.dateTimeCaption}>date</Text>
+                    </View>
+                    <View style={styles.timeOverlay}>
+                      <Text style={{ fontSize: 11 }}>{relinquishedBy.time}</Text>
+                      <Text style={styles.timeLabel}>time</Text>
+                    </View>
+                  </>
+                ) : (
+                  <>
+                    <Text style={styles.signatureLine} />
+                    <DateTimeField />
+                    <TimeField />
+                  </>
+                )}
               </View>
             </View>
             {!config.turnaroundNote && (
               <View style={[styles.turnaroundLine, { marginLeft: 16 }]}>
                 <Text style={styles.turnaroundLabel}>TURNAROUND</Text>
-                <Text style={styles.turnaroundOption}>RUSH</Text>
-                <Text style={styles.turnaroundOption}>24HR</Text>
+                <Text style={[styles.turnaroundOption, turnaround === "Rush" ? styles.turnaroundOptionCircled : {}]}>RUSH</Text>
+                <Text style={[styles.turnaroundOption, turnaround === "24-Hr" ? styles.turnaroundOptionCircled : {}]}>24HR</Text>
               </View>
             )}
           </View>

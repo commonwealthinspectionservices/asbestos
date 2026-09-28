@@ -1152,14 +1152,23 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
                   positional default, same label-cell style as Material/
                   Location — Remove folds into this same row's trailing
                   edge instead of its own separate blank strip. */}
-              <div className="flex items-center justify-between border-b border-slate-400 bg-slate-50">
+              {/* Per Tim, 2026-09-28 — "the shade of the sample # should
+                  be same as the 2 below it": dropped bg-slate-50, matching
+                  Material/Location's own plain white rows in this same
+                  card. */}
+              <div className="flex items-center justify-between border-b border-slate-400">
                 <div className="flex flex-1 items-center">
                   <span className="w-20 shrink-0 border-r border-slate-300 px-2 py-2.5 text-xs font-bold uppercase text-slate-700">Sample #</span>
+                  {/* Per Tim, 2026-09-28 — "I want all of this text to be
+                      same size if possible": mobile's cell values were
+                      text-sm, one size up from their own text-xs labels
+                      right next to them — matched down to text-xs, same
+                      size as every other piece of text in this panel. */}
                   <input
                     type="text"
                     value={r.sample_number}
                     onChange={(e) => updateRow(i, "sample_number", e.target.value)}
-                    className="w-full border-0 bg-transparent px-3 py-2.5 font-mono text-sm focus:bg-brand-50 focus:outline-none"
+                    className="w-full border-0 bg-transparent px-3 py-2.5 font-mono text-xs focus:bg-brand-50 focus:outline-none"
                   />
                 </div>
                 <button
@@ -1181,7 +1190,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
                     getLabel={(m) => m}
                     onSelect={(m) => updateRow(i, "material", m)}
                     onBlur={(v) => updateRow(i, "material", v)}
-                    inputClassName="w-full border-0 bg-transparent px-3 py-2.5 text-sm focus:bg-brand-50 focus:outline-none"
+                    inputClassName="w-full border-0 bg-transparent px-3 py-2.5 text-xs focus:bg-brand-50 focus:outline-none"
                   />
                 </div>
               )}
@@ -1195,7 +1204,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
                   getLabel={(l) => l}
                   onSelect={(l) => updateRow(i, "location", l)}
                   onBlur={(v) => updateRow(i, "location", v)}
-                  inputClassName="w-full border-0 bg-transparent px-3 py-2.5 text-sm focus:bg-brand-50 focus:outline-none"
+                  inputClassName="w-full border-0 bg-transparent px-3 py-2.5 text-xs focus:bg-brand-50 focus:outline-none"
                 />
               </div>
             </div>

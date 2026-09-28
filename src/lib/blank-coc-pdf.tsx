@@ -16,6 +16,12 @@ import type { Job, Customer, Settings, SampleItem } from "@/lib/types";
 // than the app's usual document styling. This form and the app's other
 // documents are meant to look different; that's not a bug.
 const LETTERHEAD_PATH = path.join(process.cwd(), "public", "letterhead-blue.png");
+// Same real signature already used on the report PDF (report-pdf.tsx's
+// own SignatureBlock) — per Tim, 2026-09-28: "instead of typing my name
+// in text can you use my signature from my report." 475x164 real aspect
+// ratio (~2.9:1), same as there, just much smaller here to fit the
+// RELINQUISHED BY line's tight space ("fit it small into that area").
+const SIGNATURE_PATH = path.join(process.cwd(), "public", "signature.png");
 const BLANK_ROW_COUNT = 20;
 const PAGE_TWO_ROW_COUNT = 20;
 const LINE_COLOR = "#000000";
@@ -68,9 +74,17 @@ const styles = StyleSheet.create({
   tableHeaderRow: { flexDirection: "row", borderBottomWidth: 0.5, borderBottomColor: LINE_COLOR },
   tableHeaderCell: { fontSize: 11, fontWeight: 700, textAlign: "center", padding: 5, borderRightWidth: 0.5, borderRightColor: LINE_COLOR },
   tableRow: { flexDirection: "row", borderBottomWidth: 0.5, borderBottomColor: LINE_COLOR, minHeight: 20, flexGrow: 1 },
-  colSample: { width: 66, borderRightWidth: 0.5, borderRightColor: LINE_COLOR },
-  colMaterial: { flex: 1, borderRightWidth: 0.5, borderRightColor: LINE_COLOR },
-  colLocation: { flex: 1 },
+  // Per Tim, 2026-09-28 — "everything [should] always try and be in the
+  // center, especially when there is a ton of extra space... that goes
+  // for sample number and location... and just kind of every chain of
+  // custody as well": each row is much taller than one line of text (20
+  // fixed rows per page, most left blank), so a top-left-anchored value
+  // left a lot of visibly empty space below/around it — centered both
+  // ways instead. Applies to the header <Text> cells too (harmless
+  // there — tableHeaderCell already centers its own text).
+  colSample: { width: 66, borderRightWidth: 0.5, borderRightColor: LINE_COLOR, justifyContent: "center", alignItems: "center" },
+  colMaterial: { flex: 1, borderRightWidth: 0.5, borderRightColor: LINE_COLOR, justifyContent: "center", alignItems: "center" },
+  colLocation: { flex: 1, justifyContent: "center", alignItems: "center" },
   // Matches the owner's real form's own gaps below the table — not
   // perfectly uniform (15/17/24pt below), that's genuinely how the
   // original is spaced.
@@ -79,14 +93,6 @@ const styles = StyleSheet.create({
   turnaroundLine: { flexDirection: "row", alignItems: "baseline" },
   turnaroundLabel: { fontSize: 11, fontWeight: 700 },
   turnaroundOption: { fontSize: 11, fontWeight: 400, marginLeft: 20 },
-  // Electronic COC only (see ChainOfCustodyPanel.tsx) — the owner circles
-  // whichever option applies by hand on a paper form; this is the closest
-  // equivalent for a generated one. Combined with turnaroundOption above
-  // (not a replacement for it), so marginLeft stays on turnaroundOption
-  // and this only adds the oval itself. Padding/radius sized by eye
-  // against a real hand-circled example (coc-air_o_cell-somerville.pdf)
-  // rather than an exact match — an oval around the word, not a rectangle.
-  turnaroundOptionCircled: { borderWidth: 1, borderColor: LINE_COLOR, borderRadius: 9, paddingHorizontal: 7, paddingVertical: 1 },
   notes: { fontSize: 11, fontStyle: "italic" },
   emailNote: { fontSize: 11, fontStyle: "italic", textAlign: "right", marginTop: 8 },
   dateNeededRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 8 },
@@ -112,6 +118,12 @@ const styles = StyleSheet.create({
   // RELINQUISHED BY's does, and yoga's implicit stretch isn't guaranteed
   // pixel-identical between those two nesting depths.
   signatureLine: { width: "100%", borderBottomWidth: 0.5, borderBottomColor: LINE_COLOR },
+  // Real signature image, sat on the RELINQUISHED BY line the same way
+  // the date/time values sit on it (position: absolute, anchored to the
+  // bottom of signatureLineWrap) — small (55pt wide, ~2.9:1 real aspect
+  // ratio) to fit the line's tight space rather than the report's own
+  // larger 85pt version.
+  relinquishedSignature: { position: "absolute", left: 4, bottom: 0, width: 55, height: 19 },
   pageLabel: { fontSize: 11, fontWeight: 700, marginLeft: 16 },
   // The date sits ON the line itself — right-anchored inside the same box
   // the line occupies — rather than as its own element appended after the
@@ -130,7 +142,11 @@ const styles = StyleSheet.create({
   timeOverlay: { position: "absolute", left: 165, bottom: -13, alignItems: "center" },
   timeLabel: { fontSize: 8, color: "#000000" },
   page2Table: { flex: 1, borderWidth: 1, borderColor: LINE_COLOR, marginTop: 4 },
-  page2Footer: { flexDirection: "row", justifyContent: "flex-end", alignItems: "flex-end", marginTop: 22 },
+  // Per Tim, 2026-09-28 — "I just want for when this is the case, to
+  // have the project number aligned all the way left... the page number
+  // is in a great spot now": PROJECT # anchors to the true left margin,
+  // PAGE stays exactly where it already was, at the right.
+  page2Footer: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", marginTop: 22 },
   page2FieldLabel: { fontSize: 11, fontWeight: 700, marginRight: 4 },
   page2FieldValue: { width: 120, borderBottomWidth: 0.5, borderBottomColor: LINE_COLOR, marginRight: 20 },
 });
@@ -235,9 +251,9 @@ function BlankCocDocument({ job, customer, settings, sampleItems, turnaround, re
           </View>
           {Array.from({ length: BLANK_ROW_COUNT }).map((_, i) => (
             <View style={styles.tableRow} key={i}>
-              <View style={[styles.colSample, { padding: 3 }]}><Text>{page1Items[i]?.sample_number ?? ""}</Text></View>
-              <View style={[styles.colMaterial, { padding: 3 }]}><Text>{page1Items[i]?.material ?? ""}</Text></View>
-              <View style={[styles.colLocation, { padding: 3 }]}><Text>{page1Items[i]?.location ?? ""}</Text></View>
+              <View style={[styles.colSample, { padding: 3 }]}><Text style={{ textAlign: "center" }}>{page1Items[i]?.sample_number ?? ""}</Text></View>
+              <View style={[styles.colMaterial, { padding: 3 }]}><Text style={{ textAlign: "center" }}>{page1Items[i]?.material ?? ""}</Text></View>
+              <View style={[styles.colLocation, { padding: 3 }]}><Text style={{ textAlign: "center" }}>{page1Items[i]?.location ?? ""}</Text></View>
             </View>
           ))}
         </View>
@@ -246,8 +262,23 @@ function BlankCocDocument({ job, customer, settings, sampleItems, turnaround, re
           <View style={styles.footerTopRow}>
             <View style={styles.turnaroundLine}>
               <Text style={styles.turnaroundLabel}>TURNAROUND</Text>
-              <Text style={[styles.turnaroundOption, turnaround === "Rush" ? styles.turnaroundOptionCircled : {}]}>RUSH</Text>
-              <Text style={[styles.turnaroundOption, turnaround === "24-Hr" ? styles.turnaroundOptionCircled : {}]}>24HR</Text>
+              {/* Per Tim, 2026-09-28 — "the whole point of having to [print
+                  both and] circle one of them [was for a hand-filled
+                  form]... now that it's electronic... we can probably
+                  just write 24-hour if it's a 24-hour or rush if it's a
+                  rush": once turnaround is actually known (an electronic
+                  draft, never the printed-ahead-of-time blank template),
+                  print only the real one, plain text, no circle. The
+                  blank template (turnaround null) still prints both
+                  uncircled, ready to hand-circle on-site same as always. */}
+              {turnaround ? (
+                <Text style={styles.turnaroundOption}>{turnaround === "Rush" ? "RUSH" : "24HR"}</Text>
+              ) : (
+                <>
+                  <Text style={styles.turnaroundOption}>RUSH</Text>
+                  <Text style={styles.turnaroundOption}>24HR</Text>
+                </>
+              )}
             </View>
             <Text style={styles.notes}>*Samples for analysis by Polarized Light Microscopy</Text>
           </View>
@@ -269,7 +300,8 @@ function BlankCocDocument({ job, customer, settings, sampleItems, turnaround, re
             <View style={styles.signatureLineWrap}>
               {relinquishedBy ? (
                 <>
-                  <Text style={[styles.signatureLine, { fontFamily: "Helvetica-Oblique" }]}>{relinquishedBy.name}</Text>
+                  <Text style={styles.signatureLine} />
+                  <Image src={SIGNATURE_PATH} style={styles.relinquishedSignature} />
                   <View style={styles.dateTimeOverlay}>
                     <Text style={{ fontSize: 11 }}>{relinquishedBy.date}</Text>
                     <Text style={styles.dateTimeCaption}>date</Text>
@@ -311,7 +343,14 @@ function BlankCocDocument({ job, customer, settings, sampleItems, turnaround, re
             </View>
             <View style={styles.signatureSubRow}>
               <Text style={styles.pageLabel}>PAGE</Text>
-              <Text style={[styles.signatureLine, { width: 70, marginLeft: 4 }]} />
+              {/* Per Tim, 2026-09-28 — "if there's just one page, I always
+                  just write one slash one... if there's two pages and
+                  this is the first page, I'd write one slash two, and on
+                  the second page, two slash two": this form is always a
+                  fixed 2-page document (a continuation sheet whether or
+                  not it actually holds real rows — see the Page 2 comment
+                  below), so page 1's field is always "1/2". */}
+              <Text style={[styles.signatureLine, { width: 70, marginLeft: 4, textAlign: "center" }]}>1/2</Text>
             </View>
           </View>
         </View>
@@ -337,18 +376,22 @@ function BlankCocDocument({ job, customer, settings, sampleItems, turnaround, re
           </View>
           {Array.from({ length: PAGE_TWO_ROW_COUNT }).map((_, i) => (
             <View style={styles.tableRow} key={i}>
-              <View style={[styles.colSample, { padding: 3 }]}><Text>{page2Items[i]?.sample_number ?? ""}</Text></View>
-              <View style={[styles.colMaterial, { padding: 3 }]}><Text>{page2Items[i]?.material ?? ""}</Text></View>
-              <View style={[styles.colLocation, { padding: 3 }]}><Text>{page2Items[i]?.location ?? ""}</Text></View>
+              <View style={[styles.colSample, { padding: 3 }]}><Text style={{ textAlign: "center" }}>{page2Items[i]?.sample_number ?? ""}</Text></View>
+              <View style={[styles.colMaterial, { padding: 3 }]}><Text style={{ textAlign: "center" }}>{page2Items[i]?.material ?? ""}</Text></View>
+              <View style={[styles.colLocation, { padding: 3 }]}><Text style={{ textAlign: "center" }}>{page2Items[i]?.location ?? ""}</Text></View>
             </View>
           ))}
         </View>
 
         <View style={styles.page2Footer}>
-          <Text style={styles.page2FieldLabel}>PROJECT #</Text>
-          <Text style={styles.page2FieldValue}>{job?.project_number ?? ""}</Text>
-          <Text style={styles.pageLabel}>PAGE</Text>
-          <Text style={[styles.dateNeededValue, { width: 60, marginLeft: 4 }]} />
+          <View style={styles.signatureSubRow}>
+            <Text style={styles.page2FieldLabel}>PROJECT #</Text>
+            <Text style={styles.page2FieldValue}>{job?.project_number ?? ""}</Text>
+          </View>
+          <View style={styles.signatureSubRow}>
+            <Text style={styles.pageLabel}>PAGE</Text>
+            <Text style={[styles.dateNeededValue, { width: 60, marginLeft: 4, textAlign: "center" }]}>2/2</Text>
+          </View>
         </View>
       </Page>
     </Document>

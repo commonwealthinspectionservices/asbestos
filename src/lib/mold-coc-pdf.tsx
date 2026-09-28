@@ -15,6 +15,11 @@ import type { Job, Customer, Settings, SampleItem } from "@/lib/types";
 // an air sample does, and mold has no inspector-license line the way
 // asbestos does.
 const LETTERHEAD_PATH = path.join(process.cwd(), "public", "letterhead-blue.png");
+// Same real signature already used on the report PDF and on
+// blank-coc-pdf.tsx's own RELINQUISHED BY line — per Tim, 2026-09-28:
+// "instead of typing my name in text can you use my signature from my
+// report."
+const SIGNATURE_PATH = path.join(process.cwd(), "public", "signature.png");
 const LINE_COLOR = "#000000";
 // Single-side borders (borderBottomWidth/borderRightWidth used alone, as
 // almost every line on this form is) render roughly 2x their declared
@@ -109,9 +114,13 @@ const styles = StyleSheet.create({
   tableHeaderRow: { flexDirection: "row", borderBottomWidth: 0.5, borderBottomColor: LINE_COLOR },
   tableHeaderCell: { fontSize: 11, fontWeight: 700, textAlign: "center", padding: 5, borderRightWidth: 0.5, borderRightColor: LINE_COLOR },
   tableRow: { flexDirection: "row", borderBottomWidth: 0.5, borderBottomColor: LINE_COLOR, minHeight: 20, flexGrow: 1 },
-  colSample: { width: 66, borderRightWidth: 0.5, borderRightColor: LINE_COLOR },
-  colThird: { flex: 1, borderRightWidth: 0.5, borderRightColor: LINE_COLOR },
-  colLocation: { flex: 1 },
+  // Per Tim, 2026-09-28 — same centering fix as blank-coc-pdf.tsx's own
+  // colSample/colMaterial/colLocation: "everything [should] always try
+  // and be in the center... that goes for sample number and location...
+  // and just kind of every chain of custody as well."
+  colSample: { width: 66, borderRightWidth: 0.5, borderRightColor: LINE_COLOR, justifyContent: "center", alignItems: "center" },
+  colThird: { flex: 1, borderRightWidth: 0.5, borderRightColor: LINE_COLOR, justifyContent: "center", alignItems: "center" },
+  colLocation: { flex: 1, justifyContent: "center", alignItems: "center" },
   // Matches the asbestos form's own gaps below the table — not perfectly
   // uniform, that's genuinely how the real form is spaced.
   footer: { marginTop: 18 },
@@ -119,10 +128,6 @@ const styles = StyleSheet.create({
   turnaroundLine: { flexDirection: "row", alignItems: "baseline" },
   turnaroundLabel: { fontSize: 11, fontWeight: 700 },
   turnaroundOption: { fontSize: 11, fontWeight: 400, marginLeft: 20 },
-  // Electronic COC only (see ChainOfCustodyPanel.tsx / blank-coc-pdf.tsx's
-  // own copy of this same style) — combined with turnaroundOption above,
-  // not a replacement for it.
-  turnaroundOptionCircled: { borderWidth: 1, borderColor: LINE_COLOR, borderRadius: 9, paddingHorizontal: 7, paddingVertical: 1 },
   notes: { fontSize: 11, fontStyle: "italic" },
   emailNote: { fontSize: 11, fontStyle: "italic", textAlign: "right", marginTop: 10 },
   dateNeededRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 10 },
@@ -150,6 +155,9 @@ const styles = StyleSheet.create({
   // RELINQUISHED BY's does, and yoga's implicit stretch isn't guaranteed
   // pixel-identical between those two nesting depths.
   signatureLine: { width: "100%", borderBottomWidth: 0.5, borderBottomColor: LINE_COLOR },
+  // Same small overlaid signature as blank-coc-pdf.tsx's own
+  // relinquishedSignature — see its comment.
+  relinquishedSignature: { position: "absolute", left: 4, bottom: 0, width: 55, height: 19 },
   pageLabel: { fontSize: 11, fontWeight: 700, marginLeft: 16 },
   // The date sits ON the line itself — right-anchored inside the same box
   // the line occupies — rather than as its own element appended after the
@@ -255,9 +263,9 @@ function MoldCocDocument({ job, customer, sampleType, sampleItems, turnaround, r
           </View>
           {Array.from({ length: config.rowCount }).map((_, i) => (
             <View style={styles.tableRow} key={i}>
-              <View style={[styles.colSample, { padding: 3 }]}><Text>{items[i]?.sample_number ?? ""}</Text></View>
-              {config.thirdColumnLabel && <View style={[styles.colThird, { padding: 3 }]}><Text>{items[i]?.material ?? ""}</Text></View>}
-              <View style={[styles.colLocation, { padding: 3 }]}><Text>{items[i]?.location ?? ""}</Text></View>
+              <View style={[styles.colSample, { padding: 3 }]}><Text style={{ textAlign: "center" }}>{items[i]?.sample_number ?? ""}</Text></View>
+              {config.thirdColumnLabel && <View style={[styles.colThird, { padding: 3 }]}><Text style={{ textAlign: "center" }}>{items[i]?.material ?? ""}</Text></View>}
+              <View style={[styles.colLocation, { padding: 3 }]}><Text style={{ textAlign: "center" }}>{items[i]?.location ?? ""}</Text></View>
             </View>
           ))}
         </View>
@@ -271,8 +279,18 @@ function MoldCocDocument({ job, customer, sampleType, sampleItems, turnaround, r
             <View style={styles.footerTopRow}>
               <View style={styles.turnaroundLine}>
                 <Text style={styles.turnaroundLabel}>TURNAROUND</Text>
-                <Text style={[styles.turnaroundOption, turnaround === "Rush" ? styles.turnaroundOptionCircled : {}]}>RUSH</Text>
-                <Text style={[styles.turnaroundOption, turnaround === "24-Hr" ? styles.turnaroundOptionCircled : {}]}>24HR</Text>
+                {/* Per Tim, 2026-09-28 — same reasoning as
+                    blank-coc-pdf.tsx's own turnaround fix: electronic
+                    draft prints only the real one, plain text, no circle;
+                    the blank template still prints both uncircled. */}
+                {turnaround ? (
+                  <Text style={styles.turnaroundOption}>{turnaround === "Rush" ? "RUSH" : "24HR"}</Text>
+                ) : (
+                  <>
+                    <Text style={styles.turnaroundOption}>RUSH</Text>
+                    <Text style={styles.turnaroundOption}>24HR</Text>
+                  </>
+                )}
               </View>
               <Text style={styles.notes}>{config.turnaroundNote}</Text>
             </View>
@@ -303,7 +321,8 @@ function MoldCocDocument({ job, customer, sampleType, sampleItems, turnaround, r
               <View style={[styles.signatureLineWrap, config.turnaroundNote ? {} : { width: 240 }]}>
                 {relinquishedBy ? (
                   <>
-                    <Text style={[styles.signatureLine, { fontFamily: "Helvetica-Oblique" }]}>{relinquishedBy.name}</Text>
+                    <Text style={styles.signatureLine} />
+                    <Image src={SIGNATURE_PATH} style={styles.relinquishedSignature} />
                     <View style={styles.dateTimeOverlay}>
                       <Text style={{ fontSize: 11 }}>{relinquishedBy.date}</Text>
                       <Text style={styles.dateTimeCaption}>date</Text>
@@ -332,8 +351,14 @@ function MoldCocDocument({ job, customer, sampleType, sampleItems, turnaround, r
             {!config.turnaroundNote && (
               <View style={[styles.turnaroundLine, { marginLeft: 16 }]}>
                 <Text style={styles.turnaroundLabel}>TURNAROUND</Text>
-                <Text style={[styles.turnaroundOption, turnaround === "Rush" ? styles.turnaroundOptionCircled : {}]}>RUSH</Text>
-                <Text style={[styles.turnaroundOption, turnaround === "24-Hr" ? styles.turnaroundOptionCircled : {}]}>24HR</Text>
+                {turnaround ? (
+                  <Text style={styles.turnaroundOption}>{turnaround === "Rush" ? "RUSH" : "24HR"}</Text>
+                ) : (
+                  <>
+                    <Text style={styles.turnaroundOption}>RUSH</Text>
+                    <Text style={styles.turnaroundOption}>24HR</Text>
+                  </>
+                )}
               </View>
             )}
           </View>
@@ -349,7 +374,11 @@ function MoldCocDocument({ job, customer, sampleType, sampleItems, turnaround, r
             </View>
             <View style={styles.signatureSubRow}>
               <Text style={styles.pageLabel}>PAGE</Text>
-              <Text style={[styles.signatureLine, { width: 70, marginLeft: 4 }]} />
+              {/* Per Tim, 2026-09-28 — "if there's just one page, I
+                  always just write one slash one": this form is always a
+                  single page (no continuation sheet, unlike the asbestos
+                  bulk form — see blank-coc-pdf.tsx). */}
+              <Text style={[styles.signatureLine, { width: 70, marginLeft: 4, textAlign: "center" }]}>1/1</Text>
             </View>
           </View>
         </View>

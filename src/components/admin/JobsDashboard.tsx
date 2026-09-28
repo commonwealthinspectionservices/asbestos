@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
-import type { CocType, Company, Customer, FullInspectionMaterial, InvoiceLineItem, JobDocument, JobWithCustomer, LabProfile, PricingZone, SampleItem, ServiceType } from "@/lib/types";
+import type { CocType, Company, Customer, InvoiceLineItem, JobDocument, JobWithCustomer, LabProfile, PricingZone, SampleItem, ServiceType } from "@/lib/types";
 import { defaultInvoiceLineItems, sampleDescriptionForServiceType } from "@/lib/invoice-defaults";
 import { defaultSampleCode } from "@/lib/sample-items";
 import { ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK, jobReportDomains, jobCocTypes, domainForServiceTypeLabel, isFullInspectionAsbestosJob, NEWTON_FIRE_FLOOD_COMPANY_ID, BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID, FLI_ENVIRONMENTAL_COMPANY_ID, type ReportDomain } from "@/lib/report-findings";
@@ -777,8 +777,27 @@ function ChainOfCustodyPanel({ job, cocType, label, onChanged }: { job: JobWithC
     return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
   });
 
+  // Per Tim, 2026-09-28 — "whatever is typed in for the A sample should be
+  // copied exactly for the B sample... once something is typed in for
+  // 01A[/02A/03A/...], then the B sample automatically populates with
+  // that info... the cell should still remain editable in case there's
+  // anything I need to add or change": Material only (Location is its own
+  // real per-spot detail, never auto-copied), and only while B hasn't
+  // already diverged from A on its own — the moment the admin edits B's
+  // Material directly to something else, further A edits stop
+  // overwriting it. Same positional pairing as defaultSampleCode (even
+  // index = an A row, its B row is the very next one).
   function updateRow(i: number, field: "sample_number" | "material" | "location", value: string) {
-    setRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, [field]: value } : r)));
+    setRows((prev) => {
+      const next = prev.map((r, idx) => (idx === i ? { ...r, [field]: value } : r));
+      if (field === "material" && hasMaterial && i % 2 === 0 && i + 1 < next.length) {
+        const bRow = prev[i + 1];
+        if (bRow.material === prev[i].material || bRow.material === "") {
+          next[i + 1] = { ...next[i + 1], material: value };
+        }
+      }
+      return next;
+    });
   }
   function addRow() {
     setRows((prev) => [...prev, { sample_number: defaultSampleCode(prev.length, hasMaterial), material: "", location: "" }]);
@@ -3043,16 +3062,10 @@ export function ProjectDetailDialog({
   });
   const [invoiceLineItems, setInvoiceLineItems] = useState<LineItemRowState[]>(() => defaultLineItems(job, serviceTypeSettings, pricingZones));
   const [savingInvoice, setSavingInvoice] = useState(false);
-  // Full-inspection (Pre-Renovation/Pre-Demolition) asbestos jobs only —
-  // see MaterialsEditor.
-  const [fullInspectionMaterials, setFullInspectionMaterials] = useState<FullInspectionMaterial[]>(job.full_inspection_materials ?? []);
-  const [savingMaterials, setSavingMaterials] = useState(false);
-  const materialsHasMountedRef = useRef(false);
-  const materialsDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Per Tim, 2026-08-31 — Limited Inspection jobs' own counterpart to
-  // fullInspectionMaterials above: material + approximate footage typed in
-  // next to a positive sample result, not a whole separate materials
-  // table. Same always-save-on-change debounce pattern.
+  // Per Tim, 2026-08-31 — Limited Inspection jobs' own material +
+  // approximate footage typed in next to a positive sample result, not a
+  // whole separate materials table. Same always-save-on-change debounce
+  // pattern the (now-removed) Materials Sampled editor used to use.
   const [sampleFindings, setSampleFindings] = useState<{ fieldCode: string; material: string; estimated_quantity: string; unit: "sq_ft" | "linear_ft" }[]>(job.sample_findings ?? []);
   const sampleFindingsHasMountedRef = useRef(false);
   const sampleFindingsDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -3540,39 +3553,6 @@ export function ProjectDetailDialog({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [invoiceLineItems]);
-
-  async function saveMaterials() {
-    setSavingMaterials(true);
-    try {
-      const res = await fetch(`/api/admin/jobs/${job.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ full_inspection_materials: fullInspectionMaterials }),
-      });
-      if (res.ok) onChanged();
-    } finally {
-      setSavingMaterials(false);
-    }
-  }
-
-  // Same always-save-on-change, 1s-debounced pattern as the invoice line
-  // items above — simpler here since there's no auto-recompute default to
-  // distinguish from a real edit, just save whatever's in the list.
-  useEffect(() => {
-    if (!isFullInspectionAsbestosJob(job.service_type)) return;
-    if (!materialsHasMountedRef.current) {
-      materialsHasMountedRef.current = true;
-      return;
-    }
-    if (materialsDebounceRef.current) clearTimeout(materialsDebounceRef.current);
-    materialsDebounceRef.current = setTimeout(() => {
-      saveMaterials();
-    }, 1000);
-    return () => {
-      if (materialsDebounceRef.current) clearTimeout(materialsDebounceRef.current);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fullInspectionMaterials]);
 
   async function saveSampleFindings() {
     await fetch(`/api/admin/jobs/${job.id}`, {
@@ -4836,10 +4816,16 @@ export function ProjectDetailDialog({
                                 within it), not once per job — a job
                                 combining asbestos and lead has two of these
                                 groups, each needing its own Result dropdown
-                                writing to its own domain's fields. Full
-                                inspection's own MaterialsEditor replaces
-                                this for asbestos only; lead has no
-                                "full inspection" concept of its own. */}
+                                writing to its own domain's fields. A full
+                                inspection asbestos job has no single overall
+                                Result at all — its report is built from the
+                                per-material Appendix A/B breakdown instead
+                                (full_inspection_materials, still populated
+                                automatically from lab results regardless of
+                                the Materials Sampled editor's removal — see
+                                deriveFullInspectionMaterials in
+                                sample-items.ts); lead has no "full
+                                inspection" concept of its own either way. */}
                             {labelIdx === 0 && group.domain !== "mold" &&
                               !(group.domain === "asbestos" && isFullInspectionAsbestosJob(job.service_type)) && (
                               <div className="mt-3">
@@ -4967,18 +4953,6 @@ export function ProjectDetailDialog({
                   .map(({ label, cocType }) => (
                     <ChainOfCustodyPanel key={cocType} job={job} cocType={cocType} label={label} onChanged={onChanged} />
                   ))}
-
-                {reportDomainTab === "asbestos" && isFullInspectionAsbestosJob(job.service_type) && (
-                  <div className="mt-5 rounded-lg border border-slate-200 p-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
-                        Materials Sampled
-                      </label>
-                      {savingMaterials && <p className="text-xs text-slate-400">Saving…</p>}
-                    </div>
-                    <MaterialsEditor items={fullInspectionMaterials} setItems={setFullInspectionMaterials} />
-                  </div>
-                )}
 
                 {/* report_notes: same field, but now also rendered (and
                     included in the PDF's Remarks and Limitations) for the
@@ -8369,108 +8343,6 @@ function defaultLineItems(
   }));
 
   return rows.length > 0 ? rows : [{ description: "", quantity: "1", billingUnit: "Each", unitCost: "" }];
-}
-
-// One row per homogeneous material for a full-inspection (Pre-Renovation/
-// Pre-Demolition) asbestos job — drives the report's Appendix A (is_acm
-// true) / Appendix B (false) tables. Same flat add/update/remove
-// immutable-array pattern as LineItemsEditor below, simpler since there's
-// no auto-recompute default to manage — the parent always saves whatever's
-// here (see JobsDashboard's fullInspectionMaterials debounce effect).
-function MaterialsEditor({
-  items, setItems,
-}: {
-  items: FullInspectionMaterial[];
-  setItems: Dispatch<SetStateAction<FullInspectionMaterial[]>>;
-}) {
-  function update(i: number, patch: Partial<FullInspectionMaterial>) {
-    setItems((rows) => rows.map((r, idx) => (idx !== i ? r : { ...r, ...patch })));
-  }
-  function updateLocation(i: number, locIdx: number, value: string) {
-    setItems((rows) =>
-      rows.map((r, idx) => {
-        if (idx !== i) return r;
-        const locations = [...r.locations];
-        locations[locIdx] = value;
-        return { ...r, locations };
-      })
-    );
-  }
-  function add() {
-    setItems((rows) => [...rows, { material: "", is_acm: false, locations: ["", "", ""], sample_numbers: "", estimated_quantity: null }]);
-  }
-  function remove(i: number) {
-    setItems((rows) => rows.filter((_, idx) => idx !== i));
-  }
-
-  return (
-    <div className="mt-2 space-y-3">
-      {items.map((row, i) => (
-        <div key={i} className="rounded-lg border border-slate-200 p-2">
-          <div className="flex items-start gap-2">
-            <input
-              className="min-w-0 flex-1 rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
-              placeholder="Material"
-              value={row.material}
-              onChange={(e) => update(i, { material: e.target.value })}
-            />
-            <label className="flex shrink-0 items-center gap-1.5 whitespace-nowrap px-1 py-1.5 text-xs font-medium text-slate-600">
-              <input
-                type="checkbox"
-                checked={row.is_acm}
-                onChange={(e) => update(i, { is_acm: e.target.checked, estimated_quantity: e.target.checked ? row.estimated_quantity : null })}
-              />
-              ACM
-            </label>
-            {items.length > 1 && (
-              <button onClick={() => remove(i)} className="shrink-0 text-sm text-red-600">
-                Delete
-              </button>
-            )}
-          </div>
-          <div className="mt-1.5 grid grid-cols-1 gap-1.5 sm:grid-cols-3">
-            <input
-              className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
-              placeholder="Location A"
-              value={row.locations[0] ?? ""}
-              onChange={(e) => updateLocation(i, 0, e.target.value)}
-            />
-            <input
-              className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
-              placeholder="Location B"
-              value={row.locations[1] ?? ""}
-              onChange={(e) => updateLocation(i, 1, e.target.value)}
-            />
-            <input
-              className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
-              placeholder="Location C"
-              value={row.locations[2] ?? ""}
-              onChange={(e) => updateLocation(i, 2, e.target.value)}
-            />
-          </div>
-          <div className="mt-1.5 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-            <input
-              className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
-              placeholder="Sample #('s)"
-              value={row.sample_numbers}
-              onChange={(e) => update(i, { sample_numbers: e.target.value })}
-            />
-            {row.is_acm && (
-              <input
-                className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
-                placeholder="Estimated quantity"
-                value={row.estimated_quantity ?? ""}
-                onChange={(e) => update(i, { estimated_quantity: e.target.value })}
-              />
-            )}
-          </div>
-        </div>
-      ))}
-      <button onClick={add} className="text-sm text-brand-600 hover:underline">
-        + Material
-      </button>
-    </div>
-  );
 }
 
 function LineItemsEditor({

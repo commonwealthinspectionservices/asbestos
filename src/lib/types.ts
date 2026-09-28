@@ -309,6 +309,9 @@ export interface Job {
   lab_date_needed: string | null;
   /** History of electronic Chain of Custody drafts created for this job — see CocLogEntry. */
   coc_log: CocLogEntry[];
+  /** Chain of Custody "Relinquished" date/time — auto-saved as the admin fills the tab out, not just captured at Create Draft time (per Tim, 2026-09-28: "all of this should always auto save... I shouldn't have to manually save it ever"). coc_relinquished_time is "HH:MM" (native <input type="time"> value), same convention as requested_time. */
+  coc_relinquished_date: string | null;
+  coc_relinquished_time: string | null;
   /** Asbestos's own Overall Findings sentence/additional remarks — lead has its own lead_report_summary/lead_report_notes below, mold its own mold_report_summary/mold_report_notes, so a job combining domains never shares this between their separate report PDFs. */
   report_summary: string | null;
   report_notes: string | null;

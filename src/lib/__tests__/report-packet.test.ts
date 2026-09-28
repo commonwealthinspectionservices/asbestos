@@ -89,6 +89,8 @@ const baseJob: Job = {
   sample_count: 4,
   sample_items: [],
   coc_log: [],
+  coc_relinquished_date: null,
+  coc_relinquished_time: null,
   sample_counts: {},
   full_inspection_materials: [],
   sample_findings: [],

@@ -1333,3 +1333,13 @@ alter table mileage_days add column if not exists qb_synced_realm_id text;
 -- reused for the row data itself (now with an optional coc_type tag, see
 -- SampleItem in types.ts), no new column needed for that part.
 alter table jobs add column if not exists coc_log jsonb not null default '[]'::jsonb;
+
+-- Chain of Custody "Relinquished" date/time — per Tim, 2026-09-28: "all of
+-- this should always auto save... I shouldn't have to manually save it
+-- ever." Turnaround/Date Needed already had homes (lab_turnaround/
+-- lab_date_needed above), and the sample rows themselves auto-save into
+-- the existing sample_items column — only Relinquished date/time had
+-- nowhere to persist between sessions (it always reset to "right now" on
+-- every reopen), hence these two new columns.
+alter table jobs add column if not exists coc_relinquished_date date;
+alter table jobs add column if not exists coc_relinquished_time text;

@@ -62,6 +62,8 @@ const customer: Customer = {
 const job: Job = {
   id: "job-1",
   coc_log: [],
+  coc_relinquished_date: null,
+  coc_relinquished_time: null,
   project_number: "26-1001",
   customer_id: "cust-1",
   service_address: "800 Boylston St, Boston, MA",

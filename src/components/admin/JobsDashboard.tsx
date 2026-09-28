@@ -802,16 +802,68 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
   // time pickers, not an auto-stamped read-only preview (which is what
   // this was until this same day, per the "we are missing the
   // relinquished part" feedback right before this one) — defaults to
-  // right now as a starting point, since drafting right at drop-off is
-  // still the common case, but he can freely change either.
+  // right now as a starting point (only when nothing's been saved for
+  // this job yet — see coc_relinquished_date/_time below), since drafting
+  // right at drop-off is still the common case, but he can freely change
+  // either.
   const [relinquishedDate, setRelinquishedDate] = useState(() => {
+    if (job.coc_relinquished_date) return job.coc_relinquished_date;
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   });
   const [relinquishedTime, setRelinquishedTime] = useState(() => {
+    if (job.coc_relinquished_time) return job.coc_relinquished_time;
     const d = new Date();
     return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
   });
+
+  // Per Tim, 2026-09-28 — "all of this should always auto save. I
+  // shouldn't have to manually save it ever at all... based on the
+  // progress that I've made": everything typed into this tab (samples,
+  // turnaround, date needed, relinquished date/time) debounce-saves to
+  // the job in the background, same debounced-PATCH shape the old
+  // MaterialsEditor used before it was removed. Skips the very first
+  // render (nothing actually changed yet — that would just re-save
+  // whatever was already there, or stamp today's date/time onto a job
+  // that had no relinquished value saved at all). sample_items is
+  // merged by coc_type client-side before sending, same rule
+  // createCocDraftForJob uses server-side — this type's rows replace
+  // only this type's rows, every other coc_type's rows on the job (a
+  // mold job with both Air and Bulk panels, say) pass through untouched.
+  const hasMountedRef = useRef(false);
+  const saveDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!hasMountedRef.current) {
+      hasMountedRef.current = true;
+      return;
+    }
+    if (saveDebounceRef.current) clearTimeout(saveDebounceRef.current);
+    saveDebounceRef.current = setTimeout(() => {
+      const otherTypesRows = (job.sample_items ?? []).filter((s) => (s.coc_type ?? "asbestos_bulk") !== cocType);
+      const thisTypeRows = rows
+        .filter((r) => r.sample_number.trim() || r.material.trim() || r.location.trim())
+        .map((r) => ({ ...r, coc_type: cocType }));
+      fetch(`/api/admin/jobs/${job.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sample_items: [...otherTypesRows, ...thisTypeRows],
+          lab_turnaround: turnaround,
+          lab_date_needed: dateNeeded || null,
+          coc_relinquished_date: relinquishedDate || null,
+          coc_relinquished_time: relinquishedTime || null,
+        }),
+      }).catch(() => {
+        // Silent — this is a background autosave, not a user action with
+        // its own error UI. Create Draft's own request (createCocDraft)
+        // still surfaces a real error if that explicit action fails.
+      });
+    }, 800);
+    return () => {
+      if (saveDebounceRef.current) clearTimeout(saveDebounceRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, turnaround, dateNeeded, relinquishedDate, relinquishedTime]);
 
   // Per Tim, 2026-09-28 — "whatever is typed in for the A sample should be
   // copied exactly for the B sample... once something is typed in for
@@ -893,18 +945,23 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
   const history = (job.coc_log ?? []).filter((h) => h.coc_type === cocType).sort((a, b) => b.drafted_at.localeCompare(a.drafted_at));
 
   return (
-    <div className="mt-5 rounded-lg border border-slate-200 p-3">
+    // Per Tim, 2026-09-28 — first "the entire big cell that goes around
+    // the entire tool on the chain of custody page is not needed"
+    // (mobile), then confirmed for desktop too — no outer border/rounded
+    // corners/padding at any width, the panel just reads as loose
+    // sections on the page.
+    <div className="mt-5">
       {/* Per Tim, 2026-09-28 — first "delete this [the 'Samples' label]
           and then make the plus add sample button on the same line as
           [the title]... aligned right like it already is," then a
-          follow-up on mobile: "that title, pre-renovation, asbestos
-          inspection, chain of custody, that should all just be deleted
-          entirely" (it was wrapping to two lines on a phone, and it's
-          redundant with the Chain of Custody tab itself). Title's gone;
-          "+ Add material" stays, just right-aligned on its own. */}
-      <div className="flex items-center justify-end">
-        <button type="button" onClick={addRow} className="shrink-0 text-xs font-medium text-brand-600 hover:underline">{hasMaterial ? "+ Add material" : "+ Add sample"}</button>
-      </div>
+          follow-up: "that title, pre-renovation, asbestos inspection,
+          chain of custody, that should all just be deleted entirely" (it
+          was wrapping to two lines on a phone, and it's redundant with
+          the Chain of Custody tab itself). Title's gone, and the button
+          moved below the samples — "I always want the material button to
+          be below the last sample in both mobile and desktop" — see
+          right after the samples table/cards below, one shared placement
+          for both widths, not split by breakpoint. */}
 
       {/* Per Tim, 2026-09-28 — "I want it to look exactly like the chain
           of custody documents... formatted exactly the same way [they
@@ -1053,6 +1110,10 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
         </div>
       </div>
 
+      <div className="mt-3 flex justify-end">
+        <button type="button" onClick={addRow} className="shrink-0 text-xs font-medium text-brand-600 hover:underline">{hasMaterial ? "+ Add material" : "+ Add sample"}</button>
+      </div>
+
       {/* Per Tim, 2026-09-28 — "turnaround[,] date needed[,] and then
           relinquish[ed] all should have their own line" (his own revision
           of an earlier "merge them into one row" ask, same day) — three
@@ -1078,27 +1139,27 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
           seen"). Untouched here; see the sm:hidden block right after it
           for mobile's own stacked-label version that never needs to
           scroll at any width. */}
-      <div className="mt-4 hidden space-y-4 sm:block">
+      <div className="mt-6 hidden space-y-4 sm:block">
         <div className="flex flex-nowrap items-center gap-3">
-          <span className="w-28 shrink-0 whitespace-nowrap text-xs font-bold uppercase text-slate-500">Turnaround</span>
+          <span className="w-28 shrink-0 whitespace-nowrap text-xs font-bold uppercase text-slate-700">Turnaround</span>
           <div className="flex gap-3">
             {(["Rush", "24-Hr"] as const).map((t) => (
               <button
                 key={t}
                 type="button"
                 onClick={() => setTurnaround(turnaround === t ? null : t)}
-                className={`w-32 shrink-0 rounded-lg border px-3 py-2 text-center text-sm font-bold uppercase transition-colors ${turnaround === t ? "border-brand-600 bg-brand-50 text-brand-700" : "border-slate-300 bg-white text-slate-600 hover:border-slate-400"}`}
+                className={`w-32 shrink-0 rounded-lg border px-3 py-2 text-center text-sm transition-colors ${turnaround === t ? "border-brand-600 bg-brand-50 text-brand-700" : "border-slate-300 bg-white text-slate-600 hover:border-slate-400"}`}
               >
-                {t === "Rush" ? "RUSH" : "24HR"}
+                {t === "Rush" ? "Rush" : "24 Hours"}
               </button>
             ))}
           </div>
         </div>
 
         <div className="flex flex-nowrap items-center gap-3">
-          <span className="w-28 shrink-0 whitespace-nowrap text-xs font-bold uppercase text-slate-500">Date Needed</span>
+          <span className="w-28 shrink-0 whitespace-nowrap text-xs font-bold uppercase text-slate-700">Date Needed</span>
           <input
-            type="text"
+            type="date"
             value={dateNeeded}
             onChange={(e) => setDateNeeded(e.target.value)}
             className="w-32 rounded-lg border border-slate-300 px-3 py-2 text-sm"
@@ -1106,7 +1167,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
         </div>
 
         <div className="flex flex-nowrap items-center gap-3">
-          <span className="w-28 shrink-0 whitespace-nowrap text-xs font-bold uppercase text-slate-500">Relinquished</span>
+          <span className="w-28 shrink-0 whitespace-nowrap text-xs font-bold uppercase text-slate-700">Relinquished</span>
           <input
             type="date"
             value={relinquishedDate}
@@ -1130,55 +1191,72 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
         </div>
       </div>
 
-      {/* Mobile only — per Tim, 2026-09-28: "everything needs to be one
-          line across without having to scroll across... nothing has to
-          be scrolled across to be seen." Label sits on its own line
-          above its controls (not sharing a line with them), so nothing
-          is ever forced past the screen width regardless of label
-          length or how many controls follow it — real, comfortably
-          tappable cells, none of them fighting for the same row's width
-          budget the way the desktop layout's fixed columns do. */}
-      <div className="mt-4 space-y-4 sm:hidden">
-        <div>
-          <div className="text-xs font-bold uppercase text-slate-500">Turnaround</div>
-          <div className="mt-1.5 flex flex-wrap gap-2">
+      {/* Mobile only — per Tim, 2026-09-28: first "everything needs to be
+          one line across without having to scroll across," which the
+          fixed-width desktop layout couldn't do, so this started out as
+          label-above-controls, stacked. Follow-up the same day, after the
+          outer big-card border/padding came off (more room to work with):
+          "I feel like there's enough space... for the shells to be
+          directly across from the titles... one line across for
+          everything" — back to label+controls sharing one row, but with
+          flexible (min-w-0 flex-1) widths instead of the desktop block's
+          fixed w-28/w-32, so it compresses to fit instead of overflowing.
+          Button text is text-xs now too, matching the labels' size
+          ("I don't like how [the button text] is bigger" [than the
+          titles]) — and, same day, one more follow-up dropped the
+          font-bold/uppercase off RUSH/24HR entirely so the button text
+          reads in the exact same size and format as what's typed into
+          Date Needed/Relinquished right next to it, not just the same
+          size while still standing out bolder. */}
+      <div className="mt-6 space-y-3 sm:hidden">
+        {/* Per Tim, 2026-09-28 — "make it so that the date needed,
+            relinquished, and turnaround cells all start and end in the
+            same spot... right now they're not aligned": each label was
+            sized to its own text ("Turnaround" vs. "Date Needed" vs.
+            "Relinquished" are different lengths), so the cells next to
+            them started at three different x positions. A shared w-24
+            fixed width on every label lines all three cells' left AND
+            right edges up, same as the desktop block's own w-28. */}
+        <div className="flex flex-nowrap items-center gap-2">
+          <span className="w-24 shrink-0 whitespace-nowrap text-xs font-bold uppercase text-slate-700">Turnaround</span>
+          <div className="flex min-w-0 flex-1 gap-1.5">
             {(["Rush", "24-Hr"] as const).map((t) => (
               <button
                 key={t}
                 type="button"
                 onClick={() => setTurnaround(turnaround === t ? null : t)}
-                className={`rounded-lg border px-4 py-2 text-sm font-bold uppercase transition-colors ${turnaround === t ? "border-brand-600 bg-brand-50 text-brand-700" : "border-slate-300 bg-white text-slate-600"}`}
+                className={`min-w-0 flex-1 rounded-lg border px-2 py-1.5 text-center text-xs transition-colors ${turnaround === t ? "border-brand-600 bg-brand-50 text-brand-700" : "border-slate-300 bg-white text-slate-600"}`}
               >
-                {t === "Rush" ? "RUSH" : "24HR"}
+                {t === "Rush" ? "Rush" : "24 Hours"}
               </button>
             ))}
           </div>
         </div>
 
-        <div>
-          <div className="text-xs font-bold uppercase text-slate-500">Date Needed</div>
+        <div className="flex flex-nowrap items-center gap-2">
+          <span className="w-24 shrink-0 whitespace-nowrap text-xs font-bold uppercase text-slate-700">Date Needed</span>
           <input
-            type="text"
+            type="date"
             value={dateNeeded}
             onChange={(e) => setDateNeeded(e.target.value)}
-            className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            className="min-w-0 flex-1 rounded-lg border border-slate-300 px-2 py-1.5 text-xs"
           />
         </div>
 
-        <div>
-          <div className="text-xs font-bold uppercase text-slate-500">Relinquished</div>
-          <div className="mt-1.5 flex flex-wrap gap-2">
+        <div className="flex flex-nowrap items-center gap-2">
+          <span className="w-24 shrink-0 whitespace-nowrap text-xs font-bold uppercase text-slate-700">Relinquished</span>
+          <div className="flex min-w-0 flex-1 gap-1.5">
             <input
               type="date"
               value={relinquishedDate}
               onChange={(e) => setRelinquishedDate(e.target.value)}
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              className="min-w-0 flex-1 rounded-lg border border-slate-300 px-2 py-1.5 text-xs"
             />
             <input
               type="time"
               value={relinquishedTime}
               onChange={(e) => setRelinquishedTime(e.target.value)}
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              className="min-w-0 flex-1 rounded-lg border border-slate-300 px-2 py-1.5 text-xs"
             />
           </div>
         </div>

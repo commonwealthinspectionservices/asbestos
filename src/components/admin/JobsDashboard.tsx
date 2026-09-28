@@ -799,13 +799,19 @@ function ChainOfCustodyPanel({ job, cocType, label, onChanged }: { job: JobWithC
   // Material directly to something else, further A edits stop
   // overwriting it. Same positional pairing as defaultSampleCode (even
   // index = an A row, its B row is the very next one).
+  // Per Tim, 2026-09-28 — "the location should always default to being
+  // the same as well. So whatever location is for 01A should always be
+  // the location for 01B as well... it should still be editable so I can
+  // add or change like always": same auto-copy rule as Material, now for
+  // Location too — an A row (even index) mirrors its edit into its B row
+  // (index+1) only while B hasn't already diverged on its own.
   function updateRow(i: number, field: "sample_number" | "material" | "location", value: string) {
     setRows((prev) => {
       const next = prev.map((r, idx) => (idx === i ? { ...r, [field]: value } : r));
-      if (field === "material" && hasMaterial && i % 2 === 0 && i + 1 < next.length) {
+      if ((field === "material" || field === "location") && hasMaterial && i % 2 === 0 && i + 1 < next.length) {
         const bRow = prev[i + 1];
-        if (bRow.material === prev[i].material || bRow.material === "") {
-          next[i + 1] = { ...next[i + 1], material: value };
+        if (bRow[field] === prev[i][field] || bRow[field] === "") {
+          next[i + 1] = { ...next[i + 1], [field]: value };
         }
       }
       return next;

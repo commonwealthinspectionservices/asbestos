@@ -3511,8 +3511,16 @@ function JobRow({
                   must disappear entirely there too — confirmed live
                   2026-08-27, sm:hidden only hid it on desktop, leaving it
                   redundantly visible on mobile alongside those lines. */}
+              {/* Per Tim, 2026-09-29 — "these need to be on the same
+                  line across for ready to review... exactly": gap-0.5
+                  (2px) didn't match the address column's own gap-2 (8px)
+                  rhythm — Report sat 8px above Somerville, MA (confirmed
+                  live: 353px vs 361px for the same row) since a 20px
+                  line + 2px gap advances slower than a 20px line + 8px
+                  gap. gap-2 here now, matching every other multi-line
+                  block in this row. */}
               {showReportInvoice && (
-                <div className="hidden w-full flex-col items-end gap-0.5 text-sm text-slate-500 sm:flex">
+                <div className="hidden w-full flex-col items-end gap-2 text-sm text-slate-500 sm:flex">
                   {paymentPendingCompletedDate}
                   {invoiceStatus}
                   {reportStatus}
@@ -3523,7 +3531,7 @@ function JobRow({
                   Scheduled/Completed date block below — still relevant info
                   at this stage — just adds the invoice line above it. */}
               {showInvoiceOnly && (
-                <div className="hidden w-full flex-col items-end gap-0.5 text-sm text-slate-500 sm:flex">
+                <div className="hidden w-full flex-col items-end gap-2 text-sm text-slate-500 sm:flex">
                   {invoiceStatus}
                 </div>
               )}

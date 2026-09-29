@@ -8,7 +8,7 @@ import { deriveFullInspectionMaterials } from "@/lib/sample-items";
 import { renderBlankCocPdf } from "@/lib/blank-coc-pdf";
 import { renderMoldCocPdf, type MoldSampleType } from "@/lib/mold-coc-pdf";
 import { withCompanyBillingAddress } from "@/lib/customer-billing";
-import { formatDateMDY, formatRequestedTime } from "@/lib/date-format";
+import { formatDateMDY, formatDateLongOrdinal, formatRequestedTime } from "@/lib/date-format";
 import { threadSubject, threadHeaders } from "@/lib/email-thread";
 import {
   addLabelToMessage,
@@ -3168,27 +3168,44 @@ async function draftCocEmailForJob({
   await uploadCocDocument(job, pdfBuffer, cocServiceTypeLabel);
 
   const now = new Date();
-  const title = COC_TITLE[cocType];
+  // Per Tim, 2026-09-29 — "this is the format that I want for when I
+  // share chain of custody emails": a plain, fixed-field layout (no
+  // greeting, no sample-count sentence, no signature block) instead of
+  // the old prose version — Company/Project #/Address, then a one-line
+  // "call Tim" (not "call me" — this goes to the lab specifically,
+  // unlike every client-facing email's own "call me" convention).
   const address = expandAddress(job.service_address);
-  const subject = `${job.project_number ? `${job.project_number} — ` : ""}${title} Chain of Custody — ${address}`;
+  const subject = `Chain of Custody${job.project_number ? ` - ${job.project_number}` : ""}`;
+  // Per Tim, 2026-09-29 (follow-up) — "this should actually be the
+  // format": added a "Date of Sampling" line, same source (bestSampledDate)
+  // as the report draft body's own line just above in this file, but in
+  // formatDateLongOrdinal's spelled-out style ("September 28th, 2026")
+  // rather than this app's usual MM/DD/YYYY — matching the exact example
+  // shown, and consistent with formatDateLongOrdinal's own established
+  // use in every report letter's prose (see its own comment).
+  const sampledDate = bestSampledDate(job);
   const bodyHtml = [
-    "Hi,",
+    `<strong>Company:</strong> ${escapeHtml(settings.business_name)}`,
+    ...projectNumberLine(job, true),
+    `<strong>Address:</strong> ${escapeHtml(address)}`,
+    ...(sampledDate ? [`<strong>Date of Sampling:</strong> ${escapeHtml(formatDateLongOrdinal(new Date(`${sampledDate}T00:00:00`)))}`] : []),
     "",
-    `Attached is the Chain of Custody for ${sampleItems.length} ${title.toLowerCase()}${sampleItems.length === 1 ? "" : "s"} taken at:`,
-    "",
-    ...projectNumberLine(job),
-    escapeHtml(address),
-    "",
-    `If you have any questions, please call me at <span style="white-space:nowrap;">${escapeHtml(settings.business_phone)}</span>.`,
-    "",
-    ...SIGNATURE_LINES,
+    `If you have any questions, please call Tim at <span style="white-space:nowrap;">${escapeHtml(settings.business_phone)}</span>`,
   ].join("<br>");
 
+  // Per Tim, 2026-09-29 — "the name of the chain of custody PDF should
+  // be a bit more specific so that there is not confusion when there are
+  // multiple on the same job": same convention as
+  // reportEmailAttachmentFilename (report-findings.ts) — project number,
+  // then which kind, nothing else. COC_TITLE's own " Sample" suffix
+  // reads fine in body prose ("3 asbestos bulk samples") but not as a
+  // filename label, so it's dropped here.
+  const filenameLabel = COC_TITLE[cocType].replace(/ Sample$/, "");
   const { messageId } = await createDraft(accessToken, {
     to: "samples@crystalanalytical.com",
     subject,
     bodyHtml,
-    attachments: [{ filename: `${job.project_number ?? job.id} COC.pdf`, mimeType: "application/pdf", content: pdfBuffer }],
+    attachments: [{ filename: `${job.project_number ?? job.id} ${filenameLabel} Chain of Custody.pdf`, mimeType: "application/pdf", content: pdfBuffer }],
   });
 
   const logEntry: CocLogEntry = { coc_type: cocType, drafted_at: now.toISOString(), sample_count: sampleItems.length, gmail_message_id: messageId };

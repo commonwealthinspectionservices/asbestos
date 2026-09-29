@@ -3056,17 +3056,14 @@ function JobRow({
               is null (no name/phone on file) — an empty <span> alone
               collapses to zero height, which was silently pulling
               street/cityStateZip up into rows 1-2 instead of staying on
-              rows 2-3. Per Tim, 2026-09-29 (real example, 26-0057
-              scheduled for a future date) — scoped to cocStatus
-              specifically, not job.status === "scheduled" alone: a job
-              scheduled for a day that hasn't arrived yet has no
-              checklist (cocStatus false) and the date column reverts to
-              its plain 2-line Scheduled date/time block — reserving this
-              row unconditionally left the address column with an extra
-              row that plain 2-line block never had, so "Scheduled date"/
-              "Scheduled time" no longer lined up with street/cityStateZip
-              at all. */}
-          {cocStatus && <div className="sm:min-h-5">{siteContactNode}</div>}
+              rows 2-3. Per Tim, 2026-09-29 — "these should be the
+              standard spots for all of the information... it shouldn't
+              shrink at all": back to job.status === "scheduled" (not
+              cocStatus) — the date column's own row 1 (the checklist)
+              now always reserves its height too (see below), so rows 2/3
+              always land in the same fixed spot on both sides regardless
+              of whether the checklist has anything to show yet. */}
+          {job.status === "scheduled" && <div className="sm:min-h-5">{siteContactNode}</div>}
           {locationName && <div className="truncate whitespace-nowrap text-sm text-slate-500">{locationName}</div>}
           {/* Mobile: tapping the address text itself (street through zip)
               opens a Google Maps/Waze picker instead of the job detail
@@ -3110,15 +3107,13 @@ function JobRow({
             {/* Per Tim, 2026-09-29 — "all the lines need to be evenly
                 spaced as well": sm:mt-2 (matching the site contact line
                 above) plus sm:gap-2 between street/cityStateZip below —
-                same gap-2 rhythm as the date column's own 3 lines, so
-                every row across both columns lines up and every line
-                within each column is evenly spaced, not just tightly
-                stacked. Scoped to cocStatus, same reasoning as the site-
-                contact reservation above — a job whose day hasn't
-                arrived yet (cocStatus false) has no reserved row 1 and
-                its date column is the plain, un-gapped 2-line block, so
-                this reverts to that same plain stacking to match it. */}
-            <div className={`hidden sm:flex sm:flex-col${cocStatus ? " sm:mt-2 sm:gap-2" : ""}`}>
+                same gap-2 rhythm as the date column's own 3 fixed rows.
+                Scoped to job.status === "scheduled" (not cocStatus) —
+                per Tim, "these should be the standard spots... it
+                shouldn't shrink at all" — the fixed 3-row template
+                applies for the whole time a job is Scheduled, whether or
+                not the checklist itself has anything to show yet. */}
+            <div className={`hidden sm:flex sm:flex-col${job.status === "scheduled" ? " sm:mt-2 sm:gap-2" : ""}`}>
               <div className="truncate whitespace-nowrap text-sm text-slate-500">{street}</div>
               {cityStateZip && <div className="truncate whitespace-nowrap text-sm text-slate-500">{cityStateZip}</div>}
             </div>
@@ -3163,15 +3158,15 @@ function JobRow({
             own gap-2 rhythm) lands this on row 2, matching "service
             type should actually be on the middle line... it should be
             on line number two" and "all the lines need to be evenly
-            spaced as well." Per Tim, 2026-09-29 (real example, Pending
-            Lab Results/"Completed date" instead of Scheduled) — mt-7
-            was unconditional, so it also pushed this column down on
-            every OTHER status, which never asked for it and has its own
-            different (2-line, no gap-2) date-column layout entirely.
-            Scoped to cocStatus specifically (only ever true while
-            "Scheduled") — every other status keeps its plain top
-            alignment, same as before any of this row-alignment work. */}
-        <div className={`min-w-0 w-full sm:w-auto sm:flex-[1.2] sm:text-center${cocStatus ? " sm:mt-7" : ""}`}>
+            spaced as well." Per Tim, 2026-09-29 — scoped to
+            job.status === "scheduled" (not cocStatus, and not any other
+            status — Pending Lab Results etc. have their own different,
+            unrelated 2-line date-column layout and keep their plain top
+            alignment here, same as before any of this row-alignment
+            work) — "these should be the standard spots... it shouldn't
+            shrink at all": the fixed 3-row template applies the whole
+            time a job is Scheduled, checklist visible or not. */}
+        <div className={`min-w-0 w-full sm:w-auto sm:flex-[1.2] sm:text-center${job.status === "scheduled" ? " sm:mt-7" : ""}`}>
           {(() => {
             const labels = (job.service_type ?? "").split(",").map((s) => s.trim()).filter(Boolean);
             return labels.map((label, i) => {
@@ -3378,16 +3373,21 @@ function JobRow({
                   {invoiceStatus}
                 </div>
               )}
-              {/* Per Tim, 2026-09-29 — "that would leave the [Chain of
-                  Custody checklist], scheduled date, and scheduled time
-                  [and] I just want those three things evenly spaced":
-                  cocStatus, then date and time as their own separate
-                  lines (not one tight date+time block), all sharing one
-                  consistent gap — a distinct layout from the plain
-                  date/time block below, only while cocStatus applies. */}
-              {cocStatus ? (
+              {/* Per Tim, 2026-09-29 — "these should be the standard
+                  spots for all of the information, and they should go
+                  exactly there... when there's only two lines of info,
+                  it shouldn't shrink at all. It should just go always
+                  there": fixed 3-row template for the whole "Scheduled"
+                  card, not conditional on cocStatus — row 1 (Chain of
+                  Custody checklist) reserves its full height via
+                  sm:min-h-5 even when cocStatus is false (no checklist
+                  yet), so "Scheduled date"/"Scheduled time" always land
+                  on rows 2/3 exactly, matching the address column's own
+                  fixed rows regardless of how much is actually filled
+                  in. */}
+              {job.status === "scheduled" ? (
                 <div className="hidden w-full flex-col items-end gap-2 text-sm text-slate-500 sm:flex">
-                  {cocStatus}
+                  <div className="sm:min-h-5">{cocStatus}</div>
                   <div>Scheduled date: {formatDate(job.confirmed_date ?? job.requested_date) || "—"}</div>
                   <div>
                     Scheduled time:{" "}

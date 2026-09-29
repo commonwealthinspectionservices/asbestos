@@ -896,8 +896,12 @@ export default function BillingView() {
         <Link href="/admin/revenue-summary" className="text-brand-600 underline hover:text-brand-700">
           Net Earnings by Job
         </Link>
+        {/* Per Tim, 2026-09-29 — "should not be weekly revenue... net
+            earnings by week": the table's own bottom-line column (and
+            point) is Net Earnings, not the raw Invoiced/Paid figures —
+            matches "Net Earnings by Job" right above it. */}
         <Link href="/admin/weekly-revenue" className="text-brand-600 underline hover:text-brand-700">
-          Weekly Revenue
+          Net Earnings by Week
         </Link>
         <Link href="/admin/payment-calendar" className="text-brand-600 underline hover:text-brand-700">
           Payment Calendar

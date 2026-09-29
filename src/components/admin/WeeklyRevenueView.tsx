@@ -98,7 +98,7 @@ export default function WeeklyRevenueView() {
   return (
     <div>
       <div className="flex items-center justify-between gap-2">
-        <h1 className="text-lg font-bold text-slate-800">Weekly Revenue</h1>
+        <h1 className="text-lg font-bold text-slate-800">Net Earnings by Week</h1>
         <Link href="/admin/billing" className="inline-flex shrink-0 items-center gap-1 text-sm text-brand-600 hover:text-brand-700">
           ← Billing
         </Link>

@@ -644,7 +644,7 @@ function EmailChecklistPanel({
         </div>
       </div>
       <div className="order-first max-w-md flex-1">
-        <h3 className="mb-2 text-xs font-bold uppercase text-slate-500">Subject</h3>
+        <h3 className="mb-2 text-sm font-bold uppercase text-slate-500">Subject</h3>
         <input
           type="text"
           value={subject}
@@ -5268,7 +5268,7 @@ export function ProjectDetailDialog({
             />
             <div className="flex flex-col gap-0.5 text-sm sm:flex-row sm:items-start sm:gap-2">
               <span className="font-bold text-black sm:w-48 sm:shrink-0 sm:whitespace-nowrap">Scope of Work</span>
-              <span className="break-words text-black sm:min-w-0 sm:flex-1">{job.scope_of_work || "—"}</span>
+              <span className="break-words text-black sm:min-w-0 sm:flex-1">{job.scope_of_work}</span>
             </div>
             {/* Per Tim, 2026-08-31 — moved down here (the open space below
                 Scope of Work) instead of cramped in with the date/time
@@ -5301,7 +5301,7 @@ export function ProjectDetailDialog({
                         .sort((a, b) => b.drafted_at.localeCompare(a.drafted_at))[0];
                       return (
                         <div key={cocType}>
-                          {COC_TYPE_LABEL[cocType]}: {latest?.sent_at ? formatDateTime(latest.sent_at) : "Not sent"}
+                          {COC_TYPE_LABEL[cocType]}: {latest?.sent_at ? formatDateTime(latest.sent_at) : ""}
                         </div>
                       );
                     })}
@@ -5411,7 +5411,7 @@ export function ProjectDetailDialog({
                     directly instead. */}
                 {job.site_contact_name || job.site_contact_phone || job.site_contact_email ? (
                   <>
-                    <DetailField label="Name" value={job.site_contact_name ? toTitleCase(job.site_contact_name) : "—"} />
+                    <DetailField label="Name" value={job.site_contact_name ? toTitleCase(job.site_contact_name) : undefined} />
                     <DetailField
                       label="Phone"
                       value={
@@ -5419,7 +5419,7 @@ export function ProjectDetailDialog({
                           <a href={telHref(job.site_contact_phone)} className="text-brand-700 hover:underline">
                             {formatPhoneInput(job.site_contact_phone)}
                           </a>
-                        ) : "—"
+                        ) : undefined
                       }
                     />
                     <DetailField label="Email" value={job.site_contact_email} nowrap />
@@ -5441,7 +5441,7 @@ export function ProjectDetailDialog({
                   fallback as the FLI-job version of this section above. */}
               {job.site_contact_name || job.site_contact_phone || job.site_contact_email ? (
                 <>
-                  <DetailField label="Name" value={job.site_contact_name ? toTitleCase(job.site_contact_name) : "—"} />
+                  <DetailField label="Name" value={job.site_contact_name ? toTitleCase(job.site_contact_name) : undefined} />
                   <DetailField
                     label="Phone"
                     value={
@@ -5449,7 +5449,7 @@ export function ProjectDetailDialog({
                         <a href={telHref(job.site_contact_phone)} className="text-brand-700 hover:underline">
                           {formatPhoneInput(job.site_contact_phone)}
                         </a>
-                      ) : "—"
+                      ) : undefined
                     }
                   />
                   <DetailField label="Email" value={job.site_contact_email} nowrap />

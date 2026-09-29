@@ -131,7 +131,10 @@ const styles = StyleSheet.create({
   // stretching it full-width so left-aligned wrapped text always starts
   // flush at the same true left edge across rows.
   colLocation: { flex: 1, justifyContent: "center", alignItems: "stretch" },
-  footer: { marginTop: 18 },
+  // Per Tim, 2026-09-28 — "the stuff should always be evenly spaced":
+  // this is the very first gap in the footer (table bottom → TURNAROUND),
+  // so it gets the exact same marginTop as every gap after it too.
+  footer: { marginTop: 16 },
   footerTopRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end" },
   turnaroundLine: { flexDirection: "row", alignItems: "baseline" },
   turnaroundLabel: { fontSize: 11, fontWeight: 700 },

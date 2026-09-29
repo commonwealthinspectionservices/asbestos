@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireOwnerApi } from "@/lib/admin-api";
 import { withApiErrors } from "@/lib/api-handler";
-import { getValidAccessToken, listMessagesByQuery, getMessage, getHeader, getMessageBodyText } from "@/lib/gmail";
+import { getValidAccessToken, listMessagesByQuery, getMessage, getHeader, getMessageBodyText, findPdfParts } from "@/lib/gmail";
 
 // Read-only, owner-only: a generic Gmail search + body-text dump, used to
 // spot-check what a real email's raw text/headers actually look like
@@ -30,6 +30,7 @@ export const GET = withApiErrors(async (req: NextRequest) => {
       subject: getHeader(m, "Subject"),
       date: m.internalDate ? new Date(Number(m.internalDate)).toISOString() : null,
       bodyText: getMessageBodyText(m),
+      pdfAttachments: findPdfParts(m.payload).map((p) => p.filename),
     })),
   });
 });

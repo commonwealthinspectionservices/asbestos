@@ -94,7 +94,10 @@ const styles = StyleSheet.create({
   // block getting independently centered (and so starting at a different
   // x per row).
   colLocation: { flex: 1, justifyContent: "center", alignItems: "stretch" },
-  footer: { marginTop: 10 },
+  // Per Tim, 2026-09-28 — "the stuff should always be evenly spaced":
+  // this is the very first gap in the footer (table bottom → TURNAROUND),
+  // so it gets the exact same marginTop as every gap after it too.
+  footer: { marginTop: 16 },
   footerTopRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end" },
   turnaroundLine: { flexDirection: "row", alignItems: "baseline" },
   turnaroundLabel: { fontSize: 11, fontWeight: 700 },

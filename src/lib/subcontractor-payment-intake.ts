@@ -3,20 +3,27 @@
 // Fast Mold Testing's own two emails (their invoice PDF, then Mercury's
 // "sent you $X" payment confirmation once he's actually been paid) are
 // matched together by invoice number and turned into: a job on the
-// admin's own schedule (if one doesn't already exist for that invoice)
-// marked paid the moment the Mercury payment lands, and that same payment
-// posted into QuickBooks as real Project revenue — no manual entry either
-// side. Narrowly scoped to Fast Mold Testing specifically, same as the
-// (now-removed) automated assignment-email intake this restores the
-// spirit of — see ae86beb's own commit message. Never guesses through a
-// genuine ambiguity (ties by invoice number alone); anything it can't
-// resolve gets an owner alert instead, same discipline as job-intake.ts.
+// admin's own schedule (if one doesn't already exist for that invoice),
+// marked paid the moment the Mercury payment lands. Narrowly scoped to
+// Fast Mold Testing specifically, same as the (now-removed) automated
+// assignment-email intake this restores the spirit of — see ae86beb's
+// own commit message. Never guesses through a genuine ambiguity (ties by
+// invoice number alone); anything it can't resolve gets an owner alert
+// instead, same discipline as job-intake.ts.
+//
+// Per Tim, 2026-09-29 — the QuickBooks-posting half of this ("posted
+// into QuickBooks as real Project revenue") was turned back off: Mercury's
+// payment already lands as a real transaction in his connected bank feed,
+// and QuickBooks was auto-categorizing that feed transaction as its own
+// Project revenue entry independently — so this automation's own posting
+// call just duplicated the same revenue a second time every time
+// (confirmed live, job 26-0040/invoice FMT-LQCDHD-2026, $1,313.24 posted
+// twice). Job creation and mark-paid are unaffected.
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { upsertCompany, upsertCompanyContact } from "@/lib/companies";
 import { generateProjectNumber } from "@/lib/project-number";
 import { sendEmail, emailShell } from "@/lib/email";
 import { escapeHtml } from "@/lib/html";
-import { recordProjectRevenueInQuickBooks, isQuickBooksConnected } from "@/lib/quickbooks";
 import { parseFastMoldInvoiceText, isFastMoldInvoiceText } from "@/lib/parse-fast-mold-invoice";
 import { parseMercuryPaymentText, isMercuryPaymentText } from "@/lib/parse-mercury-payment";
 import {
@@ -219,22 +226,15 @@ async function processPaymentEmails(
     if (!job.paid_date) {
       await supabase.from("jobs").update({ status: "paid", paid_date: parsed.sentDate }).eq("id", job.id);
 
-      if (await isQuickBooksConnected()) {
-        try {
-          await recordProjectRevenueInQuickBooks({
-            customerName: parsed.payerCompany,
-            amountCents: parsed.amountCents,
-            date: parsed.sentDate,
-            description: `${FAST_MOLD_COMPANY_NAME} — Mold Inspection (Job ${job.project_number}, Invoice ${parsed.invoiceNumber})`,
-          });
-        } catch (e) {
-          await alertIssue(
-            "a Fast Mold Testing payment was recorded here but failed to post to QuickBooks",
-            `Job ${job.project_number} was marked paid, but posting ${formatDollarString(parsed.amountCents)} to QuickBooks failed: ${e instanceof Error ? e.message : String(e)}. Log it there by hand.`,
-            bodyText
-          );
-        }
-      }
+      // Per Tim, 2026-09-29 — turned off after a real duplicate: Mercury's
+      // payment lands as a real transaction in his connected Amex Checking
+      // bank feed, and QuickBooks was already auto-categorizing that feed
+      // transaction as its own "Project revenue" entry independently — so
+      // this call's own Undeposited Funds deposit for the same payment
+      // just posted the same revenue a second time (confirmed live,
+      // 26-0040/invoice FMT-LQCDHD-2026, $1,313.24 twice). Job creation and
+      // mark-paid above are unaffected — only the QuickBooks posting itself
+      // is disabled.
 
       result.jobsMarkedPaid.push({ projectNumber: job.project_number, jobId: job.id, amountCents: parsed.amountCents });
     }

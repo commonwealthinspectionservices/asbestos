@@ -7373,7 +7373,13 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
                 >
                   {fetchingNumber ? "…" : "#"}
                 </button>
-                <input className="w-full rounded-lg border border-slate-300 px-2 py-2 text-sm sm:w-20" value={projectNumber} onChange={(e) => setProjectNumber(e.target.value)} />
+                {/* Per Tim, 2026-09-29 — "this needs to be made a tiny
+                    bit wider so that job numbers like this do not get
+                    cut off. 26-0062.2, 26-0041.3 (anything with a .N
+                    revisit suffix)": w-20 (80px) was right at the edge
+                    for a 9-character "26-0062.2" at this text-sm size —
+                    w-28 (112px) gives it real breathing room. */}
+                <input className="w-full rounded-lg border border-slate-300 px-2 py-2 text-sm sm:w-28" value={projectNumber} onChange={(e) => setProjectNumber(e.target.value)} />
               </div>
             </div>
             {customerKind === "individual" ? (

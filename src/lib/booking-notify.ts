@@ -414,7 +414,7 @@ export async function sendJobScheduledNotification(jobId: string): Promise<void>
   const supabase = getSupabaseAdmin();
   const { data: job } = await supabase
     .from("jobs")
-    .select("id, project_number, service_address, service_type, confirmed_date, confirmed_time, email_thread_message_ids, email_gmail_thread_id, customer_id")
+    .select("id, project_number, service_address, service_type, confirmed_date, confirmed_time, email_thread_message_ids, email_gmail_thread_id, email_thread_subject, customer_id")
     .eq("id", jobId)
     .maybeSingle();
   if (!job || !job.confirmed_date) return;
@@ -430,7 +430,18 @@ export async function sendJobScheduledNotification(jobId: string): Promise<void>
     // can't say "...Report..." — nothing's been reported on yet. Once it's
     // a reply within an already-started thread, keep sharing that
     // thread's one subject as before (threadSubject's own comment).
-    subject: existingIds.length === 0 ? scheduledNotificationSubject(job.service_address, job.service_type) : threadSubject(job.service_address, job.service_type),
+    // Per Tim, 2026-09-29 — "all correspondence from each job should stay
+    // on this chain": job.email_thread_subject (once set) is checked
+    // FIRST now — an email_intake job (Boston Harbor Water Restoration)
+    // gets this populated from the client's own real Subject line the
+    // moment its thread starts (see job-intake.ts), which existingIds
+    // alone can't distinguish from "a portal-booking job whose thread
+    // just hasn't started yet." Recomputing threadSubject() here instead
+    // of reusing the real one is the exact bug already found and fixed in
+    // draftReportEmailForJob's own history (2026-09-14, a BHWR job's
+    // report draft landed unthreaded because its subject drifted from the
+    // real thread's) — same fix, applied here too.
+    subject: job.email_thread_subject ?? (existingIds.length === 0 ? scheduledNotificationSubject(job.service_address, job.service_type) : threadSubject(job.service_address, job.service_type)),
     existingMessageIds: existingIds,
     gmailThreadId: job.email_gmail_thread_id,
     replyAllFromThread: true,
@@ -475,7 +486,7 @@ export async function sendJobCreatedScheduledNotification(jobId: string): Promis
   const supabase = getSupabaseAdmin();
   const { data: job } = await supabase
     .from("jobs")
-    .select("id, project_number, service_address, service_type, requested_date, requested_time, email_thread_message_ids, email_gmail_thread_id, customer_id")
+    .select("id, project_number, service_address, service_type, requested_date, requested_time, email_thread_message_ids, email_gmail_thread_id, email_thread_subject, customer_id")
     .eq("id", jobId)
     .maybeSingle();
   if (!job || !job.requested_date) return;
@@ -487,7 +498,18 @@ export async function sendJobCreatedScheduledNotification(jobId: string): Promis
   const result = await sendThreadedEmail({
     to: customer.email,
     // Same reasoning as sendJobScheduledNotification's own comment above.
-    subject: existingIds.length === 0 ? scheduledNotificationSubject(job.service_address, job.service_type) : threadSubject(job.service_address, job.service_type),
+    // Per Tim, 2026-09-29 — "all correspondence from each job should stay
+    // on this chain": job.email_thread_subject (once set) is checked
+    // FIRST now — an email_intake job (Boston Harbor Water Restoration)
+    // gets this populated from the client's own real Subject line the
+    // moment its thread starts (see job-intake.ts), which existingIds
+    // alone can't distinguish from "a portal-booking job whose thread
+    // just hasn't started yet." Recomputing threadSubject() here instead
+    // of reusing the real one is the exact bug already found and fixed in
+    // draftReportEmailForJob's own history (2026-09-14, a BHWR job's
+    // report draft landed unthreaded because its subject drifted from the
+    // real thread's) — same fix, applied here too.
+    subject: job.email_thread_subject ?? (existingIds.length === 0 ? scheduledNotificationSubject(job.service_address, job.service_type) : threadSubject(job.service_address, job.service_type)),
     existingMessageIds: existingIds,
     gmailThreadId: job.email_gmail_thread_id,
     replyAllFromThread: true,

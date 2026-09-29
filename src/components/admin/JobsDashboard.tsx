@@ -5,7 +5,7 @@ import type { Dispatch, ReactNode, SetStateAction } from "react";
 import type { CocType, Company, Customer, InvoiceLineItem, JobDocument, JobWithCustomer, LabProfile, PricingZone, SampleItem, ServiceType } from "@/lib/types";
 import { defaultInvoiceLineItems, sampleDescriptionForServiceType } from "@/lib/invoice-defaults";
 import { defaultSampleCode, airOCellEndTime } from "@/lib/sample-items";
-import { ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK, jobReportDomains, jobCocTypes, cocTypeForServiceTypeLabel, domainForServiceTypeLabel, isFullInspectionAsbestosJob, NEWTON_FIRE_FLOOD_COMPANY_ID, BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID, FLI_ENVIRONMENTAL_COMPANY_ID, type ReportDomain } from "@/lib/report-findings";
+import { ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK, jobReportDomains, jobCocTypes, domainForServiceTypeLabel, isFullInspectionAsbestosJob, NEWTON_FIRE_FLOOD_COMPANY_ID, BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID, FLI_ENVIRONMENTAL_COMPANY_ID, type ReportDomain } from "@/lib/report-findings";
 import { splitAddress, parseAddressToFields, buildBillingAddress, googleMapsUrl, wazeUrl, expandAddress } from "@/lib/address";
 import { joinName, splitFullName, toTitleCase } from "@/lib/name";
 import { telHref } from "@/lib/phone";
@@ -2653,21 +2653,29 @@ function JobRow({
       </span>
     )
   );
-  // Per Tim, 2026-09-29 — after several rounds of guessing at a separate
-  // status-line block, the actual answer was "the checkbox system that I
-  // use" already sitting right there: the same ☑/☐ glyph
-  // checklistItems/showLabChecklist already appends directly onto each
-  // service-type label in the middle column (see "the service types
-  // should just turn into the checkbox" 2026-09-24 history right below
-  // this, and its own render site further down). This is that same
-  // mechanism, one stage earlier — while a job is "Scheduled" (before any
-  // lab results are even possible) — keyed by coc_type instead of report
-  // domain, and NOT gated to multi-type jobs the way checklistItems is:
-  // "for any amount of service types that there are." A label with no
-  // COC concept at all (lead) just shows no glyph, same as
-  // checklistItems' own behavior for a label outside the report domains.
+  // Per Tim, 2026-09-29 — "the checkbox system that I use": the same
+  // ☑/☐ glyph checklistItems/showLabChecklist already uses (see "the
+  // service types should just turn into the checkbox" 2026-09-24 history
+  // below), keyed by coc_type instead of report domain, for any number of
+  // service types (not gated to multi-type jobs the way checklistItems
+  // is) while a job is "Scheduled" — before any lab results are even
+  // possible. A label with no COC concept at all (lead) just isn't
+  // included. Per Tim's own follow-up — "I did not want it so that this
+  // would replace the service type that always goes in the middle...
+  // the chain of custody should move over directly above scheduled
+  // date": this renders as its own block in the date column (cocStatus
+  // below), not appended onto the middle column's own service-type text
+  // the way the lab-results checklist is.
+  // Per Tim, 2026-09-29 (follow-up) — "it should not come up until the
+  // day that the job is scheduled for... I just don't want to take
+  // unnecessary space on jobs that might be scheduled like a week out":
+  // gated on confirmed_date having actually arrived (today or earlier in
+  // the viewer's own local time), not just status === "scheduled" alone
+  // — a job scheduled a week out has nothing to actually do yet.
+  const now = new Date();
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
   const cocSentByType = new Map<CocType, string | null>(
-    job.status === "scheduled"
+    job.status === "scheduled" && job.confirmed_date && job.confirmed_date <= todayStr
       ? jobCocTypes(job.service_type).map(({ cocType }) => {
           const latest = (job.coc_log ?? [])
             .filter((h) => h.coc_type === cocType)
@@ -2676,7 +2684,20 @@ function JobRow({
         })
       : []
   );
-  const showCocChecklist = cocSentByType.size > 0;
+  const cocStatus = cocSentByType.size > 0 && (
+    // text-right — "the boxes always vertically align... aligned it
+    // right": every line's own trailing checkbox glyph ends flush at
+    // this block's one shared right edge, regardless of how long each
+    // line's own label is.
+    <span className="flex shrink-0 flex-col items-end gap-0.5 text-right text-sm text-slate-500">
+      {[...cocSentByType.entries()].map(([cocType, sentAt]) => (
+        <span key={cocType} className="whitespace-nowrap">
+          {COC_TYPE_LABEL[cocType]} Chain of Custody
+          <span className={`ml-1.5 ${sentAt ? "text-emerald-600" : "text-slate-400"}`}>{sentAt ? "☑" : "☐"}</span>
+        </span>
+      ))}
+    </span>
+  );
   // Per Tim, 2026-09-15 — Payment Pending cards need the date the actual
   // fieldwork happened, above the Invoice/Report sent lines — that block
   // replaced the Completed-date line entirely back on 2026-08-27 (see this
@@ -3039,6 +3060,11 @@ function JobRow({
                 {invoiceStatus}
               </div>
             )}
+            {cocStatus && (
+              <div className="mt-1 flex flex-col items-start sm:hidden">
+                {cocStatus}
+              </div>
+            )}
             <div className="hidden sm:block">
               <div className="truncate whitespace-nowrap text-sm text-slate-500">{street}</div>
               {cityStateZip && <div className="truncate whitespace-nowrap text-sm text-slate-500">{cityStateZip}</div>}
@@ -3090,35 +3116,21 @@ function JobRow({
               // A label's own checklist item (mold air/bulk are tracked
               // per label), else its domain's (asbestos/mold with a
               // single label). No item — e.g. a label outside the report
-              // domains — just shows plain text, no checkbox. While
-              // "Scheduled" (showCocChecklist), same glyph but keyed by
-              // this label's own coc_type instead — a label with no COC
-              // concept at all (lead) falls through to plain text, same
-              // as the lab-results case above.
-              const cocType = showCocChecklist ? cocTypeForServiceTypeLabel(label) : null;
+              // domains — just shows plain text, no checkbox.
+              // Per Tim, 2026-09-29 — "I did not want it so that this
+              // would replace the service type that always goes in the
+              // middle... the chain of custody should move over directly
+              // above scheduled date": the COC checklist tried living
+              // here too, replacing this column's own text — reverted;
+              // this column is always just the plain service type,
+              // regardless of status. The COC checklist itself now
+              // renders in the date column instead (see cocStatus below).
               const item = showLabChecklist
                 ? checklistItems.find((c) => c.key === label) ?? checklistItems.find((c) => c.key === domainForServiceTypeLabel(label))
-                : cocType && cocSentByType.has(cocType)
-                  ? { key: label, text: label, done: Boolean(cocSentByType.get(cocType)) }
-                  : undefined;
+                : undefined;
               return (
-                // Per Tim, 2026-09-29 — "let's make it so that the boxes
-                // always vertically align... that means just like
-                // aligned it right": text-right so every row's own
-                // trailing checkbox glyph ends flush at this column's
-                // one shared right edge, regardless of how long each
-                // row's own label text is (a real job's labels vary a lot
-                // more than the report checklist's short domain names
-                // ever do, which is why this wasn't visible there).
-                <div key={i} className="whitespace-nowrap text-right text-sm text-slate-500">
-                  {/* Per Tim, 2026-09-29 — "I just want to make sure it
-                      says chain of custody on there too": the raw
-                      service_type label (e.g. "Limited Asbestos
-                      Inspection") isn't what this line is about while
-                      Scheduled — it's specifically that type's own Chain
-                      of Custody, so it shows COC_TYPE_LABEL + "Chain of
-                      Custody" instead of the usual label text. */}
-                  {item && cocType ? `${COC_TYPE_LABEL[cocType]} Chain of Custody` : serviceTypeLabel(label)}
+                <div key={i} className="whitespace-nowrap text-sm text-slate-500">
+                  {serviceTypeLabel(label)}
                   {item ? (
                     <span className={`ml-1.5 ${item.done ? "text-emerald-600" : "text-slate-400"}`}>{item.done ? "☑" : "☐"}</span>
                   ) : (
@@ -3298,6 +3310,13 @@ function JobRow({
               {showInvoiceOnly && (
                 <div className="hidden w-full flex-col items-end gap-0.5 text-sm text-slate-500 sm:flex">
                   {invoiceStatus}
+                </div>
+              )}
+              {/* cocStatus sits ABOVE the date block, not instead of it —
+                  Scheduled date/time is still exactly as relevant. */}
+              {cocStatus && (
+                <div className="hidden w-full flex-col items-end gap-0.5 text-sm text-slate-500 sm:flex">
+                  {cocStatus}
                 </div>
               )}
               <div className={`w-full text-sm text-slate-500 sm:text-right ${showReportInvoice ? "hidden" : ""}`}>

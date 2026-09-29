@@ -612,7 +612,7 @@ function EmailChecklistPanel({
           {!isFliJob && (
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={includeReviewLink} onChange={(e) => setIncludeReviewLink(e.target.checked)} />
-              <span>Add review link</span>
+              <span>Review link</span>
             </label>
           )}
         </div>
@@ -5020,7 +5020,15 @@ export function ProjectDetailDialog({
             );
             return (
           <div className="grid grid-cols-1 gap-x-8 gap-y-6 sm:grid-cols-2 sm:items-start">
-          <div className="space-y-6 sm:space-y-8">
+          {/* Per Tim, 2026-09-29 — "abnormal spacing between job site
+              address and turnaround, it should all just be evenly spaced
+              like the rest": this wrapper's own space-y-6/8 (meant for
+              gaps between visually distinct, headed sections, like the
+              right column's Job site contact/Email results to/Company
+              contact groups) was adding an extra gap between these two
+              plain field lists, which have no header between them at all
+              — same space-y-4/2 rhythm as every field inside them. */}
+          <div className="space-y-4 sm:space-y-2">
           <div className="space-y-4 sm:space-y-2">
             {(() => {
               const portalBadge = job.source === "subcontractor" && (() => {

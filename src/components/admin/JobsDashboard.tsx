@@ -3335,12 +3335,18 @@ function JobRow({
               there on the ready to review [page]... delete this":
               excluded "ready_to_send" too, both mobile and desktop —
               same reasoning as Payment Pending/Pending Lab Results,
-              fieldwork's already done by Ready for Review. */}
-          <span className="hidden sm:contents">
-            {job.status !== "report_invoice_sent" && job.status !== "pending_lab_results" && job.status !== "scheduled" && job.status !== "ready_to_send" && (
-              isUnscheduled ? <span className="block min-h-5">{siteContactNode}</span> : siteContactNode
-            )}
-          </span>
+              fieldwork's already done by Ready for Review. That exclusion
+              exposed a real bug here on desktop, confirmed live (Invoice/
+              Report landing a full 28px above the address/service-type
+              row instead of level with it): the old "contents" span
+              contributed no box of its own, so when its content is
+              excluded (now true for Ready for Review too) there was
+              nothing left to reserve row 1's height at all — swapped for
+              an always-present min-h-5 block, same fix already applied
+              to the mobile version of this exact row below. */}
+          <div className="hidden min-h-5 sm:block">
+            {job.status !== "report_invoice_sent" && job.status !== "pending_lab_results" && job.status !== "scheduled" && job.status !== "ready_to_send" && siteContactNode}
+          </div>
           <span className="block min-h-5 sm:hidden">
             {job.status !== "report_invoice_sent" && job.status !== "pending_lab_results" && job.status !== "ready_to_send" && siteContactNode}
           </span>

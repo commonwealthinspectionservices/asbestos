@@ -126,11 +126,7 @@ const styles = StyleSheet.create({
   // and just kind of every chain of custody as well."
   colSample: { width: 66, borderRightWidth: 0.5, borderRightColor: LINE_COLOR, justifyContent: "center", alignItems: "center" },
   colThird: { flex: 1, borderRightWidth: 0.5, borderRightColor: LINE_COLOR, justifyContent: "center", alignItems: "center" },
-  // alignItems: "stretch" (not "center") — see blank-coc-pdf.tsx's own
-  // comment on this same style: keeps the block vertically centered while
-  // stretching it full-width so left-aligned wrapped text always starts
-  // flush at the same true left edge across rows.
-  colLocation: { flex: 1, justifyContent: "center", alignItems: "stretch" },
+  colLocation: { flex: 1, justifyContent: "center", alignItems: "center" },
   // Per Tim, 2026-09-28 — "the stuff should always be evenly spaced":
   // this is the very first gap in the footer (table bottom → TURNAROUND),
   // so it gets the exact same marginTop as every gap after it too.
@@ -291,7 +287,7 @@ function MoldCocDocument({ job, customer, sampleType, sampleItems, turnaround, r
                   </Text>
                 </View>
               )}
-              <View style={[styles.colLocation, { padding: 3 }]}><Text style={{ textAlign: "left" }}>{items[i]?.location ?? ""}</Text></View>
+              <View style={[styles.colLocation, { padding: 3 }]}><Text style={{ textAlign: "center" }}>{items[i]?.location ?? ""}</Text></View>
             </View>
           ))}
         </View>

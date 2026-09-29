@@ -87,13 +87,7 @@ const styles = StyleSheet.create({
   // there — tableHeaderCell already centers its own text).
   colSample: { width: 66, borderRightWidth: 0.5, borderRightColor: LINE_COLOR, justifyContent: "center", alignItems: "center" },
   colMaterial: { flex: 1, borderRightWidth: 0.5, borderRightColor: LINE_COLOR, justifyContent: "center", alignItems: "center" },
-  // alignItems: "stretch" (not "center") — the block itself still sits
-  // vertically centered in the cell (justifyContent), but stretches to the
-  // cell's full width so left-aligned, wrapped text always starts at the
-  // same true left edge instead of each row's differently-sized text
-  // block getting independently centered (and so starting at a different
-  // x per row).
-  colLocation: { flex: 1, justifyContent: "center", alignItems: "stretch" },
+  colLocation: { flex: 1, justifyContent: "center", alignItems: "center" },
   // Per Tim, 2026-09-28 — "the stuff should always be evenly spaced":
   // this is the very first gap in the footer (table bottom → TURNAROUND),
   // so it gets the exact same marginTop as every gap after it too.
@@ -277,7 +271,7 @@ function BlankCocDocument({ job, customer, settings, sampleItems, turnaround, re
             <View style={styles.tableRow} key={i}>
               <View style={[styles.colSample, { padding: 3 }]}><Text style={{ textAlign: "center" }}>{page1Items[i]?.sample_number ?? ""}</Text></View>
               <View style={[styles.colMaterial, { padding: 3 }]}><Text style={{ textAlign: "center" }}>{page1Items[i]?.material ?? ""}</Text></View>
-              <View style={[styles.colLocation, { padding: 3 }]}><Text style={{ textAlign: "left" }}>{page1Items[i]?.location ?? ""}</Text></View>
+              <View style={[styles.colLocation, { padding: 3 }]}><Text style={{ textAlign: "center" }}>{page1Items[i]?.location ?? ""}</Text></View>
             </View>
           ))}
         </View>
@@ -400,7 +394,7 @@ function BlankCocDocument({ job, customer, settings, sampleItems, turnaround, re
             <View style={styles.tableRow} key={i}>
               <View style={[styles.colSample, { padding: 3 }]}><Text style={{ textAlign: "center" }}>{page2Items[i]?.sample_number ?? ""}</Text></View>
               <View style={[styles.colMaterial, { padding: 3 }]}><Text style={{ textAlign: "center" }}>{page2Items[i]?.material ?? ""}</Text></View>
-              <View style={[styles.colLocation, { padding: 3 }]}><Text style={{ textAlign: "left" }}>{page2Items[i]?.location ?? ""}</Text></View>
+              <View style={[styles.colLocation, { padding: 3 }]}><Text style={{ textAlign: "center" }}>{page2Items[i]?.location ?? ""}</Text></View>
             </View>
           ))}
         </View>

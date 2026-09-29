@@ -157,34 +157,66 @@ const styles = StyleSheet.create({
   // overlaid on each (right-anchored within the line) lines up directly
   // above/below between the two rows instead of drifting with label length.
   signatureLabel: { fontSize: 11, fontWeight: 700, width: 112 },
-  // Per Tim, 2026-09-28 — several rounds on this, same as
-  // blank-coc-pdf.tsx's own copy: rebuilt from three absolutely-
-  // positioned overlays sharing one long line into three separate boxes
-  // — signature, time, date — as plain flex siblings, each with its own
-  // short underline. No shared line to tune overlay offsets against, so
-  // no dead space is possible by construction, and both RELINQUISHED BY
-  // and RECEIVED BY use the exact same three fixed widths, so their
-  // time/date columns land at the exact same x on both rows regardless
-  // of RECEIVED BY's extra nesting (for its trailing PAGE field).
-  sigBox: { position: "relative", width: 65 },
-  timeBox: { width: 55, marginLeft: 8 },
-  dateBox: { width: 70, marginLeft: 8 },
-  boxLine: { width: "100%", textAlign: "center", fontSize: 11, borderBottomWidth: 0.5, borderBottomColor: LINE_COLOR, paddingBottom: 1 },
-  boxCaption: { fontSize: 8, color: "#000000", textAlign: "center", marginTop: 2 },
+  // Fixed width, not flex — RECEIVED BY's row has extra trailing content
+  // (PAGE) competing for space, which used to leave its line shorter than
+  // RELINQUISHED BY's. A fixed width sized to fit RECEIVED BY's more
+  // crowded row keeps both lines identical.
+  // Per Tim, 2026-09-28 — "there's way too much room in between my
+  // signature and the time... it should not be that way": same fix as
+  // blank-coc-pdf.tsx's own copy of this — time and date moved from
+  // right-anchored (well past the end of the old 320pt line) to left-
+  // anchored immediately after the signature, and this width shrunk to
+  // match, so there's no dead space anywhere on the line.
+  signatureLineWrap: { position: "relative", width: 185 },
+  // width:"100%" explicitly, not left to implicit block-stretch — that
+  // resolved a few points short on RECEIVED BY's line vs RELINQUISHED
+  // BY's, since RECEIVED BY's wrap sits one level deeper (inside its own
+  // signatureSubRow, for the space-between layout with PAGE) than
+  // RELINQUISHED BY's does, and yoga's implicit stretch isn't guaranteed
+  // pixel-identical between those two nesting depths.
   signatureLine: { width: "100%", borderBottomWidth: 0.5, borderBottomColor: LINE_COLOR },
   // Same small overlaid signature as blank-coc-pdf.tsx's own
   // relinquishedSignature — see its comment.
   relinquishedSignature: { position: "absolute", left: 4, bottom: 0, width: 55, height: 19 },
   pageLabel: { fontSize: 11, fontWeight: 700, marginLeft: 16 },
+  // The date sits ON the line itself, positioned relative to the same box
+  // the line occupies — rather than as its own element appended after the
+  // line, matching the asbestos form exactly. bottom:-13 drops the "date"
+  // caption below the line while the slashes above it hover just clear of
+  // the line itself. left:120 sits it right after time's own column (see
+  // timeOverlay below) — same left-anchored redesign as blank-coc-pdf.tsx.
+  dateTimeOverlay: { position: "absolute", left: 120, bottom: -13, alignItems: "center" },
+  dateTimeSlashes: { fontSize: 11, letterSpacing: 6 },
+  dateTimeCaption: { fontSize: 8, color: "#000000", marginTop: 10 },
+  // Per Tim, 2026-09-09 — time gets its own spot on the line instead of
+  // being folded into the date's "time / date" caption, caption below the
+  // line same as date's own caption — just no slashes, since he fills
+  // the actual time in by hand on the line itself rather than the form
+  // pre-printing a slashed format for it the way it does for the date.
+  // Same as blank-coc-pdf.tsx's own copy of this.
+  timeOverlay: { position: "absolute", left: 65, bottom: -13, alignItems: "center" },
+  timeLabel: { fontSize: 8, color: "#000000" },
 });
 
-// One small box: a value (or blank) centered on its own short underline,
-// with its caption below — same as blank-coc-pdf.tsx's own copy of this.
-function FieldBox({ box, value, slashes, caption }: { box: "time" | "date"; value?: string; slashes?: boolean; caption: string }) {
+// A pre-slashed date fill-in overlaid on a signature line, exactly
+// matching the asbestos form (two bare "/" marks over a "date" caption,
+// sitting on the line itself rather than after it).
+// Per Tim, 2026-09-28 — "for the received by line, remove the slashes":
+// same as blank-coc-pdf.tsx's own copy of this.
+function DateTimeField({ noSlashes }: { noSlashes?: boolean } = {}) {
   return (
-    <View style={box === "time" ? styles.timeBox : styles.dateBox}>
-      <Text style={styles.boxLine}>{value ?? (slashes ? "/  /" : " ")}</Text>
-      <Text style={styles.boxCaption}>{caption}</Text>
+    <View style={styles.dateTimeOverlay}>
+      {!noSlashes && <Text style={styles.dateTimeSlashes}>/  /</Text>}
+      <Text style={[styles.dateTimeCaption, { marginTop: noSlashes ? 0 : 10 }]}>date</Text>
+    </View>
+  );
+}
+
+// Time's own spot on the same line — see timeOverlay's own comment.
+function TimeField() {
+  return (
+    <View style={styles.timeOverlay}>
+      <Text style={styles.timeLabel}>time</Text>
     </View>
   );
 }
@@ -299,36 +331,62 @@ function MoldCocDocument({ job, customer, sampleType, sampleItems, turnaround, r
             {config.turnaroundNote && <Text style={styles.notes}>{config.turnaroundNote}</Text>}
           </View>
 
-          <Text style={styles.emailNote}>
-            Please email all results to tim@commonwealthinspectionservices.com
-          </Text>
-          {/* Per Tim, 2026-09-28 — "let's just go ahead now and remove the
-              date needed line": dateNeededNote (when this sample type has
-              one) used to sit beside it, so it moves up to its own line
-              here instead — same emailNote style (and so the same
-              marginTop rhythm as every other gap in this footer). */}
-          {config.dateNeededNote && <Text style={styles.emailNote}>{config.dateNeededNote}</Text>}
-
-          <View style={styles.signatureRow}>
+          {/* Per Tim, 2026-09-28 — "there should just be three lines...
+              let's squeeze relinquish by on the same line as email
+              results to tim@commonwealthinspectionservices.com... delete
+              out please and all and to": both notes that used to be
+              their own separate lines now stack to the right of
+              RELINQUISHED BY's own row instead — same
+              label+line/trailing-content split RECEIVED BY's row already
+              uses for its own PAGE field. Same as blank-coc-pdf.tsx's
+              own copy of this. */}
+          <View style={[styles.signatureRow, { justifyContent: "space-between" }]}>
             <View style={styles.signatureSubRow}>
               <Text style={styles.signatureLabel}>RELINQUISHED BY</Text>
-              <View style={styles.sigBox}>
-                <Text style={styles.signatureLine} />
-                {relinquishedBy && <Image src={SIGNATURE_PATH} style={styles.relinquishedSignature} />}
+              <View style={styles.signatureLineWrap}>
+                {relinquishedBy ? (
+                  <>
+                    <Text style={styles.signatureLine} />
+                    <Image src={SIGNATURE_PATH} style={styles.relinquishedSignature} />
+                    <View style={styles.dateTimeOverlay}>
+                      <Text style={{ fontSize: 11 }}>{relinquishedBy.date}</Text>
+                      <Text style={styles.dateTimeCaption}>date</Text>
+                    </View>
+                    <View style={styles.timeOverlay}>
+                      <Text style={{ fontSize: 11 }}>{relinquishedBy.time}</Text>
+                      {/* Per Tim, 2026-09-28 — "this needs to be correctly
+                          on the line" (same bug/fix as blank-coc-pdf.tsx):
+                          timeLabel has no marginTop, correct for its
+                          blank-template use where "time" is the only
+                          thing in the box, but wrong once a real value
+                          sits above it here — same gap as dateTimeCaption's
+                          marginTop: 10, applied only in this filled case. */}
+                      <Text style={[styles.timeLabel, { marginTop: 10 }]}>time</Text>
+                    </View>
+                  </>
+                ) : (
+                  <>
+                    <Text style={styles.signatureLine} />
+                    <DateTimeField />
+                    <TimeField />
+                  </>
+                )}
               </View>
-              <FieldBox box="time" value={relinquishedBy?.time} caption="time" />
-              <FieldBox box="date" value={relinquishedBy?.date} slashes={!relinquishedBy} caption="date" />
+            </View>
+            <View>
+              <Text style={styles.notes}>email results tim@commonwealthinspectionservices.com</Text>
+              {config.dateNeededNote && <Text style={[styles.notes, { marginTop: 2 }]}>{config.dateNeededNote}</Text>}
             </View>
           </View>
 
           <View style={[styles.signatureRow, { justifyContent: "space-between" }]}>
             <View style={styles.signatureSubRow}>
               <Text style={styles.signatureLabel}>RECEIVED BY</Text>
-              <View style={styles.sigBox}>
+              <View style={styles.signatureLineWrap}>
                 <Text style={styles.signatureLine} />
+                <DateTimeField noSlashes />
+                <TimeField />
               </View>
-              <FieldBox box="time" caption="time" />
-              <FieldBox box="date" caption="date" />
             </View>
             <View style={styles.signatureSubRow}>
               <Text style={styles.pageLabel}>PAGE</Text>

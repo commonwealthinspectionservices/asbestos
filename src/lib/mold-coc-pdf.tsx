@@ -201,11 +201,13 @@ const styles = StyleSheet.create({
 // A pre-slashed date fill-in overlaid on a signature line, exactly
 // matching the asbestos form (two bare "/" marks over a "date" caption,
 // sitting on the line itself rather than after it).
-function DateTimeField() {
+// Per Tim, 2026-09-28 — "for the received by line, remove the slashes":
+// same as blank-coc-pdf.tsx's own copy of this.
+function DateTimeField({ noSlashes }: { noSlashes?: boolean } = {}) {
   return (
     <View style={styles.dateTimeOverlay}>
-      <Text style={styles.dateTimeSlashes}>/  /</Text>
-      <Text style={styles.dateTimeCaption}>date</Text>
+      {!noSlashes && <Text style={styles.dateTimeSlashes}>/  /</Text>}
+      <Text style={[styles.dateTimeCaption, { marginTop: noSlashes ? 0 : 10 }]}>date</Text>
     </View>
   );
 }
@@ -379,7 +381,7 @@ function MoldCocDocument({ job, customer, sampleType, sampleItems, turnaround, r
               <Text style={styles.signatureLabel}>RECEIVED BY</Text>
               <View style={styles.signatureLineWrap}>
                 <Text style={styles.signatureLine} />
-                <DateTimeField />
+                <DateTimeField noSlashes />
                 <TimeField />
               </View>
             </View>

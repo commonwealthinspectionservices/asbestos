@@ -189,12 +189,16 @@ const styles = StyleSheet.create({
 
 // A pre-slashed date fill-in overlaid on a signature line, exactly
 // matching the owner's own real form (two bare "/" marks over a "date"
-// caption, sitting on the line itself rather than after it).
-function DateTimeField() {
+// caption, sitting on the line itself rather than after it). Per Tim,
+// 2026-09-28 — "for the received by line, remove the slashes": RECEIVED
+// BY is filled in by hand by the lab, not pre-printed with a slashed
+// format the way RELINQUISHED BY's own blank-template fallback still is
+// — noSlashes drops the "/  /" for just that one caller.
+function DateTimeField({ noSlashes }: { noSlashes?: boolean } = {}) {
   return (
     <View style={styles.dateTimeOverlay}>
-      <Text style={styles.dateTimeSlashes}>/  /</Text>
-      <Text style={styles.dateTimeCaption}>date</Text>
+      {!noSlashes && <Text style={styles.dateTimeSlashes}>/  /</Text>}
+      <Text style={[styles.dateTimeCaption, { marginTop: noSlashes ? 0 : 10 }]}>date</Text>
     </View>
   );
 }
@@ -371,7 +375,7 @@ function BlankCocDocument({ job, customer, settings, sampleItems, turnaround, re
               <Text style={styles.signatureLabel}>RECEIVED BY</Text>
               <View style={styles.signatureLineWrap}>
                 <Text style={styles.signatureLine} />
-                <DateTimeField />
+                <DateTimeField noSlashes />
                 <TimeField />
               </View>
             </View>

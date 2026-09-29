@@ -3063,7 +3063,13 @@ function JobRow({
           just Report — an unsent invoice is just as much "not actually out
           the door yet" as an unsent report. */}
       <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-start">
-        <div className="min-w-0 w-full sm:w-auto sm:flex-[0.9]">
+        {/* min-w-0 dropped, 2026-09-29 (yet later) — the address text
+            below is now whitespace-nowrap/no-truncate (Tim: "this
+            should always be one line across... never dot dot dot"), so
+            this column can no longer be squeezed narrower than that
+            one-line text needs; min-w-0 was what let it get shrunk down
+            by its flex siblings in the first place, forcing a wrap. */}
+        <div className="w-full sm:w-auto sm:flex-[0.9]">
           {/* Per Tim, 2026-09-29 — "it should actually be standard for
               this to be listed over on the side with the address...
               first name, last name, phone number, new line, address,
@@ -3117,14 +3123,18 @@ function JobRow({
             {/* Per Tim, 2026-09-29 (later same night) — reverted back to
                 no top margin here, matching mobile's pre-2026-09-29 format
                 ("the old format for mobile before tonight was way
-                better"). */}
+                better"). Per Tim, 2026-09-29 (yet later) — "it should
+                never dot dot dot like this. Everything should be fully
+                spelled out": dropped truncate/whitespace-nowrap here —
+                a long street address now wraps onto a second line
+                instead of ellipsizing. */}
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); setShowMapMenu((v) => !v); }}
               className={`inline-block max-w-full text-left sm:hidden ${showMapMenu ? "underline" : ""}`}
             >
-              <span className="block truncate whitespace-nowrap text-sm text-slate-500">{street}</span>
-              {cityStateZip && <span className="block truncate whitespace-nowrap text-sm text-slate-500">{cityStateZip}</span>}
+              <span className="block text-sm text-slate-500">{street}</span>
+              {cityStateZip && <span className="block text-sm text-slate-500">{cityStateZip}</span>}
             </button>
             {/* Per Tim, 2026-08-27 — Invoice directly above Report, both
                 left-aligned, sitting right after the address block instead
@@ -3159,10 +3169,20 @@ function JobRow({
                 per Tim, "these should be the standard spots... it
                 shouldn't shrink at all" — the fixed 3-row template
                 applies for the whole time a job is Scheduled, whether or
-                not the checklist itself has anything to show yet. */}
+                not the checklist itself has anything to show yet. Per
+                Tim, 2026-09-29 (yet later) — "it should never dot dot
+                dot like this. Everything should be fully spelled out",
+                then "this should always be one line across" once
+                dropping truncate alone let a long address wrap onto a
+                second line instead — whitespace-nowrap keeps it on one
+                line without ellipsizing; min-w-0 dropped from this
+                column's own outer div (below) so it's never forced
+                narrower than that one-line text needs, which is what
+                actually stops it overlapping the neighboring columns
+                now that it's not allowed to wrap or shrink. */}
             <div className={`hidden sm:flex sm:flex-col${useCocRowFormat ? " sm:mt-2 sm:gap-2" : ""}`}>
-              <div className="truncate whitespace-nowrap text-sm text-slate-500">{street}</div>
-              {cityStateZip && <div className="truncate whitespace-nowrap text-sm text-slate-500">{cityStateZip}</div>}
+              <div className="whitespace-nowrap text-sm text-slate-500">{street}</div>
+              {cityStateZip && <div className="whitespace-nowrap text-sm text-slate-500">{cityStateZip}</div>}
             </div>
             {/* Per Tim, 2026-08-27 — Invoice directly above Report, both
                 left-aligned, sitting right after the address block instead
@@ -3216,8 +3236,23 @@ function JobRow({
             alignment here, same as before any of this row-alignment
             work) — "these should be the standard spots... it shouldn't
             shrink at all": the fixed 3-row template applies the whole
-            time a job is Scheduled, checklist visible or not. */}
-        <div className={`min-w-0 w-full sm:w-auto sm:flex-[1.2] sm:text-center${useCocRowFormat ? " sm:mt-7" : ""}`}>
+            time a job is Scheduled, checklist visible or not. Per Tim,
+            2026-09-29 (yet later) — "to be scheduled should follow the
+            exact same format as scheduled... make sure the format is
+            the exact same as the scheduled preview card": extended to
+            isUnscheduled (To Be Scheduled) too, alongside
+            useCocRowFormat — its own Date/Time/Schedule row now reserves
+            an equivalent row 1 (see the date column below), so this same
+            offset lands the service type on row 2 there as well. The
+            Date/Time/Schedule controls on that row need real width
+            (two fixed input boxes + a button, unlike the other
+            statuses' own plain "Scheduled date: ..." text) — swapping
+            this column's flex-[1.2] down to flex-[0.9] (and the date
+            column's own flex-[0.9] up to flex-[1.2], see below) for
+            isUnscheduled specifically is what stopped the service type
+            text visually running under those controls once both landed
+            on the same row. */}
+        <div className={`min-w-0 w-full sm:w-auto sm:text-center${isUnscheduled ? " sm:flex-[0.9]" : " sm:flex-[1.2]"}${(useCocRowFormat || isUnscheduled) ? " sm:mt-7" : ""}`}>
           {(() => {
             const labels = (job.service_type ?? "").split(",").map((s) => s.trim()).filter(Boolean);
             return labels.map((label, i) => {
@@ -3250,11 +3285,7 @@ function JobRow({
           })()}
         </div>
 
-        <div
-          className={`flex min-w-0 w-full flex-col items-start gap-1.5 sm:w-auto sm:flex-[0.9] sm:items-end${
-            isUnscheduled ? " sm:self-stretch sm:justify-end" : ""
-          }`}
-        >
+        <div className={`flex min-w-0 w-full flex-col items-start gap-1.5 sm:w-auto sm:items-end${isUnscheduled ? " sm:flex-[1.2]" : " sm:flex-[0.9]"}`}>
           {/* Site contact (usually the homeowner) — shown regardless of
               status, including To Be Scheduled, so the admin can always
               find this number in the same spot on the card. Per Tim,
@@ -3272,9 +3303,23 @@ function JobRow({
               mobile changes, but keep all of my desktop changes": mobile
               keeps its pre-2026-09-29 spot and condition (Scheduled
               included) here; only desktop excludes Scheduled and shows
-              it next to the address instead. */}
+              it next to the address instead. Per Tim, 2026-09-29 (yet
+              later) — "to be scheduled should follow the exact same
+              format as scheduled... the date time and schedule button
+              can all be in the bottom right, or scheduled time usually
+              is": reserving this row's height (min-h-5) even when
+              isUnscheduled has no site contact on file is what lands the
+              Date/Time/Schedule row on row 2 below, the same fixed spot
+              Scheduled's own date/time lands in via its own row 1
+              reservation — dropped the old self-stretch/justify-end
+              attempt at the same thing (removed from this div's own
+              className above), which only ever stretched to match its
+              row siblings' natural height, never reliably reaching the
+              card's actual bottom edge the way this reservation does. */}
           <span className="hidden sm:contents">
-            {job.status !== "report_invoice_sent" && job.status !== "pending_lab_results" && job.status !== "scheduled" && siteContactNode}
+            {job.status !== "report_invoice_sent" && job.status !== "pending_lab_results" && job.status !== "scheduled" && (
+              isUnscheduled ? <span className="block min-h-5">{siteContactNode}</span> : siteContactNode
+            )}
           </span>
           <span className="contents sm:hidden">
             {job.status !== "report_invoice_sent" && job.status !== "pending_lab_results" && siteContactNode}

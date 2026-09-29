@@ -138,8 +138,13 @@ const styles = StyleSheet.create({
   footer: { marginTop: 16 },
   footerTopRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end" },
   turnaroundLine: { flexDirection: "row", alignItems: "baseline" },
-  turnaroundLabel: { fontSize: 11, fontWeight: 700 },
-  turnaroundOption: { fontSize: 11, fontWeight: 400, marginLeft: 20 },
+  // Per Tim, 2026-09-28 — "make sure where it says rush or 24 hours is
+  // directly in line with the line below it": width:112 matches
+  // signatureLabel's own fixed width exactly, so RUSH/24 HOURS starts
+  // flush with RELINQUISHED BY/RECEIVED BY's signature line beneath it.
+  // Same as blank-coc-pdf.tsx's own copy of this.
+  turnaroundLabel: { fontSize: 11, fontWeight: 700, width: 112 },
+  turnaroundOption: { fontSize: 11, fontWeight: 400 },
   // Per Tim, 2026-09-28 — "this text should always be aligned right."
   notes: { fontSize: 11, fontStyle: "italic", textAlign: "right" },
   // Per Tim, 2026-09-28 — same fix as blank-coc-pdf.tsx's own copy: a
@@ -338,7 +343,7 @@ function MoldCocDocument({ job, customer, sampleType, sampleItems, turnaround, r
               ) : (
                 <>
                   <Text style={styles.turnaroundOption}>RUSH</Text>
-                  <Text style={styles.turnaroundOption}>24HR</Text>
+                  <Text style={[styles.turnaroundOption, { marginLeft: 20 }]}>24HR</Text>
                 </>
               )}
             </View>

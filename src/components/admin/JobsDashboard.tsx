@@ -3090,8 +3090,16 @@ function JobRow({
               this row-alignment work). Row 1 on the date column now
               always reserves its own height too (see below), so rows
               2/3 always land in the same fixed spot on both sides
-              regardless of what (if anything) row 1 actually holds. */}
-          {useCocRowFormat && <div className="sm:min-h-5">{job.status === "scheduled" ? siteContactNode : null}</div>}
+              regardless of what (if anything) row 1 actually holds. Per
+              Tim, 2026-09-29 — "in mobile everything should kind of have
+              a fixed spot as opposed to collapsing when info is missing":
+              this row 1 reservation was sm:min-h-5 (desktop only), so on
+              mobile a Pending Lab Results card (no site contact) had this
+              div collapse to zero height, pulling the address/date up a
+              row versus a Scheduled card with contact info. min-h-5 with
+              no breakpoint prefix reserves the same fixed row on mobile
+              too. */}
+          {useCocRowFormat && <div className="min-h-5">{job.status === "scheduled" ? siteContactNode : null}</div>}
           {locationName && <div className="truncate whitespace-nowrap text-sm text-slate-500">{locationName}</div>}
           {/* Mobile: tapping the address text itself (street through zip)
               opens a Google Maps/Waze picker instead of the job detail
@@ -3136,8 +3144,22 @@ function JobRow({
                 {invoiceStatus}
               </div>
             )}
-            {cocStatus && (
-              <div className="mt-2 flex flex-col items-start sm:hidden">
+            {/* Per Tim, 2026-09-29 — "in mobile everything should kind of
+                have a fixed spot as opposed to collapsing when info is
+                missing": gated on cocStatus itself before, so this whole
+                row (including its own mt-2 gap) vanished entirely for any
+                job where cocStatus is empty — every Pending Lab Results
+                job (cocSentByType only ever populates for "scheduled",
+                see its own comment above) and a Scheduled job whose day
+                hasn't arrived yet — pulling everything below it up a row
+                versus a Scheduled job mid-checklist. Gating on
+                useCocRowFormat instead, with min-h-5 on the wrapper
+                itself (not just its content), reserves this row the same
+                way row 1 of the date column already does on desktop
+                (sm:min-h-5 there), whether or not cocStatus has anything
+                to show. */}
+            {useCocRowFormat && (
+              <div className="mt-2 flex min-h-5 flex-col items-start sm:hidden">
                 {cocStatus}
               </div>
             )}
@@ -3149,9 +3171,15 @@ function JobRow({
                 genuinely missing, not just differently formatted. Same
                 info, mobile's own single-column stacking instead of the
                 desktop 3-row grid. mt-2/gap-2 — "every single line...
-                should be evenly spaced." */}
+                should be evenly spaced." Per Tim, 2026-09-29 — "all of
+                the text should be the same for mobile in the preview
+                cards": this block was missing the text-sm text-slate-500
+                every other line on the card uses (the desktop version of
+                this exact block, right below, has always had it), so it
+                rendered in the browser's default dark/larger text and
+                stood out from everything else. */}
             {useCocRowFormat && (
-              <div className="mt-2 flex flex-col items-start gap-2 sm:hidden">
+              <div className="mt-2 flex flex-col items-start gap-2 text-sm text-slate-500 sm:hidden">
                 <div>{hasCompletedFieldwork(job.status) ? "Completed" : "Scheduled"} date: {formatDate(job.confirmed_date ?? job.requested_date) || "—"}</div>
                 <div>
                   {hasCompletedFieldwork(job.status) ? "Completed" : "Scheduled"} time:{" "}

@@ -126,26 +126,31 @@ const styles = StyleSheet.create({
   // and just kind of every chain of custody as well."
   colSample: { width: 66, borderRightWidth: 0.5, borderRightColor: LINE_COLOR, justifyContent: "center", alignItems: "center" },
   colThird: { flex: 1, borderRightWidth: 0.5, borderRightColor: LINE_COLOR, justifyContent: "center", alignItems: "center" },
-  colLocation: { flex: 1, justifyContent: "center", alignItems: "center" },
+  // alignItems: "stretch" (not "center") — see blank-coc-pdf.tsx's own
+  // comment on this same style: keeps the block vertically centered while
+  // stretching it full-width so left-aligned wrapped text always starts
+  // flush at the same true left edge across rows.
+  colLocation: { flex: 1, justifyContent: "center", alignItems: "stretch" },
   footer: { marginTop: 18 },
   footerTopRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end" },
   turnaroundLine: { flexDirection: "row", alignItems: "baseline" },
   turnaroundLabel: { fontSize: 11, fontWeight: 700 },
   turnaroundOption: { fontSize: 11, fontWeight: 400, marginLeft: 20 },
   notes: { fontSize: 11, fontStyle: "italic" },
-  // Per Tim, 2026-09-28 — "turnaround is not spaced evenly like the
-  // others": emailNote/dateNeededRow's own gaps were 10pt while every
-  // gap from DATE NEEDED down (RELINQUISHED BY, RECEIVED BY) was 24pt —
-  // TURNAROUND read cramped against the row below it relative to how
-  // evenly spaced everything after it was. Same 24pt rhythm now, top to
-  // bottom.
-  emailNote: { fontSize: 11, fontStyle: "italic", textAlign: "right", marginTop: 24 },
-  dateNeededRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 24 },
-  dateNeededLabel: { fontSize: 11, fontWeight: 700, marginRight: 4 },
-  // Same width as the asbestos form's — wider (220) ran under the
-  // "Please email..." note now sitting above this line.
-  dateNeededValue: { width: 160, borderBottomWidth: 0.5, borderBottomColor: LINE_COLOR },
-  signatureRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 24 },
+  // Per Tim, 2026-09-28 — "the stuff should always be evenly spaced, and
+  // then turnaround, relinquished by, and received by should always be
+  // evenly spaced as well": DATE NEEDED (its own row, between the notes
+  // and RELINQUISHED BY) is gone — "let's just go ahead now and remove
+  // the date needed line" — and every remaining gap in the footer (email
+  // note under TURNAROUND, this sample type's own dateNeededNote under
+  // that, RELINQUISHED BY under that, RECEIVED BY under that) now shares
+  // this exact same marginTop, so the whole footer reads as one
+  // consistent rhythm. An earlier attempt at closing this with a
+  // negative marginTop on signatureRow instead very nearly closed it to
+  // zero and made the notes visually collide with RELINQUISHED BY's own
+  // date/time.
+  emailNote: { fontSize: 11, fontStyle: "italic", textAlign: "right", marginTop: 16 },
+  signatureRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 16 },
   signatureSubRow: { flexDirection: "row", alignItems: "flex-end" },
   // Fixed width (not auto-sized to the text) so "RELINQUISHED BY" and the
   // shorter "RECEIVED BY" both hand off to their line at the same x — the
@@ -283,7 +288,7 @@ function MoldCocDocument({ job, customer, sampleType, sampleItems, turnaround, r
                   </Text>
                 </View>
               )}
-              <View style={[styles.colLocation, { padding: 3 }]}><Text style={{ textAlign: "center" }}>{items[i]?.location ?? ""}</Text></View>
+              <View style={[styles.colLocation, { padding: 3 }]}><Text style={{ textAlign: "left" }}>{items[i]?.location ?? ""}</Text></View>
             </View>
           ))}
         </View>
@@ -308,7 +313,7 @@ function MoldCocDocument({ job, customer, sampleType, sampleItems, turnaround, r
                   draft prints only the real one, plain text, no circle;
                   the blank template still prints both uncircled. */}
               {turnaround ? (
-                <Text style={styles.turnaroundOption}>{turnaround === "Rush" ? "RUSH" : "24HR"}</Text>
+                <Text style={styles.turnaroundOption}>{turnaround === "Rush" ? "RUSH" : "24 HOURS"}</Text>
               ) : (
                 <>
                   <Text style={styles.turnaroundOption}>RUSH</Text>
@@ -322,21 +327,12 @@ function MoldCocDocument({ job, customer, sampleType, sampleItems, turnaround, r
           <Text style={styles.emailNote}>
             Please email all results to tim@commonwealthinspectionservices.com
           </Text>
-
-          {config.dateNeededNote ? (
-            <View style={[styles.dateNeededRow, { justifyContent: "space-between" }]}>
-              <View style={styles.signatureSubRow}>
-                <Text style={styles.dateNeededLabel}>DATE NEEDED</Text>
-                <Text style={styles.dateNeededValue}>{job?.lab_date_needed ?? ""}</Text>
-              </View>
-              <Text style={styles.notes}>{config.dateNeededNote}</Text>
-            </View>
-          ) : (
-            <View style={styles.dateNeededRow}>
-              <Text style={styles.dateNeededLabel}>DATE NEEDED</Text>
-              <Text style={styles.dateNeededValue}>{job?.lab_date_needed ?? ""}</Text>
-            </View>
-          )}
+          {/* Per Tim, 2026-09-28 — "let's just go ahead now and remove the
+              date needed line": dateNeededNote (when this sample type has
+              one) used to sit beside it, so it moves up to its own line
+              here instead — same emailNote style (and so the same
+              marginTop rhythm as every other gap in this footer). */}
+          {config.dateNeededNote && <Text style={styles.emailNote}>{config.dateNeededNote}</Text>}
 
           <View style={styles.signatureRow}>
             <View style={styles.signatureSubRow}>

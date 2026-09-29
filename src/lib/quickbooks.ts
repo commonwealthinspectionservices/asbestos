@@ -256,29 +256,91 @@ async function qbFetch(conn: QuickBooksConnection, path: string, init?: RequestI
   return res.json();
 }
 
+/** Looked up by exact name — shared by every account this file needs (mileage's two, and Project revenue's own below). */
+async function findAccountId(conn: QuickBooksConnection, name: string): Promise<string> {
+  const query = `select Id from Account where Name = '${name.replace(/'/g, "\\'")}'`;
+  const result = await qbFetch(conn, `/query?query=${encodeURIComponent(query)}`);
+  const id = result?.QueryResponse?.Account?.[0]?.Id;
+  if (!id) throw new Error(`QuickBooks account "${name}" not found — has the Chart of Accounts changed?`);
+  return id;
+}
+
 /** Finds and caches the two account IDs the mileage journal entry needs — looked up by name once, reused after. */
 async function accountIdsForMileage(conn: QuickBooksConnection): Promise<{ vehicleExpenseId: string; ownerPaidId: string }> {
   if (conn.vehicle_expense_account_id && conn.owner_paid_account_id) {
     return { vehicleExpenseId: conn.vehicle_expense_account_id, ownerPaidId: conn.owner_paid_account_id };
   }
 
-  const findAccountId = async (name: string): Promise<string> => {
-    const query = `select Id from Account where Name = '${name.replace(/'/g, "\\'")}'`;
-    const result = await qbFetch(conn, `/query?query=${encodeURIComponent(query)}`);
-    const id = result?.QueryResponse?.Account?.[0]?.Id;
-    if (!id) throw new Error(`QuickBooks account "${name}" not found — has the Chart of Accounts changed?`);
-    return id;
-  };
-
   const [vehicleExpenseId, ownerPaidId] = await Promise.all([
-    findAccountId("Vehicle expenses"),
-    findAccountId("Owner paid"),
+    findAccountId(conn, "Vehicle expenses"),
+    findAccountId(conn, "Owner paid"),
   ]);
 
   const supabase = getSupabaseAdminFresh();
   await supabase.from("quickbooks_connection").update({ vehicle_expense_account_id: vehicleExpenseId, owner_paid_account_id: ownerPaidId }).eq("id", 1);
 
   return { vehicleExpenseId, ownerPaidId };
+}
+
+/** Finds an existing QuickBooks Customer by exact display name, or creates one — so an auto-posted revenue entry always has a real Name (Entity), not just a description, on the transaction. Per Tim, 2026-09-28: "let's definitely try and make a habit to fill the name section as well as the description section" for auto entries. */
+async function findOrCreateQuickBooksCustomer(conn: QuickBooksConnection, displayName: string): Promise<string> {
+  const query = `select Id from Customer where DisplayName = '${displayName.replace(/'/g, "\\'")}'`;
+  const result = await qbFetch(conn, `/query?query=${encodeURIComponent(query)}`);
+  const existingId = result?.QueryResponse?.Customer?.[0]?.Id;
+  if (existingId) return existingId;
+
+  const created = await qbFetch(conn, "/customer", {
+    method: "POST",
+    body: JSON.stringify({ DisplayName: displayName }),
+  });
+  return created.Customer.Id;
+}
+
+/**
+ * Posts a real payment received directly (not through this app's own
+ * Stripe invoicing — e.g. a subcontracting company's own ACH transfer,
+ * outside QuickBooks' bank feed entirely) as a QuickBooks Deposit into
+ * "Project revenue", the same income account this app's own Stripe-billed
+ * jobs already land in (see the P&L's own "Project revenue (Stripe)" vs
+ * "Project revenue" split — confirmed live, 2026-09-28, restoring Fast
+ * Mold Testing's job). Always carries both a real Entity (Name column)
+ * and a Description — see findOrCreateQuickBooksCustomer's own comment
+ * for why the Name half matters. Deposited into "Undeposited Funds", the
+ * standard QuickBooks holding account for money received outside any
+ * connected bank feed.
+ */
+export async function recordProjectRevenueInQuickBooks(params: {
+  customerName: string;
+  amountCents: number;
+  date: string; // YYYY-MM-DD
+  description: string;
+}): Promise<{ depositId: string }> {
+  const conn = await getValidConnection();
+  const [revenueAccountId, undepositedFundsId, customerId] = await Promise.all([
+    findAccountId(conn, "Project revenue"),
+    findAccountId(conn, "Undeposited Funds"),
+    findOrCreateQuickBooksCustomer(conn, params.customerName),
+  ]);
+
+  const payload = {
+    TxnDate: params.date,
+    DepositToAccountRef: { value: undepositedFundsId },
+    PrivateNote: params.description,
+    Line: [
+      {
+        Amount: Math.round(params.amountCents) / 100,
+        DetailType: "DepositLineDetail",
+        Description: params.description,
+        DepositLineDetail: {
+          AccountRef: { value: revenueAccountId },
+          Entity: { value: customerId, type: "Customer" },
+        },
+      },
+    ],
+  };
+
+  const result = await qbFetch(conn, "/deposit", { method: "POST", body: JSON.stringify(payload) });
+  return { depositId: result.Deposit.Id };
 }
 
 /** cents, rounded to the nearest cent, for one mileage day at its own day's IRS rate. */

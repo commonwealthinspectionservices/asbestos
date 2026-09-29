@@ -814,7 +814,7 @@ async function findJobByReportAddress(
 // code change in between), not a real defect in the PDF itself. A short
 // retry is enough in practice — every failure observed recovered on the
 // very next attempt.
-async function parsePdfWithRetry(data: Buffer, label: string, attempts = 3): Promise<{ text: string }> {
+export async function parsePdfWithRetry(data: Buffer, label: string, attempts = 3): Promise<{ text: string }> {
   let lastError: unknown;
   for (let attempt = 1; attempt <= attempts; attempt++) {
     try {

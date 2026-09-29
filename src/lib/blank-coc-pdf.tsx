@@ -87,21 +87,39 @@ const styles = StyleSheet.create({
   // there — tableHeaderCell already centers its own text).
   colSample: { width: 66, borderRightWidth: 0.5, borderRightColor: LINE_COLOR, justifyContent: "center", alignItems: "center" },
   colMaterial: { flex: 1, borderRightWidth: 0.5, borderRightColor: LINE_COLOR, justifyContent: "center", alignItems: "center" },
-  colLocation: { flex: 1, justifyContent: "center", alignItems: "center" },
-  // Matches the owner's real form's own gaps below the table — not
-  // perfectly uniform (15/17/24pt below), that's genuinely how the
-  // original is spaced.
+  // alignItems: "stretch" (not "center") — the block itself still sits
+  // vertically centered in the cell (justifyContent), but stretches to the
+  // cell's full width so left-aligned, wrapped text always starts at the
+  // same true left edge instead of each row's differently-sized text
+  // block getting independently centered (and so starting at a different
+  // x per row).
+  colLocation: { flex: 1, justifyContent: "center", alignItems: "stretch" },
   footer: { marginTop: 10 },
   footerTopRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end" },
   turnaroundLine: { flexDirection: "row", alignItems: "baseline" },
   turnaroundLabel: { fontSize: 11, fontWeight: 700 },
   turnaroundOption: { fontSize: 11, fontWeight: 400, marginLeft: 20 },
   notes: { fontSize: 11, fontStyle: "italic" },
-  emailNote: { fontSize: 11, fontStyle: "italic", textAlign: "right", marginTop: 8 },
-  dateNeededRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 8 },
-  dateNeededLabel: { fontSize: 11, fontWeight: 700, marginRight: 4 },
+  // Per Tim, 2026-09-28 — "the stuff should always be evenly spaced, and
+  // then turnaround, relinquished by, and received by should always be
+  // evenly spaced as well": DATE NEEDED (its own row, between the notes
+  // and RELINQUISHED BY) is gone — "let's just go ahead now and remove
+  // the date needed line" — and every remaining gap in the footer (email
+  // note under TURNAROUND, license line under that, RELINQUISHED BY under
+  // that, RECEIVED BY under that) now shares this exact same marginTop,
+  // so the whole footer reads as one consistent rhythm rather than a mix
+  // of different gaps. Applied to two separate <Text> lines (not one
+  // block with a manual line break) specifically so each gets this same
+  // real, controlled marginTop instead of an uncontrolled bare line
+  // advance — an earlier attempt at closing this gap with a negative
+  // marginTop on signatureRow instead very nearly closed it to zero and
+  // made "*Sampled by..." visually collide with RELINQUISHED BY's own
+  // date/time.
+  emailNote: { fontSize: 11, fontStyle: "italic", textAlign: "right", marginTop: 16 },
+  // Still used by page 2's own "PAGE 2/2" field (see below) — the row/
+  // label styles that used to sit alongside it are gone with DATE NEEDED.
   dateNeededValue: { width: 160, borderBottomWidth: 0.5, borderBottomColor: LINE_COLOR },
-  signatureRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 24 },
+  signatureRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 16 },
   signatureSubRow: { flexDirection: "row", alignItems: "flex-end" },
   // Fixed width (not auto-sized to the text) so "RELINQUISHED BY" and the
   // shorter "RECEIVED BY" both hand off to their line at the same x — the
@@ -256,7 +274,7 @@ function BlankCocDocument({ job, customer, settings, sampleItems, turnaround, re
             <View style={styles.tableRow} key={i}>
               <View style={[styles.colSample, { padding: 3 }]}><Text style={{ textAlign: "center" }}>{page1Items[i]?.sample_number ?? ""}</Text></View>
               <View style={[styles.colMaterial, { padding: 3 }]}><Text style={{ textAlign: "center" }}>{page1Items[i]?.material ?? ""}</Text></View>
-              <View style={[styles.colLocation, { padding: 3 }]}><Text style={{ textAlign: "center" }}>{page1Items[i]?.location ?? ""}</Text></View>
+              <View style={[styles.colLocation, { padding: 3 }]}><Text style={{ textAlign: "left" }}>{page1Items[i]?.location ?? ""}</Text></View>
             </View>
           ))}
         </View>
@@ -275,7 +293,7 @@ function BlankCocDocument({ job, customer, settings, sampleItems, turnaround, re
                   blank template (turnaround null) still prints both
                   uncircled, ready to hand-circle on-site same as always. */}
               {turnaround ? (
-                <Text style={styles.turnaroundOption}>{turnaround === "Rush" ? "RUSH" : "24HR"}</Text>
+                <Text style={styles.turnaroundOption}>{turnaround === "Rush" ? "RUSH" : "24 HOURS"}</Text>
               ) : (
                 <>
                   <Text style={styles.turnaroundOption}>RUSH</Text>
@@ -287,16 +305,14 @@ function BlankCocDocument({ job, customer, settings, sampleItems, turnaround, re
           </View>
 
           <Text style={styles.emailNote}>Please email all results to tim@commonwealthinspectionservices.com</Text>
-
-          <View style={[styles.dateNeededRow, { justifyContent: "space-between" }]}>
-            <View style={styles.signatureSubRow}>
-              <Text style={styles.dateNeededLabel}>DATE NEEDED</Text>
-              <Text style={styles.dateNeededValue}>{job?.lab_date_needed ?? ""}</Text>
-            </View>
-            <Text style={styles.notes}>
-              *Sampled by {inspector.name} MA Asbestos Inspector License {licenseDisplay}
-            </Text>
-          </View>
+          {/* Per Tim, 2026-09-28 — "let's just go ahead now and remove the
+              date needed line": the license note used to sit beside it,
+              so it moves up to its own line here instead of losing a
+              required disclosure — same emailNote style (and so the same
+              marginTop rhythm as every other gap in this footer). */}
+          <Text style={styles.emailNote}>
+            *Sampled by {inspector.name} MA Asbestos Inspector License {licenseDisplay}
+          </Text>
 
           <View style={styles.signatureRow}>
             <Text style={styles.signatureLabel}>RELINQUISHED BY</Text>
@@ -381,7 +397,7 @@ function BlankCocDocument({ job, customer, settings, sampleItems, turnaround, re
             <View style={styles.tableRow} key={i}>
               <View style={[styles.colSample, { padding: 3 }]}><Text style={{ textAlign: "center" }}>{page2Items[i]?.sample_number ?? ""}</Text></View>
               <View style={[styles.colMaterial, { padding: 3 }]}><Text style={{ textAlign: "center" }}>{page2Items[i]?.material ?? ""}</Text></View>
-              <View style={[styles.colLocation, { padding: 3 }]}><Text style={{ textAlign: "center" }}>{page2Items[i]?.location ?? ""}</Text></View>
+              <View style={[styles.colLocation, { padding: 3 }]}><Text style={{ textAlign: "left" }}>{page2Items[i]?.location ?? ""}</Text></View>
             </View>
           ))}
         </View>

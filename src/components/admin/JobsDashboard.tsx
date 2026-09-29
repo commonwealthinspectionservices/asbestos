@@ -3060,7 +3060,20 @@ function JobRow({
           they'd disagree. The warning icon shows for either field, not
           just Report — an unsent invoice is just as much "not actually out
           the door yet" as an unsent report. */}
-      <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-start">
+      {/* Per Tim, 2026-09-29 (yet later) — "this should all be spaced
+          evenly... fill out the area vertically as opposed to just being
+          crunched up in that space": on mobile, this row's own content
+          (address, service type, Invoice/Report, etc.) was sizing to its
+          own content and leaving the card's fixed min-height's own
+          leftover space dead at the bottom, below everything. flex-1
+          lets this row grow to fill whatever height the card's own
+          min-height reserves beyond the header/company-name rows above
+          it; justify-between then spreads this row's own direct children
+          evenly across that filled height instead of bunching at the
+          top. sm:flex-none/sm:justify-start resets both for desktop,
+          unaffected — its own row sizing was never part of this
+          complaint. */}
+      <div className="flex w-full flex-1 flex-col justify-between gap-3 sm:flex-none sm:flex-row sm:items-start sm:justify-start">
         {/* min-w-0 dropped, 2026-09-29 (yet later) — the address text
             below is now whitespace-nowrap/no-truncate (Tim: "this
             should always be one line across... never dot dot dot"), so
@@ -3290,37 +3303,6 @@ function JobRow({
             });
           })()}
         </div>
-
-        {/* Per Tim, 2026-09-29 (yet later) — "I'm thinking that the order
-            for mobile for ready to review should be company name,
-            address, service type, and then the invoice and report not
-            sent thing", generalized right after to "for mobile in
-            general, I want the service type always to be directly below
-            the address... my whole goal is to have a standard format for
-            each": Invoice/Report (and the Payment Pending date line that
-            shares this same slot) used to render inside the address
-            column, sitting right after the street/cityStateZip lines —
-            ahead of service type in DOM order, which put it between
-            address and service type on mobile's single-column stack.
-            Moved here instead — its own row, after service type — so
-            mobile always reads address, then service type, then
-            whatever status-specific info comes next, matching this same
-            row's own column order (address, service type, status info)
-            that desktop already uses. mt-2, matching every other gap in
-            this stack. */}
-        {(showReportInvoice || showInvoiceOnly) && (
-          <div className="flex w-full flex-col items-start gap-2 mt-2 sm:hidden">
-            {showReportInvoice ? (
-              <>
-                {paymentPendingCompletedDate}
-                {invoiceStatus}
-                {reportStatus}
-              </>
-            ) : (
-              invoiceStatus
-            )}
-          </div>
-        )}
 
         <div className={`flex min-w-0 w-full flex-col items-start gap-1.5 sm:w-auto sm:items-end${isUnscheduled ? " sm:flex-[1.2]" : " sm:flex-[0.9]"}`}>
           {/* Site contact (usually the homeowner) — shown regardless of
@@ -3553,9 +3535,21 @@ function JobRow({
                   live: 353px vs 361px for the same row) since a 20px
                   line + 2px gap advances slower than a 20px line + 8px
                   gap. gap-2 here now, matching every other multi-line
-                  block in this row. */}
+                  block in this row. Per Tim, 2026-09-29 (yet later) —
+                  "I want the invoice and report to be in the same
+                  position where schedule date and schedule time are for
+                  the scheduled": this block was desktop-only (hidden
+                  sm:flex), with mobile getting its own separate copy
+                  elsewhere in the address column, then briefly its own
+                  standalone row between service type and this column —
+                  neither actually landed in this exact spot the way
+                  Scheduled's own date/time already does. No longer
+                  gated to desktop — mobile now renders this same block,
+                  in this same spot, left-aligned to match every other
+                  mobile line in this column (items-start, sm:items-end
+                  restores the desktop right-alignment). */}
               {showReportInvoice && (
-                <div className="hidden w-full flex-col items-end gap-2 text-sm text-slate-500 sm:flex">
+                <div className="flex w-full flex-col items-start gap-2 text-sm text-slate-500 sm:items-end">
                   {paymentPendingCompletedDate}
                   {invoiceStatus}
                   {reportStatus}
@@ -3566,7 +3560,7 @@ function JobRow({
                   Scheduled/Completed date block below — still relevant info
                   at this stage — just adds the invoice line above it. */}
               {showInvoiceOnly && (
-                <div className="hidden w-full flex-col items-end gap-2 text-sm text-slate-500 sm:flex">
+                <div className="flex w-full flex-col items-start gap-2 text-sm text-slate-500 sm:items-end">
                   {invoiceStatus}
                 </div>
               )}

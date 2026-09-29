@@ -2669,13 +2669,21 @@ function JobRow({
   // Per Tim, 2026-09-29 (follow-up) — "it should not come up until the
   // day that the job is scheduled for... I just don't want to take
   // unnecessary space on jobs that might be scheduled like a week out":
-  // gated on confirmed_date having actually arrived (today or earlier in
-  // the viewer's own local time), not just status === "scheduled" alone
-  // — a job scheduled a week out has nothing to actually do yet.
+  // gated on the scheduled date having actually arrived (today or
+  // earlier in the viewer's own local time), not just status ===
+  // "scheduled" alone — a job scheduled a week out has nothing to
+  // actually do yet. confirmed_date ?? requested_date — same fallback
+  // as this same card's own "Scheduled date" line right below (a job
+  // entered directly as "Scheduled" via Add Project keeps confirmed_date
+  // null and only ever sets requested_date — see
+  // sendJobCreatedScheduledNotification's own comment); checking
+  // confirmed_date alone left a job like that showing "Scheduled date:
+  // [today]" while this gate silently kept hiding its checklist.
   const now = new Date();
   const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const cocScheduledDate = job.confirmed_date ?? job.requested_date;
   const cocSentByType = new Map<CocType, string | null>(
-    job.status === "scheduled" && job.confirmed_date && job.confirmed_date <= todayStr
+    job.status === "scheduled" && cocScheduledDate && cocScheduledDate <= todayStr
       ? jobCocTypes(job.service_type).map(({ cocType }) => {
           const latest = (job.coc_log ?? [])
             .filter((h) => h.coc_type === cocType)

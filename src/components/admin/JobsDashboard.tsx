@@ -580,7 +580,7 @@ function EmailChecklistPanel({
     }
   }
 
-  const rowClassName = "flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm";
+  const rowClassName = "flex items-center gap-2 text-sm";
 
   return (
     <div className="mt-8 flex flex-col gap-6">
@@ -630,7 +630,7 @@ function EmailChecklistPanel({
             </label>
           )}
           {!isFliJob && (
-            <label className="flex items-center gap-2 px-1 text-xs text-slate-500">
+            <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={includeReviewLink} onChange={(e) => setIncludeReviewLink(e.target.checked)} />
               <span>Add review link</span>
             </label>

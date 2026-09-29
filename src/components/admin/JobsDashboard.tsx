@@ -3387,7 +3387,14 @@ function JobRow({
             // moment the second field got a value, which on mobile could
             // trigger off a half-picked date before the
             // admin ever reached the time field.
-            <div className="flex w-full shrink-0 flex-col items-start gap-1.5 sm:w-auto sm:items-end" onClick={(e) => e.stopPropagation()}>
+            // Per Tim, 2026-09-29 — "these must be on the same line
+            // across on the bottom for to be scheduled": this single-line
+            // control row sat level with the address column's row 2
+            // (street) before — confirmed live it needs to be one row
+            // lower, level with row 3 (cityStateZip) instead, "on the
+            // bottom." sm:mt-7 — same one-row offset the middle column's
+            // own service-type text uses to land on row 2 from row 1.
+            <div className="flex w-full shrink-0 flex-col items-start gap-1.5 sm:mt-7 sm:w-auto sm:items-end" onClick={(e) => e.stopPropagation()}>
               {/* items-stretch (not items-center) so Date and Time share the
                   row's own height exactly, rather than each sizing itself
                   off its own padding/line-height math — that left Date 3px

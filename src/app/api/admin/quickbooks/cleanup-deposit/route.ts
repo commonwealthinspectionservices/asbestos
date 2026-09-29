@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApi } from "@/lib/admin-api";
 import { withApiErrors } from "@/lib/api-handler";
-import { findQuickBooksDepositsByDate, deleteQuickBooksDeposit } from "@/lib/quickbooks";
+import { findQuickBooksDepositsByDate, deleteQuickBooksDeposit, getQuickBooksDepositRaw } from "@/lib/quickbooks";
 
 // One-off admin tool, 2026-09-29 — companion to recordProjectRevenueInQuickBooks
 // being turned off (see subcontractor-payment-intake.ts's own comment):
@@ -22,6 +22,12 @@ export const GET = withApiErrors(async (req: NextRequest) => {
   const id = req.nextUrl.searchParams.get("id");
   const syncToken = req.nextUrl.searchParams.get("syncToken");
   const confirm = req.nextUrl.searchParams.get("confirm");
+  const raw = req.nextUrl.searchParams.get("raw");
+
+  if (id && raw === "true") {
+    const deposit = await getQuickBooksDepositRaw(id);
+    return NextResponse.json({ deposit });
+  }
 
   if (id && syncToken) {
     if (confirm !== "true") {

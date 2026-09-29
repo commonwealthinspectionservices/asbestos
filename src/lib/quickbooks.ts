@@ -372,6 +372,13 @@ export async function findQuickBooksDepositsByDate(date: string): Promise<{
   }));
 }
 
+/** Raw Deposit object by Id, for full inspection (line items, Entity/AccountRef names) before deciding what to delete. */
+export async function getQuickBooksDepositRaw(id: string): Promise<any> {
+  const conn = await getValidConnection();
+  const result = await qbFetch(conn, `/deposit/${id}`);
+  return result?.Deposit ?? null;
+}
+
 /** Deletes one Deposit by Id/SyncToken — see findQuickBooksDepositsByDate's own comment on what this is for. */
 export async function deleteQuickBooksDeposit(id: string, syncToken: string): Promise<void> {
   const conn = await getValidConnection();

@@ -88,6 +88,19 @@ const EDITABLE_FIELDS = [
   // dedicated route — same reasoning payment_reversed_at above already
   // gets this treatment for.
   "report_sent_domains",
+  // Per Tim, 2026-09-29 — discovered live that the coc_log column itself
+  // had never actually been added to production (the migration existed
+  // in supabase/schema.sql but was never run there), so every "Create
+  // Draft" click in the Chain of Custody panel — including the two real
+  // jobs Tim had already sent, 26-0056.1/.2 — silently failed to persist
+  // its own tracking entry even though the real Gmail draft always got
+  // created successfully. Once the column was added, those two jobs'
+  // already-sent drafts had no way to be recognized after the fact (no
+  // route existed to hand-correct coc_log, and re-clicking Create Draft
+  // would have created a second, genuinely duplicate draft instead of
+  // fixing the record). Same "one-off correction, no dedicated route
+  // needed" reasoning as report_sent_domains/payment_reversed_at above.
+  "coc_log",
 ] as const;
 
 export const PATCH = withApiErrors(async (

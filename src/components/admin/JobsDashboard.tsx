@@ -2884,8 +2884,13 @@ function JobRow({
       // already varied height before this) now shares one fixed minimum
       // height instead of shrinking to fit its own content. min- (not a
       // flat height) so a genuinely rare, taller-than-usual card can
-      // still grow past it rather than clipping.
-      className="flex w-full cursor-pointer flex-col gap-2 rounded-lg border border-slate-200 bg-white p-3 hover:border-brand-400 sm:min-h-44 sm:gap-0"
+      // still grow past it rather than clipping. 146px — per Tim, "a
+      // little too much empty space beneath town and state and scheduled
+      // time" with the first guess (min-h-44/176px); measured directly
+      // against a real fixed-3-row Scheduled card (now the common case,
+      // since that template always renders 3 rows) rather than guessing
+      // again.
+      className="flex w-full cursor-pointer flex-col gap-2 rounded-lg border border-slate-200 bg-white p-3 hover:border-brand-400 sm:min-h-[146px] sm:gap-0"
     >
       {/* items-start, not items-center — the status cell's own column can
           run taller than this row now (the Report:/Invoice: sent-status

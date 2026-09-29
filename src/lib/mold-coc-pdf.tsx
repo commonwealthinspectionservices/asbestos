@@ -391,27 +391,35 @@ function MoldCocDocument({ job, customer, sampleType, sampleItems, turnaround, r
             <Text style={[styles.notes, styles.notesColumn]}>tim@commonwealthinspectionservices.com</Text>
           </View>
 
-          {/* Per Tim, 2026-09-28 — "line 3" (RECEIVED BY, paired with
-              dateNeededNote): PAGE still needs to fit on this same row
-              too, so it sits right after the signature line (not pushed
-              all the way to the page's own right margin the way it used
-              to) — the note takes that flush-right spot instead, in
-              whatever width is left, right-aligned same as the two rows
-              above. Same as blank-coc-pdf.tsx's own copy of this. */}
-          <View style={styles.signatureRow}>
-            <Text style={styles.signatureLabel}>RECEIVED BY</Text>
-            <View style={styles.signatureLineWrap}>
-              <Text style={styles.signatureLine} />
-              <DateTimeField noSlashes />
-              <TimeField />
+          {/* Per Tim, 2026-09-28 — "the page is the footer, it should be
+              on its own line": RECEIVED BY's row holds only its own
+              signature line plus its paired note (right-aligned in the
+              shared notesColumn, same as the two rows above it) — PAGE
+              never shares this row, no matter how tight space gets.
+              Same as blank-coc-pdf.tsx's own copy of this. */}
+          <View style={[styles.signatureRow, { justifyContent: "space-between" }]}>
+            <View style={styles.signatureSubRow}>
+              <Text style={styles.signatureLabel}>RECEIVED BY</Text>
+              <View style={styles.signatureLineWrap}>
+                <Text style={styles.signatureLine} />
+                <DateTimeField noSlashes />
+                <TimeField />
+              </View>
             </View>
+            {config.dateNeededNote && <Text style={[styles.notes, styles.notesColumn]}>{config.dateNeededNote}</Text>}
+          </View>
+
+          {/* Per Tim, 2026-09-28 — "the page should always be in the
+              bottom right for sure... because the page is the footer, it
+              should be on its own line": always bottom-most, always
+              flush right, never sharing RECEIVED BY's row. Same as
+              blank-coc-pdf.tsx's own copy of this; "if there's just one
+              page, I always just write one slash one" — this form is
+              always a single page (no continuation sheet, unlike the
+              asbestos bulk form). */}
+          <View style={[styles.signatureRow, { justifyContent: "flex-end" }]}>
             <Text style={styles.pageLabel}>PAGE</Text>
-            {/* Per Tim, 2026-09-28 — "if there's just one page, I
-                always just write one slash one": this form is always a
-                single page (no continuation sheet, unlike the asbestos
-                bulk form — see blank-coc-pdf.tsx). */}
-            <Text style={[styles.signatureLine, { width: 40, marginLeft: 4, textAlign: "center" }]}>1/1</Text>
-            {config.dateNeededNote && <Text style={[styles.notes, { flex: 1, marginLeft: 8 }]}>{config.dateNeededNote}</Text>}
+            <Text style={[styles.signatureLine, { width: 70, marginLeft: 4, textAlign: "center" }]}>1/1</Text>
           </View>
         </View>
       </Page>

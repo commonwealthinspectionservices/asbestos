@@ -400,19 +400,29 @@ function BlankCocDocument({ job, customer, settings, sampleItems, turnaround, re
           </View>
 
           {/* Per Tim, 2026-09-28 — "line 3" (RECEIVED BY, paired with the
-              license line): PAGE still needs to fit on this same row
-              too, so it sits right after the signature line (not pushed
-              all the way to the page's own right margin the way it used
-              to) — license takes that flush-right spot instead, in
-              whatever width is left, right-aligned same as the two rows
-              above. */}
-          <View style={styles.signatureRow}>
-            <Text style={styles.signatureLabel}>RECEIVED BY</Text>
-            <View style={styles.signatureLineWrap}>
-              <Text style={styles.signatureLine} />
-              <DateTimeField noSlashes />
-              <TimeField />
+              license line, single line across, no PAGE competing for
+              room here anymore — see below). */}
+          <View style={[styles.signatureRow, { justifyContent: "space-between" }]}>
+            <View style={styles.signatureSubRow}>
+              <Text style={styles.signatureLabel}>RECEIVED BY</Text>
+              <View style={styles.signatureLineWrap}>
+                <Text style={styles.signatureLine} />
+                <DateTimeField noSlashes />
+                <TimeField />
+              </View>
             </View>
+            <Text style={[styles.notes, styles.notesColumn]}>
+              {inspector.name} MA Asbestos Inspector License {licenseDisplay}
+            </Text>
+          </View>
+
+          {/* Per Tim, 2026-09-28 — "I don't know why you moved the
+              position of the page. The page should always be in the
+              bottom right for sure... because the page is the footer,
+              it should be on its own line": PAGE is its own true footer
+              line now, right-aligned to the page's own right margin —
+              not squeezed onto RECEIVED BY's row at all. */}
+          <View style={[styles.signatureRow, { justifyContent: "flex-end" }]}>
             <Text style={styles.pageLabel}>PAGE</Text>
             {/* Per Tim, 2026-09-28 — "if there's just one page, I always
                 just write one slash one... if there's two pages and
@@ -421,10 +431,7 @@ function BlankCocDocument({ job, customer, settings, sampleItems, turnaround, re
                 fixed 2-page document (a continuation sheet whether or
                 not it actually holds real rows — see the Page 2 comment
                 below), so page 1's field is always "1/2". */}
-            <Text style={[styles.signatureLine, { width: 40, marginLeft: 4, textAlign: "center" }]}>1/2</Text>
-            <Text style={[styles.notes, { flex: 1, marginLeft: 8 }]}>
-              {inspector.name} MA Asbestos Inspector License {licenseDisplay}
-            </Text>
+            <Text style={[styles.signatureLine, { width: 70, marginLeft: 4, textAlign: "center" }]}>1/2</Text>
           </View>
         </View>
       </Page>

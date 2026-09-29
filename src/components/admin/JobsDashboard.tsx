@@ -5904,7 +5904,7 @@ export function ProjectDetailDialog({
                                 default. */}
                             {job.customers?.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID && (
                               <div className="mt-4 flex justify-end">
-                                <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-600">
+                                <label className="flex items-center gap-2 text-xs text-slate-600">
                                   <input
                                     type="checkbox"
                                     checked={job.mold_standard_conclusion_included !== false}

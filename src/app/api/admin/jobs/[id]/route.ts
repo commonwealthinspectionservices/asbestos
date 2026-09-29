@@ -101,6 +101,11 @@ const EDITABLE_FIELDS = [
   // fixing the record). Same "one-off correction, no dedicated route
   // needed" reasoning as report_sent_domains/payment_reversed_at above.
   "coc_log",
+  // Per Tim, 2026-09-29 — missing from this whitelist since the checkbox
+  // itself was built, so every click silently no-op'd on the server and
+  // the checkbox snapped back to its prior value on the next refetch —
+  // looked exactly like it "wouldn't let him uncheck it."
+  "mold_standard_conclusion_included",
 ] as const;
 
 export const PATCH = withApiErrors(async (

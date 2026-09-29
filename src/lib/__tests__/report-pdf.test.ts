@@ -238,6 +238,40 @@ describe("renderProjectReportPdf", () => {
     expect(text).toMatch(/Total # of Samples:\s*4/);
   });
 
+  // Per Tim, 2026-09-29 (26-0041.2, a post-remediation clearance retest
+  // with only one indoor air sample and deliberately no ambient) — the
+  // air sample-count sentence used to always subtract 1 from the total for
+  // "the always-present ambient sample," so a total of exactly 1 produced
+  // 0, which fell through to the raw "[Number of samples] ... [Date of
+  // Sampling]" placeholder text AND still falsely claimed an ambient
+  // sample was taken. A total of 2+ (a real ambient job) must still read
+  // correctly, unchanged from before.
+  describe("mold air sample-count sentence", () => {
+    it("doesn't subtract an ambient sample, and doesn't claim one was taken, when only one air sample total exists", async () => {
+      const pdf = await renderProjectReportPdfForDomain({
+        job: { ...job, service_type: "Mold Air Sampling", sample_count: 0, sample_counts: { "Mold Air Sampling": 1 }, confirmed_date: "2026-09-28" },
+        customer,
+        settings,
+      }, "mold");
+      const { text } = await pdfParse(pdf);
+      expect(text).not.toContain("[Number of samples]");
+      expect(text).not.toContain("[Date of Sampling]");
+      expect(text).not.toContain("An ambient sample was collected outside");
+      expect(text).toContain("One (1) sample was collected on");
+    });
+
+    it("still subtracts the ambient sample, and still claims one was taken, when the total is 2 or more", async () => {
+      const pdf = await renderProjectReportPdfForDomain({
+        job: { ...job, service_type: "Mold Air Sampling", sample_count: 0, sample_counts: { "Mold Air Sampling": 3 }, confirmed_date: "2026-09-28" },
+        customer,
+        settings,
+      }, "mold");
+      const { text } = await pdfParse(pdf);
+      expect(text).toContain("Two (2) samples were collected on");
+      expect(text).toContain("An ambient sample was collected outside for comparison with the indoor sample.");
+    });
+  });
+
   // Per Tim, 2026-09-12 (26-0019) — a real lead letter spilled just its
   // signature onto its own page 2. Checked against both a short, realistic
   // letter (the common case — no sample list/appendix on this template)

@@ -1239,13 +1239,27 @@ function MoldReportDocument({ job, customer, settings }: ProjectReportData) {
   // subtracting 1 gives the indoor-only count (confirmed). Falls back to
   // the outline's own bracketed placeholders when there's no lab data yet
   // rather than showing a nonsensical "Zero (0) samples."
+  // Per Tim, 2026-09-29 (26-0041.2, a post-remediation clearance retest
+  // with only one indoor sample and deliberately no ambient) — a total of
+  // exactly 1 can only ever be that one indoor sample on its own, never
+  // "just the ambient with zero indoor" (an ambient sample is only ever
+  // taken alongside at least one indoor sample, never by itself), so it's
+  // never safe to subtract 1 from a total of 1. Confirmed live wrong: the
+  // old unconditional "total - 1" produced 0, which fell through to the
+  // literal "[Number of samples] ... [Date of Sampling]" placeholder text
+  // AND still claimed "An ambient sample was collected outside" even
+  // though this job never took one. Only subtract/claim an ambient sample
+  // when the total is at least 2 — every job with a real ambient sample
+  // confirmed against so far has always had 2 or more air samples total.
   const airSampleTotal = Object.entries(job.sample_counts ?? {})
     .filter(([label]) => label.toLowerCase().includes("air"))
     .reduce((sum, [, n]) => sum + (n || 0), 0);
-  const indoorAirSampleCount = airSampleTotal > 0 ? airSampleTotal - 1 : 0;
+  const hasAmbientAirSample = airSampleTotal > 1;
+  const indoorAirSampleCount = hasAmbientAirSample ? airSampleTotal - 1 : airSampleTotal;
+  const ambientSampleClause = hasAmbientAirSample ? " An ambient sample was collected outside for comparison with the indoor sample." : "";
   const airSampleCountSentence =
     indoorAirSampleCount > 0 && samplingDateText
-      ? `${NUMBER_WORDS[indoorAirSampleCount] ?? indoorAirSampleCount} (${indoorAirSampleCount}) ${pluralizeSample(indoorAirSampleCount)} ${indoorAirSampleCount === 1 ? "was" : "were"} collected on ${samplingDateText} inside the building. An ambient sample was collected outside for comparison with the indoor sample.`
+      ? `${NUMBER_WORDS[indoorAirSampleCount] ?? indoorAirSampleCount} (${indoorAirSampleCount}) ${pluralizeSample(indoorAirSampleCount)} ${indoorAirSampleCount === 1 ? "was" : "were"} collected on ${samplingDateText} inside the building.${ambientSampleClause}`
       : "[Number of samples] samples were collected on [Date of Sampling] inside the building. An ambient sample was collected outside for comparison with the indoor sample.";
 
   // Bulk's own standard count sentence — confirmed word-for-word per Tim —

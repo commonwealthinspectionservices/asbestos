@@ -124,59 +124,33 @@ const styles = StyleSheet.create({
   // overlaid on each (right-anchored within the line) lines up directly
   // above/below between the two rows instead of drifting with label length.
   signatureLabel: { fontSize: 11, fontWeight: 700, width: 112 },
-  // Fixed width, not flex — RECEIVED BY's row has extra trailing content
-  // (PAGE) competing for space, which used to leave its line shorter than
-  // RELINQUISHED BY's. A fixed width sized to fit RECEIVED BY's more
-  // crowded row keeps both lines identical.
-  // Per Tim, 2026-09-28 — "there might be too much wasted space on both
-  // the relinquished by line and received by line... it doesn't need to
-  // be excessively long at all": measured against the real rendered PDF,
-  // the signature + date + time content only ever reaches to local x≈275
-  // (of the old 320-wide box) — trimmed the trailing ~35pt of pure blank
-  // line down to a small 10pt margin instead. dateTimeOverlay's own
-  // `right` shrinks by the same 35pt so the date stays anchored at the
-  // exact same spot it was already tuned to (never touches/overlaps
-  // TimeField) — only the wasted space after it goes away.
-  signatureLineWrap: { position: "relative", width: 185 },
-  // width:"100%" explicitly, not left to implicit block-stretch — that
-  // resolved a few points short on RECEIVED BY's line vs RELINQUISHED
-  // BY's, since RECEIVED BY's wrap sits one level deeper (inside its own
-  // signatureSubRow, for the space-between layout with PAGE) than
-  // RELINQUISHED BY's does, and yoga's implicit stretch isn't guaranteed
-  // pixel-identical between those two nesting depths.
+  // Per Tim, 2026-09-28 — several rounds on this: first "too much wasted
+  // space" (line way longer than its own content), then "still way too
+  // much room between my signature and the time" (the real cause — time
+  // and date were anchored well past the signature with a big empty gap
+  // before either started), then "the whole point of removing the dead
+  // space is so we can fit everything else down here... everything
+  // should kind of have its own little space." Rebuilt from three
+  // absolutely-positioned overlays sharing one long line into three
+  // separate boxes — signature, time, date — sitting directly next to
+  // each other as plain flex siblings, each with its own short underline
+  // sized to its own content. No shared line to tune overlay offsets
+  // against, so no dead space is possible by construction, and both
+  // RELINQUISHED BY and RECEIVED BY use the exact same three fixed
+  // widths, so their time/date columns land at the exact same x on both
+  // rows regardless of RECEIVED BY's extra nesting (for its trailing
+  // PAGE field).
+  sigBox: { position: "relative", width: 65 },
+  timeBox: { width: 55, marginLeft: 8 },
+  dateBox: { width: 70, marginLeft: 8 },
+  boxLine: { width: "100%", textAlign: "center", fontSize: 11, borderBottomWidth: 0.5, borderBottomColor: LINE_COLOR, paddingBottom: 1 },
+  boxCaption: { fontSize: 8, color: "#000000", textAlign: "center", marginTop: 2 },
   signatureLine: { width: "100%", borderBottomWidth: 0.5, borderBottomColor: LINE_COLOR },
-  // Real signature image, sat on the RELINQUISHED BY line the same way
-  // the date/time values sit on it (position: absolute, anchored to the
-  // bottom of signatureLineWrap) — small (55pt wide, ~2.9:1 real aspect
-  // ratio) to fit the line's tight space rather than the report's own
-  // larger 85pt version.
+  // Real signature image, sat on sigBox's own line — small (55pt wide,
+  // ~2.9:1 real aspect ratio) to fit the box's own tight space rather
+  // than the report's own larger 85pt version.
   relinquishedSignature: { position: "absolute", left: 4, bottom: 0, width: 55, height: 19 },
   pageLabel: { fontSize: 11, fontWeight: 700, marginLeft: 16 },
-  // The date sits ON the line itself, positioned relative to the same box
-  // the line occupies — rather than as its own element appended after the
-  // line, matching the owner's real form exactly. bottom:-13 drops the
-  // "date" caption below the line while the slashes above it land right at
-  // the line.
-  //
-  // Per Tim, 2026-09-28 — "there's way too much room in between my
-  // signature and the time... it should not be that way": time and date
-  // used to be right-anchored well past the end of the (much longer) old
-  // line, leaving a big gap right after the signature before either one
-  // started. Both are left-anchored now, placed immediately after the
-  // signature — time first (left:65, right after the 55pt-wide signature
-  // image at left:4), then date (left:120, right after time's own ~50pt
-  // column) — and signatureLineWrap's own width was cut down to match, so
-  // there's no dead space anywhere on the line.
-  dateTimeOverlay: { position: "absolute", left: 120, bottom: -13, alignItems: "center" },
-  dateTimeSlashes: { fontSize: 11, letterSpacing: 6 },
-  dateTimeCaption: { fontSize: 8, color: "#000000", marginTop: 10 },
-  // Per Tim, 2026-09-09 — time gets its own spot on the line instead of
-  // being folded into the date's "time / date" caption: caption below the
-  // line same as date's own caption — just no slashes, since he fills
-  // the actual time in by hand on the line itself rather than the form
-  // pre-printing a slashed format for it the way it does for the date.
-  timeOverlay: { position: "absolute", left: 65, bottom: -13, alignItems: "center" },
-  timeLabel: { fontSize: 8, color: "#000000" },
   page2Table: { flex: 1, borderWidth: 1, borderColor: LINE_COLOR, marginTop: 4 },
   // Per Tim, 2026-09-28 — "I just want for when this is the case, to
   // have the project number aligned all the way left... the page number
@@ -187,27 +161,19 @@ const styles = StyleSheet.create({
   page2FieldValue: { width: 120, borderBottomWidth: 0.5, borderBottomColor: LINE_COLOR, marginRight: 20 },
 });
 
-// A pre-slashed date fill-in overlaid on a signature line, exactly
-// matching the owner's own real form (two bare "/" marks over a "date"
-// caption, sitting on the line itself rather than after it). Per Tim,
-// 2026-09-28 — "for the received by line, remove the slashes": RECEIVED
-// BY is filled in by hand by the lab, not pre-printed with a slashed
-// format the way RELINQUISHED BY's own blank-template fallback still is
-// — noSlashes drops the "/  /" for just that one caller.
-function DateTimeField({ noSlashes }: { noSlashes?: boolean } = {}) {
+// One small box: a value (or blank) centered on its own short underline,
+// with its caption below. Shared by both RELINQUISHED BY and RECEIVED
+// BY's time/date fields — see sigBox/timeBox/dateBox's own comment for
+// why this replaced the old shared-line-plus-overlays design. `slashes`
+// is only ever true for RELINQUISHED BY's own blank-template fallback
+// (no relinquishedBy prop at all) — per Tim, 2026-09-28, RECEIVED BY
+// itself never gets the pre-slashed date format, since that's filled in
+// by hand by the lab rather than printed ahead of time.
+function FieldBox({ box, value, slashes, caption }: { box: "time" | "date"; value?: string; slashes?: boolean; caption: string }) {
   return (
-    <View style={styles.dateTimeOverlay}>
-      {!noSlashes && <Text style={styles.dateTimeSlashes}>/  /</Text>}
-      <Text style={[styles.dateTimeCaption, { marginTop: noSlashes ? 0 : 10 }]}>date</Text>
-    </View>
-  );
-}
-
-// Time's own spot on the same line — see timeOverlay's own comment.
-function TimeField() {
-  return (
-    <View style={styles.timeOverlay}>
-      <Text style={styles.timeLabel}>time</Text>
+    <View style={box === "time" ? styles.timeBox : styles.dateBox}>
+      <Text style={styles.boxLine}>{value ?? (slashes ? "/  /" : " ")}</Text>
+      <Text style={styles.boxCaption}>{caption}</Text>
     </View>
   );
 }
@@ -335,49 +301,22 @@ function BlankCocDocument({ job, customer, settings, sampleItems, turnaround, re
 
           <View style={styles.signatureRow}>
             <Text style={styles.signatureLabel}>RELINQUISHED BY</Text>
-            <View style={styles.signatureLineWrap}>
-              {relinquishedBy ? (
-                <>
-                  <Text style={styles.signatureLine} />
-                  <Image src={SIGNATURE_PATH} style={styles.relinquishedSignature} />
-                  <View style={styles.dateTimeOverlay}>
-                    <Text style={{ fontSize: 11 }}>{relinquishedBy.date}</Text>
-                    <Text style={styles.dateTimeCaption}>date</Text>
-                  </View>
-                  <View style={styles.timeOverlay}>
-                    <Text style={{ fontSize: 11 }}>{relinquishedBy.time}</Text>
-                    {/* Per Tim, 2026-09-28 — "this needs to be correctly
-                        on the line": timeLabel has no marginTop (correct
-                        for TimeField's blank-template use, where "time"
-                        is the ONLY thing in the box — no slashes above it
-                        to space away from), but once a real value sits
-                        above it here, that missing gap left "time"
-                        crowding its own value instead of sitting on the
-                        line the way "date" does under dateTimeCaption's
-                        marginTop: 10. Same gap, applied only in this
-                        filled-in case — TimeField's shared style stays
-                        untouched for the blank form. */}
-                    <Text style={[styles.timeLabel, { marginTop: 10 }]}>time</Text>
-                  </View>
-                </>
-              ) : (
-                <>
-                  <Text style={styles.signatureLine} />
-                  <DateTimeField />
-                  <TimeField />
-                </>
-              )}
+            <View style={styles.sigBox}>
+              <Text style={styles.signatureLine} />
+              {relinquishedBy && <Image src={SIGNATURE_PATH} style={styles.relinquishedSignature} />}
             </View>
+            <FieldBox box="time" value={relinquishedBy?.time} caption="time" />
+            <FieldBox box="date" value={relinquishedBy?.date} slashes={!relinquishedBy} caption="date" />
           </View>
 
           <View style={[styles.signatureRow, { justifyContent: "space-between" }]}>
             <View style={styles.signatureSubRow}>
               <Text style={styles.signatureLabel}>RECEIVED BY</Text>
-              <View style={styles.signatureLineWrap}>
+              <View style={styles.sigBox}>
                 <Text style={styles.signatureLine} />
-                <DateTimeField noSlashes />
-                <TimeField />
               </View>
+              <FieldBox box="time" caption="time" />
+              <FieldBox box="date" caption="date" />
             </View>
             <View style={styles.signatureSubRow}>
               <Text style={styles.pageLabel}>PAGE</Text>

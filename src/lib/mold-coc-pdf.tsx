@@ -116,16 +116,12 @@ const styles = StyleSheet.create({
   // react-pdf's pagination pass — it only reliably claims space when
   // something follows it, which is why this grows the table (before the
   // footer) rather than the footer itself.
-  // Per Tim, 2026-09-28 — "turnaround relinquished by and received by
-  // still has a lot of room above it, and I just want it to fill out
-  // all the space": same idea as blank-coc-pdf.tsx's own copy of this,
-  // but a different ratio (2:1, not 1:5) — mold's table only has 10
-  // rows (vs asbestos's 20), so there's much more genuinely free space
-  // to begin with; the same 1:5 ratio that looked right on asbestos blew
-  // this one wildly out of proportion (~147pt gaps) when tried directly.
-  // Tuned empirically to land on roughly the same ~65pt gap asbestos
-  // landed on, not derived from any formula.
-  table: { flexGrow: 2, borderWidth: 1, borderColor: LINE_COLOR },
+  // Per Tim, 2026-09-28 — tried making footer flex-grow to fill the page
+  // ("it should fill out all the space"); reverted per Tim, "the last
+  // edits you just made are terrible... go back on that last change" —
+  // back to the table simply filling all remaining space, footer at its
+  // own natural size.
+  table: { flex: 1, borderWidth: 1, borderColor: LINE_COLOR },
   tableHeaderRow: { flexDirection: "row", borderBottomWidth: 0.5, borderBottomColor: LINE_COLOR },
   tableHeaderCell: { fontSize: 11, fontWeight: 700, textAlign: "center", padding: 5, borderRightWidth: 0.5, borderRightColor: LINE_COLOR },
   tableRow: { flexDirection: "row", borderBottomWidth: 0.5, borderBottomColor: LINE_COLOR, minHeight: 20, flexGrow: 1 },
@@ -139,7 +135,7 @@ const styles = StyleSheet.create({
   // Per Tim, 2026-09-28 — "the stuff should always be evenly spaced":
   // this is the very first gap in the footer (table bottom → TURNAROUND),
   // so it gets the exact same marginTop as every gap after it too.
-  footer: { flexGrow: 1, marginTop: 16, justifyContent: "space-between" },
+  footer: { marginTop: 16 },
   footerTopRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end" },
   turnaroundLine: { flexDirection: "row", alignItems: "baseline" },
   turnaroundLabel: { fontSize: 11, fontWeight: 700 },
@@ -163,7 +159,7 @@ const styles = StyleSheet.create({
   // zero and made the notes visually collide with RELINQUISHED BY's own
   // date/time.
   emailNote: { fontSize: 11, fontStyle: "italic", textAlign: "right", marginTop: 16 },
-  signatureRow: { flexDirection: "row", alignItems: "flex-end" },
+  signatureRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 16 },
   signatureSubRow: { flexDirection: "row", alignItems: "flex-end" },
   // Fixed width (not auto-sized to the text) so "RELINQUISHED BY" and the
   // shorter "RECEIVED BY" both hand off to their line at the same x — the
@@ -346,27 +342,19 @@ function MoldCocDocument({ job, customer, sampleType, sampleItems, turnaround, r
                 </>
               )}
             </View>
-            {/* Per Tim, 2026-09-28 — "email results line should be
-                directly across on turnaround line": stacks under
-                turnaroundNote (when this sample type has one) instead of
-                on RELINQUISHED BY's own line. marginTop:16 (not the
-                original 2) matches every other gap in this footer — "these
-                lines need to be evenly spaced... for all 3" (PLM/Spore
-                Trap → email results → license/dateNeededNote on the next
-                row all read the same distance apart now). */}
-            <View style={styles.notesColumn}>
-              {config.turnaroundNote && <Text style={styles.notes}>{config.turnaroundNote}</Text>}
-              <Text style={[styles.notes, { marginTop: config.turnaroundNote ? 16 : 0 }]}>
-                tim@commonwealthinspectionservices.com
-              </Text>
-            </View>
+            {/* Per Tim, 2026-09-28 — "I just want the turnaround and
+                samples for analysis by PLM all to be one line across":
+                a single note, not stacked with anything else — email
+                moved down to its own line with RELINQUISHED BY instead
+                (see below). Only rendered when this sample type has a
+                turnaroundNote at all (bulk/swab don't). */}
+            {config.turnaroundNote && <Text style={[styles.notes, styles.notesColumn]}>{config.turnaroundNote}</Text>}
           </View>
 
-          {/* Per Tim, 2026-09-28 — "samples for analysis by direct
-              examination should be directly across on relinquish by
-              line": dateNeededNote (when this sample type has one)
-              stays here, alone — email results moved up to TURNAROUND's
-              own line instead (see above). */}
+          {/* Per Tim, 2026-09-28 — "on the next line, it should be
+              relinquished by and [email]": one single note again, not
+              stacked with dateNeededNote — that moved down to its own
+              line with RECEIVED BY instead (see below). */}
           <View style={[styles.signatureRow, { justifyContent: "space-between" }]}>
             <View style={styles.signatureSubRow}>
               <Text style={styles.signatureLabel}>RELINQUISHED BY</Text>
@@ -400,26 +388,30 @@ function MoldCocDocument({ job, customer, sampleType, sampleItems, turnaround, r
                 )}
               </View>
             </View>
-            {config.dateNeededNote && <Text style={[styles.notes, styles.notesColumn]}>{config.dateNeededNote}</Text>}
+            <Text style={[styles.notes, styles.notesColumn]}>tim@commonwealthinspectionservices.com</Text>
           </View>
 
-          <View style={[styles.signatureRow, { justifyContent: "space-between" }]}>
-            <View style={styles.signatureSubRow}>
-              <Text style={styles.signatureLabel}>RECEIVED BY</Text>
-              <View style={styles.signatureLineWrap}>
-                <Text style={styles.signatureLine} />
-                <DateTimeField noSlashes />
-                <TimeField />
-              </View>
+          {/* Per Tim, 2026-09-28 — "line 3" (RECEIVED BY, paired with
+              dateNeededNote): PAGE still needs to fit on this same row
+              too, so it sits right after the signature line (not pushed
+              all the way to the page's own right margin the way it used
+              to) — the note takes that flush-right spot instead, in
+              whatever width is left, right-aligned same as the two rows
+              above. Same as blank-coc-pdf.tsx's own copy of this. */}
+          <View style={styles.signatureRow}>
+            <Text style={styles.signatureLabel}>RECEIVED BY</Text>
+            <View style={styles.signatureLineWrap}>
+              <Text style={styles.signatureLine} />
+              <DateTimeField noSlashes />
+              <TimeField />
             </View>
-            <View style={styles.signatureSubRow}>
-              <Text style={styles.pageLabel}>PAGE</Text>
-              {/* Per Tim, 2026-09-28 — "if there's just one page, I
-                  always just write one slash one": this form is always a
-                  single page (no continuation sheet, unlike the asbestos
-                  bulk form — see blank-coc-pdf.tsx). */}
-              <Text style={[styles.signatureLine, { width: 70, marginLeft: 4, textAlign: "center" }]}>1/1</Text>
-            </View>
+            <Text style={styles.pageLabel}>PAGE</Text>
+            {/* Per Tim, 2026-09-28 — "if there's just one page, I
+                always just write one slash one": this form is always a
+                single page (no continuation sheet, unlike the asbestos
+                bulk form — see blank-coc-pdf.tsx). */}
+            <Text style={[styles.signatureLine, { width: 40, marginLeft: 4, textAlign: "center" }]}>1/1</Text>
+            {config.dateNeededNote && <Text style={[styles.notes, { flex: 1, marginLeft: 8 }]}>{config.dateNeededNote}</Text>}
           </View>
         </View>
       </Page>

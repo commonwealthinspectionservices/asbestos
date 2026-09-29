@@ -73,20 +73,12 @@ const styles = StyleSheet.create({
   // sibling after it) is unreliable in react-pdf's pagination pass — it
   // only reliably claims space when something follows it, which is why
   // this grows the table (before the footer) rather than the footer itself.
-  // Per Tim, 2026-09-28 — "turnaround relinquished by and received by
-  // still has a lot of room above it, and I just want it to fill out
-  // all the space": table and footer now split the page's remaining
-  // height 1:5 (footer's own 3 rows get the bulk of any extra room, not
-  // just whatever's left after table claims everything) instead of
-  // table alone taking 100% and footer sitting at its own bare minimum
-  // height. Confirmed empirically — a 3:1 ratio the other way barely
-  // moved anything (table's own row content apparently already absorbs
-  // most modest space changes); this ratio was the one that actually
-  // produced a visible, evenly-spread-out footer without shrinking the
-  // table's own usable row space noticeably. flexGrow (not the flex:1
-  // shorthand) — footer needs the same ratio-based growth below, and
-  // mixing flex:1 with flexGrow-only elsewhere doesn't split predictably.
-  table: { flexGrow: 1, borderWidth: 1, borderColor: LINE_COLOR },
+  // Per Tim, 2026-09-28 — tried making footer flex-grow to fill the page
+  // ("it should fill out all the space"); reverted per Tim, "the last
+  // edits you just made are terrible... go back on that last change" —
+  // back to the table simply filling all remaining space, footer at its
+  // own natural size.
+  table: { flex: 1, borderWidth: 1, borderColor: LINE_COLOR },
   tableHeaderRow: { flexDirection: "row", borderBottomWidth: 0.5, borderBottomColor: LINE_COLOR },
   tableHeaderCell: { fontSize: 11, fontWeight: 700, textAlign: "center", padding: 5, borderRightWidth: 0.5, borderRightColor: LINE_COLOR },
   tableRow: { flexDirection: "row", borderBottomWidth: 0.5, borderBottomColor: LINE_COLOR, minHeight: 20, flexGrow: 1 },
@@ -101,12 +93,10 @@ const styles = StyleSheet.create({
   colSample: { width: 66, borderRightWidth: 0.5, borderRightColor: LINE_COLOR, justifyContent: "center", alignItems: "center" },
   colMaterial: { flex: 1, borderRightWidth: 0.5, borderRightColor: LINE_COLOR, justifyContent: "center", alignItems: "center" },
   colLocation: { flex: 1, justifyContent: "center", alignItems: "center" },
-  // flexGrow: 5 (paired with table's own 1, above) claims the bulk of any
-  // extra page height instead of just its own bare-minimum content size.
-  // justifyContent: "space-between" spreads TURNAROUND/RELINQUISHED
-  // BY/RECEIVED BY evenly across that whole claimed height — see
-  // signatureRow's own comment for why its fixed marginTop is gone.
-  footer: { flexGrow: 5, marginTop: 16, justifyContent: "space-between" },
+  // Per Tim, 2026-09-28 — "the stuff should always be evenly spaced":
+  // this is the very first gap in the footer (table bottom → TURNAROUND),
+  // so it gets the exact same marginTop as every gap after it too.
+  footer: { marginTop: 16 },
   footerTopRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end" },
   turnaroundLine: { flexDirection: "row", alignItems: "baseline" },
   turnaroundLabel: { fontSize: 11, fontWeight: 700 },
@@ -141,10 +131,7 @@ const styles = StyleSheet.create({
   // Still used by page 2's own "PAGE 2/2" field (see below) — the row/
   // label styles that used to sit alongside it are gone with DATE NEEDED.
   dateNeededValue: { width: 160, borderBottomWidth: 0.5, borderBottomColor: LINE_COLOR },
-  // marginTop: 0 (not 16) — footer's own justifyContent: "space-between"
-  // is what spaces this row from the ones around it now, across whatever
-  // height footer's flexGrow actually claims, not a fixed margin.
-  signatureRow: { flexDirection: "row", alignItems: "flex-end" },
+  signatureRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 16 },
   signatureSubRow: { flexDirection: "row", alignItems: "flex-end" },
   // Fixed width (not auto-sized to the text) so "RELINQUISHED BY" and the
   // shorter "RECEIVED BY" both hand off to their line at the same x — the
@@ -358,28 +345,20 @@ function BlankCocDocument({ job, customer, settings, sampleItems, turnaround, re
                 </>
               )}
             </View>
-            {/* Per Tim, 2026-09-28 — "email results line should be
-                directly across on turnaround line": stacks under the PLM
-                note instead of on RELINQUISHED BY's own line. */}
-            <View style={styles.notesColumn}>
-              <Text style={styles.notes}>Samples for analysis by Polarized Light Microscopy</Text>
-              {/* Per Tim, 2026-09-28 — "these lines need to be evenly
-                  spaced... for all 3": marginTop:16 here matches the same
-                  gap (empirically, ~28pt) as every other gap in this
-                  footer, so PLM→email results→license (on the next row)
-                  are all spaced identically — was 2 (visually crowded
-                  right under the PLM line, next to a much bigger gap
-                  down to license). */}
-              <Text style={[styles.notes, { marginTop: 16 }]}>tim@commonwealthinspectionservices.com</Text>
-            </View>
+            {/* Per Tim, 2026-09-28 — "I just want the turnaround and
+                samples for analysis by PLM all to be one line across":
+                a single note, not stacked with anything else — email
+                moved down to its own line with RELINQUISHED BY instead
+                (see below). */}
+            <Text style={[styles.notes, styles.notesColumn]}>Samples for analysis by Polarized Light Microscopy</Text>
           </View>
 
-          {/* Per Tim, 2026-09-28 — "samples for analysis... should be
-              directly across on relinquish by line": the license line
-              (this form's own equivalent) stays here, alone — email
-              results moved up to TURNAROUND's own line instead (see
-              above). Same label+line/trailing-content split RECEIVED
-              BY's row already uses for its own PAGE field. */}
+          {/* Per Tim, 2026-09-28 — "on the next line, it should be
+              relinquished by and [email]": one single note again, not
+              stacked with the license line — that moved down to its own
+              line with RECEIVED BY instead (see below). Same
+              label+line/trailing-content split RECEIVED BY's row already
+              uses for its own PAGE field. */}
           <View style={[styles.signatureRow, { justifyContent: "space-between" }]}>
             <View style={styles.signatureSubRow}>
               <Text style={styles.signatureLabel}>RELINQUISHED BY</Text>
@@ -417,31 +396,35 @@ function BlankCocDocument({ job, customer, settings, sampleItems, turnaround, re
                 )}
               </View>
             </View>
-            <Text style={[styles.notes, styles.notesColumn]}>
-              {inspector.name} MA Asbestos Inspector License {licenseDisplay}
-            </Text>
+            <Text style={[styles.notes, styles.notesColumn]}>tim@commonwealthinspectionservices.com</Text>
           </View>
 
-          <View style={[styles.signatureRow, { justifyContent: "space-between" }]}>
-            <View style={styles.signatureSubRow}>
-              <Text style={styles.signatureLabel}>RECEIVED BY</Text>
-              <View style={styles.signatureLineWrap}>
-                <Text style={styles.signatureLine} />
-                <DateTimeField noSlashes />
-                <TimeField />
-              </View>
+          {/* Per Tim, 2026-09-28 — "line 3" (RECEIVED BY, paired with the
+              license line): PAGE still needs to fit on this same row
+              too, so it sits right after the signature line (not pushed
+              all the way to the page's own right margin the way it used
+              to) — license takes that flush-right spot instead, in
+              whatever width is left, right-aligned same as the two rows
+              above. */}
+          <View style={styles.signatureRow}>
+            <Text style={styles.signatureLabel}>RECEIVED BY</Text>
+            <View style={styles.signatureLineWrap}>
+              <Text style={styles.signatureLine} />
+              <DateTimeField noSlashes />
+              <TimeField />
             </View>
-            <View style={styles.signatureSubRow}>
-              <Text style={styles.pageLabel}>PAGE</Text>
-              {/* Per Tim, 2026-09-28 — "if there's just one page, I always
-                  just write one slash one... if there's two pages and
-                  this is the first page, I'd write one slash two, and on
-                  the second page, two slash two": this form is always a
-                  fixed 2-page document (a continuation sheet whether or
-                  not it actually holds real rows — see the Page 2 comment
-                  below), so page 1's field is always "1/2". */}
-              <Text style={[styles.signatureLine, { width: 70, marginLeft: 4, textAlign: "center" }]}>1/2</Text>
-            </View>
+            <Text style={styles.pageLabel}>PAGE</Text>
+            {/* Per Tim, 2026-09-28 — "if there's just one page, I always
+                just write one slash one... if there's two pages and
+                this is the first page, I'd write one slash two, and on
+                the second page, two slash two": this form is always a
+                fixed 2-page document (a continuation sheet whether or
+                not it actually holds real rows — see the Page 2 comment
+                below), so page 1's field is always "1/2". */}
+            <Text style={[styles.signatureLine, { width: 40, marginLeft: 4, textAlign: "center" }]}>1/2</Text>
+            <Text style={[styles.notes, { flex: 1, marginLeft: 8 }]}>
+              {inspector.name} MA Asbestos Inspector License {licenseDisplay}
+            </Text>
           </View>
         </View>
       </Page>

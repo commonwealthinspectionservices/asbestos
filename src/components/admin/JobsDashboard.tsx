@@ -3033,6 +3033,15 @@ function JobRow({
           the door yet" as an unsent report. */}
       <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-start">
         <div className="min-w-0 w-full sm:w-auto sm:flex-[0.9]">
+          {/* Per Tim, 2026-09-29 — "it should actually be standard for
+              this to be listed over on the side with the address...
+              first name, last name, phone number, new line, address,
+              new line, town, and state": moved out of the right-hand
+              date column (see its own now-narrower siteContactNode
+              condition below) into its own line right above the address,
+              while "Scheduled" specifically — same node/styling as
+              before, just relocated. */}
+          {job.status === "scheduled" && siteContactNode}
           {locationName && <div className="truncate whitespace-nowrap text-sm text-slate-500">{locationName}</div>}
           {/* Mobile: tapping the address text itself (street through zip)
               opens a Google Maps/Waze picker instead of the job detail
@@ -3117,7 +3126,15 @@ function JobRow({
           </div>
         </div>
 
-        <div className="min-w-0 w-full sm:w-auto sm:flex-[1.2]">
+        {/* Per Tim, 2026-09-29 — "drop service type down one line, so
+            that's directly on the same line as scheduled date and
+            centered": sm:self-stretch matches this column's own height
+            to the row's tallest column (the address column, now 4 lines
+            with the site contact + Confirmation Sent added), then
+            centers its own content both vertically and horizontally
+            within that height instead of top/left-aligning like the
+            other two columns still do. */}
+        <div className="min-w-0 w-full sm:flex sm:w-auto sm:flex-[1.2] sm:flex-col sm:items-center sm:justify-center sm:self-stretch sm:text-center">
           {(() => {
             const labels = (job.service_type ?? "").split(",").map((s) => s.trim()).filter(Boolean);
             return labels.map((label, i) => {
@@ -3162,8 +3179,12 @@ function JobRow({
               Pending — the homeowner's long done with fieldwork by then,
               not worth the space next to the payment due date instead —
               or Pending Lab Results, same reasoning: fieldwork's already
-              done, nothing left to call the homeowner about. */}
-          {job.status !== "report_invoice_sent" && job.status !== "pending_lab_results" && siteContactNode}
+              done, nothing left to call the homeowner about. Per Tim,
+              2026-09-29 — also excluded once "Scheduled" specifically:
+              moved to its own line next to the address instead (see
+              above), leaving this column with just the Chain of Custody
+              checklist and Scheduled date/time. */}
+          {job.status !== "report_invoice_sent" && job.status !== "pending_lab_results" && job.status !== "scheduled" && siteContactNode}
           {isClosedJob(job) ? (
             <div className="flex flex-col items-start gap-0.5 px-1.5 py-1 text-xs text-slate-500 sm:items-end">
               <span>Date of Project: {formatDate(job.requested_date) || "—"}</span>
@@ -3320,13 +3341,25 @@ function JobRow({
                   {invoiceStatus}
                 </div>
               )}
-              {/* cocStatus sits ABOVE the date block, not instead of it —
-                  Scheduled date/time is still exactly as relevant. */}
-              {cocStatus && (
-                <div className="hidden w-full flex-col items-end gap-0.5 text-sm text-slate-500 sm:flex">
+              {/* Per Tim, 2026-09-29 — "that would leave the [Chain of
+                  Custody checklist], scheduled date, and scheduled time
+                  [and] I just want those three things evenly spaced":
+                  cocStatus, then date and time as their own separate
+                  lines (not one tight date+time block), all sharing one
+                  consistent gap — a distinct layout from the plain
+                  date/time block below, only while cocStatus applies. */}
+              {cocStatus ? (
+                <div className="hidden w-full flex-col items-end gap-2 text-sm text-slate-500 sm:flex">
                   {cocStatus}
+                  <div>Scheduled date: {formatDate(job.confirmed_date ?? job.requested_date) || "—"}</div>
+                  <div>
+                    Scheduled time:{" "}
+                    {isSubcontractor && job.confirmed_time && job.confirmed_time === parseWindowStartTime24h(job.subcontractor_preferred_window)
+                      ? extractTimeRange(job.subcontractor_preferred_window) ?? formatTime(job.confirmed_time)
+                      : formatTime(job.confirmed_time ?? job.requested_time) || "—"}
+                  </div>
                 </div>
-              )}
+              ) : (
               <div className={`w-full text-sm text-slate-500 sm:text-right ${showReportInvoice ? "hidden" : ""}`}>
                 <div>{hasCompletedFieldwork(job.status) ? "Completed" : "Scheduled"} date: {formatDate(job.confirmed_date ?? job.requested_date) || "—"}</div>
                 <div>
@@ -3336,6 +3369,7 @@ function JobRow({
                     : formatTime(job.confirmed_time ?? job.requested_time) || "—"}
                 </div>
               </div>
+              )}
             </div>
           )}
         </div>

@@ -3040,8 +3040,16 @@ function JobRow({
               date column (see its own now-narrower siteContactNode
               condition below) into its own line right above the address,
               while "Scheduled" specifically — same node/styling as
-              before, just relocated. */}
-          {job.status === "scheduled" && siteContactNode}
+              before, just relocated. Per Tim's own follow-up — "the
+              point is, if the job site contact is not there, the other
+              stuff should not move up... it should always just stay on
+              the second and third line": sm:min-h-5 reserves this line's
+              full height even when siteContactNode's own inner content
+              is null (no name/phone on file) — an empty <span> alone
+              collapses to zero height, which was silently pulling
+              street/cityStateZip up into rows 1-2 instead of staying on
+              rows 2-3. */}
+          {job.status === "scheduled" && <div className="sm:min-h-5">{siteContactNode}</div>}
           {locationName && <div className="truncate whitespace-nowrap text-sm text-slate-500">{locationName}</div>}
           {/* Mobile: tapping the address text itself (street through zip)
               opens a Google Maps/Waze picker instead of the job detail
@@ -3082,7 +3090,14 @@ function JobRow({
                 {cocStatus}
               </div>
             )}
-            <div className="hidden sm:block">
+            {/* Per Tim, 2026-09-29 — "all the lines need to be evenly
+                spaced as well": sm:mt-2 (matching the site contact line
+                above) plus sm:gap-2 between street/cityStateZip below —
+                same gap-2 rhythm as the date column's own 3 lines, so
+                every row across both columns lines up and every line
+                within each column is evenly spaced, not just tightly
+                stacked. */}
+            <div className="hidden sm:mt-2 sm:flex sm:flex-col sm:gap-2">
               <div className="truncate whitespace-nowrap text-sm text-slate-500">{street}</div>
               {cityStateZip && <div className="truncate whitespace-nowrap text-sm text-slate-500">{cityStateZip}</div>}
             </div>
@@ -3119,15 +3134,23 @@ function JobRow({
           </div>
         </div>
 
-        {/* Per Tim, 2026-09-29 — "drop service type down one line, so
-            that's directly on the same line as scheduled date and
-            centered": sm:self-stretch matches this column's own height
-            to the row's tallest column (the address column, now 4 lines
-            with the site contact + Confirmation Sent added), then
-            centers its own content both vertically and horizontally
-            within that height instead of top/left-aligning like the
-            other two columns still do. */}
-        <div className="min-w-0 w-full sm:flex sm:w-auto sm:flex-[1.2] sm:flex-col sm:items-center sm:justify-center sm:self-stretch sm:text-center">
+        {/* Per Tim, 2026-09-29 — "the town and state should always be
+            directly across on the same line as the service type": a
+            fixed offset instead of true vertical centering (which
+            drifted once Confirmation Sent was removed above) — 2 lines'
+            worth of margin (site contact, then street), landing this
+            column's own single line flush with city/state/zip, the
+            address column's 3rd line. Caveat: a job with no site
+            contact on file (siteContactNode renders nothing then) shifts
+            city/state/zip up one line, one line off from this fixed
+            offset — not worth a full grid-based layout for that one
+            edge case. Per Tim's own follow-up — "service type should
+            actually be on the middle line... of the three lines, it
+            should be on line number two" — and "all the lines need to be
+            evenly spaced as well": mt-7 (one line + one gap-2, matching
+            the address/date columns' own now-identical line+gap rhythm
+            below) lands this on row 2 instead of row 3. */}
+        <div className="min-w-0 w-full sm:mt-7 sm:w-auto sm:flex-[1.2] sm:text-center">
           {(() => {
             const labels = (job.service_type ?? "").split(",").map((s) => s.trim()).filter(Boolean);
             return labels.map((label, i) => {

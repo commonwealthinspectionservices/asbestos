@@ -128,7 +128,16 @@ const styles = StyleSheet.create({
   // (PAGE) competing for space, which used to leave its line shorter than
   // RELINQUISHED BY's. A fixed width sized to fit RECEIVED BY's more
   // crowded row keeps both lines identical.
-  signatureLineWrap: { position: "relative", width: 320 },
+  // Per Tim, 2026-09-28 — "there might be too much wasted space on both
+  // the relinquished by line and received by line... it doesn't need to
+  // be excessively long at all": measured against the real rendered PDF,
+  // the signature + date + time content only ever reaches to local x≈275
+  // (of the old 320-wide box) — trimmed the trailing ~35pt of pure blank
+  // line down to a small 10pt margin instead. dateTimeOverlay's own
+  // `right` shrinks by the same 35pt so the date stays anchored at the
+  // exact same spot it was already tuned to (never touches/overlaps
+  // TimeField) — only the wasted space after it goes away.
+  signatureLineWrap: { position: "relative", width: 185 },
   // width:"100%" explicitly, not left to implicit block-stretch — that
   // resolved a few points short on RECEIVED BY's line vs RELINQUISHED
   // BY's, since RECEIVED BY's wrap sits one level deeper (inside its own
@@ -143,21 +152,30 @@ const styles = StyleSheet.create({
   // larger 85pt version.
   relinquishedSignature: { position: "absolute", left: 4, bottom: 0, width: 55, height: 19 },
   pageLabel: { fontSize: 11, fontWeight: 700, marginLeft: 16 },
-  // The date sits ON the line itself — right-anchored inside the same box
+  // The date sits ON the line itself, positioned relative to the same box
   // the line occupies — rather than as its own element appended after the
   // line, matching the owner's real form exactly. bottom:-13 drops the
   // "date" caption below the line while the slashes above it land right at
   // the line.
-  dateTimeOverlay: { position: "absolute", right: 45, bottom: -13, alignItems: "center" },
+  //
+  // Per Tim, 2026-09-28 — "there's way too much room in between my
+  // signature and the time... it should not be that way": time and date
+  // used to be right-anchored well past the end of the (much longer) old
+  // line, leaving a big gap right after the signature before either one
+  // started. Both are left-anchored now, placed immediately after the
+  // signature — time first (left:65, right after the 55pt-wide signature
+  // image at left:4), then date (left:120, right after time's own ~50pt
+  // column) — and signatureLineWrap's own width was cut down to match, so
+  // there's no dead space anywhere on the line.
+  dateTimeOverlay: { position: "absolute", left: 120, bottom: -13, alignItems: "center" },
   dateTimeSlashes: { fontSize: 11, letterSpacing: 6 },
   dateTimeCaption: { fontSize: 8, color: "#000000", marginTop: 10 },
   // Per Tim, 2026-09-09 — time gets its own spot on the line instead of
-  // being folded into the date's "time / date" caption: left-of-center
-  // (not sharing the date's right-anchored slashes), caption below the
+  // being folded into the date's "time / date" caption: caption below the
   // line same as date's own caption — just no slashes, since he fills
   // the actual time in by hand on the line itself rather than the form
   // pre-printing a slashed format for it the way it does for the date.
-  timeOverlay: { position: "absolute", left: 165, bottom: -13, alignItems: "center" },
+  timeOverlay: { position: "absolute", left: 65, bottom: -13, alignItems: "center" },
   timeLabel: { fontSize: 8, color: "#000000" },
   page2Table: { flex: 1, borderWidth: 1, borderColor: LINE_COLOR, marginTop: 4 },
   // Per Tim, 2026-09-28 — "I just want for when this is the case, to

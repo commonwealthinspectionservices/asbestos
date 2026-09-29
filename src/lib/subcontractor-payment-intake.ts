@@ -78,14 +78,27 @@ async function processInvoiceEmails(
   for (const message of messages) {
     const subject = getHeader(message, "Subject") ?? "(no subject)";
     let handled = false;
-    for (const part of findPdfParts(message.payload)) {
-      const data = await getAttachmentData(accessToken, message.id, part.attachmentId);
-      let text: string;
-      try {
-        text = (await parsePdfWithRetry(data, `${message.id}:${part.filename}`, 3)).text;
-      } catch {
-        continue;
-      }
+
+    // Confirmed live, 2026-09-28 — Fast Mold Testing's own invoice email
+    // has no PDF attachment at all (findPdfParts came back empty); the
+    // exact same invoice content is right there in the email body
+    // instead (an HTML table, tag-stripped to text by getMessageBodyText).
+    // Tries every real PDF attachment first (in case a future invoice
+    // shape does include one), and falls back to the body text only when
+    // none of those parsed as a real Fast Mold Testing invoice.
+    const pdfTexts = await Promise.all(
+      findPdfParts(message.payload).map(async (part) => {
+        try {
+          const data = await getAttachmentData(accessToken, message.id, part.attachmentId);
+          return (await parsePdfWithRetry(data, `${message.id}:${part.filename}`, 3)).text;
+        } catch {
+          return null;
+        }
+      })
+    );
+    const candidateTexts = [...pdfTexts.filter((t): t is string => t !== null), getMessageBodyText(message)];
+
+    for (const text of candidateTexts) {
       if (!isFastMoldInvoiceText(text)) continue;
 
       result.invoicesChecked++;
@@ -144,6 +157,11 @@ async function processInvoiceEmails(
         result.jobsCreated.push({ projectNumber: job.project_number, jobId: job.id });
       }
       handled = true;
+      // Only one candidate text (the PDF, or the body as a fallback)
+      // should ever actually describe this invoice — stop once one has
+      // been successfully read, so a message with both doesn't get
+      // double-processed.
+      break;
     }
     if (handled) {
       await markMessageRead(accessToken, message.id);

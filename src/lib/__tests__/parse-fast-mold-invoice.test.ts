@@ -59,6 +59,60 @@ info@fastmoldtesting.com or (424) 274-7425.
 © 2026 Fast Mold Testing, Inc. All rights reserved.
 Privacy Policy  •  Terms & Conditions`;
 
+// Confirmed live, 2026-09-28 — this exact invoice's real Gmail message
+// has NO PDF attachment at all (findPdfParts came back empty); the same
+// invoice content lives directly in the email body instead, and
+// getMessageBodyText's crude HTML-tag-stripped fallback produces this
+// shape — notably, "September 18, 2026" stays on one space-separated
+// line here (unlike the PDF's own line-wrapped rendering above), and
+// "Total Due" sits on its own line, separated from "$1313.24" by a
+// blank line rather than the PDF's "Total Due$1313.24" (no gap at all).
+const REAL_HTML_BODY_TEXT = `
+Invoice Number:
+
+FMT-LQCDHD-2026
+
+Invoice Date:
+
+September 22, 2026
+
+Location:
+
+627 Tremont Street, Boston, MA 02118
+
+Notes: Client (Andrea Joanna Contreras, Property Manager for RENU Vacations) requested a commercial mold assessment for a 3-floor, 12-room hotel ("Good Hotels") to verify overall air quality and building safety.
+
+
+              September 18, 2026
+
+11:00 AM
+
+
+
+$1638.24
+
+
+
+
+
+              Less: Lab Services provided by Fast Mold Testing, Inc.
+
+(13 samples @ $25.00 each, offset per service agreement)
+
+
+
+              September 18, 2026
+
+
+–$325.00
+
+Total Due
+
+$1313.24
+
+Invoice for Mold Inspection Services
+`;
+
 describe("isFastMoldInvoiceText", () => {
   it("recognizes the real invoice text", () => {
     expect(isFastMoldInvoiceText(REAL_INVOICE_TEXT)).toBe(true);
@@ -88,5 +142,21 @@ describe("parseFastMoldInvoiceText", () => {
 
   it("returns null for text that isn't a Fast Mold Testing invoice", () => {
     expect(parseFastMoldInvoiceText("Some other PDF entirely")).toBeNull();
+  });
+
+  it("parses the same fields from the email's own HTML-derived body text (no PDF attachment)", () => {
+    const parsed = parseFastMoldInvoiceText(REAL_HTML_BODY_TEXT);
+    expect(parsed).toEqual({
+      invoiceNumber: "FMT-LQCDHD-2026",
+      invoiceDate: "2026-09-22",
+      serviceAddress: "627 Tremont Street, Boston, MA 02118",
+      inspectionDate: "2026-09-18",
+      inspectionTime: "11:00 AM",
+      endClientName: "Andrea Joanna Contreras",
+      endClientCompany: "Property Manager for RENU Vacations",
+      baseAmountCents: 163824,
+      labFeeCents: 32500,
+      netAmountCents: 131324,
+    });
   });
 });

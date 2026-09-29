@@ -161,7 +161,13 @@ const styles = StyleSheet.create({
   // (PAGE) competing for space, which used to leave its line shorter than
   // RELINQUISHED BY's. A fixed width sized to fit RECEIVED BY's more
   // crowded row keeps both lines identical.
-  signatureLineWrap: { position: "relative", width: 320 },
+  // Per Tim, 2026-09-28 — "there's way too much room in between my
+  // signature and the time... it should not be that way": same fix as
+  // blank-coc-pdf.tsx's own copy of this — time and date moved from
+  // right-anchored (well past the end of the old 320pt line) to left-
+  // anchored immediately after the signature, and this width shrunk to
+  // match, so there's no dead space anywhere on the line.
+  signatureLineWrap: { position: "relative", width: 185 },
   // width:"100%" explicitly, not left to implicit block-stretch — that
   // resolved a few points short on RECEIVED BY's line vs RELINQUISHED
   // BY's, since RECEIVED BY's wrap sits one level deeper (inside its own
@@ -173,22 +179,22 @@ const styles = StyleSheet.create({
   // relinquishedSignature — see its comment.
   relinquishedSignature: { position: "absolute", left: 4, bottom: 0, width: 55, height: 19 },
   pageLabel: { fontSize: 11, fontWeight: 700, marginLeft: 16 },
-  // The date sits ON the line itself — right-anchored inside the same box
+  // The date sits ON the line itself, positioned relative to the same box
   // the line occupies — rather than as its own element appended after the
   // line, matching the asbestos form exactly. bottom:-13 drops the "date"
   // caption below the line while the slashes above it hover just clear of
-  // the line itself.
-  dateTimeOverlay: { position: "absolute", right: 45, bottom: -13, alignItems: "center" },
+  // the line itself. left:120 sits it right after time's own column (see
+  // timeOverlay below) — same left-anchored redesign as blank-coc-pdf.tsx.
+  dateTimeOverlay: { position: "absolute", left: 120, bottom: -13, alignItems: "center" },
   dateTimeSlashes: { fontSize: 11, letterSpacing: 6 },
   dateTimeCaption: { fontSize: 8, color: "#000000", marginTop: 10 },
   // Per Tim, 2026-09-09 — time gets its own spot on the line instead of
-  // being folded into the date's "time / date" caption: left-of-center
-  // (not sharing the date's right-anchored slashes), caption below the
+  // being folded into the date's "time / date" caption, caption below the
   // line same as date's own caption — just no slashes, since he fills
   // the actual time in by hand on the line itself rather than the form
   // pre-printing a slashed format for it the way it does for the date.
   // Same as blank-coc-pdf.tsx's own copy of this.
-  timeOverlay: { position: "absolute", left: 165, bottom: -13, alignItems: "center" },
+  timeOverlay: { position: "absolute", left: 65, bottom: -13, alignItems: "center" },
   timeLabel: { fontSize: 8, color: "#000000" },
 });
 

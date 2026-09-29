@@ -68,20 +68,29 @@ export function isFastMoldInvoiceText(text: string): boolean {
 export function parseFastMoldInvoiceText(text: string): ParsedFastMoldInvoice | null {
   if (!isFastMoldInvoiceText(text)) return null;
 
-  const invoiceNumberMatch = text.match(/Invoice Number:\s*\n\s*([A-Za-z0-9-]+)/);
-  const invoiceDateMatch = text.match(/Invoice Date:\s*\n\s*([A-Za-z]+ \d{1,2},\s*\d{4})/);
-  const addressMatch = text.match(/Location:\s*\n\s*(.+)/);
+  // \s+ throughout (not \s*\n\s*) — this same invoice reaches this parser
+  // two different ways with two different whitespace shapes: pdf-parse's
+  // extraction of the PDF attachment splits "September 18, 2026" across
+  // lines (month, then day/year, on their own lines), while Fast Mold
+  // Testing's own email has no PDF attachment at all (confirmed live,
+  // 2026-09-28 — findPdfParts came back empty for the real message), so
+  // this also has to parse getMessageBodyText's crude tag-stripped HTML
+  // fallback, where that same date sits on one line, space-separated.
+  // \s+ matches either shape.
+  const invoiceNumberMatch = text.match(/Invoice Number:\s+([A-Za-z0-9-]+)/);
+  const invoiceDateMatch = text.match(/Invoice Date:\s+([A-Za-z]+ \d{1,2},\s*\d{4})/);
+  const addressMatch = text.match(/Location:\s+(.+)/);
   const clientMatch = text.match(/Client\s*\(\s*([^,]+),\s*([^)]+)\)/);
-  // The inspection's own month/day/year/time, split across lines by the
-  // PDF's own column layout — same shape twice in the real invoice (once
-  // per line item), always identical, so the first match is authoritative.
-  const inspectionMatch = text.match(/([A-Za-z]+)\s*\n\s*(\d{1,2}),\s*(\d{4})\s*\n\s*(\d{1,2}:\d{2}\s*[AP]M)/);
+  // The inspection's own month/day/year/time — same shape twice in the
+  // real invoice (once per line item), always identical, so the first
+  // match is authoritative.
+  const inspectionMatch = text.match(/([A-Za-z]+)\s+(\d{1,2}),\s*(\d{4})\s+(\d{1,2}:\d{2}\s*[AP]M)/);
   // The base fee is the first plain (non-offset) dollar amount, printed
   // right after that same inspection date/time block.
-  const baseMatch = text.match(/\d{1,2}:\d{2}\s*[AP]M\s*\n\$([\d,]+\.\d{2})/);
+  const baseMatch = text.match(/\d{1,2}:\d{2}\s*[AP]M\s+\$([\d,]+\.\d{2})/);
   // En dash ("–"), not a hyphen — pdf-parse preserves it verbatim.
   const labFeeMatch = text.match(/–\$([\d,]+\.\d{2})/);
-  const totalMatch = text.match(/Total Due\$?([\d,]+\.\d{2})/);
+  const totalMatch = text.match(/Total Due\s*\$?([\d,]+\.\d{2})/);
 
   if (!invoiceNumberMatch || !invoiceDateMatch || !addressMatch || !inspectionMatch || !baseMatch || !totalMatch) {
     return null;

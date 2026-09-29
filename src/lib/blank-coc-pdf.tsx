@@ -325,7 +325,14 @@ function BlankCocDocument({ job, customer, settings, sampleItems, turnaround, re
                 note instead of on RELINQUISHED BY's own line. */}
             <View>
               <Text style={styles.notes}>*Samples for analysis by Polarized Light Microscopy</Text>
-              <Text style={[styles.notes, { marginTop: 2 }]}>email results tim@commonwealthinspectionservices.com</Text>
+              {/* Per Tim, 2026-09-28 — "these lines need to be evenly
+                  spaced... for all 3": marginTop:16 here matches the same
+                  gap (empirically, ~28pt) as every other gap in this
+                  footer, so PLM→email results→license (on the next row)
+                  are all spaced identically — was 2 (visually crowded
+                  right under the PLM line, next to a much bigger gap
+                  down to license). */}
+              <Text style={[styles.notes, { marginTop: 16 }]}>email results tim@commonwealthinspectionservices.com</Text>
             </View>
           </View>
 

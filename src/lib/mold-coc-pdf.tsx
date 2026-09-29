@@ -331,10 +331,14 @@ function MoldCocDocument({ job, customer, sampleType, sampleItems, turnaround, r
             {/* Per Tim, 2026-09-28 — "email results line should be
                 directly across on turnaround line": stacks under
                 turnaroundNote (when this sample type has one) instead of
-                on RELINQUISHED BY's own line. */}
+                on RELINQUISHED BY's own line. marginTop:16 (not the
+                original 2) matches every other gap in this footer — "these
+                lines need to be evenly spaced... for all 3" (PLM/Spore
+                Trap → email results → license/dateNeededNote on the next
+                row all read the same distance apart now). */}
             <View>
               {config.turnaroundNote && <Text style={styles.notes}>{config.turnaroundNote}</Text>}
-              <Text style={[styles.notes, { marginTop: config.turnaroundNote ? 2 : 0 }]}>
+              <Text style={[styles.notes, { marginTop: config.turnaroundNote ? 16 : 0 }]}>
                 email results tim@commonwealthinspectionservices.com
               </Text>
             </View>

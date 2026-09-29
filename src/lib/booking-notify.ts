@@ -5,7 +5,7 @@ import { expandAddress } from "@/lib/address";
 import { formatDateMDY, formatRequestedTime, formatRequestedTimeWindow } from "@/lib/date-format";
 import { formatCents } from "@/lib/pricing";
 import { getSupabaseAdmin } from "@/lib/supabase";
-import { threadSubject, scheduledNotificationSubject, bookingRequestSubject, sendThreadedEmail } from "@/lib/email-thread";
+import { threadSubject, scheduledNotificationSubject, sendThreadedEmail } from "@/lib/email-thread";
 
 /**
  * Every new booking — anonymous (/api/book) or portal (/api/portal/book) —
@@ -143,7 +143,7 @@ export async function sendCustomerBookingReceivedEmail(params: {
 
   const result = await sendThreadedEmail({
     to: params.customerEmail,
-    subject: bookingRequestSubject(params.address),
+    subject: scheduledNotificationSubject(params.address, params.serviceLabel),
     existingMessageIds: [],
     gmailThreadId: null,
     html: emailShell(`
@@ -166,7 +166,7 @@ export async function sendCustomerBookingReceivedEmail(params: {
         // email_thread_subject's own comment in schema.sql. Always the
         // first send for a job's thread (this function's own docstring),
         // so always safe to set here.
-        email_thread_subject: bookingRequestSubject(params.address),
+        email_thread_subject: scheduledNotificationSubject(params.address, params.serviceLabel),
       })
       .eq("id", params.jobId);
   }

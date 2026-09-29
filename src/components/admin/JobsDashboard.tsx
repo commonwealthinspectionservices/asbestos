@@ -3654,27 +3654,13 @@ export function ProjectDetailDialog({
     }
     return groups;
   }, [serviceTypeLabels]);
-  // Per Tim, 2026-09-19 — "this is tucked in the corner... make it just a
-  // normal cell like lab and date sampled are": the same label + full-width
-  // cell row as Lab and Date Sampled (see labDropdown/dateSampledInput), with
-  // Standard and Rush as two equal halves of one h-9 cell instead of small
-  // pills pushed to the right edge.
-  const turnaroundControl = (
-    <div className="flex w-full items-center gap-2 text-sm">
-      <span className="w-28 shrink-0 text-xs font-semibold uppercase text-slate-700">Turnaround</span>
-      <div className="relative h-9 w-full min-w-0 flex-1">
-        <select
-          className={`h-9 w-full min-w-0 truncate appearance-none rounded-lg border px-2 py-1.5 text-sm border-slate-300 bg-white`}
-          value={job.lab_turnaround === "Rush" ? "Rush" : "Standard"}
-          onChange={(e) => setRush(e.target.value === "Rush")}
-        >
-          <option value="Standard">Standard</option>
-          <option value="Rush">Rush</option>
-        </select>
-        <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-slate-500">▾</span>
-      </div>
-    </div>
-  );
+  // Per Tim, 2026-09-29 — "this can be deleted from the asbestos report
+  // tab... it's now already on the chain of custody page and that's
+  // where it should be": removed from every domain's Report tab (this
+  // one control rendered identically on all of them, not just asbestos)
+  // — the electronic Chain of Custody panel's own Rush/24-Hr toggle
+  // already sets this exact same job.lab_turnaround field (see
+  // draftCocEmailForJob in lib/lab-email.ts), so nothing is lost.
   const labDropdown = (domain: ReportDomain) => (
     <div className="flex w-full items-center gap-2 text-sm">
       <span className="w-28 shrink-0 text-xs font-semibold uppercase text-slate-700">Lab</span>
@@ -3925,15 +3911,6 @@ export function ProjectDetailDialog({
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(patch),
-    });
-    onChanged();
-  }
-
-  async function setRush(value: boolean) {
-    await fetch(`/api/admin/jobs/${job.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ lab_turnaround: value ? "Rush" : null }),
     });
     onChanged();
   }
@@ -4787,8 +4764,8 @@ export function ProjectDetailDialog({
                     job.lab_turnaround === "Rush" ? (
                       // Per Tim, 2026-09-02 — "should be highlighted yellow
                       // when it is a rush": same bg-yellow-100/text-slate-600
-                      // pill as the Rush button's own active state
-                      // (turnaroundControl above), not plain text.
+                      // pill as the Chain of Custody panel's own Rush
+                      // button active state, not plain text.
                       <span className="text-sm font-bold uppercase text-slate-700">Rush</span>
                     ) : (
                       "Standard"
@@ -5095,17 +5072,19 @@ export function ProjectDetailDialog({
                       <div key={group.domain}>
                         {/* Per Tim, 2026-09-17 — "the first two cells lab and
                             date sampled should just be generic for
-                            everything": Turnaround/Lab/Date Sampled are
-                            domain-level (one mold lab pick covers every mold
-                            label on the job), so they sit once, above every
-                            label, rather than looking like they belong to
+                            everything": Lab/Date Sampled are domain-level
+                            (one mold lab pick covers every mold label on
+                            the job), so they sit once, above every label,
+                            rather than looking like they belong to
                             whichever label happened to render first. Each
                             label's own title now sits right above that
                             label's own Laboratory Results instead (moved
                             down from here — see below), so it's clear which
-                            upload station it's actually labeling. */}
+                            upload station it's actually labeling. Per Tim,
+                            2026-09-29 — Turnaround itself removed from
+                            here entirely; it's now only set on the
+                            Chain of Custody panel. */}
                         <div className="mb-7 space-y-4">
-                          {turnaroundControl}
                           {labDropdown(group.domain)}
                           {dateSampledInput(group.domain)}
                           {isFliJob && group.domain === "asbestos" && fliProjectNumberInput}
@@ -5209,9 +5188,17 @@ export function ProjectDetailDialog({
                                           </div>
                                         </div>
                                       ) : (
-                                        <div className="mt-1.5 flex h-40 w-full flex-col items-center justify-center rounded-lg border-2 border-dashed border-slate-300 px-3 text-center text-sm text-slate-500">
-                                          Populates once Laboratory Results are uploaded
-                                        </div>
+                                        // Per Tim, 2026-09-29 — "sample
+                                        // results should not take up such a
+                                        // huge space... it should just say
+                                        // sample results pending in italics":
+                                        // same reasoning as the Laboratory
+                                        // Results/Lab Invoice dropzones right
+                                        // above — this populates itself
+                                        // automatically once real results
+                                        // land, so it doesn't need a big
+                                        // empty h-40 box in the meantime.
+                                        <p className="mt-1.5 text-sm italic text-slate-400">Sample results pending</p>
                                       );
                                     })()}
                                   </div>
@@ -6156,6 +6143,26 @@ function DocumentStation({
         </div>
       )}
       {docs.length === 0 && (
+        // Per Tim, 2026-09-29 — "I don't like how I have this whole big
+        // drag and drop for lab results... I rarely find myself needing
+        // to upload them manually", then "same with lab invoice": both
+        // arrive automatically (lab_report via the Crystal Analytical
+        // email pipeline, lab_invoice via the daily lab-invoicing cron —
+        // see project_lab_invoicing_cadence), so neither needs the same
+        // prominent, always-visible dropzone every other document kind
+        // (invoice, CoC, photos — all genuinely uploaded by hand
+        // routinely) still gets. Same upload wiring either way, just a
+        // small link instead of a full h-40 dashed box.
+        (kind === "lab_report" || kind === "lab_invoice") ? (
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            disabled={uploading}
+            className="mt-1.5 text-sm font-medium text-brand-600 hover:underline disabled:opacity-50"
+          >
+            {uploading ? "Uploading…" : `+ Upload ${kind === "lab_report" ? "lab report" : "lab invoice"} manually`}
+          </button>
+        ) : (
         <div className={titlePosition === "bottom" ? "mt-1.5 block w-full overflow-hidden rounded-lg border border-dashed border-slate-300" : undefined}>
           <div
             onDragOver={(e) => {
@@ -6185,22 +6192,25 @@ function DocumentStation({
             >
               {uploading ? "Uploading…" : "Choose file"}
             </button>
-            <input
-              ref={inputRef}
-              type="file"
-              accept="application/pdf,image/*"
-              className="hidden"
-              onChange={(e) => {
-                if (e.target.files && e.target.files.length > 0) uploadFiles(e.target.files);
-                e.target.value = "";
-              }}
-            />
           </div>
           {titlePosition === "bottom" && (
             <p className="truncate border-t border-dashed border-slate-300 px-2 py-1 text-center text-xs font-bold uppercase text-slate-400" title={label}>{label}</p>
           )}
         </div>
+        )
       )}
+      {/* Always rendered (both variants above trigger it via inputRef),
+          regardless of which upload UI is currently shown. */}
+      <input
+        ref={inputRef}
+        type="file"
+        accept="application/pdf,image/*"
+        className="hidden"
+        onChange={(e) => {
+          if (e.target.files && e.target.files.length > 0) uploadFiles(e.target.files);
+          e.target.value = "";
+        }}
+      />
       {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
       {collapseLabInvoices && (
         <button

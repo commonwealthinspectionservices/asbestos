@@ -56,6 +56,17 @@ export function threadSubject(address: string, serviceType: string | null | unde
 // reasoning as this function's own history above). Fixed Asbestos/Mold/
 // Lead order, matching inspectionReportSubjectPrefix's own — "Asbestos +
 // Mold Inspection", never "Mold + Asbestos Inspection" for the same job.
+//
+// Per Tim, 2026-09-29 — "the email chain is starting out as inspection
+// request as the subject... it should just be like service type dash
+// address": sendCustomerBookingReceivedEmail (the very first email in a
+// job's thread) used to have its own separate, hardcoded "Inspection
+// Request - <address>" subject (bookingRequestSubject, now removed) from
+// before this function existed. Nothing about that email needed to say
+// literally "Inspection Request" specifically — it's exactly the same
+// "nothing reported on yet" case scheduledNotificationSubject already
+// handles, so it now reuses this function too instead of its own
+// near-duplicate.
 const SCHEDULED_SUBJECT_DOMAIN_ORDER: ReportDomain[] = ["asbestos", "mold", "lead"];
 const SCHEDULED_SUBJECT_DOMAIN_LABEL: Record<ReportDomain, string> = { asbestos: "Asbestos", mold: "Mold", lead: "Lead" };
 export function scheduledNotificationSubject(address: string, serviceType: string | null | undefined): string {
@@ -63,17 +74,6 @@ export function scheduledNotificationSubject(address: string, serviceType: strin
   const labels = SCHEDULED_SUBJECT_DOMAIN_ORDER.filter((d) => present.has(d)).map((d) => SCHEDULED_SUBJECT_DOMAIN_LABEL[d]);
   const prefix = labels.length > 0 ? `${labels.join(" + ")} Inspection` : "Inspection";
   return `${prefix} - ${expandAddress(address)}`;
-}
-
-// Per Tim, 2026-09-12 — sendCustomerBookingReceivedEmail (the very first
-// email in a job's thread, always sent with existingMessageIds: []) was
-// sharing threadSubject's "...Report - <address>" phrasing too, same
-// problem as scheduledNotificationSubject above: nothing has been
-// inspected yet, so "Report" doesn't fit. Own, stable subject just for
-// that one email; every later email in the chain still shares
-// threadSubject as before.
-export function bookingRequestSubject(address: string): string {
-  return `Inspection Request - ${expandAddress(address)}`;
 }
 
 // In-Reply-To is just the immediately previous message; References is the

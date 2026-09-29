@@ -590,22 +590,6 @@ function EmailChecklistPanel({
             <label key={domain} className={rowClassName}>
               <input type="checkbox" checked={selectedDomains.has(domain)} onChange={() => toggleDomain(domain)} />
               <span className="flex-1">{REPORT_DOMAIN_LABEL[domain]} Report</span>
-              <span className="text-xs text-slate-400">
-                {domain === "mold" && !job.mold_report_notes?.trim()
-                  ? "Missing Conclusions & Recommendations"
-                  : (() => {
-                      // Per Tim, 2026-09-16 — this row is already scoped to
-                      // one domain, so its own sent status should be too:
-                      // job.report_sent_at alone can't tell "this domain's
-                      // report went out" from "some other domain's did" on
-                      // a multi-domain job (confirmed live wrong on
-                      // 26-0032). Falls back to the shared report_sent_at
-                      // for a job whose per-domain breakdown was never
-                      // recorded (sent before report_sent_domains existed).
-                      const sentAt = job.report_sent_domains?.[domain] ?? (!job.report_sent_domains ? job.report_sent_at : null);
-                      return sentAt ? `Sent ${formatDateMDY(sentAt)}` : job.report_drafted_at ? "Drafted, not sent" : "Not drafted";
-                    })()}
-              </span>
             </label>
           ))}
           {isMoistureMappingJob && (
@@ -617,16 +601,12 @@ function EmailChecklistPanel({
                 onChange={(e) => setIncludeMoistureMapping(e.target.checked)}
               />
               <span className="flex-1">Moisture Mapping Report</span>
-              <span className="text-xs text-slate-400">{hasPhotos ? "" : "No photos yet"}</span>
             </label>
           )}
           {job.source !== "subcontractor" && (
             <label className={rowClassName}>
               <input type="checkbox" checked={includeInvoice} onChange={(e) => setIncludeInvoice(e.target.checked)} />
               <span className="flex-1">Invoice</span>
-              <span className="text-xs text-slate-400">
-                {job.invoice_sent_at ? `Sent ${formatDateMDY(job.invoice_sent_at)}` : job.invoice_drafted_at ? "Drafted, not sent" : "Not drafted"}
-              </span>
             </label>
           )}
           {!isFliJob && (

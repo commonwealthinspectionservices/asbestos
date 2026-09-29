@@ -5205,17 +5205,11 @@ export function ProjectDetailDialog({
                     Invoice tab) — per Tim, 2026-08-27. */}
                 <DetailField
                   label="Turnaround"
-                  value={
-                    job.lab_turnaround === "Rush" ? (
-                      // Per Tim, 2026-09-02 — "should be highlighted yellow
-                      // when it is a rush": same bg-yellow-100/text-slate-600
-                      // pill as the Chain of Custody panel's own Rush
-                      // button active state, not plain text.
-                      <span className="text-sm font-bold uppercase text-slate-700">Rush</span>
-                    ) : (
-                      "Standard"
-                    )
-                  }
+                  // Per Tim, 2026-09-29 — "should be a normal text like all
+                  // the other text": dropped the bold/uppercase/highlighted
+                  // Rush pill in favor of the same plain value styling
+                  // every other DetailField on this tab already uses.
+                  value={job.lab_turnaround === "Rush" ? "Rush" : "Standard"}
                 />
                 {/* Per Tim, 2026-08-28 — Boston Harbor Water Restoration
                     never actually requests a specific date/time (they just

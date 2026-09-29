@@ -1117,19 +1117,15 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
     // corners/padding at any width, the panel just reads as loose
     // sections on the page.
     <div className="mt-5">
-      {/* Per Tim, 2026-09-29 — sent-status checklist row, same format as
-          EmailChecklistPanel's own Report/Invoice rows. Purely a status
-          display (checked = sent) — the checkbox itself is disabled since
-          nothing here is meant to be toggled by hand; sending happens by
-          actually sending the Gmail draft, same as every other document
-          in this app. */}
-      <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm">
-        <input type="checkbox" checked={Boolean(liveCocSentAt)} disabled readOnly />
-        <span className="flex-1 font-medium">{COC_TYPE_LABEL[cocType]} Chain of Custody</span>
-        <span className="text-xs text-slate-400">
-          {liveCocSentAt ? `Sent ${formatDateMDY(liveCocSentAt)}` : latestCocEntry ? "Drafted, not sent" : "Not drafted"}
-        </span>
-      </label>
+      {/* Per Tim, 2026-09-29 — sent-status checklist row (same format as
+          EmailChecklistPanel's own Report/Invoice rows) removed from this
+          page entirely, later the same night: "delete this on chain of
+          custody page" — the job preview card's own ☑/☐ Chain of Custody
+          line (see cocStatus in JobRow) already shows this same live
+          liveCocSentAt-driven status, so it was redundant here. The
+          liveCocSentAt state/polling effect above stays — its onChanged()
+          call is still what refreshes the job list so that preview-card
+          checklist itself updates live once a draft's actually sent. */}
       {/* Per Tim, 2026-09-28 — first "delete this [the 'Samples' label]
           and then make the plus add sample button on the same line as
           [the title]... aligned right like it already is," then a
@@ -2904,11 +2900,13 @@ function JobRow({
       // common case, since that template always renders 3 rows) rather
       // than guessing again. Per Tim, 2026-09-29 (later same night) —
       // "the old format for mobile before tonight was way better... revert
-      // all my mobile changes, but keep all of my desktop changes": the
-      // matching mobile min-h-[268px] this fixed-height reasoning produced
-      // is reverted below (mobile cards size to content again, like every
-      // other change in this file tonight that touched mobile).
-      className="flex w-full cursor-pointer flex-col gap-2 rounded-lg border border-slate-200 bg-white p-3 hover:border-brand-400 sm:min-h-[146px] sm:gap-0"
+      // all my mobile changes, but keep all of my desktop changes": mobile
+      // min-height was reverted here — then per Tim again, still later —
+      // "for mobile all the cells are supposed to be the same height as
+      // well": back on, this time alongside the now-unconditional row-1
+      // reservation above (not the standalone experiment it was before),
+      // measured fresh against a real rendered mobile card.
+      className="flex w-full cursor-pointer flex-col gap-2 rounded-lg border border-slate-200 bg-white p-3 hover:border-brand-400 min-h-[220px] sm:min-h-[146px] sm:gap-0"
     >
       {/* items-start, not items-center — the status cell's own column can
           run taller than this row now (the Report:/Invoice: sent-status
@@ -3338,7 +3336,7 @@ function JobRow({
               isUnscheduled ? <span className="block min-h-5">{siteContactNode}</span> : siteContactNode
             )}
           </span>
-          <span className="contents sm:hidden">
+          <span className="block min-h-5 sm:hidden">
             {job.status !== "report_invoice_sent" && job.status !== "pending_lab_results" && siteContactNode}
           </span>
           {isClosedJob(job) ? (

@@ -3304,6 +3304,24 @@ function JobRow({
           })()}
         </div>
 
+        {/* Per Tim, 2026-09-29 (yet later) — "job site contacts should be
+            directly in the middle of service type and scheduled date
+            here. Right now it's shaded a little towards scheduled date
+            ... it's mobile" — confirmed live: this was nested inside the
+            third column below, one gap-1.5 (6px) away from the
+            Scheduled-date/time block sitting right after it, while the
+            outer row's own justify-between gap (address/service-type/
+            third-column) measured ~12px — site contact sat closer to
+            Scheduled date than to service type. Pulled out to its own
+            row here (mobile only) — a fourth direct sibling in this same
+            justify-between row — so it gets its own evenly-distributed
+            gap on both sides, same as everything else. Desktop keeps its
+            own site-contact rendering inside the third column below,
+            unchanged (this was never a desktop complaint). */}
+        <span className="block min-h-5 sm:hidden">
+          {job.status !== "report_invoice_sent" && job.status !== "pending_lab_results" && job.status !== "ready_to_send" && siteContactNode}
+        </span>
+
         <div className={`flex min-w-0 w-full flex-col items-start gap-1.5 sm:w-auto sm:items-end${isUnscheduled ? " sm:flex-[1.2]" : " sm:flex-[0.9]"}`}>
           {/* Site contact (usually the homeowner) — shown regardless of
               status, including To Be Scheduled, so the admin can always
@@ -3372,9 +3390,10 @@ function JobRow({
               {job.status !== "report_invoice_sent" && job.status !== "pending_lab_results" && job.status !== "scheduled" && job.status !== "ready_to_send" && siteContactNode}
             </div>
           )}
-          <span className="block min-h-5 sm:hidden">
-            {job.status !== "report_invoice_sent" && job.status !== "pending_lab_results" && job.status !== "ready_to_send" && siteContactNode}
-          </span>
+          {/* Per Tim, 2026-09-29 (yet later) — mobile's own copy of this
+              site-contact reservation moved out to its own row, above
+              (sibling of address/service-type/this column) — see that
+              comment for why. */}
           {isClosedJob(job) ? (
             <div className="flex flex-col items-start gap-0.5 px-1.5 py-1 text-xs text-slate-500 sm:items-end">
               <span>Date of Project: {formatDate(job.requested_date) || "—"}</span>
@@ -3547,9 +3566,21 @@ function JobRow({
                   gated to desktop — mobile now renders this same block,
                   in this same spot, left-aligned to match every other
                   mobile line in this column (items-start, sm:items-end
-                  restores the desktop right-alignment). */}
+                  restores the desktop right-alignment). Per Tim,
+                  2026-09-29 (yet later) — "for ready to review in mobile,
+                  where it says invoice and report, that should be as
+                  separated as scheduled date and scheduled time are when
+                  the status is scheduled in mobile... right now they're
+                  too far apart": confirmed live, mobile's own Scheduled
+                  date/Scheduled time sit fully flush (0px gap, no gap
+                  class on that block at all) while this block's gap-2
+                  (8px) — needed for desktop's own row-3 alignment,
+                  unaffected — was also applying to mobile since this is
+                  now one shared block. gap-0 (mobile) / sm:gap-2
+                  (desktop) matches each breakpoint to its own real
+                  target instead of using one gap for both. */}
               {showReportInvoice && (
-                <div className="flex w-full flex-col items-start gap-2 text-sm text-slate-500 sm:items-end">
+                <div className="flex w-full flex-col items-start gap-0 text-sm text-slate-500 sm:gap-2 sm:items-end">
                   {paymentPendingCompletedDate}
                   {invoiceStatus}
                   {reportStatus}
@@ -3560,7 +3591,7 @@ function JobRow({
                   Scheduled/Completed date block below — still relevant info
                   at this stage — just adds the invoice line above it. */}
               {showInvoiceOnly && (
-                <div className="flex w-full flex-col items-start gap-2 text-sm text-slate-500 sm:items-end">
+                <div className="flex w-full flex-col items-start gap-0 text-sm text-slate-500 sm:gap-2 sm:items-end">
                   {invoiceStatus}
                 </div>
               )}

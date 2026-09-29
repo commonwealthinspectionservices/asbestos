@@ -2902,11 +2902,13 @@ function JobRow({
       // scheduled time" with the first guess (min-h-44/176px); measured
       // directly against a real fixed-3-row Scheduled card (now the
       // common case, since that template always renders 3 rows) rather
-      // than guessing again. Per Tim, 2026-09-29 — "in mobile, all cells
-      // should be the same height and format as well": 268px is mobile's
-      // own measured equivalent (single-column stacking makes a full
-      // card taller there than desktop's 3-side-by-side-column version).
-      className="flex w-full cursor-pointer flex-col gap-2 rounded-lg border border-slate-200 bg-white p-3 hover:border-brand-400 min-h-[268px] sm:min-h-[146px] sm:gap-0"
+      // than guessing again. Per Tim, 2026-09-29 (later same night) —
+      // "the old format for mobile before tonight was way better... revert
+      // all my mobile changes, but keep all of my desktop changes": the
+      // matching mobile min-h-[268px] this fixed-height reasoning produced
+      // is reverted below (mobile cards size to content again, like every
+      // other change in this file tonight that touched mobile).
+      className="flex w-full cursor-pointer flex-col gap-2 rounded-lg border border-slate-200 bg-white p-3 hover:border-brand-400 sm:min-h-[146px] sm:gap-0"
     >
       {/* items-start, not items-center — the status cell's own column can
           run taller than this row now (the Report:/Invoice: sent-status
@@ -3091,15 +3093,15 @@ function JobRow({
               always reserves its own height too (see below), so rows
               2/3 always land in the same fixed spot on both sides
               regardless of what (if anything) row 1 actually holds. Per
-              Tim, 2026-09-29 — "in mobile everything should kind of have
-              a fixed spot as opposed to collapsing when info is missing":
-              this row 1 reservation was sm:min-h-5 (desktop only), so on
-              mobile a Pending Lab Results card (no site contact) had this
-              div collapse to zero height, pulling the address/date up a
-              row versus a Scheduled card with contact info. min-h-5 with
-              no breakpoint prefix reserves the same fixed row on mobile
-              too. */}
-          {useCocRowFormat && <div className="min-h-5">{job.status === "scheduled" ? siteContactNode : null}</div>}
+              Tim, 2026-09-29 (later same night) — "the old format for
+              mobile before tonight was way better... revert all my
+              mobile changes, but keep all of my desktop changes": this
+              reservation (and every other mobile-facing change below)
+              stays for desktop (hidden sm:block, min-h-5 unchanged) but
+              is hidden on mobile — mobile's own site-contact placement
+              reverts to its pre-2026-09-29 spot instead, further down
+              this column. */}
+          {useCocRowFormat && <div className="hidden min-h-5 sm:block">{job.status === "scheduled" ? siteContactNode : null}</div>}
           {locationName && <div className="truncate whitespace-nowrap text-sm text-slate-500">{locationName}</div>}
           {/* Mobile: tapping the address text itself (street through zip)
               opens a Google Maps/Waze picker instead of the job detail
@@ -3112,83 +3114,43 @@ function JobRow({
               of the card. Desktop: unchanged plain text (no picker; the
               detail dialog's own address link already goes to Maps). */}
           <div className="relative">
-            {/* Per Tim, 2026-09-29 — "from mobile, every single line in
-                the project preview card should be evenly spaced": mt-2
-                (matching every other gap in this stack below) between
-                the reserved site-contact line above and the address
-                itself — only when that line actually rendered
-                (useCocRowFormat), so statuses without it don't gain an
-                unwanted gap at the very top. */}
+            {/* Per Tim, 2026-09-29 (later same night) — reverted back to
+                no top margin here, matching mobile's pre-2026-09-29 format
+                ("the old format for mobile before tonight was way
+                better"). */}
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); setShowMapMenu((v) => !v); }}
-              className={`inline-block max-w-full text-left sm:hidden ${useCocRowFormat ? "mt-2" : ""} ${showMapMenu ? "underline" : ""}`}
+              className={`inline-block max-w-full text-left sm:hidden ${showMapMenu ? "underline" : ""}`}
             >
               <span className="block truncate whitespace-nowrap text-sm text-slate-500">{street}</span>
-              {cityStateZip && <span className={`block truncate whitespace-nowrap text-sm text-slate-500 ${useCocRowFormat ? "mt-2" : ""}`}>{cityStateZip}</span>}
+              {cityStateZip && <span className="block truncate whitespace-nowrap text-sm text-slate-500">{cityStateZip}</span>}
             </button>
             {/* Per Tim, 2026-08-27 — Invoice directly above Report, both
                 left-aligned, sitting right after the address block instead
-                of interrupting it. Per Tim, 2026-09-29 (above) — mt-2
-                everywhere in this stack, not mt-1, for one consistent
-                gap throughout every line on the mobile card. */}
+                of interrupting it. Per Tim, 2026-09-29 (later same night)
+                — mt-1/no gap-2 reverted back, mobile-only (desktop's own
+                gap-2 rhythm below is unaffected). */}
             {showReportInvoice && (
-              <div className="mt-2 flex flex-col items-start gap-2 sm:hidden">
+              <div className="mt-1 flex flex-col items-start sm:hidden">
                 {paymentPendingCompletedDate}
                 {invoiceStatus}
                 {reportStatus}
               </div>
             )}
             {showInvoiceOnly && (
-              <div className="mt-2 flex flex-col items-start sm:hidden">
+              <div className="mt-1 flex flex-col items-start sm:hidden">
                 {invoiceStatus}
               </div>
             )}
-            {/* Per Tim, 2026-09-29 — "in mobile everything should kind of
-                have a fixed spot as opposed to collapsing when info is
-                missing": gated on cocStatus itself before, so this whole
-                row (including its own mt-2 gap) vanished entirely for any
-                job where cocStatus is empty — every Pending Lab Results
-                job (cocSentByType only ever populates for "scheduled",
-                see its own comment above) and a Scheduled job whose day
-                hasn't arrived yet — pulling everything below it up a row
-                versus a Scheduled job mid-checklist. Gating on
-                useCocRowFormat instead, with min-h-5 on the wrapper
-                itself (not just its content), reserves this row the same
-                way row 1 of the date column already does on desktop
-                (sm:min-h-5 there), whether or not cocStatus has anything
-                to show. */}
-            {useCocRowFormat && (
-              <div className="mt-2 flex min-h-5 flex-col items-start sm:hidden">
-                {cocStatus}
-              </div>
-            )}
-            {/* Per Tim, 2026-09-29 — "in mobile, all cells should be the
-                same height and format as well if possible... right now,
-                some are different": the desktop-only useCocRowFormat
-                block below (hidden on mobile) left Scheduled/Pending Lab
-                Results jobs with NO date/time shown on mobile at all —
-                genuinely missing, not just differently formatted. Same
-                info, mobile's own single-column stacking instead of the
-                desktop 3-row grid. mt-2/gap-2 — "every single line...
-                should be evenly spaced." Per Tim, 2026-09-29 — "all of
-                the text should be the same for mobile in the preview
-                cards": this block was missing the text-sm text-slate-500
-                every other line on the card uses (the desktop version of
-                this exact block, right below, has always had it), so it
-                rendered in the browser's default dark/larger text and
-                stood out from everything else. */}
-            {useCocRowFormat && (
-              <div className="mt-2 flex flex-col items-start gap-2 text-sm text-slate-500 sm:hidden">
-                <div>{hasCompletedFieldwork(job.status) ? "Completed" : "Scheduled"} date: {formatDate(job.confirmed_date ?? job.requested_date) || "—"}</div>
-                <div>
-                  {hasCompletedFieldwork(job.status) ? "Completed" : "Scheduled"} time:{" "}
-                  {isSubcontractor && job.confirmed_time && job.confirmed_time === parseWindowStartTime24h(job.subcontractor_preferred_window)
-                    ? extractTimeRange(job.subcontractor_preferred_window) ?? formatTime(job.confirmed_time)
-                    : formatTime(job.confirmed_time ?? job.requested_time) || "—"}
-                </div>
-              </div>
-            )}
+            {/* Per Tim, 2026-09-29 (later same night) — "the old format
+                for mobile before tonight was way better... revert all my
+                mobile changes": the mobile Chain of Custody checklist row
+                and the mobile Scheduled/Completed date-time duplicate
+                (both added earlier tonight) are removed — mobile no
+                longer shows either; desktop keeps both (see the
+                useCocRowFormat block in the date column below,
+                unchanged). */}
             {/* Per Tim, 2026-09-29 — "all the lines need to be evenly
                 spaced as well": sm:mt-2 (matching the site contact line
                 above) plus sm:gap-2 between street/cityStateZip below —
@@ -3202,9 +3164,13 @@ function JobRow({
               <div className="truncate whitespace-nowrap text-sm text-slate-500">{street}</div>
               {cityStateZip && <div className="truncate whitespace-nowrap text-sm text-slate-500">{cityStateZip}</div>}
             </div>
-            {/* Per Tim, 2026-09-29 — "this never needs to be on the
-                preview card": the "Confirmation sent ..." line (moved
-                here 2026-09-02) removed from the card entirely. Still a
+            {/* Per Tim, 2026-08-27 — Invoice directly above Report, both
+                left-aligned, sitting right after the address block instead
+                of interrupting it. Per Tim, 2026-09-29 — "this never
+                needs to be on the preview card": the "Confirmation sent
+                ..." line (moved here 2026-09-02) removed from the card
+                entirely, mobile and desktop both — a deliberate content
+                call, not part of the mobile-format revert above. Still a
                 real, tracked field (job.confirmation_sent_at) — just not
                 shown on this card anymore. */}
             {showMapMenu && (
@@ -3297,11 +3263,22 @@ function JobRow({
               not worth the space next to the payment due date instead —
               or Pending Lab Results, same reasoning: fieldwork's already
               done, nothing left to call the homeowner about. Per Tim,
-              2026-09-29 — also excluded once "Scheduled" specifically:
-              moved to its own line next to the address instead (see
-              above), leaving this column with just the Chain of Custody
-              checklist and Scheduled date/time. */}
-          {job.status !== "report_invoice_sent" && job.status !== "pending_lab_results" && job.status !== "scheduled" && siteContactNode}
+              2026-09-29 — desktop also excludes it once "Scheduled"
+              specifically: moved to its own line next to the address
+              instead (see above), leaving this column with just the
+              Chain of Custody checklist and Scheduled date/time. Per
+              Tim, 2026-09-29 (later same night) — "the old format for
+              mobile before tonight was way better... revert all my
+              mobile changes, but keep all of my desktop changes": mobile
+              keeps its pre-2026-09-29 spot and condition (Scheduled
+              included) here; only desktop excludes Scheduled and shows
+              it next to the address instead. */}
+          <span className="hidden sm:contents">
+            {job.status !== "report_invoice_sent" && job.status !== "pending_lab_results" && job.status !== "scheduled" && siteContactNode}
+          </span>
+          <span className="contents sm:hidden">
+            {job.status !== "report_invoice_sent" && job.status !== "pending_lab_results" && siteContactNode}
+          </span>
           {isClosedJob(job) ? (
             <div className="flex flex-col items-start gap-0.5 px-1.5 py-1 text-xs text-slate-500 sm:items-end">
               <span>Date of Project: {formatDate(job.requested_date) || "—"}</span>
@@ -3495,6 +3472,26 @@ function JobRow({
                     : formatTime(job.confirmed_time ?? job.requested_time) || "—"}
                 </div>
               </div>
+              )}
+              {/* Per Tim, 2026-09-29 (later same night) — "the old format
+                  for mobile before tonight was way better... revert all
+                  my mobile changes, but keep all of my desktop changes":
+                  the useCocRowFormat block above is desktop-only (hidden
+                  sm:flex), so mobile needs its own copy of the plain,
+                  always-shown two-line date/time it had before tonight —
+                  no Chain of Custody checklist row, no reserved row 1,
+                  same showReportInvoice-hides-this rule as the (non-
+                  useCocRowFormat) else branch above. */}
+              {useCocRowFormat && (
+                <div className={`w-full text-sm text-slate-500 sm:hidden ${showReportInvoice ? "hidden" : ""}`}>
+                  <div>{hasCompletedFieldwork(job.status) ? "Completed" : "Scheduled"} date: {formatDate(job.confirmed_date ?? job.requested_date) || "—"}</div>
+                  <div>
+                    {hasCompletedFieldwork(job.status) ? "Completed" : "Scheduled"} time:{" "}
+                    {isSubcontractor && job.confirmed_time && job.confirmed_time === parseWindowStartTime24h(job.subcontractor_preferred_window)
+                      ? extractTimeRange(job.subcontractor_preferred_window) ?? formatTime(job.confirmed_time)
+                      : formatTime(job.confirmed_time ?? job.requested_time) || "—"}
+                  </div>
+                </div>
               )}
             </div>
           )}

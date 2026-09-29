@@ -56,7 +56,7 @@ const SAMPLE_TYPE_CONFIG: Record<MoldSampleType, { title: string; thirdColumnLab
   air_o_cell: {
     title: "MOLD AIR-O-CELL SAMPLE CHAIN OF CUSTODY",
     thirdColumnLabel: "TIME",
-    turnaroundNote: "*Samples for analysis by Spore Trap Analysis",
+    turnaroundNote: "Samples for analysis by Spore Trap Analysis",
     dateNeededNote: "*The volume for all Air-O-Cell samples is 75L",
     rowCount: 10,
   },
@@ -64,14 +64,14 @@ const SAMPLE_TYPE_CONFIG: Record<MoldSampleType, { title: string; thirdColumnLab
     title: "MOLD BULK SAMPLE CHAIN OF CUSTODY",
     thirdColumnLabel: "MATERIAL",
     turnaroundNote: null,
-    dateNeededNote: "*Samples for analysis by Direct Examination",
+    dateNeededNote: "Samples for analysis by Direct Examination",
     rowCount: 10,
   },
   swab: {
     title: "MOLD SWAB SAMPLE CHAIN OF CUSTODY",
     thirdColumnLabel: "SURFACE SWABBED",
     turnaroundNote: null,
-    dateNeededNote: "*Samples for analysis by Direct Examination",
+    dateNeededNote: "Samples for analysis by Direct Examination",
     rowCount: 10,
   },
 };
@@ -116,7 +116,16 @@ const styles = StyleSheet.create({
   // react-pdf's pagination pass — it only reliably claims space when
   // something follows it, which is why this grows the table (before the
   // footer) rather than the footer itself.
-  table: { flex: 1, borderWidth: 1, borderColor: LINE_COLOR },
+  // Per Tim, 2026-09-28 — "turnaround relinquished by and received by
+  // still has a lot of room above it, and I just want it to fill out
+  // all the space": same idea as blank-coc-pdf.tsx's own copy of this,
+  // but a different ratio (2:1, not 1:5) — mold's table only has 10
+  // rows (vs asbestos's 20), so there's much more genuinely free space
+  // to begin with; the same 1:5 ratio that looked right on asbestos blew
+  // this one wildly out of proportion (~147pt gaps) when tried directly.
+  // Tuned empirically to land on roughly the same ~65pt gap asbestos
+  // landed on, not derived from any formula.
+  table: { flexGrow: 2, borderWidth: 1, borderColor: LINE_COLOR },
   tableHeaderRow: { flexDirection: "row", borderBottomWidth: 0.5, borderBottomColor: LINE_COLOR },
   tableHeaderCell: { fontSize: 11, fontWeight: 700, textAlign: "center", padding: 5, borderRightWidth: 0.5, borderRightColor: LINE_COLOR },
   tableRow: { flexDirection: "row", borderBottomWidth: 0.5, borderBottomColor: LINE_COLOR, minHeight: 20, flexGrow: 1 },
@@ -130,12 +139,17 @@ const styles = StyleSheet.create({
   // Per Tim, 2026-09-28 — "the stuff should always be evenly spaced":
   // this is the very first gap in the footer (table bottom → TURNAROUND),
   // so it gets the exact same marginTop as every gap after it too.
-  footer: { marginTop: 16 },
+  footer: { flexGrow: 1, marginTop: 16, justifyContent: "space-between" },
   footerTopRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end" },
   turnaroundLine: { flexDirection: "row", alignItems: "baseline" },
   turnaroundLabel: { fontSize: 11, fontWeight: 700 },
   turnaroundOption: { fontSize: 11, fontWeight: 400, marginLeft: 20 },
-  notes: { fontSize: 11, fontStyle: "italic" },
+  // Per Tim, 2026-09-28 — "this text should always be aligned right."
+  notes: { fontSize: 11, fontStyle: "italic", textAlign: "right" },
+  // Per Tim, 2026-09-28 — same fix as blank-coc-pdf.tsx's own copy: a
+  // shared fixed width is what "right" actually right-aligns within,
+  // since each notes Text otherwise auto-sizes to its own content.
+  notesColumn: { width: 300 },
   // Per Tim, 2026-09-28 — "the stuff should always be evenly spaced, and
   // then turnaround, relinquished by, and received by should always be
   // evenly spaced as well": DATE NEEDED (its own row, between the notes
@@ -149,7 +163,7 @@ const styles = StyleSheet.create({
   // zero and made the notes visually collide with RELINQUISHED BY's own
   // date/time.
   emailNote: { fontSize: 11, fontStyle: "italic", textAlign: "right", marginTop: 16 },
-  signatureRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 16 },
+  signatureRow: { flexDirection: "row", alignItems: "flex-end" },
   signatureSubRow: { flexDirection: "row", alignItems: "flex-end" },
   // Fixed width (not auto-sized to the text) so "RELINQUISHED BY" and the
   // shorter "RECEIVED BY" both hand off to their line at the same x — the
@@ -185,7 +199,11 @@ const styles = StyleSheet.create({
   // caption below the line while the slashes above it hover just clear of
   // the line itself. left:120 sits it right after time's own column (see
   // timeOverlay below) — same left-anchored redesign as blank-coc-pdf.tsx.
-  dateTimeOverlay: { position: "absolute", left: 120, bottom: -13, alignItems: "center" },
+  // Same "flex-start" fix as blank-coc-pdf.tsx's own copy of this — see
+  // its comment: alignItems: "center" centered this caption against
+  // whatever value sits above it, so RECEIVED BY's blank (value-less)
+  // fallback landed at a different x than RELINQUISHED BY's real one.
+  dateTimeOverlay: { position: "absolute", left: 120, bottom: -13, alignItems: "flex-start" },
   dateTimeSlashes: { fontSize: 11, letterSpacing: 6 },
   dateTimeCaption: { fontSize: 8, color: "#000000", marginTop: 10 },
   // Per Tim, 2026-09-09 — time gets its own spot on the line instead of
@@ -194,7 +212,7 @@ const styles = StyleSheet.create({
   // the actual time in by hand on the line itself rather than the form
   // pre-printing a slashed format for it the way it does for the date.
   // Same as blank-coc-pdf.tsx's own copy of this.
-  timeOverlay: { position: "absolute", left: 65, bottom: -13, alignItems: "center" },
+  timeOverlay: { position: "absolute", left: 65, bottom: -13, alignItems: "flex-start" },
   timeLabel: { fontSize: 8, color: "#000000" },
 });
 
@@ -336,10 +354,10 @@ function MoldCocDocument({ job, customer, sampleType, sampleItems, turnaround, r
                 lines need to be evenly spaced... for all 3" (PLM/Spore
                 Trap → email results → license/dateNeededNote on the next
                 row all read the same distance apart now). */}
-            <View>
+            <View style={styles.notesColumn}>
               {config.turnaroundNote && <Text style={styles.notes}>{config.turnaroundNote}</Text>}
               <Text style={[styles.notes, { marginTop: config.turnaroundNote ? 16 : 0 }]}>
-                email results tim@commonwealthinspectionservices.com
+                tim@commonwealthinspectionservices.com
               </Text>
             </View>
           </View>
@@ -382,7 +400,7 @@ function MoldCocDocument({ job, customer, sampleType, sampleItems, turnaround, r
                 )}
               </View>
             </View>
-            {config.dateNeededNote && <Text style={styles.notes}>{config.dateNeededNote}</Text>}
+            {config.dateNeededNote && <Text style={[styles.notes, styles.notesColumn]}>{config.dateNeededNote}</Text>}
           </View>
 
           <View style={[styles.signatureRow, { justifyContent: "space-between" }]}>

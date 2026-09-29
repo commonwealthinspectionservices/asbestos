@@ -73,7 +73,20 @@ const styles = StyleSheet.create({
   // sibling after it) is unreliable in react-pdf's pagination pass — it
   // only reliably claims space when something follows it, which is why
   // this grows the table (before the footer) rather than the footer itself.
-  table: { flex: 1, borderWidth: 1, borderColor: LINE_COLOR },
+  // Per Tim, 2026-09-28 — "turnaround relinquished by and received by
+  // still has a lot of room above it, and I just want it to fill out
+  // all the space": table and footer now split the page's remaining
+  // height 1:5 (footer's own 3 rows get the bulk of any extra room, not
+  // just whatever's left after table claims everything) instead of
+  // table alone taking 100% and footer sitting at its own bare minimum
+  // height. Confirmed empirically — a 3:1 ratio the other way barely
+  // moved anything (table's own row content apparently already absorbs
+  // most modest space changes); this ratio was the one that actually
+  // produced a visible, evenly-spread-out footer without shrinking the
+  // table's own usable row space noticeably. flexGrow (not the flex:1
+  // shorthand) — footer needs the same ratio-based growth below, and
+  // mixing flex:1 with flexGrow-only elsewhere doesn't split predictably.
+  table: { flexGrow: 1, borderWidth: 1, borderColor: LINE_COLOR },
   tableHeaderRow: { flexDirection: "row", borderBottomWidth: 0.5, borderBottomColor: LINE_COLOR },
   tableHeaderCell: { fontSize: 11, fontWeight: 700, textAlign: "center", padding: 5, borderRightWidth: 0.5, borderRightColor: LINE_COLOR },
   tableRow: { flexDirection: "row", borderBottomWidth: 0.5, borderBottomColor: LINE_COLOR, minHeight: 20, flexGrow: 1 },
@@ -88,15 +101,27 @@ const styles = StyleSheet.create({
   colSample: { width: 66, borderRightWidth: 0.5, borderRightColor: LINE_COLOR, justifyContent: "center", alignItems: "center" },
   colMaterial: { flex: 1, borderRightWidth: 0.5, borderRightColor: LINE_COLOR, justifyContent: "center", alignItems: "center" },
   colLocation: { flex: 1, justifyContent: "center", alignItems: "center" },
-  // Per Tim, 2026-09-28 — "the stuff should always be evenly spaced":
-  // this is the very first gap in the footer (table bottom → TURNAROUND),
-  // so it gets the exact same marginTop as every gap after it too.
-  footer: { marginTop: 16 },
+  // flexGrow: 5 (paired with table's own 1, above) claims the bulk of any
+  // extra page height instead of just its own bare-minimum content size.
+  // justifyContent: "space-between" spreads TURNAROUND/RELINQUISHED
+  // BY/RECEIVED BY evenly across that whole claimed height — see
+  // signatureRow's own comment for why its fixed marginTop is gone.
+  footer: { flexGrow: 5, marginTop: 16, justifyContent: "space-between" },
   footerTopRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end" },
   turnaroundLine: { flexDirection: "row", alignItems: "baseline" },
   turnaroundLabel: { fontSize: 11, fontWeight: 700 },
   turnaroundOption: { fontSize: 11, fontWeight: 400, marginLeft: 20 },
-  notes: { fontSize: 11, fontStyle: "italic" },
+  // Per Tim, 2026-09-28 — "this text should always be aligned right."
+  notes: { fontSize: 11, fontStyle: "italic", textAlign: "right" },
+  // Per Tim, 2026-09-28 — "the right text is still not aligned right":
+  // each notes Text was auto-sized to its own content, so textAlign:
+  // "right" had no room to do anything — two lines of different length
+  // just ended at two different x's, and the license line (a separate
+  // box, on a different row) had no shared width with either. A fixed
+  // width shared by every notes line (this row's stack and the license
+  // line on the next) is what "right" actually right-aligns within,
+  // sized to comfortably fit the longest of these lines.
+  notesColumn: { width: 300 },
   // Per Tim, 2026-09-28 — "the stuff should always be evenly spaced, and
   // then turnaround, relinquished by, and received by should always be
   // evenly spaced as well": DATE NEEDED (its own row, between the notes
@@ -116,7 +141,10 @@ const styles = StyleSheet.create({
   // Still used by page 2's own "PAGE 2/2" field (see below) — the row/
   // label styles that used to sit alongside it are gone with DATE NEEDED.
   dateNeededValue: { width: 160, borderBottomWidth: 0.5, borderBottomColor: LINE_COLOR },
-  signatureRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 16 },
+  // marginTop: 0 (not 16) — footer's own justifyContent: "space-between"
+  // is what spaces this row from the ones around it now, across whatever
+  // height footer's flexGrow actually claims, not a fixed margin.
+  signatureRow: { flexDirection: "row", alignItems: "flex-end" },
   signatureSubRow: { flexDirection: "row", alignItems: "flex-end" },
   // Fixed width (not auto-sized to the text) so "RELINQUISHED BY" and the
   // shorter "RECEIVED BY" both hand off to their line at the same x — the
@@ -167,7 +195,16 @@ const styles = StyleSheet.create({
   // image at left:4), then date (left:120, right after time's own ~50pt
   // column) — and signatureLineWrap's own width was cut down to match, so
   // there's no dead space anywhere on the line.
-  dateTimeOverlay: { position: "absolute", left: 120, bottom: -13, alignItems: "center" },
+  // Per Tim, 2026-09-28 (found via RECEIVED BY's own blank fields not
+  // lining up under RELINQUISHED BY's real ones) — alignItems was
+  // "center", which centers each overlay's children (value text + this
+  // caption) relative to EACH OTHER's width. RELINQUISHED BY has a real
+  // value ("09/28/2026") to center the caption against; RECEIVED BY's
+  // blank fallback has only the caption itself, nothing to center
+  // against — so the same caption landed at a different x between the
+  // two rows. "flex-start" anchors both to the exact same left edge
+  // regardless of whether a value is present above it.
+  dateTimeOverlay: { position: "absolute", left: 120, bottom: -13, alignItems: "flex-start" },
   dateTimeSlashes: { fontSize: 11, letterSpacing: 6 },
   dateTimeCaption: { fontSize: 8, color: "#000000", marginTop: 10 },
   // Per Tim, 2026-09-09 — time gets its own spot on the line instead of
@@ -175,7 +212,8 @@ const styles = StyleSheet.create({
   // line same as date's own caption — just no slashes, since he fills
   // the actual time in by hand on the line itself rather than the form
   // pre-printing a slashed format for it the way it does for the date.
-  timeOverlay: { position: "absolute", left: 65, bottom: -13, alignItems: "center" },
+  // Same "flex-start" fix as dateTimeOverlay's own comment above.
+  timeOverlay: { position: "absolute", left: 65, bottom: -13, alignItems: "flex-start" },
   timeLabel: { fontSize: 8, color: "#000000" },
   page2Table: { flex: 1, borderWidth: 1, borderColor: LINE_COLOR, marginTop: 4 },
   // Per Tim, 2026-09-28 — "I just want for when this is the case, to
@@ -323,8 +361,8 @@ function BlankCocDocument({ job, customer, settings, sampleItems, turnaround, re
             {/* Per Tim, 2026-09-28 — "email results line should be
                 directly across on turnaround line": stacks under the PLM
                 note instead of on RELINQUISHED BY's own line. */}
-            <View>
-              <Text style={styles.notes}>*Samples for analysis by Polarized Light Microscopy</Text>
+            <View style={styles.notesColumn}>
+              <Text style={styles.notes}>Samples for analysis by Polarized Light Microscopy</Text>
               {/* Per Tim, 2026-09-28 — "these lines need to be evenly
                   spaced... for all 3": marginTop:16 here matches the same
                   gap (empirically, ~28pt) as every other gap in this
@@ -332,7 +370,7 @@ function BlankCocDocument({ job, customer, settings, sampleItems, turnaround, re
                   are all spaced identically — was 2 (visually crowded
                   right under the PLM line, next to a much bigger gap
                   down to license). */}
-              <Text style={[styles.notes, { marginTop: 16 }]}>email results tim@commonwealthinspectionservices.com</Text>
+              <Text style={[styles.notes, { marginTop: 16 }]}>tim@commonwealthinspectionservices.com</Text>
             </View>
           </View>
 
@@ -379,7 +417,7 @@ function BlankCocDocument({ job, customer, settings, sampleItems, turnaround, re
                 )}
               </View>
             </View>
-            <Text style={styles.notes}>
+            <Text style={[styles.notes, styles.notesColumn]}>
               {inspector.name} MA Asbestos Inspector License {licenseDisplay}
             </Text>
           </View>

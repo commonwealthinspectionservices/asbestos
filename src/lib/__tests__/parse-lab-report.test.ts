@@ -1041,6 +1041,42 @@ describe("extractMoldSampleCount", () => {
     expect(extractMoldSampleCount(CRYSTAL_MOLD_AIR_TWO_TABLE_REPORT, "Mold Air Sampling")).toBe(7);
   });
 
+  // 26-0041.2, 2026-09-29 — Crystal switched to one page (and one
+  // "0001\nCount\nStruct/m" run) per sample instead of bundling every
+  // sample's own code together before one shared table. Real raw
+  // pdf-parse text (not position-ordered) from that report — a {2,}
+  // minimum on CRYSTAL_SPORE_TRAP_COUNT_PATTERN (requiring at least two
+  // 4-digit codes back to back) never matched a single "0001", so
+  // reportedMoldLabels stayed empty and this report was flagged as not
+  // matching the mold domain (blocked the report packet) with no
+  // mold_air_discussion auto-fill either.
+  const CRYSTAL_MOLD_AIR_SINGLE_SAMPLE_PER_PAGE_REPORT = [
+    "Tim Hall",
+    "Commonwealth Inspection Services, LLC",
+    "118 Greenacre Road",
+    "Westwood, MA",
+    "0001",
+    "Count",
+    "Struct/m",
+    "3",
+    "% of Total",
+    "227100.0%",
+    "227100%",
+    "Lab ID: 2601004164",
+    "BIO-SOP-001",
+    "Inertial Impactor (Spore Trap)",
+    "0.075 m³",
+    "1",
+    "Sample Number",
+    "Sample Name  Inside Containment Zone in Bedroom",
+    "Crystal Analytical, LLC.      •       55 Accord Park Dr., Ste. 2D; Rockland, MA 02370      •      (781) 347-3936     •      Page 2 of 4",
+  ].join("\n");
+
+  it("counts a real Crystal spore-trap report's single sample when the report puts only one page (one code) per sample", () => {
+    expect(extractMoldSampleCount(CRYSTAL_MOLD_AIR_SINGLE_SAMPLE_PER_PAGE_REPORT, "Mold Air Sampling")).toBe(1);
+    expect(extractMoldSampleResults(CRYSTAL_MOLD_AIR_SINGLE_SAMPLE_PER_PAGE_REPORT, "Mold Air Sampling").map((r) => r.fieldCode)).toEqual(["1"]);
+  });
+
   // 26-0041.1, 2026-09-25 — a real Direct Analysis (tape-lift) report with
   // samples 1, 2A, 2B and 3: the letter-suffixed codes were missed, and 2B
   // is printed with no space after its colon.

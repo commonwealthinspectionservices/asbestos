@@ -389,6 +389,19 @@ function moldSampleFieldCodes(pdfText: string): string[] {
 // false positive: "Dedham, MA 02026" followed immediately by the real digit
 // run swallowed the "2026" into it, undercounting a 3-sample report as 4).
 //
+// Per Tim, 2026-09-29 (26-0041.2) — Crystal switched this format at some
+// point to one page (and one "0001\nCount\nStruct/m" run) per sample
+// instead of bundling every sample's own code together before one shared
+// table — confirmed against the real report's own raw pdf-parse text
+// ("...Westwood, MA\n0001\nCount\nStruct/m\n3\n% of Total..."), which a
+// {2,} minimum (requiring at least two 4-digit codes back to back) can
+// never match against a single "0001". {1,} matches both shapes —
+// whichever layout this particular email's report actually uses, one
+// pass over the whole document still finds every sample's own code
+// (multiple single-sample pages contribute one match each, same as
+// before); the zip-code protection above is the negative lookbehind, not
+// the {2,} minimum, so this doesn't reopen that old bug.
+//
 // The per-sample field code itself isn't reliably extractable this way —
 // unlike EMSL's format, a sample's real-world location name (e.g. "Kitchen",
 // "Basement Bathroom") doesn't sit in a fixed, unambiguous position relative
@@ -398,7 +411,7 @@ function moldSampleFieldCodes(pdfText: string): string[] {
 // enough to confirm a count and mark each as collected; the real location
 // is only in the uploaded report itself, same as EMSL's mold format above.
 //
-const CRYSTAL_SPORE_TRAP_COUNT_PATTERN = /(?<!\d)((?:\d{4}\s*){2,})Count\s*\n?\s*Struct\s*\/\s*m/;
+const CRYSTAL_SPORE_TRAP_COUNT_PATTERN = /(?<!\d)((?:\d{4}\s*){1,})Count\s*\n?\s*Struct\s*\/\s*m/;
 
 // Crystal's other mold format ("BIO-SOP-002, Direct Analysis" — bulk/swab
 // tape-lift) lists each physical sample as "N - <location>" at the start of

@@ -2709,11 +2709,15 @@ function JobRow({
   // when a job (commonly a subcontractor referral, like PuroClean of
   // Wakefield) never had a homeowner/site contact entered at all — a
   // blank card gave no hint anything was missing.
+  // Per Tim, 2026-09-29 — reversed for the case where NEITHER is present
+  // at all: "when there's no job site contact... let's delete this and
+  // just leave it blank" — no placeholder text, same as
+  // feedback_no_placeholder_data's own rule elsewhere in the app. Only
+  // this fully-empty case; the partial "no name"/"no phone number"
+  // fallbacks below are unchanged.
   const siteContactNode = (
     <span className="block min-w-0 truncate whitespace-nowrap text-sm text-slate-500" onClick={(e) => e.stopPropagation()}>
-      {!job.site_contact_name && !job.site_contact_phone ? (
-        <span className="italic text-slate-400">no job site contact</span>
-      ) : (
+      {!job.site_contact_name && !job.site_contact_phone ? null : (
         <>
           {job.site_contact_name ? toTitleCase(job.site_contact_name) : <span className="italic text-slate-400">no name</span>}
           {" "}
@@ -4565,7 +4569,11 @@ export function ProjectDetailDialog({
                   job.customers.companies.billing_contact || job.customers.companies.phone || job.customers.companies.billing_address
                 ) && (
                   <div className="space-y-4 sm:space-y-2">
-                    <h4 className="text-sm font-bold tracking-wide text-black underline">Company info</h4>
+                    {/* Per Tim, 2026-09-29 — "shouldn't just be company
+                        info" since every field under it (contact, phone,
+                        address) is specifically about billing, not the
+                        company generally. */}
+                    <h4 className="text-sm font-bold tracking-wide text-black underline">Billing information</h4>
                     {job.customers.companies.billing_contact && (
                       <DetailField
                         label="Billing contact"
@@ -6594,11 +6602,6 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
   // someone else entirely, so this starts false to match.
   const [siteContactSameAsContact, setSiteContactSameAsContact] = useState(false);
   const [selectedServiceTypeKeys, setSelectedServiceTypeKeys] = useState<string[]>([]);
-  const [customServiceType, setCustomServiceType] = useState("");
-  // Independent of the text itself, so checking the box first (before
-  // typing anything) sticks instead of immediately reverting — typing
-  // still checks it automatically either way.
-  const [otherChecked, setOtherChecked] = useState(false);
   // Per Tim, 2026-09-04 — Moisture Mapping got its own fixed checkbox
   // instead of having to be typed into the "Other" box every time. Only
   // shown while it isn't yet a real Settings service type (see
@@ -6831,7 +6834,7 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
           }) || undefined,
           fliProjectNumber: fliProjectNumber.trim() || undefined,
           serviceTypeKeys: selectedServiceTypeKeys,
-          customServiceType: [moistureMappingChecked ? "Moisture Mapping" : null, customServiceType.trim() || null].filter(Boolean).join(", ") || undefined,
+          customServiceType: moistureMappingChecked ? "Moisture Mapping" : undefined,
           scopeOfWork: scopeOfWork.trim() || undefined,
           requestedDate: requestedDate || undefined,
           requestedTime: requestedTime || undefined,
@@ -7367,25 +7370,6 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
                 Moisture Mapping
               </label>
             )}
-            <label className="flex items-center gap-1.5 text-sm text-slate-700">
-              <input
-                type="checkbox"
-                checked={otherChecked}
-                onChange={(e) => {
-                  setOtherChecked(e.target.checked);
-                  if (!e.target.checked) setCustomServiceType("");
-                }}
-              />
-              <input
-                type="text"
-                value={customServiceType}
-                onChange={(e) => {
-                  setCustomServiceType(e.target.value);
-                  if (e.target.value.trim() !== "") setOtherChecked(true);
-                }}
-                className="w-full min-w-0 border-b border-slate-300 bg-transparent text-sm focus:outline-none sm:w-40"
-              />
-            </label>
           </div>
         </div>
 
@@ -7456,18 +7440,21 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
             show me what it'd say": same checkbox as the "move to
             Scheduled" prompt (JobRow's confirmingSchedule modal), only
             shown once there's actually a date to tell them about. */}
+        {/* Per Tim, 2026-09-29 — "Preview email should be on the same
+            line as email them that it's scheduled directly across from
+            it and aligned all the way right": one row, not stacked. */}
         {startingStatus === "scheduled" && requestedDate && (
-          <div className="mt-3 flex flex-col gap-1.5 rounded-lg border border-slate-200 p-3">
-            <label className="flex items-start gap-2 text-sm text-slate-700">
+          <div className="mt-3 flex flex-row items-center justify-between gap-2 rounded-lg border border-slate-200 p-3">
+            <label className="flex items-center gap-2 text-sm text-slate-700">
               <input
                 type="checkbox"
                 checked={notifyOnCreate}
                 onChange={(e) => setNotifyOnCreate(e.target.checked)}
-                className="mt-0.5 h-4 w-4 accent-brand-600"
+                className="h-4 w-4 accent-brand-600"
               />
               Email them that it&apos;s scheduled
             </label>
-            <button type="button" onClick={previewEmail} className="self-start text-xs text-brand-600 underline">
+            <button type="button" onClick={previewEmail} className="shrink-0 text-xs text-brand-600 underline">
               Preview email
             </button>
           </div>

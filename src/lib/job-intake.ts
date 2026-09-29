@@ -364,6 +364,47 @@ export async function checkForJobIntakeEmails(): Promise<JobIntakeResult> {
         continue;
       }
 
+      // Per Tim, 2026-09-28 — "sometimes [the phone] is being sent in a
+      // separate email... a separate second email... I want this system
+      // to recognize that's a homeowner phone number": the same-thread
+      // check above only catches a phone-only reply sent ON the original
+      // order's own thread. Boston Harbor sometimes instead sends it as a
+      // genuinely new, separate email — its own threadId, so existingJob
+      // above never finds it. extractPhoneOnlyReply's own body-shape check
+      // (a short message with exactly one phone number) already keeps this
+      // from ever misfiring on a real new order, so it's safe to check
+      // before parseAcmOrderEmail. Backfills the sole job from this same
+      // sender's company still missing a phone number — but only when
+      // that's unambiguous (created recently, exactly one candidate);
+      // never guesses which job a bare phone number belongs to otherwise,
+      // same discipline every other address/company match in this app
+      // already follows.
+      const phoneOnly = extractPhoneOnlyReply(rawBodyText);
+      if (phoneOnly) {
+        const { data: company } = await supabase
+          .from("companies")
+          .select("id")
+          .ilike("name", sender.companyName)
+          .maybeSingle();
+        if (company) {
+          const { data: recentJobs } = await supabase
+            .from("jobs")
+            .select("id, project_number, created_at, customers!customer_id(company_id)")
+            .is("site_contact_phone", null)
+            .gte("created_at", new Date(Date.now() - 3 * 86400000).toISOString());
+          const candidateJobs = (
+            (recentJobs ?? []) as unknown as { id: string; project_number: string; customers: { company_id: string } | null }[]
+          ).filter((j) => j.customers?.company_id === company.id);
+          if (candidateJobs.length === 1) {
+            await supabase.from("jobs").update({ site_contact_phone: phoneOnly }).eq("id", candidateJobs[0].id);
+            result.phoneUpdated.push({ projectNumber: candidateJobs[0].project_number, jobId: candidateJobs[0].id });
+            await markMessageRead(accessToken, candidate.id);
+            await labelCandidate(candidate.id);
+            continue;
+          }
+        }
+      }
+
       const bodyText = forwardMatch ? strippedBody : rawBodyText;
 
       try {

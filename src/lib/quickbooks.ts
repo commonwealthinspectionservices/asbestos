@@ -2,6 +2,8 @@ import { getSupabaseAdminFresh } from "@/lib/supabase";
 import { mileageRateCentsForDay, totalMiles, type MileageDay } from "@/lib/mileage-shared";
 import { sendEmail, emailShell } from "@/lib/email";
 import { escapeHtml } from "@/lib/html";
+import { getSettingsFresh } from "@/lib/settings";
+import { addDaysIso, nowInTimeZone } from "@/lib/tz";
 
 // Per Tim, 2026-09-27 — a real, ongoing sync of the app's own mileage
 // tracking (mileage_days) into QuickBooks, so the standard-mileage-rate
@@ -286,12 +288,38 @@ export function mileageCentsForDay(day: Pick<MileageDay, "day" | "legs">): numbe
   return Math.round(miles * rateCents);
 }
 
+// Per Tim, 2026-09-28 — "I just had to edit my mileage and add some
+// stops... I want to make sure the new edited total is what actually
+// finalizes": syncing every day immediately (the original behavior) meant
+// an edit made after that day's own sync just had to wait for the next
+// daily run to catch up — usually fine, but a real gap between "what QB
+// shows" and "what's actually correct" for anywhere up to a day. Same
+// Saturday-through-Friday week Weekly Revenue/Lab Costs/Margin already
+// uses: a day only becomes eligible to sync once its own week has fully
+// ended, so mileage only ever posts to QuickBooks once settled for the
+// week, never mid-week while it's still being edited. Tim's own proposal
+// ("finalize Sunday nights") is what actually enforces this — the cron
+// now runs weekly, Sunday night — but the check lives here too so the
+// manual "Sync now" button can't jump the gun mid-week either.
+export function weekEndingFridayFor(dateIso: string): string {
+  const dow = new Date(`${dateIso}T00:00:00Z`).getUTCDay(); // 0=Sun..6=Sat
+  const daysSinceSaturday = (dow + 1) % 7; // Sat=0, Sun=1, Mon=2, ..., Fri=6
+  return addDaysIso(dateIso, 6 - daysSinceSaturday);
+}
+
+async function isWeekFinalized(dateIso: string): Promise<boolean> {
+  const { timezone } = await getSettingsFresh();
+  const todayIso = nowInTimeZone(timezone).dateIso;
+  return todayIso > weekEndingFridayFor(dateIso);
+}
+
 /**
- * Syncs every mileage_days row with a nonzero dollar amount into a
- * QuickBooks Journal Entry — creating one where none exists yet, updating
- * it where the day's miles (and so its dollar value) changed since the
- * last sync, and skipping it otherwise. Safe to call daily (cron) or
- * on-demand (admin button); never double-posts the same day.
+ * Syncs every mileage_days row with a nonzero dollar amount, whose own
+ * Saturday-through-Friday week has already fully ended, into a QuickBooks
+ * Journal Entry — creating one where none exists yet, updating it where
+ * the day's miles (and so its dollar value) changed since the last sync,
+ * and skipping it otherwise. Safe to call weekly (cron) or on-demand
+ * (admin button); never double-posts the same day.
  */
 export async function syncMileageToQuickBooks(): Promise<{ created: number; updated: number; skipped: number }> {
   const conn = await getValidConnection();
@@ -306,6 +334,7 @@ export async function syncMileageToQuickBooks(): Promise<{ created: number; upda
   let created = 0, updated = 0, skipped = 0;
 
   for (const day of days ?? []) {
+    if (!(await isWeekFinalized(day.day))) { skipped++; continue; }
     const cents = mileageCentsForDay(day as Pick<MileageDay, "day" | "legs">);
     if (cents <= 0) { skipped++; continue; }
     // A journal_entry_id only means "already posted here" if it was posted

@@ -2877,7 +2877,15 @@ function JobRow({
       role="button"
       tabIndex={0}
       onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onOpen()}
-      className="flex w-full cursor-pointer flex-col gap-2 rounded-lg border border-slate-200 bg-white p-3 hover:border-brand-400 sm:gap-0"
+      // Per Tim, 2026-09-29 — "I disagree, and I want fixed height. I'd
+      // rather see that open space": every card in this list (not just
+      // the Chain of Custody checklist's own varying line count — Report/
+      // Invoice sent-status lines, multi-domain lab checklists, etc. all
+      // already varied height before this) now shares one fixed minimum
+      // height instead of shrinking to fit its own content. min- (not a
+      // flat height) so a genuinely rare, taller-than-usual card can
+      // still grow past it rather than clipping.
+      className="flex w-full cursor-pointer flex-col gap-2 rounded-lg border border-slate-200 bg-white p-3 hover:border-brand-400 sm:min-h-44 sm:gap-0"
     >
       {/* items-start, not items-center — the status cell's own column can
           run taller than this row now (the Report:/Invoice: sent-status

@@ -61,7 +61,7 @@ import { formatCents } from "@/lib/pricing";
 import { createStripeInvoiceForJob, tagInvoiceEmailed, getStripe } from "@/lib/stripe";
 import { splitTrailingCocPages } from "@/lib/split-lab-report-coc";
 import { extractPositionOrderedText, extractSporeTrapSampleNames, extractSporeTrapTaxonColumns, extractDirectAnalysisFindingsByPosition } from "@/lib/pdf-position-text";
-import { jobReportDomains, domainForServiceTypeLabel, moldDiscussionFieldForLabel, isFullInspectionAsbestosJob, hasAllLabReports, ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, NEWTON_FIRE_FLOOD_COMPANY_ID, BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID, FLI_ENVIRONMENTAL_COMPANY_ID, reportEmailAttachmentFilename, type ReportDomain } from "@/lib/report-findings";
+import { jobReportDomains, domainForServiceTypeLabel, moldDiscussionFieldForLabel, jobCocTypes, isFullInspectionAsbestosJob, hasAllLabReports, ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, NEWTON_FIRE_FLOOD_COMPANY_ID, BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID, FLI_ENVIRONMENTAL_COMPANY_ID, reportEmailAttachmentFilename, type ReportDomain } from "@/lib/report-findings";
 import { sendEmail, emailShell } from "@/lib/email";
 import { sendJobPaidNotification } from "@/lib/booking-notify";
 import { savePaidInvoiceDocument } from "@/lib/paid-invoice";
@@ -3151,6 +3151,21 @@ async function draftCocEmailForJob({
   const mergedItems = [...otherTypeItems, ...taggedItems];
 
   const pdfBuffer = await renderCocPdfBuffer({ job, settings, cocType, sampleItems, turnaround, relinquishedDate, relinquishedTime });
+
+  // Per Tim, 2026-09-28 — "chain of custody should save with every single
+  // job... viewable and downloadable for every single job, and should
+  // remain with the job even once it's done": until now, "Create Draft"
+  // only ever emailed this PDF to the lab — the bytes never got filed
+  // anywhere, so there was nothing left to look back at once the job
+  // closed out. Reuses uploadCocDocument, the exact same
+  // storage-upload-plus-JobDocument-append this app already does for a
+  // CoC that arrives FROM the lab (a trailing page on their own report) —
+  // filed under whichever of the job's own service-type labels this
+  // cocType belongs to (jobCocTypes, same mapping the panel's own tabs
+  // use), so a job with more than one CoC type keeps them as separate
+  // documents rather than one clobbering the other.
+  const cocServiceTypeLabel = jobCocTypes(job.service_type).find((c) => c.cocType === cocType)?.label;
+  await uploadCocDocument(job, pdfBuffer, cocServiceTypeLabel);
 
   const now = new Date();
   const title = COC_TITLE[cocType];

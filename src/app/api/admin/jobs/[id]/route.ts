@@ -69,6 +69,16 @@ const EDITABLE_FIELDS = [
   "is_individual",
   "is_revisit",
   "payment_reversed_at",
+  // Per Tim, 2026-09-28 — the automated subcontractor-assignment-email
+  // parser that used to be the ONLY thing that ever wrote this field was
+  // removed 2026-09-18 (ae86beb); a subcontractor job entered by hand
+  // since then had no way to record it at all — the Compensation tab
+  // could only ever display what that parser happened to have filled in
+  // already. Restoring Fast Mold Testing's own paid job (26-XXXX, Sept
+  // 2026) needed this settable directly; the Compensation tab itself is
+  // still read-only display for now (see JobsDashboard.tsx) — worth a
+  // real edit form if manual subcontractor jobs keep coming in.
+  "subcontractor_compensation",
   // Per Tim, 2026-09-16 — the backfill's own bulk assumption (every domain
   // on the job sent together, same as report_sent_at always implicitly
   // meant before this field existed) is wrong for the rare job whose

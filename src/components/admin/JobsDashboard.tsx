@@ -3615,34 +3615,32 @@ function JobRow({
                 <div className="hidden w-full flex-col items-end gap-2 text-sm text-slate-500 sm:flex">
                   <div className="sm:min-h-5">{cocStatus}</div>
                   <div>{hasCompletedFieldwork(job.status) ? "Completed" : "Scheduled"} date: {formatDate(job.confirmed_date ?? job.requested_date) || "—"}</div>
+                  {/* Per Tim, 2026-09-29 — "Scheduled time: — I don't want
+                      desktop to do this... desktop it should be blank
+                      too": no dash fallback here either now, matching
+                      mobile's own version below. */}
                   <div>
                     {hasCompletedFieldwork(job.status) ? "Completed" : "Scheduled"} time:{" "}
                     {isSubcontractor && job.confirmed_time && job.confirmed_time === parseWindowStartTime24h(job.subcontractor_preferred_window)
                       ? extractTimeRange(job.subcontractor_preferred_window) ?? formatTime(job.confirmed_time)
-                      : formatTime(job.confirmed_time ?? job.requested_time) || "—"}
+                      : formatTime(job.confirmed_time ?? job.requested_time)}
                   </div>
                 </div>
               ) : (
               <div className={`w-full text-sm text-slate-500 sm:text-right ${showReportInvoice ? "hidden" : ""}`}>
                 <div>{hasCompletedFieldwork(job.status) ? "Completed" : "Scheduled"} date: {formatDate(job.confirmed_date ?? job.requested_date) || "—"}</div>
-                {/* Per Tim, 2026-09-29 (yet later) — "in mobile, when
-                    scheduled time is blank, instead of having a dash
-                    through it, it should just be blank with no info":
-                    this block is shared between mobile and desktop (no
-                    hidden/sm:hidden of its own), so the "—" fallback
-                    itself is wrapped in a span that's hidden on mobile
-                    (sm:inline) instead of changing the shared
-                    formatTime(...) || "—" expression outright, which
-                    would have dropped desktop's own dash too — desktop
-                    was never part of this complaint. */}
+                {/* Per Tim, 2026-09-29 — "Scheduled time: — I don't want
+                    desktop to do this... desktop it should be blank too":
+                    the earlier mobile-only fix here (a span hidden on
+                    mobile wrapping the "—" fallback) is simplified away —
+                    no dash on either breakpoint now, so the plain
+                    formatTime(...) result (empty string when blank) is
+                    enough on its own. */}
                 <div>
                   {hasCompletedFieldwork(job.status) ? "Completed" : "Scheduled"} time:{" "}
-                  {(() => {
-                    const t = isSubcontractor && job.confirmed_time && job.confirmed_time === parseWindowStartTime24h(job.subcontractor_preferred_window)
-                      ? extractTimeRange(job.subcontractor_preferred_window) ?? formatTime(job.confirmed_time)
-                      : formatTime(job.confirmed_time ?? job.requested_time);
-                    return t || <span className="hidden sm:inline">—</span>;
-                  })()}
+                  {isSubcontractor && job.confirmed_time && job.confirmed_time === parseWindowStartTime24h(job.subcontractor_preferred_window)
+                    ? extractTimeRange(job.subcontractor_preferred_window) ?? formatTime(job.confirmed_time)
+                    : formatTime(job.confirmed_time ?? job.requested_time)}
                 </div>
               </div>
               )}

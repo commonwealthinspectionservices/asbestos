@@ -330,8 +330,22 @@ function BlankCocDocument({ job, customer, settings, sampleItems, turnaround, re
               <Text style={styles.metaLabelRight}>DATE</Text>
               {/* confirmed_date first — Boston Harbor Water Restoration
                   never carries a real requested_date at all (see
-                  JobsDashboard.tsx's own reportChecklist comment). */}
-              <Text style={styles.metaValueRight}>{formatDateMDY(job?.confirmed_date ?? job?.requested_date) ?? ""}</Text>
+                  JobsDashboard.tsx's own reportChecklist comment). Per
+                  Tim, 2026-09-29 — "date of sampling must be here, it's
+                  blank": a job with neither (e.g. still To Be Scheduled)
+                  used to leave this blank — falls back to today's date
+                  now, since this form only ever gets generated/printed
+                  the day someone's actually about to use it in the
+                  field, not in advance. Local time, not
+                  toISOString/UTC — same reasoning as JobsDashboard.tsx's
+                  own todayStr (a late-evening admin near midnight UTC
+                  must never see tomorrow's date here). */}
+              <Text style={styles.metaValueRight}>
+                {formatDateMDY(job?.confirmed_date ?? job?.requested_date) ?? (() => {
+                  const now = new Date();
+                  return `${String(now.getMonth() + 1).padStart(2, "0")}/${String(now.getDate()).padStart(2, "0")}/${now.getFullYear()}`;
+                })()}
+              </Text>
             </View>
           </View>
           <View style={styles.metaBottomRow}>

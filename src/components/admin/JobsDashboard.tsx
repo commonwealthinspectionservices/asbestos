@@ -3330,14 +3330,19 @@ function JobRow({
               attempt at the same thing (removed from this div's own
               className above), which only ever stretched to match its
               row siblings' natural height, never reliably reaching the
-              card's actual bottom edge the way this reservation does. */}
+              card's actual bottom edge the way this reservation does. Per
+              Tim, 2026-09-29 (yet later) — "this does not need to be
+              there on the ready to review [page]... delete this":
+              excluded "ready_to_send" too, both mobile and desktop —
+              same reasoning as Payment Pending/Pending Lab Results,
+              fieldwork's already done by Ready for Review. */}
           <span className="hidden sm:contents">
-            {job.status !== "report_invoice_sent" && job.status !== "pending_lab_results" && job.status !== "scheduled" && (
+            {job.status !== "report_invoice_sent" && job.status !== "pending_lab_results" && job.status !== "scheduled" && job.status !== "ready_to_send" && (
               isUnscheduled ? <span className="block min-h-5">{siteContactNode}</span> : siteContactNode
             )}
           </span>
           <span className="block min-h-5 sm:hidden">
-            {job.status !== "report_invoice_sent" && job.status !== "pending_lab_results" && siteContactNode}
+            {job.status !== "report_invoice_sent" && job.status !== "pending_lab_results" && job.status !== "ready_to_send" && siteContactNode}
           </span>
           {isClosedJob(job) ? (
             <div className="flex flex-col items-start gap-0.5 px-1.5 py-1 text-xs text-slate-500 sm:items-end">

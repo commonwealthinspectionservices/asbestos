@@ -280,8 +280,19 @@ function MoldCocDocument({ job, customer, sampleType, sampleItems, turnaround, r
               <Text style={styles.metaLabelRight}>DATE</Text>
               {/* confirmed_date first — Boston Harbor Water Restoration
                   never carries a real requested_date at all (see
-                  JobsDashboard.tsx's own reportChecklist comment). */}
-              <Text style={styles.metaValueRight}>{formatDateMDY(job?.confirmed_date ?? job?.requested_date) ?? ""}</Text>
+                  JobsDashboard.tsx's own reportChecklist comment). Per
+                  Tim, 2026-09-29 — same fix as blank-coc-pdf.tsx's own
+                  DATE field: "date of sampling must be here, it's
+                  blank" — falls back to today's local date (not
+                  toISOString/UTC) when a job has neither, since this
+                  form only ever gets generated the day it's actually
+                  used in the field. */}
+              <Text style={styles.metaValueRight}>
+                {formatDateMDY(job?.confirmed_date ?? job?.requested_date) ?? (() => {
+                  const now = new Date();
+                  return `${String(now.getMonth() + 1).padStart(2, "0")}/${String(now.getDate()).padStart(2, "0")}/${now.getFullYear()}`;
+                })()}
+              </Text>
             </View>
           </View>
           <View style={styles.metaBottomRow}>

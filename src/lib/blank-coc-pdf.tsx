@@ -93,6 +93,25 @@ const styles = StyleSheet.create({
   colSample: { width: 66, borderRightWidth: 0.5, borderRightColor: LINE_COLOR, justifyContent: "center", alignItems: "center" },
   colMaterial: { flex: 1, borderRightWidth: 0.5, borderRightColor: LINE_COLOR, justifyContent: "center", alignItems: "center" },
   colLocation: { flex: 1, justifyContent: "center", alignItems: "center" },
+  // Per Tim, 2026-09-29 — "I want all the text to be aligned to start in
+  // the same spot... that means all the D's would be aligned vertically":
+  // colMaterial keeps vertical centering (justifyContent) and its overall
+  // block still centers as a whole in the column (alignItems, above) —
+  // but a shorter material ("Drywall wall base") and a longer one
+  // ("Drywall wall skim coat") no longer start at different x just
+  // because centering a variable-width Text block moves its own left
+  // edge around. A shared FIXED width (same math as the COC footer's own
+  // notesColumn fix earlier this session) plus textAlign:"left" inside it
+  // means every row's text starts flush at that box's left edge — which
+  // is identical across rows since the box's own width and its column's
+  // width never change.
+  materialTextBox: { width: 180 },
+  // Same fix, same reasoning, for Location — its longer strings (real
+  // example: "Right of entrance to office from common area - basement")
+  // wrap to 2 lines; the fixed box (rather than the column's own flexible
+  // width) is what keeps every row's own first line starting at the same
+  // x whether it wraps or not.
+  locationTextBox: { width: 180 },
   // Per Tim, 2026-09-28 — "the stuff should always be evenly spaced":
   // this is the very first gap in the footer (table bottom → TURNAROUND),
   // so it gets the exact same marginTop as every gap after it too.
@@ -321,8 +340,8 @@ function BlankCocDocument({ job, customer, settings, sampleItems, turnaround, re
           {Array.from({ length: BLANK_ROW_COUNT }).map((_, i) => (
             <View style={styles.tableRow} key={i}>
               <View style={[styles.colSample, { padding: 3 }]}><Text style={{ textAlign: "center" }}>{page1Items[i]?.sample_number ?? ""}</Text></View>
-              <View style={[styles.colMaterial, { padding: 3 }]}><Text style={{ textAlign: "center" }}>{page1Items[i]?.material ?? ""}</Text></View>
-              <View style={[styles.colLocation, { padding: 3 }]}><Text style={{ textAlign: "center" }}>{page1Items[i]?.location ?? ""}</Text></View>
+              <View style={[styles.colMaterial, { padding: 3 }]}><View style={styles.materialTextBox}><Text style={{ textAlign: "left" }}>{page1Items[i]?.material ?? ""}</Text></View></View>
+              <View style={[styles.colLocation, { padding: 3 }]}><View style={styles.locationTextBox}><Text style={{ textAlign: "left" }}>{page1Items[i]?.location ?? ""}</Text></View></View>
             </View>
           ))}
         </View>
@@ -461,8 +480,8 @@ function BlankCocDocument({ job, customer, settings, sampleItems, turnaround, re
           {Array.from({ length: PAGE_TWO_ROW_COUNT }).map((_, i) => (
             <View style={styles.tableRow} key={i}>
               <View style={[styles.colSample, { padding: 3 }]}><Text style={{ textAlign: "center" }}>{page2Items[i]?.sample_number ?? ""}</Text></View>
-              <View style={[styles.colMaterial, { padding: 3 }]}><Text style={{ textAlign: "center" }}>{page2Items[i]?.material ?? ""}</Text></View>
-              <View style={[styles.colLocation, { padding: 3 }]}><Text style={{ textAlign: "center" }}>{page2Items[i]?.location ?? ""}</Text></View>
+              <View style={[styles.colMaterial, { padding: 3 }]}><View style={styles.materialTextBox}><Text style={{ textAlign: "left" }}>{page2Items[i]?.material ?? ""}</Text></View></View>
+              <View style={[styles.colLocation, { padding: 3 }]}><View style={styles.locationTextBox}><Text style={{ textAlign: "left" }}>{page2Items[i]?.location ?? ""}</Text></View></View>
             </View>
           ))}
         </View>

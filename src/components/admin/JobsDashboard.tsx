@@ -1380,15 +1380,14 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
           </div>
         </div>
 
-        <div className="flex flex-nowrap items-center gap-3">
-          <span className="w-28 shrink-0 whitespace-nowrap text-xs font-bold uppercase text-slate-700">Date Needed</span>
-          <input
-            type="date"
-            value={dateNeeded}
-            onChange={(e) => setDateNeeded(e.target.value)}
-            className="w-32 rounded-lg border border-slate-300 px-3 py-2 text-sm"
-          />
-        </div>
+        {/* Per Tim, 2026-09-29 — "I think I want to delete this for the
+            chain of custody... I want to just be able to add in free
+            text somewhere": Date Needed's own mm/dd/yyyy picker removed
+            (desktop + the mobile copy below), pending a replacement free-
+            text field — not yet designed, don't build one speculatively.
+            dateNeeded's own state/payload plumbing is left in place
+            (still reads/writes lab_date_needed) since nothing else here
+            depends on this input specifically existing. */}
 
         <div className="flex flex-wrap items-center gap-3">
           <span className="w-28 shrink-0 whitespace-nowrap text-xs font-bold uppercase text-slate-700">Relinquished</span>

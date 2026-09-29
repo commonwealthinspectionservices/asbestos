@@ -3106,8 +3106,12 @@ function JobRow({
               stays for desktop (hidden sm:block, min-h-5 unchanged) but
               is hidden on mobile — mobile's own site-contact placement
               reverts to its pre-2026-09-29 spot instead, further down
-              this column. */}
-          {useCocRowFormat && <div className="hidden min-h-5 sm:block">{job.status === "scheduled" ? siteContactNode : null}</div>}
+              this column. Per Tim, 2026-09-29 (yet later) — "that's the
+              standard format for everything", confirmed again against a
+              Ready for Review card (41.2): no longer gated on
+              useCocRowFormat — every status reserves this row now, not
+              just Scheduled/Pending Lab Results. */}
+          <div className="hidden min-h-5 sm:block">{job.status === "scheduled" ? siteContactNode : null}</div>
           {locationName && <div className="truncate whitespace-nowrap text-sm text-slate-500">{locationName}</div>}
           {/* Mobile: tapping the address text itself (street through zip)
               opens a Google Maps/Waze picker instead of the job detail
@@ -3183,11 +3187,13 @@ function JobRow({
                 2026-09-29 (yet later) — comparing 56.1 (Pending Lab
                 Results, useCocRowFormat) against 56.2 (To Be Scheduled,
                 not previously included here) directly: "that's the
-                standard format for everything" — extended to
-                isUnscheduled too, so every status shares the exact same
-                gap-2 rhythm between street and cityStateZip instead of
-                To Be Scheduled sitting tighter than the rest. */}
-            <div className={`hidden sm:flex sm:flex-col${(useCocRowFormat || isUnscheduled) ? " sm:mt-2 sm:gap-2" : ""}`}>
+                standard format for everything", then flagged the exact
+                same tighter spacing again on a Ready for Review card
+                (41.2, neither useCocRowFormat nor isUnscheduled) — no
+                longer conditional at all: sm:mt-2/sm:gap-2 always
+                applies here now, so every status shares the identical
+                gap-2 rhythm between street and cityStateZip. */}
+            <div className="hidden sm:mt-2 sm:flex sm:flex-col sm:gap-2">
               <div className="whitespace-nowrap text-sm text-slate-500">{street}</div>
               {cityStateZip && <div className="whitespace-nowrap text-sm text-slate-500">{cityStateZip}</div>}
             </div>
@@ -3258,8 +3264,12 @@ function JobRow({
             column's own flex-[0.9] up to flex-[1.2], see below) for
             isUnscheduled specifically is what stopped the service type
             text visually running under those controls once both landed
-            on the same row. */}
-        <div className={`min-w-0 w-full sm:w-auto sm:text-center${isUnscheduled ? " sm:flex-[0.9]" : " sm:flex-[1.2]"}${(useCocRowFormat || isUnscheduled) ? " sm:mt-7" : ""}`}>
+            on the same row. Per Tim, 2026-09-29 (yet later) — "that's
+            the standard format for everything", confirmed again on a
+            Ready for Review card: the mt-7 offset is no longer gated on
+            useCocRowFormat/isUnscheduled either — every status gets it
+            now. */}
+        <div className={`min-w-0 w-full sm:mt-7 sm:w-auto sm:text-center${isUnscheduled ? " sm:flex-[0.9]" : " sm:flex-[1.2]"}`}>
           {(() => {
             const labels = (job.service_type ?? "").split(",").map((s) => s.trim()).filter(Boolean);
             return labels.map((label, i) => {

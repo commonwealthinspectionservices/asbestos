@@ -2677,9 +2677,17 @@ function JobRow({
           .sort((a, b) => b.drafted_at.localeCompare(a.drafted_at))[0];
         const sentAt = latest?.sent_at ?? null;
         return (
-          <span key={cocType} className="flex items-center gap-1">
-            {COC_TYPE_LABEL[cocType]}: {sentAt ? `Sent ${formatDateTime(sentAt)}` : "Not sent"}
-            {!sentAt && <HazardIcon />}
+          // Per Tim, 2026-09-29 — "each of these need to say chain of
+          // custody and they don't" (Report/Invoice's own labels already
+          // say what they are; the coc_type alone, e.g. "Asbestos Bulk",
+          // doesn't). "Instead of there being a yellow hazard symbol...
+          // I just want it to be a blank open checkbox that's not
+          // checked yet" — a real checkbox (checked once sent), same as
+          // the Chain of Custody tab's own row, not the HazardIcon every
+          // other status line here uses.
+          <span key={cocType} className="flex items-center gap-1.5">
+            {COC_TYPE_LABEL[cocType]} Chain of Custody: {sentAt ? `Sent ${formatDateTime(sentAt)}` : "Not sent"}
+            <input type="checkbox" checked={Boolean(sentAt)} disabled readOnly />
           </span>
         );
       })}

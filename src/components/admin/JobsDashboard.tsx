@@ -5289,26 +5289,38 @@ export function ProjectDetailDialog({
                 latest coc_log entry per type the same way
                 checkCocDraftSentStatus/cocStatus already do elsewhere. A
                 label with no COC concept at all (lead) shows nothing here,
-                same as those. */}
-            {jobCocTypes(job.service_type).length > 0 && (
-              <DetailField
-                label="Chain of Custody Sent"
-                value={
-                  <div className="flex flex-col gap-0.5">
-                    {jobCocTypes(job.service_type).map(({ cocType }) => {
-                      const latest = (job.coc_log ?? [])
-                        .filter((h) => h.coc_type === cocType)
-                        .sort((a, b) => b.drafted_at.localeCompare(a.drafted_at))[0];
-                      return (
+                same as those. Per Tim, same day — "delete where it says
+                mold air-o-cell colon, this should be entirely blank if it
+                has not yet been sent": a type with no sent_at yet is
+                dropped from the list entirely (not shown with a blank
+                value), and the whole field hides itself (via DetailField's
+                own empty-value check below) once nothing on the job has
+                actually gone out yet. */}
+            {(() => {
+              const sentCocLines = jobCocTypes(job.service_type)
+                .map(({ cocType }) => {
+                  const latest = (job.coc_log ?? [])
+                    .filter((h) => h.coc_type === cocType)
+                    .sort((a, b) => b.drafted_at.localeCompare(a.drafted_at))[0];
+                  return latest?.sent_at ? { cocType, sentAt: latest.sent_at } : null;
+                })
+                .filter((line): line is { cocType: CocType; sentAt: string } => line != null);
+              if (sentCocLines.length === 0) return null;
+              return (
+                <DetailField
+                  label="Chain of Custody Sent"
+                  value={
+                    <div className="flex flex-col gap-0.5">
+                      {sentCocLines.map(({ cocType, sentAt }) => (
                         <div key={cocType}>
-                          {COC_TYPE_LABEL[cocType]}: {latest?.sent_at ? formatDateTime(latest.sent_at) : ""}
+                          {COC_TYPE_LABEL[cocType]}: {formatDateTime(sentAt)}
                         </div>
-                      );
-                    })}
-                  </div>
-                }
-              />
-            )}
+                      ))}
+                    </div>
+                  }
+                />
+              );
+            })()}
             {/* Per Tim, 2026-08-31 — "this part should be aligned left":
                 moved from the right column (which had grown much taller
                 than this one) down here, in the open space below Scope of

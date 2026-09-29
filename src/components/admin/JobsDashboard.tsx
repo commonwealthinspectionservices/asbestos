@@ -3414,7 +3414,13 @@ function JobRow({
                     layout quirks no longer matter since nothing about it is
                     ever seen. */}
                 <div
-                  className="relative w-28 shrink-0 rounded-lg border border-slate-300 bg-white"
+                  // Per Tim, 2026-09-29 — "let's make these two cells
+                  // smaller so that there's no unnecessary white space":
+                  // w-28 (112px) left real slack around even the longest
+                  // realistic values ("09/29/2026", "12:00 PM") — w-20
+                  // (80px) fits both with a few px to spare, confirmed
+                  // live against the real rendered boxes, no clipping.
+                  className="relative w-20 shrink-0 rounded-lg border border-slate-300 bg-white"
                   // Tapping anywhere opens the native picker on mobile, but
                   // desktop Chrome/Edge only do that for a real click on the
                   // tiny calendar-icon glyph — invisible here since the
@@ -3442,7 +3448,7 @@ function JobRow({
                     what made Time visibly shaded next to Date's plain
                     white box. The stripped native arrow is replaced with
                     the same manual chevron those other selects use. */}
-                <div className="relative w-28 shrink-0">
+                <div className="relative w-20 shrink-0">
                   <select
                     value={manualTime}
                     onChange={(e) => setManualTime(e.target.value)}

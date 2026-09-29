@@ -691,6 +691,21 @@ const COC_HAS_MATERIAL: Record<CocType, boolean> = {
   mold_swab: true,
 };
 
+// Per Tim, 2026-09-28 — "the standard format for mold air cells and mold
+// bulk samples and just mold in general is just sample one, sample two,
+// sample three, not the 1A, 1B, 2A, 2B system like asbestos has... mold
+// is always just plain one, two, three": a SEPARATE concept from
+// COC_HAS_MATERIAL above — mold_bulk/mold_swab still have a real
+// Material/Surface Swabbed field per sample (COC_HAS_MATERIAL stays
+// true), they just never pair two rows under one number+letter the way
+// asbestos does. Only asbestos_bulk pairs.
+const COC_PAIRS_SAMPLES: Record<CocType, boolean> = {
+  asbestos_bulk: true,
+  mold_air_o_cell: false,
+  mold_bulk: false,
+  mold_swab: false,
+};
+
 // Common materials the admin can pick from instead of typing one out every
 // time. Per Tim, 2026-09-28 — asbestos_bulk moved to a real source (Ray's
 // Library, see fetchMaterialOptions in ChainOfCustodyPanel) instead of
@@ -731,6 +746,7 @@ const COC_MATERIAL_PRESETS: Record<CocType, string[]> = {
 // a common one out every time.
 function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer; cocType: CocType; onChanged: () => void }) {
   const hasMaterial = COC_HAS_MATERIAL[cocType];
+  const pairsSamples = COC_PAIRS_SAMPLES[cocType];
   // Per Tim, 2026-09-28 — "I only want it to suggest something based off
   // of what I'm typing... too many different options to just have one
   // drop-down list... it should sense what I'm writing in and then
@@ -789,10 +805,11 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
     // Per Tim, 2026-09-28 — "the default standard for the starting point
     // should be 01A and 01B... not just 01A like it is now": a fresh
     // panel starts with the first material's whole A+B pair already
-    // there, same as what "+ Add material" appends from then on — not
-    // just a lone A row. Air-O-Cell (hasMaterial: false) has no A/B
-    // pairing concept at all, so it still starts with just one row.
-    return hasMaterial
+    // there, same as what "+ Add material" appends from then on. Only
+    // asbestos_bulk pairs (see COC_PAIRS_SAMPLES) — mold is "always just
+    // plain one, two, three" even though mold_bulk/mold_swab still have
+    // their own Material/Surface Swabbed field (hasMaterial).
+    return pairsSamples
       ? [
           { sample_number: defaultSampleCode(0, true), material: "", location: "", start_time: "", end_time: "" },
           { sample_number: defaultSampleCode(1, true), material: "", location: "", start_time: "", end_time: "" },
@@ -917,7 +934,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
   function updateRow(i: number, field: "sample_number" | "material" | "location" | "start_time" | "end_time", value: string) {
     setRows((prev) => {
       const next = prev.map((r, idx) => (idx === i ? { ...r, [field]: value } : r));
-      if ((field === "material" || field === "location") && hasMaterial && i % 2 === 0 && i + 1 < next.length) {
+      if ((field === "material" || field === "location") && pairsSamples && i % 2 === 0 && i + 1 < next.length) {
         const bRow = prev[i + 1];
         if (bRow[field] === prev[i][field] || bRow[field] === "") {
           next[i + 1] = { ...next[i + 1], [field]: value };
@@ -937,9 +954,11 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
   // at the same time": the number identifies the material, the letter
   // which physical sample of it — so adding "one more material" means
   // adding its whole A+B pair at once, not one bare row at a time.
-  // Doesn't apply to Air-O-Cell (hasMaterial: false) — there's no
-  // material/A-B pairing concept there at all, just plain sequential
-  // samples, so that one stays "+ Add sample", one row at a time.
+  // Only applies when COC_PAIRS_SAMPLES is true (asbestos_bulk only) —
+  // every mold type (including mold_bulk/mold_swab, which do have their
+  // own Material/Surface Swabbed field) is "always just plain one, two,
+  // three": no A/B pairing concept at all, so those stay "+ Add sample",
+  // one row at a time.
   //
   // Per Tim, 2026-09-28 — went through a few rounds on Location's default
   // for a new row (copy from the row above; copy same-letter across
@@ -954,7 +973,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
   // be wrong.
   function addRow() {
     setRows((prev) => {
-      if (!hasMaterial) {
+      if (!pairsSamples) {
         return [...prev, { sample_number: defaultSampleCode(prev.length, false), material: "", location: "", start_time: "", end_time: "" }];
       }
       return [
@@ -1312,7 +1331,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
       </div>
 
       <div className="mt-3 flex justify-end">
-        <button type="button" onClick={addRow} className="shrink-0 text-sm font-medium text-brand-600 hover:underline">{hasMaterial ? "+ Add material" : "+ Add sample"}</button>
+        <button type="button" onClick={addRow} className="shrink-0 text-sm font-medium text-brand-600 hover:underline">{pairsSamples ? "+ Add material" : "+ Add sample"}</button>
       </div>
 
       {/* Per Tim, 2026-09-28 — "turnaround[,] date needed[,] and then

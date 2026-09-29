@@ -59,11 +59,15 @@ export function airOCellEndTime(startTime: string): string {
 // recomputed out from under an edit — see ChainOfCustodyPanel.tsx's own
 // addRow, which calls this once per new row rather than live-deriving the
 // whole list on every render the old version did.
-// No material field on Air-O-Cell (see the coc-pdf files' own
-// thirdColumnLabel: null) — those just number sequentially with no
-// letters, matching his own real Air-O-Cell COC.
-export function defaultSampleCode(index: number, hasMaterial: boolean): string {
-  if (!hasMaterial) return String(index + 1);
+// The boolean param means "pairs samples into lettered A/B groups"
+// (COC_PAIRS_SAMPLES in JobsDashboard.tsx), not "has a Material field" —
+// asbestos_bulk is the only coc_type that pairs. Per Tim, 2026-09-28:
+// "mold is always just plain one, two, three" — mold_bulk/mold_swab DO
+// have their own Material/Surface Swabbed field, but still never pair;
+// only mold_air_o_cell has no material-like field at all. Both cases
+// pass false here and get plain sequential numbers with no letters.
+export function defaultSampleCode(index: number, pairsSamples: boolean): string {
+  if (!pairsSamples) return String(index + 1);
   const pairIndex = Math.floor(index / 2);
   const letter = index % 2 === 0 ? "A" : "B";
   return `${String(pairIndex + 1).padStart(2, "0")}${letter}`;

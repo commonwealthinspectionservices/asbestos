@@ -295,6 +295,21 @@ function BlankCocDocument({ job, customer, settings, sampleItems, turnaround, re
   const licenseDisplay = inspector.license_number.replace(/^([A-Za-z]+)(\d+)$/, "$1 $2");
   const page1Items = (sampleItems ?? []).slice(0, BLANK_ROW_COUNT);
   const page2Items = (sampleItems ?? []).slice(BLANK_ROW_COUNT, BLANK_ROW_COUNT + PAGE_TWO_ROW_COUNT);
+  // Per Tim, 2026-09-29 — real example (26-0053, 4 samples): "for ones
+  // like this where the second page is not being used, it should be
+  // excluded... only pages with cells with info in them should be
+  // included." The continuation sheet used to always print, blank rows
+  // and all, whenever a job had 20 or fewer samples.
+  //
+  // Only applies to the electronic path (sampleItems actually passed, a
+  // known/fixed sample count) — sampleItems undefined means this is a
+  // hand-fill-in-the-field blank form (see BlankCocData's own comment),
+  // either the generic job-independent one (job: null) or a per-job
+  // pre-filled-header one (src/app/api/admin/jobs/[id]/blank-coc/route.ts)
+  // — the admin can't know ahead of time how many samples they'll take on
+  // paper, so that continuation sheet always has to be there regardless
+  // of row count.
+  const hasPage2 = sampleItems === undefined ? true : page2Items.length > 0;
   return (
     <Document title={job ? `Chain of Custody — ${expandAddress(job.service_address)}` : "Chain of Custody — Blank"}>
       <Page size="LETTER" style={styles.page}>
@@ -450,11 +465,12 @@ function BlankCocDocument({ job, customer, settings, sampleItems, turnaround, re
             {/* Per Tim, 2026-09-28 — "if there's just one page, I always
                 just write one slash one... if there's two pages and
                 this is the first page, I'd write one slash two, and on
-                the second page, two slash two": this form is always a
-                fixed 2-page document (a continuation sheet whether or
-                not it actually holds real rows — see the Page 2 comment
-                below), so page 1's field is always "1/2". */}
-            <Text style={[styles.signatureLine, { width: 70, marginLeft: 4, textAlign: "center" }]}>1/2</Text>
+                the second page, two slash two". Per Tim, 2026-09-29 —
+                the continuation sheet no longer always exists (see
+                hasPage2 above), so this now genuinely reflects whether
+                there's a real second page instead of always saying
+                "1/2". */}
+            <Text style={[styles.signatureLine, { width: 70, marginLeft: 4, textAlign: "center" }]}>{hasPage2 ? "1/2" : "1/1"}</Text>
           </View>
         </View>
       </Page>
@@ -462,41 +478,47 @@ function BlankCocDocument({ job, customer, settings, sampleItems, turnaround, re
       {/* Continuation sheet — same real form as page 1, for when a job has
           more samples than fit on the first page's table. No meta/signature
           fields here, just more rows plus the project #/page # a loose
-          second sheet needs to stay identifiable. */}
-      <Page size="LETTER" style={styles.page}>
-        <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            <Image src={LETTERHEAD_PATH} style={styles.letterhead} />
-          </View>
-          <Text style={styles.title}>ASBESTOS BULK SAMPLE CHAIN OF CUSTODY</Text>
-        </View>
-
-        <View style={styles.page2Table}>
-          <View style={styles.tableHeaderRow}>
-            <Text style={[styles.tableHeaderCell, styles.colSample]}>SAMPLE #</Text>
-            <Text style={[styles.tableHeaderCell, styles.colMaterial]}>MATERIAL</Text>
-            <Text style={[styles.tableHeaderCell, styles.colLocation, { borderRightWidth: 0 }]}>LOCATION</Text>
-          </View>
-          {Array.from({ length: PAGE_TWO_ROW_COUNT }).map((_, i) => (
-            <View style={styles.tableRow} key={i}>
-              <View style={[styles.colSample, { padding: 3 }]}><Text style={{ textAlign: "center" }}>{page2Items[i]?.sample_number ?? ""}</Text></View>
-              <View style={[styles.colMaterial, { padding: 3 }]}><View style={styles.materialTextBox}><Text style={{ textAlign: "left" }}>{page2Items[i]?.material ?? ""}</Text></View></View>
-              <View style={[styles.colLocation, { padding: 3 }]}><View style={styles.locationTextBox}><Text style={{ textAlign: "left" }}>{page2Items[i]?.location ?? ""}</Text></View></View>
+          second sheet needs to stay identifiable. Per Tim, 2026-09-29 —
+          "for ones like this where the second page is not being used, it
+          should be excluded... only pages with cells with info in them
+          should be included": no longer printed at all when there's
+          nothing real for it to hold (hasPage2 above). */}
+      {hasPage2 && (
+        <Page size="LETTER" style={styles.page}>
+          <View style={styles.header}>
+            <View style={styles.headerLeft}>
+              <Image src={LETTERHEAD_PATH} style={styles.letterhead} />
             </View>
-          ))}
-        </View>
+            <Text style={styles.title}>ASBESTOS BULK SAMPLE CHAIN OF CUSTODY</Text>
+          </View>
 
-        <View style={styles.page2Footer}>
-          <View style={styles.signatureSubRow}>
-            <Text style={styles.page2FieldLabel}>PROJECT #</Text>
-            <Text style={styles.page2FieldValue}>{job?.project_number ?? ""}</Text>
+          <View style={styles.page2Table}>
+            <View style={styles.tableHeaderRow}>
+              <Text style={[styles.tableHeaderCell, styles.colSample]}>SAMPLE #</Text>
+              <Text style={[styles.tableHeaderCell, styles.colMaterial]}>MATERIAL</Text>
+              <Text style={[styles.tableHeaderCell, styles.colLocation, { borderRightWidth: 0 }]}>LOCATION</Text>
+            </View>
+            {Array.from({ length: PAGE_TWO_ROW_COUNT }).map((_, i) => (
+              <View style={styles.tableRow} key={i}>
+                <View style={[styles.colSample, { padding: 3 }]}><Text style={{ textAlign: "center" }}>{page2Items[i]?.sample_number ?? ""}</Text></View>
+                <View style={[styles.colMaterial, { padding: 3 }]}><View style={styles.materialTextBox}><Text style={{ textAlign: "left" }}>{page2Items[i]?.material ?? ""}</Text></View></View>
+                <View style={[styles.colLocation, { padding: 3 }]}><View style={styles.locationTextBox}><Text style={{ textAlign: "left" }}>{page2Items[i]?.location ?? ""}</Text></View></View>
+              </View>
+            ))}
           </View>
-          <View style={styles.signatureSubRow}>
-            <Text style={styles.pageLabel}>PAGE</Text>
-            <Text style={[styles.dateNeededValue, { width: 60, marginLeft: 4, textAlign: "center" }]}>2/2</Text>
+
+          <View style={styles.page2Footer}>
+            <View style={styles.signatureSubRow}>
+              <Text style={styles.page2FieldLabel}>PROJECT #</Text>
+              <Text style={styles.page2FieldValue}>{job?.project_number ?? ""}</Text>
+            </View>
+            <View style={styles.signatureSubRow}>
+              <Text style={styles.pageLabel}>PAGE</Text>
+              <Text style={[styles.dateNeededValue, { width: 60, marginLeft: 4, textAlign: "center" }]}>2/2</Text>
+            </View>
           </View>
-        </View>
-      </Page>
+        </Page>
+      )}
     </Document>
   );
 }

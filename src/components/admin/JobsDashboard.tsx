@@ -3179,8 +3179,15 @@ function JobRow({
                 column's own outer div (below) so it's never forced
                 narrower than that one-line text needs, which is what
                 actually stops it overlapping the neighboring columns
-                now that it's not allowed to wrap or shrink. */}
-            <div className={`hidden sm:flex sm:flex-col${useCocRowFormat ? " sm:mt-2 sm:gap-2" : ""}`}>
+                now that it's not allowed to wrap or shrink. Per Tim,
+                2026-09-29 (yet later) — comparing 56.1 (Pending Lab
+                Results, useCocRowFormat) against 56.2 (To Be Scheduled,
+                not previously included here) directly: "that's the
+                standard format for everything" — extended to
+                isUnscheduled too, so every status shares the exact same
+                gap-2 rhythm between street and cityStateZip instead of
+                To Be Scheduled sitting tighter than the rest. */}
+            <div className={`hidden sm:flex sm:flex-col${(useCocRowFormat || isUnscheduled) ? " sm:mt-2 sm:gap-2" : ""}`}>
               <div className="whitespace-nowrap text-sm text-slate-500">{street}</div>
               {cityStateZip && <div className="whitespace-nowrap text-sm text-slate-500">{cityStateZip}</div>}
             </div>

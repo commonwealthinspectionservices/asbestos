@@ -3048,8 +3048,17 @@ function JobRow({
               is null (no name/phone on file) — an empty <span> alone
               collapses to zero height, which was silently pulling
               street/cityStateZip up into rows 1-2 instead of staying on
-              rows 2-3. */}
-          {job.status === "scheduled" && <div className="sm:min-h-5">{siteContactNode}</div>}
+              rows 2-3. Per Tim, 2026-09-29 (real example, 26-0057
+              scheduled for a future date) — scoped to cocStatus
+              specifically, not job.status === "scheduled" alone: a job
+              scheduled for a day that hasn't arrived yet has no
+              checklist (cocStatus false) and the date column reverts to
+              its plain 2-line Scheduled date/time block — reserving this
+              row unconditionally left the address column with an extra
+              row that plain 2-line block never had, so "Scheduled date"/
+              "Scheduled time" no longer lined up with street/cityStateZip
+              at all. */}
+          {cocStatus && <div className="sm:min-h-5">{siteContactNode}</div>}
           {locationName && <div className="truncate whitespace-nowrap text-sm text-slate-500">{locationName}</div>}
           {/* Mobile: tapping the address text itself (street through zip)
               opens a Google Maps/Waze picker instead of the job detail
@@ -3096,8 +3105,12 @@ function JobRow({
                 same gap-2 rhythm as the date column's own 3 lines, so
                 every row across both columns lines up and every line
                 within each column is evenly spaced, not just tightly
-                stacked. */}
-            <div className="hidden sm:mt-2 sm:flex sm:flex-col sm:gap-2">
+                stacked. Scoped to cocStatus, same reasoning as the site-
+                contact reservation above — a job whose day hasn't
+                arrived yet (cocStatus false) has no reserved row 1 and
+                its date column is the plain, un-gapped 2-line block, so
+                this reverts to that same plain stacking to match it. */}
+            <div className={`hidden sm:flex sm:flex-col${cocStatus ? " sm:mt-2 sm:gap-2" : ""}`}>
               <div className="truncate whitespace-nowrap text-sm text-slate-500">{street}</div>
               {cityStateZip && <div className="truncate whitespace-nowrap text-sm text-slate-500">{cityStateZip}</div>}
             </div>
@@ -3137,20 +3150,20 @@ function JobRow({
         {/* Per Tim, 2026-09-29 — "the town and state should always be
             directly across on the same line as the service type": a
             fixed offset instead of true vertical centering (which
-            drifted once Confirmation Sent was removed above) — 2 lines'
-            worth of margin (site contact, then street), landing this
-            column's own single line flush with city/state/zip, the
-            address column's 3rd line. Caveat: a job with no site
-            contact on file (siteContactNode renders nothing then) shifts
-            city/state/zip up one line, one line off from this fixed
-            offset — not worth a full grid-based layout for that one
-            edge case. Per Tim's own follow-up — "service type should
-            actually be on the middle line... of the three lines, it
-            should be on line number two" — and "all the lines need to be
-            evenly spaced as well": mt-7 (one line + one gap-2, matching
-            the address/date columns' own now-identical line+gap rhythm
-            below) lands this on row 2 instead of row 3. */}
-        <div className="min-w-0 w-full sm:mt-7 sm:w-auto sm:flex-[1.2] sm:text-center">
+            drifted once Confirmation Sent was removed above) — mt-7
+            (one line + one gap-2, matching the address/date columns'
+            own gap-2 rhythm) lands this on row 2, matching "service
+            type should actually be on the middle line... it should be
+            on line number two" and "all the lines need to be evenly
+            spaced as well." Per Tim, 2026-09-29 (real example, Pending
+            Lab Results/"Completed date" instead of Scheduled) — mt-7
+            was unconditional, so it also pushed this column down on
+            every OTHER status, which never asked for it and has its own
+            different (2-line, no gap-2) date-column layout entirely.
+            Scoped to cocStatus specifically (only ever true while
+            "Scheduled") — every other status keeps its plain top
+            alignment, same as before any of this row-alignment work. */}
+        <div className={`min-w-0 w-full sm:w-auto sm:flex-[1.2] sm:text-center${cocStatus ? " sm:mt-7" : ""}`}>
           {(() => {
             const labels = (job.service_type ?? "").split(",").map((s) => s.trim()).filter(Boolean);
             return labels.map((label, i) => {

@@ -343,6 +343,44 @@ export async function recordProjectRevenueInQuickBooks(params: {
   return { depositId: result.Deposit.Id };
 }
 
+/**
+ * One-off cleanup tool, 2026-09-29 — recordProjectRevenueInQuickBooks
+ * above was turned off (see subcontractor-payment-intake.ts's own
+ * comment) after it was confirmed to duplicate revenue that QuickBooks'
+ * bank feed was already recording independently. This finds every
+ * Deposit on a given date so the admin route calling it can identify —
+ * and a human can confirm — which one was this automation's own
+ * now-redundant entry, before deleteQuickBooksDeposit removes it.
+ */
+export async function findQuickBooksDepositsByDate(date: string): Promise<{
+  id: string;
+  syncToken: string;
+  totalAmt: number;
+  privateNote: string | null;
+  depositToAccountValue: string | null;
+}[]> {
+  const conn = await getValidConnection();
+  const query = `select * from Deposit where TxnDate = '${date}'`;
+  const result = await qbFetch(conn, `/query?query=${encodeURIComponent(query)}`);
+  const deposits: any[] = result?.QueryResponse?.Deposit ?? [];
+  return deposits.map((d) => ({
+    id: d.Id,
+    syncToken: d.SyncToken,
+    totalAmt: d.TotalAmt,
+    privateNote: d.PrivateNote ?? null,
+    depositToAccountValue: d.DepositToAccountRef?.value ?? null,
+  }));
+}
+
+/** Deletes one Deposit by Id/SyncToken — see findQuickBooksDepositsByDate's own comment on what this is for. */
+export async function deleteQuickBooksDeposit(id: string, syncToken: string): Promise<void> {
+  const conn = await getValidConnection();
+  await qbFetch(conn, "/deposit?operation=delete", {
+    method: "POST",
+    body: JSON.stringify({ Id: id, SyncToken: syncToken }),
+  });
+}
+
 /** cents, rounded to the nearest cent, for one mileage day at its own day's IRS rate. */
 export function mileageCentsForDay(day: Pick<MileageDay, "day" | "legs">): number {
   const miles = totalMiles(day);

@@ -5258,6 +5258,34 @@ export function ProjectDetailDialog({
                 visible, plain fallback text" treatment as Scope of Work
                 right above (job.scope_of_work || "—"). */}
             <DetailField label="Confirmation Sent" value={job.confirmation_sent_at ? formatDateTime(job.confirmation_sent_at) : "Not sent"} />
+            {/* Per Tim, 2026-09-29 — "this should have a spot for chain of
+                custody sent directly beneath confirmation sent": one line
+                per coc_type this job actually has (a combo job — e.g.
+                asbestos + mold — gets its own Chain of Custody per type,
+                same as the job preview card's own checklist), reading the
+                latest coc_log entry per type the same way
+                checkCocDraftSentStatus/cocStatus already do elsewhere. A
+                label with no COC concept at all (lead) shows nothing here,
+                same as those. */}
+            {jobCocTypes(job.service_type).length > 0 && (
+              <DetailField
+                label="Chain of Custody Sent"
+                value={
+                  <div className="flex flex-col gap-0.5">
+                    {jobCocTypes(job.service_type).map(({ cocType }) => {
+                      const latest = (job.coc_log ?? [])
+                        .filter((h) => h.coc_type === cocType)
+                        .sort((a, b) => b.drafted_at.localeCompare(a.drafted_at))[0];
+                      return (
+                        <div key={cocType}>
+                          {COC_TYPE_LABEL[cocType]}: {latest?.sent_at ? formatDateTime(latest.sent_at) : "Not sent"}
+                        </div>
+                      );
+                    })}
+                  </div>
+                }
+              />
+            )}
             {/* Per Tim, 2026-08-31 — "this part should be aligned left":
                 moved from the right column (which had grown much taller
                 than this one) down here, in the open space below Scope of

@@ -3138,23 +3138,14 @@ function JobRow({
               <span className="block text-sm text-slate-500">{street}</span>
               {cityStateZip && <span className="block text-sm text-slate-500">{cityStateZip}</span>}
             </button>
-            {/* Per Tim, 2026-08-27 — Invoice directly above Report, both
-                left-aligned, sitting right after the address block instead
-                of interrupting it. Per Tim, 2026-09-29 (later same night)
-                — mt-1/no gap-2 reverted back, mobile-only (desktop's own
-                gap-2 rhythm below is unaffected). */}
-            {showReportInvoice && (
-              <div className="mt-1 flex flex-col items-start sm:hidden">
-                {paymentPendingCompletedDate}
-                {invoiceStatus}
-                {reportStatus}
-              </div>
-            )}
-            {showInvoiceOnly && (
-              <div className="mt-1 flex flex-col items-start sm:hidden">
-                {invoiceStatus}
-              </div>
-            )}
+            {/* Per Tim, 2026-09-29 (yet later) — "I want the service type
+                always to be directly below the address" (general mobile
+                rule) — Invoice/Report moved out of here entirely, into
+                its own row between the service-type column and the
+                third column below (same DOM order as the row's own
+                columns already put them in on desktop: address, service
+                type, status info) — see that new block for the full
+                comment. */}
             {/* Per Tim, 2026-09-29 (later same night) — "the old format
                 for mobile before tonight was way better... revert all my
                 mobile changes": the mobile Chain of Custody checklist row
@@ -3299,6 +3290,37 @@ function JobRow({
             });
           })()}
         </div>
+
+        {/* Per Tim, 2026-09-29 (yet later) — "I'm thinking that the order
+            for mobile for ready to review should be company name,
+            address, service type, and then the invoice and report not
+            sent thing", generalized right after to "for mobile in
+            general, I want the service type always to be directly below
+            the address... my whole goal is to have a standard format for
+            each": Invoice/Report (and the Payment Pending date line that
+            shares this same slot) used to render inside the address
+            column, sitting right after the street/cityStateZip lines —
+            ahead of service type in DOM order, which put it between
+            address and service type on mobile's single-column stack.
+            Moved here instead — its own row, after service type — so
+            mobile always reads address, then service type, then
+            whatever status-specific info comes next, matching this same
+            row's own column order (address, service type, status info)
+            that desktop already uses. mt-2, matching every other gap in
+            this stack. */}
+        {(showReportInvoice || showInvoiceOnly) && (
+          <div className="flex w-full flex-col items-start gap-2 mt-2 sm:hidden">
+            {showReportInvoice ? (
+              <>
+                {paymentPendingCompletedDate}
+                {invoiceStatus}
+                {reportStatus}
+              </>
+            ) : (
+              invoiceStatus
+            )}
+          </div>
+        )}
 
         <div className={`flex min-w-0 w-full flex-col items-start gap-1.5 sm:w-auto sm:items-end${isUnscheduled ? " sm:flex-[1.2]" : " sm:flex-[0.9]"}`}>
           {/* Site contact (usually the homeowner) — shown regardless of

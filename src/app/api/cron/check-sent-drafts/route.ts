@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireCronAuth, withCronAlert } from "@/lib/cron-auth";
 import { withApiErrors } from "@/lib/api-handler";
 import { getSupabaseAdmin } from "@/lib/supabase";
-import { checkDraftSentStatus, checkForBouncedSends, reconcileFullySentJobStatuses } from "@/lib/lab-email";
+import { checkDraftSentStatus, checkCocDraftSentStatus, checkForBouncedSends, reconcileFullySentJobStatuses } from "@/lib/lab-email";
 import { backfillMissingStripeFees } from "@/lib/stripe-fee-backfill";
 
 // Reads req.headers (via requireCronAuth) — without this, Next tries to
@@ -43,6 +43,29 @@ export const GET = withApiErrors(withCronAlert("check-sent-drafts", async (req: 
     }
   }
 
+  // Per Tim, 2026-09-29 — "I kind of want to track when my chain of
+  // custody has been sent out to the lab... once I send that chain of
+  // custody out, it should move to pending lab results automatically":
+  // same proactive-checking reasoning as the report/invoice loop above —
+  // a COC sent while nothing was watching shouldn't sit undetected until
+  // someone happens to reopen that job's Chain of Custody tab. Scoped to
+  // "scheduled" jobs only (checkCocDraftSentStatus's own status-advance
+  // gate never fires from any other status anyway, so this is just an
+  // optimization, not a correctness requirement — a job with a coc_log
+  // but no longer "scheduled" is cheap to check and immediately no-ops).
+  const { data: scheduledJobsWithCoc } = await supabase
+    .from("jobs")
+    .select("id, project_number")
+    .eq("status", "scheduled")
+    .not("coc_log", "is", null);
+  const cocResults: { projectNumber: string | null; types: { cocType: string; status: string; sentAt?: string }[] }[] = [];
+  for (const job of scheduledJobsWithCoc ?? []) {
+    const result = await checkCocDraftSentStatus(job.id);
+    if (result.types.some((t) => t.status === "sent")) {
+      cocResults.push({ projectNumber: job.project_number, types: result.types });
+    }
+  }
+
   // Per Tim, 2026-09-01 — same 15-minute cadence catches a real bounce
   // (Gmail's own Mail Delivery Subsystem notice) for something this app
   // just marked sent above, and undoes the sent status/tracker advance —
@@ -66,5 +89,5 @@ export const GET = withApiErrors(withCronAlert("check-sent-drafts", async (req: 
     return null;
   });
 
-  return NextResponse.json({ checked: jobs?.length ?? 0, newlySent: results, bounces, reconciled, stripeFees });
+  return NextResponse.json({ checked: jobs?.length ?? 0, newlySent: results, cocChecked: scheduledJobsWithCoc?.length ?? 0, cocNewlySent: cocResults, bounces, reconciled, stripeFees });
 }));

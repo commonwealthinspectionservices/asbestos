@@ -710,6 +710,18 @@ const COC_PAIRS_SAMPLES: Record<CocType, boolean> = {
   mold_swab: false,
 };
 
+// Short display title per coc_type, used by the Chain of Custody panel's
+// own sent-status checklist row (see ChainOfCustodyPanel below) — same
+// wording as lib/lab-email.ts's own COC_TITLE with " Sample" dropped
+// (that server-only module isn't importable from this client component),
+// matching the PDF attachment filename convention from the same session.
+const COC_TYPE_LABEL: Record<CocType, string> = {
+  asbestos_bulk: "Asbestos Bulk",
+  mold_air_o_cell: "Mold Air-O-Cell",
+  mold_bulk: "Mold Bulk",
+  mold_swab: "Mold Swab",
+};
+
 // Common materials the admin can pick from instead of typing one out every
 // time. Per Tim, 2026-09-28 — asbestos_bulk moved to a real source (Ray's
 // Library, see fetchMaterialOptions in ChainOfCustodyPanel) instead of
@@ -1065,6 +1077,38 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
   }
 
   const history = (job.coc_log ?? []).filter((h) => h.coc_type === cocType).sort((a, b) => b.drafted_at.localeCompare(a.drafted_at));
+  // Per Tim, 2026-09-29 — "I kind of want to track when my chain of
+  // custody has been sent out to the lab... tracked the same way the
+  // other PDFs are tracked... like the checkbox system that I have and
+  // the format": same row shape/copy as EmailChecklistPanel's own
+  // Report/Invoice rows above (checkbox + label + "Sent MM/DD/YYYY" /
+  // "Drafted, not sent" / "Not drafted"). history is already sorted
+  // newest-first, so history[0] is always the current entry — an older,
+  // re-drafted entry's own sent_at is never shown here.
+  const latestCocEntry = history[0] ?? null;
+  const [liveCocSentAt, setLiveCocSentAt] = useState<string | null>(latestCocEntry?.sent_at ?? null);
+  useEffect(() => {
+    if (!latestCocEntry || latestCocEntry.sent_at) {
+      setLiveCocSentAt(latestCocEntry?.sent_at ?? null);
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/admin/jobs/${job.id}/coc-draft-status`)
+      .then((r) => r.json())
+      .then((data: { types?: { cocType: CocType; status: string; sentAt?: string }[] }) => {
+        if (cancelled) return;
+        const match = data.types?.find((t) => t.cocType === cocType);
+        if (match?.status === "sent" && match.sentAt) {
+          setLiveCocSentAt(match.sentAt);
+          onChanged();
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [job.id, cocType, latestCocEntry?.gmail_draft_id, latestCocEntry?.sent_at]);
 
   return (
     // Per Tim, 2026-09-28 — first "the entire big cell that goes around
@@ -1073,6 +1117,19 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
     // corners/padding at any width, the panel just reads as loose
     // sections on the page.
     <div className="mt-5">
+      {/* Per Tim, 2026-09-29 — sent-status checklist row, same format as
+          EmailChecklistPanel's own Report/Invoice rows. Purely a status
+          display (checked = sent) — the checkbox itself is disabled since
+          nothing here is meant to be toggled by hand; sending happens by
+          actually sending the Gmail draft, same as every other document
+          in this app. */}
+      <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm">
+        <input type="checkbox" checked={Boolean(liveCocSentAt)} disabled readOnly />
+        <span className="flex-1 font-medium">{COC_TYPE_LABEL[cocType]} Chain of Custody</span>
+        <span className="text-xs text-slate-400">
+          {liveCocSentAt ? `Sent ${formatDateMDY(liveCocSentAt)}` : latestCocEntry ? "Drafted, not sent" : "Not drafted"}
+        </span>
+      </label>
       {/* Per Tim, 2026-09-28 — first "delete this [the 'Samples' label]
           and then make the plus add sample button on the same line as
           [the title]... aligned right like it already is," then a

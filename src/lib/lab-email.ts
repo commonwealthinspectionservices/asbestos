@@ -576,6 +576,99 @@ export async function checkDraftSentStatus(
   return { status: "none" };
 }
 
+/**
+ * Same "live check, no manual mark-as-sent" pattern as checkDraftSentStatus
+ * above, one level down — a job's coc_log can hold more than one entry per
+ * coc_type (re-drafted after an edit), so only the LATEST entry per
+ * distinct coc_type is ever checked or considered authoritative; an older,
+ * superseded entry's own sent_at (or lack of one) is never looked at again.
+ *
+ * Per Tim, 2026-09-29 — "I kind of want to track when my chain of custody
+ * has been sent out to the lab at the appropriate time... it should track
+ * them individually": each coc_type's own sent_at is independent. "Once I
+ * send that chain of custody out, it should move to pending lab results
+ * automatically" — confirmed scope, 2026-09-29: only once EVERY coc_type
+ * the job actually needs (jobCocTypes) is confirmed sent, not just the
+ * first one on a multi-type job. Only ever advances a job that's currently
+ * "scheduled" — never fires from any other status, so a revisit re-sending
+ * a COC on an already-closed-out job can't regress or re-advance anything.
+ */
+export async function checkCocDraftSentStatus(
+  jobId: string
+): Promise<{ types: { cocType: CocType; status: "sent" | "drafted" | "none"; sentAt?: string }[] }> {
+  const supabase = getSupabaseAdmin();
+  const { data: job } = await supabase
+    .from("jobs")
+    .select("coc_log, service_type, status")
+    .eq("id", jobId)
+    .maybeSingle<{ coc_log: CocLogEntry[] | null; service_type: string | null; status: string }>();
+  if (!job) return { types: [] };
+
+  const log = job.coc_log ?? [];
+  const requiredTypes = jobCocTypes(job.service_type).map((c) => c.cocType);
+
+  const latestByType = new Map<CocType, CocLogEntry>();
+  for (const entry of log) {
+    const existing = latestByType.get(entry.coc_type);
+    if (!existing || entry.drafted_at > existing.drafted_at) latestByType.set(entry.coc_type, entry);
+  }
+
+  const accessToken = await getValidAccessToken();
+  const results: { cocType: CocType; status: "sent" | "drafted" | "none"; sentAt?: string }[] = [];
+  const updatedLog = [...log];
+  let logChanged = false;
+
+  for (const cocType of requiredTypes) {
+    const latest = latestByType.get(cocType);
+    if (!latest) {
+      results.push({ cocType, status: "none" });
+      continue;
+    }
+    if (latest.sent_at) {
+      results.push({ cocType, status: "sent", sentAt: latest.sent_at });
+      continue;
+    }
+    if (!accessToken) {
+      results.push({ cocType, status: "drafted" });
+      continue;
+    }
+
+    const draftStatus = await getDraftStatus(accessToken, latest.gmail_draft_id);
+    let sentAt: string | null = null;
+    if (draftStatus.status === "sent") {
+      sentAt = draftStatus.sentAt;
+    } else if (draftStatus.status === "gone") {
+      // Same fallback as checkDraftSentStatus's own — the stored draft id
+      // itself can go stale; the underlying message id is the
+      // authoritative last resort.
+      const { sent, sentAt: msgSentAt } = await getSentMessageInfo(accessToken, latest.gmail_message_id);
+      if (sent) sentAt = msgSentAt ?? new Date().toISOString();
+    }
+
+    if (sentAt) {
+      results.push({ cocType, status: "sent", sentAt });
+      const idx = updatedLog.findIndex((e) => e === latest);
+      if (idx !== -1) {
+        updatedLog[idx] = { ...updatedLog[idx], sent_at: sentAt };
+        logChanged = true;
+      }
+    } else {
+      results.push({ cocType, status: "drafted" });
+    }
+  }
+
+  if (logChanged) {
+    await supabase.from("jobs").update({ coc_log: updatedLog }).eq("id", jobId);
+  }
+
+  const allRequiredSent = requiredTypes.length > 0 && requiredTypes.every((t) => results.find((r) => r.cocType === t)?.status === "sent");
+  if (allRequiredSent && job.status === "scheduled") {
+    await supabase.from("jobs").update({ status: "pending_lab_results" }).eq("id", jobId);
+  }
+
+  return { types: results };
+}
+
 // Per Tim, 2026-09-11 (26-0024) — checkDraftSentStatus's own "reconcile
 // every time this is called" fix (see its comment above, from the earlier
 // 26-0017 incident) only ever helps a job that's still getting called at
@@ -3201,14 +3294,19 @@ async function draftCocEmailForJob({
   // reads fine in body prose ("3 asbestos bulk samples") but not as a
   // filename label, so it's dropped here.
   const filenameLabel = COC_TITLE[cocType].replace(/ Sample$/, "");
-  const { messageId } = await createDraft(accessToken, {
+  const draft = await createDraft(accessToken, {
     to: "samples@crystalanalytical.com",
     subject,
     bodyHtml,
     attachments: [{ filename: `${job.project_number ?? job.id} ${filenameLabel} Chain of Custody.pdf`, mimeType: "application/pdf", content: pdfBuffer }],
   });
+  const messageId = draft.messageId;
 
-  const logEntry: CocLogEntry = { coc_type: cocType, drafted_at: now.toISOString(), sample_count: sampleItems.length, gmail_message_id: messageId };
+  // gmail_draft_id (not just messageId) — needed by checkCocDraftSentStatus
+  // below to check real send status the same way checkDraftSentStatus
+  // already does for report/invoice drafts (getDraftStatus needs the
+  // draft's own id, not its underlying message id).
+  const logEntry: CocLogEntry = { coc_type: cocType, drafted_at: now.toISOString(), sample_count: sampleItems.length, gmail_draft_id: draft.id, gmail_message_id: messageId };
   const supabase = getSupabaseAdmin();
   await supabase.from("jobs").update({
     sample_items: mergedItems,

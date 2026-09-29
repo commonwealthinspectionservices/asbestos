@@ -188,12 +188,25 @@ export type CocType = "asbestos_bulk" | "mold_air_o_cell" | "mold_bulk" | "mold_
     every other document in this app), so this records when a draft was
     created, not when the lab actually received it. Shown as history on
     the Chain of Custody tab so re-opening it doesn't look like nothing's
-    ever been sent for a job that already has one out. */
+    ever been sent for a job that already has one out.
+    Per Tim, 2026-09-29 — "I kind of want to track when my chain of
+    custody has been sent out to the lab... tracked the same way the
+    other PDFs are tracked": gmail_draft_id (the actual Gmail draft id,
+    not just its underlying message id — needed for getDraftStatus, same
+    check report/invoice drafts already use) and sent_at (set once
+    confirmed actually sent, never guessed) are new. "It should track
+    them individually" — a job with more than one coc_type each get their
+    own independent sent_at; re-drafting the same coc_type appends a new
+    entry (see draftCocEmailForJob), so checkCocDraftSentStatus always
+    reads the LATEST entry per coc_type as the one that matters, never an
+    older superseded one. */
 export interface CocLogEntry {
   coc_type: CocType;
   drafted_at: string;
   sample_count: number;
+  gmail_draft_id: string;
   gmail_message_id: string;
+  sent_at?: string | null;
 }
 
 /**

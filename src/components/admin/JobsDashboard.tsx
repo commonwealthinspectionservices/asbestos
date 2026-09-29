@@ -2706,6 +2706,19 @@ function JobRow({
       ))}
     </span>
   );
+  // Per Tim, 2026-09-29 — "the scheduled screenshot is a perfect
+  // format... pending lab results should be in that same format...
+  // the pre-existing spacer for scheduled should be used for pending
+  // lab results": the fixed 3-row template (reserved row 1, gap-2
+  // rhythm, service type centered on row 2) built for "Scheduled" now
+  // also applies to "Pending Lab Results" — same spacer, same rows,
+  // just "Completed date"/"Completed time" instead of "Scheduled
+  // date"/"Scheduled time" (hasCompletedFieldwork already makes that
+  // swap) and no site contact or Chain of Custody content in row 1 for
+  // this status (both real, pre-existing rules — site contact because
+  // fieldwork's done, Chain of Custody because that's a Scheduled-only
+  // concept) — row 1 stays reserved-but-blank here, purely for spacing.
+  const useCocRowFormat = job.status === "scheduled" || job.status === "pending_lab_results";
   // Per Tim, 2026-09-15 — Payment Pending cards need the date the actual
   // fieldwork happened, above the Invoice/Report sent lines — that block
   // replaced the Completed-date line entirely back on 2026-08-27 (see this
@@ -3063,12 +3076,19 @@ function JobRow({
               street/cityStateZip up into rows 1-2 instead of staying on
               rows 2-3. Per Tim, 2026-09-29 — "these should be the
               standard spots for all of the information... it shouldn't
-              shrink at all": back to job.status === "scheduled" (not
-              cocStatus) — the date column's own row 1 (the checklist)
-              now always reserves its height too (see below), so rows 2/3
-              always land in the same fixed spot on both sides regardless
-              of whether the checklist has anything to show yet. */}
-          {job.status === "scheduled" && <div className="sm:min-h-5">{siteContactNode}</div>}
+              shrink at all", then "pending lab results should be in
+              that same format... the pre-existing spacer for scheduled
+              should be used for pending lab results": useCocRowFormat
+              (Scheduled or Pending Lab Results) reserves this row on
+              both, but the actual site-contact content only ever shows
+              for Scheduled — fieldwork's already done by Pending Lab
+              Results, nothing left to call the homeowner about (same
+              rule this whole feature already followed before any of
+              this row-alignment work). Row 1 on the date column now
+              always reserves its own height too (see below), so rows
+              2/3 always land in the same fixed spot on both sides
+              regardless of what (if anything) row 1 actually holds. */}
+          {useCocRowFormat && <div className="sm:min-h-5">{job.status === "scheduled" ? siteContactNode : null}</div>}
           {locationName && <div className="truncate whitespace-nowrap text-sm text-slate-500">{locationName}</div>}
           {/* Mobile: tapping the address text itself (street through zip)
               opens a Google Maps/Waze picker instead of the job detail
@@ -3118,7 +3138,7 @@ function JobRow({
                 shouldn't shrink at all" — the fixed 3-row template
                 applies for the whole time a job is Scheduled, whether or
                 not the checklist itself has anything to show yet. */}
-            <div className={`hidden sm:flex sm:flex-col${job.status === "scheduled" ? " sm:mt-2 sm:gap-2" : ""}`}>
+            <div className={`hidden sm:flex sm:flex-col${useCocRowFormat ? " sm:mt-2 sm:gap-2" : ""}`}>
               <div className="truncate whitespace-nowrap text-sm text-slate-500">{street}</div>
               {cityStateZip && <div className="truncate whitespace-nowrap text-sm text-slate-500">{cityStateZip}</div>}
             </div>
@@ -3171,7 +3191,7 @@ function JobRow({
             work) — "these should be the standard spots... it shouldn't
             shrink at all": the fixed 3-row template applies the whole
             time a job is Scheduled, checklist visible or not. */}
-        <div className={`min-w-0 w-full sm:w-auto sm:flex-[1.2] sm:text-center${job.status === "scheduled" ? " sm:mt-7" : ""}`}>
+        <div className={`min-w-0 w-full sm:w-auto sm:flex-[1.2] sm:text-center${useCocRowFormat ? " sm:mt-7" : ""}`}>
           {(() => {
             const labels = (job.service_type ?? "").split(",").map((s) => s.trim()).filter(Boolean);
             return labels.map((label, i) => {
@@ -3382,20 +3402,24 @@ function JobRow({
                   spots for all of the information, and they should go
                   exactly there... when there's only two lines of info,
                   it shouldn't shrink at all. It should just go always
-                  there": fixed 3-row template for the whole "Scheduled"
-                  card, not conditional on cocStatus — row 1 (Chain of
-                  Custody checklist) reserves its full height via
-                  sm:min-h-5 even when cocStatus is false (no checklist
-                  yet), so "Scheduled date"/"Scheduled time" always land
+                  there", then "the scheduled screenshot is a perfect
+                  format... pending lab results should be in that same
+                  format... the pre-existing spacer for scheduled should
+                  be used for pending lab results": fixed 3-row template
+                  (useCocRowFormat — Scheduled or Pending Lab Results),
+                  not conditional on cocStatus itself — row 1 (Chain of
+                  Custody checklist, blank for Pending Lab Results) always
+                  reserves its full height via sm:min-h-5, so "Scheduled/
+                  Completed date"/"Scheduled/Completed time" always land
                   on rows 2/3 exactly, matching the address column's own
                   fixed rows regardless of how much is actually filled
                   in. */}
-              {job.status === "scheduled" ? (
+              {useCocRowFormat ? (
                 <div className="hidden w-full flex-col items-end gap-2 text-sm text-slate-500 sm:flex">
                   <div className="sm:min-h-5">{cocStatus}</div>
-                  <div>Scheduled date: {formatDate(job.confirmed_date ?? job.requested_date) || "—"}</div>
+                  <div>{hasCompletedFieldwork(job.status) ? "Completed" : "Scheduled"} date: {formatDate(job.confirmed_date ?? job.requested_date) || "—"}</div>
                   <div>
-                    Scheduled time:{" "}
+                    {hasCompletedFieldwork(job.status) ? "Completed" : "Scheduled"} time:{" "}
                     {isSubcontractor && job.confirmed_time && job.confirmed_time === parseWindowStartTime24h(job.subcontractor_preferred_window)
                       ? extractTimeRange(job.subcontractor_preferred_window) ?? formatTime(job.confirmed_time)
                       : formatTime(job.confirmed_time ?? job.requested_time) || "—"}

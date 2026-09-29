@@ -2897,13 +2897,16 @@ function JobRow({
       // already varied height before this) now shares one fixed minimum
       // height instead of shrinking to fit its own content. min- (not a
       // flat height) so a genuinely rare, taller-than-usual card can
-      // still grow past it rather than clipping. 146px — per Tim, "a
-      // little too much empty space beneath town and state and scheduled
-      // time" with the first guess (min-h-44/176px); measured directly
-      // against a real fixed-3-row Scheduled card (now the common case,
-      // since that template always renders 3 rows) rather than guessing
-      // again.
-      className="flex w-full cursor-pointer flex-col gap-2 rounded-lg border border-slate-200 bg-white p-3 hover:border-brand-400 sm:min-h-[146px] sm:gap-0"
+      // still grow past it rather than clipping. 146px (desktop) — per
+      // Tim, "a little too much empty space beneath town and state and
+      // scheduled time" with the first guess (min-h-44/176px); measured
+      // directly against a real fixed-3-row Scheduled card (now the
+      // common case, since that template always renders 3 rows) rather
+      // than guessing again. Per Tim, 2026-09-29 — "in mobile, all cells
+      // should be the same height and format as well": 268px is mobile's
+      // own measured equivalent (single-column stacking makes a full
+      // card taller there than desktop's 3-side-by-side-column version).
+      className="flex w-full cursor-pointer flex-col gap-2 rounded-lg border border-slate-200 bg-white p-3 hover:border-brand-400 min-h-[268px] sm:min-h-[146px] sm:gap-0"
     >
       {/* items-start, not items-center — the status cell's own column can
           run taller than this row now (the Report:/Invoice: sent-status
@@ -3101,32 +3104,61 @@ function JobRow({
               of the card. Desktop: unchanged plain text (no picker; the
               detail dialog's own address link already goes to Maps). */}
           <div className="relative">
+            {/* Per Tim, 2026-09-29 — "from mobile, every single line in
+                the project preview card should be evenly spaced": mt-2
+                (matching every other gap in this stack below) between
+                the reserved site-contact line above and the address
+                itself — only when that line actually rendered
+                (useCocRowFormat), so statuses without it don't gain an
+                unwanted gap at the very top. */}
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); setShowMapMenu((v) => !v); }}
-              className={`inline-block max-w-full text-left sm:hidden ${showMapMenu ? "underline" : ""}`}
+              className={`inline-block max-w-full text-left sm:hidden ${useCocRowFormat ? "mt-2" : ""} ${showMapMenu ? "underline" : ""}`}
             >
               <span className="block truncate whitespace-nowrap text-sm text-slate-500">{street}</span>
-              {cityStateZip && <span className="block truncate whitespace-nowrap text-sm text-slate-500">{cityStateZip}</span>}
+              {cityStateZip && <span className={`block truncate whitespace-nowrap text-sm text-slate-500 ${useCocRowFormat ? "mt-2" : ""}`}>{cityStateZip}</span>}
             </button>
             {/* Per Tim, 2026-08-27 — Invoice directly above Report, both
                 left-aligned, sitting right after the address block instead
-                of interrupting it. */}
+                of interrupting it. Per Tim, 2026-09-29 (above) — mt-2
+                everywhere in this stack, not mt-1, for one consistent
+                gap throughout every line on the mobile card. */}
             {showReportInvoice && (
-              <div className="mt-1 flex flex-col items-start sm:hidden">
+              <div className="mt-2 flex flex-col items-start gap-2 sm:hidden">
                 {paymentPendingCompletedDate}
                 {invoiceStatus}
                 {reportStatus}
               </div>
             )}
             {showInvoiceOnly && (
-              <div className="mt-1 flex flex-col items-start sm:hidden">
+              <div className="mt-2 flex flex-col items-start sm:hidden">
                 {invoiceStatus}
               </div>
             )}
             {cocStatus && (
-              <div className="mt-1 flex flex-col items-start sm:hidden">
+              <div className="mt-2 flex flex-col items-start sm:hidden">
                 {cocStatus}
+              </div>
+            )}
+            {/* Per Tim, 2026-09-29 — "in mobile, all cells should be the
+                same height and format as well if possible... right now,
+                some are different": the desktop-only useCocRowFormat
+                block below (hidden on mobile) left Scheduled/Pending Lab
+                Results jobs with NO date/time shown on mobile at all —
+                genuinely missing, not just differently formatted. Same
+                info, mobile's own single-column stacking instead of the
+                desktop 3-row grid. mt-2/gap-2 — "every single line...
+                should be evenly spaced." */}
+            {useCocRowFormat && (
+              <div className="mt-2 flex flex-col items-start gap-2 sm:hidden">
+                <div>{hasCompletedFieldwork(job.status) ? "Completed" : "Scheduled"} date: {formatDate(job.confirmed_date ?? job.requested_date) || "—"}</div>
+                <div>
+                  {hasCompletedFieldwork(job.status) ? "Completed" : "Scheduled"} time:{" "}
+                  {isSubcontractor && job.confirmed_time && job.confirmed_time === parseWindowStartTime24h(job.subcontractor_preferred_window)
+                    ? extractTimeRange(job.subcontractor_preferred_window) ?? formatTime(job.confirmed_time)
+                    : formatTime(job.confirmed_time ?? job.requested_time) || "—"}
+                </div>
               </div>
             )}
             {/* Per Tim, 2026-09-29 — "all the lines need to be evenly

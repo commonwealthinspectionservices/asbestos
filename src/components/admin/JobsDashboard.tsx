@@ -2653,6 +2653,38 @@ function JobRow({
       </span>
     )
   );
+  // Per Tim, 2026-09-29 — "on the project preview card... like when
+  // they're over here like this on the preview cards" (a real screenshot
+  // of a Payment Pending card's own "Invoice: Sent .../Report: Sent ..."
+  // lines): same format as reportStatus/invoiceStatus above — one line
+  // per service type, "Sent MM/DD/YYYY at h:mm AM/PM" once confirmed,
+  // "Not sent" + HazardIcon until then — shown one stage earlier in the
+  // job's life, while still "Scheduled" (before any lab results are even
+  // possible), and for any number of service types, not gated to
+  // multi-type jobs the way reportStatus's own domain checklist is.
+  // Reads job.coc_log directly (no live Gmail check from the card
+  // itself) — same "the card just shows whatever's already been
+  // detected" principle as reportStatus/invoiceStatus, which also only
+  // ever read stored columns; the live check happens once, via
+  // checkCocDraftSentStatus (the Chain of Custody tab on open, and the
+  // check-sent-drafts cron every 15 min).
+  const cocTypesForCard = jobCocTypes(job.service_type);
+  const cocStatus = job.status === "scheduled" && cocTypesForCard.length > 0 && (
+    <span className="flex shrink-0 flex-col items-end gap-0.5 text-sm text-slate-500">
+      {cocTypesForCard.map(({ cocType }) => {
+        const latest = (job.coc_log ?? [])
+          .filter((h) => h.coc_type === cocType)
+          .sort((a, b) => b.drafted_at.localeCompare(a.drafted_at))[0];
+        const sentAt = latest?.sent_at ?? null;
+        return (
+          <span key={cocType} className="flex items-center gap-1">
+            {COC_TYPE_LABEL[cocType]}: {sentAt ? `Sent ${formatDateTime(sentAt)}` : "Not sent"}
+            {!sentAt && <HazardIcon />}
+          </span>
+        );
+      })}
+    </span>
+  );
   // Per Tim, 2026-09-15 — Payment Pending cards need the date the actual
   // fieldwork happened, above the Invoice/Report sent lines — that block
   // replaced the Completed-date line entirely back on 2026-08-27 (see this
@@ -3015,6 +3047,11 @@ function JobRow({
                 {invoiceStatus}
               </div>
             )}
+            {cocStatus && (
+              <div className="mt-1 flex flex-col items-start sm:hidden">
+                {cocStatus}
+              </div>
+            )}
             <div className="hidden sm:block">
               <div className="truncate whitespace-nowrap text-sm text-slate-500">{street}</div>
               {cityStateZip && <div className="truncate whitespace-nowrap text-sm text-slate-500">{cityStateZip}</div>}
@@ -3252,6 +3289,14 @@ function JobRow({
               {showInvoiceOnly && (
                 <div className="hidden w-full flex-col items-end gap-0.5 text-sm text-slate-500 sm:flex">
                   {invoiceStatus}
+                </div>
+              )}
+              {/* cocStatus sits ABOVE the date block, not instead of it
+                  (unlike showReportInvoice above) — the Scheduled date/
+                  time is still exactly as relevant at this stage. */}
+              {cocStatus && (
+                <div className="hidden w-full flex-col items-end gap-0.5 text-sm text-slate-500 sm:flex">
+                  {cocStatus}
                 </div>
               )}
               <div className={`w-full text-sm text-slate-500 sm:text-right ${showReportInvoice ? "hidden" : ""}`}>

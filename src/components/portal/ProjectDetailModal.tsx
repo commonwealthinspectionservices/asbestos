@@ -3,7 +3,7 @@
 import PayNowButton, { PaidNotice, canPayOnline } from "@/components/portal/PayNowButton";
 import { useState } from "react";
 import type { Customer, Job } from "@/lib/types";
-import { googleMapsUrl, expandAddress } from "@/lib/address";
+import { wazeUrl, expandAddress } from "@/lib/address";
 import PdfPreview from "@/components/shared/PdfPreview";
 import JobRecipients from "@/components/portal/JobRecipients";
 import PendingRequestEditor from "@/components/portal/PendingRequestEditor";
@@ -247,7 +247,7 @@ export default function ProjectDetailModal({
                     <DetailField
                       label="Job site address"
                       value={job.service_address ? (
-                        <a href={googleMapsUrl(job.service_address)} target="_blank" rel="noreferrer" className="hover:underline">
+                        <a href={wazeUrl(job.service_address)} target="_blank" rel="noreferrer" className="hover:underline">
                           {expandAddress(job.service_address)}
                         </a>
                       ) : null}

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { Customer, Job } from "@/lib/types";
-import { splitAddress, googleMapsUrl, expandAddress } from "@/lib/address";
+import { splitAddress, wazeUrl, expandAddress } from "@/lib/address";
 import { formatDateMDY } from "@/lib/date-format";
 import ProjectDetailModal from "@/components/portal/ProjectDetailModal";
 import PayNowButton, { PaidNotice, canPayOnline } from "@/components/portal/PayNowButton";
@@ -452,7 +452,7 @@ export default function ProjectsList() {
 
                 <div className="flex w-full items-start gap-3">
                   <a
-                    href={googleMapsUrl(p.service_address)}
+                    href={wazeUrl(p.service_address)}
                     target="_blank"
                     rel="noreferrer"
                     onClick={(e) => e.stopPropagation()}

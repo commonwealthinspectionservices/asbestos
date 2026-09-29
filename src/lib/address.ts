@@ -11,18 +11,17 @@ export const US_STATES = [
   "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY",
 ];
 
-// Used wherever a job's address is shown as a clickable link out to Google
-// Maps (admin project list/detail, portal project list/detail) — a plain
-// search URL rather than a place ID, since all we have on file is the
-// formatted address string, not a Places ID.
-export function googleMapsUrl(address: string): string {
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
-}
-
-// Waze's universal link — opens the Waze app directly (with turn-by-turn
-// navigation queued up, via navigate=yes) if installed, falls back to the
-// App/Play Store listing otherwise. Same "just a formatted address string,
-// no place ID" caveat as googleMapsUrl above.
+// Used wherever a job's address is shown as a clickable link (admin
+// project list/detail, portal project list/detail) — Waze's universal
+// link, opens the Waze app directly (with turn-by-turn navigation queued
+// up, via navigate=yes) if installed, falls back to the App/Play Store
+// listing otherwise. Per Tim, 2026-09-29 — "I just want any address on
+// this website to open in Waze": replaced the Google Maps link (and the
+// mobile Google Maps/Waze picker) everywhere a single address is linked.
+// A plain search URL rather than a place ID, since all we have on file is
+// the formatted address string, not a Places ID. The multi-stop route
+// email (buildMapsWaypointsUrl in maps-link.ts) is unaffected — Waze's
+// own link scheme has no equivalent for an ordered multi-waypoint route.
 export function wazeUrl(address: string): string {
   return `https://waze.com/ul?q=${encodeURIComponent(address)}&navigate=yes`;
 }

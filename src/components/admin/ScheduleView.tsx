@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { JobWithCustomer } from "@/lib/types";
 import { ProjectDetailDialog, EditProjectDialog } from "@/components/admin/JobsDashboard";
 import { extractTimeRange, parseWindowStartTime24h } from "@/components/admin/AcceptScheduleControl";
-import { googleMapsUrl, expandAddress } from "@/lib/address";
+import { wazeUrl, expandAddress } from "@/lib/address";
 import { formatDateMDY } from "@/lib/date-format";
 import { formatPhoneNumber, telHref } from "@/lib/phone";
 import { toTitleCase } from "@/lib/name";
@@ -144,7 +144,7 @@ function JobCard({
           </div>
           {job.service_address && (
             <a
-              href={googleMapsUrl(job.service_address)}
+              href={wazeUrl(job.service_address)}
               target="_blank"
               rel="noreferrer"
               onClick={(e) => e.stopPropagation()}

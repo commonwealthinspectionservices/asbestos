@@ -6,7 +6,7 @@ import type { CocType, Company, Customer, InvoiceLineItem, JobDocument, JobWithC
 import { defaultInvoiceLineItems, sampleDescriptionForServiceType } from "@/lib/invoice-defaults";
 import { defaultSampleCode, airOCellEndTime } from "@/lib/sample-items";
 import { ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK, jobReportDomains, jobCocTypes, domainForServiceTypeLabel, isFullInspectionAsbestosJob, NEWTON_FIRE_FLOOD_COMPANY_ID, BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID, FLI_ENVIRONMENTAL_COMPANY_ID, type ReportDomain } from "@/lib/report-findings";
-import { splitAddress, parseAddressToFields, buildBillingAddress, googleMapsUrl, wazeUrl, expandAddress } from "@/lib/address";
+import { splitAddress, parseAddressToFields, buildBillingAddress, wazeUrl, expandAddress } from "@/lib/address";
 import { joinName, splitFullName, toTitleCase } from "@/lib/name";
 import { telHref } from "@/lib/phone";
 import type { AddressFields } from "@/lib/address";
@@ -333,6 +333,22 @@ function gmailMessageUrl(messageId: string, sent: boolean): string {
   return `https://mail.google.com/mail/u/0/#${sent ? "sent" : "drafts"}/${messageId}`;
 }
 
+// Per Tim, 2026-09-17 (see viewDraft's own longer comment for the full
+// explanation) — a mail.google.com link only gets handed off to the
+// installed Gmail app on iOS for a genuine top-level navigation, not a
+// window.open() popup, so mobile navigates the current tab instead of
+// opening a new one. viewDraft had its own copy of this fix already;
+// every other "jump to the draft/sent email in Gmail" button gets it
+// here too, since Tim was still hitting the un-fixed ones on his phone.
+function openGmailMessage(messageId: string, sent: boolean) {
+  const url = gmailMessageUrl(messageId, sent);
+  if (typeof window !== "undefined" && window.innerWidth < 768) {
+    window.location.href = url;
+  } else {
+    window.open(url, "_blank");
+  }
+}
+
 // Per Tim, 2026-09-22 — the Project Info "Sent ..." lines must link
 // straight to that exact email in Gmail, not just say "Sent" as plain
 // text. Falls back to plain text when there's no stored message id (an
@@ -546,7 +562,7 @@ function EmailChecklistPanel({
       if (!res.ok) throw new Error(data.error ?? "Failed to create draft");
       onChanged();
       if (data.messageId) {
-        window.open(gmailMessageUrl(data.messageId, false), "_blank");
+        openGmailMessage(data.messageId, false);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to create draft");
@@ -571,7 +587,7 @@ function EmailChecklistPanel({
       if (!res.ok) throw new Error(data.error ?? "Failed to create payment reminder draft");
       onChanged();
       if (data.messageId) {
-        window.open(gmailMessageUrl(data.messageId, false), "_blank");
+        openGmailMessage(data.messageId, false);
       }
     } catch (e) {
       setReminderError(e instanceof Error ? e.message : "Failed to create payment reminder draft");
@@ -1000,7 +1016,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to create draft");
       onChanged();
-      if (data.messageId) window.open(gmailMessageUrl(data.messageId, false), "_blank");
+      if (data.messageId) openGmailMessage(data.messageId, false);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to create draft");
     } finally {
@@ -2756,10 +2772,6 @@ function JobRow({
   // as before — only a pending-lab-results, non-subcontractor job with
   // more than one item to tell apart.
   const showLabChecklist = job.status === "pending_lab_results" && job.source !== "subcontractor" && checklistItems.length > 1;
-  // Mobile only — see the address block below. Desktop already opens
-  // straight to Google Maps in the detail dialog, and a driver picking a
-  // nav app is a phone-in-hand, on-the-way-there thing, not a desktop one.
-  const [showMapMenu, setShowMapMenu] = useState(false);
   const subcontractorSender = job.source === "subcontractor" ? subcontractorSenderForJob(job.customers?.email) : null;
   const customerLabel = subcontractorSender?.companyName ?? (job.customers?.company || (job.customers?.name ? toTitleCase(job.customers.name) : undefined));
   // Subcontractor jobs: the company name is replaced entirely by the same
@@ -3105,15 +3117,19 @@ function JobRow({
           <div className="hidden min-h-5 sm:block">{job.status === "scheduled" ? siteContactNode : null}</div>
           {locationName && <div className="truncate whitespace-nowrap text-sm text-slate-500">{locationName}</div>}
           {/* Mobile: tapping the address text itself (street through zip)
-              opens a Google Maps/Waze picker instead of the job detail
-              dialog — a driver on the way there wants directions, not to
-              reopen the card they just tapped from. inline-block (not
-              block w-full) so the tappable area hugs the text itself
-              instead of spanning the whole row — confirmed live 2026-08-27,
-              a full-width button meant tapping empty space well to the
-              right of a short address still opened the map picker instead
-              of the card. Desktop: unchanged plain text (no picker; the
-              detail dialog's own address link already goes to Maps). */}
+              opens Waze directly instead of the job detail dialog — a
+              driver on the way there wants directions, not to reopen the
+              card they just tapped from. Per Tim, 2026-09-29 — "I just
+              want any address on this website to open in Waze": this used
+              to pop up a Google Maps/Waze picker; every address link on
+              the site (this one, the Project Info tab, the portal) now
+              goes straight to Waze, no picker. inline-block (not block
+              w-full) so the tappable area hugs the text itself instead of
+              spanning the whole row — confirmed live 2026-08-27, a
+              full-width link meant tapping empty space well to the right
+              of a short address still opened the map instead of the card.
+              Desktop: unchanged plain text (no link; the detail dialog's
+              own address link already goes to Waze). */}
           <div className="relative">
             {/* Per Tim, 2026-09-29 (later same night) — reverted back to
                 no top margin here, matching mobile's pre-2026-09-29 format
@@ -3123,14 +3139,16 @@ function JobRow({
                 spelled out": dropped truncate/whitespace-nowrap here —
                 a long street address now wraps onto a second line
                 instead of ellipsizing. */}
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); setShowMapMenu((v) => !v); }}
-              className={`inline-block max-w-full text-left sm:hidden ${showMapMenu ? "underline" : ""}`}
+            <a
+              href={wazeUrl(job.service_address)}
+              target="_blank"
+              rel="noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="inline-block max-w-full text-left sm:hidden"
             >
               <span className="block text-sm text-slate-500">{street}</span>
               {cityStateZip && <span className="block text-sm text-slate-500">{cityStateZip}</span>}
-            </button>
+            </a>
             {/* Per Tim, 2026-09-29 (yet later) — "I want the service type
                 always to be directly below the address" (general mobile
                 rule) — Invoice/Report moved out of here entirely, into
@@ -3188,31 +3206,6 @@ function JobRow({
                 call, not part of the mobile-format revert above. Still a
                 real, tracked field (job.confirmation_sent_at) — just not
                 shown on this card anymore. */}
-            {showMapMenu && (
-              <div
-                className="absolute z-10 mt-1 w-48 rounded-lg border border-slate-200 bg-white p-1 shadow-lg sm:hidden"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <a
-                  href={googleMapsUrl(job.service_address)}
-                  target="_blank"
-                  rel="noreferrer"
-                  onClick={() => setShowMapMenu(false)}
-                  className="block rounded px-2 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
-                >
-                  Open in Google Maps
-                </a>
-                <a
-                  href={wazeUrl(job.service_address)}
-                  target="_blank"
-                  rel="noreferrer"
-                  onClick={() => setShowMapMenu(false)}
-                  className="block rounded px-2 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
-                >
-                  Open in Waze
-                </a>
-              </div>
-            )}
           </div>
         </div>
 
@@ -5079,7 +5072,7 @@ export function ProjectDetailDialog({
                       value={job.service_address ? (() => {
                         const { street, cityStateZip } = splitAddress(job.service_address);
                         return (
-                          <a href={googleMapsUrl(job.service_address)} target="_blank" rel="noreferrer" className="hover:underline">
+                          <a href={wazeUrl(job.service_address)} target="_blank" rel="noreferrer" className="hover:underline">
                             <span className="block">{expandAddress(street)}</span>
                             {cityStateZip && <span className="block">{expandAddress(cityStateZip)}</span>}
                           </a>
@@ -5155,7 +5148,7 @@ export function ProjectDetailDialog({
                 value={job.service_address ? (() => {
                   const { street, cityStateZip } = splitAddress(job.service_address);
                   return (
-                    <a href={googleMapsUrl(job.service_address)} target="_blank" rel="noreferrer" className="hover:underline">
+                    <a href={wazeUrl(job.service_address)} target="_blank" rel="noreferrer" className="hover:underline">
                       {/* Per Tim, 2026-08-28 — street, then town/state/zip on
                           its own line below it, same on desktop as mobile
                           now (used to be one line on desktop). */}

@@ -3343,10 +3343,31 @@ function JobRow({
               excluded (now true for Ready for Review too) there was
               nothing left to reserve row 1's height at all — swapped for
               an always-present min-h-5 block, same fix already applied
-              to the mobile version of this exact row below. */}
-          <div className="hidden min-h-5 sm:block">
-            {job.status !== "report_invoice_sent" && job.status !== "pending_lab_results" && job.status !== "scheduled" && job.status !== "ready_to_send" && siteContactNode}
-          </div>
+              to the mobile version of this exact row below. Per Tim,
+              2026-09-29 (yet later) — that fix then broke Scheduled/
+              Pending Lab Results, confirmed live: useCocRowFormat's own
+              3-row block further down already reserves its own row 1
+              via cocStatus (sm:min-h-5) — stacking this div's min-h-5 on
+              top of that one double-reserved row 1 for those two
+              statuses specifically. Scheduled happened to still look
+              fine since its cocStatus slot usually has real content
+              (the Chain of Custody checklist) masking the extra gap;
+              Pending Lab Results' cocStatus is always empty (see its own
+              comment), so the doubled gap was fully visible there. Not
+              rendering this div at all for useCocRowFormat (not just
+              dropping its min-h-5) turned out to matter too — even at
+              0 height, it was still a sibling the outer column's own
+              gap-1.5 counted, adding a stray 6px those two statuses'
+              content didn't need (confirmed live: 497px vs the address
+              column's own 491px for the same row). Skipped entirely now
+              for useCocRowFormat, so their own inner cocStatus
+              reservation is the only row-1 spacing in play, same as
+              address's own single mt-2. */}
+          {!useCocRowFormat && (
+            <div className="hidden min-h-5 sm:block">
+              {job.status !== "report_invoice_sent" && job.status !== "pending_lab_results" && job.status !== "scheduled" && job.status !== "ready_to_send" && siteContactNode}
+            </div>
+          )}
           <span className="block min-h-5 sm:hidden">
             {job.status !== "report_invoice_sent" && job.status !== "pending_lab_results" && job.status !== "ready_to_send" && siteContactNode}
           </span>

@@ -3086,18 +3086,11 @@ function JobRow({
               <div className="truncate whitespace-nowrap text-sm text-slate-500">{street}</div>
               {cityStateZip && <div className="truncate whitespace-nowrap text-sm text-slate-500">{cityStateZip}</div>}
             </div>
-            {/* Per Tim, 2026-09-02 — "aligned all the way left, same size
-                text as everything else, directly across from Scheduled
-                time on that same line and not below it at all": moved out
-                of the right-hand date/time column (was small, muted, right-
-                aligned, stacked below Scheduled date/time there) into this
-                left column instead, same text-sm/slate-500 styling as the
-                address above it. */}
-            {!isUnscheduled && job.status === "scheduled" && job.confirmed_date && !isSubcontractor && job.confirmation_sent_at && (
-              <div className="mt-1 flex flex-col items-start gap-0.5">
-                <div className="whitespace-nowrap text-sm text-slate-500">Confirmation sent {formatDateTime(job.confirmation_sent_at)}</div>
-              </div>
-            )}
+            {/* Per Tim, 2026-09-29 — "this never needs to be on the
+                preview card": the "Confirmation sent ..." line (moved
+                here 2026-09-02) removed from the card entirely. Still a
+                real, tracked field (job.confirmation_sent_at) — just not
+                shown on this card anymore. */}
             {showMapMenu && (
               <div
                 className="absolute z-10 mt-1 w-48 rounded-lg border border-slate-200 bg-white p-1 shadow-lg sm:hidden"

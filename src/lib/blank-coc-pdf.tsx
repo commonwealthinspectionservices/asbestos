@@ -320,18 +320,21 @@ function BlankCocDocument({ job, customer, settings, sampleItems, turnaround, re
                 </>
               )}
             </View>
-            <Text style={styles.notes}>*Samples for analysis by Polarized Light Microscopy</Text>
+            {/* Per Tim, 2026-09-28 — "email results line should be
+                directly across on turnaround line": stacks under the PLM
+                note instead of on RELINQUISHED BY's own line. */}
+            <View>
+              <Text style={styles.notes}>*Samples for analysis by Polarized Light Microscopy</Text>
+              <Text style={[styles.notes, { marginTop: 2 }]}>email results tim@commonwealthinspectionservices.com</Text>
+            </View>
           </View>
 
-          {/* Per Tim, 2026-09-28 — "there should just be three lines...
-              let's squeeze relinquish by on the same line as email
-              results to tim@commonwealthinspectionservices.com... delete
-              out please and all and to... also delete sampled by and
-              just leave my name in the license number": both notes that
-              used to be their own separate lines now stack to the right
-              of RELINQUISHED BY's own row instead — same
-              label+line/trailing-content split RECEIVED BY's row already
-              uses for its own PAGE field. */}
+          {/* Per Tim, 2026-09-28 — "samples for analysis... should be
+              directly across on relinquish by line": the license line
+              (this form's own equivalent) stays here, alone — email
+              results moved up to TURNAROUND's own line instead (see
+              above). Same label+line/trailing-content split RECEIVED
+              BY's row already uses for its own PAGE field. */}
           <View style={[styles.signatureRow, { justifyContent: "space-between" }]}>
             <View style={styles.signatureSubRow}>
               <Text style={styles.signatureLabel}>RELINQUISHED BY</Text>
@@ -369,12 +372,9 @@ function BlankCocDocument({ job, customer, settings, sampleItems, turnaround, re
                 )}
               </View>
             </View>
-            <View>
-              <Text style={styles.notes}>email results tim@commonwealthinspectionservices.com</Text>
-              <Text style={[styles.notes, { marginTop: 2 }]}>
-                {inspector.name} MA Asbestos Inspector License {licenseDisplay}
-              </Text>
-            </View>
+            <Text style={styles.notes}>
+              {inspector.name} MA Asbestos Inspector License {licenseDisplay}
+            </Text>
           </View>
 
           <View style={[styles.signatureRow, { justifyContent: "space-between" }]}>

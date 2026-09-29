@@ -328,18 +328,23 @@ function MoldCocDocument({ job, customer, sampleType, sampleItems, turnaround, r
                 </>
               )}
             </View>
-            {config.turnaroundNote && <Text style={styles.notes}>{config.turnaroundNote}</Text>}
+            {/* Per Tim, 2026-09-28 — "email results line should be
+                directly across on turnaround line": stacks under
+                turnaroundNote (when this sample type has one) instead of
+                on RELINQUISHED BY's own line. */}
+            <View>
+              {config.turnaroundNote && <Text style={styles.notes}>{config.turnaroundNote}</Text>}
+              <Text style={[styles.notes, { marginTop: config.turnaroundNote ? 2 : 0 }]}>
+                email results tim@commonwealthinspectionservices.com
+              </Text>
+            </View>
           </View>
 
-          {/* Per Tim, 2026-09-28 — "there should just be three lines...
-              let's squeeze relinquish by on the same line as email
-              results to tim@commonwealthinspectionservices.com... delete
-              out please and all and to": both notes that used to be
-              their own separate lines now stack to the right of
-              RELINQUISHED BY's own row instead — same
-              label+line/trailing-content split RECEIVED BY's row already
-              uses for its own PAGE field. Same as blank-coc-pdf.tsx's
-              own copy of this. */}
+          {/* Per Tim, 2026-09-28 — "samples for analysis by direct
+              examination should be directly across on relinquish by
+              line": dateNeededNote (when this sample type has one)
+              stays here, alone — email results moved up to TURNAROUND's
+              own line instead (see above). */}
           <View style={[styles.signatureRow, { justifyContent: "space-between" }]}>
             <View style={styles.signatureSubRow}>
               <Text style={styles.signatureLabel}>RELINQUISHED BY</Text>
@@ -373,10 +378,7 @@ function MoldCocDocument({ job, customer, sampleType, sampleItems, turnaround, r
                 )}
               </View>
             </View>
-            <View>
-              <Text style={styles.notes}>email results tim@commonwealthinspectionservices.com</Text>
-              {config.dateNeededNote && <Text style={[styles.notes, { marginTop: 2 }]}>{config.dateNeededNote}</Text>}
-            </View>
+            {config.dateNeededNote && <Text style={styles.notes}>{config.dateNeededNote}</Text>}
           </View>
 
           <View style={[styles.signatureRow, { justifyContent: "space-between" }]}>

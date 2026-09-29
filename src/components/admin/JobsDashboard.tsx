@@ -69,8 +69,9 @@ const PIPELINE_STATUSES = [
 // subcontracted him. "pending_lab_results"/"ready_to_send" would never
 // apply, so they're skipped entirely rather than showing steps that don't
 // mean anything for this job type. "paid" is reused as the terminal
-// "closed out" state (see CLOSED_STATUSES) and relabeled "Done" — see
-// statusLabelForJob — purely a UI label, no separate status value needed.
+// "closed out" state (see isClosedJob's own subcontractor branch) and
+// relabeled "Job Completed" — see statusLabelForJob — purely a UI label,
+// no separate status value needed.
 const SUBCONTRACTOR_PIPELINE_STATUSES = ["needs_scheduling", "scheduled", "paid", "cancelled"] as const;
 
 function pipelineStatusesForJob(job: JobWithCustomer): readonly string[] {
@@ -79,7 +80,10 @@ function pipelineStatusesForJob(job: JobWithCustomer): readonly string[] {
 }
 
 function statusLabelForJob(job: JobWithCustomer, status: string): string {
-  if (job.source === "subcontractor" && status === "paid") return "Done";
+  // Per Tim, 2026-09-29 — "instead of done, it should be called job
+  // completed": purely a label change, still the same reused "paid"
+  // status value (see SUBCONTRACTOR_PIPELINE_STATUSES's own comment).
+  if (job.source === "subcontractor" && status === "paid") return "Job Completed";
   return STATUS_LABEL[status];
 }
 
@@ -123,13 +127,13 @@ const TRACKER_SEGMENTS: TrackerSegment[] = [
   { key: "paid", label: "Paid", plainLabel: "Paid", status: "paid", done: (_job, i) => i >= 5 },
 ];
 
-// Subcontracted jobs skip straight from Scheduled to Done — see
+// Subcontracted jobs skip straight from Scheduled to Job Completed — see
 // SUBCONTRACTOR_PIPELINE_STATUSES above for why the report/invoice steps
 // don't apply.
 const SUBCONTRACTOR_TRACKER_SEGMENTS: TrackerSegment[] = [
   { key: "needs_scheduling", label: <>To Be<br />Scheduled</>, plainLabel: "To Be Scheduled", status: "needs_scheduling", done: (_job, i) => i >= 0 },
   { key: "scheduled", label: "Scheduled", plainLabel: "Scheduled", status: "scheduled", done: (_job, i) => i >= 1 },
-  { key: "paid", label: "Done", plainLabel: "Done", status: "paid", done: (_job, i) => i >= 2 },
+  { key: "paid", label: "Job Completed", plainLabel: "Job Completed", status: "paid", done: (_job, i) => i >= 2 },
 ];
 
 export const STATUS_LABEL: Record<string, string> = {
@@ -1685,9 +1689,17 @@ const EDITABLE_STATUSES = OPEN_STATUSES;
 // report is still owed. "paid" only counts as closed once report_sent_at
 // is actually set; until then it's still open. "cancelled" is always
 // closed outright — no report is ever owed on a cancelled job.
+// Per Tim, 2026-09-29 — a subcontracted job never gets a report of its
+// own (see SUBCONTRACTOR_PIPELINE_STATUSES's own comment), so
+// report_sent_at never gets set for one — gating on it here left every
+// "Job Completed" (relabeled "paid") subcontractor job stuck open
+// forever. "paid" alone is already this job type's genuine, real
+// terminal state, same as isOpenJob's own subcontractor exclusion below.
 function isClosedJob(job: JobWithCustomer): boolean {
   if (CLOSED_STATUSES.has(job.status)) return true;
-  return job.status === "paid" && job.report_sent_at != null;
+  if (job.status !== "paid") return false;
+  if (job.source === "subcontractor") return true;
+  return job.report_sent_at != null;
 }
 // Per Tim, 2026-09-15 — an individual/homeowner job sitting in Payment
 // Pending is still open: the homeowner payment gate (see
@@ -1699,7 +1711,11 @@ function isClosedJob(job: JobWithCustomer): boolean {
 // above) rather than also cluttering Open Projects.
 function isOpenJob(job: JobWithCustomer): boolean {
   if (OPEN_STATUSES.has(job.status)) return true;
-  if (job.status === "paid" && !job.report_sent_at) return true;
+  // A subcontracted job's "paid" is its real closed-out state (see
+  // isClosedJob's own comment) — never falls into the "report not sent
+  // yet" open case below, which only makes sense for a job that actually
+  // has a report.
+  if (job.status === "paid" && job.source !== "subcontractor" && !job.report_sent_at) return true;
   if (job.status === "report_invoice_sent" && job.is_individual) return true;
   return false;
 }

@@ -5953,6 +5953,85 @@ export function ProjectDetailDialog({
                           {labDropdown(group.domain)}
                           {dateSampledInput(group.domain)}
                           {isFliJob && group.domain === "asbestos" && fliProjectNumberInput}
+                          {/* Per Tim, 2026-09-30 — "let's make it so the
+                              result cell is at the top directly across
+                              from sample results and directly underneath
+                              date sampled": moved from below the Sample
+                              Results table (after group.labels.map) to
+                              right here, next to Lab/Date Sampled — same
+                              row shape (w-28 shrink-0 label, flex-1
+                              field), just relocated. Once per non-mold
+                              domain GROUP, not once per job — a job
+                              combining asbestos and lead has two of these
+                              groups, each needing its own Result dropdown
+                              writing to its own domain's fields. A full
+                              inspection asbestos job has no single overall
+                              Result at all — its report is built from the
+                              per-material Appendix A/B breakdown instead
+                              (full_inspection_materials, still populated
+                              automatically from lab results regardless of
+                              the Materials Sampled editor's removal — see
+                              deriveFullInspectionMaterials in
+                              sample-items.ts); lead has no "full
+                              inspection" concept of its own either way. */}
+                          {group.domain !== "mold" &&
+                            !(group.domain === "asbestos" && isFullInspectionAsbestosJob(job.service_type)) && (
+                            <div className="flex w-full items-center gap-2 text-sm">
+                              <span className="w-28 shrink-0 text-xs font-semibold uppercase text-slate-700">Result</span>
+                              <div className="min-w-0 flex-1">
+                              <ComboboxInput
+                                value={group.domain === "lead" ? leadReportSummaryInput : reportSummaryInput}
+                                onChange={group.domain === "lead" ? setLeadReportSummaryInput : setReportSummaryInput}
+                                options={group.domain === "lead" ? [LEAD_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK] : [ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK]}
+                                filterOptions={false}
+                                getLabel={(o) => o}
+                                showChevron
+                                onSelect={(o) => {
+                                  if (group.domain === "lead") setLeadReportSummaryInput(o);
+                                  else setReportSummaryInput(o);
+                                  // Picking one of the two canned findings sentences IS
+                                  // the positive/negative determination — no separate
+                                  // Results button needed to duplicate that choice.
+                                  // One combined PATCH (not two separate save calls,
+                                  // each with its own onChanged()/loadJobs() refetch) —
+                                  // two independent fetches racing could let an older
+                                  // GET overwrite the newer one's field, leaving the
+                                  // report looking incomplete until an unrelated edit
+                                  // happened to trigger another refetch.
+                                  const negativeRemark = group.domain === "lead" ? LEAD_NEGATIVE_REMARK : ASBESTOS_NEGATIVE_REMARK;
+                                  const positiveRemark = group.domain === "lead" ? LEAD_POSITIVE_REMARK : ASBESTOS_POSITIVE_REMARK;
+                                  const resultField = group.domain === "lead" ? "lead_result" : "asbestos_result";
+                                  const summaryField = group.domain === "lead" ? "lead_report_summary" : "report_summary";
+                                  const patch: Record<string, unknown> = { [summaryField]: o.trim() || null };
+                                  if (o === negativeRemark) {
+                                    patch[resultField] = "negative";
+                                  } else if (o === positiveRemark) {
+                                    patch[resultField] = "positive";
+                                  }
+                                  saveJobField(patch);
+                                }}
+                                onEnter={(v) => (group.domain === "lead" ? saveLeadReportSummary(v) : saveReportSummary(v))}
+                                onBlur={(v) => (group.domain === "lead" ? saveLeadReportSummary(v) : saveReportSummary(v))}
+                                // Per Tim, 2026-09-30 — tried the pending
+                                // phrase as this field's own placeholder
+                                // text, then reversed the same day:
+                                // "this should just be blank actually...
+                                // blank when no results" — plain empty
+                                // field while pending, same as always.
+                                placeholder={group.domain === "lead" ? "e.g. None of the paint chip samples were determined to contain lead." : undefined}
+                                // h-9 + py-1.5 (not the default py-2, no
+                                // explicit height) — per Tim, 2026-09-30:
+                                // "make sure that all of these cells are
+                                // the exact same height" — matches
+                                // labDropdown/dateSampledInput's own h-9
+                                // exactly instead of whatever height
+                                // text-sm content + py-2 happens to add
+                                // up to (2px taller, empirically).
+                                inputClassName="h-9 w-full min-w-0 rounded-lg border border-slate-300 bg-white py-1.5 pl-3 pr-8 text-sm disabled:bg-slate-100 disabled:text-slate-500"
+                              />
+                              </div>
+                            </div>
+                          )}
                         </div>
                         {group.labels.map((label, labelIdx) => {
                           const samplesPending = group.domain === "asbestos" && (!job.sample_results || job.sample_results.length === 0);
@@ -6232,87 +6311,6 @@ export function ProjectDetailDialog({
                                   onChange={(e) => { setMoldSwabDiscussionInput(e.target.value); moldFieldDirty.current.swab = true; }}
                                   onBlur={(e) => { if (moldFieldDirty.current.swab) { moldFieldDirty.current.swab = false; saveMoldSwabDiscussion(e.target.value); } }}
                                 />
-                              </div>
-                            )}
-                            {/* Once per non-mold domain GROUP (first label
-                                within it), not once per job — a job
-                                combining asbestos and lead has two of these
-                                groups, each needing its own Result dropdown
-                                writing to its own domain's fields. A full
-                                inspection asbestos job has no single overall
-                                Result at all — its report is built from the
-                                per-material Appendix A/B breakdown instead
-                                (full_inspection_materials, still populated
-                                automatically from lab results regardless of
-                                the Materials Sampled editor's removal — see
-                                deriveFullInspectionMaterials in
-                                sample-items.ts); lead has no "full
-                                inspection" concept of its own either way. */}
-                            {labelIdx === 0 && group.domain !== "mold" &&
-                              !(group.domain === "asbestos" && isFullInspectionAsbestosJob(job.service_type)) && (
-                              <div className="mt-6 flex w-full items-center gap-2 text-sm">
-                                {/* Per Tim, 2026-09-30 — "let's make this so
-                                    that result is left of the cell instead
-                                    of above it... the exact same format as
-                                    lab and date sampled": same row shape as
-                                    labDropdown/dateSampledInput above
-                                    (w-28 shrink-0 label, flex-1 field).
-                                    mt-4 (not mt-3) matches the wrapper
-                                    above's own mb-4/space-y-4 rhythm — see
-                                    that wrapper's own comment on why. */}
-                                <span className="w-28 shrink-0 text-xs font-semibold uppercase text-slate-700">Result</span>
-                                <div className="min-w-0 flex-1">
-                                <ComboboxInput
-                                  value={group.domain === "lead" ? leadReportSummaryInput : reportSummaryInput}
-                                  onChange={group.domain === "lead" ? setLeadReportSummaryInput : setReportSummaryInput}
-                                  options={group.domain === "lead" ? [LEAD_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK] : [ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK]}
-                                  filterOptions={false}
-                                  getLabel={(o) => o}
-                                  showChevron
-                                  onSelect={(o) => {
-                                    if (group.domain === "lead") setLeadReportSummaryInput(o);
-                                    else setReportSummaryInput(o);
-                                    // Picking one of the two canned findings sentences IS
-                                    // the positive/negative determination — no separate
-                                    // Results button needed to duplicate that choice.
-                                    // One combined PATCH (not two separate save calls,
-                                    // each with its own onChanged()/loadJobs() refetch) —
-                                    // two independent fetches racing could let an older
-                                    // GET overwrite the newer one's field, leaving the
-                                    // report looking incomplete until an unrelated edit
-                                    // happened to trigger another refetch.
-                                    const negativeRemark = group.domain === "lead" ? LEAD_NEGATIVE_REMARK : ASBESTOS_NEGATIVE_REMARK;
-                                    const positiveRemark = group.domain === "lead" ? LEAD_POSITIVE_REMARK : ASBESTOS_POSITIVE_REMARK;
-                                    const resultField = group.domain === "lead" ? "lead_result" : "asbestos_result";
-                                    const summaryField = group.domain === "lead" ? "lead_report_summary" : "report_summary";
-                                    const patch: Record<string, unknown> = { [summaryField]: o.trim() || null };
-                                    if (o === negativeRemark) {
-                                      patch[resultField] = "negative";
-                                    } else if (o === positiveRemark) {
-                                      patch[resultField] = "positive";
-                                    }
-                                    saveJobField(patch);
-                                  }}
-                                  onEnter={(v) => (group.domain === "lead" ? saveLeadReportSummary(v) : saveReportSummary(v))}
-                                  onBlur={(v) => (group.domain === "lead" ? saveLeadReportSummary(v) : saveReportSummary(v))}
-                                  // Per Tim, 2026-09-30 — tried the pending
-                                  // phrase as this field's own placeholder
-                                  // text, then reversed the same day:
-                                  // "this should just be blank actually...
-                                  // blank when no results" — plain empty
-                                  // field while pending, same as always.
-                                  placeholder={group.domain === "lead" ? "e.g. None of the paint chip samples were determined to contain lead." : undefined}
-                                  // h-9 + py-1.5 (not the default py-2, no
-                                  // explicit height) — per Tim, 2026-09-30:
-                                  // "make sure that all of these cells are
-                                  // the exact same height" — matches
-                                  // labDropdown/dateSampledInput's own h-9
-                                  // exactly instead of whatever height
-                                  // text-sm content + py-2 happens to add
-                                  // up to (2px taller, empirically).
-                                  inputClassName="h-9 w-full min-w-0 rounded-lg border border-slate-300 bg-white py-1.5 pl-3 pr-8 text-sm disabled:bg-slate-100 disabled:text-slate-500"
-                                />
-                                </div>
                               </div>
                             )}
                           </div>

@@ -5968,9 +5968,6 @@ export function ProjectDetailDialog({
                                               })}
                                             </tbody>
                                           </table>
-                                          <div className="border-t border-slate-400 px-3 py-2 font-semibold text-slate-500">
-                                            Total: {results.length} sample{results.length === 1 ? "" : "s"}
-                                          </div>
                                         </div>
                                         <div className="mt-3 w-full rounded-lg border border-slate-200 bg-slate-50 text-xs sm:hidden">
                                           {/* Per Tim, 2026-09-01 — "list out ... all the details for
@@ -6029,9 +6026,6 @@ export function ProjectDetailDialog({
                                               </div>
                                             );
                                           })}
-                                          <div className="border-t border-slate-200 px-3 py-2 font-semibold text-slate-500">
-                                            Total: {results.length} sample{results.length === 1 ? "" : "s"}
-                                          </div>
                                         </div>
                                         </>
                                       ) : (

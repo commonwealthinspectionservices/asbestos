@@ -5723,8 +5723,22 @@ export function ProjectDetailDialog({
                                       were lead samples. Asbestos-only now. */}
                                   {group.domain === "asbestos" && (
                                   <div>
-                                    <div className="mt-2 flex flex-nowrap items-center gap-2">
+                                    {/* Per Tim, 2026-09-29 — "same with
+                                        sample results pending for the
+                                        sample results": sits on the same
+                                        line as the label now, directly
+                                        across from it, same reasoning as
+                                        the PDFs block's own empty-state
+                                        links right below this. Only when
+                                        there's nothing yet — once real
+                                        results land, the label goes back
+                                        to its own line above the full-
+                                        width table. */}
+                                    <div className="mt-2 flex flex-nowrap items-center justify-between gap-2">
                                       <h4 className="whitespace-nowrap text-xs font-semibold uppercase tracking-wide text-slate-700">Sample Results</h4>
+                                      {(!job.sample_results || job.sample_results.length === 0) && (
+                                        <p className="text-sm italic text-slate-400">Sample results pending</p>
+                                      )}
                                     </div>
                                     {(() => {
                                       const results = job.sample_results;
@@ -5794,14 +5808,13 @@ export function ProjectDetailDialog({
                                         // Per Tim, 2026-09-29 — "sample
                                         // results should not take up such a
                                         // huge space... it should just say
-                                        // sample results pending in italics":
-                                        // same reasoning as the Laboratory
-                                        // Results/Lab Invoice dropzones right
-                                        // above — this populates itself
-                                        // automatically once real results
-                                        // land, so it doesn't need a big
-                                        // empty h-40 box in the meantime.
-                                        <p className="mt-1.5 text-sm italic text-slate-400">Sample results pending</p>
+                                        // sample results pending in italics",
+                                        // then later the same day, "directly
+                                        // across from" the label — that text
+                                        // now lives in the row above (next to
+                                        // the Sample Results heading itself),
+                                        // not here.
+                                        null
                                       );
                                     })()}
                                   </div>
@@ -6101,9 +6114,7 @@ export function ProjectDetailDialog({
                                 three rows' buttons line up. */}
                             <span className="w-7 shrink-0" aria-hidden="true" />
                           </div>
-                        ) : (
-                          <span className="shrink-0 text-sm text-slate-400">Not ready yet</span>
-                        )}
+                        ) : null}
                       </div>
                     </div>
                   </>
@@ -6696,10 +6707,24 @@ function DocumentStation({
   const [labInvoicesExpanded, setLabInvoicesExpanded] = useState(false);
   const collapseLabInvoices = kind === "lab_invoice" && docs.length > 1 && !labInvoicesExpanded;
   const labInvoicesTotalCents = docs.reduce((sum, d) => sum + (d.amount_cents ?? 0), 0);
+  // Per Tim, 2026-09-29 — these three kinds get a plain "+ Upload ...
+  // manually" link for their empty state instead of the big dropzone
+  // (see the docs.length === 0 block's own comment for the full
+  // reasoning). Shared between that block and the title row above it so
+  // the exact same link can render inline with the label instead of on
+  // its own line below.
+  const simpleLinkKind = kind === "lab_report" || kind === "lab_invoice" || kind === "coc";
+  const uploadLinkLabel = `+ Upload ${kind === "lab_report" ? "lab report" : kind === "lab_invoice" ? "lab invoice" : "chain of custody"} manually`;
 
   return (
     <div>
       {leading && (docs.length === 0 || collapseLabInvoices) && <div className="mb-3">{leading}</div>}
+      {/* Per Tim, 2026-09-29 — "upload lab report manually should be
+          directly across from lab results, same with upload chain of
+          custody manually": the simple-link kinds' empty-state link now
+          sits in this same title row (right-aligned), matching how
+          View/Download already sit "directly across from" the label for
+          the one-document case, instead of its own line below. */}
       {titlePosition === "top" && (
         <div className="flex flex-nowrap items-center justify-between gap-2">
           <div className="flex min-w-0 flex-nowrap items-center gap-2">
@@ -6715,7 +6740,7 @@ function DocumentStation({
               titlePosition="bottom" usage, or the rare multi-file upload
               here) still lists them below instead — nothing to be
               "directly across from" once there's more than one. */}
-          {docs.length === 1 && (
+          {docs.length === 1 ? (
             <div className="flex shrink-0 items-center gap-2 text-sm">
               <a
                 href={`/api/admin/jobs/${job.id}/documents/${docs[0].id}`}
@@ -6743,38 +6768,19 @@ function DocumentStation({
                 {deletingId === docs[0].id ? "…" : "✕"}
               </button>
             </div>
-          )}
+          ) : simpleLinkKind && docs.length === 0 ? (
+            <button
+              type="button"
+              onClick={() => inputRef.current?.click()}
+              disabled={uploading}
+              className="shrink-0 text-sm font-medium text-brand-600 hover:underline disabled:opacity-50"
+            >
+              {uploading ? "Uploading…" : uploadLinkLabel}
+            </button>
+          ) : null}
         </div>
       )}
-      {docs.length === 0 && (
-        // Per Tim, 2026-09-29 — "I don't like how I have this whole big
-        // drag and drop for lab results... I rarely find myself needing
-        // to upload them manually", then "same with lab invoice": both
-        // arrive automatically (lab_report via the Crystal Analytical
-        // email pipeline, lab_invoice via the daily lab-invoicing cron —
-        // see project_lab_invoicing_cadence), so neither needs the same
-        // prominent, always-visible dropzone every other document kind
-        // still gets. Per Tim, same day, seeing the PDFs block with CoC
-        // still showing the big box next to Laboratory Results' plain
-        // link — "it should just be three simple lines... we definitely
-        // don't need the huge drag and drop": coc gets the same simple-
-        // link treatment now, even though (unlike lab_report/lab_invoice)
-        // it's genuinely uploaded/created by hand routinely — Tim's own
-        // call that the small link is enough for every kind of doc here,
-        // not just the automatic ones. Only photos still gets the full
-        // dropzone (a different station entirely, not this component).
-        // Same upload wiring either way, just a small link instead of a
-        // full h-40 dashed box.
-        (kind === "lab_report" || kind === "lab_invoice" || kind === "coc") ? (
-          <button
-            type="button"
-            onClick={() => inputRef.current?.click()}
-            disabled={uploading}
-            className="mt-1.5 text-sm font-medium text-brand-600 hover:underline disabled:opacity-50"
-          >
-            {uploading ? "Uploading…" : `+ Upload ${kind === "lab_report" ? "lab report" : kind === "lab_invoice" ? "lab invoice" : "chain of custody"} manually`}
-          </button>
-        ) : (
+      {docs.length === 0 && !simpleLinkKind && (
         <div className={titlePosition === "bottom" ? "mt-1.5 block w-full overflow-hidden rounded-lg border border-dashed border-slate-300" : undefined}>
           <div
             onDragOver={(e) => {
@@ -6809,7 +6815,6 @@ function DocumentStation({
             <p className="truncate border-t border-dashed border-slate-300 px-2 py-1 text-center text-xs font-bold uppercase text-slate-400" title={label}>{label}</p>
           )}
         </div>
-        )
       )}
       {/* Always rendered (both variants above trigger it via inputRef),
           regardless of which upload UI is currently shown. */}

@@ -1767,12 +1767,53 @@ function SavePaidInvoiceButton({ jobId, onSaved }: { jobId: string; onSaved: () 
   );
 }
 
+// Per Tim, 2026-09-30 — "instead of saying saved when paid next to paid
+// invoice stripe on the PDFs page it should just have the upload
+// button": a plain click-to-upload button, same shape as DocumentStation's
+// own empty-state upload button, for the one PDFs row (Paid Invoice) that
+// isn't already backed by a DocumentStation.
+function UploadDocumentButton({ jobId, kind, onUploaded }: { jobId: string; kind: JobDocument["kind"]; onUploaded: () => void }) {
+  const [uploading, setUploading] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  async function upload(file: File) {
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("kind", kind);
+      await fetch(`/api/admin/jobs/${jobId}/documents`, { method: "POST", body: formData });
+      onUploaded();
+    } finally {
+      setUploading(false);
+    }
+  }
+  return (
+    <>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="application/pdf,image/*"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) upload(file);
+          e.target.value = "";
+        }}
+      />
+      <button type="button" onClick={() => inputRef.current?.click()} disabled={uploading} className={ACTION_BUTTON_CLASS}>
+        {uploading ? "Uploading…" : "Upload"}
+      </button>
+    </>
+  );
+}
+
 const DOCUMENT_KIND_LABEL: Record<JobDocument["kind"], string> = {
   coc: "Chain of Custody",
   lab_report: "Laboratory Results",
   lab_invoice: "Laboratory Invoice",
   report: "Finished report",
   paid_invoice: "Paid invoice",
+  invoice: "Invoice",
   other: "Other",
 };
 
@@ -2258,8 +2299,13 @@ export default function JobsDashboard() {
     if (res.ok) loadJobs();
   }
 
+  // max-w-4xl (was max-w-3xl) — per Tim, 2026-09-30: "make the project
+  // preview cards a little bit wider so that I have a little bit more
+  // room to space everything out equally... the layout's perfect, I
+  // just need to space it out a tiny bit more" — same layout, just a
+  // wider container to breathe in.
   return (
-    <div className="mx-auto max-w-3xl px-4 py-6">
+    <div className="mx-auto max-w-4xl px-4 py-6">
       {/* Mobile: a dropdown (same pattern as the Directory's tab selector)
           instead of three separate buttons, with Add Project directly
           across on the same line. Desktop: unchanged row of four buttons. */}
@@ -3294,8 +3340,12 @@ function JobRow({
             inspection is" — every service-type line across every card
             now starts at this column's own left edge, instead of each
             one independently centering around a different x depending
-            on its own text length. */}
-        <div className={`min-w-0 w-full sm:mt-7 sm:w-auto sm:text-left${isUnscheduled ? " sm:flex-[0.9]" : " sm:flex-[1.2]"}`}>
+            on its own text length. sm:pl-8 added same day — "shaded a
+            little too far to the left... shaded a little to the right
+            now and more just like in the center" — one consistent
+            starting x still (not back to per-line centering), just
+            nudged inward from the column's bare left edge. */}
+        <div className={`min-w-0 w-full sm:mt-7 sm:w-auto sm:pl-8 sm:text-left${isUnscheduled ? " sm:flex-[0.9]" : " sm:flex-[1.2]"}`}>
           {(() => {
             const labels = (job.service_type ?? "").split(",").map((s) => s.trim()).filter(Boolean);
             return labels.map((label, i) => {
@@ -6343,15 +6393,22 @@ export function ProjectDetailDialog({
               </div>
             )}
 
+            {/* Per Tim, 2026-09-30 — "let's delete the PDF's title on the
+                invoice page" (matching the Report tab's own PDFs heading
+                removal, same night). */}
             <div className="border-t-4 border-slate-300 pt-6">
-              <h3 className="mb-4 text-base font-bold tracking-wide text-black underline sm:text-lg">PDFs</h3>
               <div className="space-y-3">
-                {/* Per Tim, 2026-09-19 — "we do not need a preview file for
-                    the invoice": the thumbnail card is gone; just a heading
-                    with View/Download in line with it, same shape as Lab
-                    Invoice below. */}
-                <div className="flex items-center justify-between gap-2">
-                  <h4 className="min-w-0 text-xs font-semibold uppercase tracking-wide text-slate-700">Invoice</h4>
+                {/* Per Tim, 2026-09-30 — "let's format it like how I
+                    reformatted the PDFs part on the asbestos report...
+                    each line and then a view and a download button":
+                    same w-40 fixed label column as the Report tab's own
+                    DocumentStation rows (min-h-9, flex-nowrap gap-3),
+                    not auto-width + justify-between — every row here now
+                    lands its own View/Download at the same x. */}
+                <div className="flex min-h-9 flex-nowrap items-center gap-3">
+                  <div className="flex w-40 shrink-0 items-center gap-2">
+                    <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-700">Invoice</h4>
+                  </div>
                   {reportComplete && job.invoice_total_cents != null ? (
                     <div className="flex shrink-0 items-center gap-2">
                       <a
@@ -6370,9 +6427,27 @@ export function ProjectDetailDialog({
                         Download
                       </a>
                     </div>
-                  ) : (
-                    <span className="text-sm text-slate-400">Not ready yet</span>
-                  )}
+                  ) : (() => {
+                    // Per Tim, 2026-09-30 — "at the very bottom where it
+                    // says invoice, not ready yet, it just should have
+                    // the upload button as opposed to saying not ready
+                    // yet": same manual-override pattern as Paid
+                    // Invoice/Final Report — a real invoice kind exists
+                    // now just for this early-upload window.
+                    const uploadedInvoice = (job.documents ?? []).find((d) => d.kind === "invoice");
+                    return uploadedInvoice ? (
+                      <div className="flex shrink-0 items-center gap-2">
+                        <a href={`/api/admin/jobs/${job.id}/documents/${uploadedInvoice.id}`} target="_blank" rel="noreferrer" className={ACTION_BUTTON_CLASS}>
+                          View
+                        </a>
+                        <a href={`/api/admin/jobs/${job.id}/documents/${uploadedInvoice.id}?download=1`} download={uploadedInvoice.file_name} className={ACTION_BUTTON_CLASS}>
+                          Download
+                        </a>
+                      </div>
+                    ) : (
+                      <UploadDocumentButton jobId={job.id} kind="invoice" onUploaded={onChanged} />
+                    );
+                  })()}
                 </div>
                 {/* Per Tim, 2026-09-25 — "the paid invoice from stripe needs
                     to save w each job": Stripe's own paid-invoice PDF, filed
@@ -6380,8 +6455,10 @@ export function ProjectDetailDialog({
                 {(() => {
                   const paidInvoice = (job.documents ?? []).find((d) => d.kind === "paid_invoice");
                   return (
-                    <div className="flex items-center justify-between gap-2">
-                      <h4 className="min-w-0 text-xs font-semibold uppercase tracking-wide text-slate-700">Paid Invoice (Stripe)</h4>
+                    <div className="flex min-h-9 flex-nowrap items-center gap-3">
+                      <div className="flex w-40 shrink-0 items-center gap-2">
+                        <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-700">Paid Invoice (Stripe)</h4>
+                      </div>
                       {paidInvoice ? (
                         <div className="flex shrink-0 items-center gap-2">
                           <a href={`/api/admin/jobs/${job.id}/documents/${paidInvoice.id}`} target="_blank" rel="noreferrer" className={ACTION_BUTTON_CLASS}>
@@ -6394,7 +6471,7 @@ export function ProjectDetailDialog({
                       ) : job.status === "paid" && job.stripe_invoice_id ? (
                         <SavePaidInvoiceButton jobId={job.id} onSaved={onChanged} />
                       ) : (
-                        <span className="text-sm text-slate-400">Saved when paid</span>
+                        <UploadDocumentButton jobId={job.id} kind="paid_invoice" onUploaded={onChanged} />
                       )}
                     </div>
                   );
@@ -6421,15 +6498,26 @@ export function ProjectDetailDialog({
             {!isFliJob && (() => {
               const firstLabel = serviceTypeGroups.flatMap((group) => group.labels)[0];
               return firstLabel ? (
-                <div className="-mt-3">
+                <div>
+                  {/* Per Tim, 2026-09-30 — "for the lab invoice view and
+                      download buttons, let's make sure those are
+                      directly beneath the other view and download
+                      buttons": titlePosition="top" (was "none" + a
+                      custom leading label rendered on its own line
+                      above) — same w-40 label column as Invoice/Paid
+                      Invoice above, so a single lab invoice's own
+                      View/Download lands at the same x. Multiple lab
+                      invoices still collapse into their own "N lab
+                      invoices / $total / Show all" summary exactly as
+                      before (see collapseLabInvoices) — that block reads
+                      docs.length itself, not the (now unused) leading
+                      prop, so nothing else about it changes. */}
                   <DocumentStation
                     job={job}
                     onChanged={onChanged}
                     kind="lab_invoice"
                     label="Lab Invoice"
                     serviceType={firstLabel}
-                    titlePosition="none"
-                    leading={<h4 className="min-w-0 text-xs font-semibold uppercase tracking-wide text-slate-700">Lab Invoice</h4>}
                   />
                 </div>
               ) : null;
@@ -9809,7 +9897,14 @@ function LineItemsEditor({
                       (quantity box, $ boxes, gaps, text size) trimmed down
                       instead, tight enough that all six pieces fit one row
                       on a phone's own width without spilling over. */}
-                  <div className="flex flex-wrap items-center gap-x-1 gap-y-1.5">
+                  {/* Per Tim, 2026-09-30 — "the four samples at 25 each
+                      equals 100 part should stretch out the entire
+                      length of the cell above it... let's use this full
+                      space widthwise": w-full + justify-between (was
+                      shrink-wrapped to just the sum of its fixed-width
+                      pieces, ending partway across) so this row matches
+                      the Description input's own full width above it. */}
+                  <div className="flex w-full flex-wrap items-center justify-between gap-x-1 gap-y-1.5">
                     <input
                       type="number"
                       className="w-10 shrink-0 rounded-lg border border-slate-300 px-1 py-1.5 text-center text-xs"

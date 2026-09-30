@@ -17,7 +17,7 @@ import { ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, isFullInspectionAsb
 import { deriveFullInspectionMaterials } from "@/lib/sample-items";
 import type { Job, JobDocument } from "@/lib/types";
 
-const DOCUMENT_KINDS = new Set(["coc", "lab_report", "lab_invoice", "report", "other"]);
+const DOCUMENT_KINDS = new Set(["coc", "lab_report", "lab_invoice", "report", "paid_invoice", "invoice", "other"]);
 
 // Scanned chain-of-custody forms and lab report PDFs get kept on file
 // forever alongside the job — the actual sample-level record of what was

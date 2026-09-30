@@ -5741,7 +5741,14 @@ export function ProjectDetailDialog({
                                         full-width table. */}
                                     <div className="mt-2 flex flex-nowrap items-center gap-2">
                                       {(!job.sample_results || job.sample_results.length === 0) ? (
-                                        <p className="text-sm italic text-slate-400">Sample results pending</p>
+                                        // Per Tim, 2026-09-29 — "should be
+                                        // the same color as the other
+                                        // text": matches the Sample
+                                        // Results/Laboratory Results/Chain
+                                        // of Custody labels' own
+                                        // text-slate-700, not the lighter
+                                        // text-slate-400 this started as.
+                                        <p className="text-sm italic text-slate-700">Sample results pending</p>
                                       ) : (
                                         <h4 className="whitespace-nowrap text-xs font-semibold uppercase tracking-wide text-slate-700">Sample Results</h4>
                                       )}

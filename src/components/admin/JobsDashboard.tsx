@@ -1205,7 +1205,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
                       type="text"
                       value={r.sample_number}
                       onChange={(e) => updateRow(i, "sample_number", e.target.value)}
-                      className="w-full border-0 bg-transparent px-3 py-2.5 text-center font-mono text-sm focus:bg-brand-50 focus:outline-none"
+                      className="w-full border-0 bg-transparent px-3 py-2.5 text-center font-mono text-sm focus:outline-none"
                     />
                   </td>
                   {hasMaterial && (
@@ -1217,7 +1217,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
                         getLabel={(m) => m}
                         onSelect={(m) => updateRow(i, "material", m)}
                         onBlur={(v) => updateRow(i, "material", v)}
-                        inputClassName="w-full border-0 bg-transparent px-3 py-2.5 text-sm focus:bg-brand-50 focus:outline-none"
+                        inputClassName="w-full border-0 bg-transparent px-3 py-2.5 text-sm focus:outline-none"
                       />
                     </td>
                   )}
@@ -1242,7 +1242,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
                         type="time"
                         value={r.start_time}
                         onChange={(e) => updateRow(i, "start_time", e.target.value)}
-                        className="w-full border-0 bg-transparent px-3 py-2.5 text-sm focus:bg-brand-50 focus:outline-none"
+                        className="w-full border-0 bg-transparent px-3 py-2.5 text-sm focus:outline-none"
                       />
                     </td>
                   )}
@@ -1252,7 +1252,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
                         type="time"
                         value={r.end_time}
                         onChange={(e) => updateRow(i, "end_time", e.target.value)}
-                        className="w-full border-0 bg-transparent px-3 py-2.5 text-sm focus:bg-brand-50 focus:outline-none"
+                        className="w-full border-0 bg-transparent px-3 py-2.5 text-sm focus:outline-none"
                       />
                     </td>
                   )}
@@ -1265,7 +1265,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
                       getLabel={(l) => l}
                       onSelect={(l) => updateRow(i, "location", l)}
                       onBlur={(v) => updateRow(i, "location", v)}
-                      inputClassName="w-full border-0 bg-transparent px-3 py-2.5 text-sm focus:bg-brand-50 focus:outline-none"
+                      inputClassName="w-full border-0 bg-transparent px-3 py-2.5 text-sm focus:outline-none"
                     />
                   </td>
                   <td className="p-0 text-center">
@@ -1329,7 +1329,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
                     type="text"
                     value={r.sample_number}
                     onChange={(e) => updateRow(i, "sample_number", e.target.value)}
-                    className="w-full border-0 bg-transparent px-3 py-2.5 font-mono text-xs focus:bg-brand-50 focus:outline-none"
+                    className="w-full border-0 bg-transparent px-3 py-2.5 font-mono text-xs focus:outline-none"
                   />
                 </div>
                 <button
@@ -1351,7 +1351,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
                     getLabel={(m) => m}
                     onSelect={(m) => updateRow(i, "material", m)}
                     onBlur={(v) => updateRow(i, "material", v)}
-                    inputClassName="w-full border-0 bg-transparent px-3 py-2.5 text-xs focus:bg-brand-50 focus:outline-none"
+                    inputClassName="w-full border-0 bg-transparent px-3 py-2.5 text-xs focus:outline-none"
                   />
                 </div>
               )}
@@ -1373,7 +1373,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
                     type="time"
                     value={r.start_time}
                     onChange={(e) => updateRow(i, "start_time", e.target.value)}
-                    className="w-full border-0 bg-transparent px-3 py-2.5 text-xs focus:bg-brand-50 focus:outline-none"
+                    className="w-full border-0 bg-transparent px-3 py-2.5 text-xs focus:outline-none"
                   />
                 </div>
               )}
@@ -1384,7 +1384,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
                     type="time"
                     value={r.end_time}
                     onChange={(e) => updateRow(i, "end_time", e.target.value)}
-                    className="w-full border-0 bg-transparent px-3 py-2.5 text-xs focus:bg-brand-50 focus:outline-none"
+                    className="w-full border-0 bg-transparent px-3 py-2.5 text-xs focus:outline-none"
                   />
                 </div>
               )}
@@ -1398,7 +1398,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
                   getLabel={(l) => l}
                   onSelect={(l) => updateRow(i, "location", l)}
                   onBlur={(v) => updateRow(i, "location", v)}
-                  inputClassName="w-full border-0 bg-transparent px-3 py-2.5 text-xs focus:bg-brand-50 focus:outline-none"
+                  inputClassName="w-full border-0 bg-transparent px-3 py-2.5 text-xs focus:outline-none"
                 />
               </div>
             </div>
@@ -7049,7 +7049,17 @@ export function ComboboxInput<T>({
     : options ?? [];
 
   return (
-    <div className="relative">
+    // Per Tim, 2026-09-29 — the Location field's own focus highlight only
+    // shaded about half the cell on mobile: this wrapper had no sizing
+    // classes of its own, so when a caller (like the Chain of Custody
+    // mobile card's label+input row) puts it in a flex row next to a
+    // fixed-width label, it's the wrapper — not the input inside it —
+    // that's the actual flex child, and it was shrinking to fit its
+    // content instead of filling the remaining row width; the input's own
+    // w-full then only filled that already-too-narrow wrapper. flex-1
+    // min-w-0 has no effect outside a flex container, so this is safe for
+    // every other place ComboboxInput is used too.
+    <div className="relative min-w-0 flex-1">
       <input
         className={inputClassName ?? `w-full rounded-lg border border-slate-300 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-500 ${showChevron ? "pl-3 pr-8" : "px-3"}`}
         value={value}

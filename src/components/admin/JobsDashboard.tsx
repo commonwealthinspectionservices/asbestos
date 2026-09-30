@@ -5692,9 +5692,26 @@ export function ProjectDetailDialog({
                           {dateSampledInput(group.domain)}
                           {isFliJob && group.domain === "asbestos" && fliProjectNumberInput}
                         </div>
-                        {group.labels.map((label, labelIdx) => (
+                        {group.labels.map((label, labelIdx) => {
+                          const samplesPending = group.domain === "asbestos" && (!job.sample_results || job.sample_results.length === 0);
+                          return (
                           <div key={label} className={labelIdx > 0 ? "mt-8" : ""}>
-                            <p className="mb-5 text-base font-bold uppercase text-slate-700">{label}</p>
+                            {/* Per Tim, 2026-09-29 — tried this as its own
+                                separate line under the title a few times
+                                ("Sample Results" label + right-aligned
+                                pending text, then just one italic line),
+                                then folded it into the title itself
+                                instead: "let's just make this title say
+                                pre-renovation asbestos inspection sample
+                                results pending, in italics, but I like
+                                how it's in this title text kind of" —
+                                same bold/uppercase title styling, just
+                                italic and with the pending phrase
+                                appended, rather than a separate element
+                                below it. */}
+                            <p className={`mb-5 text-base font-bold uppercase text-slate-700 ${samplesPending ? "italic" : ""}`}>
+                              {label}{samplesPending ? " Sample results pending" : ""}
+                            </p>
                             {/* Per Tim, 2026-09-16 — "laboratory results and
                                 chain of custody should each have their own
                                 row": now that each station is just a label
@@ -5723,36 +5740,23 @@ export function ProjectDetailDialog({
                                       were lead samples. Asbestos-only now. */}
                                   {group.domain === "asbestos" && (
                                   <div>
-                                    {/* Per Tim, 2026-09-29 — first tried
-                                        "Sample Results" as the label with
-                                        "Sample results pending" right-
-                                        aligned next to it (same row), then
-                                        reversed that same day: "the title,
-                                        instead of saying sample results,
-                                        can just say sample results pending
-                                        in italics... the one that's aligned
-                                        right can just be deleted" — one
-                                        line, not two: the label itself
-                                        becomes the pending text (italic,
-                                        not the bold/uppercase label style)
-                                        until real results land, at which
-                                        point it goes back to the plain
-                                        "Sample Results" heading above the
-                                        full-width table. */}
-                                    <div className="mt-2 flex flex-nowrap items-center gap-2">
-                                      {(!job.sample_results || job.sample_results.length === 0) ? (
-                                        // Per Tim, 2026-09-29 — "should be
-                                        // the same color as the other
-                                        // text": matches the Sample
-                                        // Results/Laboratory Results/Chain
-                                        // of Custody labels' own
-                                        // text-slate-700, not the lighter
-                                        // text-slate-400 this started as.
-                                        <p className="text-sm italic text-slate-700">Sample results pending</p>
-                                      ) : (
+                                    {/* Per Tim, 2026-09-29 — went through a
+                                        few layouts for the pending state
+                                        (its own label + right-aligned
+                                        text, then one italic line), before
+                                        landing on folding it straight into
+                                        the domain title above instead (see
+                                        that title's own comment) — so this
+                                        heading only renders at all once
+                                        there are real results to put a
+                                        label above; nothing duplicates
+                                        what the title already says while
+                                        pending. */}
+                                    {!samplesPending && (
+                                      <div className="mt-2 flex flex-nowrap items-center gap-2">
                                         <h4 className="whitespace-nowrap text-xs font-semibold uppercase tracking-wide text-slate-700">Sample Results</h4>
-                                      )}
-                                    </div>
+                                      </div>
+                                    )}
                                     {(() => {
                                       const results = job.sample_results;
                                       return results && results.length > 0 ? (
@@ -5818,15 +5822,13 @@ export function ProjectDetailDialog({
                                           </div>
                                         </div>
                                       ) : (
-                                        // Per Tim, 2026-09-29 — "sample
-                                        // results should not take up such a
-                                        // huge space... it should just say
-                                        // sample results pending in italics",
-                                        // then later the same day, "directly
-                                        // across from" the label — that text
-                                        // now lives in the row above (next to
-                                        // the Sample Results heading itself),
-                                        // not here.
+                                        // Per Tim, 2026-09-29 — went through
+                                        // a few places for this text before
+                                        // folding it straight into the
+                                        // domain title above (samplesPending,
+                                        // see that title's own comment) —
+                                        // nothing renders here at all now
+                                        // while pending.
                                         null
                                       );
                                     })()}
@@ -5968,7 +5970,7 @@ export function ProjectDetailDialog({
                               </div>
                             )}
                           </div>
-                        ))}
+                        );})}
                         {/* Mold's Conclusions & Recommendations lives inside
                             this same group, once — it covers every mold
                             label on the job as one shared conclusion, unlike

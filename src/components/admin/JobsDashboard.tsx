@@ -929,13 +929,27 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
   // mold job with both Air and Bulk panels, say) pass through untouched.
   const hasMountedRef = useRef(false);
   const saveDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Per Tim, 2026-09-29 (26-0054) — a stray sample row ("02B", location
+  // "Bathroom wall", no material) survived on a job nobody meant to leave
+  // it on. Root cause: this effect's own cleanup only ever cleared the
+  // pending timeout, it never ran it — so removing a row (or any other
+  // edit) made within 800ms of closing this dialog was silently dropped
+  // entirely, while whatever HAD already saved before that (a row typed
+  // in, then deleted) stuck around forever. isUnmountingRef (a separate
+  // effect with no deps, so its own cleanup only ever fires on the real
+  // final unmount, never on an ordinary re-run of this effect from a
+  // fresh edit) lets this cleanup tell "the dialog is actually closing"
+  // apart from "rows/turnaround/etc. just changed again" — only the
+  // former should fire the save immediately instead of just cancelling it.
+  const isUnmountingRef = useRef(false);
+  useEffect(() => () => { isUnmountingRef.current = true; }, []);
   useEffect(() => {
     if (!hasMountedRef.current) {
       hasMountedRef.current = true;
       return;
     }
     if (saveDebounceRef.current) clearTimeout(saveDebounceRef.current);
-    saveDebounceRef.current = setTimeout(() => {
+    const save = () => {
       const otherTypesRows = (job.sample_items ?? []).filter((s) => (s.coc_type ?? "asbestos_bulk") !== cocType);
       const thisTypeRows = rows
         .filter((r) => r.sample_number.trim() || r.material.trim() || r.location.trim() || r.start_time.trim() || r.end_time.trim())
@@ -955,9 +969,11 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
         // its own error UI. Create Draft's own request (createCocDraft)
         // still surfaces a real error if that explicit action fails.
       });
-    }, 800);
+    };
+    saveDebounceRef.current = setTimeout(save, 800);
     return () => {
       if (saveDebounceRef.current) clearTimeout(saveDebounceRef.current);
+      if (isUnmountingRef.current) save();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows, turnaround, dateNeeded, relinquishedDate, relinquishedTime]);

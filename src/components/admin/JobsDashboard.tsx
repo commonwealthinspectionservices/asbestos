@@ -6122,7 +6122,7 @@ export function ProjectDetailDialog({
                           />
                         </div>
                       ))}
-                      <div className="flex items-center justify-between gap-2">
+                      <div className="flex min-h-9 items-center justify-between gap-2">
                         <h4 className="min-w-0 text-xs font-semibold uppercase tracking-wide text-slate-700">Final {REPORT_DOMAIN_LABEL[domain]} Report</h4>
                         {domainReady ? (
                           <div className="flex shrink-0 items-center gap-2">
@@ -6744,11 +6744,24 @@ function DocumentStation({
       {/* Per Tim, 2026-09-29 — "upload lab report manually should be
           directly across from lab results, same with upload chain of
           custody manually": the simple-link kinds' empty-state link now
-          sits in this same title row (right-aligned), matching how
-          View/Download already sit "directly across from" the label for
-          the one-document case, instead of its own line below. */}
+          sits in this same title row, matching how View/Download already
+          sit "directly across from" the label for the one-document case,
+          instead of its own line below. Not justify-between (pushed all
+          the way to the row's far right edge) — per Tim, same day, "the
+          stuff that's aligned right should not be so far right, I just
+          kind of want it in a normal spot next to lab results" — sits
+          right after the label with a normal gap instead. */}
+      {/* min-h-9 — per Tim, same day, "make the spacing even throughout
+          vertically": a row with h-9 View/Download buttons is taller than
+          a row with just the plain upload-link text, so with the two
+          stacked via space-y-* the shorter row's label sat noticeably
+          closer to its neighbor above than the taller row's label did.
+          Giving every row the same minimum height (matching the buttons'
+          own h-9, per the 2026-09-19 comment on ACTION_BUTTON_CLASS) makes
+          every label center at the same spot regardless of what's beside
+          it, so the gaps between labels read as even. */}
       {titlePosition === "top" && (
-        <div className="flex flex-nowrap items-center justify-between gap-2">
+        <div className="flex min-h-9 flex-nowrap items-center gap-3">
           <div className="flex min-w-0 flex-nowrap items-center gap-2">
             <h4 className="min-w-0 text-xs font-semibold uppercase leading-snug tracking-wide text-slate-700">{label}</h4>
             {headerExtra}

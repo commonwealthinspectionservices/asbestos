@@ -6011,8 +6011,15 @@ export function ProjectDetailDialog({
                                 inspection" concept of its own either way. */}
                             {labelIdx === 0 && group.domain !== "mold" &&
                               !(group.domain === "asbestos" && isFullInspectionAsbestosJob(job.service_type)) && (
-                              <div className="mt-3">
-                                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">Result</label>
+                              <div className="mt-3 flex w-full items-center gap-2 text-sm">
+                                {/* Per Tim, 2026-09-30 — "let's make this so
+                                    that result is left of the cell instead
+                                    of above it... the exact same format as
+                                    lab and date sampled": same row shape as
+                                    labDropdown/dateSampledInput above
+                                    (w-28 shrink-0 label, flex-1 field). */}
+                                <span className="w-28 shrink-0 text-xs font-semibold uppercase text-slate-700">Result</span>
+                                <div className="min-w-0 flex-1">
                                 <ComboboxInput
                                   value={group.domain === "lead" ? leadReportSummaryInput : reportSummaryInput}
                                   onChange={group.domain === "lead" ? setLeadReportSummaryInput : setReportSummaryInput}
@@ -6048,6 +6055,7 @@ export function ProjectDetailDialog({
                                   onBlur={(v) => (group.domain === "lead" ? saveLeadReportSummary(v) : saveReportSummary(v))}
                                   placeholder={group.domain === "lead" ? "e.g. None of the paint chip samples were determined to contain lead." : undefined}
                                 />
+                                </div>
                               </div>
                             )}
                           </div>

@@ -633,7 +633,14 @@ function EmailChecklistPanel({
     // cancelling Subject's own order-first below) instead of stacked;
     // mobile keeps the original stacked layout, Subject still on top.
     <div className="mt-8 flex flex-col gap-6 sm:flex-row sm:items-start">
-      <div className="max-w-md flex-1">
+      {/* Per Tim, 2026-09-30 — "move the subject cell more left, I don't
+          want it to be aligned all the way right": sm:flex-none stops
+          this column matching Subject's own flex-grow share of the row
+          now that they sit side by side — its content is much narrower
+          than half the row, and splitting evenly was exactly what pushed
+          Subject's own box out to the row's far right edge. flex-1
+          (mobile's plain flex-col layout, unaffected by this) stays. */}
+      <div className="max-w-md flex-1 sm:flex-none">
         <div className="space-y-2">
           {domains.map((domain) => (
             <label key={domain} className={rowClassName}>
@@ -692,7 +699,18 @@ function EmailChecklistPanel({
           )}
         </div>
       </div>
-      <div className="order-first flex-1 sm:order-none">
+      {/* Per Tim, 2026-09-30 — "move the subject cell more left, I don't
+          want it to be aligned all the way right": plain flex-1 stretched
+          this to fill 100% of the row's remaining width, so its right
+          edge always touched the modal's own right edge regardless of
+          how wide the modal was — and the checklist column next to it
+          (also flex-1, per its own comment above) split that remaining
+          width evenly rather than sizing to its own much narrower
+          content, which only made this box's own share wider still. A
+          fixed sm:w-[34rem] (comfortably past the longest subject line's
+          own measured width) instead of flex-1 now sits right next to
+          the checklist, well short of the modal's right edge. */}
+      <div className="order-first w-full sm:order-none sm:w-[34rem]">
         <h3 className="mb-2 text-sm font-bold uppercase text-slate-500">Subject</h3>
         <input
           type="text"

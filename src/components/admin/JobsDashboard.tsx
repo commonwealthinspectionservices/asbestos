@@ -3569,26 +3569,36 @@ function JobRow({
                   fixed rows regardless of how much is actually filled
                   in. */}
               {useCocRowFormat ? (
-                // items-start (was items-end) — per Tim, 2026-09-30:
-                // "scheduled time should be aligned directly underneath
-                // scheduled date": items-end right-aligned each line's
-                // own text, so the shorter "Scheduled time:" (blank, no
-                // value) started further right than "Scheduled date:
-                // ...". items-end existed to right-align the now-deleted
-                // cocStatus checklist's own checkbox column — nothing
-                // left here that needs it.
-                <div className="hidden w-full flex-col items-start gap-2 text-sm text-slate-500 sm:flex">
+                // Per Tim, 2026-09-30 — first "scheduled time should be
+                // aligned directly underneath scheduled date" (items-end
+                // was right-aligning each line's OWN text individually,
+                // so the shorter blank "Scheduled time:" started further
+                // right than "Scheduled date: ..."), then "I still want
+                // scheduled date and scheduled time to be as far right
+                // as they can be" once items-start alone left the whole
+                // block sitting wherever w-full happened to stretch to,
+                // not hugging the card's right edge like before. Fix:
+                // items-end stays on this outer row (still hugs the
+                // right edge), but date/time are now ONE flex child (an
+                // inner items-start box sized to its own content, not
+                // w-full) — items-end right-aligns that box as a whole
+                // against the row, and items-start inside it lines up
+                // date/time with each other since the box's own width is
+                // set by its longer line.
+                <div className="hidden w-full flex-col items-end gap-2 text-sm text-slate-500 sm:flex">
                   <div className="sm:min-h-5" aria-hidden="true" />
-                  <div>{hasCompletedFieldwork(job.status) ? "Completed" : "Scheduled"} date: {formatDate(job.confirmed_date ?? job.requested_date) || "—"}</div>
-                  {/* Per Tim, 2026-09-29 — "Scheduled time: — I don't want
-                      desktop to do this... desktop it should be blank
-                      too": no dash fallback here either now, matching
-                      mobile's own version below. */}
-                  <div>
-                    {hasCompletedFieldwork(job.status) ? "Completed" : "Scheduled"} time:{" "}
-                    {isSubcontractor && job.confirmed_time && job.confirmed_time === parseWindowStartTime24h(job.subcontractor_preferred_window)
-                      ? extractTimeRange(job.subcontractor_preferred_window) ?? formatTime(job.confirmed_time)
-                      : formatTime(job.confirmed_time ?? job.requested_time)}
+                  <div className="flex flex-col items-start gap-2">
+                    <div>{hasCompletedFieldwork(job.status) ? "Completed" : "Scheduled"} date: {formatDate(job.confirmed_date ?? job.requested_date) || "—"}</div>
+                    {/* Per Tim, 2026-09-29 — "Scheduled time: — I don't want
+                        desktop to do this... desktop it should be blank
+                        too": no dash fallback here either now, matching
+                        mobile's own version below. */}
+                    <div>
+                      {hasCompletedFieldwork(job.status) ? "Completed" : "Scheduled"} time:{" "}
+                      {isSubcontractor && job.confirmed_time && job.confirmed_time === parseWindowStartTime24h(job.subcontractor_preferred_window)
+                        ? extractTimeRange(job.subcontractor_preferred_window) ?? formatTime(job.confirmed_time)
+                        : formatTime(job.confirmed_time ?? job.requested_time)}
+                    </div>
                   </div>
                 </div>
               ) : (

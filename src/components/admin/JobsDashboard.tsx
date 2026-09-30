@@ -1053,6 +1053,26 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
       ];
     });
   }
+  // Per Tim, 2026-09-30 — "drywall is always going to be listed with
+  // [its] skim coat... I just wanna make that process simpler": these
+  // two materials are never sampled alone — each one means two real
+  // materials (a base/plaster coat and its own skim coat), so adding
+  // "Drywall" or "Plaster" adds both materials' own A+B pair at once (4
+  // rows) instead of typing each material name twice by hand. Location
+  // stays blank on every new row, same as addRow above — no guessing,
+  // just one less material name to type.
+  function addMaterialGroup(materials: readonly [string, string]) {
+    setRows((prev) => {
+      const next = [...prev];
+      for (const material of materials) {
+        next.push(
+          { sample_number: defaultSampleCode(next.length, true), material, location: "", start_time: "", end_time: "" },
+          { sample_number: defaultSampleCode(next.length + 1, true), material, location: "", start_time: "", end_time: "" }
+        );
+      }
+      return next;
+    });
+  }
   function removeRow(i: number) {
     setRows((prev) => (prev.length > 1 ? prev.filter((_, idx) => idx !== i) : prev));
   }
@@ -1542,7 +1562,23 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
         </div>
       </div>
 
-      <div className="mt-3 flex justify-end">
+      <div className="mt-3 flex flex-wrap justify-end gap-x-4 gap-y-1">
+        {/* Per Tim, 2026-09-30 — "drywall is [always] base and skim
+            coat, plaster is plaster and skim coat": one click each adds
+            both of that material's own A+B pair (4 rows), instead of
+            typing "Drywall wall base" and "Drywall wall skim coat" out
+            by hand as two separate materials. Asbestos bulk only
+            (pairsSamples) — mold's own materials don't pair up this way. */}
+        {pairsSamples && (
+          <>
+            <button type="button" onClick={() => addMaterialGroup(["Drywall wall base", "Drywall wall skim coat"])} className="shrink-0 text-sm font-medium text-brand-600 hover:underline">
+              + Drywall
+            </button>
+            <button type="button" onClick={() => addMaterialGroup(["Plaster wall base", "Plaster wall skim coat"])} className="shrink-0 text-sm font-medium text-brand-600 hover:underline">
+              + Plaster
+            </button>
+          </>
+        )}
         <button type="button" onClick={addRow} className="shrink-0 text-sm font-medium text-brand-600 hover:underline">{pairsSamples ? "+ Add material" : "+ Add sample"}</button>
       </div>
 

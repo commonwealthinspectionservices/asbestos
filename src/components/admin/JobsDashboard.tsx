@@ -1538,13 +1538,20 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
             throughout vertically": moved out of Relinquished's own row
             (was ml-auto/justify-end there) into this row of its own, a
             plain sibling in the same space-y-4 rhythm as Turnaround and
-            Relinquished above it. */}
-        <div className="flex flex-wrap items-center gap-2">
+            Relinquished above it. Per Tim, same day, once more specific:
+            "make it so the view button is directly beneath and the exact
+            same width and height as the rush and date buttons... the
+            download button should go directly beneath 24 hours and
+            time" — a w-28 spacer matching Turnaround/Relinquished's own
+            label column, then View/Download at w-32 (Rush/24-Hr/Date/
+            Time's own width) so they land in the same two columns. */}
+        <div className="flex flex-nowrap items-center gap-3">
+          <span className="w-28 shrink-0" aria-hidden="true" />
           <button
             type="button"
             onClick={() => viewOrDownloadCocPdf("view")}
             disabled={viewingPdf !== null}
-            className={ACTION_BUTTON_CLASS}
+            className={`${ACTION_BUTTON_CLASS} w-32`}
           >
             {viewingPdf === "view" ? "Opening…" : "View"}
           </button>
@@ -1552,7 +1559,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
             type="button"
             onClick={() => viewOrDownloadCocPdf("download")}
             disabled={viewingPdf !== null}
-            className={ACTION_BUTTON_CLASS}
+            className={`${ACTION_BUTTON_CLASS} w-32`}
           >
             {viewingPdf === "download" ? "Downloading…" : "Download"}
           </button>

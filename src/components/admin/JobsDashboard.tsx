@@ -517,8 +517,6 @@ function EmailChecklistPanel({
   const [includeReviewLink, setIncludeReviewLink] = useState(true);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [sendingReminder, setSendingReminder] = useState(false);
-  const [reminderError, setReminderError] = useState<string | null>(null);
 
   function toggleDomain(domain: ReportDomain) {
     setSelectedDomains((prev) => {
@@ -601,29 +599,6 @@ function EmailChecklistPanel({
     }
   }
 
-  // Per Tim, 2026-09-16 — "I still have the results that I haven't sent
-  // out yet [because they haven't paid]... it should be simple to do this
-  // for when this is the case": createPaymentReminderDraftForJob already
-  // existed (the automatic path for this exact situation, fired the
-  // moment lab results land on an unpaid individual job) but had no manual
-  // way to re-run it on demand — this is that button, same draft-then-
-  // jump-to-Gmail pattern as Create Draft above.
-  async function sendPaymentReminder() {
-    setSendingReminder(true);
-    setReminderError(null);
-    try {
-      const res = await fetch(`/api/admin/jobs/${job.id}/create-draft?kind=payment_reminder`, { method: "POST" });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Failed to create payment reminder draft");
-      onChanged();
-      if (data.messageId && !isStandaloneApp()) openGmailMessage(data.messageId, false);
-    } catch (e) {
-      setReminderError(e instanceof Error ? e.message : "Failed to create payment reminder draft");
-    } finally {
-      setSendingReminder(false);
-    }
-  }
-
   const rowClassName = "flex items-center gap-2 text-sm";
 
   return (
@@ -673,7 +648,6 @@ function EmailChecklistPanel({
           )}
         </div>
         {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
-        {reminderError && <p className="mt-2 text-sm text-red-600">{reminderError}</p>}
         {/* Per Tim, 2026-09-24 — "instead of having this whole cell in the
             text above it, I want it to be just the button... it should be
             the same height as the draft button above it and it should be
@@ -688,15 +662,6 @@ function EmailChecklistPanel({
           >
             {creating ? "Creating draft…" : "Create Draft ↗"}
           </button>
-          {job.is_individual && job.status !== "paid" && (
-            <button
-              onClick={sendPaymentReminder}
-              disabled={sendingReminder}
-              className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-            >
-              {sendingReminder ? "Creating…" : job.payment_reminder_draft_gmail_message_id ? "Recreate Payment Reminder ↗" : "Create Payment Reminder ↗"}
-            </button>
-          )}
         </div>
       </div>
       {/* Per Tim, 2026-09-30 — "move the subject cell more left, I don't

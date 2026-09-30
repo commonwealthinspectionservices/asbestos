@@ -672,7 +672,7 @@ function EmailChecklistPanel({
           <button
             onClick={createDraft}
             disabled={nothingSelected || creating}
-            className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+            className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 hover:border-2 hover:border-brand-600 hover:bg-slate-50 disabled:opacity-50"
           >
             {creating ? "Creating draft…" : "Create Draft ↗"}
           </button>
@@ -687,7 +687,7 @@ function EmailChecklistPanel({
           )}
         </div>
       </div>
-      <div className="order-first max-w-md flex-1">
+      <div className="order-first flex-1">
         <h3 className="mb-2 text-sm font-bold uppercase text-slate-500">Subject</h3>
         <input
           type="text"

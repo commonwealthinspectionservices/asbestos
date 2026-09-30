@@ -151,22 +151,22 @@ export function defaultInvoiceLineItems(
     const bulletLabels = bundledWithMoistureMapping
       ? serviceTypeLabels.filter((l) => !l.toLowerCase().includes("moisture mapping"))
       : serviceTypeLabels;
-    // Per Tim, 2026-08-27 — every service type gets its own line instead of
-    // being comma-joined onto one (which, for a job with several labels,
-    // wrapped mid-phrase in both the invoice PDF and the admin textarea),
-    // and now its own bullet too, rather than a parenthetical continuation
-    // that still had to wrap. The PDF's own Charges table already splits a
-    // description on "\n" into a main line plus indented sub-lines
-    // (invoice-pdf.tsx); a plain <textarea> renders embedded newlines as
-    // real line breaks too, so this one shared description string
-    // (job.invoice_line_items is the single source of truth for both)
-    // covers every place an invoice shows it.
+    // Per Tim, 2026-09-30 — "avoid having to use bullets and two lines in
+    // this cell... the format should be Mold Inspector and then the
+    // service type in parentheses": one line, "Title (labels, comma-
+    // joined)", instead of the title plus a "\n"-and-bullet per service
+    // type (was per Tim, 2026-08-27, over wrapping concerns on a
+    // multi-label job — a parenthetical still wraps naturally if it runs
+    // long, same as any other text, so nothing is lost). The invoice
+    // PDF's Charges table used to split this description on "\n" into a
+    // main line plus indented sub-lines; with no "\n" left to split on,
+    // it now just renders the one line, same as the admin's own textarea.
     const baseFeeDescription =
       serviceTypeLabels.length === 0
         ? "Licensed Asbestos Inspector"
         : baseFeeTitle
-          ? [baseFeeTitle, ...bulletLabels.map((l) => `• ${l}`)].join("\n")
-          : bulletLabels.map((l) => `• ${l}`).join("\n");
+          ? `${baseFeeTitle} (${bulletLabels.join(", ")})`
+          : bulletLabels.join(", ");
     rows.push({
       description: baseFeeDescription,
       quantity: 1,

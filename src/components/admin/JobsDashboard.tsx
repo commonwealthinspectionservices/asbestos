@@ -6339,8 +6339,14 @@ export function ProjectDetailDialog({
                 Lab Invoice are now four siblings under one shared
                 space-y-6, instead of the old mix of pt-6 wrappers and a
                 nested space-y-3 that gave Stripe→Invoice a bigger gap
-                than Invoice→Paid Invoice or Paid Invoice→Lab Invoice. */}
-            <div className="space-y-6 pt-6">
+                than Invoice→Paid Invoice or Paid Invoice→Lab Invoice.
+                Per Tim, same night — "add back in that custom gray
+                line... directly in between Stripe payment link and
+                payment due": the divider this section's own comment
+                above mentions removing, restored here as the one
+                boundary between the line items (ending in Payment due)
+                and this Stripe/Invoice/Paid/Lab Invoice section. */}
+            <div className="space-y-6 border-t-4 border-slate-300 pt-6">
               {job.invoice_total_cents != null && (
                 <div>
                   {/* Per Tim, 2026-09-30 — "Stripe payment link should be in
@@ -9946,23 +9952,30 @@ function LineItemsEditor({
         </div>
       ))}
 
-      <div className="flex justify-end gap-4">
-        <button onClick={() => add()} className="text-sm font-medium text-brand-600 hover:underline">
-          + Custom Line Item
-        </button>
-        <button onClick={() => addSample()} className="text-sm font-medium text-brand-600 hover:underline">
-          + Samples
-        </button>
-      </div>
-
-      <div className="flex w-full items-center gap-2 text-sm">
-        <label className="w-28 shrink-0 text-xs font-semibold uppercase tracking-wide text-slate-700">Payment due</label>
-        <input
-          type="date"
-          className="block h-9 min-h-0 w-full min-w-0 flex-1 appearance-none rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-left text-sm [&::-webkit-date-and-time-value]:text-left [&::-webkit-calendar-picker-indicator]:block [&::-webkit-calendar-picker-indicator]:opacity-100"
-          value={paymentDueDate}
-          onChange={(e) => onPaymentDueDateChange(e.target.value)}
-        />
+      {/* Per Tim, 2026-09-30 — "make it so that the payment due cell is on
+          the exact same line as the custom line item and samples
+          buttons... there's a ton of unnecessary space on the payment
+          due cell": one row instead of two — Payment due's own date
+          input no longer needs to stretch full-width (flex-1) now that
+          it isn't alone on its own line. */}
+      <div className="flex w-full flex-wrap items-center justify-between gap-4 text-sm">
+        <div className="flex items-center gap-2">
+          <label className="shrink-0 text-xs font-semibold uppercase tracking-wide text-slate-700">Payment due</label>
+          <input
+            type="date"
+            className="block h-9 min-h-0 w-44 min-w-0 appearance-none rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-left text-sm [&::-webkit-date-and-time-value]:text-left [&::-webkit-calendar-picker-indicator]:block [&::-webkit-calendar-picker-indicator]:opacity-100"
+            value={paymentDueDate}
+            onChange={(e) => onPaymentDueDateChange(e.target.value)}
+          />
+        </div>
+        <div className="flex items-center gap-4">
+          <button onClick={() => add()} className="text-sm font-medium text-brand-600 hover:underline">
+            + Custom Line Item
+          </button>
+          <button onClick={() => addSample()} className="text-sm font-medium text-brand-600 hover:underline">
+            + Samples
+          </button>
+        </div>
       </div>
     </div>
   );

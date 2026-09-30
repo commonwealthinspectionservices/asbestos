@@ -210,15 +210,15 @@ describe("defaultInvoiceLineItems", () => {
     expect(items[1]).toMatchObject({ billing_unit: "Sample", quantity: 6, unit_cost_cents: 2500 });
   });
 
-  it("puts each service type on its own bulleted line in the base fee description", () => {
+  it("names each service type, comma-joined and parenthesized after the inspector title, in the base fee description", () => {
     const single = baseJob({ service_type: "Limited Asbestos Inspection" });
     expect(defaultInvoiceLineItems(single, [asbestosBulk], [])[0].description).toBe(
-      "Licensed Asbestos Inspector\n• Limited Asbestos Inspection"
+      "Licensed Asbestos Inspector (Limited Asbestos Inspection)"
     );
 
     const multi = baseJob({ service_type: "Limited Asbestos Inspection, Mold Air Sampling, Mold Bulk Sampling" });
     expect(defaultInvoiceLineItems(multi, [asbestosBulk, moldAir], [])[0].description).toBe(
-      "Licensed Asbestos Inspector\n• Limited Asbestos Inspection\n• Mold Air Sampling\n• Mold Bulk Sampling"
+      "Licensed Asbestos Inspector (Limited Asbestos Inspection, Mold Air Sampling, Mold Bulk Sampling)"
     );
   });
 
@@ -228,14 +228,14 @@ describe("defaultInvoiceLineItems", () => {
   it("leads a mold-only job's base fee with \"Mold Inspector\", not just the bare service type", () => {
     const job = baseJob({ service_type: "Mold Bulk Sampling" });
     expect(defaultInvoiceLineItems(job, [moldBulk], [])[0].description).toBe(
-      "Mold Inspector\n• Mold Bulk Sampling"
+      "Mold Inspector (Mold Bulk Sampling)"
     );
   });
 
   it("still leads with the asbestos title, not mold, on a mixed asbestos+mold job", () => {
     const job = baseJob({ service_type: "Limited Asbestos Inspection, Mold Bulk Sampling" });
     expect(defaultInvoiceLineItems(job, [asbestosBulk, moldBulk], [])[0].description).toBe(
-      "Licensed Asbestos Inspector\n• Limited Asbestos Inspection\n• Mold Bulk Sampling"
+      "Licensed Asbestos Inspector (Limited Asbestos Inspection, Mold Bulk Sampling)"
     );
   });
 
@@ -246,7 +246,7 @@ describe("defaultInvoiceLineItems", () => {
     const items = defaultInvoiceLineItems(job, [moistureMapping], []);
     expect(items).toHaveLength(1);
     expect(items[0]).toMatchObject({
-      description: "• Moisture Mapping",
+      description: "Moisture Mapping",
       billing_unit: "Base Fee",
       quantity: 1,
       unit_cost_cents: 35000,
@@ -260,7 +260,7 @@ describe("defaultInvoiceLineItems", () => {
     const job = baseJob({ service_type: "Limited Asbestos Inspection, Moisture Mapping" });
     const items = defaultInvoiceLineItems(job, [asbestosBulk, moistureMapping], []);
     expect(items[0]).toMatchObject({
-      description: "Licensed Asbestos Inspector\n• Limited Asbestos Inspection",
+      description: "Licensed Asbestos Inspector (Limited Asbestos Inspection)",
       billing_unit: "Base Fee",
       unit_cost_cents: 45000,
     });
@@ -276,7 +276,7 @@ describe("defaultInvoiceLineItems", () => {
     const job = baseJob({ service_type: "Mold Bulk Sampling, Moisture Mapping" });
     const items = defaultInvoiceLineItems(job, [moldBulk, moistureMapping], []);
     expect(items[0]).toMatchObject({
-      description: "Mold Inspector\n• Mold Bulk Sampling",
+      description: "Mold Inspector (Mold Bulk Sampling)",
       billing_unit: "Base Fee",
     });
     expect(items[1]).toMatchObject({ description: "Moisture Mapping", unit_cost_cents: 0 });

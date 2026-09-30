@@ -56,7 +56,11 @@ export default function PortalForgotPasswordPage() {
   return (
     <div className="mx-auto max-w-sm px-4 py-16">
       <h1 className="text-xl font-semibold text-brand-700">Reset your password</h1>
-      <p className="mt-1 text-sm text-slate-500">We&apos;ll email you a link to set a new one.</p>
+      {/* Per Tim, 2026-09-29 — this same link is also the fix for
+          "started an account before but never finished" (never set a
+          password in the first place), not just a forgotten one — same
+          email either way. */}
+      <p className="mt-1 text-sm text-slate-500">We&apos;ll email you a link to set one, whether you forgot it or never finished setting it up.</p>
 
       {error && <div className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 

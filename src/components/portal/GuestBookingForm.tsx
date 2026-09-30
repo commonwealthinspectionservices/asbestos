@@ -781,6 +781,15 @@ export default function GuestBookingForm() {
           </div>
           <div className="rounded-lg bg-slate-100 px-4 py-4 text-sm text-slate-600">
             <p>{email} already has an account — sign in to see this job.</p>
+            {/* Per Tim, 2026-09-29 — real signups have gotten stuck here
+                permanently: they started an account before, never
+                finished (never clicked the confirmation email, or it
+                expired), and typing a fresh password just lands right
+                back on this same screen since no password was ever
+                actually set. "Sign in" alone reads as the only option,
+                with no hint that Forgot password is the actual way back
+                in for that case — same fix as portal/login/page.tsx. */}
+            <p className="mt-1">If you started this before but never finished setting it up, use Forgot password instead.</p>
             <Link href="/portal/login" className="mt-2 inline-block text-brand-600 underline">
               Sign in
             </Link>

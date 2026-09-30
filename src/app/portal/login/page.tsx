@@ -38,7 +38,25 @@ export default function PortalLoginPage() {
       router.push(dashboardUrl);
       router.refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Sign in failed");
+      // Per Tim, 2026-09-29 — three real signups (guest-booking or the
+      // standalone signup page) got stuck forever with a real auth
+      // account but no password ever set (never clicked the confirmation
+      // email, or it expired) and no way back in — Supabase's own
+      // "Invalid login credentials" error doesn't distinguish "wrong
+      // password" from "no password was ever set" (same message either
+      // way, by design, so a guess can't tell which emails are real
+      // accounts). A wrong-password retry and a never-finished signup
+      // look identical here, so that specific error now points at
+      // Forgot password — the existing, already-working recovery link —
+      // instead of just Supabase's raw text with no next step. Any other
+      // failure (network, rate limit, etc.) still shows its own real
+      // message rather than this guess.
+      const message = e instanceof Error ? e.message : "Sign in failed";
+      setError(
+        /invalid login credentials/i.test(message)
+          ? "Couldn't sign in with that email and password. If you started creating an account before but never finished, use \"Forgot password?\" below to get back in."
+          : message
+      );
     } finally {
       setLoading(false);
     }
@@ -78,7 +96,7 @@ export default function PortalLoginPage() {
       </button>
 
       <p className="mt-4 text-center text-base text-slate-500">
-        <Link href="/portal/forgot-password" className="text-brand-600 underline">Forgot password?</Link>
+        <Link href="/portal/forgot-password" className="text-brand-600 underline">Forgot password, or started an account but never finished?</Link>
       </p>
       <p className="mt-2 text-center text-base text-slate-500">
         New here? <Link href={signupUrl} className="text-brand-600 underline">Create an account</Link>

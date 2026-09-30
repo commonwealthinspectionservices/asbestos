@@ -1170,7 +1170,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
     // (mobile), then confirmed for desktop too — no outer border/rounded
     // corners/padding at any width, the panel just reads as loose
     // sections on the page.
-    <div className="mt-5">
+    <div className="mt-8">
       {/* Per Tim, 2026-09-30 — "I'm thinking that the view download and
           create draft button should be at the very top of the page for
           a chain of custody... view and download a line left and then
@@ -1182,18 +1182,21 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
           Rush/24-Hr's own exact size (w-32/px-3 py-2/text-sm/rounded-lg/
           border), not ACTION_BUTTON_CLASS — per Tim, same day: "the
           view, download, and create draft button should be the same
-          size as the rush and 24-hour buttons". Tried mt-8 on this outer
-          wrapper for "more space" first, then Tim clarified he meant the
-          gap below the buttons (before the samples table), not above
-          them — back to mt-5 here, mt-6 added to the table/cards below
-          instead (see their own comments). */}
+          size as the rush and 24-hour buttons". Went mt-8 → mt-5 → mt-8
+          again on this outer wrapper as the exact "more space" ask got
+          clarified twice: first just "more space" (tried mt-8), then "I
+          meant below the buttons, not above" (back to mt-5, mt-8 added
+          to the table wrapper instead), then finally: "there should be
+          an equal amount of spacing... it should be halfway between the
+          table and the header" — mt-8 here again, now matching the
+          table wrapper's own mt-8 exactly so both gaps are equal. */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={() => viewOrDownloadCocPdf("view")}
             disabled={viewingPdf !== null}
-            className="w-32 shrink-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-center text-sm hover:border-slate-400 disabled:opacity-50"
+            className="w-32 shrink-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-center text-sm hover:border-2 hover:border-brand-600 disabled:opacity-50"
           >
             {viewingPdf === "view" ? "Opening…" : "View"}
           </button>
@@ -1201,7 +1204,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
             type="button"
             onClick={() => viewOrDownloadCocPdf("download")}
             disabled={viewingPdf !== null}
-            className="w-32 shrink-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-center text-sm hover:border-slate-400 disabled:opacity-50"
+            className="w-32 shrink-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-center text-sm hover:border-2 hover:border-brand-600 disabled:opacity-50"
           >
             {viewingPdf === "download" ? "Downloading…" : "Download"}
           </button>
@@ -1210,7 +1213,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
           type="button"
           onClick={createCocDraft}
           disabled={creating || realRowIndexes.length === 0}
-          className="w-32 shrink-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-center text-sm hover:border-slate-400 disabled:opacity-50"
+          className="w-32 shrink-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-center text-sm hover:border-2 hover:border-brand-600 disabled:opacity-50"
         >
           {creating ? "Creating…" : "Create Draft ↗"}
         </button>
@@ -1547,7 +1550,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
                 key={t}
                 type="button"
                 onClick={() => setTurnaround(turnaround === t ? null : t)}
-                className={`w-32 shrink-0 rounded-lg px-3 py-2 text-center text-sm transition-colors bg-white ${turnaround === t ? "border-2 border-brand-600" : "border border-slate-300 hover:border-slate-400"}`}
+                className={`w-32 shrink-0 rounded-lg px-3 py-2 text-center text-sm transition-colors bg-white ${turnaround === t ? "border-2 border-brand-600" : "border border-slate-300 hover:border-2 hover:border-brand-600"}`}
               >
                 {t === "Rush" ? "Rush" : "24 Hours"}
               </button>
@@ -5649,21 +5652,20 @@ export function ProjectDetailDialog({
                             2026-09-29 — Turnaround itself removed from
                             here entirely; it's now only set on the
                             Chain of Custody panel. */}
-                        {/* mb-4 (not the usual mb-7) when the Sample
-                            Results box right after this is going to be
-                            skipped entirely (asbestos, pending) — per Tim,
-                            2026-09-30: "make sure that all of these cells
-                            are the exact same height, with even spacing".
-                            With nothing else rendered in between, mb-7
-                            here would collapse straight through to the
-                            Result field's own margin below (28px, vs the
-                            16px space-y-4 rhythm above it) — mb-4 matches
-                            that same 16px instead. Every other case still
-                            has the Sample Results/Discussion box (a real,
-                            bordered element) sitting between this wrapper
-                            and whatever comes next, which already stops
-                            that collapse on its own. */}
-                        <div className={`${group.domain === "asbestos" && (!job.sample_results || job.sample_results.length === 0) ? "mb-4" : "mb-7"} space-y-4`}>
+                        {/* mb-6/space-y-6 uniformly (was a conditional
+                            mb-4/mb-7 with an inner space-y-4) — per Tim,
+                            2026-09-30: "these should be spaced evenly
+                            vertically" (Lab/Date Sampled/Result/
+                            Laboratory Results/Final Report all read as
+                            one continuous list of rows now, not two
+                            differently-spaced sections) — one shared
+                            24px rhythm throughout: this wrapper, Result's
+                            own mt-6 below, the Sample Results box's
+                            existing my-6, and the PDFs list's own
+                            space-y-6 (see their own comments) all match,
+                            so the gap is identical whether or not the
+                            Sample Results box in between renders at all. */}
+                        <div className="mb-6 space-y-6">
                           {labDropdown(group.domain)}
                           {dateSampledInput(group.domain)}
                           {isFliJob && group.domain === "asbestos" && fliProjectNumberInput}
@@ -5907,7 +5909,7 @@ export function ProjectDetailDialog({
                                 inspection" concept of its own either way. */}
                             {labelIdx === 0 && group.domain !== "mold" &&
                               !(group.domain === "asbestos" && isFullInspectionAsbestosJob(job.service_type)) && (
-                              <div className="mt-4 flex w-full items-center gap-2 text-sm">
+                              <div className="mt-6 flex w-full items-center gap-2 text-sm">
                                 {/* Per Tim, 2026-09-30 — "let's make this so
                                     that result is left of the cell instead
                                     of above it... the exact same format as
@@ -6094,9 +6096,17 @@ export function ProjectDetailDialog({
             {/* Final Report preview — Report tab only, scoped to
                 reportDomainTab same as the lab paperwork above. The blank
                 CoC templates that used to sit here too (per Tim, they
-                don't belong on this tab) were removed 2026-08-25. */}
+                don't belong on this tab) were removed 2026-08-25.
+                Per Tim, 2026-09-30 — "this should be deleted" (the
+                border-t-4 divider line above PDFs, on the asbestos/mold/
+                lead Report tab alike, since they all share this one code
+                path): dropped the border. pt-6 dropped too, same day —
+                "these should be spaced evenly vertically": the outer
+                space-y-6 wrapping this whole tab already puts a 24px gap
+                above this div, matching every other row's own rhythm —
+                pt-6 on top of that was 24px of double-counted padding. */}
             {tab === "report" && (
-            <div className="border-t-4 border-slate-300 pt-6">
+            <div>
               {/* Per Tim, 2026-09-19 — "all of the PDFs... together... pdfs
                   at bottom is best": every PDF for this domain in one block at
                   the bottom of the Report tab — the lab's results and chain of
@@ -6117,7 +6127,7 @@ export function ProjectDetailDialog({
                         deleted": the border-t-4 divider above this block
                         already separates it from the fields above, so the
                         "PDFs" heading itself was redundant. */}
-                    <div className="space-y-5">
+                    <div className="space-y-6">
                       {/* Per Tim, 2026-09-30 — "we do not need to have the
                           chain of custody PDF on the asbestos report tab":
                           Chain of Custody already has its own dedicated
@@ -6682,8 +6692,14 @@ function LinkEmailThreadDialog({
 // its delete ✕) "should all be the same height, the length can be different
 // depending on the verb": one fixed height (h-9, same as the form fields),
 // only the width follows the label.
+// Per Tim, 2026-09-30 — "when you hover over the view, download, or
+// create draft button... the border should also become a bit more
+// bold, and it should be the exact same boldness as the boldness on
+// the 24-hour button. I want that to be the standard for all of my
+// buttons": hover:border-2 hover:border-brand-600, matching the
+// Turnaround toggle's own selected-state border exactly.
 const ACTION_BUTTON_CLASS =
-  "inline-flex h-9 shrink-0 items-center justify-center whitespace-nowrap rounded-lg border border-slate-300 px-3 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50";
+  "inline-flex h-9 shrink-0 items-center justify-center whitespace-nowrap rounded-lg border border-slate-300 px-3 text-sm font-medium text-slate-700 hover:border-2 hover:border-brand-600 hover:bg-slate-50 disabled:opacity-50";
 const DELETE_ICON_BUTTON_CLASS =
   "inline-flex h-9 w-7 shrink-0 items-center justify-center rounded-full text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-50";
 // Per Tim, 2026-09-30 — "make the view button so that it's the exact

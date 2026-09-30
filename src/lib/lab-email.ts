@@ -134,7 +134,12 @@ function formatDateMMDDYYYY(date: string | null): string {
 // literal 1:1 match of his Gmail signature would) specifically to keep
 // this at two lines total — adding a plain third short line risked
 // retriggering the exact collapse behavior above.
-const SIGNATURE_LINES = ["Tim Hall, Commonwealth Inspection Services", '<a href="https://commonwealthinspectionservices.com">commonwealthinspectionservices.com</a>'];
+// Per Tim, 2026-09-30 — "I want [name/phone/company/website] but do it in
+// a way it won't collapse": phone folded onto the same first line as
+// name+company (same two-line total as before), rather than its own
+// line — adding it as a third stacked line would have reopened exactly
+// the collapse behavior described above.
+const SIGNATURE_LINES = ["Tim Hall, Commonwealth Inspection Services, 617-390-4778", '<a href="https://commonwealthinspectionservices.com">commonwealthinspectionservices.com</a>'];
 // Per Tim, 2026-09-03 — a review-link line under the signature on every
 // report email (reportDraftBodyHtml, combinedDraftBodyHtml below), not
 // the payment-reminder note further down — that one goes out before

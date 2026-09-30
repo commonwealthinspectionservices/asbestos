@@ -904,7 +904,7 @@ export default function BillingView() {
           Net Earnings by Week
         </Link>
         <Link href="/admin/payment-calendar" className="text-brand-600 underline hover:text-brand-700">
-          Payment Calendar
+          Outstanding Payments
         </Link>
       </div>
 

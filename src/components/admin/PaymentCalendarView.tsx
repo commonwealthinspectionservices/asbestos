@@ -119,7 +119,7 @@ export default function PaymentCalendarView() {
         ← Billing
       </Link>
       <div className="flex items-baseline justify-between gap-2">
-        <h1 className="text-lg font-bold text-slate-800">Payment Calendar</h1>
+        <h1 className="text-lg font-bold text-slate-800">Outstanding Payments</h1>
         {loaded && !error && (overdueJobs.length > 0 || groups.length > 0) && (
           <div className="whitespace-nowrap text-sm text-slate-500">
             Total Outstanding <span className="font-semibold text-slate-800">{formatCents(grandTotalCents)}</span>

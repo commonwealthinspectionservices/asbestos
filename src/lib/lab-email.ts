@@ -2349,24 +2349,30 @@ async function processMatchedLabEmail(params: {
     // unconditionally regardless of mold. Just file the results and
     // notify; the manual "Create Invoice Draft"/"Create Report Draft"
     // buttons are the only path to a draft from here for any mold job.
-    if (jobReportDomains(updatedJob.service_type).includes("mold")) {
-      // Per Tim, 2026-09-22 — "I don't even need it to say all of that...
-      // just say like the client name and the address": no instructional
-      // text at all now — the mold-needs-manual-work fact lives in this
-      // email existing at all (see the branch comment above), not in its
-      // body. Client name falls back to the contact's own name for an
-      // individual/homeowner job (no company). Per Tim, same day — "it
-      // should probably say what kind of lab results landed... mold air
-      // samples or bulk samples or whatever": reportLabels is exactly
-      // which label(s) this specific report just reported data for (see
-      // its own comment above — not necessarily every mold label the job
-      // has).
+    // Per Tim, 2026-09-22 — "I don't even need it to say all of that...
+    // just say like the client name and the address": no instructional
+    // text — client name falls back to the contact's own name for an
+    // individual/homeowner job (no company). Per Tim, same day — "it
+    // should probably say what kind of lab results landed... mold air
+    // samples or bulk samples or whatever": reportLabels is exactly which
+    // label(s) this specific report just reported data for (see its own
+    // comment above — not necessarily every label the job has).
+    const sendLabResultsLandedEmail = () => {
       const clientName = updatedJob.customers?.company || updatedJob.customers?.name || "";
-      await sendEmail({
+      return sendEmail({
         to: process.env.OWNER_EMAIL!,
         subject: `Lab results landed — ${updatedJob.project_number ?? updatedJob.id}`,
         html: emailShell(`<p style="font-size:15px;">${escapeHtml(updatedJob.project_number ?? updatedJob.id)} — ${escapeHtml(clientName)}<br>${escapeHtml(expandAddress(updatedJob.service_address))}<br>${escapeHtml(reportLabels.join(", "))}</p>`),
       }).catch(() => {});
+    };
+
+    if (jobReportDomains(updatedJob.service_type).includes("mold")) {
+      // Per Tim, 2026-08-31 — "if a job includes mold at all, an automatic
+      // draft should never be created because there's always manual work
+      // that I need to do for mold": just file the results and notify —
+      // this email is the only cue, since nothing auto-drafts below for a
+      // mold job.
+      await sendLabResultsLandedEmail();
       return;
     }
 
@@ -2402,11 +2408,14 @@ async function processMatchedLabEmail(params: {
       await draftPaymentReminderForIndividual({ job: updatedJob, settings, accessToken });
     }
 
-    // Per Tim, 2026-09-19 — the plain "Lab results landed" email that used
-    // to go out here for every job (added 2026-09-16) was dropped as too
-    // noisy. The two variants that need an action are kept: the mold one
-    // above (nothing was auto-drafted, so that email is the only cue) and
-    // the drafting-failed one below.
+    // Per Tim, 2026-09-19 — this plain "Lab results landed" email (then
+    // sent for every job) was dropped as too noisy, keeping only the two
+    // variants that need an action (the mold one above, and the
+    // drafting-failed one below). Per Tim, 2026-09-30 — reversed: "I need
+    // to make sure that we also have the same feature for every time lab
+    // results land" (the same day he confirmed loving the equivalent
+    // Payment received email) — back for every job now, not just mold.
+    await sendLabResultsLandedEmail();
   } catch (err) {
     console.error(`processMatchedLabEmail: lab PDF filed on job ${updatedJob.id}, but invoice/report drafting failed:`, err);
     await sendEmail({

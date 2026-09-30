@@ -1170,7 +1170,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
     // (mobile), then confirmed for desktop too — no outer border/rounded
     // corners/padding at any width, the panel just reads as loose
     // sections on the page.
-    <div className="mt-8">
+    <div className="mt-5">
       {/* Per Tim, 2026-09-30 — "I'm thinking that the view download and
           create draft button should be at the very top of the page for
           a chain of custody... view and download a line left and then
@@ -1178,14 +1178,15 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
           here from below Turnaround/Relinquished (see that spot's own
           history in the comments further down) — View/Download grouped
           on the left, Create Draft alone on the right, one shared row
-          for both mobile and desktop. mt-8 (was mt-5) on the panel's own
-          outer wrapper, same day — "I just need a bit more spacing
-          vertically between the buttons and the start of the top of
-          it" (the tab bar above). Buttons themselves match Rush/24-Hr's
-          own exact size (w-32/px-3 py-2/text-sm/rounded-lg/border), not
-          ACTION_BUTTON_CLASS — per Tim, same day: "the view, download,
-          and create draft button should be the same size as the rush
-          and 24-hour buttons". */}
+          for both mobile and desktop. Buttons themselves match
+          Rush/24-Hr's own exact size (w-32/px-3 py-2/text-sm/rounded-lg/
+          border), not ACTION_BUTTON_CLASS — per Tim, same day: "the
+          view, download, and create draft button should be the same
+          size as the rush and 24-hour buttons". Tried mt-8 on this outer
+          wrapper for "more space" first, then Tim clarified he meant the
+          gap below the buttons (before the samples table), not above
+          them — back to mt-5 here, mt-6 added to the table/cards below
+          instead (see their own comments). */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <button
@@ -1253,7 +1254,13 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
           below this one). Two separate renderings of the same rows/
           handlers, not one responsive layout — desktop keeps this table
           exactly as-is either way. */}
-      <div className="mt-3">
+      {/* mt-8 (was mt-3) — per Tim, 2026-09-30, clarifying the "more
+          space" ask: "there should be more space between the view
+          download and create draft buttons and this table. So move the
+          buttons up" — the buttons themselves went back to their
+          original mt-5 (see above); the extra room belongs here instead,
+          below them. */}
+      <div className="mt-8">
 
         <div className="hidden overflow-x-auto rounded-lg border border-slate-400 sm:block">
           <table className="w-full border-collapse text-sm">

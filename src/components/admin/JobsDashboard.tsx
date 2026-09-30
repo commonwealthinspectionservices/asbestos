@@ -3537,10 +3537,23 @@ function JobRow({
                   (desktop) matches each breakpoint to its own real
                   target instead of using one gap for both. */}
               {showReportInvoice && (
-                <div className="flex w-full flex-col items-start gap-0 text-sm text-slate-500 sm:gap-2 sm:items-end">
-                  {paymentPendingCompletedDate}
-                  {invoiceStatus}
-                  {reportStatus}
+                // Per Tim, 2026-09-30 — same fix as Scheduled date/time
+                // below: "invoice and report should always be directly
+                // on top of each other" while still sitting "as far
+                // right as they can be" — sm:items-end on three
+                // independent children right-aligned each one's own
+                // text individually, so a short line (e.g. "Report: Not
+                // sent") started at a different x than a longer one
+                // ("Invoice: Not sent"). Grouped into one inner
+                // items-start box (sized to its own longest line)
+                // instead; the outer sm:items-end now right-aligns that
+                // whole box against the row, same as before.
+                <div className="flex w-full flex-col items-start gap-0 text-sm text-slate-500 sm:items-end">
+                  <div className="flex flex-col items-start gap-0 sm:gap-2">
+                    {paymentPendingCompletedDate}
+                    {invoiceStatus}
+                    {reportStatus}
+                  </div>
                 </div>
               )}
               {/* Report's genuinely not ready yet here (unlike

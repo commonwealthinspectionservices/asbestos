@@ -6237,7 +6237,14 @@ export function ProjectDetailDialog({
                 above this div, matching every other row's own rhythm —
                 pt-6 on top of that was 24px of double-counted padding. */}
             {tab === "report" && (
-            <div>
+            // Per Tim, 2026-09-30 — "let's do that horizontal gray custom
+            // line to separate standard remediation recommendation and
+            // laboratory results... make it evenly in the middle of
+            // them": border-t-4 + pt-6 here, on top of the 24px margin
+            // the parent's space-y-6 already puts above this div — 24px
+            // above the line, 24px below it, the line sitting exactly
+            // centered in the gap instead of flush against either side.
+            <div className="border-t-4 border-slate-300 pt-6">
               {/* Per Tim, 2026-09-19 — "all of the PDFs... together... pdfs
                   at bottom is best": every PDF for this domain in one block at
                   the bottom of the Report tab — the lab's results and chain of

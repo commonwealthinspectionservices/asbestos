@@ -876,6 +876,33 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
     return lower ? distinct.filter((l) => l.toLowerCase().includes(lower)) : distinct;
   }, [rows]);
 
+  // Per Tim, 2026-09-30 — "when I take drywall samples from two
+  // different places, it goes like the locations on the chain custody
+  // of kitchen bedroom kitchen bedroom... it would be so much simpler":
+  // a pure display order, grouping every row by its own Location so
+  // same-room samples always sit together, regardless of what order
+  // they were actually typed in — a group's position is wherever its
+  // first row first appeared (not alphabetical, which would reshuffle
+  // kitchen/bedroom arbitrarily), and every row within a group keeps its
+  // own original relative order (so an A/B pair, already sharing one
+  // location via the auto-copy below, never gets split up). This never
+  // touches `rows` itself or any row's own sample_number/material/etc —
+  // editing, removing, and the underlying saved order are all still
+  // keyed by each row's real index; only the rendered ORDER changes.
+  const displayOrder = useMemo(() => {
+    const firstIndexForLocation = new Map<string, number>();
+    rows.forEach((r, i) => {
+      const key = r.location.trim();
+      if (!firstIndexForLocation.has(key)) firstIndexForLocation.set(key, i);
+    });
+    return rows
+      .map((_, i) => i)
+      .sort((a, b) => {
+        const groupDiff = firstIndexForLocation.get(rows[a].location.trim())! - firstIndexForLocation.get(rows[b].location.trim())!;
+        return groupDiff !== 0 ? groupDiff : a - b;
+      });
+  }, [rows]);
+
   const [turnaround, setTurnaround] = useState<"Rush" | "24-Hr" | null>(job.lab_turnaround === "Rush" ? "Rush" : job.lab_turnaround === "24-Hr" ? "24-Hr" : null);
   const [dateNeeded, setDateNeeded] = useState(job.lab_date_needed ?? "");
   const [creating, setCreating] = useState(false);
@@ -1350,7 +1377,9 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
               </tr>
             </thead>
             <tbody>
-              {rows.map((r, i) => (
+              {displayOrder.map((i) => {
+                const r = rows[i];
+                return (
                 <tr key={i} className="border-b border-slate-300 last:border-b-0">
                   {/* Editable — pre-filled with a positional default
                       (01A/01B/02A/...), freely overridable (a rare third
@@ -1435,7 +1464,8 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
                     </button>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -1447,7 +1477,9 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
             across" each), just one field per row instead of one sample
             per row. */}
         <div className="space-y-3 sm:hidden">
-          {rows.map((r, i) => (
+          {displayOrder.map((i) => {
+            const r = rows[i];
+            return (
             <div key={i} className="rounded-lg border border-slate-400">
               {/* Per Tim, 2026-09-28 — first the blank title-less header
                   strip didn't work ("there's no sample row, and there
@@ -1558,7 +1590,8 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
                 />
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 

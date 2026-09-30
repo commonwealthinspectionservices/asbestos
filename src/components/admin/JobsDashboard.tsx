@@ -951,6 +951,19 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
           coc_relinquished_date: relinquishedDate || null,
           coc_relinquished_time: relinquishedTime || null,
         }),
+      }).then((res) => {
+        // Per Tim, 2026-09-30 — "I'm not really able to retroactively
+        // change the turnaround time": this PATCH was always saving
+        // correctly, but never told the parent dialog the job had
+        // changed, so nothing that reads job.lab_turnaround elsewhere
+        // (the Invoice tab's own auto-priced sample rate, in particular
+        // — confirmed live wrong on 26-0054: flipping Rush to 24-Hr here
+        // saved fine, but the invoice kept its stale $50/sample Rush
+        // line item) ever re-rendered with the new value until the
+        // dialog was fully closed and reopened. onChanged() on success
+        // makes this self-heal immediately, same as every other save
+        // path in this file already does.
+        if (res.ok) onChanged();
       }).catch(() => {
         // Silent — this is a background autosave, not a user action with
         // its own error UI. Create Draft's own request (createCocDraft)

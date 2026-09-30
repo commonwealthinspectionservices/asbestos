@@ -6996,10 +6996,25 @@ export function ComboboxInput<T>({
   const [asyncOptions, setAsyncOptions] = useState<T[]>([]);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // The li's onMouseDown (which calls onSelect) always fires before the
-  // input's onBlur — without this guard, onBlur would still fire with the
-  // stale pre-selection value and could race/overwrite the fresh onSelect
-  // save with the old text.
+  // input's onBlur on a real mouse — without this guard, onBlur would
+  // still fire with the stale pre-selection value and could race/
+  // overwrite the fresh onSelect save with the old text.
   const justSelectedRef = useRef(false);
+  // Per Tim, 2026-09-29 — the Chain of Custody Location field's dropdown
+  // "just doesn't work" on his phone: a touch tap doesn't reliably fire
+  // mousedown before the input's own blur the way a real mouse click
+  // does, so onBlur (and its setOpen(false)) can already be running by
+  // the time the li's onMouseDown handler would have fired, and the tap
+  // does nothing. selectOption below is shared by both onMouseDown (kept
+  // for desktop) and a new onTouchStart, with preventDefault on the touch
+  // event so the input never blurs for that tap in the first place —
+  // same fix every combobox built on this component gets, not just
+  // Location, since they all share this one handler.
+  function selectOption(option: T) {
+    justSelectedRef.current = true;
+    onSelect(option);
+    setOpen(false);
+  }
 
   useEffect(() => {
     if (!fetchOptions) return;
@@ -7059,10 +7074,10 @@ export function ComboboxInput<T>({
           {filtered.map((o, i) => (
             <li
               key={i}
-              onMouseDown={() => {
-                justSelectedRef.current = true;
-                onSelect(o);
-                setOpen(false);
+              onMouseDown={() => selectOption(o)}
+              onTouchStart={(e) => {
+                e.preventDefault();
+                selectOption(o);
               }}
               className="cursor-pointer px-3 py-2 hover:bg-slate-50"
             >

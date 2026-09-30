@@ -2654,59 +2654,14 @@ function JobRow({
       </span>
     )
   );
-  // Per Tim, 2026-09-29 — "the checkbox system that I use": the same
-  // ☑/☐ glyph checklistItems/showLabChecklist already uses (see "the
-  // service types should just turn into the checkbox" 2026-09-24 history
-  // below), keyed by coc_type instead of report domain, for any number of
-  // service types (not gated to multi-type jobs the way checklistItems
-  // is) while a job is "Scheduled" — before any lab results are even
-  // possible. A label with no COC concept at all (lead) just isn't
-  // included. Per Tim's own follow-up — "I did not want it so that this
-  // would replace the service type that always goes in the middle...
-  // the chain of custody should move over directly above scheduled
-  // date": this renders as its own block in the date column (cocStatus
-  // below), not appended onto the middle column's own service-type text
-  // the way the lab-results checklist is.
-  // Per Tim, 2026-09-29 (follow-up) — "it should not come up until the
-  // day that the job is scheduled for... I just don't want to take
-  // unnecessary space on jobs that might be scheduled like a week out":
-  // gated on the scheduled date having actually arrived (today or
-  // earlier in the viewer's own local time), not just status ===
-  // "scheduled" alone — a job scheduled a week out has nothing to
-  // actually do yet. confirmed_date ?? requested_date — same fallback
-  // as this same card's own "Scheduled date" line right below (a job
-  // entered directly as "Scheduled" via Add Project keeps confirmed_date
-  // null and only ever sets requested_date — see
-  // sendJobCreatedScheduledNotification's own comment); checking
-  // confirmed_date alone left a job like that showing "Scheduled date:
-  // [today]" while this gate silently kept hiding its checklist.
-  const now = new Date();
-  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-  const cocScheduledDate = job.confirmed_date ?? job.requested_date;
-  const cocSentByType = new Map<CocType, string | null>(
-    job.status === "scheduled" && cocScheduledDate && cocScheduledDate <= todayStr
-      ? jobCocTypes(job.service_type).map(({ cocType }) => {
-          const latest = (job.coc_log ?? [])
-            .filter((h) => h.coc_type === cocType)
-            .sort((a, b) => b.drafted_at.localeCompare(a.drafted_at))[0];
-          return [cocType, latest?.sent_at ?? null];
-        })
-      : []
-  );
-  const cocStatus = cocSentByType.size > 0 && (
-    // text-right — "the boxes always vertically align... aligned it
-    // right": every line's own trailing checkbox glyph ends flush at
-    // this block's one shared right edge, regardless of how long each
-    // line's own label is.
-    <span className="flex shrink-0 flex-col items-end gap-0.5 text-right text-sm text-slate-500">
-      {[...cocSentByType.entries()].map(([cocType, sentAt]) => (
-        <span key={cocType} className="whitespace-nowrap">
-          {COC_TYPE_LABEL[cocType]} Chain of Custody
-          <span className={`ml-1.5 ${sentAt ? "text-emerald-600" : "text-slate-400"}`}>{sentAt ? "☑" : "☐"}</span>
-        </span>
-      ))}
-    </span>
-  );
+  // Per Tim, 2026-09-30 — "underneath scheduled where it says mold
+  // arrow cell chain of custody in the checkbox, let's delete that
+  // feature entirely": the preview card's own ☑/☐ Chain of Custody
+  // checklist (introduced 2026-09-29) is gone — the row it used to
+  // render in (see the sm:min-h-5 spacer in the date column below) is
+  // kept as an empty spacer rather than removed outright, since the
+  // address column's own row 1 (siteContactNode above) still reserves
+  // the same height unconditionally for card-wide row alignment.
   // Per Tim, 2026-09-29 — "the scheduled screenshot is a perfect
   // format... pending lab results should be in that same format...
   // the pre-existing spacer for scheduled should be used for pending
@@ -3615,7 +3570,7 @@ function JobRow({
                   in. */}
               {useCocRowFormat ? (
                 <div className="hidden w-full flex-col items-end gap-2 text-sm text-slate-500 sm:flex">
-                  <div className="sm:min-h-5">{cocStatus}</div>
+                  <div className="sm:min-h-5" aria-hidden="true" />
                   <div>{hasCompletedFieldwork(job.status) ? "Completed" : "Scheduled"} date: {formatDate(job.confirmed_date ?? job.requested_date) || "—"}</div>
                   {/* Per Tim, 2026-09-29 — "Scheduled time: — I don't want
                       desktop to do this... desktop it should be blank

@@ -3212,7 +3212,7 @@ function JobRow({
               target="_blank"
               rel="noreferrer"
               onClick={(e) => e.stopPropagation()}
-              className="inline-block max-w-full text-left sm:hidden"
+              className="inline-block max-w-full text-left hover:underline sm:hidden"
             >
               <span className="block text-sm text-slate-500">{street}</span>
               {cityStateZip && <span className="block text-sm text-slate-500">{cityStateZip}</span>}
@@ -3261,10 +3261,23 @@ function JobRow({
                 longer conditional at all: sm:mt-2/sm:gap-2 always
                 applies here now, so every status shares the identical
                 gap-2 rhythm between street and cityStateZip. */}
-            <div className="hidden sm:mt-2 sm:flex sm:flex-col sm:gap-2">
+            {/* Per Tim, 2026-09-29 — "on all of the preview cards, the
+                address should underline when you hover over it, like a
+                link": this desktop block used to be plain, non-clickable
+                text (only the dialog's own Project Info address linked
+                to Waze) — now a real link here too, same as the mobile
+                card's own address above, so the hover cue is honest
+                about it actually being clickable. */}
+            <a
+              href={wazeUrl(job.service_address)}
+              target="_blank"
+              rel="noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="hidden sm:mt-2 sm:flex sm:flex-col sm:gap-2 sm:hover:underline"
+            >
               <div className="whitespace-nowrap text-sm text-slate-500">{street}</div>
               {cityStateZip && <div className="whitespace-nowrap text-sm text-slate-500">{cityStateZip}</div>}
-            </div>
+            </a>
             {/* Per Tim, 2026-08-27 — Invoice directly above Report, both
                 left-aligned, sitting right after the address block instead
                 of interrupting it. Per Tim, 2026-09-29 — "this never

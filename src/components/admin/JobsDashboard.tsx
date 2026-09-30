@@ -1955,21 +1955,28 @@ function commonReportChecklist(job: JobWithCustomer): { label: string; done: boo
 function reportChecklist(job: JobWithCustomer, domain: ReportDomain): { label: string; done: boolean }[] {
   const domainLabels = (job.service_type ?? "").split(",").map((s) => s.trim()).filter(Boolean)
     .filter((label) => domainForServiceTypeLabel(label) === domain);
-  const totalSamples = Object.entries(job.sample_counts ?? {})
-    .filter(([label]) => domainForServiceTypeLabel(label) === domain)
-    .reduce((sum, [, n]) => sum + (n || 0), 0) || job.sample_count || 0;
   // Per Tim, 2026-09-16 — a domain with more than one label (mold's own
   // Air/Bulk/Swab combos) needs EVERY label's own results in, not just a
   // nonzero sum across all of them — a summed check let one label's
   // results alone read as "the whole domain is done" while a sibling
   // label was still fully outstanding (confirmed live wrong on 26-0032:
   // its Mold Bulk results landing alone made Mold read as complete even
-  // though Mold Air hadn't come in at all). A single-label domain keeps
-  // the original summed/legacy-job.sample_count behavior unchanged —
-  // nothing ambiguous to split there.
-  const resultsIn = domainLabels.length > 1
-    ? domainLabels.every((label) => (job.sample_counts?.[label] || 0) > 0)
-    : totalSamples > 0;
+  // though Mold Air hadn't come in at all).
+  // Per Tim, 2026-09-30 — a single-label domain used to fall back to the
+  // job's legacy top-level sample_count when sample_counts (the per-label
+  // map the lab-results parser actually writes to) was still empty. That
+  // field is set the moment samples are logged on the Chain of Custody
+  // (see EDITABLE_FIELDS' sample_items handling in
+  // api/admin/jobs/[id]/route.ts), long before the lab has sent anything
+  // back — confirmed live wrong on 26-0057, a job merely *scheduled* for
+  // today that already read as "results in" and showed a false "Report:
+  // Not sent"/"Invoice: Not sent" warning on its preview card. Checked
+  // live against all 59 current jobs first: only 4 single-label jobs
+  // relied on that fallback, and every one was still in progress with no
+  // report ever sent — nothing legacy depends on it. Same strict
+  // per-label sample_counts check as the multi-label branch now, no
+  // fallback.
+  const resultsIn = domainLabels.every((label) => (job.sample_counts?.[label] || 0) > 0);
 
   if (domain === "mold") {
     return [

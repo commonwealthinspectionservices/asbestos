@@ -6119,7 +6119,12 @@ export function ProjectDetailDialog({
                               <textarea
                                 ref={moldReportNotesRef}
                                 className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
-                                rows={6}
+                                // Per Tim, 2026-09-30 — "both of these
+                                // rectangles should be the same size...
+                                // the size of the top rectangle": matches
+                                // the Discussion of Results boxes' own
+                                // rows={4} above (was 6).
+                                rows={4}
                                 value={moldReportNotesInput}
                                 onChange={(e) => { setMoldReportNotesInput(e.target.value); moldFieldDirty.current.notes = true; }}
                                 onBlur={(e) => { if (moldFieldDirty.current.notes) { moldFieldDirty.current.notes = false; saveMoldReportNotes(e.target.value); } }}

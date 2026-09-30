@@ -1800,7 +1800,7 @@ function UploadDocumentButton({ jobId, kind, onUploaded }: { jobId: string; kind
           e.target.value = "";
         }}
       />
-      <button type="button" onClick={() => inputRef.current?.click()} disabled={uploading} className={ACTION_BUTTON_CLASS}>
+      <button type="button" onClick={() => inputRef.current?.click()} disabled={uploading} className={`${ACTION_BUTTON_CLASS} ${VIEW_UPLOAD_MIN_WIDTH_CLASS}`}>
         {uploading ? "Uploading…" : "Upload"}
       </button>
     </>
@@ -6333,202 +6333,143 @@ export function ProjectDetailDialog({
                   labCostCents={knownLabCostCentsForJob(job)}
                   stripeFeeCents={job.stripe_fee_cents}
                   invoicingFeeCents={job.stripe_fee_cents != null ? stripeInvoicingFeeCents(job.invoice_total_cents) : null}
-                  isRush={job.lab_turnaround === "Rush"}
                 />
                 {savingInvoice && <p className="mt-1 text-xs text-slate-400">Saving…</p>}
               </div>
             </div>
 
-            {job.invoice_total_cents != null && (
-              <div className="pt-6">
-                {/* Per Tim, 2026-09-30 — "Stripe payment link should be in
-                    the same format as the other stuff that's beneath
-                    it, the invoice, paid invoice, and lab invoice...
-                    let's delete those long gray lines like we deleted on
-                    the other page, above and below Stripe payment link":
-                    same w-40 label column as the PDFs rows below (was
-                    its own <h3> heading + justify-between) — border-t-4
-                    dropped here and on the PDFs wrapper right below,
-                    same as the Report tab's own divider removal. */}
-                <div className="flex min-h-9 flex-nowrap items-center gap-3">
-                  <div className="flex w-40 shrink-0 items-center gap-2">
-                    <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-700">Stripe Payment Link</h4>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-2">
-                    <button
-                      onClick={getPaymentLink}
-                      disabled={payLinkLoading}
-                      className={ACTION_BUTTON_CLASS}
-                    >
-                      {payLinkLoading ? "Loading…" : "View"}
-                    </button>
-                    <button
-                      onClick={copyPaymentLink}
-                      disabled={copyLinkLoading}
-                      className={ACTION_BUTTON_CLASS}
-                    >
-                      {copyLinkLoading ? "Loading…" : copyLinkDone ? "Copied!" : "Copy"}
-                    </button>
-                  </div>
-                </div>
-                <div className="mt-3">
-                  {/* Per Tim, 2026-08-28 — Newton Fire & Flood is the one
-                      company with a card on file (see ContactDetailDialog's
-                      "Automatic Payment" section and lib/net30-autocharge.ts),
-                      so their invoices don't just sit waiting on someone to
-                      click "Pay" — this is here so that's obvious from the
-                      job itself, not just known from memory. Due date
-                      mirrors the same days_until_due:30 the invoice was
-                      actually created with (see createStripeInvoiceForJob),
-                      same value LineItemsEditor's own Payment due date
-                      field shows above. */}
-                  {job.customers?.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID && job.status !== "paid" && (
-                    // Per Tim, 2026-08-31 — "delete the subtext and just
-                    // keep the green box that says automatic payment" (per
-                    // Tim, 2026-08-29 — "this should be one line across"
-                    // then "it should not scroll across"), then "the green
-                    // automatic payment box should say automatic payment
-                    // to be charged on DATE" — keeps just the due date,
-                    // not the full explanatory sentence.
-                    <div className="mb-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
-                      <p className="text-xs font-bold uppercase text-emerald-800">
-                        {/* Per Tim, 2026-09-24 — auto-charge is off (he charges
-                            Newton manually in Stripe), so this no longer says
-                            "Automatic payment to be charged on…". */}
-                        Charged manually — payment due {formatDate(dueDateFor(job)) || "the invoice due date"}
-                      </p>
+            {/* Per Tim, 2026-09-30 — "all of these should be spaced
+                evenly": Stripe Payment Link / Invoice / Paid Invoice /
+                Lab Invoice are now four siblings under one shared
+                space-y-6, instead of the old mix of pt-6 wrappers and a
+                nested space-y-3 that gave Stripe→Invoice a bigger gap
+                than Invoice→Paid Invoice or Paid Invoice→Lab Invoice. */}
+            <div className="space-y-6 pt-6">
+              {job.invoice_total_cents != null && (
+                <div>
+                  {/* Per Tim, 2026-09-30 — "Stripe payment link should be in
+                      the same format as the other stuff that's beneath
+                      it, the invoice, paid invoice, and lab invoice...
+                      let's delete those long gray lines like we deleted on
+                      the other page, above and below Stripe payment link":
+                      same w-40 label column as the PDFs rows below (was
+                      its own <h3> heading + justify-between). */}
+                  <div className="flex min-h-9 flex-nowrap items-center gap-3">
+                    <div className="flex w-40 shrink-0 items-center gap-2">
+                      <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-700">Stripe Payment Link</h4>
                     </div>
-                  )}
+                    <div className="flex shrink-0 items-center gap-2">
+                      <button
+                        onClick={getPaymentLink}
+                        disabled={payLinkLoading}
+                        className={ACTION_BUTTON_CLASS}
+                      >
+                        {payLinkLoading ? "Loading…" : "View"}
+                      </button>
+                      <button
+                        onClick={copyPaymentLink}
+                        disabled={copyLinkLoading}
+                        className={ACTION_BUTTON_CLASS}
+                      >
+                        {copyLinkLoading ? "Loading…" : copyLinkDone ? "Copied!" : "Copy"}
+                      </button>
+                    </div>
+                  </div>
                   {payLinkError && <p className="mt-2 text-sm text-red-600">{payLinkError}</p>}
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Per Tim, 2026-09-30 — "let's delete the PDF's title on the
-                invoice page" (matching the Report tab's own PDFs heading
-                removal, same night). border-t-4 dropped too, same
-                night — see Stripe Payment Link's own comment above. */}
-            <div className="pt-6">
-              <div className="space-y-3">
-                {/* Per Tim, 2026-09-30 — "let's format it like how I
-                    reformatted the PDFs part on the asbestos report...
-                    each line and then a view and a download button":
-                    same w-40 fixed label column as the Report tab's own
-                    DocumentStation rows (min-h-9, flex-nowrap gap-3),
-                    not auto-width + justify-between — every row here now
-                    lands its own View/Download at the same x. */}
-                <div className="flex min-h-9 flex-nowrap items-center gap-3">
-                  <div className="flex w-40 shrink-0 items-center gap-2">
-                    <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-700">Invoice</h4>
+              <div className="flex min-h-9 flex-nowrap items-center gap-3">
+                <div className="flex w-40 shrink-0 items-center gap-2">
+                  <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-700">Invoice</h4>
+                </div>
+                {reportComplete && job.invoice_total_cents != null ? (
+                  <div className="flex shrink-0 items-center gap-2">
+                    <a
+                      href={`/api/admin/jobs/${job.id}/invoice?v=${encodeURIComponent(invoiceRevision)}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className={`${ACTION_BUTTON_CLASS} ${VIEW_UPLOAD_MIN_WIDTH_CLASS}`}
+                    >
+                      View
+                    </a>
+                    <a
+                      href={`/api/admin/jobs/${job.id}/invoice?download=1`}
+                      download={`invoice-${job.project_number ?? job.id}.pdf`}
+                      className={ACTION_BUTTON_CLASS}
+                    >
+                      Download
+                    </a>
                   </div>
-                  {reportComplete && job.invoice_total_cents != null ? (
+                ) : (() => {
+                  // Per Tim, 2026-09-30 — "at the very bottom where it
+                  // says invoice, not ready yet, it just should have
+                  // the upload button as opposed to saying not ready
+                  // yet": same manual-override pattern as Paid
+                  // Invoice/Final Report — a real invoice kind exists
+                  // now just for this early-upload window.
+                  const uploadedInvoice = (job.documents ?? []).find((d) => d.kind === "invoice");
+                  return uploadedInvoice ? (
                     <div className="flex shrink-0 items-center gap-2">
-                      <a
-                        href={`/api/admin/jobs/${job.id}/invoice?v=${encodeURIComponent(invoiceRevision)}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className={ACTION_BUTTON_CLASS}
-                      >
+                      <a href={`/api/admin/jobs/${job.id}/documents/${uploadedInvoice.id}`} target="_blank" rel="noreferrer" className={`${ACTION_BUTTON_CLASS} ${VIEW_UPLOAD_MIN_WIDTH_CLASS}`}>
                         View
                       </a>
-                      <a
-                        href={`/api/admin/jobs/${job.id}/invoice?download=1`}
-                        download={`invoice-${job.project_number ?? job.id}.pdf`}
-                        className={ACTION_BUTTON_CLASS}
-                      >
+                      <a href={`/api/admin/jobs/${job.id}/documents/${uploadedInvoice.id}?download=1`} download={uploadedInvoice.file_name} className={ACTION_BUTTON_CLASS}>
                         Download
                       </a>
                     </div>
-                  ) : (() => {
-                    // Per Tim, 2026-09-30 — "at the very bottom where it
-                    // says invoice, not ready yet, it just should have
-                    // the upload button as opposed to saying not ready
-                    // yet": same manual-override pattern as Paid
-                    // Invoice/Final Report — a real invoice kind exists
-                    // now just for this early-upload window.
-                    const uploadedInvoice = (job.documents ?? []).find((d) => d.kind === "invoice");
-                    return uploadedInvoice ? (
-                      <div className="flex shrink-0 items-center gap-2">
-                        <a href={`/api/admin/jobs/${job.id}/documents/${uploadedInvoice.id}`} target="_blank" rel="noreferrer" className={ACTION_BUTTON_CLASS}>
-                          View
-                        </a>
-                        <a href={`/api/admin/jobs/${job.id}/documents/${uploadedInvoice.id}?download=1`} download={uploadedInvoice.file_name} className={ACTION_BUTTON_CLASS}>
-                          Download
-                        </a>
-                      </div>
-                    ) : (
-                      <UploadDocumentButton jobId={job.id} kind="invoice" onUploaded={onChanged} />
-                    );
-                  })()}
-                </div>
-                {/* Per Tim, 2026-09-25 — "the paid invoice from stripe needs
-                    to save w each job": Stripe's own paid-invoice PDF, filed
-                    automatically the moment a job is paid (lib/paid-invoice.ts). */}
-                {(() => {
-                  const paidInvoice = (job.documents ?? []).find((d) => d.kind === "paid_invoice");
-                  return (
-                    <div className="flex min-h-9 flex-nowrap items-center gap-3">
-                      <div className="flex w-40 shrink-0 items-center gap-2">
-                        <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-700">Paid Invoice (Stripe)</h4>
-                      </div>
-                      {paidInvoice ? (
-                        <div className="flex shrink-0 items-center gap-2">
-                          <a href={`/api/admin/jobs/${job.id}/documents/${paidInvoice.id}`} target="_blank" rel="noreferrer" className={ACTION_BUTTON_CLASS}>
-                            View
-                          </a>
-                          <a href={`/api/admin/jobs/${job.id}/documents/${paidInvoice.id}?download=1`} download={paidInvoice.file_name} className={ACTION_BUTTON_CLASS}>
-                            Download
-                          </a>
-                        </div>
-                      ) : job.status === "paid" && job.stripe_invoice_id ? (
-                        <SavePaidInvoiceButton jobId={job.id} onSaved={onChanged} />
-                      ) : (
-                        <UploadDocumentButton jobId={job.id} kind="paid_invoice" onUploaded={onChanged} />
-                      )}
-                    </div>
+                  ) : (
+                    <UploadDocumentButton jobId={job.id} kind="invoice" onUploaded={onChanged} />
                   );
                 })()}
               </div>
-            </div>
+              {/* Per Tim, 2026-09-25 — "the paid invoice from stripe needs
+                  to save w each job": Stripe's own paid-invoice PDF, filed
+                  automatically the moment a job is paid (lib/paid-invoice.ts). */}
+              {(() => {
+                const paidInvoice = (job.documents ?? []).find((d) => d.kind === "paid_invoice");
+                return (
+                  <div className="flex min-h-9 flex-nowrap items-center gap-3">
+                    <div className="flex w-40 shrink-0 items-center gap-2">
+                      <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-700">Paid Invoice (Stripe)</h4>
+                    </div>
+                    {paidInvoice ? (
+                      <div className="flex shrink-0 items-center gap-2">
+                        <a href={`/api/admin/jobs/${job.id}/documents/${paidInvoice.id}`} target="_blank" rel="noreferrer" className={`${ACTION_BUTTON_CLASS} ${VIEW_UPLOAD_MIN_WIDTH_CLASS}`}>
+                          View
+                        </a>
+                        <a href={`/api/admin/jobs/${job.id}/documents/${paidInvoice.id}?download=1`} download={paidInvoice.file_name} className={ACTION_BUTTON_CLASS}>
+                          Download
+                        </a>
+                      </div>
+                    ) : job.status === "paid" && job.stripe_invoice_id ? (
+                      <SavePaidInvoiceButton jobId={job.id} onSaved={onChanged} />
+                    ) : (
+                      <UploadDocumentButton jobId={job.id} kind="paid_invoice" onUploaded={onChanged} />
+                    )}
+                  </div>
+                );
+              })()}
 
-            {/* Per Tim, 2026-09-13 — was riding alongside our own Invoice
-                PDF card, side by side in a horizontally-scrolling row; now
-                its own section at the very bottom of this tab instead,
-                matching Stripe Payment Link's own section-header style.
-                Per Tim, 2026-08-27/2026-08-28 (moved here from) — the lab's
-                own invoice for the job belongs on the Invoice tab, not back
-                on the Report tab with the lab results/CoC paperwork; one
-                station for the whole job, not one per service type, filed
-                under the job's first service-type label (the lab-email
-                auto-filing in lib/lab-email.ts always writes a copy under
-                every label, so the first one always has it).
-                Per Tim, 2026-08-31 — FLI Environmental jobs never have a
-                lab invoice for Commonwealth to track: FLI submits samples
-                to the lab under their own account and pays for that
-                themselves (see FLI_ENVIRONMENTAL_COMPANY_ID's own
-                comment). */}
-            {!isFliJob && (() => {
-              const firstLabel = serviceTypeGroups.flatMap((group) => group.labels)[0];
-              return firstLabel ? (
-                <div className="mt-3">
-                  {/* Per Tim, 2026-09-30 — "for the lab invoice view and
-                      download buttons, let's make sure those are
-                      directly beneath the other view and download
-                      buttons": titlePosition="top" (was "none" + a
-                      custom leading label rendered on its own line
-                      above) — same w-40 label column as Invoice/Paid
-                      Invoice above, so a single lab invoice's own
-                      View/Download lands at the same x. Multiple lab
-                      invoices still collapse into their own "N lab
-                      invoices / $total / Show all" summary exactly as
-                      before (see collapseLabInvoices) — that block reads
-                      docs.length itself, not the (now unused) leading
-                      prop, so nothing else about it changes. mt-3 (was
-                      no margin at all, a mismatch against the space-y-3
-                      rhythm Invoice/Paid Invoice already share) — per
-                      Tim, same day: "invoice, paid invoice, and lab
-                      invoice... should all be vertically spaced evenly,
-                      right now they're not". */}
+              {/* Per Tim, 2026-09-13 — was riding alongside our own Invoice
+                  PDF card, side by side in a horizontally-scrolling row; now
+                  its own section at the bottom of this tab instead,
+                  matching Stripe Payment Link's own section-header style.
+                  Per Tim, 2026-08-27/2026-08-28 (moved here from) — the lab's
+                  own invoice for the job belongs on the Invoice tab, not back
+                  on the Report tab with the lab results/CoC paperwork; one
+                  station for the whole job, not one per service type, filed
+                  under the job's first service-type label (the lab-email
+                  auto-filing in lib/lab-email.ts always writes a copy under
+                  every label, so the first one always has it).
+                  Per Tim, 2026-08-31 — FLI Environmental jobs never have a
+                  lab invoice for Commonwealth to track: FLI submits samples
+                  to the lab under their own account and pays for that
+                  themselves (see FLI_ENVIRONMENTAL_COMPANY_ID's own
+                  comment). */}
+              {!isFliJob && (() => {
+                const firstLabel = serviceTypeGroups.flatMap((group) => group.labels)[0];
+                return firstLabel ? (
                   <DocumentStation
                     job={job}
                     onChanged={onChanged}
@@ -6536,9 +6477,9 @@ export function ProjectDetailDialog({
                     label="Lab Invoice"
                     serviceType={firstLabel}
                   />
-                </div>
-              ) : null;
-            })()}
+                ) : null;
+              })()}
+            </div>
             </>
             )}
           </div>
@@ -9741,10 +9682,8 @@ function defaultLineItems(
 }
 
 function LineItemsEditor({
-  items, setItems, serviceTypeSettings, paymentDueDate, onPaymentDueDateChange, labCostCents, stripeFeeCents, invoicingFeeCents, isRush,
+  items, setItems, serviceTypeSettings, paymentDueDate, onPaymentDueDateChange, labCostCents, stripeFeeCents, invoicingFeeCents,
 }: {
-  /** Shows a plain "RUSH" label beside each per-sample total on a rush job. */
-  isRush?: boolean;
   items: LineItemRowState[];
   setItems: Dispatch<SetStateAction<LineItemRowState[]>>;
   serviceTypeSettings: ServiceType[];
@@ -9990,7 +9929,6 @@ function LineItemsEditor({
                         onBlur={(e) => handleTotalBlur(i, e.target.value)}
                       />
                     </div>
-                    {isRush && <span className="shrink-0 text-xs font-bold uppercase text-slate-700">Rush</span>}
                   </div>
                 </div>
                 <div className="flex shrink-0 flex-col gap-1">

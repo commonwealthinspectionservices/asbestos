@@ -4162,7 +4162,12 @@ export function ProjectDetailDialog({
             <option key={l.name} value={l.name}>{l.name}</option>
           ))}
         </select>
-        <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-slate-500">▾</span>
+        {/* right-3 (was right-2) — per Tim, 2026-09-30: "make it so that
+            the arrows are in line with the middle of the calendar, right
+            now they're aligned right" — matches ComboboxInput's own
+            default chevron offset (the Result field right below this
+            one), which was already right-3. */}
+        <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-slate-500">▾</span>
       </div>
     </div>
   );

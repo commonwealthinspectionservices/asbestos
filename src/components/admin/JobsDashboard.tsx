@@ -342,7 +342,31 @@ function gmailMessageUrl(messageId: string, sent: boolean): string {
 // here too, since Tim was still hitting the un-fixed ones on his phone.
 function openGmailMessage(messageId: string, sent: boolean) {
   const url = gmailMessageUrl(messageId, sent);
-  if (typeof window !== "undefined" && window.innerWidth < 768) {
+  // Per Tim, 2026-09-29 — confirmed this admin dashboard is added to his
+  // phone's Home Screen (iOS "standalone" web app, not opened through
+  // Safari directly): a mail.google.com link there landed on Google's own
+  // logged-out marketing/signup page instead of Gmail, even with the
+  // top-level-navigation fix above. A Home Screen web app's standalone
+  // container has no session cookies of its own — completely separate
+  // from Safari's, where Tim's real Gmail login lives — and iOS opens
+  // external-domain links from inside it in its own minimal in-app
+  // browser sheet, not real Safari, so neither the cookies nor (on some
+  // iOS versions) the Gmail-app handoff are available at all. A real
+  // target="_blank" anchor, actually clicked (not a JS-driven
+  // location/window.open call), is iOS's own signal to break out of that
+  // sheet into full Safari instead — where the cookies and app handoff
+  // both work correctly. navigator.standalone is true only for an iOS
+  // Home Screen web app, never in regular Safari or on desktop.
+  const isStandalone = typeof window !== "undefined" && (window.navigator as { standalone?: boolean }).standalone === true;
+  if (isStandalone) {
+    const a = document.createElement("a");
+    a.href = url;
+    a.target = "_blank";
+    a.rel = "noopener";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  } else if (typeof window !== "undefined" && window.innerWidth < 768) {
     window.location.href = url;
   } else {
     window.open(url, "_blank");
@@ -3813,9 +3837,15 @@ function useDraftTracking(params: {
     // entirely and navigates the current tab instead — trading "the
     // admin page stays open in its own tab" (not very useful on a phone
     // screen anyway) for the link actually opening the app.
+    // Per Tim, 2026-09-29 — confirmed on his phone's Home Screen (iOS
+    // standalone web app): openGmailMessage handles that case on its own
+    // (a real target="_blank" anchor click, the only thing that breaks
+    // out of the standalone container's own isolated, logged-out browser
+    // sheet into real Safari), so it's used here too instead of a plain
+    // window.location.href, same as every other "jump to Gmail" button.
     if (window.innerWidth < 768) {
       const data = await createDraft();
-      if (data?.messageId) window.location.href = gmailMessageUrl(data.messageId, false);
+      if (data?.messageId) openGmailMessage(data.messageId, false);
       return;
     }
     // Deliberately no noopener here (unlike other external links in this

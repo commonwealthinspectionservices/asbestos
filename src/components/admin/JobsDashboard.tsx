@@ -4456,6 +4456,34 @@ export function ProjectDetailDialog({
     onChanged();
   }
 
+  // Per Tim, 2026-09-30 — "the lab cell should always be preset to Crystal
+  // Analytical, and then the date sample should always be preset as well,
+  // even when the results have not yet come back": both used to sit blank
+  // until the automated lab-report email actually arrived and filled them
+  // in. Crystal Analytical is the only lab actually used in practice, and
+  // the sampling date is already known the moment this job's own tech was
+  // on site — well before any lab result comes back — so there's no real
+  // "not yet known" state for either one worth showing blank. Auto-fills
+  // once per domain, only while the field is still empty; a real lab-
+  // report email or a manual edit still overwrites it exactly the way it
+  // always has (see selectLab/saveDateSampled's own comments).
+  useEffect(() => {
+    // The Settings lab profile's real stored name is "Crystal Analytical,
+    // LLC." (see the labs list this closes over) — startsWith rather than
+    // an exact match so this keeps working if that trailing "LLC."
+    // punctuation ever gets tidied up in Settings.
+    const crystal = labs.find((l) => l.name.startsWith("Crystal Analytical"));
+    if (!crystal) return;
+    const fallbackDate = job.confirmed_date ?? job.requested_date ?? null;
+    for (const domain of jobReportDomains(job.service_type)) {
+      const labName = domain === "mold" ? job.mold_lab_name : domain === "lead" ? job.lead_lab_name : job.lab_name;
+      if (!labName) selectLab(crystal.name, domain);
+      const dateSampled = domain === "mold" ? job.mold_date_sampled : domain === "lead" ? job.lead_date_sampled : job.lab_date_sampled;
+      if (!dateSampled && fallbackDate) saveDateSampled(fallbackDate, domain);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [job.id, labs.length]);
+
   async function acceptSchedule(patch: Record<string, unknown>) {
     await fetch(`/api/admin/jobs/${job.id}`, {
       method: "PATCH",
@@ -4884,15 +4912,26 @@ export function ProjectDetailDialog({
                   the row wrapped/overflowed illegibly on a narrow screen
                   (e.g. "Photos" clipped to "PHOT"), and a select is much
                   easier to use one-handed than a cramped multi-row tab bar. */}
-              <select
-                value={selectedValue}
-                onChange={(e) => tabOptions.find((o) => o.value === e.target.value)?.onSelect()}
-                className="h-9 min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm font-bold text-slate-700 sm:hidden"
-              >
-                {tabOptions.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
-              </select>
+              {/* relative wrapper + appearance-none + a custom chevron —
+                  per Tim, 2026-09-30 — "make the size of symbols like this
+                  consistent, they should be the same": the browser's own
+                  native select arrow rendered much smaller than the ✕
+                  close button beside it. Same pattern as labDropdown's own
+                  custom arrow, sized to match the close button's mobile
+                  text-2xl exactly instead of whatever size the OS draws
+                  its native one at. */}
+              <div className="relative min-w-0 flex-1 sm:hidden">
+                <select
+                  value={selectedValue}
+                  onChange={(e) => tabOptions.find((o) => o.value === e.target.value)?.onSelect()}
+                  className="h-9 w-full min-w-0 appearance-none rounded-lg border border-slate-300 bg-white px-2 py-1.5 pr-8 text-sm font-bold text-slate-700"
+                >
+                  {tabOptions.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+                <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-2xl leading-none text-slate-500">▾</span>
+              </div>
               <div className="hidden flex-nowrap items-center gap-0 sm:flex sm:flex-1 sm:gap-1">
                 <button
                   onClick={() => setTab("info")}
@@ -4972,12 +5011,18 @@ export function ProjectDetailDialog({
                   </>
                 )}
               </div>
-              {/* p-2 -m-2 (mobile only) grows the tap target without
-                  shifting the glyph, and ml-1 adds real visual separation
-                  from the tab dropdown right next to it — per Tim, this X
-                  sat close enough to the dropdown to catch accidental taps
-                  meant for it. */}
-              <button onClick={onClose} className="ml-1 shrink-0 -m-2 p-2 text-2xl leading-none text-slate-400 hover:text-slate-600 sm:m-0 sm:ml-auto sm:p-0 sm:pl-2 sm:text-base">✕</button>
+              {/* p-2 -mt-2 -mb-2 (mobile only) grows the tap target
+                  vertically without shifting the glyph, and ml-1 adds
+                  real visual separation from the tab dropdown right next
+                  to it — per Tim, this X sat close enough to the dropdown
+                  to catch accidental taps meant for it. No -mr-2 (dropped
+                  2026-09-30 from what used to be a plain -m-2 shorthand —
+                  per Tim: "move the arrow a little more left, it's
+                  directly up against the border") — that negative right
+                  margin was eating into the row's own right-side padding,
+                  leaving barely any gap before the dialog's own rounded
+                  edge. */}
+              <button onClick={onClose} className="ml-1 shrink-0 -mt-2 -mb-2 p-2 text-2xl leading-none text-slate-400 hover:text-slate-600 sm:m-0 sm:ml-auto sm:p-0 sm:pl-2 sm:text-base">✕</button>
             </div>
           );
         })()}
@@ -5185,10 +5230,15 @@ export function ProjectDetailDialog({
                     <DetailField
                       label="Job site address"
                       value={job.service_address ? (() => {
-                        const { street, cityStateZip } = splitAddress(job.service_address);
+                        const { street, unit, city, state, zip } = parseAddressToFields(job.service_address);
+                        const cityStateZip = [city, [state, zip].filter(Boolean).join(" ")].filter(Boolean).join(", ");
                         return (
                           <a href={wazeUrl(job.service_address)} target="_blank" rel="noreferrer" className="hover:underline">
                             <span className="block">{expandAddress(street)}</span>
+                            {/* Per Tim, 2026-09-30 — the unit gets its own
+                                line instead of trailing the street, only
+                                when the address actually has one. */}
+                            {unit && <span className="block">{unit}</span>}
                             {cityStateZip && <span className="block">{expandAddress(cityStateZip)}</span>}
                           </a>
                         );
@@ -5261,13 +5311,19 @@ export function ProjectDetailDialog({
               <DetailField
                 label="Job site address"
                 value={job.service_address ? (() => {
-                  const { street, cityStateZip } = splitAddress(job.service_address);
+                  const { street, unit, city, state, zip } = parseAddressToFields(job.service_address);
+                  const cityStateZip = [city, [state, zip].filter(Boolean).join(" ")].filter(Boolean).join(", ");
                   return (
                     <a href={wazeUrl(job.service_address)} target="_blank" rel="noreferrer" className="hover:underline">
                       {/* Per Tim, 2026-08-28 — street, then town/state/zip on
                           its own line below it, same on desktop as mobile
-                          now (used to be one line on desktop). */}
+                          now (used to be one line on desktop). Per Tim,
+                          2026-09-30 — a unit number now gets its own
+                          (second) line instead of trailing the street,
+                          only when the address actually has one — three
+                          lines total, not always two. */}
                       <span className="block">{expandAddress(street)}</span>
+                      {unit && <span className="block">{unit}</span>}
                       {cityStateZip && <span className="block">{expandAddress(cityStateZip)}</span>}
                     </a>
                   );
@@ -5716,7 +5772,15 @@ export function ProjectDetailDialog({
                                 italic and with the pending phrase
                                 appended, rather than a separate element
                                 below it. */}
-                            <p className={`mb-5 text-base font-bold uppercase text-slate-700 ${samplesPending ? "italic" : ""}`}>
+                            {/* mb-7 (not mb-5) while pending, matching the
+                                mb-7 the Lab/Date Sampled block above
+                                already ends on — per Tim, "move [this] so
+                                it's exactly in between Result and Date
+                                Sampled above it": with the Sample Results
+                                box below skipped entirely while pending
+                                (see its own comment), matching margins on
+                                both sides is what actually centers it. */}
+                            <p className={`${samplesPending ? "mb-7" : "mb-5"} text-base font-bold uppercase text-slate-700 ${samplesPending ? "italic" : ""}`}>
                               {label}{samplesPending ? " Sample results pending" : ""}
                             </p>
                             {/* Per Tim, 2026-09-16 — "laboratory results and
@@ -5731,6 +5795,15 @@ export function ProjectDetailDialog({
                                 breathing room from the fields above and
                                 Sample Results below — just spacing, nothing
                                 about the text sizes touched. */}
+                            {/* Skipped entirely (not just hidden) while
+                                pending — per Tim, same day: rendering this
+                                box empty (no Sample Results heading, no
+                                table) still ate its own my-6 margin, which
+                                was exactly what threw off the "exactly in
+                                between" spacing above. Nothing duplicates
+                                what the title already says while pending
+                                anyway (see that title's own comment). */}
+                            {group.domain === "asbestos" && samplesPending ? null : (
                             <div className={group.domain === "asbestos" ? "my-6 flex flex-col gap-6" : "hidden"}>
                               {/* Per Tim, 2026-09-19 — "pdfs at bottom is best": Laboratory
                                   Results and Chain of Custody moved out of here into
@@ -5844,6 +5917,7 @@ export function ProjectDetailDialog({
                                 </>
                               )}
                             </div>
+                            )}
                             {/* Discussion of Results lives right under this
                                 specific label's own upload station, not
                                 grouped separately at the bottom — each sample
@@ -6122,11 +6196,22 @@ export function ProjectDetailDialog({
                           />
                         </div>
                       ))}
-                      <div className="flex min-h-9 items-center justify-between gap-2">
-                        <h4 className="min-w-0 text-xs font-semibold uppercase tracking-wide text-slate-700">Final {REPORT_DOMAIN_LABEL[domain]} Report</h4>
-                        {domainReady ? (
+                      {/* Per Tim, 2026-09-30 — "there should be view and
+                          download buttons for laboratory results and
+                          final asbestos report... when they are not in
+                          there, there should just be an upload button":
+                          same toggle as Laboratory Results/Chain of
+                          Custody above. domainReady's own generated report
+                          (always current, built live from the job's own
+                          data) still wins whenever it's actually ready —
+                          this manual "report" doc upload is only a stand-
+                          in for the window before that, tagged by domain
+                          since one Final Report covers every label in it. */}
+                      {domainReady ? (
+                        <div className="flex min-h-9 items-center justify-between gap-2">
+                          <h4 className="min-w-0 text-xs font-semibold uppercase tracking-wide text-slate-700">Final {REPORT_DOMAIN_LABEL[domain]} Report</h4>
                           <div className="flex shrink-0 items-center gap-2">
-                            <a href={reportUrl} target="_blank" rel="noreferrer" className={ACTION_BUTTON_CLASS}>
+                            <a href={reportUrl} target="_blank" rel="noreferrer" className={`${ACTION_BUTTON_CLASS} ${VIEW_UPLOAD_MIN_WIDTH_CLASS}`}>
                               View
                             </a>
                             <a href={downloadUrl} download={`report-${domain}-${job.project_number ?? job.id}.pdf`} className={ACTION_BUTTON_CLASS}>
@@ -6136,8 +6221,16 @@ export function ProjectDetailDialog({
                                 three rows' buttons line up. */}
                             <span className="w-7 shrink-0" aria-hidden="true" />
                           </div>
-                        ) : null}
-                      </div>
+                        </div>
+                      ) : (
+                        <DocumentStation
+                          job={job}
+                          onChanged={onChanged}
+                          kind="report"
+                          label={`Final ${REPORT_DOMAIN_LABEL[domain]} Report`}
+                          serviceType={domain}
+                        />
+                      )}
                     </div>
                   </>
                 );
@@ -6647,6 +6740,12 @@ const ACTION_BUTTON_CLASS =
   "inline-flex h-9 shrink-0 items-center justify-center whitespace-nowrap rounded-lg border border-slate-300 px-3 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50";
 const DELETE_ICON_BUTTON_CLASS =
   "inline-flex h-9 w-7 shrink-0 items-center justify-center rounded-full text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-50";
+// Per Tim, 2026-09-30 — "make the view button so that it's the exact
+// same width as the upload button": a PDFs row's single action button
+// toggles between "View" and "Upload" as a document gets uploaded or
+// removed — same min-width on both so the button doesn't visibly resize
+// when it flips between the two.
+const VIEW_UPLOAD_MIN_WIDTH_CLASS = "min-w-[70px]";
 
 function DocumentStation({
   job, onChanged, kind, label, serviceType, headerExtra, titlePosition = "top", leading,
@@ -6729,28 +6828,31 @@ function DocumentStation({
   const [labInvoicesExpanded, setLabInvoicesExpanded] = useState(false);
   const collapseLabInvoices = kind === "lab_invoice" && docs.length > 1 && !labInvoicesExpanded;
   const labInvoicesTotalCents = docs.reduce((sum, d) => sum + (d.amount_cents ?? 0), 0);
-  // Per Tim, 2026-09-29 — these three kinds get a plain "+ Upload ...
-  // manually" link for their empty state instead of the big dropzone
-  // (see the docs.length === 0 block's own comment for the full
-  // reasoning). Shared between that block and the title row above it so
-  // the exact same link can render inline with the label instead of on
-  // its own line below.
-  const simpleLinkKind = kind === "lab_report" || kind === "lab_invoice" || kind === "coc";
-  const uploadLinkLabel = `+ Upload ${kind === "lab_report" ? "lab report" : kind === "lab_invoice" ? "lab invoice" : "chain of custody"} manually`;
+  // Per Tim, 2026-09-29 — these kinds get a plain "+ Upload ... manually"
+  // link for their empty state instead of the big dropzone (see the
+  // docs.length === 0 block's own comment for the full reasoning). Shared
+  // between that block and the title row above it so the exact same link
+  // can render inline with the label instead of on its own line below.
+  // Per Tim, 2026-09-30 — briefly removed for lab_report on the theory
+  // that Lab/Date Sampled being preset made a manual upload redundant,
+  // then restored the same day: "there should be view and download
+  // buttons for laboratory results and final asbestos report... when
+  // they are not in there, there should just be an upload button" — same
+  // toggle for every kind here, lab_report included.
+  const simpleLinkKind = kind === "lab_report" || kind === "lab_invoice" || kind === "coc" || kind === "report";
+  const showUploadLinkWhenEmpty = simpleLinkKind;
 
   return (
     <div>
       {leading && (docs.length === 0 || collapseLabInvoices) && <div className="mb-3">{leading}</div>}
-      {/* Per Tim, 2026-09-29 — "upload lab report manually should be
-          directly across from lab results, same with upload chain of
-          custody manually": the simple-link kinds' empty-state link now
-          sits in this same title row, matching how View/Download already
-          sit "directly across from" the label for the one-document case,
-          instead of its own line below. Not justify-between (pushed all
-          the way to the row's far right edge) — per Tim, same day, "the
-          stuff that's aligned right should not be so far right, I just
-          kind of want it in a normal spot next to lab results" — sits
-          right after the label with a normal gap instead. */}
+      {/* Per Tim, 2026-09-30 — "I just want it to be a button that says
+          upload, that's exactly formatted like the view and download
+          buttons are... the view and download button should not be
+          aligned way right, they should be more in the middle": dropped
+          justify-between entirely (tried it briefly the same day to keep
+          View/Download from wrapping onto a second line on a narrow
+          screen) — sits right after the label with a normal gap instead,
+          for every state (upload button and View/Download alike). */}
       {/* min-h-9 — per Tim, same day, "make the spacing even throughout
           vertically": a row with h-9 View/Download buttons is taller than
           a row with just the plain upload-link text, so with the two
@@ -6762,8 +6864,20 @@ function DocumentStation({
           it, so the gaps between labels read as even. */}
       {titlePosition === "top" && (
         <div className="flex min-h-9 flex-nowrap items-center gap-3">
-          <div className="flex min-w-0 flex-nowrap items-center gap-2">
-            <h4 className="min-w-0 text-xs font-semibold uppercase leading-snug tracking-wide text-slate-700">{label}</h4>
+          {/* w-40 shrink-0 (not flex-nowrap/min-w-0's auto width) — per
+              Tim, 2026-09-30: "let's make sure all of the buttons align
+              vertically... upload, view, and upload... should all align
+              vertically": a same-width label column, not one sized to
+              each label's own text, is what puts every row's action
+              button(s) at the same starting x regardless of whether the
+              label reads "Laboratory Results" or the longer "Final
+              Asbestos Report". Comfortably wider than the longest of the
+              three current labels (~140px); a label longer than that
+              (e.g. a multi-label domain's "Laboratory Results — Mold Air
+              Sampling") just wraps within the column instead of pushing
+              the buttons over. */}
+          <div className="flex w-40 shrink-0 items-center gap-2">
+            <h4 className="text-xs font-semibold uppercase leading-snug tracking-wide text-slate-700">{label}</h4>
             {headerExtra}
           </div>
           {/* Per Tim, 2026-09-16 — "the PDF title does not need to be in
@@ -6776,12 +6890,22 @@ function DocumentStation({
               here) still lists them below instead — nothing to be
               "directly across from" once there's more than one. */}
           {docs.length === 1 ? (
+            // Per Tim, 2026-09-30 — "there should not be an X next to the
+            // view and download button": dropped here specifically (the
+            // one-document header row) — deleting a wrongly-filed doc
+            // still works from the multi-document list view elsewhere.
             <div className="flex shrink-0 items-center gap-2 text-sm">
+              {/* min-w matches the Upload button below — per Tim,
+                  2026-09-30: "let's make the view button so that it's the
+                  exact same width as the upload button" — the two never
+                  show at once (one document either exists or doesn't),
+                  but the row's own button should land in the same spot
+                  either way as a doc gets uploaded/removed. */}
               <a
                 href={`/api/admin/jobs/${job.id}/documents/${docs[0].id}`}
                 target="_blank"
                 rel="noreferrer"
-                className={ACTION_BUTTON_CLASS}
+                className={`${ACTION_BUTTON_CLASS} ${VIEW_UPLOAD_MIN_WIDTH_CLASS}`}
               >
                 View
               </a>
@@ -6792,25 +6916,15 @@ function DocumentStation({
               >
                 Download
               </a>
-              <button
-                type="button"
-                onClick={() => setConfirmingDeleteDoc(docs[0])}
-                disabled={deletingId === docs[0].id}
-                title={`Delete ${docs[0].file_name}`}
-                aria-label={`Delete ${docs[0].file_name}`}
-                className={DELETE_ICON_BUTTON_CLASS}
-              >
-                {deletingId === docs[0].id ? "…" : "✕"}
-              </button>
             </div>
-          ) : simpleLinkKind && docs.length === 0 ? (
+          ) : showUploadLinkWhenEmpty && docs.length === 0 ? (
             <button
               type="button"
               onClick={() => inputRef.current?.click()}
               disabled={uploading}
-              className="shrink-0 text-sm font-medium text-brand-600 hover:underline disabled:opacity-50"
+              className={`${ACTION_BUTTON_CLASS} ${VIEW_UPLOAD_MIN_WIDTH_CLASS}`}
             >
-              {uploading ? "Uploading…" : uploadLinkLabel}
+              {uploading ? "Uploading…" : "Upload"}
             </button>
           ) : null}
         </div>

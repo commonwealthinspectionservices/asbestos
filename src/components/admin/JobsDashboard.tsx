@@ -17,7 +17,6 @@ import { ContactForm } from "@/components/admin/ContactDetailDialog";
 import { formatDateMDY } from "@/lib/date-format";
 import { subcontractorSenderForJob, isKnownSubcontractorCompanyName, isKnownSubcontractingForName } from "@/lib/subcontractor-senders";
 import { timeSelectOptions } from "@/lib/time-options";
-import { stripeInvoicingFeeCents, computeMarginCents, knownLabCostCentsForJob } from "@/lib/pricing";
 import { dueDateFor, paymentDueDate, localDateOnly } from "@/lib/invoice-due-date";
 import { useLockBodyScroll } from "@/lib/use-lock-body-scroll";
 
@@ -6330,9 +6329,6 @@ export function ProjectDetailDialog({
                   serviceTypeSettings={serviceTypeSettings}
                   paymentDueDate={dueDateFor(job) || ""}
                   onPaymentDueDateChange={(v) => saveJobField({ payment_due_date: v || null })}
-                  labCostCents={knownLabCostCentsForJob(job)}
-                  stripeFeeCents={job.stripe_fee_cents}
-                  invoicingFeeCents={job.stripe_fee_cents != null ? stripeInvoicingFeeCents(job.invoice_total_cents) : null}
                 />
                 {savingInvoice && <p className="mt-1 text-xs text-slate-400">Saving…</p>}
               </div>
@@ -6986,7 +6982,7 @@ function DocumentStation({
               <a
                 href={`/api/admin/jobs/${job.id}/documents/${docs[0].id}?download=1`}
                 download={docs[0].file_name}
-                className={ACTION_BUTTON_CLASS}
+                className={`${ACTION_BUTTON_CLASS} ${VIEW_UPLOAD_MIN_WIDTH_CLASS}`}
               >
                 Download
               </a>
@@ -9684,7 +9680,7 @@ function defaultLineItems(
 }
 
 function LineItemsEditor({
-  items, setItems, serviceTypeSettings, paymentDueDate, onPaymentDueDateChange, labCostCents, stripeFeeCents, invoicingFeeCents,
+  items, setItems, serviceTypeSettings, paymentDueDate, onPaymentDueDateChange,
 }: {
   items: LineItemRowState[];
   setItems: Dispatch<SetStateAction<LineItemRowState[]>>;
@@ -9692,22 +9688,6 @@ function LineItemsEditor({
   /** Rendered inline on the same row as the total and the +Custom Line Item/+Samples links, rather than its own separate row — the admin wanted it directly in line with those, not stacked below. */
   paymentDueDate: string;
   onPaymentDueDateChange: (value: string) => void;
-  /** Per Tim, 2026-08-27 — what the lab actually billed this job (extracted
-      from the lab's own invoice, see lab_cost_cents on Job), shown right
-      under the invoice total so the margin (what's charged minus what the
-      lab charges) is visible at a glance without doing the math by hand. */
-  labCostCents: number | null;
-  /** Per Tim, 2026-08-28 — the real Stripe processing fee (see stripe_fee_cents
-      on Job), factored into Profit below once the invoice is actually paid
-      through Stripe. Null for a job paid by hand or not yet paid, in which
-      case Profit just doesn't deduct a fee that was never charged. The
-      separate Invoicing fee (invoicingFeeCents below) is its own line. */
-  stripeFeeCents: number | null;
-  /** Per Tim, 2026-09-26 — Stripe's separate Invoicing fee (0.4% of the
-      invoice + tax, estimated — see stripeInvoicingFeeCents in
-      lib/pricing.ts), listed on its own line under the Stripe fee and also
-      deducted from Profit. Same null rule as stripeFeeCents. */
-  invoicingFeeCents: number | null;
 }) {
   function update(i: number, patch: Partial<LineItemRowState>) {
     setItems((rows) =>
@@ -9742,8 +9722,6 @@ function LineItemsEditor({
     const cost = Number(r.unitCost);
     return Number.isFinite(qty) && Number.isFinite(cost) ? qty * cost : 0;
   };
-  const currency = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD" });
-
   const total = items.reduce((sum, r) => sum + rowTotal(r), 0);
 
   function formatCostOnBlur(i: number, raw: string) {
@@ -9774,18 +9752,9 @@ function LineItemsEditor({
 
   return (
     <div className="space-y-7">
-      {/* Per Tim, 2026-09-30 — "I need to make sure that there's a
-          border that goes around base fee all the way down through
-          payment due... I need to indicate that that's the actual
-          invoice... let's make this border navy... to make it stand
-          out": brand-700 (the app's own navy), border-2 to read as
-          bold as the Turnaround toggle's own selected-state border.
-          Same space-y-7 rhythm inside as the outer container used
-          before this card existed. */}
-      <div className="space-y-7 rounded-lg border-2 border-brand-700 p-4">
       {baseFeeRows.map(({ r: row, i }) => (
         <div key={i}>
-          <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Base Fee</h4>
+          <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-700">Base Fee</h4>
           <textarea
             rows={1}
             ref={(el) => {
@@ -9828,7 +9797,7 @@ function LineItemsEditor({
 
       {sampleRows.length > 0 && (
         <div>
-          <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Samples</h4>
+          <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-700">Samples</h4>
           <div className="mt-1 space-y-4">
             {sampleRows.map(({ r: row, i }) => (
               <div key={i} className="flex items-stretch gap-2">
@@ -9923,7 +9892,7 @@ function LineItemsEditor({
 
       {otherRows.map(({ r: row, i }) => (
         <div key={i}>
-          <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Custom Line Item</h4>
+          <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-700">Custom Line Item</h4>
           <div className="mt-0.5 flex items-center gap-2">
             <input
               className="flex-1 rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
@@ -9987,29 +9956,13 @@ function LineItemsEditor({
       </div>
 
       <div className="flex w-full items-center gap-2 text-sm">
-        <label className="w-28 shrink-0 text-xs font-semibold uppercase text-slate-700">Payment due</label>
+        <label className="w-28 shrink-0 text-xs font-semibold uppercase tracking-wide text-slate-700">Payment due</label>
         <input
           type="date"
           className="block h-9 min-h-0 w-full min-w-0 flex-1 appearance-none rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-left text-sm [&::-webkit-date-and-time-value]:text-left [&::-webkit-calendar-picker-indicator]:block [&::-webkit-calendar-picker-indicator]:opacity-100"
           value={paymentDueDate}
           onChange={(e) => onPaymentDueDateChange(e.target.value)}
         />
-      </div>
-      </div>
-
-      {/* Per Tim, 2026-09-30 — "let's move the net earnings tool to the
-          very bottom... it should just be a small, tiny link in the
-          bottom right": what was the full Invoice total/Lab fees/Stripe
-          fee/Invoicing fee/Net earnings breakdown box is now just this
-          one figure, de-emphasized under the actual invoice card above
-          instead of competing with it for attention at the top. */}
-      <div className="flex justify-end">
-        <span className="text-xs text-slate-400">
-          Net earnings:{" "}
-          {labCostCents != null
-            ? currency(computeMarginCents(Math.round(total * 100), labCostCents, (stripeFeeCents ?? 0) + (invoicingFeeCents ?? 0)) / 100)
-            : "—"}
-        </span>
       </div>
     </div>
   );

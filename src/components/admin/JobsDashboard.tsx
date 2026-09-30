@@ -6340,10 +6340,21 @@ export function ProjectDetailDialog({
             </div>
 
             {job.invoice_total_cents != null && (
-              <div className="border-t-4 border-slate-300 pt-6">
-                <div className="flex flex-nowrap items-center justify-between gap-1.5">
-                  <h3 className="whitespace-nowrap text-base font-bold uppercase tracking-wide text-black underline sm:text-lg">Stripe Payment Link</h3>
-                  <div className="flex shrink-0 items-center gap-1.5">
+              <div className="pt-6">
+                {/* Per Tim, 2026-09-30 — "Stripe payment link should be in
+                    the same format as the other stuff that's beneath
+                    it, the invoice, paid invoice, and lab invoice...
+                    let's delete those long gray lines like we deleted on
+                    the other page, above and below Stripe payment link":
+                    same w-40 label column as the PDFs rows below (was
+                    its own <h3> heading + justify-between) — border-t-4
+                    dropped here and on the PDFs wrapper right below,
+                    same as the Report tab's own divider removal. */}
+                <div className="flex min-h-9 flex-nowrap items-center gap-3">
+                  <div className="flex w-40 shrink-0 items-center gap-2">
+                    <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-700">Stripe Payment Link</h4>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
                     <button
                       onClick={getPaymentLink}
                       disabled={payLinkLoading}
@@ -6395,8 +6406,9 @@ export function ProjectDetailDialog({
 
             {/* Per Tim, 2026-09-30 — "let's delete the PDF's title on the
                 invoice page" (matching the Report tab's own PDFs heading
-                removal, same night). */}
-            <div className="border-t-4 border-slate-300 pt-6">
+                removal, same night). border-t-4 dropped too, same
+                night — see Stripe Payment Link's own comment above. */}
+            <div className="pt-6">
               <div className="space-y-3">
                 {/* Per Tim, 2026-09-30 — "let's format it like how I
                     reformatted the PDFs part on the asbestos report...
@@ -6498,7 +6510,7 @@ export function ProjectDetailDialog({
             {!isFliJob && (() => {
               const firstLabel = serviceTypeGroups.flatMap((group) => group.labels)[0];
               return firstLabel ? (
-                <div>
+                <div className="mt-3">
                   {/* Per Tim, 2026-09-30 — "for the lab invoice view and
                       download buttons, let's make sure those are
                       directly beneath the other view and download
@@ -6511,7 +6523,12 @@ export function ProjectDetailDialog({
                       invoices / $total / Show all" summary exactly as
                       before (see collapseLabInvoices) — that block reads
                       docs.length itself, not the (now unused) leading
-                      prop, so nothing else about it changes. */}
+                      prop, so nothing else about it changes. mt-3 (was
+                      no margin at all, a mismatch against the space-y-3
+                      rhythm Invoice/Paid Invoice already share) — per
+                      Tim, same day: "invoice, paid invoice, and lab
+                      invoice... should all be vertically spaced evenly,
+                      right now they're not". */}
                   <DocumentStation
                     job={job}
                     onChanged={onChanged}
@@ -9816,6 +9833,49 @@ function LineItemsEditor({
 
   return (
     <div className="space-y-7">
+      {/* Per Tim, 2026-09-30 — "the breakdown where it has the green and
+          red and all that, that table, that breakdown on the invoice
+          page should be at the very top. It should also have a white
+          background": moved up here from below the line items (see its
+          own comment further down, still in place), bg-white (was
+          bg-slate-50). */}
+      <div className="rounded-lg border border-slate-200 bg-white px-4 py-4">
+        <div className="space-y-3">
+          <div className="flex items-baseline justify-between gap-4">
+            <p className="text-sm font-bold uppercase text-emerald-600">Invoice total</p>
+            <p className="text-lg font-bold text-emerald-600">{currency(total)}</p>
+          </div>
+          <div className="flex items-baseline justify-between gap-4">
+            <p className="text-sm font-bold uppercase text-red-600">Lab fees</p>
+            <p className="text-lg font-bold text-red-600">
+              {labCostCents != null ? currency(labCostCents / 100) : "Not yet billed"}
+            </p>
+          </div>
+          <div className="flex items-baseline justify-between gap-4">
+            <p className="text-sm font-bold uppercase text-red-600">Stripe fee</p>
+            {stripeFeeCents != null ? (
+              <p className="text-lg font-bold text-red-600">{currency(stripeFeeCents / 100)}</p>
+            ) : (
+              <p className="text-lg font-bold text-red-600">—</p>
+            )}
+          </div>
+          <div className="flex items-baseline justify-between gap-4">
+            <p className="text-sm font-bold uppercase text-red-600">Invoicing fee</p>
+            {invoicingFeeCents != null ? (
+              <p className="text-lg font-bold text-red-600">{currency(invoicingFeeCents / 100)}</p>
+            ) : (
+              <p className="text-lg font-bold text-red-600">—</p>
+            )}
+          </div>
+          <div className="flex items-baseline justify-between gap-4 border-t border-slate-200 pt-3">
+            <p className="text-sm font-bold uppercase text-slate-500">Net earnings</p>
+            <p className="text-lg font-bold text-slate-500">
+              {labCostCents != null ? currency(computeMarginCents(Math.round(total * 100), labCostCents, (stripeFeeCents ?? 0) + (invoicingFeeCents ?? 0)) / 100) : "—"}
+            </p>
+          </div>
+        </div>
+      </div>
+
       {baseFeeRows.map(({ r: row, i }) => (
         <div key={i}>
           <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Base Fee</h4>
@@ -9897,14 +9957,7 @@ function LineItemsEditor({
                       (quantity box, $ boxes, gaps, text size) trimmed down
                       instead, tight enough that all six pieces fit one row
                       on a phone's own width without spilling over. */}
-                  {/* Per Tim, 2026-09-30 — "the four samples at 25 each
-                      equals 100 part should stretch out the entire
-                      length of the cell above it... let's use this full
-                      space widthwise": w-full + justify-between (was
-                      shrink-wrapped to just the sum of its fixed-width
-                      pieces, ending partway across) so this row matches
-                      the Description input's own full width above it. */}
-                  <div className="flex w-full flex-wrap items-center justify-between gap-x-1 gap-y-1.5">
+                  <div className="flex flex-wrap items-center gap-x-1 gap-y-1.5">
                     <input
                       type="number"
                       className="w-10 shrink-0 rounded-lg border border-slate-300 px-1 py-1.5 text-center text-xs"
@@ -10025,60 +10078,6 @@ function LineItemsEditor({
         <button onClick={() => addSample()} className="text-sm font-medium text-brand-600 hover:underline">
           + Samples
         </button>
-      </div>
-
-      {/* Per Tim, 2026-09-19 — "this could be formatted better": the totals
-          were three loose lines of big uppercase text with the payment due
-          date squeezed in beside them. Now one summary card, a label on the
-          left and its amount on the right per row, with Profit set apart
-          under a rule; the due date gets its own full-width row, the same
-          shape as Lab/Date Sampled on the Report tab (including the iOS
-          date-box fix — see dateSampledInput). */}
-      <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-4">
-        <div className="space-y-3">
-          <div className="flex items-baseline justify-between gap-4">
-            <p className="text-sm font-bold uppercase text-emerald-600">Invoice total</p>
-            <p className="text-lg font-bold text-emerald-600">{currency(total)}</p>
-          </div>
-          <div className="flex items-baseline justify-between gap-4">
-            <p className="text-sm font-bold uppercase text-red-600">Lab fees</p>
-            <p className="text-lg font-bold text-red-600">
-              {labCostCents != null ? currency(labCostCents / 100) : "Not yet billed"}
-            </p>
-          </div>
-          {/* Per Tim, 2026-09-13 — the real Stripe processing fee (see
-              stripeFeeCents's own comment above) was already factored into
-              Profit below, but never shown as its own line the way Lab fees
-              is. Per Tim, 2026-09-25 — "this should still list 'stripe fee'
-              even if it is blank": always listed now; a dash until there's
-              a real fee, in the same red as the label (null for a job paid by hand or not yet paid via
-              Stripe — Profit's own calculation treats that as "nothing to
-              deduct"). */}
-          <div className="flex items-baseline justify-between gap-4">
-            <p className="text-sm font-bold uppercase text-red-600">Stripe fee</p>
-            {stripeFeeCents != null ? (
-              <p className="text-lg font-bold text-red-600">{currency(stripeFeeCents / 100)}</p>
-            ) : (
-              <p className="text-lg font-bold text-red-600">—</p>
-            )}
-          </div>
-          <div className="flex items-baseline justify-between gap-4">
-            <p className="text-sm font-bold uppercase text-red-600">Invoicing fee</p>
-            {invoicingFeeCents != null ? (
-              <p className="text-lg font-bold text-red-600">{currency(invoicingFeeCents / 100)}</p>
-            ) : (
-              <p className="text-lg font-bold text-red-600">—</p>
-            )}
-          </div>
-          <div className="flex items-baseline justify-between gap-4 border-t border-slate-200 pt-3">
-            {/* Per Tim, 2026-09-26 — "anywhere it says profit, it should just say
-                net earnings": same number, same name as Net Earnings by Job. */}
-            <p className="text-sm font-bold uppercase text-slate-500">Net earnings</p>
-            <p className="text-lg font-bold text-slate-500">
-              {labCostCents != null ? currency(computeMarginCents(Math.round(total * 100), labCostCents, (stripeFeeCents ?? 0) + (invoicingFeeCents ?? 0)) / 100) : "—"}
-            </p>
-          </div>
-        </div>
       </div>
 
       <div className="flex w-full items-center gap-2 text-sm">

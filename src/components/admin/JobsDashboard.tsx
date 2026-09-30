@@ -2294,7 +2294,18 @@ export default function JobsDashboard() {
     // date, project #, or the frozen manual order while sorting is off) —
     // a stable partition so everything else keeps its existing relative
     // order, Ready for Review just floats to the front of it.
-    return [...base].sort((a, b) => (a.status === "ready_to_send" ? 0 : 1) - (b.status === "ready_to_send" ? 0 : 1));
+    // Per Tim, 2026-09-30 — "when it's payment pending, it should be
+    // towards the top... so I remember that [the report] is there":
+    // confirmed live on 26-0054 (invoice sent, report not) — a Payment
+    // Pending job's report can still be genuinely outstanding (the
+    // invoice went out before the report was ready), and that's just as
+    // easy to lose track of once the status moves past Ready for Review.
+    // A close second tier under Ready for Review, not equal to it — once
+    // the report also goes out, there's nothing left to remember (just
+    // waiting on payment), so it sinks back to its normal spot.
+    const topRank = (j: JobWithCustomer) =>
+      j.status === "ready_to_send" ? 0 : j.status === "report_invoice_sent" && !j.report_sent_at ? 1 : 2;
+    return [...base].sort((a, b) => topRank(a) - topRank(b));
   }, [filteredJobs, sortEnabled, liveSortedJobs]);
 
   async function patchJob(job: JobWithCustomer, patch: Record<string, unknown>) {

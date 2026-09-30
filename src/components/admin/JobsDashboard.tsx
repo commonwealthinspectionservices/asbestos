@@ -1682,46 +1682,6 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
   );
 }
 
-// Shared by Conclusions & Recommendations and every Discussion of Results
-// cell (air/bulk/swab) — Per Tim, 2026-08-27, these two buttons belong on
-// all of them, not just Conclusions & Recommendations.
-function ListFormatButtons({ onBullet, onNumbered }: { onBullet: () => void; onNumbered: () => void }) {
-  return (
-    <div className="flex items-center gap-1">
-      <button
-        type="button"
-        onClick={onBullet}
-        title="Bullet list"
-        className="rounded border border-slate-300 p-1.5 text-slate-600 hover:bg-slate-50"
-      >
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="2" cy="3.5" r="1.25" fill="currentColor" />
-          <circle cx="2" cy="8" r="1.25" fill="currentColor" />
-          <circle cx="2" cy="12.5" r="1.25" fill="currentColor" />
-          <rect x="5.5" y="2.75" width="9" height="1.5" rx="0.5" fill="currentColor" />
-          <rect x="5.5" y="7.25" width="9" height="1.5" rx="0.5" fill="currentColor" />
-          <rect x="5.5" y="11.75" width="9" height="1.5" rx="0.5" fill="currentColor" />
-        </svg>
-      </button>
-      <button
-        type="button"
-        onClick={onNumbered}
-        title="Numbered list"
-        className="rounded border border-slate-300 p-1.5 text-slate-600 hover:bg-slate-50"
-      >
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <text x="0.5" y="4.6" fontSize="4" fontWeight="700" fill="currentColor">1</text>
-          <text x="0.5" y="9.1" fontSize="4" fontWeight="700" fill="currentColor">2</text>
-          <text x="0.5" y="13.6" fontSize="4" fontWeight="700" fill="currentColor">3</text>
-          <rect x="5.5" y="2.75" width="9" height="1.5" rx="0.5" fill="currentColor" />
-          <rect x="5.5" y="7.25" width="9" height="1.5" rx="0.5" fill="currentColor" />
-          <rect x="5.5" y="11.75" width="9" height="1.5" rx="0.5" fill="currentColor" />
-        </svg>
-      </button>
-    </div>
-  );
-}
-
 function formatTime(time: string | null | undefined): string {
   if (!time) return "";
   const [h, m] = time.split(":").map(Number);
@@ -4367,42 +4327,6 @@ export function ProjectDetailDialog({
     onChanged();
   }
 
-  // Turns the selected line(s) — or just the current line, with no
-  // selection — into a "• " bullet or "N. " numbered item, stripping
-  // whichever marker (if any) was already there first so re-clicking the
-  // other button swaps the style instead of stacking markers. The PDF
-  // renderer (report-pdf.tsx's blocksFromText) recognizes these same
-  // markers and renders them as an actual bulleted/numbered list, not a
-  // literal "•"/digit in the paragraph text. Generic over which textarea —
-  // Per Tim, 2026-08-27, the same two buttons belong on every Discussion
-  // of Results cell (air/bulk/swab), not just Conclusions & Recommendations.
-  function applyListFormat(
-    textareaRef: React.RefObject<HTMLTextAreaElement | null>,
-    setValue: (v: string) => void,
-    saveValue: (v: string) => void,
-    ordered: boolean,
-  ) {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-    const { selectionStart, selectionEnd, value } = textarea;
-    const lineStart = value.lastIndexOf("\n", selectionStart - 1) + 1;
-    const nextBreak = value.indexOf("\n", selectionEnd);
-    const lineEnd = nextBreak === -1 ? value.length : nextBreak;
-    const lines = value.slice(lineStart, lineEnd).split("\n");
-    const formatted = lines
-      .map((line, i) => {
-        const bare = line.replace(/^([-*•]\s+|\d+[.)]\s+)/, "");
-        return ordered ? `${i + 1}. ${bare}` : `• ${bare}`;
-      })
-      .join("\n");
-    const newValue = value.slice(0, lineStart) + formatted + value.slice(lineEnd);
-    setValue(newValue);
-    saveValue(newValue);
-    requestAnimationFrame(() => {
-      textarea.focus();
-      textarea.setSelectionRange(lineStart + formatted.length, lineStart + formatted.length);
-    });
-  }
 
   async function saveJobField(patch: Record<string, unknown>) {
     await fetch(`/api/admin/jobs/${job.id}`, {
@@ -5230,15 +5154,15 @@ export function ProjectDetailDialog({
                     <DetailField
                       label="Job site address"
                       value={job.service_address ? (() => {
-                        const { street, unit, city, state, zip } = parseAddressToFields(job.service_address);
-                        const cityStateZip = [city, [state, zip].filter(Boolean).join(" ")].filter(Boolean).join(", ");
+                        // Per Tim, 2026-09-30 — tried giving the unit its
+                        // own (second) line, then reversed same day: "let's
+                        // make unit just be on the first line... it should
+                        // just be two lines total, like it was" — back to
+                        // splitAddress, which keeps unit folded into street.
+                        const { street, cityStateZip } = splitAddress(job.service_address);
                         return (
                           <a href={wazeUrl(job.service_address)} target="_blank" rel="noreferrer" className="hover:underline">
                             <span className="block">{expandAddress(street)}</span>
-                            {/* Per Tim, 2026-09-30 — the unit gets its own
-                                line instead of trailing the street, only
-                                when the address actually has one. */}
-                            {unit && <span className="block">{unit}</span>}
                             {cityStateZip && <span className="block">{expandAddress(cityStateZip)}</span>}
                           </a>
                         );
@@ -5311,19 +5235,16 @@ export function ProjectDetailDialog({
               <DetailField
                 label="Job site address"
                 value={job.service_address ? (() => {
-                  const { street, unit, city, state, zip } = parseAddressToFields(job.service_address);
-                  const cityStateZip = [city, [state, zip].filter(Boolean).join(" ")].filter(Boolean).join(", ");
+                  // Per Tim, 2026-09-30 — tried a unit-gets-its-own-line
+                  // (three total) treatment, then reversed same day: "two
+                  // lines total, like it was" — back to splitAddress.
+                  const { street, cityStateZip } = splitAddress(job.service_address);
                   return (
                     <a href={wazeUrl(job.service_address)} target="_blank" rel="noreferrer" className="hover:underline">
                       {/* Per Tim, 2026-08-28 — street, then town/state/zip on
                           its own line below it, same on desktop as mobile
-                          now (used to be one line on desktop). Per Tim,
-                          2026-09-30 — a unit number now gets its own
-                          (second) line instead of trailing the street,
-                          only when the address actually has one — three
-                          lines total, not always two. */}
+                          now (used to be one line on desktop). */}
                       <span className="block">{expandAddress(street)}</span>
-                      {unit && <span className="block">{unit}</span>}
                       {cityStateZip && <span className="block">{expandAddress(cityStateZip)}</span>}
                     </a>
                   );
@@ -5946,15 +5867,9 @@ export function ProjectDetailDialog({
                                 Additional Conclusions & Recommendations). */}
                             {group.domain === "mold" && label.toLowerCase().includes("air") && (
                               <div className="mt-4">
-                                <div className="flex flex-wrap items-center justify-between gap-2">
-                                  <label className="block text-xs font-semibold uppercase tracking-wide text-slate-700">
-                                    {label} Discussion of Results
-                                  </label>
-                                  <ListFormatButtons
-                                    onBullet={() => applyListFormat(moldAirDiscussionRef, setMoldAirDiscussionInput, saveMoldAirDiscussion, false)}
-                                    onNumbered={() => applyListFormat(moldAirDiscussionRef, setMoldAirDiscussionInput, saveMoldAirDiscussion, true)}
-                                  />
-                                </div>
+                                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-700">
+                                  {label} Discussion of Results
+                                </label>
                                 <textarea
                                   ref={moldAirDiscussionRef}
                                   className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
@@ -5968,15 +5883,9 @@ export function ProjectDetailDialog({
                             )}
                             {group.domain === "mold" && label.toLowerCase().includes("bulk") && (
                               <div className="mt-4">
-                                <div className="flex flex-wrap items-center justify-between gap-2">
-                                  <label className="block text-xs font-semibold uppercase tracking-wide text-slate-700">
-                                    {label} Discussion of Results
-                                  </label>
-                                  <ListFormatButtons
-                                    onBullet={() => applyListFormat(moldBulkDiscussionRef, setMoldBulkDiscussionInput, saveMoldBulkDiscussion, false)}
-                                    onNumbered={() => applyListFormat(moldBulkDiscussionRef, setMoldBulkDiscussionInput, saveMoldBulkDiscussion, true)}
-                                  />
-                                </div>
+                                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-700">
+                                  {label} Discussion of Results
+                                </label>
                                 <textarea
                                   ref={moldBulkDiscussionRef}
                                   className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
@@ -5990,15 +5899,9 @@ export function ProjectDetailDialog({
                             )}
                             {group.domain === "mold" && label.toLowerCase().includes("swab") && (
                               <div className="mt-4">
-                                <div className="flex flex-wrap items-center justify-between gap-2">
-                                  <label className="block text-xs font-semibold uppercase tracking-wide text-slate-700">
-                                    {label} Discussion of Results
-                                  </label>
-                                  <ListFormatButtons
-                                    onBullet={() => applyListFormat(moldSwabDiscussionRef, setMoldSwabDiscussionInput, saveMoldSwabDiscussion, false)}
-                                    onNumbered={() => applyListFormat(moldSwabDiscussionRef, setMoldSwabDiscussionInput, saveMoldSwabDiscussion, true)}
-                                  />
-                                </div>
+                                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-700">
+                                  {label} Discussion of Results
+                                </label>
                                 <textarea
                                   ref={moldSwabDiscussionRef}
                                   className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
@@ -6102,17 +6005,18 @@ export function ProjectDetailDialog({
                         {group.domain === "mold" && (
                           <>
                             <div className="mt-4">
-                              <div className="flex flex-wrap items-center justify-between gap-2">
-                                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-700">
-                                  {job.customers?.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID
-                                    ? "Additional Conclusions & Recommendations"
-                                    : "Conclusions & Recommendations"}
-                                </label>
-                                <ListFormatButtons
-                                  onBullet={() => applyListFormat(moldReportNotesRef, setMoldReportNotesInput, saveMoldReportNotes, false)}
-                                  onNumbered={() => applyListFormat(moldReportNotesRef, setMoldReportNotesInput, saveMoldReportNotes, true)}
-                                />
-                              </div>
+                              <label className="block text-xs font-semibold uppercase tracking-wide text-slate-700">
+                                {job.customers?.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID
+                                  ? "Additional Conclusions & Recommendations"
+                                  : "Conclusions & Recommendations"}
+                              </label>
+                              {/* Per Tim, 2026-09-30 — "let's delete these"
+                                  (the bullet/numbered ListFormatButtons):
+                                  removed from this cell and its three
+                                  Discussion of Results siblings (Air/Bulk/
+                                  Swab) — applyListFormat and
+                                  ListFormatButtons themselves are now
+                                  unused dead code, removed too. */}
                               {/* The two fixed generic-IAQ paragraphs (air-inclusive
                                   jobs only) render unconditionally in the PDF — see
                                   MoldReportDocument — so this cell is purely for the
@@ -6155,7 +6059,10 @@ export function ProjectDetailDialog({
                               // body text above), left-aligned (was
                               // flex justify-end).
                               <div className="mt-4 flex justify-start">
-                                <label className="flex items-center gap-2 text-sm text-slate-600">
+                                {/* Per Tim, 2026-09-30 — "the same color as
+                                    the titles for lab and date sampled":
+                                    text-slate-700 (was text-slate-600). */}
+                                <label className="flex items-center gap-2 text-sm text-slate-700">
                                   <input
                                     type="checkbox"
                                     checked={job.mold_standard_conclusion_included !== false}

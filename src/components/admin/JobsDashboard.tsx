@@ -5723,21 +5723,27 @@ export function ProjectDetailDialog({
                                       were lead samples. Asbestos-only now. */}
                                   {group.domain === "asbestos" && (
                                   <div>
-                                    {/* Per Tim, 2026-09-29 — "same with
-                                        sample results pending for the
-                                        sample results": sits on the same
-                                        line as the label now, directly
-                                        across from it, same reasoning as
-                                        the PDFs block's own empty-state
-                                        links right below this. Only when
-                                        there's nothing yet — once real
-                                        results land, the label goes back
-                                        to its own line above the full-
-                                        width table. */}
-                                    <div className="mt-2 flex flex-nowrap items-center justify-between gap-2">
-                                      <h4 className="whitespace-nowrap text-xs font-semibold uppercase tracking-wide text-slate-700">Sample Results</h4>
-                                      {(!job.sample_results || job.sample_results.length === 0) && (
+                                    {/* Per Tim, 2026-09-29 — first tried
+                                        "Sample Results" as the label with
+                                        "Sample results pending" right-
+                                        aligned next to it (same row), then
+                                        reversed that same day: "the title,
+                                        instead of saying sample results,
+                                        can just say sample results pending
+                                        in italics... the one that's aligned
+                                        right can just be deleted" — one
+                                        line, not two: the label itself
+                                        becomes the pending text (italic,
+                                        not the bold/uppercase label style)
+                                        until real results land, at which
+                                        point it goes back to the plain
+                                        "Sample Results" heading above the
+                                        full-width table. */}
+                                    <div className="mt-2 flex flex-nowrap items-center gap-2">
+                                      {(!job.sample_results || job.sample_results.length === 0) ? (
                                         <p className="text-sm italic text-slate-400">Sample results pending</p>
+                                      ) : (
+                                        <h4 className="whitespace-nowrap text-xs font-semibold uppercase tracking-wide text-slate-700">Sample Results</h4>
                                       )}
                                     </div>
                                     {(() => {

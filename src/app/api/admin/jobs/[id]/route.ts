@@ -3,7 +3,7 @@ import { getSupabaseAdminFresh } from "@/lib/supabase";
 import { requireAdminApi } from "@/lib/admin-api";
 import { withApiErrors } from "@/lib/api-handler";
 import { parseLineItems, lineItemsTotalCents } from "@/lib/invoice-line-items";
-import { parseSampleItems, parseSampleCounts, parseFullInspectionMaterials, parseSampleFindings } from "@/lib/sample-items";
+import { parseSampleItems, parseSampleCounts, parseFullInspectionMaterials, parseSampleFindings, parseSampleResults } from "@/lib/sample-items";
 import { upsertCompany, upsertCompanyContact } from "@/lib/companies";
 import type { FullInspectionMaterial } from "@/lib/types";
 
@@ -261,6 +261,20 @@ export const PATCH = withApiErrors(async (
         if (changed) patch.full_inspection_materials = synced;
       }
     }
+  }
+
+  // Per Tim, 2026-09-30 — 26-0056's field-code-collision recovery: no
+  // admin route could write sample_results directly before this (only
+  // the lab-email pipeline and the manual-upload route ever set it, both
+  // by parsing a real PDF) — needed so a job whose results got tangled
+  // by an unusual lab-report split could be corrected by hand, same as
+  // sample_items/sample_counts/sample_findings just above.
+  if ("sample_results" in body) {
+    const parsed = parseSampleResults(body.sample_results);
+    if ("error" in parsed) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
+    }
+    patch.sample_results = parsed.results;
   }
 
   if (Object.keys(patch).length === 0) {

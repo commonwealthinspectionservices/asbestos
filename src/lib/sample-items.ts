@@ -23,6 +23,40 @@ export function parseSampleItems(raw: unknown): { items: SampleItem[] } | { erro
   return { items };
 }
 
+// Per Tim, 2026-09-30 — 26-0056's field-code-collision recovery: no
+// admin route could write sample_results directly (only the lab-email
+// pipeline and the manual-upload route ever set it, both by parsing a
+// real PDF), so reconstructing the correct 12-sample result set after
+// two reports' data got tangled had nowhere to go. `material` isn't part
+// of SampleResult's own formal type (both existing writers attach it via
+// plain object spread instead — see lab-email.ts's own comment on why),
+// so this validates it the same loose way: kept only when it's really a
+// string, dropped otherwise, same as every other optional field here.
+export function parseSampleResults(raw: unknown): { results: (SampleResultInput)[] } | { error: string } {
+  if (!Array.isArray(raw)) {
+    return { error: "sample_results must be an array" };
+  }
+  const results: SampleResultInput[] = [];
+  for (const rawItem of raw) {
+    const fieldCode = typeof rawItem?.fieldCode === "string" ? rawItem.fieldCode.trim() : "";
+    const result = typeof rawItem?.result === "string" ? rawItem.result.trim() : "";
+    if (!fieldCode || !result) {
+      return { error: "Every sample_results row needs a fieldCode and a result" };
+    }
+    const material = typeof rawItem?.material === "string" ? rawItem.material.trim() : undefined;
+    const serviceType = typeof rawItem?.serviceType === "string" ? rawItem.serviceType.trim() : undefined;
+    results.push({ fieldCode, result, ...(material ? { material } : {}), ...(serviceType ? { serviceType } : {}) });
+  }
+  return { results };
+}
+
+interface SampleResultInput {
+  fieldCode: string;
+  result: string;
+  material?: string;
+  serviceType?: string;
+}
+
 // Per Tim, 2026-09-28 — "time for all of them is always 5 mins... it
 // needs a start time and end time for each sample" (Mold Air-O-Cell
 // only — the pump runs a fixed 5-minute sample), then a follow-up:

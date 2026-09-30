@@ -1171,6 +1171,43 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
     // corners/padding at any width, the panel just reads as loose
     // sections on the page.
     <div className="mt-5">
+      {/* Per Tim, 2026-09-30 — "I'm thinking that the view download and
+          create draft button should be at the very top of the page for
+          a chain of custody... view and download a line left and then
+          the create draft a line right in the very top right": moved up
+          here from below Turnaround/Relinquished (see that spot's own
+          history in the comments further down) — View/Download grouped
+          on the left, Create Draft alone on the right, one shared row
+          for both mobile and desktop. */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => viewOrDownloadCocPdf("view")}
+            disabled={viewingPdf !== null}
+            className={ACTION_BUTTON_CLASS}
+          >
+            {viewingPdf === "view" ? "Opening…" : "View"}
+          </button>
+          <button
+            type="button"
+            onClick={() => viewOrDownloadCocPdf("download")}
+            disabled={viewingPdf !== null}
+            className={ACTION_BUTTON_CLASS}
+          >
+            {viewingPdf === "download" ? "Downloading…" : "Download"}
+          </button>
+        </div>
+        <button
+          type="button"
+          onClick={createCocDraft}
+          disabled={creating || realRowIndexes.length === 0}
+          className={ACTION_BUTTON_CLASS}
+        >
+          {creating ? "Creating…" : "Create Draft ↗"}
+        </button>
+      </div>
+
       {/* Per Tim, 2026-09-29 — sent-status checklist row (same format as
           EmailChecklistPanel's own Report/Invoice rows) removed from this
           page entirely, later the same night: "delete this on chain of
@@ -1528,50 +1565,6 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
             className="w-32 shrink-0 rounded-lg border border-slate-300 px-3 py-2 text-sm"
           />
         </div>
-
-        {/* Per Tim, 2026-09-30 — "the view, download, and create draft
-            button should not be navy, let's try and make all the buttons
-            the same format throughout" (same ACTION_BUTTON_CLASS style
-            every other View/Download button in the app already uses) —
-            "make the view download and create draft button aligned
-            left... beneath turnaround and relinquished... even spacing
-            throughout vertically": moved out of Relinquished's own row
-            (was ml-auto/justify-end there) into this row of its own, a
-            plain sibling in the same space-y-4 rhythm as Turnaround and
-            Relinquished above it. Per Tim, same day, once more specific:
-            "make it so the view button is directly beneath and the exact
-            same width and height as the rush and date buttons... the
-            download button should go directly beneath 24 hours and
-            time" — a w-28 spacer matching Turnaround/Relinquished's own
-            label column, then View/Download at w-32 (Rush/24-Hr/Date/
-            Time's own width) so they land in the same two columns. */}
-        <div className="flex flex-nowrap items-center gap-3">
-          <span className="w-28 shrink-0" aria-hidden="true" />
-          <button
-            type="button"
-            onClick={() => viewOrDownloadCocPdf("view")}
-            disabled={viewingPdf !== null}
-            className={`${ACTION_BUTTON_CLASS} w-32`}
-          >
-            {viewingPdf === "view" ? "Opening…" : "View"}
-          </button>
-          <button
-            type="button"
-            onClick={() => viewOrDownloadCocPdf("download")}
-            disabled={viewingPdf !== null}
-            className={`${ACTION_BUTTON_CLASS} w-32`}
-          >
-            {viewingPdf === "download" ? "Downloading…" : "Download"}
-          </button>
-          <button
-            type="button"
-            onClick={createCocDraft}
-            disabled={creating || realRowIndexes.length === 0}
-            className={`${ACTION_BUTTON_CLASS} w-32`}
-          >
-            {creating ? "Creating…" : "Create Draft ↗"}
-          </button>
-        </div>
       </div>
 
       {/* Mobile only — per Tim, 2026-09-28: first "everything needs to be
@@ -1645,42 +1638,6 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
               className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs"
             />
           </div>
-        </div>
-
-        {/* Per Tim, 2026-09-30 — "the view, download, and create draft
-            button should not be navy... make all the buttons the same
-            format throughout... aligned left... even spacing throughout
-            vertically": ACTION_BUTTON_CLASS (was bg-brand-600/font-bold/
-            text-white), one left-aligned row instead of a View/Download
-            pair with Create Draft full-width below it — already sits in
-            the same space-y-3 rhythm as Turnaround/Date Needed/
-            Relinquished above it (this whole block is one space-y-3
-            wrapper), so no separate margin needed here either. */}
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => viewOrDownloadCocPdf("view")}
-            disabled={viewingPdf !== null}
-            className={ACTION_BUTTON_CLASS}
-          >
-            {viewingPdf === "view" ? "Opening…" : "View"}
-          </button>
-          <button
-            type="button"
-            onClick={() => viewOrDownloadCocPdf("download")}
-            disabled={viewingPdf !== null}
-            className={ACTION_BUTTON_CLASS}
-          >
-            {viewingPdf === "download" ? "Downloading…" : "Download"}
-          </button>
-          <button
-            type="button"
-            onClick={createCocDraft}
-            disabled={creating || realRowIndexes.length === 0}
-            className={ACTION_BUTTON_CLASS}
-          >
-            {creating ? "Creating draft…" : "Create Draft ↗"}
-          </button>
         </div>
       </div>
 

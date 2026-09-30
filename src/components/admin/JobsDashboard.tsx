@@ -5926,9 +5926,19 @@ export function ProjectDetailDialog({
                                 report, "MOLD GOLD.pdf"). Matched by substring
                                 the same way moldServiceTypeFlags parses
                                 service_type, since a label is always exactly
-                                one of "Mold Air/Bulk/Swab Sampling". */}
+                                one of "Mold Air/Bulk/Swab Sampling".
+                                Per Tim, 2026-09-30 — "I don't like how
+                                there is a border around these parts":
+                                dropped the rounded-lg border border-
+                                slate-200 p-3 card around each Discussion
+                                of Results/Conclusions & Recommendations
+                                box (this one and its two siblings below,
+                                plus Additional Conclusions & Recommendations
+                                further down) — just the label and its own
+                                already-bordered textarea now, no outer
+                                card. */}
                             {group.domain === "mold" && label.toLowerCase().includes("air") && (
-                              <div className="mt-4 rounded-lg border border-slate-200 p-3">
+                              <div className="mt-4">
                                 <div className="flex flex-wrap items-center justify-between gap-2">
                                   <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
                                     {label} Discussion of Results
@@ -5950,7 +5960,7 @@ export function ProjectDetailDialog({
                               </div>
                             )}
                             {group.domain === "mold" && label.toLowerCase().includes("bulk") && (
-                              <div className="mt-4 rounded-lg border border-slate-200 p-3">
+                              <div className="mt-4">
                                 <div className="flex flex-wrap items-center justify-between gap-2">
                                   <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
                                     {label} Discussion of Results
@@ -5972,7 +5982,7 @@ export function ProjectDetailDialog({
                               </div>
                             )}
                             {group.domain === "mold" && label.toLowerCase().includes("swab") && (
-                              <div className="mt-4 rounded-lg border border-slate-200 p-3">
+                              <div className="mt-4">
                                 <div className="flex flex-wrap items-center justify-between gap-2">
                                   <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
                                     {label} Discussion of Results
@@ -6084,7 +6094,7 @@ export function ProjectDetailDialog({
                             upload station. */}
                         {group.domain === "mold" && (
                           <>
-                            <div className="mt-4 rounded-lg border border-slate-200 p-3">
+                            <div className="mt-4">
                               <div className="flex flex-wrap items-center justify-between gap-2">
                                 <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
                                   {job.customers?.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID
@@ -6233,8 +6243,19 @@ export function ProjectDetailDialog({
                           in for the window before that, tagged by domain
                           since one Final Report covers every label in it. */}
                       {domainReady ? (
-                        <div className="flex min-h-9 items-center justify-between gap-2">
-                          <h4 className="min-w-0 text-xs font-semibold uppercase tracking-wide text-slate-700">Final {REPORT_DOMAIN_LABEL[domain]} Report</h4>
+                        // Per Tim, 2026-09-30 — "the view and download
+                        // button for final mold report should be directly
+                        // underneath the view and download button for
+                        // laboratory results": same row shape as
+                        // DocumentStation's own title row (w-40 label
+                        // column, no justify-between) instead of pushed to
+                        // the far right — otherwise this row's buttons
+                        // landed at a different x than the DocumentStation
+                        // rows above it.
+                        <div className="flex min-h-9 flex-nowrap items-center gap-3">
+                          <div className="flex w-40 shrink-0 items-center gap-2">
+                            <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-700">Final {REPORT_DOMAIN_LABEL[domain]} Report</h4>
+                          </div>
                           <div className="flex shrink-0 items-center gap-2">
                             <a href={reportUrl} target="_blank" rel="noreferrer" className={`${ACTION_BUTTON_CLASS} ${VIEW_UPLOAD_MIN_WIDTH_CLASS}`}>
                               View
@@ -6242,9 +6263,6 @@ export function ProjectDetailDialog({
                             <a href={downloadUrl} download={`report-${domain}-${job.project_number ?? job.id}.pdf`} className={ACTION_BUTTON_CLASS}>
                               Download
                             </a>
-                            {/* Same width as the ✕ slot on the two rows above so all
-                                three rows' buttons line up. */}
-                            <span className="w-7 shrink-0" aria-hidden="true" />
                           </div>
                         </div>
                       ) : (

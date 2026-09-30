@@ -5759,30 +5759,16 @@ export function ProjectDetailDialog({
                           const samplesPending = group.domain === "asbestos" && (!job.sample_results || job.sample_results.length === 0);
                           return (
                           <div key={label} className={labelIdx > 0 ? "mt-8" : ""}>
-                            {/* Per Tim, 2026-09-29 — tried this as its own
-                                separate line under the title a few times
-                                ("Sample Results" label + right-aligned
-                                pending text, then just one italic line),
-                                then folded it into the title itself
-                                instead: "let's just make this title say
-                                pre-renovation asbestos inspection sample
-                                results pending, in italics, but I like
-                                how it's in this title text kind of" —
-                                same bold/uppercase title styling, just
-                                italic and with the pending phrase
-                                appended, rather than a separate element
-                                below it. */}
-                            {/* mb-7 (not mb-5) while pending, matching the
-                                mb-7 the Lab/Date Sampled block above
-                                already ends on — per Tim, "move [this] so
-                                it's exactly in between Result and Date
-                                Sampled above it": with the Sample Results
-                                box below skipped entirely while pending
-                                (see its own comment), matching margins on
-                                both sides is what actually centers it. */}
-                            <p className={`${samplesPending ? "mb-7" : "mb-5"} text-base font-bold uppercase text-slate-700 ${samplesPending ? "italic" : ""}`}>
-                              {label}{samplesPending ? " Sample results pending" : ""}
-                            </p>
+                            {/* Per Tim, 2026-09-29/30 — this went through a
+                                few places: its own label + right-aligned
+                                pending text, one italic line, folded into
+                                this domain title, and finally: "[the
+                                pending phrase] should be gray subtext
+                                inside of the result cell when the result
+                                is pending, and then we can delete that
+                                big title" — the title's gone; the pending
+                                phrase now lives as the Result field's own
+                                placeholder text instead (see below). */}
                             {/* Per Tim, 2026-09-16 — "laboratory results and
                                 chain of custody should each have their own
                                 row": now that each station is just a label
@@ -5796,13 +5782,11 @@ export function ProjectDetailDialog({
                                 Sample Results below — just spacing, nothing
                                 about the text sizes touched. */}
                             {/* Skipped entirely (not just hidden) while
-                                pending — per Tim, same day: rendering this
-                                box empty (no Sample Results heading, no
-                                table) still ate its own my-6 margin, which
-                                was exactly what threw off the "exactly in
-                                between" spacing above. Nothing duplicates
-                                what the title already says while pending
-                                anyway (see that title's own comment). */}
+                                pending — rendering this box empty (no
+                                Sample Results heading, no table) would
+                                still eat its own my-6 margin for nothing;
+                                the Result field's own placeholder below
+                                already covers the pending state. */}
                             {group.domain === "asbestos" && samplesPending ? null : (
                             <div className={group.domain === "asbestos" ? "my-6 flex flex-col gap-6" : "hidden"}>
                               {/* Per Tim, 2026-09-19 — "pdfs at bottom is best": Laboratory
@@ -6053,7 +6037,17 @@ export function ProjectDetailDialog({
                                   }}
                                   onEnter={(v) => (group.domain === "lead" ? saveLeadReportSummary(v) : saveReportSummary(v))}
                                   onBlur={(v) => (group.domain === "lead" ? saveLeadReportSummary(v) : saveReportSummary(v))}
-                                  placeholder={group.domain === "lead" ? "e.g. None of the paint chip samples were determined to contain lead." : undefined}
+                                  // Per Tim, 2026-09-30 — the pending phrase
+                                  // that used to be its own big title above
+                                  // now shows as this field's own gray
+                                  // placeholder text instead.
+                                  placeholder={
+                                    samplesPending
+                                      ? `${label} sample results pending`
+                                      : group.domain === "lead"
+                                      ? "e.g. None of the paint chip samples were determined to contain lead."
+                                      : undefined
+                                  }
                                 />
                                 </div>
                               </div>
@@ -6186,23 +6180,21 @@ export function ProjectDetailDialog({
                   <>
                     <h3 className="text-base font-bold tracking-wide text-black underline sm:text-lg">PDFs</h3>
                     <div className="mt-4 space-y-5">
+                      {/* Per Tim, 2026-09-30 — "we do not need to have the
+                          chain of custody PDF on the asbestos report tab":
+                          Chain of Custody already has its own dedicated
+                          tab (see cocTypeTab/COC_TAB_LABEL, 2026-09-28) —
+                          showing it here too was just the same document
+                          twice. */}
                       {labels.map((label) => (
-                        <div key={label} className="space-y-5">
-                          <DocumentStation
-                            job={job}
-                            onChanged={onChanged}
-                            kind="lab_report"
-                            label={labels.length > 1 ? `Laboratory Results — ${serviceTypeLabel(label)}` : "Laboratory Results"}
-                            serviceType={label}
-                          />
-                          <DocumentStation
-                            job={job}
-                            onChanged={onChanged}
-                            kind="coc"
-                            label={labels.length > 1 ? `Chain of Custody — ${serviceTypeLabel(label)}` : "Chain of Custody"}
-                            serviceType={label}
-                          />
-                        </div>
+                        <DocumentStation
+                          key={label}
+                          job={job}
+                          onChanged={onChanged}
+                          kind="lab_report"
+                          label={labels.length > 1 ? `Laboratory Results — ${serviceTypeLabel(label)}` : "Laboratory Results"}
+                          serviceType={label}
+                        />
                       ))}
                       {/* Per Tim, 2026-09-30 — "there should be view and
                           download buttons for laboratory results and

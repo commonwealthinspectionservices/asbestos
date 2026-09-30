@@ -2995,7 +2995,14 @@ function JobRow({
             // borderless one at the same padding — reserving the same
             // invisible border here keeps both boxes' text sitting at the
             // exact same height instead of just their tops lining up.
-            <span className="inline-flex h-7 w-24 shrink-0 items-center justify-center whitespace-nowrap rounded border-2 border-transparent bg-slate-200 px-2 py-0.5 text-xs font-mono font-bold text-slate-800 hover:underline sm:inline sm:h-auto sm:w-auto sm:justify-start sm:text-sm">{job.project_number}</span>
+            // Per Tim, 2026-09-29 — "make sure these are always the same
+            // text size": text-xs/sm:text-sm already matched the status
+            // pill's own classes exactly, but font-mono's different
+            // metrics still rendered visibly smaller than the status
+            // pill's plain sans text at the same declared size — dropped
+            // font-mono so both are the same actual typeface, not just
+            // the same Tailwind size utility.
+            <span className="inline-flex h-7 w-24 shrink-0 items-center justify-center whitespace-nowrap rounded border-2 border-transparent bg-slate-200 px-2 py-0.5 text-xs font-bold text-slate-800 hover:underline sm:inline sm:h-auto sm:w-auto sm:justify-start sm:text-sm">{job.project_number}</span>
           )}
           {/* Per Tim, 2026-08-31 — "Restore1 looks like it's getting cut
               off, I wanna make sure that it's not": measured this sitting

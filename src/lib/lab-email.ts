@@ -2172,7 +2172,31 @@ async function processMatchedLabEmail(params: {
           });
         if (findings.length > 0) update.sample_findings = findings;
       }
-      update.sample_results = resultsWithMaterial;
+      // Per Tim, 2026-09-30 — confirmed live wrong on 26-0056: Crystal
+      // Analytical split this job's samples across two entirely separate
+      // reports (its own two Lab IDs, one per CoC submission), and the
+      // second one to get processed silently wiped out the first's
+      // results — this used to be a flat replace, despite the comment
+      // above already (incorrectly) claiming it merged. Merged by
+      // fieldCode now, same pattern as sample_findings just above: a
+      // field code this report doesn't cover keeps whatever an earlier
+      // report already found for it, and one it does cover gets this
+      // report's own (possibly corrected/supplemental) result.
+      const existingResultsByCode = new Map((job.sample_results ?? []).map((r) => [r.fieldCode, r]));
+      for (const r of resultsWithMaterial) existingResultsByCode.set(r.fieldCode, r);
+      const mergedSampleResults = Array.from(existingResultsByCode.values());
+      update.sample_results = mergedSampleResults;
+      // Same multi-report situation as the merge above — the generic
+      // sample_counts write further up (the `else` branch above
+      // `if (isMold)`) is keyed by label and just overwrites, so it can
+      // only ever reflect whichever report happened to set it last. Once
+      // sample_results is properly merged across every report, the
+      // domain's real total is just however many distinct field codes
+      // that merge actually produced — this runs after that branch and
+      // overwrites its possibly-incomplete count with the accurate one.
+      if (primaryServiceType) {
+        update.sample_counts = { ...(job.sample_counts ?? {}), [primaryServiceType]: mergedSampleResults.length };
+      }
 
       // Per Tim, 2026-09-11 (26-0026) — "Total Materials Sampled" only
       // counts what's actually logged in the Materials Sampled table, and

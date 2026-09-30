@@ -2303,9 +2303,28 @@ export default function JobsDashboard() {
     // A close second tier under Ready for Review, not equal to it — once
     // the report also goes out, there's nothing left to remember (just
     // waiting on payment), so it sinks back to its normal spot.
+    // Per Tim, same day (follow-up) — "make that the second priority
+    // behind ready for review... pending lab results... rated from
+    // completed date, oldest to newest, so I'm able to see them": Pending
+    // Lab Results now floats just under Ready for Review (bumping the
+    // Payment Pending/unsent-report tier above down to third), sorted
+    // within itself by completed date ascending — oldest outstanding lab
+    // work first, regardless of whatever the base sort/frozen order had.
     const topRank = (j: JobWithCustomer) =>
-      j.status === "ready_to_send" ? 0 : j.status === "report_invoice_sent" && !j.report_sent_at ? 1 : 2;
-    return [...base].sort((a, b) => topRank(a) - topRank(b));
+      j.status === "ready_to_send"
+        ? 0
+        : j.status === "pending_lab_results"
+          ? 1
+          : j.status === "report_invoice_sent" && !j.report_sent_at
+            ? 2
+            : 3;
+    const completedDate = (j: JobWithCustomer) => j.confirmed_date ?? j.requested_date ?? "";
+    return [...base].sort((a, b) => {
+      const rankDiff = topRank(a) - topRank(b);
+      if (rankDiff !== 0) return rankDiff;
+      if (topRank(a) === 1) return completedDate(a).localeCompare(completedDate(b));
+      return 0;
+    });
   }, [filteredJobs, sortEnabled, liveSortedJobs]);
 
   async function patchJob(job: JobWithCustomer, patch: Record<string, unknown>) {

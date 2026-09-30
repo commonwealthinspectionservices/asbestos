@@ -763,6 +763,21 @@ const COC_MATERIAL_PRESETS: Record<CocType, string[]> = {
   mold_swab: ["Drywall surface", "Wood surface", "HVAC duct surface", "Wall surface", "Window sill", "Baseboard"],
 };
 
+// Per Tim, 2026-09-30 — "drywall is [always] base and skim coat, plaster
+// is plaster and skim coat," then "there could be drywall ceilings or
+// drywall walls or textured walls... maybe I should just have a
+// dropdown": every surfacing material that's actually two real samples
+// (a base/plaster coat plus its own skim coat, wall or ceiling), picked
+// from one menu instead of a fixed button per material — see
+// addMaterialGroup's own comment for how picking one adds both
+// materials' A+B pair at once.
+const MATERIAL_GROUP_OPTIONS: { label: string; materials: readonly [string, string] }[] = [
+  { label: "Drywall wall", materials: ["Drywall wall base", "Drywall wall skim coat"] },
+  { label: "Drywall ceiling", materials: ["Drywall ceiling base", "Drywall ceiling skim coat"] },
+  { label: "Plaster wall", materials: ["Plaster wall base", "Plaster wall skim coat"] },
+  { label: "Plaster ceiling", materials: ["Plaster ceiling base", "Plaster ceiling skim coat"] },
+];
+
 // Electronic Chain of Custody — per Tim, 2026-09-28: "right now everything
 // is written out by hand... I should just be able to fill in what I need
 // to fill in pretty simply and then get it sent off to the lab", and
@@ -907,6 +922,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
   const [dateNeeded, setDateNeeded] = useState(job.lab_date_needed ?? "");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [materialGroupMenuOpen, setMaterialGroupMenuOpen] = useState(false);
   // Per Tim, 2026-09-28 — "the relinquishment is the time that I drop it
   // off at the lab... most of the time it won't be [when the draft gets
   // created], so I have to enter that in": real, always-editable date/
@@ -1083,11 +1099,16 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
   // Per Tim, 2026-09-30 — "drywall is always going to be listed with
   // [its] skim coat... I just wanna make that process simpler": these
   // two materials are never sampled alone — each one means two real
-  // materials (a base/plaster coat and its own skim coat), so adding
-  // "Drywall" or "Plaster" adds both materials' own A+B pair at once (4
-  // rows) instead of typing each material name twice by hand. Location
-  // stays blank on every new row, same as addRow above — no guessing,
-  // just one less material name to type.
+  // materials (a base/plaster coat and its own skim coat), so picking
+  // one of these adds both materials' own A+B pair at once (4 rows)
+  // instead of typing each material name twice by hand. Location stays
+  // blank on every new row, same as addRow above — no guessing, just
+  // fewer material names to type. Per Tim, same day (follow-up) —
+  // "there could be drywall ceilings or drywall walls or textured
+  // walls... maybe I should just have a dropdown": a fixed pair of
+  // buttons didn't scale to every wall/ceiling variant, so this is now
+  // a list a menu picks from (MATERIAL_GROUP_OPTIONS below) instead of
+  // one button per group.
   function addMaterialGroup(materials: readonly [string, string]) {
     setRows((prev) => {
       const next = [...prev];
@@ -1595,22 +1616,48 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
         </div>
       </div>
 
-      <div className="mt-3 flex flex-wrap justify-end gap-x-4 gap-y-1">
+      <div className="mt-3 flex flex-wrap items-start justify-end gap-x-4 gap-y-1">
         {/* Per Tim, 2026-09-30 — "drywall is [always] base and skim
-            coat, plaster is plaster and skim coat": one click each adds
-            both of that material's own A+B pair (4 rows), instead of
-            typing "Drywall wall base" and "Drywall wall skim coat" out
-            by hand as two separate materials. Asbestos bulk only
-            (pairsSamples) — mold's own materials don't pair up this way. */}
+            coat, plaster is plaster and skim coat," then "there could
+            be drywall ceilings or drywall walls or textured walls...
+            maybe I should just have a dropdown": one pick from this
+            menu adds that material's own A+B pair (4 rows) — wall or
+            ceiling, base/plaster coat plus its own skim coat — instead
+            of typing both material names out by hand, and instead of
+            one button per variant (didn't scale past Drywall/Plaster).
+            Asbestos bulk only (pairsSamples) — mold's own materials
+            don't pair up this way. Closes on blur (a short delay so the
+            click on an option still registers first) — same pattern as
+            this file's other small dropdown menus. */}
         {pairsSamples && (
-          <>
-            <button type="button" onClick={() => addMaterialGroup(["Drywall wall base", "Drywall wall skim coat"])} className="shrink-0 text-sm font-medium text-brand-600 hover:underline">
-              + Drywall
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setMaterialGroupMenuOpen((v) => !v)}
+              onBlur={() => setTimeout(() => setMaterialGroupMenuOpen(false), 150)}
+              className="shrink-0 text-sm font-medium text-brand-600 hover:underline"
+            >
+              + Common Material ▾
             </button>
-            <button type="button" onClick={() => addMaterialGroup(["Plaster wall base", "Plaster wall skim coat"])} className="shrink-0 text-sm font-medium text-brand-600 hover:underline">
-              + Plaster
-            </button>
-          </>
+            {materialGroupMenuOpen && (
+              <div className="absolute right-0 z-10 mt-1 w-44 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 shadow-lg">
+                {MATERIAL_GROUP_OPTIONS.map((group) => (
+                  <button
+                    key={group.label}
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => {
+                      addMaterialGroup(group.materials);
+                      setMaterialGroupMenuOpen(false);
+                    }}
+                    className="block w-full rounded px-2 py-1 text-left text-sm hover:bg-slate-50"
+                  >
+                    {group.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         )}
         <button type="button" onClick={addRow} className="shrink-0 text-sm font-medium text-brand-600 hover:underline">{pairsSamples ? "+ Add material" : "+ Add sample"}</button>
       </div>

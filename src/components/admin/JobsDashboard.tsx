@@ -627,7 +627,12 @@ function EmailChecklistPanel({
   const rowClassName = "flex items-center gap-2 text-sm";
 
   return (
-    <div className="mt-8 flex flex-col gap-6">
+    // Per Tim, 2026-09-30 — "the cell should be directly next to and
+    // across from subject, as opposed to subject being over it": side by
+    // side on desktop (checklist left, Subject right, sm:order-none
+    // cancelling Subject's own order-first below) instead of stacked;
+    // mobile keeps the original stacked layout, Subject still on top.
+    <div className="mt-8 flex flex-col gap-6 sm:flex-row sm:items-start">
       <div className="max-w-md flex-1">
         <div className="space-y-2">
           {domains.map((domain) => (
@@ -687,7 +692,7 @@ function EmailChecklistPanel({
           )}
         </div>
       </div>
-      <div className="order-first flex-1">
+      <div className="order-first flex-1 sm:order-none">
         <h3 className="mb-2 text-sm font-bold uppercase text-slate-500">Subject</h3>
         <input
           type="text"

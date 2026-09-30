@@ -6362,14 +6362,14 @@ export function ProjectDetailDialog({
                       <button
                         onClick={getPaymentLink}
                         disabled={payLinkLoading}
-                        className={ACTION_BUTTON_CLASS}
+                        className={`${ACTION_BUTTON_CLASS} ${VIEW_UPLOAD_MIN_WIDTH_CLASS}`}
                       >
                         {payLinkLoading ? "Loading…" : "View"}
                       </button>
                       <button
                         onClick={copyPaymentLink}
                         disabled={copyLinkLoading}
-                        className={ACTION_BUTTON_CLASS}
+                        className={`${ACTION_BUTTON_CLASS} ${VIEW_UPLOAD_MIN_WIDTH_CLASS}`}
                       >
                         {copyLinkLoading ? "Loading…" : copyLinkDone ? "Copied!" : "Copy"}
                       </button>
@@ -6396,7 +6396,7 @@ export function ProjectDetailDialog({
                     <a
                       href={`/api/admin/jobs/${job.id}/invoice?download=1`}
                       download={`invoice-${job.project_number ?? job.id}.pdf`}
-                      className={ACTION_BUTTON_CLASS}
+                      className={`${ACTION_BUTTON_CLASS} ${VIEW_UPLOAD_MIN_WIDTH_CLASS}`}
                     >
                       Download
                     </a>
@@ -6414,7 +6414,7 @@ export function ProjectDetailDialog({
                       <a href={`/api/admin/jobs/${job.id}/documents/${uploadedInvoice.id}`} target="_blank" rel="noreferrer" className={`${ACTION_BUTTON_CLASS} ${VIEW_UPLOAD_MIN_WIDTH_CLASS}`}>
                         View
                       </a>
-                      <a href={`/api/admin/jobs/${job.id}/documents/${uploadedInvoice.id}?download=1`} download={uploadedInvoice.file_name} className={ACTION_BUTTON_CLASS}>
+                      <a href={`/api/admin/jobs/${job.id}/documents/${uploadedInvoice.id}?download=1`} download={uploadedInvoice.file_name} className={`${ACTION_BUTTON_CLASS} ${VIEW_UPLOAD_MIN_WIDTH_CLASS}`}>
                         Download
                       </a>
                     </div>
@@ -6438,7 +6438,7 @@ export function ProjectDetailDialog({
                         <a href={`/api/admin/jobs/${job.id}/documents/${paidInvoice.id}`} target="_blank" rel="noreferrer" className={`${ACTION_BUTTON_CLASS} ${VIEW_UPLOAD_MIN_WIDTH_CLASS}`}>
                           View
                         </a>
-                        <a href={`/api/admin/jobs/${job.id}/documents/${paidInvoice.id}?download=1`} download={paidInvoice.file_name} className={ACTION_BUTTON_CLASS}>
+                        <a href={`/api/admin/jobs/${job.id}/documents/${paidInvoice.id}?download=1`} download={paidInvoice.file_name} className={`${ACTION_BUTTON_CLASS} ${VIEW_UPLOAD_MIN_WIDTH_CLASS}`}>
                           Download
                         </a>
                       </div>
@@ -6813,11 +6813,13 @@ const ACTION_BUTTON_CLASS =
 const DELETE_ICON_BUTTON_CLASS =
   "inline-flex h-9 w-7 shrink-0 items-center justify-center rounded-full text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-50";
 // Per Tim, 2026-09-30 — "make the view button so that it's the exact
-// same width as the upload button": a PDFs row's single action button
-// toggles between "View" and "Upload" as a document gets uploaded or
-// removed — same min-width on both so the button doesn't visibly resize
-// when it flips between the two.
-const VIEW_UPLOAD_MIN_WIDTH_CLASS = "min-w-[70px]";
+// same width as the upload button" (then, same night: "the width of all
+// view buttons should be consistent... copy, view, and download should
+// all be the same width all the time"): every action button in a PDFs
+// row — View, Download, Copy, Upload — shares this one min-width,
+// sized to fit "Download" (the longest of the four) so none of them
+// ever visibly resizes as a row toggles between states.
+const VIEW_UPLOAD_MIN_WIDTH_CLASS = "min-w-[88px]";
 
 function DocumentStation({
   job, onChanged, kind, label, serviceType, headerExtra, titlePosition = "top", leading,
@@ -9778,43 +9780,58 @@ function LineItemsEditor({
           background": moved up here from below the line items (see its
           own comment further down, still in place), bg-white (was
           bg-slate-50). */}
+      {/* Per Tim, 2026-09-30 — "way too green and red... needs to look
+          more normal and fit in": every row now reads in the same
+          neutral slate palette as the rest of the tab (was emerald for
+          the total, red for every deduction) — Invoice total and Net
+          earnings are the two figures worth a heavier weight, the fees
+          in between are plain text. */}
       <div className="rounded-lg border border-slate-200 bg-white px-4 py-4">
         <div className="space-y-3">
           <div className="flex items-baseline justify-between gap-4">
-            <p className="text-sm font-bold uppercase text-emerald-600">Invoice total</p>
-            <p className="text-lg font-bold text-emerald-600">{currency(total)}</p>
+            <p className="text-sm font-bold uppercase text-slate-700">Invoice total</p>
+            <p className="text-lg font-bold text-slate-800">{currency(total)}</p>
           </div>
           <div className="flex items-baseline justify-between gap-4">
-            <p className="text-sm font-bold uppercase text-red-600">Lab fees</p>
-            <p className="text-lg font-bold text-red-600">
+            <p className="text-sm font-medium uppercase text-slate-500">Lab fees</p>
+            <p className="text-sm font-medium text-slate-500">
               {labCostCents != null ? currency(labCostCents / 100) : "Not yet billed"}
             </p>
           </div>
           <div className="flex items-baseline justify-between gap-4">
-            <p className="text-sm font-bold uppercase text-red-600">Stripe fee</p>
+            <p className="text-sm font-medium uppercase text-slate-500">Stripe fee</p>
             {stripeFeeCents != null ? (
-              <p className="text-lg font-bold text-red-600">{currency(stripeFeeCents / 100)}</p>
+              <p className="text-sm font-medium text-slate-500">{currency(stripeFeeCents / 100)}</p>
             ) : (
-              <p className="text-lg font-bold text-red-600">—</p>
+              <p className="text-sm font-medium text-slate-500">—</p>
             )}
           </div>
           <div className="flex items-baseline justify-between gap-4">
-            <p className="text-sm font-bold uppercase text-red-600">Invoicing fee</p>
+            <p className="text-sm font-medium uppercase text-slate-500">Invoicing fee</p>
             {invoicingFeeCents != null ? (
-              <p className="text-lg font-bold text-red-600">{currency(invoicingFeeCents / 100)}</p>
+              <p className="text-sm font-medium text-slate-500">{currency(invoicingFeeCents / 100)}</p>
             ) : (
-              <p className="text-lg font-bold text-red-600">—</p>
+              <p className="text-sm font-medium text-slate-500">—</p>
             )}
           </div>
           <div className="flex items-baseline justify-between gap-4 border-t border-slate-200 pt-3">
-            <p className="text-sm font-bold uppercase text-slate-500">Net earnings</p>
-            <p className="text-lg font-bold text-slate-500">
+            <p className="text-sm font-bold uppercase text-slate-700">Net earnings</p>
+            <p className="text-lg font-bold text-slate-800">
               {labCostCents != null ? currency(computeMarginCents(Math.round(total * 100), labCostCents, (stripeFeeCents ?? 0) + (invoicingFeeCents ?? 0)) / 100) : "—"}
             </p>
           </div>
         </div>
       </div>
 
+      {/* Per Tim, 2026-09-30 — "I need to make sure that there's a
+          border that goes around base fee all the way down through
+          payment due... I need to indicate that that's the actual
+          invoice": one bordered card around every real invoice line
+          (Base Fee/Samples/Custom Line Item, the +Custom Line
+          Item/+Samples links, and Payment due), separate from the
+          summary breakdown above. Same space-y-7 rhythm inside as the
+          outer container used before this card existed. */}
+      <div className="space-y-7 rounded-lg border border-slate-200 p-4">
       {baseFeeRows.map(({ r: row, i }) => (
         <div key={i}>
           <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Base Fee</h4>
@@ -10026,6 +10043,7 @@ function LineItemsEditor({
           value={paymentDueDate}
           onChange={(e) => onPaymentDueDateChange(e.target.value)}
         />
+      </div>
       </div>
     </div>
   );

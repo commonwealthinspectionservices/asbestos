@@ -1292,7 +1292,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
             per row. */}
         <div className="space-y-3 sm:hidden">
           {rows.map((r, i) => (
-            <div key={i} className="overflow-hidden rounded-lg border border-slate-400">
+            <div key={i} className="rounded-lg border border-slate-400">
               {/* Per Tim, 2026-09-28 — first the blank title-less header
                   strip didn't work ("there's no sample row, and there
                   should definitely be a sample row"), then the
@@ -1307,7 +1307,17 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
                   be same as the 2 below it": dropped bg-slate-50, matching
                   Material/Location's own plain white rows in this same
                   card. */}
-              <div className="flex items-center justify-between border-b border-slate-400">
+              {/* Per Tim, 2026-09-29 — the card itself used to be
+                  overflow-hidden (so each row's own straight edges
+                  clipped to the card's rounded-lg corners), but that also
+                  clipped Location's own suggestion dropdown — always the
+                  card's last row, so its popup renders below the card's
+                  bottom edge and got cut off entirely, invisible no
+                  matter how it was tapped. rounded-t-lg here (the first
+                  row) and rounded-b-lg on Location's own row below (the
+                  last one) reproduce the identical clipped-corner look
+                  locally, without an ancestor that clips the dropdown. */}
+              <div className="flex items-center justify-between rounded-t-lg border-b border-slate-400">
                 <div className="flex flex-1 items-center">
                   <span className="w-20 shrink-0 border-r border-slate-300 px-2 py-2.5 text-xs font-bold uppercase text-slate-700">Sample #</span>
                   {/* Per Tim, 2026-09-28 — "I want all of this text to be
@@ -1378,7 +1388,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
                   />
                 </div>
               )}
-              <div className="flex items-center">
+              <div className="flex items-center rounded-b-lg">
                 <span className="w-20 shrink-0 border-r border-slate-300 px-2 py-2.5 text-xs font-bold uppercase text-slate-700">Location</span>
                 <ComboboxInput
                   value={r.location}

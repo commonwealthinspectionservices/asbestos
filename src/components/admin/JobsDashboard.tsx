@@ -718,6 +718,19 @@ const COC_TYPE_LABEL: Record<CocType, string> = {
   mold_swab: "Mold Swab",
 };
 
+// Per Tim, 2026-09-29 — "when there are multiple chains of custodies on
+// a specific job... the title should be Asbestos COC or Mold COC and
+// then within mold it's probably going to have to specify which kind
+// like Mold Bulk or Mold Air COC": short tab titles, only used once a
+// job actually has more than one COC type (the single-type case keeps
+// the plain "Chain of Custody" tab title — see the tab bar below).
+const COC_TAB_LABEL: Record<CocType, string> = {
+  asbestos_bulk: "Asbestos COC",
+  mold_air_o_cell: "Mold Air COC",
+  mold_bulk: "Mold Bulk COC",
+  mold_swab: "Mold Swab COC",
+};
+
 // Common materials the admin can pick from instead of typing one out every
 // time. Per Tim, 2026-09-28 — asbestos_bulk moved to a real source (Ray's
 // Library, see fetchMaterialOptions in ChainOfCustodyPanel) instead of
@@ -3919,6 +3932,15 @@ export function ProjectDetailDialog({
     if (!domains.includes(reportDomainTab)) setReportDomainTab(domains[0] ?? "asbestos");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [job.service_type]);
+  // Same per-domain tab pattern as reportDomainTab above, one tab per
+  // distinct COC type actually on the job (see jobCocTypes) instead of
+  // every type's own panel stacked into one long Chain of Custody tab.
+  const [cocTypeTab, setCocTypeTab] = useState<CocType | null>(() => jobCocTypes(job.service_type)[0]?.cocType ?? null);
+  useEffect(() => {
+    const cocTypes = jobCocTypes(job.service_type).map((c) => c.cocType);
+    if (!cocTypeTab || !cocTypes.includes(cocTypeTab)) setCocTypeTab(cocTypes[0] ?? null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [job.service_type]);
   // Feeds the auto-fire-on-completion effects below (reportOnlyDraft/
   // invoiceOnlyDraft), which silently create the first draft of each the
   // moment its own data is ready — independent of the Email tab's manual
@@ -4750,7 +4772,14 @@ export function ProjectDetailDialog({
                 // day: "project info, chain of custody, and [the] report,
                 // invoice, email" — moved ahead of the report tab(s), not
                 // after.
-                ...(jobCocTypes(job.service_type).length > 0 ? [{ value: "coc", label: "Chain of Custody", onSelect: () => setTab("coc") }] : []),
+                // Per Tim, 2026-09-29 — one tab per COC type once a job
+                // has more than one (see cocTypeTab above); a job with
+                // just one keeps the plain "Chain of Custody" title.
+                ...jobCocTypes(job.service_type).map(({ cocType }, _i, arr) => ({
+                  value: `coc:${cocType}`,
+                  label: arr.length > 1 ? COC_TAB_LABEL[cocType] : "Chain of Custody",
+                  onSelect: () => { setTab("coc"); setCocTypeTab(cocType); },
+                })),
                 ...jobReportDomains(job.service_type).map((domain) => ({
                   value: `report:${domain}`,
                   label: `${REPORT_DOMAIN_LABEL[domain]} Report`,
@@ -4760,7 +4789,7 @@ export function ProjectDetailDialog({
                 ...(isMoistureMappingJob ? [{ value: "moisture_mapping", label: "Moisture Mapping", onSelect: () => setTab("moisture_mapping") }] : []),
                 { value: "email", label: "Email", onSelect: () => setTab("email") },
               ];
-          const selectedValue = tab === "report" ? `report:${reportDomainTab}` : tab;
+          const selectedValue = tab === "report" ? `report:${reportDomainTab}` : tab === "coc" ? `coc:${cocTypeTab}` : tab;
           // Per Tim, 2026-08-27 — no border-b here on mobile when the
           // "Create Final Report and Invoice Draft" row follows right
           // below (same condition that row itself renders under) — its
@@ -4796,14 +4825,19 @@ export function ProjectDetailDialog({
                         custody, and [the] report, invoice, email": moved
                         ahead of the Report tab(s), same reasoning as the
                         mobile dropdown's own order above. */}
-                    {jobCocTypes(job.service_type).length > 0 && (
+                    {/* Per Tim, 2026-09-29 — one tab per COC type once a
+                        job has more than one, same pattern as the Report
+                        tab(s) just below; a job with just one COC type
+                        keeps the plain "Chain of Custody" title. */}
+                    {jobCocTypes(job.service_type).map(({ cocType }, _i, arr) => (
                       <button
-                        onClick={() => setTab("coc")}
-                        className={`flex-1 whitespace-nowrap px-0.5 py-1.5 text-center text-[11px] font-bold uppercase sm:flex-none sm:px-3 sm:text-sm ${tab === "coc" ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
+                        key={cocType}
+                        onClick={() => { setTab("coc"); setCocTypeTab(cocType); }}
+                        className={`flex-1 whitespace-nowrap px-0.5 py-1.5 text-center text-[11px] font-bold uppercase sm:flex-none sm:px-3 sm:text-sm ${tab === "coc" && cocTypeTab === cocType ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
                       >
-                        Chain of Custody
+                        {arr.length > 1 ? COC_TAB_LABEL[cocType] : "Chain of Custody"}
                       </button>
-                    )}
+                    ))}
                     {/* One tab per domain actually on the job (asbestos/mold/lead)
                         — a job combining service types from more than one domain
                         used to stack every domain's upload stations into one long
@@ -6195,14 +6229,15 @@ export function ProjectDetailDialog({
             separate tab for every single job instead of lumping it onto
             the asbestos report page... the chain of custody is different
             than the report": a dedicated tab, not scoped to whichever
-            report domain happens to be selected — every COC type on the
-            job shows here together (a mold job with both Air Sampling
-            and Bulk Sampling gets both panels, not just one). */}
-        {tab === "coc" && job.source !== "subcontractor" && (
+            report domain happens to be selected. Per Tim, 2026-09-29 —
+            "when there are multiple chains of custodies on a specific
+            job... [it] should specify which kind": every COC type used
+            to show stacked together in this one tab; now each gets its
+            own tab (cocTypeTab, same pattern as reportDomainTab), so this
+            only ever renders the one currently selected. */}
+        {tab === "coc" && job.source !== "subcontractor" && cocTypeTab && (
           <div className="mt-4">
-            {jobCocTypes(job.service_type).map(({ cocType }) => (
-              <ChainOfCustodyPanel key={cocType} job={job} cocType={cocType} onChanged={onChanged} />
-            ))}
+            <ChainOfCustodyPanel job={job} cocType={cocTypeTab} onChanged={onChanged} />
           </div>
         )}
 

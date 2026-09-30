@@ -388,7 +388,7 @@ function openGmailMessage(messageId: string, sent: boolean) {
 function SentStatusLink({ messageId, text }: { messageId: string | null; text: string }) {
   if (!messageId) return <>{text}</>;
   return (
-    <a href={gmailMessageUrl(messageId, true)} target="_blank" rel="noreferrer" className="underline hover:text-brand-700">
+    <a href={gmailMessageUrl(messageId, true)} target="_blank" rel="noreferrer" className="hover:text-brand-700 hover:underline">
       {text} ↗
     </a>
   );

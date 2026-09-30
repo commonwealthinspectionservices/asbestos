@@ -1170,7 +1170,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
     // (mobile), then confirmed for desktop too — no outer border/rounded
     // corners/padding at any width, the panel just reads as loose
     // sections on the page.
-    <div className="mt-5">
+    <div className="mt-8">
       {/* Per Tim, 2026-09-30 — "I'm thinking that the view download and
           create draft button should be at the very top of the page for
           a chain of custody... view and download a line left and then
@@ -1178,14 +1178,21 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
           here from below Turnaround/Relinquished (see that spot's own
           history in the comments further down) — View/Download grouped
           on the left, Create Draft alone on the right, one shared row
-          for both mobile and desktop. */}
+          for both mobile and desktop. mt-8 (was mt-5) on the panel's own
+          outer wrapper, same day — "I just need a bit more spacing
+          vertically between the buttons and the start of the top of
+          it" (the tab bar above). Buttons themselves match Rush/24-Hr's
+          own exact size (w-32/px-3 py-2/text-sm/rounded-lg/border), not
+          ACTION_BUTTON_CLASS — per Tim, same day: "the view, download,
+          and create draft button should be the same size as the rush
+          and 24-hour buttons". */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={() => viewOrDownloadCocPdf("view")}
             disabled={viewingPdf !== null}
-            className={ACTION_BUTTON_CLASS}
+            className="w-32 shrink-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-center text-sm hover:border-slate-400 disabled:opacity-50"
           >
             {viewingPdf === "view" ? "Opening…" : "View"}
           </button>
@@ -1193,7 +1200,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
             type="button"
             onClick={() => viewOrDownloadCocPdf("download")}
             disabled={viewingPdf !== null}
-            className={ACTION_BUTTON_CLASS}
+            className="w-32 shrink-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-center text-sm hover:border-slate-400 disabled:opacity-50"
           >
             {viewingPdf === "download" ? "Downloading…" : "Download"}
           </button>
@@ -1202,7 +1209,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
           type="button"
           onClick={createCocDraft}
           disabled={creating || realRowIndexes.length === 0}
-          className={ACTION_BUTTON_CLASS}
+          className="w-32 shrink-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-center text-sm hover:border-slate-400 disabled:opacity-50"
         >
           {creating ? "Creating…" : "Create Draft ↗"}
         </button>

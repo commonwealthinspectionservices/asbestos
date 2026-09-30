@@ -6048,6 +6048,15 @@ export function ProjectDetailDialog({
                                       ? "e.g. None of the paint chip samples were determined to contain lead."
                                       : undefined
                                   }
+                                  // Per Tim, 2026-09-30 — "this text should be
+                                  // italics": the pending placeholder only —
+                                  // same default field styling (ComboboxInput's
+                                  // own showChevron padding), just italicized.
+                                  inputClassName={
+                                    samplesPending
+                                      ? "w-full rounded-lg border border-slate-300 py-2 text-sm pl-3 pr-8 placeholder:italic"
+                                      : undefined
+                                  }
                                 />
                                 </div>
                               </div>
@@ -6178,8 +6187,11 @@ export function ProjectDetailDialog({
                 const downloadUrl = `/api/admin/jobs/${job.id}/report?type=${domain}&download=1`;
                 return (
                   <>
-                    <h3 className="text-base font-bold tracking-wide text-black underline sm:text-lg">PDFs</h3>
-                    <div className="mt-4 space-y-5">
+                    {/* Per Tim, 2026-09-30 — "the PDF's title can be
+                        deleted": the border-t-4 divider above this block
+                        already separates it from the fields above, so the
+                        "PDFs" heading itself was redundant. */}
+                    <div className="space-y-5">
                       {/* Per Tim, 2026-09-30 — "we do not need to have the
                           chain of custody PDF on the asbestos report tab":
                           Chain of Custody already has its own dedicated

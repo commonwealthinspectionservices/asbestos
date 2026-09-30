@@ -4891,7 +4891,13 @@ export function ProjectDetailDialog({
           with padding + rounded corners on the same scrolling element,
           let content bleed above the header during momentum scroll on
           mobile Safari). */}
-      <div className={`flex w-full max-w-5xl flex-col overflow-hidden rounded-xl bg-white ${tab === "email" ? "h-[95vh]" : "max-h-[95vh]"}`}>
+      {/* Per Tim, 2026-09-30 — "the email tab is so huge that it doesn't
+          need to be": email used to force a fixed h-[95vh] regardless of
+          its own (genuinely short) content, unlike every other tab here,
+          which already shrinks to fit per the comment above. Same
+          max-h-[95vh] as the rest now — no more dead white space below
+          the Create Draft button. */}
+      <div className="flex w-full max-w-5xl flex-col overflow-hidden rounded-xl bg-white max-h-[95vh]">
         {(() => {
           // One dropdown option per tab the button row below would otherwise
           // render — a report tab is keyed "report:<domain>" since a job

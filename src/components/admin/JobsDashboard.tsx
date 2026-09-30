@@ -5907,7 +5907,72 @@ export function ProjectDetailDialog({
                                     {(() => {
                                       const results = job.sample_results;
                                       return results && results.length > 0 ? (
-                                        <div className="mt-3 w-full rounded-lg border border-slate-200 bg-slate-50 text-xs">
+                                        <>
+                                        {/* Per Tim, 2026-09-30 — "I want the sample results table to
+                                            be formatted like the chain of custody table": same real
+                                            bordered table (rounded-lg border border-slate-400, bold
+                                            uppercase header row, ruled cells between rows/columns) as
+                                            ChainOfCustodyPanel's own samples table, on desktop — mobile
+                                            keeps its own stacked-line rendering right below (same
+                                            reasoning as that table's own split: a real 3-column row is
+                                            too tight to read on a phone). Duplicated row-rendering
+                                            logic between the two, same tradeoff ChainOfCustodyPanel's
+                                            own table/mobile split already makes. */}
+                                        <div className="mt-3 hidden overflow-hidden rounded-lg border border-slate-400 sm:block">
+                                          <table className="w-full border-collapse text-xs">
+                                            <thead>
+                                              <tr className="border-b border-slate-400 bg-slate-50">
+                                                <th className="w-20 border-r border-slate-300 px-3 py-2 text-center font-bold uppercase text-slate-700">Sample #</th>
+                                                <th className="min-w-[220px] border-r border-slate-300 px-3 py-2 text-center font-bold uppercase text-slate-700">Material</th>
+                                                <th className="min-w-[160px] px-3 py-2 text-center font-bold uppercase text-slate-700">Result</th>
+                                              </tr>
+                                            </thead>
+                                            <tbody>
+                                              {results.map((s, i) => {
+                                                const isPositive = /%/.test(s.result);
+                                                const finding = findingFor(s.fieldCode);
+                                                const showFootageInput = isPositive && group.domain === "asbestos";
+                                                const material = s.material || (showFootageInput ? finding.material : undefined);
+                                                return (
+                                                  <tr key={i} className="border-b border-slate-300 last:border-b-0">
+                                                    <td className="border-r border-slate-300 px-3 py-2.5 text-center font-mono">{s.fieldCode}</td>
+                                                    <td className="border-r border-slate-300 px-3 py-2.5 text-slate-600">
+                                                      {material ? (
+                                                        material
+                                                      ) : showFootageInput ? (
+                                                        <span className="italic text-slate-400">Material not available</span>
+                                                      ) : null}
+                                                    </td>
+                                                    <td className="px-3 py-2.5">
+                                                      <div className={`font-medium ${isPositive ? "text-red-600" : "text-slate-900"}`}>{s.result}</div>
+                                                      {showFootageInput && (
+                                                        <span className="mt-1 inline-flex items-center gap-1">
+                                                          <input
+                                                            className="w-12 rounded border border-slate-300 bg-white px-1.5 py-0.5 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-400"
+                                                            value={finding.estimated_quantity}
+                                                            onChange={(e) => updateFinding(s.fieldCode, { estimated_quantity: e.target.value })}
+                                                          />
+                                                          <select
+                                                            className="rounded border border-slate-300 bg-white px-1 py-0.5 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-400"
+                                                            value={finding.unit || "sq_ft"}
+                                                            onChange={(e) => updateFinding(s.fieldCode, { unit: e.target.value === "linear_ft" ? "linear_ft" : "sq_ft" })}
+                                                          >
+                                                            <option value="sq_ft">square feet</option>
+                                                            <option value="linear_ft">linear feet</option>
+                                                          </select>
+                                                        </span>
+                                                      )}
+                                                    </td>
+                                                  </tr>
+                                                );
+                                              })}
+                                            </tbody>
+                                          </table>
+                                          <div className="border-t border-slate-400 px-3 py-2 font-semibold text-slate-500">
+                                            Total: {results.length} sample{results.length === 1 ? "" : "s"}
+                                          </div>
+                                        </div>
+                                        <div className="mt-3 w-full rounded-lg border border-slate-200 bg-slate-50 text-xs sm:hidden">
                                           {/* Per Tim, 2026-09-01 — "list out ... all the details for
                                               each one of them" now that Sample Results spans the full
                                               width: every row gets its own line (field code, material,
@@ -5933,19 +5998,19 @@ export function ProjectDetailDialog({
                                             return (
                                               <div
                                                 key={i}
-                                                className={`flex flex-col gap-1 px-3 py-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-4 sm:gap-y-1 ${i > 0 ? "border-t border-slate-200" : ""}`}
+                                                className={`flex flex-col gap-1 px-3 py-2 ${i > 0 ? "border-t border-slate-200" : ""}`}
                                               >
-                                                <div className="font-semibold text-slate-700 sm:w-14 sm:shrink-0">{s.fieldCode}</div>
-                                                <div className="text-slate-600 sm:min-w-[10rem] sm:flex-1">
+                                                <div className="font-semibold text-slate-700">{s.fieldCode}</div>
+                                                <div className="text-slate-600">
                                                   {material ? (
                                                     material
                                                   ) : showFootageInput ? (
                                                     <span className="italic text-slate-400">Material not available</span>
                                                   ) : null}
                                                 </div>
-                                                <div className={`font-medium sm:shrink-0 ${isPositive ? "text-red-600" : "text-slate-900"}`}>{s.result}</div>
+                                                <div className={`font-medium ${isPositive ? "text-red-600" : "text-slate-900"}`}>{s.result}</div>
                                                 {showFootageInput && (
-                                                  <span className="inline-flex items-center gap-1 sm:shrink-0">
+                                                  <span className="inline-flex items-center gap-1">
                                                     <input
                                                       className="w-12 rounded border border-slate-300 bg-white px-1.5 py-0.5 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-400"
                                                       value={finding.estimated_quantity}
@@ -5968,6 +6033,7 @@ export function ProjectDetailDialog({
                                             Total: {results.length} sample{results.length === 1 ? "" : "s"}
                                           </div>
                                         </div>
+                                        </>
                                       ) : (
                                         // Per Tim, 2026-09-29 — went through
                                         // a few places for this text before

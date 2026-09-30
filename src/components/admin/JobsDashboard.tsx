@@ -684,7 +684,7 @@ function EmailChecklistPanel({
           <button
             onClick={createDraft}
             disabled={nothingSelected || creating}
-            className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 hover:border-2 hover:border-brand-600 hover:bg-slate-50 disabled:opacity-50"
+            className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:border-2 hover:border-brand-600 hover:bg-slate-50 disabled:opacity-50"
           >
             {creating ? "Creating draft…" : "Create Draft ↗"}
           </button>
@@ -692,7 +692,7 @@ function EmailChecklistPanel({
             <button
               onClick={sendPaymentReminder}
               disabled={sendingReminder}
-              className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+              className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
             >
               {sendingReminder ? "Creating…" : job.payment_reminder_draft_gmail_message_id ? "Recreate Payment Reminder ↗" : "Create Payment Reminder ↗"}
             </button>
@@ -5152,7 +5152,7 @@ export function ProjectDetailDialog({
             )}
             <button
               onClick={onEdit}
-              className="h-9 shrink-0 rounded-lg border border-slate-300 px-4 text-sm font-bold uppercase hover:underline"
+              className="h-9 shrink-0 rounded-lg border border-slate-300 px-4 text-sm font-medium uppercase hover:underline"
             >
               Edit
             </button>
@@ -6574,7 +6574,7 @@ export function ProjectDetailDialog({
               deleteEndpointBase={`/api/admin/jobs/${job.id}/photos`}
               editEndpointBase={`/api/admin/jobs/${job.id}/photos`}
               onChanged={onChanged}
-              uploadButtonClassName="rounded-lg bg-brand-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+              uploadButtonClassName="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
             />
           </div>
         )}
@@ -6601,7 +6601,7 @@ export function ProjectDetailDialog({
                       href={shipping.labelUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-block rounded-lg bg-brand-600 px-4 py-2 text-sm font-bold text-white"
+                      className="inline-block rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white"
                     >
                       Open Shipping Label ↗
                     </a>
@@ -6802,7 +6802,7 @@ function LinkEmailThreadDialog({
           <button
             disabled={searching || !query.trim()}
             onClick={search}
-            className="shrink-0 rounded-lg bg-brand-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+            className="shrink-0 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
           >
             {searching ? "Searching…" : "Search"}
           </button>
@@ -7081,7 +7081,7 @@ function DocumentStation({
               type="button"
               onClick={() => inputRef.current?.click()}
               disabled={uploading}
-              className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+              className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
             >
               {uploading ? "Uploading…" : "Choose file"}
             </button>
@@ -7213,13 +7213,13 @@ function DocumentStation({
               <button
                 onClick={() => deleteDoc(confirmingDeleteDoc.id)}
                 disabled={deletingId === confirmingDeleteDoc.id}
-                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
               >
                 {deletingId === confirmingDeleteDoc.id ? "Deleting…" : "Delete"}
               </button>
               <button
                 onClick={() => setConfirmingDeleteDoc(null)}
-                className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-bold"
+                className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium"
               >
                 Cancel
               </button>

@@ -5988,7 +5988,6 @@ export function ProjectDetailDialog({
                                   value={moldAirDiscussionInput}
                                   onChange={(e) => { setMoldAirDiscussionInput(e.target.value); moldFieldDirty.current.air = true; }}
                                   onBlur={(e) => { if (moldFieldDirty.current.air) { moldFieldDirty.current.air = false; saveMoldAirDiscussion(e.target.value); } }}
-                                  placeholder="Notable air sampling findings for this job — sample count and date are added automatically."
                                 />
                               </div>
                             )}
@@ -6004,7 +6003,6 @@ export function ProjectDetailDialog({
                                   value={moldBulkDiscussionInput}
                                   onChange={(e) => { setMoldBulkDiscussionInput(e.target.value); moldFieldDirty.current.bulk = true; }}
                                   onBlur={(e) => { if (moldFieldDirty.current.bulk) { moldFieldDirty.current.bulk = false; saveMoldBulkDiscussion(e.target.value); } }}
-                                  placeholder="Notable bulk sampling findings for this job — sample count and date are added automatically."
                                 />
                               </div>
                             )}
@@ -6020,7 +6018,6 @@ export function ProjectDetailDialog({
                                   value={moldSwabDiscussionInput}
                                   onChange={(e) => { setMoldSwabDiscussionInput(e.target.value); moldFieldDirty.current.swab = true; }}
                                   onBlur={(e) => { if (moldFieldDirty.current.swab) { moldFieldDirty.current.swab = false; saveMoldSwabDiscussion(e.target.value); } }}
-                                  placeholder="Notable swab sampling findings for this job — sample count and date are added automatically."
                                 />
                               </div>
                             )}
@@ -6150,7 +6147,6 @@ export function ProjectDetailDialog({
                                 value={moldReportNotesInput}
                                 onChange={(e) => { setMoldReportNotesInput(e.target.value); moldFieldDirty.current.notes = true; }}
                                 onBlur={(e) => { if (moldFieldDirty.current.notes) { moldFieldDirty.current.notes = false; saveMoldReportNotes(e.target.value); } }}
-                                placeholder="Case-specific recommendations for this job (optional)."
                               />
                             </div>
                             {/* Per Tim, 2026-09-22 — its own cell, below

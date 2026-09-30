@@ -1190,7 +1190,13 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
           an equal amount of spacing... it should be halfway between the
           table and the header" — mt-8 here again, now matching the
           table wrapper's own mt-8 exactly so both gaps are equal. */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      {/* Desktop only — per Tim, 2026-09-30: "actually, for the chain of
+          custody, this is perfect" (confirming the desktop layout as
+          shipped) — unchanged: View/Download grouped on the left,
+          Create Draft on the right, all in one row. See the sm:hidden
+          mobile-only version right below for mobile's own different
+          layout. */}
+      <div className="hidden flex-wrap items-center justify-between gap-2 sm:flex">
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
@@ -1216,6 +1222,37 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
           className="w-32 shrink-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-center text-sm hover:border-2 hover:border-brand-600 disabled:opacity-50"
         >
           {creating ? "Creating…" : "Create Draft ↗"}
+        </button>
+      </div>
+
+      {/* Mobile only — per Tim, 2026-09-30: "the view and download
+          button should stay on top... view button aligned left and the
+          download button aligned right... create draft button should
+          be all the way at the bottom": View/Download share one full-
+          width row. Create Draft itself moved out of here entirely —
+          see the sm:hidden block at the very bottom of this panel,
+          after Turnaround/Relinquished. Per Tim, same day, refined
+          twice more: "meet in the middle" then "I mean... should have
+          more width" — flex-1 (was w-32 shrink-0 with justify-between)
+          so the two buttons fill the row and their inner edges meet
+          near its middle, instead of a fixed w-32 each leaving a big
+          gap between them. */}
+      <div className="flex items-center gap-2 sm:hidden">
+        <button
+          type="button"
+          onClick={() => viewOrDownloadCocPdf("view")}
+          disabled={viewingPdf !== null}
+          className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-center text-sm hover:border-2 hover:border-brand-600 disabled:opacity-50"
+        >
+          {viewingPdf === "view" ? "Opening…" : "View"}
+        </button>
+        <button
+          type="button"
+          onClick={() => viewOrDownloadCocPdf("download")}
+          disabled={viewingPdf !== null}
+          className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-center text-sm hover:border-2 hover:border-brand-600 disabled:opacity-50"
+        >
+          {viewingPdf === "download" ? "Downloading…" : "Download"}
         </button>
       </div>
 
@@ -1534,7 +1571,11 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
           seen"). Untouched here; see the sm:hidden block right after it
           for mobile's own stacked-label version that never needs to
           scroll at any width. */}
-      <div className="mt-6 hidden space-y-4 sm:block">
+      {/* mt-8 (was mt-6) — per Tim, 2026-09-30: "make sure that the
+          spacing is consistent" — matches the mt-8 above (View/Download
+          to the samples table) and below (to Create Draft on mobile),
+          one uniform gap between every major section of this panel. */}
+      <div className="mt-8 hidden space-y-4 sm:block">
         <div className="flex flex-nowrap items-center gap-3">
           <span className="w-28 shrink-0 whitespace-nowrap text-xs font-bold uppercase text-slate-700">Turnaround</span>
           <div className="flex gap-3">
@@ -1604,7 +1645,11 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
           what's typed into Date Needed/Relinquished right next to it —
           selected still reads as selected from the border+fill alone,
           same as it always has. */}
-      <div className="mt-6 space-y-3 sm:hidden">
+      {/* mt-8 (was mt-6) — per Tim, 2026-09-30: "make sure that the
+          spacing is consistent" — same uniform gap as every other major
+          section transition in this panel (see the desktop Turnaround
+          block's own comment above). */}
+      <div className="mt-8 space-y-3 sm:hidden">
         {/* Per Tim, 2026-09-28 — "make it so that the date needed,
             relinquished, and turnaround cells all start and end in the
             same spot... right now they're not aligned": each label was
@@ -1657,6 +1702,21 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
           </div>
         </div>
       </div>
+
+      {/* Mobile only — per Tim, 2026-09-30: "create draft button should
+          be all the way at the bottom": the very last thing in the
+          panel, after Turnaround/Relinquished — View/Download stay up
+          top (see the sm:hidden block near the top of this panel).
+          mt-8 (was mt-6), same day — "make sure that the spacing is
+          consistent" with every other section gap in this panel. */}
+      <button
+        type="button"
+        onClick={createCocDraft}
+        disabled={creating || realRowIndexes.length === 0}
+        className="mt-8 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-center text-sm hover:border-2 hover:border-brand-600 disabled:opacity-50 sm:hidden"
+      >
+        {creating ? "Creating…" : "Create Draft ↗"}
+      </button>
 
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
     </div>
@@ -4179,10 +4239,16 @@ export function ProjectDetailDialog({
           own taller gray pill with centered text, unlike the Lab select right
           above it (which already strips iOS's own styling — see labDropdown).
           Same fix: appearance-none + bg-white + an explicit height, and
-          left-aligned value text to match the Lab box. */}
+          left-aligned value text to match the Lab box.
+          Per Tim, 2026-09-30 (mobile) — "the date sampled cells should have
+          the calendar icon on it... it doesn't": appearance-none can
+          suppress iOS Safari's own calendar-picker-indicator as a side
+          effect of stripping the input's native chrome — explicitly forcing
+          that one pseudo-element back to visible restores just the icon
+          without giving up the height fix above. */}
       <input
         type="date"
-        className="block h-9 min-h-0 w-full min-w-0 flex-1 appearance-none rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-left text-sm [&::-webkit-date-and-time-value]:text-left"
+        className="block h-9 min-h-0 w-full min-w-0 flex-1 appearance-none rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-left text-sm [&::-webkit-date-and-time-value]:text-left [&::-webkit-calendar-picker-indicator]:block [&::-webkit-calendar-picker-indicator]:opacity-100"
         value={(domain === "mold" ? job.mold_date_sampled : domain === "lead" ? job.lead_date_sampled : job.lab_date_sampled) ?? ""}
         onChange={(e) => saveDateSampled(e.target.value, domain)}
       />
@@ -9924,7 +9990,7 @@ function LineItemsEditor({
         <label className="w-28 shrink-0 text-xs font-semibold uppercase text-slate-700">Payment due</label>
         <input
           type="date"
-          className="block h-9 min-h-0 w-full min-w-0 flex-1 appearance-none rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-left text-sm [&::-webkit-date-and-time-value]:text-left"
+          className="block h-9 min-h-0 w-full min-w-0 flex-1 appearance-none rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-left text-sm [&::-webkit-date-and-time-value]:text-left [&::-webkit-calendar-picker-indicator]:block [&::-webkit-calendar-picker-indicator]:opacity-100"
           value={paymentDueDate}
           onChange={(e) => onPaymentDueDateChange(e.target.value)}
         />

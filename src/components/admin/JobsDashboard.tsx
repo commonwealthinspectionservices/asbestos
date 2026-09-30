@@ -5936,11 +5936,18 @@ export function ProjectDetailDialog({
                                 plus Additional Conclusions & Recommendations
                                 further down) — just the label and its own
                                 already-bordered textarea now, no outer
-                                card. */}
+                                card. Per Tim, same day — "make [these
+                                titles] the same color that lab and date
+                                sampled titles currently are": text-slate-700
+                                (was text-slate-400), matching
+                                labDropdown/dateSampledInput's own label
+                                color exactly — this one and its three
+                                siblings (Bulk/Swab Discussion of Results,
+                                Additional Conclusions & Recommendations). */}
                             {group.domain === "mold" && label.toLowerCase().includes("air") && (
                               <div className="mt-4">
                                 <div className="flex flex-wrap items-center justify-between gap-2">
-                                  <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
+                                  <label className="block text-xs font-semibold uppercase tracking-wide text-slate-700">
                                     {label} Discussion of Results
                                   </label>
                                   <ListFormatButtons
@@ -5962,7 +5969,7 @@ export function ProjectDetailDialog({
                             {group.domain === "mold" && label.toLowerCase().includes("bulk") && (
                               <div className="mt-4">
                                 <div className="flex flex-wrap items-center justify-between gap-2">
-                                  <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
+                                  <label className="block text-xs font-semibold uppercase tracking-wide text-slate-700">
                                     {label} Discussion of Results
                                   </label>
                                   <ListFormatButtons
@@ -5984,7 +5991,7 @@ export function ProjectDetailDialog({
                             {group.domain === "mold" && label.toLowerCase().includes("swab") && (
                               <div className="mt-4">
                                 <div className="flex flex-wrap items-center justify-between gap-2">
-                                  <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
+                                  <label className="block text-xs font-semibold uppercase tracking-wide text-slate-700">
                                     {label} Discussion of Results
                                   </label>
                                   <ListFormatButtons
@@ -6096,7 +6103,7 @@ export function ProjectDetailDialog({
                           <>
                             <div className="mt-4">
                               <div className="flex flex-wrap items-center justify-between gap-2">
-                                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
+                                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-700">
                                   {job.customers?.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID
                                     ? "Additional Conclusions & Recommendations"
                                     : "Conclusions & Recommendations"}
@@ -6141,8 +6148,14 @@ export function ProjectDetailDialog({
                                 yet reads as checked, same as its true DB
                                 default. */}
                             {job.customers?.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID && (
-                              <div className="mt-4 flex justify-end">
-                                <label className="flex items-center gap-2 text-xs text-slate-600">
+                              // Per Tim, 2026-09-30 — "this text should be
+                              // the same size as the rest above it and
+                              // also make it aligned left": text-sm (was
+                              // text-xs, smaller than the textarea's own
+                              // body text above), left-aligned (was
+                              // flex justify-end).
+                              <div className="mt-4 flex justify-start">
+                                <label className="flex items-center gap-2 text-sm text-slate-600">
                                   <input
                                     type="checkbox"
                                     checked={job.mold_standard_conclusion_included !== false}

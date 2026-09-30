@@ -345,6 +345,17 @@ function gmailMessageUrl(messageId: string, sent: boolean): string {
 // genuine, human tap on a real link successfully breaks out into full
 // Safari; a script-triggered click is indistinguishable from any other
 // programmatic navigation as far as that escape hatch is concerned).
+// Per Tim, 2026-09-29 — his Home Screen icon (iOS "standalone" web app)
+// can't reach an already-logged-in Gmail at all, confirmed with two
+// separate real fixes attempted and both failing (auto-navigate, then a
+// genuinely-tapped link) — a hard iOS platform restriction on that
+// isolated container, not something fixable from here. Per Tim, right
+// after seeing the workaround this used to have (a Share/Copy-link
+// button): "I'm leaning towards just having it not work on the app as
+// opposed to redesigning the whole app" — so this now just skips trying
+// to open Gmail at all when standalone, rather than showing any extra
+// UI. The draft itself still gets created either way (that part works
+// fine) — only the "jump straight to it" step is skipped here.
 function isStandaloneApp(): boolean {
   return typeof window !== "undefined" && (window.navigator as { standalone?: boolean }).standalone === true;
 }
@@ -403,7 +414,6 @@ function DraftLinkControl({
     message: string | null;
     status: { status: "drafted" | "sent" | "none"; sentAt?: string } | null;
     viewDraft: () => void;
-    readyMessageId: string | null;
   };
   messageId: string | null;
   draftedAt: string | null;
@@ -452,19 +462,6 @@ function DraftLinkControl({
         {hook.creating ? "Preparing draft…" : label ? `Create ${label} Draft ↗` : "Create Draft ↗"}
       </button>
       {hook.message && <p className="text-xs text-slate-500">{hook.message}</p>}
-      {/* Per Tim, 2026-09-29 — see EmailChecklistPanel's own
-          readyMessageId comment (his Home Screen icon can't auto-open
-          Gmail at all). */}
-      {hook.readyMessageId && (
-        <a
-          href={gmailMessageUrl(hook.readyMessageId, false)}
-          target="_blank"
-          rel="noopener"
-          className="mt-1 block rounded-lg bg-emerald-600 px-3 py-1 text-center text-xs font-bold text-white"
-        >
-          Draft ready — tap to open in Gmail ↗
-        </a>
-      )}
     </>
   );
 }
@@ -523,13 +520,6 @@ function EmailChecklistPanel({
   const [error, setError] = useState<string | null>(null);
   const [sendingReminder, setSendingReminder] = useState(false);
   const [reminderError, setReminderError] = useState<string | null>(null);
-  // Per Tim, 2026-09-29 — confirmed on his phone's Home Screen (iOS
-  // standalone web app): openGmailMessage can't reach an already-logged-in
-  // Gmail from inside that isolated container no matter how it navigates,
-  // even a JS-triggered "real" anchor click — only a genuine, human tap on
-  // a real link breaks out into full Safari. So a standalone app shows
-  // this link instead of auto-navigating, for Tim to tap himself.
-  const [readyMessageId, setReadyMessageId] = useState<string | null>(null);
 
   function toggleDomain(domain: ReportDomain) {
     setSelectedDomains((prev) => {
@@ -586,7 +576,6 @@ function EmailChecklistPanel({
   async function createDraft() {
     setCreating(true);
     setError(null);
-    setReadyMessageId(null);
     try {
       await onBeforeCreateDraft();
       const res = await fetch(`/api/admin/jobs/${job.id}/create-draft?kind=custom`, {
@@ -603,10 +592,9 @@ function EmailChecklistPanel({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to create draft");
       onChanged();
-      if (data.messageId) {
-        if (isStandaloneApp()) setReadyMessageId(data.messageId);
-        else openGmailMessage(data.messageId, false);
-      }
+      // The draft itself is created either way — jumping straight to it
+      // in Gmail is just skipped on his Home Screen icon, see isStandaloneApp.
+      if (data.messageId && !isStandaloneApp()) openGmailMessage(data.messageId, false);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to create draft");
     } finally {
@@ -624,16 +612,12 @@ function EmailChecklistPanel({
   async function sendPaymentReminder() {
     setSendingReminder(true);
     setReminderError(null);
-    setReadyMessageId(null);
     try {
       const res = await fetch(`/api/admin/jobs/${job.id}/create-draft?kind=payment_reminder`, { method: "POST" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to create payment reminder draft");
       onChanged();
-      if (data.messageId) {
-        if (isStandaloneApp()) setReadyMessageId(data.messageId);
-        else openGmailMessage(data.messageId, false);
-      }
+      if (data.messageId && !isStandaloneApp()) openGmailMessage(data.messageId, false);
     } catch (e) {
       setReminderError(e instanceof Error ? e.message : "Failed to create payment reminder draft");
     } finally {
@@ -703,19 +687,6 @@ function EmailChecklistPanel({
             </button>
           )}
         </div>
-        {/* Per Tim, 2026-09-29 — his Home Screen icon (iOS standalone web
-            app) can't auto-open Gmail at all (see readyMessageId's own
-            comment) — this is that fallback: a real link he taps himself. */}
-        {readyMessageId && (
-          <a
-            href={gmailMessageUrl(readyMessageId, false)}
-            target="_blank"
-            rel="noopener"
-            className="mt-2 block rounded-lg bg-emerald-600 px-4 py-2 text-center text-sm font-bold text-white"
-          >
-            Draft ready — tap to open in Gmail ↗
-          </a>
-        )}
       </div>
       <div className="order-first max-w-md flex-1">
         <h3 className="mb-2 text-sm font-bold uppercase text-slate-500">Subject</h3>
@@ -922,9 +893,6 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
   const [dateNeeded, setDateNeeded] = useState(job.lab_date_needed ?? "");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // See EmailChecklistPanel's own readyMessageId for the full explanation
-  // (his Home Screen icon can't auto-open Gmail at all).
-  const [readyMessageId, setReadyMessageId] = useState<string | null>(null);
   // Per Tim, 2026-09-28 — "the relinquishment is the time that I drop it
   // off at the lab... most of the time it won't be [when the draft gets
   // created], so I have to enter that in": real, always-editable date/
@@ -1080,7 +1048,6 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
   async function createCocDraft() {
     setCreating(true);
     setError(null);
-    setReadyMessageId(null);
     try {
       const sampleItems = realRowIndexes.map((i) => ({ sample_number: rows[i].sample_number, material: rows[i].material, location: rows[i].location, ...(rows[i].start_time ? { start_time: rows[i].start_time } : {}), ...(rows[i].end_time ? { end_time: rows[i].end_time } : {}) }));
       const res = await fetch(`/api/admin/jobs/${job.id}/coc-draft`, {
@@ -1091,10 +1058,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to create draft");
       onChanged();
-      if (data.messageId) {
-        if (isStandaloneApp()) setReadyMessageId(data.messageId);
-        else openGmailMessage(data.messageId, false);
-      }
+      if (data.messageId && !isStandaloneApp()) openGmailMessage(data.messageId, false);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to create draft");
     } finally {
@@ -1682,18 +1646,6 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
       </div>
 
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
-      {/* Per Tim, 2026-09-29 — see EmailChecklistPanel's own readyMessageId
-          comment (his Home Screen icon can't auto-open Gmail at all). */}
-      {readyMessageId && (
-        <a
-          href={gmailMessageUrl(readyMessageId, false)}
-          target="_blank"
-          rel="noopener"
-          className="mt-3 block rounded-lg bg-emerald-600 px-4 py-2.5 text-center text-sm font-bold text-white"
-        >
-          Draft ready — tap to open in Gmail ↗
-        </a>
-      )}
 
       {history.length > 0 && (
         <div className="mt-4 border-t border-slate-200 pt-3">
@@ -3812,9 +3764,6 @@ function useDraftTracking(params: {
   const { kind, createKind = kind, active, jobId, draftedAt, sentAt, onChanged } = params;
   const [creating, setCreating] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  // See EmailChecklistPanel's own readyMessageId for the full explanation
-  // (his Home Screen icon can't auto-open Gmail at all).
-  const [readyMessageId, setReadyMessageId] = useState<string | null>(null);
   // null = not checked yet / checking. draftedAt only means "a draft was
   // created at some point" — this is the live truth from Gmail itself of
   // whether it's still sitting in Drafts, was actually sent (SENT label on
@@ -3893,18 +3842,15 @@ function useDraftTracking(params: {
     // entirely and navigates the current tab instead — trading "the
     // admin page stays open in its own tab" (not very useful on a phone
     // screen anyway) for the link actually opening the app.
-    // Per Tim, 2026-09-29 — confirmed on his phone's Home Screen (iOS
-    // standalone web app): nothing this function does programmatically
-    // can open an already-logged-in Gmail from inside that isolated
-    // container (see readyMessageId's own comment) — shows a real,
-    // manually-tapped link instead in that case.
-    setReadyMessageId(null);
+    // Per Tim, 2026-09-29 — his Home Screen icon (iOS standalone web app)
+    // can't reach an already-logged-in Gmail no matter how this
+    // navigates, confirmed with two separate real fixes attempted and
+    // both failing — see isStandaloneApp's own comment. Per Tim: "just
+    // have it not work on the app" rather than showing extra UI for it —
+    // the draft itself still gets created either way, just skip the jump.
     if (window.innerWidth < 768) {
       const data = await createDraft();
-      if (data?.messageId) {
-        if (isStandaloneApp()) setReadyMessageId(data.messageId);
-        else openGmailMessage(data.messageId, false);
-      }
+      if (data?.messageId && !isStandaloneApp()) openGmailMessage(data.messageId, false);
       return;
     }
     // Deliberately no noopener here (unlike other external links in this
@@ -3919,7 +3865,7 @@ function useDraftTracking(params: {
     }
   }
 
-  return { creating, message, status, createDraft, viewDraft, readyMessageId };
+  return { creating, message, status, createDraft, viewDraft };
 }
 
 export function ProjectDetailDialog({

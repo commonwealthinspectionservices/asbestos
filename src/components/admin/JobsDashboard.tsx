@@ -3616,7 +3616,18 @@ function JobRow({
             // Reached once a job is scheduled or completed (unscheduled and
             // closed are both handled above) — plain reference text, no
             // inline editing here. Editing happens in the Edit dialog.
-            <div className="flex w-full shrink-0 flex-col items-start gap-1.5 sm:w-60 sm:items-end" onClick={(e) => e.stopPropagation()}>
+            // Per Tim, 2026-09-30 — "the text like invoice not sent,
+            // report sent, scheduled date, scheduled time, completed
+            // date, completed time... should be aligned vertically. It's
+            // not, but it should be": this column is already a fixed
+            // sm:w-60, but right-aligning (sm:items-end) still let each
+            // card's own text start at a different x, since a shorter
+            // line ("Invoice: Not sent") hugging the right edge starts
+            // further right than a longer one ("Completed date:
+            // 09/29/2026") hugging that same edge. Left-aligned
+            // (sm:items-start) now — every card's text starts flush at
+            // the same x regardless of its own content length.
+            <div className="flex w-full shrink-0 flex-col items-start gap-1.5 sm:w-60" onClick={(e) => e.stopPropagation()}>
               {/* Per Tim, 2026-08-27 — this column always showed
                   Completed/Scheduled date instead — stale info once the
                   job's actually at the report/invoice stage. Once both
@@ -3671,7 +3682,7 @@ function JobRow({
                 // items-start box (sized to its own longest line)
                 // instead; the outer sm:items-end now right-aligns that
                 // whole box against the row, same as before.
-                <div className="flex w-full flex-col items-start gap-0 text-sm text-slate-500 sm:items-end">
+                <div className="flex w-full flex-col items-start gap-0 text-sm text-slate-500">
                   <div className="flex flex-col items-start gap-0 sm:gap-2">
                     {paymentPendingCompletedDate}
                     {invoiceStatus}
@@ -3684,7 +3695,7 @@ function JobRow({
                   Scheduled/Completed date block below — still relevant info
                   at this stage — just adds the invoice line above it. */}
               {showInvoiceOnly && (
-                <div className="flex w-full flex-col items-start gap-0 text-sm text-slate-500 sm:gap-2 sm:items-end">
+                <div className="flex w-full flex-col items-start gap-0 text-sm text-slate-500 sm:gap-2">
                   {invoiceStatus}
                 </div>
               )}
@@ -3721,7 +3732,7 @@ function JobRow({
                 // against the row, and items-start inside it lines up
                 // date/time with each other since the box's own width is
                 // set by its longer line.
-                <div className="hidden w-full flex-col items-end gap-2 text-sm text-slate-500 sm:flex">
+                <div className="hidden w-full flex-col items-start gap-2 text-sm text-slate-500 sm:flex">
                   <div className="sm:min-h-5" aria-hidden="true" />
                   <div className="flex flex-col items-start gap-2">
                     <div>{hasCompletedFieldwork(job.status) ? "Completed" : "Scheduled"} date: {formatDate(job.confirmed_date ?? job.requested_date) || "—"}</div>
@@ -3738,7 +3749,7 @@ function JobRow({
                   </div>
                 </div>
               ) : (
-              <div className={`w-full text-sm text-slate-500 sm:text-right ${showReportInvoice ? "hidden" : ""}`}>
+              <div className={`w-full text-sm text-slate-500 ${showReportInvoice ? "hidden" : ""}`}>
                 <div>{hasCompletedFieldwork(job.status) ? "Completed" : "Scheduled"} date: {formatDate(job.confirmed_date ?? job.requested_date) || "—"}</div>
                 {/* Per Tim, 2026-09-29 — "Scheduled time: — I don't want
                     desktop to do this... desktop it should be blank too":

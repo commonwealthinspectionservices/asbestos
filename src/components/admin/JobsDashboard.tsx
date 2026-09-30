@@ -3228,7 +3228,14 @@ function JobRow({
             Ready for Review card: the mt-7 offset is no longer gated on
             useCocRowFormat/isUnscheduled either — every status gets it
             now. */}
-        <div className={`min-w-0 w-full sm:mt-7 sm:w-auto sm:text-center${isUnscheduled ? " sm:flex-[0.9]" : " sm:flex-[1.2]"}`}>
+        {/* sm:text-left (was sm:text-center) — per Tim, 2026-09-30:
+            "instead of all of this text being centered, let's make it
+            aligned to start... where the P for pre-renovation asbestos
+            inspection is" — every service-type line across every card
+            now starts at this column's own left edge, instead of each
+            one independently centering around a different x depending
+            on its own text length. */}
+        <div className={`min-w-0 w-full sm:mt-7 sm:w-auto sm:text-left${isUnscheduled ? " sm:flex-[0.9]" : " sm:flex-[1.2]"}`}>
           {(() => {
             const labels = (job.service_type ?? "").split(",").map((s) => s.trim()).filter(Boolean);
             return labels.map((label, i) => {

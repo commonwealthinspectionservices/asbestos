@@ -5750,7 +5750,21 @@ export function ProjectDetailDialog({
                             2026-09-29 — Turnaround itself removed from
                             here entirely; it's now only set on the
                             Chain of Custody panel. */}
-                        <div className="mb-7 space-y-4">
+                        {/* mb-4 (not the usual mb-7) when the Sample
+                            Results box right after this is going to be
+                            skipped entirely (asbestos, pending) — per Tim,
+                            2026-09-30: "make sure that all of these cells
+                            are the exact same height, with even spacing".
+                            With nothing else rendered in between, mb-7
+                            here would collapse straight through to the
+                            Result field's own margin below (28px, vs the
+                            16px space-y-4 rhythm above it) — mb-4 matches
+                            that same 16px instead. Every other case still
+                            has the Sample Results/Discussion box (a real,
+                            bordered element) sitting between this wrapper
+                            and whatever comes next, which already stops
+                            that collapse on its own. */}
+                        <div className={`${group.domain === "asbestos" && (!job.sample_results || job.sample_results.length === 0) ? "mb-4" : "mb-7"} space-y-4`}>
                           {labDropdown(group.domain)}
                           {dateSampledInput(group.domain)}
                           {isFliJob && group.domain === "asbestos" && fliProjectNumberInput}
@@ -5995,13 +6009,16 @@ export function ProjectDetailDialog({
                                 inspection" concept of its own either way. */}
                             {labelIdx === 0 && group.domain !== "mold" &&
                               !(group.domain === "asbestos" && isFullInspectionAsbestosJob(job.service_type)) && (
-                              <div className="mt-3 flex w-full items-center gap-2 text-sm">
+                              <div className="mt-4 flex w-full items-center gap-2 text-sm">
                                 {/* Per Tim, 2026-09-30 — "let's make this so
                                     that result is left of the cell instead
                                     of above it... the exact same format as
                                     lab and date sampled": same row shape as
                                     labDropdown/dateSampledInput above
-                                    (w-28 shrink-0 label, flex-1 field). */}
+                                    (w-28 shrink-0 label, flex-1 field).
+                                    mt-4 (not mt-3) matches the wrapper
+                                    above's own mb-4/space-y-4 rhythm — see
+                                    that wrapper's own comment on why. */}
                                 <span className="w-28 shrink-0 text-xs font-semibold uppercase text-slate-700">Result</span>
                                 <div className="min-w-0 flex-1">
                                 <ComboboxInput
@@ -6044,6 +6061,15 @@ export function ProjectDetailDialog({
                                   // blank when no results" — plain empty
                                   // field while pending, same as always.
                                   placeholder={group.domain === "lead" ? "e.g. None of the paint chip samples were determined to contain lead." : undefined}
+                                  // h-9 + py-1.5 (not the default py-2, no
+                                  // explicit height) — per Tim, 2026-09-30:
+                                  // "make sure that all of these cells are
+                                  // the exact same height" — matches
+                                  // labDropdown/dateSampledInput's own h-9
+                                  // exactly instead of whatever height
+                                  // text-sm content + py-2 happens to add
+                                  // up to (2px taller, empirically).
+                                  inputClassName="h-9 w-full min-w-0 rounded-lg border border-slate-300 bg-white py-1.5 pl-3 pr-8 text-sm disabled:bg-slate-100 disabled:text-slate-500"
                                 />
                                 </div>
                               </div>

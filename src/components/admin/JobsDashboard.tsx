@@ -9774,64 +9774,15 @@ function LineItemsEditor({
 
   return (
     <div className="space-y-7">
-      {/* Per Tim, 2026-09-30 — "the breakdown where it has the green and
-          red and all that, that table, that breakdown on the invoice
-          page should be at the very top. It should also have a white
-          background": moved up here from below the line items (see its
-          own comment further down, still in place), bg-white (was
-          bg-slate-50). */}
-      {/* Per Tim, 2026-09-30 — "way too green and red... needs to look
-          more normal and fit in": every row now reads in the same
-          neutral slate palette as the rest of the tab (was emerald for
-          the total, red for every deduction) — Invoice total and Net
-          earnings are the two figures worth a heavier weight, the fees
-          in between are plain text. */}
-      <div className="rounded-lg border border-slate-200 bg-white px-4 py-4">
-        <div className="space-y-3">
-          <div className="flex items-baseline justify-between gap-4">
-            <p className="text-sm font-bold uppercase text-slate-700">Invoice total</p>
-            <p className="text-lg font-bold text-slate-800">{currency(total)}</p>
-          </div>
-          <div className="flex items-baseline justify-between gap-4">
-            <p className="text-sm font-medium uppercase text-slate-500">Lab fees</p>
-            <p className="text-sm font-medium text-slate-500">
-              {labCostCents != null ? currency(labCostCents / 100) : "Not yet billed"}
-            </p>
-          </div>
-          <div className="flex items-baseline justify-between gap-4">
-            <p className="text-sm font-medium uppercase text-slate-500">Stripe fee</p>
-            {stripeFeeCents != null ? (
-              <p className="text-sm font-medium text-slate-500">{currency(stripeFeeCents / 100)}</p>
-            ) : (
-              <p className="text-sm font-medium text-slate-500">—</p>
-            )}
-          </div>
-          <div className="flex items-baseline justify-between gap-4">
-            <p className="text-sm font-medium uppercase text-slate-500">Invoicing fee</p>
-            {invoicingFeeCents != null ? (
-              <p className="text-sm font-medium text-slate-500">{currency(invoicingFeeCents / 100)}</p>
-            ) : (
-              <p className="text-sm font-medium text-slate-500">—</p>
-            )}
-          </div>
-          <div className="flex items-baseline justify-between gap-4 border-t border-slate-200 pt-3">
-            <p className="text-sm font-bold uppercase text-slate-700">Net earnings</p>
-            <p className="text-lg font-bold text-slate-800">
-              {labCostCents != null ? currency(computeMarginCents(Math.round(total * 100), labCostCents, (stripeFeeCents ?? 0) + (invoicingFeeCents ?? 0)) / 100) : "—"}
-            </p>
-          </div>
-        </div>
-      </div>
-
       {/* Per Tim, 2026-09-30 — "I need to make sure that there's a
           border that goes around base fee all the way down through
           payment due... I need to indicate that that's the actual
-          invoice": one bordered card around every real invoice line
-          (Base Fee/Samples/Custom Line Item, the +Custom Line
-          Item/+Samples links, and Payment due), separate from the
-          summary breakdown above. Same space-y-7 rhythm inside as the
-          outer container used before this card existed. */}
-      <div className="space-y-7 rounded-lg border border-slate-200 p-4">
+          invoice... let's make this border navy... to make it stand
+          out": brand-700 (the app's own navy), border-2 to read as
+          bold as the Turnaround toggle's own selected-state border.
+          Same space-y-7 rhythm inside as the outer container used
+          before this card existed. */}
+      <div className="space-y-7 rounded-lg border-2 border-brand-700 p-4">
       {baseFeeRows.map(({ r: row, i }) => (
         <div key={i}>
           <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Base Fee</h4>
@@ -10044,6 +9995,21 @@ function LineItemsEditor({
           onChange={(e) => onPaymentDueDateChange(e.target.value)}
         />
       </div>
+      </div>
+
+      {/* Per Tim, 2026-09-30 — "let's move the net earnings tool to the
+          very bottom... it should just be a small, tiny link in the
+          bottom right": what was the full Invoice total/Lab fees/Stripe
+          fee/Invoicing fee/Net earnings breakdown box is now just this
+          one figure, de-emphasized under the actual invoice card above
+          instead of competing with it for attention at the top. */}
+      <div className="flex justify-end">
+        <span className="text-xs text-slate-400">
+          Net earnings:{" "}
+          {labCostCents != null
+            ? currency(computeMarginCents(Math.round(total * 100), labCostCents, (stripeFeeCents ?? 0) + (invoicingFeeCents ?? 0)) / 100)
+            : "—"}
+        </span>
       </div>
     </div>
   );

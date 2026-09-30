@@ -1678,22 +1678,6 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
       </div>
 
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
-
-      {history.length > 0 && (
-        <div className="mt-4 border-t border-slate-200 pt-3">
-          <h4 className="mb-2 text-xs font-bold uppercase text-slate-500">History</h4>
-          <div className="space-y-1 text-sm text-slate-600">
-            {history.map((h, i) => (
-              <div key={i}>
-                <SentStatusLink
-                  messageId={h.gmail_message_id}
-                  text={`${h.sample_count} sample${h.sample_count === 1 ? "" : "s"} — Drafted ${formatDateTime(h.drafted_at)}`}
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

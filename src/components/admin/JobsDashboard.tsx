@@ -6754,17 +6754,25 @@ function DocumentStation({
         // email pipeline, lab_invoice via the daily lab-invoicing cron —
         // see project_lab_invoicing_cadence), so neither needs the same
         // prominent, always-visible dropzone every other document kind
-        // (invoice, CoC, photos — all genuinely uploaded by hand
-        // routinely) still gets. Same upload wiring either way, just a
-        // small link instead of a full h-40 dashed box.
-        (kind === "lab_report" || kind === "lab_invoice") ? (
+        // still gets. Per Tim, same day, seeing the PDFs block with CoC
+        // still showing the big box next to Laboratory Results' plain
+        // link — "it should just be three simple lines... we definitely
+        // don't need the huge drag and drop": coc gets the same simple-
+        // link treatment now, even though (unlike lab_report/lab_invoice)
+        // it's genuinely uploaded/created by hand routinely — Tim's own
+        // call that the small link is enough for every kind of doc here,
+        // not just the automatic ones. Only photos still gets the full
+        // dropzone (a different station entirely, not this component).
+        // Same upload wiring either way, just a small link instead of a
+        // full h-40 dashed box.
+        (kind === "lab_report" || kind === "lab_invoice" || kind === "coc") ? (
           <button
             type="button"
             onClick={() => inputRef.current?.click()}
             disabled={uploading}
             className="mt-1.5 text-sm font-medium text-brand-600 hover:underline disabled:opacity-50"
           >
-            {uploading ? "Uploading…" : `+ Upload ${kind === "lab_report" ? "lab report" : "lab invoice"} manually`}
+            {uploading ? "Uploading…" : `+ Upload ${kind === "lab_report" ? "lab report" : kind === "lab_invoice" ? "lab invoice" : "chain of custody"} manually`}
           </button>
         ) : (
         <div className={titlePosition === "bottom" ? "mt-1.5 block w-full overflow-hidden rounded-lg border border-dashed border-slate-300" : undefined}>

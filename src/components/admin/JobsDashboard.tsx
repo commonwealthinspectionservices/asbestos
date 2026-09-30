@@ -6037,26 +6037,13 @@ export function ProjectDetailDialog({
                                   }}
                                   onEnter={(v) => (group.domain === "lead" ? saveLeadReportSummary(v) : saveReportSummary(v))}
                                   onBlur={(v) => (group.domain === "lead" ? saveLeadReportSummary(v) : saveReportSummary(v))}
-                                  // Per Tim, 2026-09-30 — the pending phrase
-                                  // that used to be its own big title above
-                                  // now shows as this field's own gray
-                                  // placeholder text instead.
-                                  placeholder={
-                                    samplesPending
-                                      ? `${label} sample results pending`
-                                      : group.domain === "lead"
-                                      ? "e.g. None of the paint chip samples were determined to contain lead."
-                                      : undefined
-                                  }
-                                  // Per Tim, 2026-09-30 — "this text should be
-                                  // italics": the pending placeholder only —
-                                  // same default field styling (ComboboxInput's
-                                  // own showChevron padding), just italicized.
-                                  inputClassName={
-                                    samplesPending
-                                      ? "w-full rounded-lg border border-slate-300 py-2 text-sm pl-3 pr-8 placeholder:italic"
-                                      : undefined
-                                  }
+                                  // Per Tim, 2026-09-30 — tried the pending
+                                  // phrase as this field's own placeholder
+                                  // text, then reversed the same day:
+                                  // "this should just be blank actually...
+                                  // blank when no results" — plain empty
+                                  // field while pending, same as always.
+                                  placeholder={group.domain === "lead" ? "e.g. None of the paint chip samples were determined to contain lead." : undefined}
                                 />
                                 </div>
                               </div>

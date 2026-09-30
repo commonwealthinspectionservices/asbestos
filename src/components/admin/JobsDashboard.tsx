@@ -3569,7 +3569,15 @@ function JobRow({
                   fixed rows regardless of how much is actually filled
                   in. */}
               {useCocRowFormat ? (
-                <div className="hidden w-full flex-col items-end gap-2 text-sm text-slate-500 sm:flex">
+                // items-start (was items-end) — per Tim, 2026-09-30:
+                // "scheduled time should be aligned directly underneath
+                // scheduled date": items-end right-aligned each line's
+                // own text, so the shorter "Scheduled time:" (blank, no
+                // value) started further right than "Scheduled date:
+                // ...". items-end existed to right-align the now-deleted
+                // cocStatus checklist's own checkbox column — nothing
+                // left here that needs it.
+                <div className="hidden w-full flex-col items-start gap-2 text-sm text-slate-500 sm:flex">
                   <div className="sm:min-h-5" aria-hidden="true" />
                   <div>{hasCompletedFieldwork(job.status) ? "Completed" : "Scheduled"} date: {formatDate(job.confirmed_date ?? job.requested_date) || "—"}</div>
                   {/* Per Tim, 2026-09-29 — "Scheduled time: — I don't want

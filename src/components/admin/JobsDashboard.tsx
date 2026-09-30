@@ -1567,7 +1567,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
             type="button"
             onClick={createCocDraft}
             disabled={creating || realRowIndexes.length === 0}
-            className={ACTION_BUTTON_CLASS}
+            className={`${ACTION_BUTTON_CLASS} w-32`}
           >
             {creating ? "Creating…" : "Create Draft ↗"}
           </button>

@@ -1484,12 +1484,19 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
         <div className="flex flex-nowrap items-center gap-3">
           <span className="w-28 shrink-0 whitespace-nowrap text-xs font-bold uppercase text-slate-700">Turnaround</span>
           <div className="flex gap-3">
+            {/* Per Tim, 2026-09-30 — "instead of the turnaround selection
+                becoming light blue, let's just make the border get a
+                little bit thicker when it's selected": border-2 (was
+                border + bg-brand-50) only on the selected option; white
+                background always. Doesn't reopen the 2026-09-28 "border
+                too bold" note above — that was about every option being
+                border-2 unconditionally, not just the selected one. */}
             {(["Rush", "24-Hr"] as const).map((t) => (
               <button
                 key={t}
                 type="button"
                 onClick={() => setTurnaround(turnaround === t ? null : t)}
-                className={`w-32 shrink-0 rounded-lg border px-3 py-2 text-center text-sm transition-colors ${turnaround === t ? "border-brand-600 bg-brand-50" : "border-slate-300 bg-white hover:border-slate-400"}`}
+                className={`w-32 shrink-0 rounded-lg px-3 py-2 text-center text-sm transition-colors bg-white ${turnaround === t ? "border-2 border-brand-600" : "border border-slate-300 hover:border-slate-400"}`}
               >
                 {t === "Rush" ? "Rush" : "24 Hours"}
               </button>
@@ -1520,37 +1527,43 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
             onChange={(e) => setRelinquishedTime(e.target.value)}
             className="w-32 shrink-0 rounded-lg border border-slate-300 px-3 py-2 text-sm"
           />
-          {/* Per Tim, 2026-09-28 — "a button next to create draft that's
-              same height as it and format and everything that allows me
-              to view and another for download": same bg-brand-600/
-              px-3 py-2/text-sm styling as Create Draft, grouped with it
-              so all three wrap together as one unit. */}
-          <div className="ml-auto flex flex-wrap justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => viewOrDownloadCocPdf("view")}
-              disabled={viewingPdf !== null}
-              className="shrink-0 rounded-lg bg-brand-600 px-3 py-2 text-sm font-bold text-white disabled:opacity-50"
-            >
-              {viewingPdf === "view" ? "Opening…" : "View"}
-            </button>
-            <button
-              type="button"
-              onClick={() => viewOrDownloadCocPdf("download")}
-              disabled={viewingPdf !== null}
-              className="shrink-0 rounded-lg bg-brand-600 px-3 py-2 text-sm font-bold text-white disabled:opacity-50"
-            >
-              {viewingPdf === "download" ? "Downloading…" : "Download"}
-            </button>
-            <button
-              type="button"
-              onClick={createCocDraft}
-              disabled={creating || realRowIndexes.length === 0}
-              className="w-32 shrink-0 rounded-lg bg-brand-600 px-3 py-2 text-sm font-bold text-white disabled:opacity-50"
-            >
-              {creating ? "Creating…" : "Create Draft ↗"}
-            </button>
-          </div>
+        </div>
+
+        {/* Per Tim, 2026-09-30 — "the view, download, and create draft
+            button should not be navy, let's try and make all the buttons
+            the same format throughout" (same ACTION_BUTTON_CLASS style
+            every other View/Download button in the app already uses) —
+            "make the view download and create draft button aligned
+            left... beneath turnaround and relinquished... even spacing
+            throughout vertically": moved out of Relinquished's own row
+            (was ml-auto/justify-end there) into this row of its own, a
+            plain sibling in the same space-y-4 rhythm as Turnaround and
+            Relinquished above it. */}
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => viewOrDownloadCocPdf("view")}
+            disabled={viewingPdf !== null}
+            className={ACTION_BUTTON_CLASS}
+          >
+            {viewingPdf === "view" ? "Opening…" : "View"}
+          </button>
+          <button
+            type="button"
+            onClick={() => viewOrDownloadCocPdf("download")}
+            disabled={viewingPdf !== null}
+            className={ACTION_BUTTON_CLASS}
+          >
+            {viewingPdf === "download" ? "Downloading…" : "Download"}
+          </button>
+          <button
+            type="button"
+            onClick={createCocDraft}
+            disabled={creating || realRowIndexes.length === 0}
+            className={ACTION_BUTTON_CLASS}
+          >
+            {creating ? "Creating…" : "Create Draft ↗"}
+          </button>
         </div>
       </div>
 
@@ -1591,7 +1604,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
                 key={t}
                 type="button"
                 onClick={() => setTurnaround(turnaround === t ? null : t)}
-                className={`min-w-0 flex-1 rounded-lg border px-2 py-1.5 text-center text-xs transition-colors ${turnaround === t ? "border-brand-600 bg-brand-50" : "border-slate-300 bg-white"}`}
+                className={`min-w-0 flex-1 rounded-lg px-2 py-1.5 text-center text-xs transition-colors bg-white ${turnaround === t ? "border-2 border-brand-600" : "border border-slate-300"}`}
               >
                 {t === "Rush" ? "Rush" : "24 Hours"}
               </button>
@@ -1627,17 +1640,21 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
           </div>
         </div>
 
-        {/* Per Tim, 2026-09-28 — "a button next to create draft that's
-            same height as it and format and everything that allows me
-            to view and another for download": same bg-brand-600/
-            py-2.5/text-sm/font-bold styling as Create Draft, sharing a
-            row right above it. */}
-        <div className="flex gap-2">
+        {/* Per Tim, 2026-09-30 — "the view, download, and create draft
+            button should not be navy... make all the buttons the same
+            format throughout... aligned left... even spacing throughout
+            vertically": ACTION_BUTTON_CLASS (was bg-brand-600/font-bold/
+            text-white), one left-aligned row instead of a View/Download
+            pair with Create Draft full-width below it — already sits in
+            the same space-y-3 rhythm as Turnaround/Date Needed/
+            Relinquished above it (this whole block is one space-y-3
+            wrapper), so no separate margin needed here either. */}
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={() => viewOrDownloadCocPdf("view")}
             disabled={viewingPdf !== null}
-            className="flex-1 rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50"
+            className={ACTION_BUTTON_CLASS}
           >
             {viewingPdf === "view" ? "Opening…" : "View"}
           </button>
@@ -1645,20 +1662,19 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
             type="button"
             onClick={() => viewOrDownloadCocPdf("download")}
             disabled={viewingPdf !== null}
-            className="flex-1 rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50"
+            className={ACTION_BUTTON_CLASS}
           >
             {viewingPdf === "download" ? "Downloading…" : "Download"}
           </button>
+          <button
+            type="button"
+            onClick={createCocDraft}
+            disabled={creating || realRowIndexes.length === 0}
+            className={ACTION_BUTTON_CLASS}
+          >
+            {creating ? "Creating draft…" : "Create Draft ↗"}
+          </button>
         </div>
-
-        <button
-          type="button"
-          onClick={createCocDraft}
-          disabled={creating || realRowIndexes.length === 0}
-          className="w-full rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50"
-        >
-          {creating ? "Creating draft…" : "Create Draft ↗"}
-        </button>
       </div>
 
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}

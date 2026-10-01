@@ -766,21 +766,13 @@ const COC_MATERIAL_PRESETS: Record<CocType, string[]> = {
 // Per Tim, 2026-09-30 — "drywall is [always] base and skim coat, plaster
 // is plaster and skim coat," then "there could be drywall ceilings or
 // drywall walls or textured walls... maybe I should just have a
-// dropdown" (a separate "+ Common Material" menu button, first version).
-// Per Tim, same day (follow-up) — "I don't love the common material
-// dropdown... when I add a material and it's blank, the material cell
-// should just be a dropdown itself of common materials... if I put in
-// drywall, it should list all four for drywall": removed that button
-// entirely — fetchMaterialOptions below now shows these category labels
-// the instant a blank Material cell gets focus (fetchOnFocus), and
-// typing/picking a category (e.g. "Drywall") expands to its own real
-// materials, no extra rows auto-added. Asbestos bulk only — mold's own
-// materials (COC_MATERIAL_PRESETS) don't have this wall/ceiling-coat
-// structure.
-const ASBESTOS_MATERIAL_CATEGORIES: { label: string; materials: string[] }[] = [
-  { label: "Drywall", materials: ["Drywall wall base", "Drywall wall skim coat", "Drywall ceiling base", "Drywall ceiling skim coat"] },
-  { label: "Plaster", materials: ["Plaster wall base", "Plaster wall skim coat", "Plaster ceiling base", "Plaster ceiling skim coat"] },
-];
+// dropdown" (a separate "+ Common Material" menu button), then "I don't
+// love the common material dropdown... the material cell should just be
+// a dropdown itself" (a per-cell category list on focus, replacing that
+// button) — then, later the same day, reversed again: "let's delete the
+// drop-down feature entirely for material, I don't think we need it."
+// Back to plain Ray's Library search only (see fetchMaterialOptions
+// below), no curated category shortcut of any kind.
 
 // Electronic Chain of Custody — per Tim, 2026-09-28: "right now everything
 // is written out by hand... I should just be able to fill in what I need
@@ -823,24 +815,15 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
   // the curated COC_MATERIAL_PRESETS list, same min-chars gate.
   const fetchMaterialOptions = useCallback(async (query: string): Promise<string[]> => {
     const q = query.trim();
-    const lower = q.toLowerCase();
-    if (cocType === "asbestos_bulk") {
-      // Per Tim, 2026-09-30 — blank cell shows the category labels
-      // ("Drywall", "Plaster") immediately (fetchOnFocus, no min-chars
-      // gate — this curated list is short, not Ray's Library's whole
-      // history); typing (or matching) one expands to its own real
-      // materials ("if I put in drywall, it should list all four").
-      const categoryMatches = q === ""
-        ? ASBESTOS_MATERIAL_CATEGORIES.map((c) => c.label)
-        : ASBESTOS_MATERIAL_CATEGORIES.flatMap((c) =>
-            c.label.toLowerCase().includes(lower) ? c.materials : c.materials.filter((m) => m.toLowerCase().includes(lower))
-          );
-      if (q.length < MATERIAL_MIN_CHARS) return categoryMatches;
-      const res = await fetch(`/api/admin/rays-library?q=${encodeURIComponent(q)}`);
-      const historical: string[] = res.ok ? ((await res.json()).entries ?? []).map((e: { material: string }) => e.material).filter(Boolean) : [];
-      return Array.from(new Set([...categoryMatches, ...historical])).slice(0, 20);
-    }
     if (q.length < MATERIAL_MIN_CHARS) return [];
+    if (cocType === "asbestos_bulk") {
+      const res = await fetch(`/api/admin/rays-library?q=${encodeURIComponent(q)}`);
+      if (!res.ok) return [];
+      const data = await res.json();
+      const names: string[] = (data.entries ?? []).map((e: { material: string }) => e.material).filter(Boolean);
+      return Array.from(new Set(names)).slice(0, 20);
+    }
+    const lower = q.toLowerCase();
     return COC_MATERIAL_PRESETS[cocType].filter((m) => m.toLowerCase().includes(lower));
   }, [cocType]);
 
@@ -1445,7 +1428,6 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
                         value={r.material}
                         onChange={(v) => updateRow(i, "material", v)}
                         fetchOptions={fetchMaterialOptions}
-                        fetchOnFocus
                         getLabel={(m) => m}
                         onSelect={(m) => updateRow(i, "material", m)}
                         onBlur={(v) => updateRow(i, "material", v)}
@@ -1583,7 +1565,6 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
                     value={r.material}
                     onChange={(v) => updateRow(i, "material", v)}
                     fetchOptions={fetchMaterialOptions}
-                    fetchOnFocus
                     getLabel={(m) => m}
                     onSelect={(m) => updateRow(i, "material", m)}
                     onBlur={(v) => updateRow(i, "material", v)}

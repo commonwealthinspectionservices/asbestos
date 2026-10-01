@@ -8231,7 +8231,12 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
                 setServiceStreet(fields.street);
                 setServiceUnit(fields.unit);
                 setServiceCity(fields.city);
-                setServiceState(fields.state);
+                // Per Tim, 2026-09-30 — "instead of saying MA in these
+                // cells... always just spell out Massachusetts": same
+                // "job sites are always in Massachusetts" reasoning as
+                // the Town field's own city-mode handler below, just
+                // spelled out instead of abbreviated.
+                setServiceState("Massachusetts");
                 setServiceZip(fields.zip);
               }}
               placeholder="Street address"
@@ -8261,8 +8266,10 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
               setServiceCity(fields.city);
               // Job sites are always in Massachusetts — set directly
               // rather than trusting whichever state the picked place
-              // happened to resolve to.
-              setServiceState("MA");
+              // happened to resolve to. Spelled out per Tim, 2026-09-30
+              // — "instead of saying MA in these cells... always just
+              // spell out Massachusetts."
+              setServiceState("Massachusetts");
               setServiceZip(fields.zip);
             }}
             placeholder="Town"
@@ -8749,7 +8756,12 @@ export function EditProjectDialog({
   const [serviceStreet, setServiceStreet] = useState(serviceInit.street);
   const [serviceUnit, setServiceUnit] = useState(serviceInit.unit);
   const [serviceCity, setServiceCity] = useState(serviceInit.city);
-  const [serviceState, setServiceState] = useState(serviceInit.state);
+  // Per Tim, 2026-09-30 — "instead of saying MA in these cells... always
+  // just spell out Massachusetts": an older job's address was stored with
+  // the plain "MA" abbreviation (still how it's typed on legacy records) —
+  // spelled out here so reopening Edit shows the new convention too,
+  // not just a freshly-typed one.
+  const [serviceState, setServiceState] = useState(serviceInit.state.toUpperCase() === "MA" ? "Massachusetts" : serviceInit.state);
   const [serviceZip, setServiceZip] = useState(serviceInit.zip);
   const [siteContactName, setSiteContactName] = useState(job.site_contact_name ?? "");
   const [siteContactPhone, setSiteContactPhone] = useState(job.site_contact_phone ?? "");
@@ -9221,7 +9233,12 @@ export function EditProjectDialog({
                 setServiceStreet(fields.street);
                 setServiceUnit(fields.unit);
                 setServiceCity(fields.city);
-                setServiceState(fields.state);
+                // Per Tim, 2026-09-30 — "instead of saying MA in these
+                // cells... always just spell out Massachusetts": same
+                // "job sites are always in Massachusetts" reasoning as
+                // the Town field's own city-mode handler below, just
+                // spelled out instead of abbreviated.
+                setServiceState("Massachusetts");
                 setServiceZip(fields.zip);
               }}
               placeholder="Street address"

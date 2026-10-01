@@ -2537,22 +2537,11 @@ export default function JobsDashboard() {
         </button>
       )}
 
-      {/* Per Tim, 2026-09-30 — "delete this tool on the open projects tab,
-          and only leave it for the closed projects tab": the whole
-          sort/filter/search toolbar below (mobile dropdown+search and the
-          desktop Sort by/Search by rows) is gone on Open Projects — an
-          open job list is small/active enough not to need it; a closed
-          one accumulates, where finding an old project again is the
-          actual use case this was built for. Per Tim, same day (follow-up)
-          — "that tool should also be available on the all projects tab
-          as well": All Projects gets it too, same reasoning (a long,
-          unfiltered list). Per Tim, same day (another follow-up) —
-          "nothing should shift at all... everything else should stay
-          in the exact same place": invisible (not conditionally
-          unrendered) keeps this toolbar's own layout space reserved
-          wherever it's hidden, so the job list below never jumps up to
-          fill a gap — switching tabs changes nothing else's position. */}
-      <div className={statusView === "closed" || statusView === "all" ? "" : "invisible pointer-events-none"}>
+      {/* Per Tim, 2026-09-30 — tried hiding this sort/filter/search toolbar
+          on Open Projects (and later Payment Pending), keeping it only on
+          Closed/All — reversed the same day: "just add the tool back in
+          for all four, I guess. Just forget I ever even want to delete
+          that." Back to always rendering, every status view. */}
       {/* Mobile: one dropdown (sort fields + every status/service filter,
           single choice at a time) and one search box, half the row each,
           replacing the whole sort/filter/search row below. Desktop:
@@ -2766,7 +2755,6 @@ export default function JobsDashboard() {
                 Clear date
               </button>
             )}
-      </div>
       </div>
 
       {error && <div className="mt-3 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>}

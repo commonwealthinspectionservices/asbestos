@@ -2452,8 +2452,20 @@ export default function JobsDashboard() {
   // room to space everything out equally... the layout's perfect, I
   // just need to space it out a tiny bit more" — same layout, just a
   // wider container to breathe in.
+  // Per Tim, same day (later) — "the header margins are slightly wider
+  // than the body margins for the entire page": AdminNav wraps its own
+  // max-w-4xl content in an OUTER unconstrained px-4 (padding measured
+  // from the true viewport edge, same at every width); this div applies
+  // max-w-4xl and px-4 to the same single box (padding measured from
+  // that box's own already-centered edge instead), which works out 16px
+  // narrower than the header's own content column on anything wider
+  // than the breakpoint — not just a shifted margin, a genuinely
+  // different content width. max-w-[58rem] (4xl's 56rem + this div's own
+  // 2rem of left+right px-4) makes the two match exactly at every
+  // viewport width without restructuring this into AdminNav's two-level
+  // wrapper.
   return (
-    <div className="mx-auto max-w-4xl px-4 py-6">
+    <div className="mx-auto max-w-[58rem] px-4 py-6">
       {/* Mobile: a dropdown (same pattern as the Directory's tab selector)
           instead of three separate buttons, with Add Project directly
           across on the same line. Desktop: unchanged row of four buttons. */}

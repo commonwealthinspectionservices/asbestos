@@ -2544,13 +2544,15 @@ export default function JobsDashboard() {
           open job list is small/active enough not to need it; a closed
           one accumulates, where finding an old project again is the
           actual use case this was built for. Per Tim, same day (follow-up)
-          — "nothing should shift at all... everything else should stay
+          — "that tool should also be available on the all projects tab
+          as well": All Projects gets it too, same reasoning (a long,
+          unfiltered list). Per Tim, same day (another follow-up) —
+          "nothing should shift at all... everything else should stay
           in the exact same place": invisible (not conditionally
-          unrendered) keeps this toolbar's own layout space reserved on
-          Open Projects, so the job list below never jumps up to fill a
-          gap just because this is hidden there — switching tabs changes
-          nothing else's position. */}
-      <div className={statusView === "closed" ? "" : "invisible pointer-events-none"}>
+          unrendered) keeps this toolbar's own layout space reserved
+          wherever it's hidden, so the job list below never jumps up to
+          fill a gap — switching tabs changes nothing else's position. */}
+      <div className={statusView === "closed" || statusView === "all" ? "" : "invisible pointer-events-none"}>
       {/* Mobile: one dropdown (sort fields + every status/service filter,
           single choice at a time) and one search box, half the row each,
           replacing the whole sort/filter/search row below. Desktop:

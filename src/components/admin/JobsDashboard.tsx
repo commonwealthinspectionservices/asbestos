@@ -1938,14 +1938,26 @@ const TURNAROUND_OPTIONS = ["Rush", "24-Hr", "48-Hr", "3-Day", "4-Day", "5-Day"]
 // Report/Invoice's own View/Download buttons): always a white background,
 // a plain slate-300 border at rest (thickening to brand-600 on hover), and
 // a solid border-2 brand-600 — never a fill — for whichever option is
-// currently selected. Two sizes only because the Projects status tabs
-// were already noticeably bigger than the Sort by/Status/Service Type
-// pills beneath them before this change; nothing else about that sizing
-// difference is new.
+// currently selected. Per Tim, same day (follow-up) — "let's make the
+// open projects[,] payment pending[,] closed projects and all projects
+// and add project buttons the same height as the buttons in the sort by
+// line": py-1 (was py-2) matches the Sort by pills' own desktop vertical
+// padding exactly; px-4/text-sm stay bigger than the pills' own
+// px-2.5/text-sm since these labels ("Open Projects") are longer than
+// the pills' ("Date") and this row is still this page's main navigation,
+// not a second row of the same pills.
 const TAB_BUTTON_CLASS = (active: boolean) =>
-  `whitespace-nowrap rounded-lg px-4 py-2 text-sm font-bold shrink-0 bg-white text-slate-700 transition-colors ${active ? "border-2 border-brand-600" : "border border-slate-300 hover:border-2 hover:border-brand-600"}`;
+  `whitespace-nowrap rounded-lg px-4 py-1 text-sm font-bold shrink-0 bg-white text-slate-700 transition-colors ${active ? "border-2 border-brand-600" : "border border-slate-300 hover:border-2 hover:border-brand-600"}`;
 const FILTER_PILL_CLASS = (active: boolean) =>
   `rounded-lg bg-white px-1.5 py-0.5 text-xs font-medium text-slate-700 transition-colors sm:px-2.5 sm:py-1 sm:text-sm ${active ? "border-2 border-brand-600" : "border border-slate-300 hover:border-2 hover:border-brand-600"}`;
+// Per Tim, 2026-09-30 (same toolbar, follow-up) — "let's make the search
+// by cells the same style as well": the grey bg-slate-100 fill (and the
+// browser's own default blue focus ring) didn't match the white-bg/
+// slate-300-border/border-2-brand-600 language above — focus:outline-none
+// + focus:border-2 swaps in that same brand-600 border instead of the
+// native ring, the same way the pill buttons swap it in on hover.
+const SEARCH_INPUT_CLASS =
+  "rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-sm text-slate-600 placeholder:text-slate-600 transition-colors focus:border-2 focus:border-brand-600 focus:outline-none";
 type SortField = "date" | "project_number" | "status";
 const SORT_FIELDS: { key: SortField; label: string }[] = [
   { key: "date", label: "Date" },
@@ -2550,7 +2562,7 @@ export default function JobsDashboard() {
             siblings had. */}
         <button
           onClick={() => setAddingProject(true)}
-          className="ml-auto shrink-0 whitespace-nowrap rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white"
+          className="ml-auto shrink-0 whitespace-nowrap rounded-lg bg-emerald-600 px-4 py-1 text-sm font-bold text-white"
         >
           Add Project
         </button>
@@ -2752,19 +2764,19 @@ export default function JobsDashboard() {
               value={projectNumberQuery}
               onChange={(e) => setProjectNumberQuery(e.target.value)}
               placeholder="Project #"
-              className="w-full min-w-0 rounded-lg border border-slate-300 bg-slate-100 px-2.5 py-1 text-sm text-slate-600 placeholder:text-slate-600 sm:w-0 sm:flex-1"
+              className={`w-full min-w-0 sm:w-0 sm:flex-1 ${SEARCH_INPUT_CLASS}`}
             />
             <input
               value={companyQuery}
               onChange={(e) => setCompanyQuery(e.target.value)}
               placeholder="Company"
-              className="w-full min-w-0 rounded-lg border border-slate-300 bg-slate-100 px-2.5 py-1 text-sm text-slate-600 placeholder:text-slate-600 sm:w-0 sm:flex-1"
+              className={`w-full min-w-0 sm:w-0 sm:flex-1 ${SEARCH_INPUT_CLASS}`}
             />
             <input
               value={addressQuery}
               onChange={(e) => setAddressQuery(e.target.value)}
               placeholder="Address"
-              className="w-full min-w-0 rounded-lg border border-slate-300 bg-slate-100 px-2.5 py-1 text-sm text-slate-600 placeholder:text-slate-600 sm:w-0 sm:flex-1"
+              className={`w-full min-w-0 sm:w-0 sm:flex-1 ${SEARCH_INPUT_CLASS}`}
             />
             {/* Per Tim — the browser's own "mm/dd/yyyy" for an empty date
                 input isn't a real placeholder (date inputs don't support
@@ -2777,7 +2789,7 @@ export default function JobsDashboard() {
               type="date"
               value={dateQuery}
               onChange={(e) => setDateQuery(e.target.value)}
-              className={`w-full shrink-0 rounded-lg border border-slate-300 bg-slate-100 px-2.5 py-1 text-sm sm:w-36 ${dateQuery ? "text-slate-900" : "text-slate-600"}`}
+              className={`w-full shrink-0 sm:w-36 ${SEARCH_INPUT_CLASS} ${dateQuery ? "text-slate-900" : ""}`}
             />
             {dateQuery && (
               <button onClick={() => setDateQuery("")} className="shrink-0 text-xs text-brand-600 underline">

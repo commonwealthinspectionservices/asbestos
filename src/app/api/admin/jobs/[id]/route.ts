@@ -120,6 +120,22 @@ const EDITABLE_FIELDS = [
   "email_gmail_thread_id",
   "email_thread_subject",
   "email_thread_message_ids",
+  // Per Tim, 2026-09-30 (26-0056.1/.2, same recovery) — checkDraftSentStatus
+  // marked both jobs' reports "sent" at a real timestamp with no actual
+  // sent message behind it anywhere in Gmail (confirmed against Sent mail
+  // directly) — a false positive, almost certainly from the rapid
+  // recreate-then-delete-the-old-draft cycle this recovery needed (see
+  // draftSelectedEmailForJob's own staleDraftIds cleanup): report_draft_gmail_id
+  // only gets overwritten when a report domain is actually re-selected, so
+  // an invoice-only recreation right after an accidental combined one can
+  // leave it pointing at a draft id that invoice-only's own cleanup just
+  // deleted — checkDraftSentStatus's "gone" fallback (getSentMessageInfo on
+  // the stored message id) then needs to tell "deleted" apart from "sent"
+  // correctly, which this incident suggests it doesn't always. No existing
+  // route could un-stick a wrongly-"sent" report/invoice; same "one-off
+  // correction" reasoning as report_sent_domains/coc_log above.
+  "report_sent_at",
+  "invoice_sent_at",
 ] as const;
 
 export const PATCH = withApiErrors(async (

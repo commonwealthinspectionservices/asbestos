@@ -156,16 +156,20 @@ export function defaultInvoiceLineItems(
     // service type in parentheses": one line, "Title (labels, comma-
     // joined)", instead of the title plus a "\n"-and-bullet per service
     // type (was per Tim, 2026-08-27, over wrapping concerns on a
-    // multi-label job — a parenthetical still wraps naturally if it runs
-    // long, same as any other text, so nothing is lost). The invoice
-    // PDF's Charges table used to split this description on "\n" into a
-    // main line plus indented sub-lines; with no "\n" left to split on,
-    // it now just renders the one line, same as the admin's own textarea.
+    // multi-label job). Per Tim, 2026-09-30 (same day, follow-up, looking
+    // at a real invoice) — "the parentheses is the service type, and that
+    // should always have its own line... there are multiple service
+    // types, there should be multiple lines": the title and its
+    // parenthetical no longer share one wrapping line — title first,
+    // then one "(label)" line per service type. Reuses the invoice PDF's
+    // existing split-this-description-on-"\n"-into-a-main-line-plus-
+    // indented-sub-lines rendering (invoice-pdf.tsx), which the one-line
+    // version above had stopped using but never removed.
     const baseFeeDescription =
       serviceTypeLabels.length === 0
         ? "Licensed Asbestos Inspector"
         : baseFeeTitle
-          ? `${baseFeeTitle} (${bulletLabels.join(", ")})`
+          ? [baseFeeTitle, ...bulletLabels.map((l) => `(${l})`)].join("\n")
           : bulletLabels.join(", ");
     rows.push({
       description: baseFeeDescription,

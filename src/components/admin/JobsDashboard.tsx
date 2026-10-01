@@ -1946,8 +1946,15 @@ const TURNAROUND_OPTIONS = ["Rush", "24-Hr", "48-Hr", "3-Day", "4-Day", "5-Day"]
 // px-2.5/text-sm since these labels ("Open Projects") are longer than
 // the pills' ("Date") and this row is still this page's main navigation,
 // not a second row of the same pills.
+// Per Tim, same day (another follow-up) — "all the text here should be
+// in the same format, not one bold and another not bold": these tabs
+// were font-bold while the Sort by/Status/Service Type pills below were
+// font-medium — same font-medium everywhere now (the pills', not the
+// tabs' own bold), including the Search by inputs' typed/placeholder
+// text, so nothing in this whole toolbar reads heavier than anything
+// else in it.
 const TAB_BUTTON_CLASS = (active: boolean) =>
-  `whitespace-nowrap rounded-lg px-4 py-1 text-sm font-bold shrink-0 bg-white text-slate-700 transition-colors ${active ? "border-2 border-brand-600" : "border border-slate-300 hover:border-2 hover:border-brand-600"}`;
+  `whitespace-nowrap rounded-lg px-4 py-1 text-sm font-medium shrink-0 bg-white text-slate-700 transition-colors ${active ? "border-2 border-brand-600" : "border border-slate-300 hover:border-2 hover:border-brand-600"}`;
 const FILTER_PILL_CLASS = (active: boolean) =>
   `rounded-lg bg-white px-1.5 py-0.5 text-xs font-medium text-slate-700 transition-colors sm:px-2.5 sm:py-1 sm:text-sm ${active ? "border-2 border-brand-600" : "border border-slate-300 hover:border-2 hover:border-brand-600"}`;
 // Per Tim, 2026-09-30 (same toolbar, follow-up) — "let's make the search
@@ -1956,8 +1963,10 @@ const FILTER_PILL_CLASS = (active: boolean) =>
 // slate-300-border/border-2-brand-600 language above — focus:outline-none
 // + focus:border-2 swaps in that same brand-600 border instead of the
 // native ring, the same way the pill buttons swap it in on hover.
+// font-medium matches TAB_BUTTON_CLASS/FILTER_PILL_CLASS, see the "same
+// format" comment above.
 const SEARCH_INPUT_CLASS =
-  "rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-sm text-slate-600 placeholder:text-slate-600 transition-colors focus:border-2 focus:border-brand-600 focus:outline-none";
+  "rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-sm font-medium text-slate-600 placeholder:text-slate-600 transition-colors focus:border-2 focus:border-brand-600 focus:outline-none";
 type SortField = "date" | "project_number" | "status";
 const SORT_FIELDS: { key: SortField; label: string }[] = [
   { key: "date", label: "Date" },

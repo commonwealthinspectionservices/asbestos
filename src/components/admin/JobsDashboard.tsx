@@ -8531,12 +8531,20 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
             </div>
             <div className="sm:flex-1">
               <label className="block text-sm font-medium text-slate-700">Scheduled time</label>
-              <select className="mt-1 h-10 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value={requestedTime} onChange={(e) => setRequestedTime(e.target.value)}>
-                <option value="">No time</option>
-                {timeSelectOptions(requestedTime).map((t) => (
-                  <option key={t} value={t}>{formatTime(t)}</option>
-                ))}
-              </select>
+              {/* Per Tim, 2026-09-30 — "move that arrow over just a
+                  little bit more left": native select arrows sit flush
+                  against the very edge — swapped for this file's usual
+                  appearance-none + manual chevron treatment (see Starting
+                  status's own select just above) so it's inset instead. */}
+              <div className="relative mt-1">
+                <select className="h-10 w-full appearance-none rounded-lg border border-slate-300 bg-white py-2 pl-3 pr-10 text-sm" value={requestedTime} onChange={(e) => setRequestedTime(e.target.value)}>
+                  <option value="">No time</option>
+                  {timeSelectOptions(requestedTime).map((t) => (
+                    <option key={t} value={t}>{formatTime(t)}</option>
+                  ))}
+                </select>
+                <span className="pointer-events-none absolute inset-y-0 right-0 flex w-9 items-center justify-center rounded-r-lg bg-slate-200 text-slate-500">▾</span>
+              </div>
             </div>
           </div>
         )}
@@ -8549,8 +8557,12 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
         {/* Per Tim, 2026-09-29 — "Preview email should be on the same
             line as email them that it's scheduled directly across from
             it and aligned all the way right": one row, not stacked. */}
+        {/* Per Tim, 2026-09-30 — "should be the same height as the two
+            cells that are above it": h-10, matching Date/Scheduled
+            time's own fixed height, instead of just however tall the
+            padding happened to make it. */}
         {startingStatus === "scheduled" && requestedDate && (
-          <div className="mt-3 flex flex-row items-center justify-between gap-2 rounded-lg border border-slate-200 p-3">
+          <div className="mt-3 flex h-10 flex-row items-center justify-between gap-2 rounded-lg border border-slate-200 px-3">
             <label className="flex items-center gap-2 text-sm text-slate-700">
               <input
                 type="checkbox"

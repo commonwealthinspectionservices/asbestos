@@ -807,22 +807,17 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
   // native <datalist> (always shows every option the moment you click
   // in, no way to suppress that) for ComboboxInput's fetchOptions path,
   // which only ever calls this once there's real text — MATERIAL_MIN_CHARS
-  // adds the "and at least 2 of them" gate on top of that. Real materials
-  // for asbestos, not a made-up list: Ray's Library (a real reference
-  // catalog of materials seen across his own past full-inspection reports
-  // — "stuff that I've written in in the past") already has a working
-  // search API. Mold has no equivalent library, so those two still use
-  // the curated COC_MATERIAL_PRESETS list, same min-chars gate.
+  // adds the "and at least 2 of them" gate on top of that. Per Tim,
+  // 2026-09-30 — tried Ray's Library (a reference catalog of materials
+  // seen across his own past full-inspection reports) as the asbestos
+  // source, then: "I don't even want the Ray's Library search for the
+  // material dropdown" — asbestos_bulk's Material field is plain free
+  // text now, no suggestions at all. Mold still uses the curated
+  // COC_MATERIAL_PRESETS list, unaffected by this.
   const fetchMaterialOptions = useCallback(async (query: string): Promise<string[]> => {
+    if (cocType === "asbestos_bulk") return [];
     const q = query.trim();
     if (q.length < MATERIAL_MIN_CHARS) return [];
-    if (cocType === "asbestos_bulk") {
-      const res = await fetch(`/api/admin/rays-library?q=${encodeURIComponent(q)}`);
-      if (!res.ok) return [];
-      const data = await res.json();
-      const names: string[] = (data.entries ?? []).map((e: { material: string }) => e.material).filter(Boolean);
-      return Array.from(new Set(names)).slice(0, 20);
-    }
     const lower = q.toLowerCase();
     return COC_MATERIAL_PRESETS[cocType].filter((m) => m.toLowerCase().includes(lower));
   }, [cocType]);

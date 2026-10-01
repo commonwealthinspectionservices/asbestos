@@ -140,7 +140,13 @@ function formatDateMMDDYYYY(date: string | null): string {
 // name+company (same two-line total as before), rather than its own
 // line — adding it as a third stacked line would have reopened exactly
 // the collapse behavior described above.
-const SIGNATURE_LINES = ["Tim Hall, Commonwealth Inspection Services, 617-390-4778", '<a href="https://commonwealthinspectionservices.com">commonwealthinspectionservices.com</a>'];
+// Per Tim, 2026-09-30 — "where my phone number is listed in the email...
+// I don't want my phone number to also be in my signature": every single
+// caller of SIGNATURE_LINES already states the phone number inline, one
+// line up ("If you have any questions, call me at ...") — repeating it
+// again right here read as redundant. No phone number in the signature
+// itself anymore; the inline line is the only place it appears.
+const SIGNATURE_LINES = ["Tim Hall, Commonwealth Inspection Services", '<a href="https://commonwealthinspectionservices.com">commonwealthinspectionservices.com</a>'];
 // Per Tim, 2026-09-03 — a review-link line under the signature on every
 // report email (reportDraftBodyHtml, combinedDraftBodyHtml below), not
 // the payment-reminder note further down — that one goes out before

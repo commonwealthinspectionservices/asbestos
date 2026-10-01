@@ -35,6 +35,16 @@ export const GET = withApiErrors(async (req: NextRequest) => {
   // every lab report with, just against one specific message here instead
   // of whatever checkForLabResultEmails happens to be looking at.
   const includeParsedResults = req.nextUrl.searchParams.get("includeParsedResults") === "true";
+  // Per Tim, 2026-09-30 (26-0056.1/.2's missing-lab-report-document
+  // follow-up) — splitting the merged job back into two never re-filed
+  // either real original Crystal Analytical PDF onto its own split job
+  // (buildFinalReportPacket has nothing to attach besides the owner's own
+  // license pages, which is what actually shipped in 26-0056.2's drafted
+  // report). This hands back the raw bytes (base64) of a message's own PDF
+  // attachment so they can be re-POSTed straight to the real
+  // jobs/[id]/documents upload route instead of needing a one-off upload
+  // route of its own.
+  const includePdfBase64 = req.nextUrl.searchParams.get("includePdfBase64") === "true";
 
   const accessToken = await getValidAccessToken();
   if (!accessToken) return NextResponse.json({ error: "Gmail is not connected" }, { status: 500 });
@@ -47,6 +57,7 @@ export const GET = withApiErrors(async (req: NextRequest) => {
       const pdfParts = findPdfParts(m.payload);
       let pdfText: string[] | undefined;
       let parsedResults: unknown[] | undefined;
+      let pdfBase64: string[] | undefined;
       if ((includePdfText || includeParsedResults) && pdfParts.length > 0) {
         const perPart = await Promise.all(pdfParts.map(async (p) => {
           const data = await getAttachmentData(accessToken, m.id, p.attachmentId);
@@ -61,6 +72,12 @@ export const GET = withApiErrors(async (req: NextRequest) => {
         if (includePdfText) pdfText = perPart.map((p) => p.text);
         if (includeParsedResults) parsedResults = perPart.flatMap((p) => p.results ?? []);
       }
+      if (includePdfBase64 && pdfParts.length > 0) {
+        pdfBase64 = await Promise.all(pdfParts.map(async (p) => {
+          const data = await getAttachmentData(accessToken, m.id, p.attachmentId);
+          return data.toString("base64");
+        }));
+      }
       return {
         id: m.id,
         threadId: m.threadId,
@@ -71,6 +88,7 @@ export const GET = withApiErrors(async (req: NextRequest) => {
         pdfAttachments: pdfParts.map((p) => p.filename),
         ...(pdfText ? { pdfText } : {}),
         ...(parsedResults ? { parsedResults } : {}),
+        ...(pdfBase64 ? { pdfBase64 } : {}),
       };
     })),
   });

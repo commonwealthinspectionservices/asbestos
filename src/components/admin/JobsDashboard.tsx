@@ -2674,6 +2674,14 @@ export default function JobsDashboard() {
           >
             Status{statusFilter.size > 0 ? ` (${statusFilter.size})` : ""} ▾
           </button>
+          {/* Per Tim, 2026-09-30 — "can we make the status filter dropdown
+              match this style too": these radios (and the Service Type
+              dropdown's own checkboxes below) used to fill solid
+              brand-600 when checked — the same dark-fill-for-selected
+              language just replaced everywhere else in this toolbar.
+              checked:border-2 checked:border-brand-600 (no fill) matches
+              it instead; each option's own colored dot still carries
+              which status it is. */}
           {statusFilterOpen && (
             <div className="absolute z-10 mt-1 w-64 rounded-lg border border-slate-200 bg-white p-2 shadow-lg">
               {overdueJobs.length > 0 && (
@@ -2683,7 +2691,7 @@ export default function JobsDashboard() {
                     name="statusFilter"
                     checked={statusFilter.has("overdue")}
                     onChange={() => selectStatusFilter("overdue")}
-                    className="h-3.5 w-3.5 shrink-0 appearance-none rounded-none border border-slate-400 checked:border-brand-600 checked:bg-brand-600"
+                    className="h-3.5 w-3.5 shrink-0 appearance-none rounded-none border border-slate-400 bg-white checked:border-2 checked:border-brand-600"
                   />
                   <span className="h-2.5 w-2.5 rounded-full bg-red-600" />
                   Overdue ({overdueJobs.length})
@@ -2697,7 +2705,7 @@ export default function JobsDashboard() {
                     name="statusFilter"
                     checked={statusFilter.has(s)}
                     onChange={() => selectStatusFilter(s)}
-                    className="h-3.5 w-3.5 shrink-0 appearance-none rounded-none border border-slate-400 checked:border-brand-600 checked:bg-brand-600"
+                    className="h-3.5 w-3.5 shrink-0 appearance-none rounded-none border border-slate-400 bg-white checked:border-2 checked:border-brand-600"
                   />
                   <span className={`h-2.5 w-2.5 rounded-full ${STATUS_DOT_COLOR[s]}`} />
                   {STATUS_LABEL[s]}
@@ -2709,7 +2717,7 @@ export default function JobsDashboard() {
                       name="statusFilter"
                       checked={statusFilter.has("ach_pending")}
                       onChange={() => selectStatusFilter("ach_pending")}
-                      className="h-3.5 w-3.5 shrink-0 appearance-none rounded-none border border-slate-400 checked:border-brand-600 checked:bg-brand-600"
+                      className="h-3.5 w-3.5 shrink-0 appearance-none rounded-none border border-slate-400 bg-white checked:border-2 checked:border-brand-600"
                     />
                     <span className="h-2.5 w-2.5 rounded-full bg-emerald-300" />
                     Paid · ACH Pending ({achPendingCount})
@@ -2751,7 +2759,7 @@ export default function JobsDashboard() {
                     type="checkbox"
                     checked={serviceTypeFilter.has(t.label)}
                     onChange={() => toggleServiceTypeFilter(t.label)}
-                    className="h-3.5 w-3.5 shrink-0 appearance-none rounded-none border border-slate-400 checked:border-brand-600 checked:bg-brand-600"
+                    className="h-3.5 w-3.5 shrink-0 appearance-none rounded-none border border-slate-400 bg-white checked:border-2 checked:border-brand-600"
                   />
                   {t.label}
                 </label>

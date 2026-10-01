@@ -25,6 +25,7 @@ import {
   getValidAccessToken,
   listMessagesByQuery,
   markMessageRead,
+  sendMessage,
 } from "@/lib/gmail";
 import {
   detectAsbestosResult,
@@ -3218,7 +3219,7 @@ const COC_TITLE: Record<CocType, string> = {
  * two independent tables, not one mixed one.
  */
 /**
- * The actual filled-in PDF render, shared by draftCocEmailForJob (the
+ * The actual filled-in PDF render, shared by sendCocEmailForJob below (the
  * emailed attachment) and the Chain of Custody tab's View/Download
  * buttons (`coc-pdf` route) — same document either way, just two
  * different things done with the resulting buffer.
@@ -3260,19 +3261,25 @@ export async function renderCocPdfBuffer({
       });
 }
 
-async function draftCocEmailForJob({
-  job, settings, accessToken, cocType, sampleItems, turnaround, dateNeeded, relinquishedDate, relinquishedTime,
+/** Everything about the CoC email: the rendered PDF, the filed job document,
+    the merged sample_items, and the fixed-field body (see the inline
+    comments below for why the body looks like this). Used by
+    sendCocEmailForJob below — originally also shared with a draft-only
+    predecessor (removed 2026-09-30 once "Send to Lab" replaced "Create
+    Draft" as the Chain of Custody tab's one button), kept split out of
+    sendCocEmailForJob on its own in case a draft-first path is ever wanted
+    again. */
+async function buildCocEmailContent({
+  job, settings, cocType, sampleItems, turnaround, relinquishedDate, relinquishedTime,
 }: {
   job: Job & { customers: Customer & { companies: Company | null } };
   settings: Settings;
-  accessToken: string;
   cocType: CocType;
   sampleItems: SampleItem[];
   turnaround: "Rush" | "24-Hr" | null;
-  dateNeeded: string | null;
   relinquishedDate: string | null;
   relinquishedTime: string | null;
-}): Promise<{ messageId: string }> {
+}): Promise<{ mergedItems: SampleItem[]; subject: string; bodyHtml: string; attachmentFilename: string; pdfBuffer: Buffer }> {
   if (sampleItems.length === 0) {
     throw new Error("Add at least one sample before creating a Chain of Custody draft");
   }
@@ -3298,7 +3305,6 @@ async function draftCocEmailForJob({
   const cocServiceTypeLabel = jobCocTypes(job.service_type).find((c) => c.cocType === cocType)?.label;
   await uploadCocDocument(job, pdfBuffer, cocServiceTypeLabel);
 
-  const now = new Date();
   // Per Tim, 2026-09-29 — "this is the format that I want for when I
   // share chain of custody emails": a plain, fixed-field layout (no
   // greeting, no sample-count sentence, no signature block) instead of
@@ -3332,19 +3338,51 @@ async function draftCocEmailForJob({
   // reads fine in body prose ("3 asbestos bulk samples") but not as a
   // filename label, so it's dropped here.
   const filenameLabel = COC_TITLE[cocType].replace(/ Sample$/, "");
-  const draft = await createDraft(accessToken, {
+  const attachmentFilename = `${job.project_number ?? job.id} ${filenameLabel} Chain of Custody.pdf`;
+
+  return { mergedItems, subject, bodyHtml, attachmentFilename, pdfBuffer };
+}
+
+/**
+ * The Chain of Custody tab's "Send to Lab" button — per Tim, 2026-09-30:
+ * "a button that actually sends it straight to the lab in one click (with
+ * a quick confirm), instead of creating a Gmail draft you have to go find
+ * and send yourself." Builds the same content a draft would have (see
+ * buildCocEmailContent) but calls sendMessage, a real gmail.send, instead
+ * of createDraft — joins the "prompted one-click real send" group
+ * already used for sendCustomerBookingReceivedEmail/sendJobConfirmedEmailIfDue/
+ * the "job scheduled" email, not the "draft, review, send yourself" group
+ * every other lab/client document in this app uses. sent_at is set
+ * immediately (not left for checkCocDraftSentStatus to discover later) since
+ * there's no draft state to poll — it already went out.
+ */
+async function sendCocEmailForJob({
+  job, settings, accessToken, cocType, sampleItems, turnaround, dateNeeded, relinquishedDate, relinquishedTime,
+}: {
+  job: Job & { customers: Customer & { companies: Company | null } };
+  settings: Settings;
+  accessToken: string;
+  cocType: CocType;
+  sampleItems: SampleItem[];
+  turnaround: "Rush" | "24-Hr" | null;
+  dateNeeded: string | null;
+  relinquishedDate: string | null;
+  relinquishedTime: string | null;
+}): Promise<{ messageId: string }> {
+  const { mergedItems, subject, bodyHtml, attachmentFilename, pdfBuffer } = await buildCocEmailContent({ job, settings, cocType, sampleItems, turnaround, relinquishedDate, relinquishedTime });
+
+  const sent = await sendMessage(accessToken, {
     to: "samples@crystalanalytical.com",
     subject,
     bodyHtml,
-    attachments: [{ filename: `${job.project_number ?? job.id} ${filenameLabel} Chain of Custody.pdf`, mimeType: "application/pdf", content: pdfBuffer }],
+    attachments: [{ filename: attachmentFilename, mimeType: "application/pdf", content: pdfBuffer }],
   });
-  const messageId = draft.messageId;
 
-  // gmail_draft_id (not just messageId) — needed by checkCocDraftSentStatus
-  // below to check real send status the same way checkDraftSentStatus
-  // already does for report/invoice drafts (getDraftStatus needs the
-  // draft's own id, not its underlying message id).
-  const logEntry: CocLogEntry = { coc_type: cocType, drafted_at: now.toISOString(), sample_count: sampleItems.length, gmail_draft_id: draft.id, gmail_message_id: messageId };
+  const now = new Date().toISOString();
+  // gmail_draft_id has no real draft to point to here — set to the sent
+  // message's own id so the field is never empty, but it's never actually
+  // read: checkCocDraftSentStatus returns early once it sees sent_at.
+  const logEntry: CocLogEntry = { coc_type: cocType, drafted_at: now, sample_count: sampleItems.length, gmail_draft_id: sent.id, gmail_message_id: sent.id, sent_at: now };
   const supabase = getSupabaseAdmin();
   await supabase.from("jobs").update({
     sample_items: mergedItems,
@@ -3353,11 +3391,11 @@ async function draftCocEmailForJob({
     coc_log: [...(job.coc_log ?? []), logEntry],
   }).eq("id", job.id);
 
-  return { messageId };
+  return { messageId: sent.id };
 }
 
-/** The Chain of Custody tab's "Create Draft" button. */
-export async function createCocDraftForJob(
+/** The Chain of Custody tab's "Send to Lab" button. */
+export async function sendCocEmailToLab(
   jobId: string,
   selection: {
     cocType: CocType;
@@ -3368,7 +3406,7 @@ export async function createCocDraftForJob(
     relinquishedTime: string | null;
   }
 ): Promise<{ messageId: string }> {
-  return draftCocEmailForJob({ ...(await loadJobForDraft(jobId)), ...selection });
+  return sendCocEmailForJob({ ...(await loadJobForDraft(jobId)), ...selection });
 }
 
 /**

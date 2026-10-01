@@ -920,9 +920,18 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
 
   const [turnaround, setTurnaround] = useState<"Rush" | "24-Hr" | null>(job.lab_turnaround === "Rush" ? "Rush" : job.lab_turnaround === "24-Hr" ? "24-Hr" : null);
   const [dateNeeded, setDateNeeded] = useState(job.lab_date_needed ?? "");
-  const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [materialGroupMenuOpen, setMaterialGroupMenuOpen] = useState(false);
+  // Per Tim, 2026-09-30 — "a button that actually sends it straight to
+  // the lab in one click (with a quick confirm), instead of creating a
+  // Gmail draft you have to go find and send yourself": same "prompted
+  // one-click real send" pattern as the Schedule confirm modal
+  // (JobRow's confirmingSchedule), just for the CoC email to the lab
+  // instead of the customer. confirmingSend gates a lightweight confirm
+  // dialog (see the modal below) before the real send actually fires.
+  const [sending, setSending] = useState(false);
+  const [confirmingSend, setConfirmingSend] = useState(false);
+  useLockBodyScroll(confirmingSend);
   // Per Tim, 2026-09-28 — "the relinquishment is the time that I drop it
   // off at the lab... most of the time it won't be [when the draft gets
   // created], so I have to enter that in": real, always-editable date/
@@ -1129,24 +1138,29 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
     .map((r, i) => i)
     .filter((i) => rows[i].sample_number.trim() || rows[i].material.trim() || rows[i].location.trim() || rows[i].start_time.trim() || rows[i].end_time.trim());
 
-  async function createCocDraft() {
-    setCreating(true);
+  // The "Send to Lab" button's real send — see sending/confirmingSend
+  // state's own comment above. No Gmail tab to open afterward (there's no
+  // draft left sitting in Gmail to jump to, unlike the "Create Draft"
+  // button this replaced) — onChanged() alone is enough to pick up the
+  // new coc_log entry (sent_at already set, nothing left to poll).
+  async function sendCocToLab() {
+    setSending(true);
     setError(null);
     try {
       const sampleItems = realRowIndexes.map((i) => ({ sample_number: rows[i].sample_number, material: rows[i].material, location: rows[i].location, ...(rows[i].start_time ? { start_time: rows[i].start_time } : {}), ...(rows[i].end_time ? { end_time: rows[i].end_time } : {}) }));
-      const res = await fetch(`/api/admin/jobs/${job.id}/coc-draft`, {
+      const res = await fetch(`/api/admin/jobs/${job.id}/coc-send`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ cocType, sampleItems, turnaround, dateNeeded: dateNeeded || null, relinquishedDate, relinquishedTime }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Failed to create draft");
+      if (!res.ok) throw new Error(data.error ?? "Failed to send to lab");
       onChanged();
-      if (data.messageId && !isStandaloneApp()) openGmailMessage(data.messageId, false);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to create draft");
+      setError(e instanceof Error ? e.message : "Failed to send to lab");
     } finally {
-      setCreating(false);
+      setSending(false);
+      setConfirmingSend(false);
     }
   }
 
@@ -1260,10 +1274,16 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
           table wrapper's own mt-8 exactly so both gaps are equal. */}
       {/* Desktop only — per Tim, 2026-09-30: "actually, for the chain of
           custody, this is perfect" (confirming the desktop layout as
-          shipped) — unchanged: View/Download grouped on the left,
-          Create Draft on the right, all in one row. See the sm:hidden
+          shipped) — View/Download grouped on the left, the lab-send
+          button on the right, all in one row. See the sm:hidden
           mobile-only version right below for mobile's own different
-          layout. */}
+          layout. Per Tim, 2026-09-30 (later same day) — "Create Draft"
+          replaced with "Send to Lab": "a button that actually sends it
+          straight to the lab in one click (with a quick confirm),
+          instead of creating a Gmail draft you have to go find and send
+          yourself" (same real-send pattern as the Schedule confirm, see
+          confirmingSend's own comment above) — he explicitly chose
+          replacing the draft button over keeping both. */}
       <div className="hidden flex-wrap items-center justify-between gap-2 sm:flex">
         <div className="flex flex-wrap items-center gap-2">
           <button
@@ -1285,11 +1305,11 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
         </div>
         <button
           type="button"
-          onClick={createCocDraft}
-          disabled={creating || realRowIndexes.length === 0}
+          onClick={() => setConfirmingSend(true)}
+          disabled={sending || realRowIndexes.length === 0}
           className="w-32 shrink-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-center text-sm hover:border-2 hover:border-brand-600 disabled:opacity-50"
         >
-          {creating ? "Creating…" : "Create Draft ↗"}
+          {sending ? "Sending…" : "Send to Lab"}
         </button>
       </div>
 
@@ -1824,15 +1844,49 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
           panel, after Turnaround/Relinquished — View/Download stay up
           top (see the sm:hidden block near the top of this panel).
           mt-8 (was mt-6), same day — "make sure that the spacing is
-          consistent" with every other section gap in this panel. */}
+          consistent" with every other section gap in this panel. Per
+          Tim, 2026-09-30 (later same day) — "Create Draft" replaced
+          with "Send to Lab" here too, same as the desktop row above. */}
       <button
         type="button"
-        onClick={createCocDraft}
-        disabled={creating || realRowIndexes.length === 0}
+        onClick={() => setConfirmingSend(true)}
+        disabled={sending || realRowIndexes.length === 0}
         className="mt-8 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-center text-sm hover:border-2 hover:border-brand-600 disabled:opacity-50 sm:hidden"
       >
-        {creating ? "Creating…" : "Create Draft ↗"}
+        {sending ? "Sending…" : "Send to Lab"}
       </button>
+
+      {confirmingSend && (
+        <div
+          className="fixed inset-0 z-10 flex items-center justify-center bg-black/40 px-4"
+          onClick={() => !sending && setConfirmingSend(false)}
+        >
+          <div className="w-full max-w-sm rounded-xl bg-white p-5" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-semibold text-slate-800">Send Chain of Custody to the lab?</h3>
+            <p className="mt-2 text-sm text-slate-600">
+              {realRowIndexes.length} sample{realRowIndexes.length === 1 ? "" : "s"} — sent straight to Crystal Analytical, not a Gmail draft.
+            </p>
+            <div className="mt-4 flex gap-2">
+              <button
+                type="button"
+                onClick={sendCocToLab}
+                disabled={sending}
+                className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+              >
+                {sending ? "Sending…" : "Send"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmingSend(false)}
+                disabled={sending}
+                className="rounded-lg border border-slate-300 px-4 py-2 text-sm disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
     </div>

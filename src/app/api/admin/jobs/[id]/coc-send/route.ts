@@ -2,14 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApi } from "@/lib/admin-api";
 import { withApiErrors } from "@/lib/api-handler";
 import { parseSampleItems } from "@/lib/sample-items";
-import { createCocDraftForJob } from "@/lib/lab-email";
+import { sendCocEmailToLab } from "@/lib/lab-email";
 import type { CocType } from "@/lib/types";
 
 const COC_TYPES: CocType[] = ["asbestos_bulk", "mold_air_o_cell", "mold_bulk", "mold_swab"];
 
-// The Chain of Custody tab's "Create Draft" button — same draft-creation
-// path (createDraft, never gmail.send) as every other document this app
-// emails out. See createCocDraftForJob's own comment in lab-email.ts.
+// The Chain of Custody tab's "Send to Lab" button — per Tim, 2026-09-30:
+// "a button that actually sends it straight to the lab in one click (with
+// a quick confirm), instead of creating a Gmail draft you have to go find
+// and send yourself." Same validation as the coc-draft route (its sibling,
+// kept for anyone who still wants to review before sending); this one
+// calls sendCocEmailToLab (a real gmail.send) instead of
+// createCocDraftForJob.
 export const POST = withApiErrors(async (
   req: NextRequest,
   { params }: { params: { id: string } }
@@ -29,18 +33,14 @@ export const POST = withApiErrors(async (
   }
   const sampleItems = parsed.items.filter((s) => s.sample_number || s.material || s.location);
   if (sampleItems.length === 0) {
-    return NextResponse.json({ error: "Add at least one sample before creating a Chain of Custody draft" }, { status: 400 });
+    return NextResponse.json({ error: "Add at least one sample before sending a Chain of Custody email" }, { status: 400 });
   }
 
   const turnaround = body?.turnaround === "Rush" || body?.turnaround === "24-Hr" ? body.turnaround : null;
   const dateNeeded = typeof body?.dateNeeded === "string" && body.dateNeeded ? body.dateNeeded : null;
-  // Per Tim, 2026-09-28 — real, always-editable date/time pickers (the
-  // relinquish moment is when he actually drops samples at the lab, not
-  // necessarily when this draft gets created) — native <input type="date">/
-  // "time"> values, so a plain shape check is enough here.
   const relinquishedDate = typeof body?.relinquishedDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.relinquishedDate) ? body.relinquishedDate : null;
   const relinquishedTime = typeof body?.relinquishedTime === "string" && /^\d{2}:\d{2}$/.test(body.relinquishedTime) ? body.relinquishedTime : null;
 
-  const { messageId } = await createCocDraftForJob(params.id, { cocType, sampleItems, turnaround, dateNeeded, relinquishedDate, relinquishedTime });
+  const { messageId } = await sendCocEmailToLab(params.id, { cocType, sampleItems, turnaround, dateNeeded, relinquishedDate, relinquishedTime });
   return NextResponse.json({ ok: true, messageId });
 });

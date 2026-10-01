@@ -471,18 +471,20 @@ export async function createDraft(
   return { id: data.id, messageId: data.message.id };
 }
 
-// Sends immediately — real gmail.send, not a draft. Deliberately narrow:
-// the only two call sites are sendCustomerBookingReceivedEmail and
-// sendJobConfirmedEmailIfDue in lib/booking-notify.ts (see the SCOPES
-// comment above for the full reasoning). Returns the real threadId Gmail
-// assigned, and the message's own id — pass that id to getMessageIdHeader
-// below to read back the real RFC Message-ID for the next email's
-// In-Reply-To/References.
+// Sends immediately — real gmail.send, not a draft. Originally narrow (the
+// two call sites below the comment that used to live here), widened per
+// Tim, 2026-09-30 — the Chain of Custody "Send to Lab" button (lab-email.ts's
+// sendCocEmailForJob) is the first attachment-carrying real send, matching
+// the same "one-click send, quick confirm" pattern already used for
+// sendCustomerBookingReceivedEmail and sendJobConfirmedEmailIfDue in
+// lib/booking-notify.ts. Returns the real threadId Gmail assigned, and the
+// message's own id — pass that id to getMessageIdHeader below to read back
+// the real RFC Message-ID for the next email's In-Reply-To/References.
 export async function sendMessage(
   accessToken: string,
-  params: { to: string; cc?: string; subject: string; bodyHtml: string; headers?: Record<string, string>; threadId?: string }
+  params: { to: string; cc?: string; subject: string; bodyHtml: string; attachments?: { filename: string; mimeType: string; content: Buffer }[]; headers?: Record<string, string>; threadId?: string }
 ): Promise<{ id: string; threadId: string }> {
-  const raw = buildRawEmail({ from: FROM, to: params.to, cc: params.cc, subject: params.subject, bodyHtml: params.bodyHtml, attachments: [], headers: params.headers });
+  const raw = buildRawEmail({ from: FROM, to: params.to, cc: params.cc, subject: params.subject, bodyHtml: params.bodyHtml, attachments: params.attachments ?? [], headers: params.headers });
   const res = await gmailFetch(accessToken, "/messages/send", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

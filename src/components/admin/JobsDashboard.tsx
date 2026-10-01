@@ -2537,6 +2537,15 @@ export default function JobsDashboard() {
         </button>
       )}
 
+      {/* Per Tim, 2026-09-30 — "delete this tool on the open projects tab,
+          and only leave it for the closed projects tab": the whole
+          sort/filter/search toolbar below (mobile dropdown+search and the
+          desktop Sort by/Search by rows) is gone on Open Projects — an
+          open job list is small/active enough not to need it; a closed
+          one accumulates, where finding an old project again is the
+          actual use case this was built for. */}
+      {statusView === "closed" && (
+      <>
       {/* Mobile: one dropdown (sort fields + every status/service filter,
           single choice at a time) and one search box, half the row each,
           replacing the whole sort/filter/search row below. Desktop:
@@ -2751,6 +2760,8 @@ export default function JobsDashboard() {
               </button>
             )}
       </div>
+      </>
+      )}
 
       {error && <div className="mt-3 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>}
 

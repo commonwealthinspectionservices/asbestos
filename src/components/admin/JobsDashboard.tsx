@@ -1929,6 +1929,23 @@ const DOCUMENT_KIND_LABEL: Record<JobDocument["kind"], string> = {
 };
 
 const TURNAROUND_OPTIONS = ["Rush", "24-Hr", "48-Hr", "3-Day", "4-Day", "5-Day"];
+// Per Tim, 2026-09-30 — "the button styles for all of this... should follow
+// what we have on the chain of custody page, the asbestos report page, and
+// the invoice page": the Open/Payment Pending/Closed/All Projects tabs and
+// the Sort by/Status/Service Type pills were a dark-navy-fill-when-active
+// style found nowhere else in the app — replaced with the one real shared
+// convention those three tabs already use (the CoC Turnaround buttons,
+// Report/Invoice's own View/Download buttons): always a white background,
+// a plain slate-300 border at rest (thickening to brand-600 on hover), and
+// a solid border-2 brand-600 — never a fill — for whichever option is
+// currently selected. Two sizes only because the Projects status tabs
+// were already noticeably bigger than the Sort by/Status/Service Type
+// pills beneath them before this change; nothing else about that sizing
+// difference is new.
+const TAB_BUTTON_CLASS = (active: boolean) =>
+  `whitespace-nowrap rounded-lg px-4 py-2 text-sm font-bold shrink-0 bg-white text-slate-700 transition-colors ${active ? "border-2 border-brand-600" : "border border-slate-300 hover:border-2 hover:border-brand-600"}`;
+const FILTER_PILL_CLASS = (active: boolean) =>
+  `rounded-lg bg-white px-1.5 py-0.5 text-xs font-medium text-slate-700 transition-colors sm:px-2.5 sm:py-1 sm:text-sm ${active ? "border-2 border-brand-600" : "border border-slate-300 hover:border-2 hover:border-brand-600"}`;
 type SortField = "date" | "project_number" | "status";
 const SORT_FIELDS: { key: SortField; label: string }[] = [
   { key: "date", label: "Date" },
@@ -2498,7 +2515,7 @@ export default function JobsDashboard() {
       <div className="hidden items-center gap-2 border-b border-slate-200 pb-4 sm:flex sm:flex-wrap">
         <button
           onClick={() => selectStatusView("open")}
-          className={`whitespace-nowrap rounded-lg px-4 py-2 text-sm font-bold shrink-0 ${statusFilter.size === 0 && statusView === "open" ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
+          className={TAB_BUTTON_CLASS(statusFilter.size === 0 && statusView === "open")}
         >
           Open Projects
         </button>
@@ -2507,19 +2524,19 @@ export default function JobsDashboard() {
             use (selectStatusFilter), not a fourth statusView. */}
         <button
           onClick={() => selectStatusFilter("report_invoice_sent")}
-          className={`whitespace-nowrap rounded-lg px-4 py-2 text-sm font-bold shrink-0 ${statusFilter.has("report_invoice_sent") ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
+          className={TAB_BUTTON_CLASS(statusFilter.has("report_invoice_sent"))}
         >
           Payment Pending
         </button>
         <button
           onClick={() => selectStatusView("closed")}
-          className={`whitespace-nowrap rounded-lg px-4 py-2 text-sm font-bold shrink-0 ${statusFilter.size === 0 && statusView === "closed" ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
+          className={TAB_BUTTON_CLASS(statusFilter.size === 0 && statusView === "closed")}
         >
           Closed Projects
         </button>
         <button
           onClick={() => selectStatusView("all")}
-          className={`whitespace-nowrap rounded-lg px-4 py-2 text-sm font-bold shrink-0 ${statusFilter.size === 0 && statusView === "all" ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
+          className={TAB_BUTTON_CLASS(statusFilter.size === 0 && statusView === "all")}
         >
           All Projects
         </button>
@@ -2614,7 +2631,7 @@ export default function JobsDashboard() {
           <div key={f.key} className="w-full min-w-0 sm:w-0 sm:flex-1">
             <button
               onClick={() => toggleSort(f.key)}
-              className={`w-full rounded-lg border border-slate-300 px-1.5 py-0.5 text-xs font-medium sm:px-2.5 sm:py-1 sm:text-sm ${sortEnabled && sortBy === f.key ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
+              className={`w-full ${FILTER_PILL_CLASS(sortEnabled && sortBy === f.key)}`}
             >
               {f.label}{sortEnabled && sortBy === f.key ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
             </button>
@@ -2632,7 +2649,7 @@ export default function JobsDashboard() {
                 setStatusFilterOpen(false);
               }
             }}
-            className={`w-full rounded-lg border border-slate-300 px-1.5 py-0.5 text-xs font-medium sm:px-2.5 sm:py-1 sm:text-sm ${statusFilter.size > 0 ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
+            className={`w-full ${FILTER_PILL_CLASS(statusFilter.size > 0)}`}
           >
             Status{statusFilter.size > 0 ? ` (${statusFilter.size})` : ""} ▾
           </button>
@@ -2699,7 +2716,7 @@ export default function JobsDashboard() {
                 setServiceTypeFilterOpen(false);
               }
             }}
-            className={`w-full rounded-lg border border-slate-300 px-1.5 py-0.5 text-xs font-medium sm:px-2.5 sm:py-1 sm:text-sm ${serviceTypeFilter.size > 0 ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600"}`}
+            className={`w-full ${FILTER_PILL_CLASS(serviceTypeFilter.size > 0)}`}
           >
             <span className="sm:hidden">Service</span>
             <span className="hidden sm:inline">Service Type</span>

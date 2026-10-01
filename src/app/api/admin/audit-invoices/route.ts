@@ -151,7 +151,21 @@ export const GET = withApiErrors(async (req: NextRequest) => {
       const allMatched = serviceTypeLabels.length > 0 && serviceTypeLabels.every((l) => settings.service_types.some((t) => t.label === l));
       if (allMatched) {
         const expectedBaseFeeCents = resolveBaseFeeCents(job, settings.service_types, settings.pricing_zones);
-        if (expectedBaseFeeCents != null && expectedBaseFeeCents !== baseFeeLineItem.unit_cost_cents) {
+        // Per Tim, 2026-09-30 (26-0056.1/.2) — "these shouldn't be red. I
+        // did this on purpose": one site visit split into two invoices
+        // (a ".1"/".2" project number, same convention as a real revisit
+        // — see is_revisit's own comment in types.ts) should only ever
+        // charge the base fee once between them, not once each — he
+        // split the standard rate exactly in half across the pair rather
+        // than double-charge it. A dotted suffix plus a base fee that's
+        // exactly half the standard rate is specific enough to this one
+        // deliberate pattern that it won't mask a genuine mismatch on an
+        // ordinary job (or a real revisit, which still charges its own
+        // full visit fee).
+        const isHalvedSplitBaseFee = Boolean(
+          expectedBaseFeeCents != null && /\.\d+$/.test(job.project_number ?? "") && baseFeeLineItem.unit_cost_cents * 2 === expectedBaseFeeCents
+        );
+        if (expectedBaseFeeCents != null && expectedBaseFeeCents !== baseFeeLineItem.unit_cost_cents && !isHalvedSplitBaseFee) {
           issues.push({
             project_number: label,
             company,

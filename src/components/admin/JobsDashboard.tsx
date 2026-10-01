@@ -3423,23 +3423,17 @@ function JobRow({
                 longer conditional at all: sm:mt-2/sm:gap-2 always
                 applies here now, so every status shares the identical
                 gap-2 rhythm between street and cityStateZip. */}
-            {/* Per Tim, 2026-09-29 — "on all of the preview cards, the
-                address should underline when you hover over it, like a
-                link": this desktop block used to be plain, non-clickable
-                text (only the dialog's own Project Info address linked
-                to Waze) — now a real link here too, same as the mobile
-                card's own address above, so the hover cue is honest
-                about it actually being clickable. */}
-            <a
-              href={wazeUrl(job.service_address)}
-              target="_blank"
-              rel="noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className="hidden sm:mt-2 sm:flex sm:flex-col sm:gap-2 sm:hover:underline"
-            >
+            {/* Per Tim, 2026-09-29 — briefly made this a real Waze link
+                (matching the mobile card's own address above) so the hover
+                cue was honest about being clickable. Per Tim, 2026-09-30 —
+                reversed: "I keep accidentally clicking them on desktop and
+                I don't ever need to click on them on desktop" — back to
+                plain, non-clickable text on desktop; mobile (above) still
+                links to Waze. */}
+            <div className="hidden sm:mt-2 sm:flex sm:flex-col sm:gap-2">
               <div className="whitespace-nowrap text-sm text-slate-500">{street}</div>
               {cityStateZip && <div className="whitespace-nowrap text-sm text-slate-500">{cityStateZip}</div>}
-            </a>
+            </div>
             {/* Per Tim, 2026-08-27 — Invoice directly above Report, both
                 left-aligned, sitting right after the address block instead
                 of interrupting it. Per Tim, 2026-09-29 — "this never
@@ -5425,11 +5419,23 @@ export function ProjectDetailDialog({
                         // just be two lines total, like it was" — back to
                         // splitAddress, which keeps unit folded into street.
                         const { street, cityStateZip } = splitAddress(job.service_address);
+                        // Per Tim, 2026-09-30 — "I keep accidentally
+                        // clicking them on desktop and I don't ever need to
+                        // click on them on desktop": Waze link mobile-only
+                        // now (sm:hidden); desktop (hidden sm:block) is
+                        // plain, non-clickable text, same two lines either
+                        // way.
                         return (
-                          <a href={wazeUrl(job.service_address)} target="_blank" rel="noreferrer" className="hover:underline">
-                            <span className="block">{expandAddress(street)}</span>
-                            {cityStateZip && <span className="block">{expandAddress(cityStateZip)}</span>}
-                          </a>
+                          <>
+                            <a href={wazeUrl(job.service_address)} target="_blank" rel="noreferrer" className="hover:underline sm:hidden">
+                              <span className="block">{expandAddress(street)}</span>
+                              {cityStateZip && <span className="block">{expandAddress(cityStateZip)}</span>}
+                            </a>
+                            <span className="hidden sm:block">
+                              <span className="block">{expandAddress(street)}</span>
+                              {cityStateZip && <span className="block">{expandAddress(cityStateZip)}</span>}
+                            </span>
+                          </>
                         );
                       })() : null}
                       nowrap
@@ -5504,14 +5510,23 @@ export function ProjectDetailDialog({
                   // (three total) treatment, then reversed same day: "two
                   // lines total, like it was" — back to splitAddress.
                   const { street, cityStateZip } = splitAddress(job.service_address);
+                  // Per Tim, 2026-09-30 — "I keep accidentally clicking
+                  // them on desktop and I don't ever need to click on them
+                  // on desktop": Waze link mobile-only now (sm:hidden);
+                  // desktop (hidden sm:block) is plain, non-clickable text,
+                  // same two lines either way (street, then town/state/zip
+                  // — per Tim, 2026-08-28).
                   return (
-                    <a href={wazeUrl(job.service_address)} target="_blank" rel="noreferrer" className="hover:underline">
-                      {/* Per Tim, 2026-08-28 — street, then town/state/zip on
-                          its own line below it, same on desktop as mobile
-                          now (used to be one line on desktop). */}
-                      <span className="block">{expandAddress(street)}</span>
-                      {cityStateZip && <span className="block">{expandAddress(cityStateZip)}</span>}
-                    </a>
+                    <>
+                      <a href={wazeUrl(job.service_address)} target="_blank" rel="noreferrer" className="hover:underline sm:hidden">
+                        <span className="block">{expandAddress(street)}</span>
+                        {cityStateZip && <span className="block">{expandAddress(cityStateZip)}</span>}
+                      </a>
+                      <span className="hidden sm:block">
+                        <span className="block">{expandAddress(street)}</span>
+                        {cityStateZip && <span className="block">{expandAddress(cityStateZip)}</span>}
+                      </span>
+                    </>
                   );
                 })() : null}
                 nowrap

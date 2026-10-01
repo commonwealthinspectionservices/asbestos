@@ -766,16 +766,20 @@ const COC_MATERIAL_PRESETS: Record<CocType, string[]> = {
 // Per Tim, 2026-09-30 — "drywall is [always] base and skim coat, plaster
 // is plaster and skim coat," then "there could be drywall ceilings or
 // drywall walls or textured walls... maybe I should just have a
-// dropdown": every surfacing material that's actually two real samples
-// (a base/plaster coat plus its own skim coat, wall or ceiling), picked
-// from one menu instead of a fixed button per material — see
-// addMaterialGroup's own comment for how picking one adds both
-// materials' A+B pair at once.
-const MATERIAL_GROUP_OPTIONS: { label: string; materials: readonly [string, string] }[] = [
-  { label: "Drywall wall", materials: ["Drywall wall base", "Drywall wall skim coat"] },
-  { label: "Drywall ceiling", materials: ["Drywall ceiling base", "Drywall ceiling skim coat"] },
-  { label: "Plaster wall", materials: ["Plaster wall base", "Plaster wall skim coat"] },
-  { label: "Plaster ceiling", materials: ["Plaster ceiling base", "Plaster ceiling skim coat"] },
+// dropdown" (a separate "+ Common Material" menu button, first version).
+// Per Tim, same day (follow-up) — "I don't love the common material
+// dropdown... when I add a material and it's blank, the material cell
+// should just be a dropdown itself of common materials... if I put in
+// drywall, it should list all four for drywall": removed that button
+// entirely — fetchMaterialOptions below now shows these category labels
+// the instant a blank Material cell gets focus (fetchOnFocus), and
+// typing/picking a category (e.g. "Drywall") expands to its own real
+// materials, no extra rows auto-added. Asbestos bulk only — mold's own
+// materials (COC_MATERIAL_PRESETS) don't have this wall/ceiling-coat
+// structure.
+const ASBESTOS_MATERIAL_CATEGORIES: { label: string; materials: string[] }[] = [
+  { label: "Drywall", materials: ["Drywall wall base", "Drywall wall skim coat", "Drywall ceiling base", "Drywall ceiling skim coat"] },
+  { label: "Plaster", materials: ["Plaster wall base", "Plaster wall skim coat", "Plaster ceiling base", "Plaster ceiling skim coat"] },
 ];
 
 // Electronic Chain of Custody — per Tim, 2026-09-28: "right now everything
@@ -819,15 +823,24 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
   // the curated COC_MATERIAL_PRESETS list, same min-chars gate.
   const fetchMaterialOptions = useCallback(async (query: string): Promise<string[]> => {
     const q = query.trim();
-    if (q.length < MATERIAL_MIN_CHARS) return [];
-    if (cocType === "asbestos_bulk") {
-      const res = await fetch(`/api/admin/rays-library?q=${encodeURIComponent(q)}`);
-      if (!res.ok) return [];
-      const data = await res.json();
-      const names: string[] = (data.entries ?? []).map((e: { material: string }) => e.material).filter(Boolean);
-      return Array.from(new Set(names)).slice(0, 20);
-    }
     const lower = q.toLowerCase();
+    if (cocType === "asbestos_bulk") {
+      // Per Tim, 2026-09-30 — blank cell shows the category labels
+      // ("Drywall", "Plaster") immediately (fetchOnFocus, no min-chars
+      // gate — this curated list is short, not Ray's Library's whole
+      // history); typing (or matching) one expands to its own real
+      // materials ("if I put in drywall, it should list all four").
+      const categoryMatches = q === ""
+        ? ASBESTOS_MATERIAL_CATEGORIES.map((c) => c.label)
+        : ASBESTOS_MATERIAL_CATEGORIES.flatMap((c) =>
+            c.label.toLowerCase().includes(lower) ? c.materials : c.materials.filter((m) => m.toLowerCase().includes(lower))
+          );
+      if (q.length < MATERIAL_MIN_CHARS) return categoryMatches;
+      const res = await fetch(`/api/admin/rays-library?q=${encodeURIComponent(q)}`);
+      const historical: string[] = res.ok ? ((await res.json()).entries ?? []).map((e: { material: string }) => e.material).filter(Boolean) : [];
+      return Array.from(new Set([...categoryMatches, ...historical])).slice(0, 20);
+    }
+    if (q.length < MATERIAL_MIN_CHARS) return [];
     return COC_MATERIAL_PRESETS[cocType].filter((m) => m.toLowerCase().includes(lower));
   }, [cocType]);
 
@@ -921,7 +934,6 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
   const [turnaround, setTurnaround] = useState<"Rush" | "24-Hr" | null>(job.lab_turnaround === "Rush" ? "Rush" : job.lab_turnaround === "24-Hr" ? "24-Hr" : null);
   const [dateNeeded, setDateNeeded] = useState(job.lab_date_needed ?? "");
   const [error, setError] = useState<string | null>(null);
-  const [materialGroupMenuOpen, setMaterialGroupMenuOpen] = useState(false);
   // Per Tim, 2026-09-30 — "a button that actually sends it straight to
   // the lab in one click (with a quick confirm), instead of creating a
   // Gmail draft you have to go find and send yourself": same "prompted
@@ -941,7 +953,16 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
   // right now as a starting point (only when nothing's been saved for
   // this job yet — see coc_relinquished_date/_time below), since drafting
   // right at drop-off is still the common case, but he can freely change
-  // either.
+  // either. Per Tim, 2026-09-30 (follow-up) — "Relinquished should always
+  // default to the date and time that I typed in all the samples": a
+  // one-time now() at mount went stale if he came back to finish the
+  // samples later, so relinquishedTouchedRef (false until he edits the
+  // date/time picker directly — see those inputs' onChange below) lets
+  // every real sample edit (updateRow/addRow/removeRow) keep snapping
+  // this to right now instead, same "track it live until he overrides it"
+  // idea as airOCellEndTime's own default. Once he does touch the picker
+  // himself, that's a deliberate value and nothing auto-refreshes it again.
+  const relinquishedTouchedRef = useRef(false);
   const [relinquishedDate, setRelinquishedDate] = useState(() => {
     if (job.coc_relinquished_date) return job.coc_relinquished_date;
     const d = new Date();
@@ -952,6 +973,12 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
     const d = new Date();
     return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
   });
+  function refreshRelinquishedIfUntouched() {
+    if (relinquishedTouchedRef.current) return;
+    const d = new Date();
+    setRelinquishedDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
+    setRelinquishedTime(`${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`);
+  }
 
   // Per Tim, 2026-09-28 — "all of this should always auto save. I
   // shouldn't have to manually save it ever at all... based on the
@@ -1054,6 +1081,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
   // default (or is blank); the moment it's been hand-edited to something
   // else, further Start Time edits stop overwriting it.
   function updateRow(i: number, field: "sample_number" | "material" | "location" | "start_time" | "end_time", value: string) {
+    refreshRelinquishedIfUntouched();
     setRows((prev) => {
       const next = prev.map((r, idx) => (idx === i ? { ...r, [field]: value } : r));
       if ((field === "material" || field === "location") && pairsSamples && i % 2 === 0 && i + 1 < next.length) {
@@ -1094,6 +1122,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
   // fetchLocationOptions above) instead of a pre-filled guess that might
   // be wrong.
   function addRow() {
+    refreshRelinquishedIfUntouched();
     setRows((prev) => {
       if (!pairsSamples) {
         return [...prev, { sample_number: defaultSampleCode(prev.length, false), material: "", location: "", start_time: "", end_time: "" }];
@@ -1105,32 +1134,8 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
       ];
     });
   }
-  // Per Tim, 2026-09-30 — "drywall is always going to be listed with
-  // [its] skim coat... I just wanna make that process simpler": these
-  // two materials are never sampled alone — each one means two real
-  // materials (a base/plaster coat and its own skim coat), so picking
-  // one of these adds both materials' own A+B pair at once (4 rows)
-  // instead of typing each material name twice by hand. Location stays
-  // blank on every new row, same as addRow above — no guessing, just
-  // fewer material names to type. Per Tim, same day (follow-up) —
-  // "there could be drywall ceilings or drywall walls or textured
-  // walls... maybe I should just have a dropdown": a fixed pair of
-  // buttons didn't scale to every wall/ceiling variant, so this is now
-  // a list a menu picks from (MATERIAL_GROUP_OPTIONS below) instead of
-  // one button per group.
-  function addMaterialGroup(materials: readonly [string, string]) {
-    setRows((prev) => {
-      const next = [...prev];
-      for (const material of materials) {
-        next.push(
-          { sample_number: defaultSampleCode(next.length, true), material, location: "", start_time: "", end_time: "" },
-          { sample_number: defaultSampleCode(next.length + 1, true), material, location: "", start_time: "", end_time: "" }
-        );
-      }
-      return next;
-    });
-  }
   function removeRow(i: number) {
+    refreshRelinquishedIfUntouched();
     setRows((prev) => (prev.length > 1 ? prev.filter((_, idx) => idx !== i) : prev));
   }
 
@@ -1440,6 +1445,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
                         value={r.material}
                         onChange={(v) => updateRow(i, "material", v)}
                         fetchOptions={fetchMaterialOptions}
+                        fetchOnFocus
                         getLabel={(m) => m}
                         onSelect={(m) => updateRow(i, "material", m)}
                         onBlur={(v) => updateRow(i, "material", v)}
@@ -1577,6 +1583,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
                     value={r.material}
                     onChange={(v) => updateRow(i, "material", v)}
                     fetchOptions={fetchMaterialOptions}
+                    fetchOnFocus
                     getLabel={(m) => m}
                     onSelect={(m) => updateRow(i, "material", m)}
                     onBlur={(v) => updateRow(i, "material", v)}
@@ -1637,48 +1644,6 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
       </div>
 
       <div className="mt-3 flex flex-wrap items-start justify-end gap-x-4 gap-y-1">
-        {/* Per Tim, 2026-09-30 — "drywall is [always] base and skim
-            coat, plaster is plaster and skim coat," then "there could
-            be drywall ceilings or drywall walls or textured walls...
-            maybe I should just have a dropdown": one pick from this
-            menu adds that material's own A+B pair (4 rows) — wall or
-            ceiling, base/plaster coat plus its own skim coat — instead
-            of typing both material names out by hand, and instead of
-            one button per variant (didn't scale past Drywall/Plaster).
-            Asbestos bulk only (pairsSamples) — mold's own materials
-            don't pair up this way. Closes on blur (a short delay so the
-            click on an option still registers first) — same pattern as
-            this file's other small dropdown menus. */}
-        {pairsSamples && (
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setMaterialGroupMenuOpen((v) => !v)}
-              onBlur={() => setTimeout(() => setMaterialGroupMenuOpen(false), 150)}
-              className="shrink-0 text-sm font-medium text-brand-600 hover:underline"
-            >
-              + Common Material ▾
-            </button>
-            {materialGroupMenuOpen && (
-              <div className="absolute right-0 z-10 mt-1 w-44 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 shadow-lg">
-                {MATERIAL_GROUP_OPTIONS.map((group) => (
-                  <button
-                    key={group.label}
-                    type="button"
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => {
-                      addMaterialGroup(group.materials);
-                      setMaterialGroupMenuOpen(false);
-                    }}
-                    className="block w-full rounded px-2 py-1 text-left text-sm hover:bg-slate-50"
-                  >
-                    {group.label}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
         <button type="button" onClick={addRow} className="shrink-0 text-sm font-medium text-brand-600 hover:underline">{pairsSamples ? "+ Add material" : "+ Add sample"}</button>
       </div>
 
@@ -1749,13 +1714,13 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
           <input
             type="date"
             value={relinquishedDate}
-            onChange={(e) => setRelinquishedDate(e.target.value)}
+            onChange={(e) => { relinquishedTouchedRef.current = true; setRelinquishedDate(e.target.value); }}
             className="w-32 shrink-0 rounded-lg border border-slate-300 px-3 py-2 text-sm"
           />
           <input
             type="time"
             value={relinquishedTime}
-            onChange={(e) => setRelinquishedTime(e.target.value)}
+            onChange={(e) => { relinquishedTouchedRef.current = true; setRelinquishedTime(e.target.value); }}
             className="w-32 shrink-0 rounded-lg border border-slate-300 px-3 py-2 text-sm"
           />
         </div>
@@ -1826,13 +1791,13 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
             <input
               type="date"
               value={relinquishedDate}
-              onChange={(e) => setRelinquishedDate(e.target.value)}
+              onChange={(e) => { relinquishedTouchedRef.current = true; setRelinquishedDate(e.target.value); }}
               className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs"
             />
             <input
               type="time"
               value={relinquishedTime}
-              onChange={(e) => setRelinquishedTime(e.target.value)}
+              onChange={(e) => { relinquishedTouchedRef.current = true; setRelinquishedTime(e.target.value); }}
               className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs"
             />
           </div>

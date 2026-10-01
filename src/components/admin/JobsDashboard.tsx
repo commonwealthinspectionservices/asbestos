@@ -8631,9 +8631,6 @@ function AddProjectDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
               <option value="online">Stripe</option>
               <option value="check">Check</option>
             </select>
-            {paymentType === "check" && (
-              <p className="mt-1 text-xs text-slate-500">No Stripe invoice or pay-now link will be created automatically for this project.</p>
-            )}
           </>
         )}
 
@@ -9761,9 +9758,6 @@ export function EditProjectDialog({
               <option value="online">Stripe</option>
               <option value="check">Check</option>
             </select>
-            {paymentType === "check" && (
-              <p className="mt-1 text-xs text-slate-500">No Stripe invoice or pay-now link will be created automatically for this project.</p>
-            )}
           </>
         )}
 

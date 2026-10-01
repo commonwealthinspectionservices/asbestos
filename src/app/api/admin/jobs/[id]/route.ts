@@ -106,6 +106,20 @@ const EDITABLE_FIELDS = [
   // the checkbox snapped back to its prior value on the next refetch —
   // looked exactly like it "wouldn't let him uncheck it."
   "mold_standard_conclusion_included",
+  // Per Tim, 2026-09-30 (26-0056.1's split-back-apart recovery) — a job
+  // reused from an old merged record still carried the OLD conversation's
+  // own email_gmail_thread_id/email_thread_subject, so its fresh Report+
+  // Invoice draft silently threaded onto that stale conversation instead
+  // of starting new like its sibling 26-0056.2 (a genuinely new job, no
+  // old thread to inherit) did. draftCombinedEmailForJob/
+  // draftReportEmailForJob both thread only when email_gmail_thread_id is
+  // set (see their own threadId: ... ?? undefined), so clearing these
+  // three here lets a one-off "start this job's email over clean" fully
+  // reset it — same "one-off correction, no dedicated route needed"
+  // reasoning as coc_log/report_sent_domains above.
+  "email_gmail_thread_id",
+  "email_thread_subject",
+  "email_thread_message_ids",
 ] as const;
 
 export const PATCH = withApiErrors(async (

@@ -175,7 +175,7 @@ export default function PaymentCalendarView() {
                     return (
                       <div
                         key={job.id}
-                        className="grid grid-cols-[5rem_minmax(0,1fr)_6rem_5rem] items-center sm:grid-cols-[5rem_minmax(0,1fr)_6rem_5rem_7rem] gap-2 text-sm"
+                        className="grid grid-cols-[5rem_minmax(0,1fr)_6rem_5rem] items-center sm:grid-cols-[5rem_minmax(0,1fr)_6rem_7rem_5rem] gap-2 text-sm"
                       >
                         <Link
                           href={`/admin/dashboard?jobId=${job.id}`}
@@ -191,15 +191,15 @@ export default function PaymentCalendarView() {
                             per-date group, so each row needs its own due
                             date shown inline. */}
                         <span className="whitespace-nowrap text-xs text-slate-700">Due on {formatDateMDY(due)}</span>
-                        <span className="whitespace-nowrap text-right font-medium text-slate-800">{formatCents(job.invoice_total_cents ?? 0)}</span>
                         <button
                           type="button"
                           onClick={() => draftReminder(job.id)}
                           disabled={draftingId === job.id}
-                          className="col-span-4 justify-self-end whitespace-nowrap rounded border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:border-brand-600 disabled:opacity-50 sm:col-span-1"
+                          className="order-last col-span-4 justify-self-end whitespace-nowrap rounded border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:border-brand-600 disabled:opacity-50 sm:order-none sm:col-span-1"
                         >
                           {draftingId === job.id ? "Drafting…" : "Draft reminder"}
                         </button>
+                        <span className="whitespace-nowrap text-right font-medium text-slate-800">{formatCents(job.invoice_total_cents ?? 0)}</span>
                       </div>
                     );
                   })}

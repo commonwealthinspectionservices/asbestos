@@ -23,6 +23,7 @@ import {
   getMessageBodyText,
   getOrCreateLabelId,
   getSentMessageInfo,
+  findSentMessageInThread,
   getValidAccessToken,
   listMessagesByQuery,
   markMessageRead,
@@ -440,6 +441,7 @@ export async function checkDraftSentStatus(
   const gmailIdCol = kind === "invoice" ? "invoice_draft_gmail_id" : "report_draft_gmail_id";
   const gmailMessageIdCol = kind === "invoice" ? "invoice_draft_gmail_message_id" : "report_draft_gmail_message_id";
   const sentAtCol = kind === "invoice" ? "invoice_sent_at" : "report_sent_at";
+  const draftedAtCol = kind === "invoice" ? "invoice_drafted_at" : "report_drafted_at";
   // The "combined" draft (createCombinedDraftForJob, the only path the UI
   // actually uses now) writes the same Gmail draft/message id into both
   // pairs of columns — one Gmail send event covers both. Selecting the
@@ -452,7 +454,7 @@ export async function checkDraftSentStatus(
   const supabase = getSupabaseAdmin();
   const { data: job } = await supabase
     .from("jobs")
-    .select(`${gmailIdCol}, ${gmailMessageIdCol}, ${sentAtCol}, ${otherGmailIdCol}, ${otherSentAtCol}, status, stripe_invoice_id, is_individual`)
+    .select(`${gmailIdCol}, ${gmailMessageIdCol}, ${sentAtCol}, ${otherGmailIdCol}, ${otherSentAtCol}, ${draftedAtCol}, email_gmail_thread_id, status, stripe_invoice_id, is_individual`)
     .eq("id", jobId)
     .maybeSingle<Record<string, string | null> & { is_individual?: boolean }>();
 
@@ -500,7 +502,15 @@ export async function checkDraftSentStatus(
       const gmailMessageId = job?.[gmailMessageIdCol];
       if (!gmailMessageId) return null;
       const { sent, sentAt } = await getSentMessageInfo(accessToken, gmailMessageId);
-      return sent ? { messageId: gmailMessageId, sentAt: sentAt ?? new Date().toISOString() } : null;
+      if (sent) return { messageId: gmailMessageId, sentAt: sentAt ?? new Date().toISOString() };
+      // Stored message id is stale (the draft was edited in Gmail before
+      // sending) — see findSentMessageInThread's own comment.
+      const threadId = job?.email_gmail_thread_id;
+      const draftedAt = job?.[draftedAtCol];
+      if (!threadId || !draftedAt) return null;
+      const matches = kind === "invoice" ? (f: string) => /invoice/i.test(f) : (f: string) => /report/i.test(f) && !/lab-report/i.test(f);
+      const found = await findSentMessageInThread(accessToken, threadId, draftedAt, matches).catch(() => null);
+      return found ? { messageId: found.messageId, sentAt: found.sentAt } : null;
     })();
 
   if (resolved) {

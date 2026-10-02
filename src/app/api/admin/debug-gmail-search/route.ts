@@ -82,6 +82,8 @@ export const GET = withApiErrors(async (req: NextRequest) => {
         id: m.id,
         threadId: m.threadId,
         from: getHeader(m, "From"),
+        to: getHeader(m, "To"),
+        cc: getHeader(m, "Cc"),
         subject: getHeader(m, "Subject"),
         date: m.internalDate ? new Date(Number(m.internalDate)).toISOString() : null,
         bodyText: getMessageBodyText(m),

@@ -583,6 +583,34 @@ export async function getSentMessageInfo(accessToken: string, messageId: string)
   return { sent, sentAt };
 }
 
+// Per Tim, 2026-10-02 (26-0065) — a report sent after its Gmail draft was
+// edited (here: swapping in a corrected recipient) never registered as sent.
+// Gmail gives a draft a new underlying message id on every edit while the
+// draft id itself stays the same, so once the draft is sent and its id 404s,
+// the message id this app stored at creation time is stale and
+// getSentMessageInfo on it finds nothing. This is the fallback for that
+// case: a real SENT message on the job's own thread, after the draft was
+// created, carrying a PDF whose filename matches what that draft attached.
+export async function findSentMessageInThread(
+  accessToken: string,
+  threadId: string,
+  afterIso: string,
+  filenameMatches: (filename: string) => boolean
+): Promise<{ messageId: string; sentAt: string } | null> {
+  const res = await gmailFetch(accessToken, `/threads/${threadId}?format=full`);
+  const data = await res.json();
+  const after = new Date(afterIso).getTime();
+  for (const message of (data.messages ?? []) as GmailMessage[]) {
+    if (!message.labelIds?.includes("SENT")) continue;
+    const internal = message.internalDate ? Number(message.internalDate) : 0;
+    if (!internal || internal < after) continue;
+    if (findPdfParts(message.payload).some((p) => filenameMatches(p.filename))) {
+      return { messageId: message.id, sentAt: new Date(internal).toISOString() };
+    }
+  }
+  return null;
+}
+
 /** Refreshes first if the stored access token is missing/expiring, so callers never think about token lifetime. */
 export async function getValidAccessToken(): Promise<string | null> {
   const supabase = getSupabaseAdminFresh();

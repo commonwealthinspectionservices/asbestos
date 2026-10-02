@@ -61,6 +61,8 @@ export const POST = withApiErrors(async (req: NextRequest) => {
     combinedAsbestosResult: anyPositive ? "positive" : "negative",
     invoice_auto: into.invoice_auto,
     invoiceItemsBefore: into.invoice_line_items,
+    reportText: text.slice(0, 4000),
+    reportTextPositioned: (positionOrderedText ?? "").slice(0, 4000),
   };
   if (!apply) return NextResponse.json({ dryRun: true, plan });
   if (collisions.length > 0 || newResults.length === 0) return NextResponse.json({ error: "Refusing to apply — see plan", plan }, { status: 400 });

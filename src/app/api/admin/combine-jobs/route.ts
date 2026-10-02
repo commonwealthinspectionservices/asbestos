@@ -32,7 +32,7 @@ export const POST = withApiErrors(async (req: NextRequest) => {
     return NextResponse.json({ error: "Jobs are for a different customer or address" }, { status: 400 });
   }
 
-  const label = into.service_type.split(",")[0].trim();
+  const label = (into.service_type ?? "").split(",")[0].trim();
   const fromLab = (from.documents ?? []).filter((d) => d.kind === "lab_report");
   const fromCoc = (from.documents ?? []).filter((d) => d.kind === "coc");
   if (fromLab.length === 0) return NextResponse.json({ error: "Source job has no lab report" }, { status: 400 });

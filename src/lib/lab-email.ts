@@ -2030,7 +2030,7 @@ export function buildLabResultsLandedEmailHtml(params: {
   const lines: string[] = [`Job Number: ${job.project_number ?? job.id}`, `Company: ${clientName}`, `Address: ${expandAddress(job.service_address)}`, reportLabels.join(", ")];
   if (overallResult) lines.push(`Result: ${overallResult}`);
   const body = lines.map((line, i) => (i === 0 ? escapeHtml(line) : `<br><br>${escapeHtml(line)}`)).join("");
-  return emailShell(`<p style="font-size:15px;">${body}</p>`);
+  return emailShell(`<p style="font-size:15px;">${body}</p>`, { signature: false });
 }
 
 async function processMatchedLabEmail(params: {

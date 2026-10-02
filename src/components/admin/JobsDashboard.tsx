@@ -1288,12 +1288,12 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
             on desktop the values use the table cells' text-sm (labels stay
             text-xs like the table's own column titles); mobile's cards are
             text-xs throughout, so it stays as is. */}
-        <div className="mb-4 space-y-1 text-xs sm:flex sm:items-start sm:justify-between sm:space-y-0 sm:gap-4">
-          <div className="flex pl-[9px] sm:order-last sm:shrink-0 sm:whitespace-nowrap sm:pl-0 sm:pr-[13px]">
+        <div className="mb-4 space-y-1 text-xs sm:flex sm:items-baseline sm:justify-between sm:space-y-0 sm:gap-4">
+          <div className="flex items-baseline pl-[9px] sm:order-last sm:shrink-0 sm:whitespace-nowrap sm:pl-0 sm:pr-[13px]">
             <span className="w-[84px] shrink-0 whitespace-nowrap font-bold uppercase text-slate-700 sm:w-auto sm:pr-2">Job Number</span>
             <span className="min-w-0 text-slate-700 sm:text-sm">{job.project_number}</span>
           </div>
-          <div className="flex pl-[9px] sm:min-w-0 sm:pl-[13px]">
+          <div className="flex items-baseline pl-[9px] sm:min-w-0 sm:pl-[13px]">
             <span className="w-[84px] shrink-0 whitespace-nowrap font-bold uppercase text-slate-700 sm:w-20">Address</span>
             <span className="min-w-0 text-slate-700 sm:text-sm">{expandAddress(job.service_address)}</span>
           </div>

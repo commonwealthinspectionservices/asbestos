@@ -1310,13 +1310,19 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
             text-xs/bold/uppercase label style as those titles, label column
             sized like the Turnaround/Relinquished labels below so the values
             line up, value beside each label in the same size. */}
+        {/* Per Tim, 2026-10-02 — "address and job number should be aligned
+            vertically with sample, material, and location": on mobile the
+            labels start 9px in (the sample card's own 1px border + px-2
+            label padding) and the values 93px in (border + 80px w-20 label
+            column + px-3 input padding), exactly where the cards below put
+            theirs. */}
         <div className="mb-4 space-y-1 text-xs">
-          <div className="flex gap-2">
-            <span className="w-24 shrink-0 whitespace-nowrap font-bold uppercase text-slate-700 sm:w-28">Job Number</span>
+          <div className="flex pl-[9px] sm:pl-0">
+            <span className="w-[84px] shrink-0 whitespace-nowrap font-bold uppercase text-slate-700 sm:w-28">Job Number</span>
             <span className="min-w-0 text-slate-700">{job.project_number}</span>
           </div>
-          <div className="flex gap-2">
-            <span className="w-24 shrink-0 whitespace-nowrap font-bold uppercase text-slate-700 sm:w-28">Address</span>
+          <div className="flex pl-[9px] sm:pl-0">
+            <span className="w-[84px] shrink-0 whitespace-nowrap font-bold uppercase text-slate-700 sm:w-28">Address</span>
             <span className="min-w-0 text-slate-700">{expandAddress(job.service_address)}</span>
           </div>
         </div>

@@ -854,7 +854,6 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
   const displayOrder = useMemo(() => rows.map((_, i) => i), [rows]);
 
   const [turnaround, setTurnaround] = useState<"Rush" | "24-Hr" | null>(job.lab_turnaround === "Rush" ? "Rush" : job.lab_turnaround === "24-Hr" ? "24-Hr" : null);
-  const [dateNeeded, setDateNeeded] = useState(job.lab_date_needed ?? "");
   // Per Tim, 2026-10-02 — a small free-text note to the lab, sent in the email body. Per-send only, never saved on the job.
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -950,7 +949,6 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
         body: JSON.stringify({
           sample_items: [...otherTypesRows, ...thisTypeRows],
           lab_turnaround: turnaround,
-          lab_date_needed: dateNeeded || null,
           coc_relinquished_date: relinquishedDate || null,
           coc_relinquished_time: relinquishedTime || null,
         }),
@@ -979,7 +977,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
       if (isUnmountingRef.current) save();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, turnaround, dateNeeded, relinquishedDate, relinquishedTime]);
+  }, [rows, turnaround, relinquishedDate, relinquishedTime]);
 
   // Per Tim, 2026-09-28 — "whatever is typed in for the A sample should be
   // copied exactly for the B sample... once something is typed in for
@@ -1098,7 +1096,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
       const res = await fetch(`/api/admin/jobs/${job.id}/coc-send`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cocType, sampleItems, turnaround, dateNeeded: dateNeeded || null, relinquishedDate, relinquishedTime, note: note.trim() || null }),
+        body: JSON.stringify({ cocType, sampleItems, turnaround, relinquishedDate, relinquishedTime, note: note.trim() || null }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to send to lab");
@@ -1609,14 +1607,10 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
           </div>
         </div>
 
-        {/* Per Tim, 2026-09-29 — "I think I want to delete this for the
-            chain of custody... I want to just be able to add in free
-            text somewhere": Date Needed's own mm/dd/yyyy picker removed
-            (desktop + the mobile copy below), pending a replacement free-
-            text field — not yet designed, don't build one speculatively.
-            dateNeeded's own state/payload plumbing is left in place
-            (still reads/writes lab_date_needed) since nothing else here
-            depends on this input specifically existing. */}
+        {/* Date Needed removed entirely — desktop 2026-09-29, mobile (and the
+            state/save plumbing behind it) 2026-10-02: "let's delete the date
+            needed cell." The Note cell below Relinquished covers any timing
+            ask. */}
 
         <div className="flex flex-wrap items-center gap-3">
           <span className="w-28 shrink-0 whitespace-nowrap text-xs font-bold uppercase text-slate-700">Relinquished</span>
@@ -1696,16 +1690,6 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
               </button>
             ))}
           </div>
-        </div>
-
-        <div className="flex flex-nowrap items-center gap-2">
-          <span className="w-24 shrink-0 whitespace-nowrap text-xs font-bold uppercase text-slate-700">Date Needed</span>
-          <input
-            type="date"
-            value={dateNeeded}
-            onChange={(e) => setDateNeeded(e.target.value)}
-            className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs"
-          />
         </div>
 
         <div className="flex flex-nowrap items-center gap-2">

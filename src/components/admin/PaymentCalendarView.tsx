@@ -5,7 +5,6 @@ import Link from "next/link";
 import type { JobWithCustomer } from "@/lib/types";
 import { formatCents } from "@/lib/pricing";
 import { formatDateMDY } from "@/lib/date-format";
-import { NEWTON_FIRE_FLOOD_COMPANY_ID } from "@/lib/report-findings";
 import { dueDateFor } from "@/lib/invoice-due-date";
 import { isPastDue } from "@/components/admin/BillingView";
 
@@ -173,7 +172,6 @@ export default function PaymentCalendarView() {
                 </div>
                 <div className="mt-2 space-y-1.5">
                   {overdueJobs.map(({ job, due }) => {
-                    const isNewton = job.customers?.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID;
                     return (
                       <div
                         key={job.id}
@@ -187,17 +185,12 @@ export default function PaymentCalendarView() {
                         </Link>
                         <div className="flex min-w-0 items-center gap-2">
                           <span className="truncate text-slate-700">{job.customers?.company || job.customers?.name}</span>
-                          {isNewton && (
-                            <span className="whitespace-nowrap text-xs font-medium uppercase text-brand-700">
-                              Charge manually
-                            </span>
-                          )}
                         </div>
                         {/* Per Tim, 2026-09-27 — every overdue job now lives in
                             this one combined card instead of its own
                             per-date group, so each row needs its own due
                             date shown inline. */}
-                        <span className="whitespace-nowrap text-xs text-red-600">Due on {formatDateMDY(due)}</span>
+                        <span className="whitespace-nowrap text-xs text-slate-700">Due on {formatDateMDY(due)}</span>
                         <span className="whitespace-nowrap text-right font-medium text-slate-800">{formatCents(job.invoice_total_cents ?? 0)}</span>
                         <button
                           type="button"
@@ -224,7 +217,6 @@ export default function PaymentCalendarView() {
                 </div>
                 <div className="mt-2 space-y-1.5">
                   {g.jobs.map((job) => {
-                    const isNewton = job.customers?.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID;
                     return (
                       <div
                         key={job.id}
@@ -238,14 +230,6 @@ export default function PaymentCalendarView() {
                         </Link>
                         <div className="flex min-w-0 items-center gap-2">
                           <span className="truncate text-slate-700">{job.customers?.company || job.customers?.name}</span>
-                          {isNewton && (
-                            <span className="whitespace-nowrap text-xs font-medium uppercase text-brand-700">
-                              {/* Per Tim, 2026-09-26 — auto-charge is off (he charges
-                                  Newton manually in Stripe), so this no longer says
-                                  "Scheduled to auto-charge". */}
-                              Charge manually
-                            </span>
-                          )}
                         </div>
                         <span className="whitespace-nowrap text-right font-medium text-slate-800">{formatCents(job.invoice_total_cents ?? 0)}</span>
                       </div>

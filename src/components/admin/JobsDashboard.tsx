@@ -1050,7 +1050,9 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
   // blank, and every distinct Location already typed anywhere in this
   // table is one click away via the Location field's own dropdown (see
   // fetchLocationOptions above) instead of a pre-filled guess that might
-  // be wrong.
+  // be wrong. (Superseded 2026-10-02 — see the asbestos branch of addRow
+  // below: a new row's Location now defaults to the previous same-letter
+  // row's, since 01A/02A share one bag/spot.)
   function addRow() {
     refreshRelinquishedIfUntouched();
     setRows((prev) => {
@@ -1067,11 +1069,24 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
         const endTime = startTime ? airOCellEndTime(startTime) : "";
         return [...prev, { sample_number: defaultSampleCode(prev.length, false), material: "", location: "", start_time: startTime, end_time: endTime }];
       }
-      // Per Tim, 2026-10-02 — "we should just add rows one by one, adding
-      // them in twos makes it complicated": one row per click, even for
-      // asbestos_bulk. The 01A/01B/02A/02B numbering still falls out of the
-      // row's position (defaultSampleCode), so it needs no pairing here.
-      return [...prev, { sample_number: defaultSampleCode(prev.length, true), material: "", location: "", start_time: "", end_time: "" }];
+      // Per Tim, 2026-10-02 — after trying one-row-at-a-time, he explained how
+      // sampling really works: the number is the material (01 drywall base, 02
+      // drywall skim coat...), the letter is which spot it came from — 01A and
+      // 02A come from one spot and go in one bag, 01B and 02B from the second.
+      // Not every spot has two layers (a wall is base + skim coat, but floor
+      // tile, a ceiling panel, mastic are just one) — so "+ Add material" adds
+      // ONE material's A and B, nothing assumes two materials per location; a
+      // wall is simply two clicks. Each new row starts with the Location of the
+      // previous row with the same letter (same spot as the layer above it) —
+      // only a default, freely editable, since a new material is often
+      // somewhere else entirely.
+      const lastA = prev.length >= 2 ? prev[prev.length - 2] : undefined;
+      const lastB = prev.length >= 1 ? prev[prev.length - 1] : undefined;
+      return [
+        ...prev,
+        { sample_number: defaultSampleCode(prev.length, true), material: "", location: lastA?.location ?? "", start_time: "", end_time: "" },
+        { sample_number: defaultSampleCode(prev.length + 1, true), material: "", location: lastB?.location ?? "", start_time: "", end_time: "" },
+      ];
     });
   }
   function removeRow(i: number) {
@@ -1582,7 +1597,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
       </div>
 
       <div className="mt-3 flex flex-wrap items-start justify-end gap-x-4 gap-y-1">
-        <button type="button" onClick={addRow} className="shrink-0 text-sm font-medium text-brand-600 hover:underline">+ Add sample</button>
+        <button type="button" onClick={addRow} className="shrink-0 text-sm font-medium text-brand-600 hover:underline">{pairsSamples ? "+ Add material" : "+ Add sample"}</button>
       </div>
 
       {/* Per Tim, 2026-09-28 — "turnaround[,] date needed[,] and then

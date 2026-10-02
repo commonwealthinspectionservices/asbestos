@@ -6,7 +6,10 @@ import { getSupabaseAdmin } from "@/lib/supabase";
 import { withApiErrors } from "@/lib/api-handler";
 import { detectAsbestosResult, extractSampleResults, extractCrystalAnalyticalMaterialDescriptions } from "@/lib/parse-lab-report";
 import { extractPositionOrderedText } from "@/lib/pdf-position-text";
-import type { Job, JobDocument } from "@/lib/types";
+import { PDFDocument } from "pdf-lib";
+import { getSettingsFresh } from "@/lib/settings";
+import { buildFinalReportPacket } from "@/lib/report-packet";
+import type { Customer, Job, JobDocument } from "@/lib/types";
 
 // ONE-OFF (2026-10-02, 26-0065 + 26-0067) — Tim: "job 65 and 67 should
 // probably just be combined into one job". Copies the source job's lab
@@ -14,6 +17,24 @@ import type { Job, JobDocument } from "@/lib/types";
 // removes its own storage files), parses the source's PLM results into the
 // target's sample_results/sample_counts. Dry run unless ?apply=1. Remove
 // this route once the merge is done.
+// GET ?id=<job> — builds that job's asbestos report packet and reports its
+// page count and which Crystal Laboratory IDs appear in its text.
+export const GET = withApiErrors(async (req: NextRequest) => {
+  const unauthorized = requireAdminApi(req);
+  if (unauthorized) return unauthorized;
+  const id = req.nextUrl.searchParams.get("id");
+  if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
+  const supabase = getSupabaseAdmin();
+  const { data } = await supabase.from("jobs").select("*, customers!customer_id(*)").eq("id", id).single();
+  const job = data as unknown as Job & { customers: Customer };
+  const settings = await getSettingsFresh();
+  const packet = await buildFinalReportPacket(job, job.customers, settings, "asbestos");
+  const pdf = await PDFDocument.load(packet);
+  const { text } = await pdfParse(packet);
+  const labIds = Array.from(new Set(text.match(/LABORATORY ID:\s*(\d+)/gi) ?? []));
+  return NextResponse.json({ bytes: packet.length, pages: pdf.getPageCount(), labIds, samples: Array.from(new Set(text.match(/General Debris/g) ?? [])).length });
+});
+
 export const POST = withApiErrors(async (req: NextRequest) => {
   const unauthorized = requireAdminApi(req);
   if (unauthorized) return unauthorized;

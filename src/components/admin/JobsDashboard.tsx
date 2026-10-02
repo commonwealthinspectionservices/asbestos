@@ -1067,11 +1067,11 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
         const endTime = startTime ? airOCellEndTime(startTime) : "";
         return [...prev, { sample_number: defaultSampleCode(prev.length, false), material: "", location: "", start_time: startTime, end_time: endTime }];
       }
-      return [
-        ...prev,
-        { sample_number: defaultSampleCode(prev.length, true), material: "", location: "", start_time: "", end_time: "" },
-        { sample_number: defaultSampleCode(prev.length + 1, true), material: "", location: "", start_time: "", end_time: "" },
-      ];
+      // Per Tim, 2026-10-02 — "we should just add rows one by one, adding
+      // them in twos makes it complicated": one row per click, even for
+      // asbestos_bulk. The 01A/01B/02A/02B numbering still falls out of the
+      // row's position (defaultSampleCode), so it needs no pairing here.
+      return [...prev, { sample_number: defaultSampleCode(prev.length, true), material: "", location: "", start_time: "", end_time: "" }];
     });
   }
   function removeRow(i: number) {
@@ -1582,7 +1582,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
       </div>
 
       <div className="mt-3 flex flex-wrap items-start justify-end gap-x-4 gap-y-1">
-        <button type="button" onClick={addRow} className="shrink-0 text-sm font-medium text-brand-600 hover:underline">{pairsSamples ? "+ Add material" : "+ Add sample"}</button>
+        <button type="button" onClick={addRow} className="shrink-0 text-sm font-medium text-brand-600 hover:underline">+ Add sample</button>
       </div>
 
       {/* Per Tim, 2026-09-28 — "turnaround[,] date needed[,] and then

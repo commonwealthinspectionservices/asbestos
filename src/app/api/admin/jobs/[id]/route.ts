@@ -135,6 +135,10 @@ const EDITABLE_FIELDS = [
   // route could un-stick a wrongly-"sent" report/invoice; same "one-off
   // correction" reasoning as report_sent_domains/coc_log above.
   "report_sent_at",
+  "payment_reminder_sent_at",
+  "payment_reminder_drafted_at",
+  "payment_reminder_draft_gmail_id",
+  "payment_reminder_draft_gmail_message_id",
   "invoice_sent_at",
 ] as const;
 

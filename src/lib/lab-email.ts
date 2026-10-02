@@ -3276,6 +3276,18 @@ export async function createOverdueReminderDraftForJob(jobId: string): Promise<{
   }
 
   const due = dueDateFor(job as JobWithCustomer);
+  // The payment_reminder_* columns also hold an individual job's "your report
+  // is ready, pay to receive it" note (draftPaymentReminderForIndividual) —
+  // only ever treat what's there as THIS overdue reminder when it was drafted
+  // on/after the due date, so that earlier note is never deleted or mistaken
+  // for a sent reminder.
+  if (job.payment_reminder_draft_gmail_id && !job.payment_reminder_sent_at && reminderDraftedAfterDue(job.payment_reminder_drafted_at, due)) {
+    try {
+      await deleteDraft(accessToken, job.payment_reminder_draft_gmail_id);
+    } catch (e) {
+      console.error(`Failed to delete previous overdue-reminder draft for job ${job.id}:`, e);
+    }
+  }
   const jobDate = job.confirmed_date ?? job.requested_date;
   const { street, cityStateZip } = splitAddress(job.service_address);
   const existingThreadIds: string[] = Array.isArray(job.email_thread_message_ids) ? job.email_thread_message_ids : [];
@@ -3299,15 +3311,58 @@ export async function createOverdueReminderDraftForJob(jobId: string): Promise<{
       "The invoice is attached again for your reference.",
       ...(payNowUrl ? ["", `Pay online by bank transfer: <a href="${escapeHtml(payNowUrl)}">Link to pay</a>`] : []),
       "",
-      "If you've already sent payment, thank you — please disregard this note.",
-      "",
       `If you have any questions, please call me at <span style="white-space:nowrap;">${escapeHtml(settings.business_phone)}</span>`,
       "",
       ...SIGNATURE_LINES,
     ].join("<br>"),
     attachments: [{ filename: `${job.project_number ?? job.id} Invoice.pdf`, mimeType: "application/pdf", content: invoicePdf }],
   });
+  await getSupabaseAdmin()
+    .from("jobs")
+    .update({
+      payment_reminder_drafted_at: new Date().toISOString(),
+      payment_reminder_sent_at: null,
+      payment_reminder_draft_gmail_id: draft.id,
+      payment_reminder_draft_gmail_message_id: draft.messageId,
+    })
+    .eq("id", job.id);
   return { messageId: draft.messageId };
+}
+
+function reminderDraftedAfterDue(draftedAt: string | null | undefined, due: string | null): boolean {
+  if (!draftedAt) return false;
+  return !due || localDateOnly(draftedAt) >= due;
+}
+
+/** Outstanding Payments page — has the overdue reminder drafted by createOverdueReminderDraftForJob actually been sent yet? Same draft→sent detection as checkDraftSentStatus, minus the report/invoice status bookkeeping. */
+export async function checkOverdueReminderSentStatus(jobId: string): Promise<{ status: "sent" | "drafted" | "none"; sentAt?: string }> {
+  const supabase = getSupabaseAdmin();
+  const { data: job } = await supabase
+    .from("jobs")
+    .select("payment_reminder_drafted_at, payment_reminder_sent_at, payment_reminder_draft_gmail_id, payment_reminder_draft_gmail_message_id, payment_due_date, is_individual, invoice_sent_at, confirmed_date, requested_date")
+    .eq("id", jobId)
+    .maybeSingle();
+  if (!job) return { status: "none" };
+  const due = dueDateFor(job as unknown as JobWithCustomer);
+  if (job.payment_reminder_sent_at) {
+    return due && localDateOnly(job.payment_reminder_sent_at) < due ? { status: "none" } : { status: "sent", sentAt: job.payment_reminder_sent_at };
+  }
+  if (!job.payment_reminder_draft_gmail_id || !reminderDraftedAfterDue(job.payment_reminder_drafted_at, due)) return { status: "none" };
+
+  const accessToken = await getValidAccessToken();
+  if (!accessToken) return { status: "none" };
+  const draftStatus = await getDraftStatus(accessToken, job.payment_reminder_draft_gmail_id);
+  if (draftStatus.status === "drafted") return { status: "drafted" };
+  const resolved = draftStatus.status === "sent"
+    ? draftStatus
+    : await (async () => {
+      if (!job.payment_reminder_draft_gmail_message_id) return null;
+      const { sent, sentAt } = await getSentMessageInfo(accessToken, job.payment_reminder_draft_gmail_message_id);
+      return sent ? { sentAt: sentAt ?? new Date().toISOString() } : null;
+    })();
+  if (!resolved) return { status: "drafted" };
+  await supabase.from("jobs").update({ payment_reminder_sent_at: resolved.sentAt }).eq("id", jobId);
+  return { status: "sent", sentAt: resolved.sentAt };
 }
 
 /** The Email tab's one "View Draft" button — final report + invoice as two attachments on a single Gmail draft, with a payment link. Returns the new draft's own Gmail message id so the caller can jump straight to it. */

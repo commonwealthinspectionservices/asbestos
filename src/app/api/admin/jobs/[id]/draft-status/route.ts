@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApi } from "@/lib/admin-api";
 import { withApiErrors } from "@/lib/api-handler";
-import { checkDraftSentStatus } from "@/lib/lab-email";
+import { checkDraftSentStatus, checkOverdueReminderSentStatus } from "@/lib/lab-email";
 
 // Live check for the Final Report tab's invoice and report rows — thin
 // wrapper over checkDraftSentStatus (see its own doc comment), which the
@@ -16,6 +16,10 @@ export const GET = withApiErrors(async (
   const unauthorized = requireAdminApi(req);
   if (unauthorized) return unauthorized;
 
+  // Outstanding Payments page's "Draft reminder" → "Reminder sent" swap.
+  if (req.nextUrl.searchParams.get("kind") === "overdue_reminder") {
+    return NextResponse.json(await checkOverdueReminderSentStatus(params.id));
+  }
   const kind = req.nextUrl.searchParams.get("kind") === "invoice" ? "invoice" : "report";
   const result = await checkDraftSentStatus(params.id, kind);
   return NextResponse.json(result);

@@ -5,7 +5,7 @@ import Link from "next/link";
 import type { JobWithCustomer } from "@/lib/types";
 import { formatCents } from "@/lib/pricing";
 import { formatDateMDY } from "@/lib/date-format";
-import { dueDateFor } from "@/lib/invoice-due-date";
+import { dueDateFor, localDateOnly } from "@/lib/invoice-due-date";
 import { isPastDue } from "@/components/admin/BillingView";
 
 // Per Tim, 2026-09-15 — "a full list of when I'm going to get paid or when
@@ -22,6 +22,7 @@ export default function PaymentCalendarView() {
   const [loaded, setLoaded] = useState(false);
   const [draftingId, setDraftingId] = useState<string | null>(null);
   const [draftError, setDraftError] = useState<string | null>(null);
+  const [reminderSentAt, setReminderSentAt] = useState<Record<string, string>>({});
 
   // Per Tim, 2026-10-02 — "I just want to be able to send a reminder email
   // for each overdue job": creates a Gmail draft (never sends) and jumps
@@ -39,6 +40,7 @@ export default function PaymentCalendarView() {
       const url = `https://mail.google.com/mail/u/0/#drafts/${data.messageId}`;
       if (newTab) newTab.location.href = url;
       else window.open(url, "_blank");
+      setJobs((prev) => prev.map((j) => (j.id === jobId ? { ...j, payment_reminder_draft_gmail_id: "pending", payment_reminder_drafted_at: new Date().toISOString(), payment_reminder_sent_at: null } : j)));
     } catch (e) {
       newTab?.close();
       setDraftError(e instanceof Error ? e.message : "Failed to create reminder draft");
@@ -115,6 +117,21 @@ export default function PaymentCalendarView() {
         .sort((a, b) => a.due.localeCompare(b.due) || (a.job.project_number ?? "").localeCompare(b.job.project_number ?? "")),
     [outstanding]
   );
+  // Per Tim, 2026-10-02 — "the draft reminder button should turn into
+  // reminder sent once reminder is sent": a drafted reminder is checked
+  // against Gmail on every jobs refresh (focus + 60s poll), so it flips as
+  // soon as the draft is actually sent.
+  useEffect(() => {
+    for (const { job } of overdueJobs) {
+      if (!job.payment_reminder_draft_gmail_id || job.payment_reminder_sent_at) continue;
+      fetch(`/api/admin/jobs/${job.id}/draft-status?kind=overdue_reminder`)
+        .then((r) => r.json())
+        .then((d) => {
+          if (d.status === "sent" && d.sentAt) setReminderSentAt((prev) => ({ ...prev, [job.id]: d.sentAt }));
+        })
+        .catch(() => {});
+    }
+  }, [overdueJobs]);
   const overdueTotalCents = useMemo(() => overdueJobs.reduce((sum, { job }) => sum + (job.invoice_total_cents ?? 0), 0), [overdueJobs]);
 
   const groups = useMemo(() => {
@@ -191,14 +208,22 @@ export default function PaymentCalendarView() {
                             per-date group, so each row needs its own due
                             date shown inline. */}
                         <span className="whitespace-nowrap text-xs text-slate-700">Due on {formatDateMDY(due)}</span>
-                        <button
-                          type="button"
-                          onClick={() => draftReminder(job.id)}
-                          disabled={draftingId === job.id}
-                          className="order-last col-span-4 justify-self-end whitespace-nowrap rounded border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:border-brand-600 disabled:opacity-50 sm:order-none sm:col-span-1"
-                        >
-                          {draftingId === job.id ? "Drafting…" : "Draft reminder"}
-                        </button>
+                        {(() => {
+                          const sentAt = job.payment_reminder_sent_at ?? reminderSentAt[job.id];
+                          if (sentAt && localDateOnly(sentAt) >= due) {
+                            return <span className="order-last col-span-4 justify-self-end whitespace-nowrap px-2 py-1 text-xs font-medium text-slate-500 sm:order-none sm:col-span-1">Reminder sent</span>;
+                          }
+                          return (
+                            <button
+                              type="button"
+                              onClick={() => draftReminder(job.id)}
+                              disabled={draftingId === job.id}
+                              className="order-last col-span-4 justify-self-end whitespace-nowrap rounded border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:border-brand-600 disabled:opacity-50 sm:order-none sm:col-span-1"
+                            >
+                              {draftingId === job.id ? "Drafting…" : "Draft reminder"}
+                            </button>
+                          );
+                        })()}
                         <span className="whitespace-nowrap text-right font-medium text-slate-800">{formatCents(job.invoice_total_cents ?? 0)}</span>
                       </div>
                     );

@@ -7191,9 +7191,12 @@ function DocumentStation({
   // expands into the full card list, rather than always showing every
   // card at once. Scoped to lab_invoice specifically (kind's other uses —
   // CoC, photos — still want every thumbnail visible by default).
-  const [labInvoicesExpanded, setLabInvoicesExpanded] = useState(false);
-  const collapseLabInvoices = kind === "lab_invoice" && docs.length > 1 && !labInvoicesExpanded;
-  const labInvoicesTotalCents = docs.reduce((sum, d) => sum + (d.amount_cents ?? 0), 0);
+  // Per Tim, 2026-10-02 — "the lab invoice section here should be buttons,
+  // like the buttons above it": the old collapsed text summary ("3 lab
+  // invoices / $132.00 total / Show all") is gone. A job with several lab
+  // invoices gets one View/Download pair in the header row, covering all of
+  // them merged into a single PDF (see the lab-invoices route).
+  const mergedLabInvoices = kind === "lab_invoice" && docs.length > 1;
   // Per Tim, 2026-09-29 — these kinds get a plain "+ Upload ... manually"
   // link for their empty state instead of the big dropzone (see the
   // docs.length === 0 block's own comment for the full reasoning). Shared
@@ -7210,7 +7213,7 @@ function DocumentStation({
 
   return (
     <div>
-      {leading && (docs.length === 0 || collapseLabInvoices) && <div className="mb-3">{leading}</div>}
+      {leading && docs.length === 0 && <div className="mb-3">{leading}</div>}
       {/* Per Tim, 2026-09-30 — "I just want it to be a button that says
           upload, that's exactly formatted like the view and download
           buttons are... the view and download button should not be
@@ -7255,7 +7258,7 @@ function DocumentStation({
               titlePosition="bottom" usage, or the rare multi-file upload
               here) still lists them below instead — nothing to be
               "directly across from" once there's more than one. */}
-          {docs.length === 1 ? (
+          {docs.length === 1 || mergedLabInvoices ? (
             // Per Tim, 2026-09-30 — "there should not be an X next to the
             // view and download button": dropped here specifically (the
             // one-document header row) — deleting a wrongly-filed doc
@@ -7268,7 +7271,7 @@ function DocumentStation({
                   but the row's own button should land in the same spot
                   either way as a doc gets uploaded/removed. */}
               <a
-                href={`/api/admin/jobs/${job.id}/documents/${docs[0].id}`}
+                href={mergedLabInvoices ? `/api/admin/jobs/${job.id}/lab-invoices` : `/api/admin/jobs/${job.id}/documents/${docs[0].id}`}
                 target="_blank"
                 rel="noreferrer"
                 className={`${ACTION_BUTTON_CLASS} ${VIEW_UPLOAD_MIN_WIDTH_CLASS}`}
@@ -7276,8 +7279,8 @@ function DocumentStation({
                 View
               </a>
               <a
-                href={`/api/admin/jobs/${job.id}/documents/${docs[0].id}?download=1`}
-                download={docs[0].file_name}
+                href={mergedLabInvoices ? `/api/admin/jobs/${job.id}/lab-invoices?download=1` : `/api/admin/jobs/${job.id}/documents/${docs[0].id}?download=1`}
+                download={mergedLabInvoices ? `${job.project_number ?? job.id} Lab Invoices.pdf` : docs[0].file_name}
                 className={`${ACTION_BUTTON_CLASS} ${VIEW_UPLOAD_MIN_WIDTH_CLASS}`}
               >
                 Download
@@ -7344,30 +7347,20 @@ function DocumentStation({
         }}
       />
       {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
-      {collapseLabInvoices && (
-        <button
-          type="button"
-          onClick={() => setLabInvoicesExpanded(true)}
-          className="mt-1.5 flex w-full flex-col items-start gap-1 text-left text-sm"
-        >
-          <span className="font-medium text-slate-700">{docs.length} lab invoices</span>
-          <span className="font-medium text-slate-700">
-            {(labInvoicesTotalCents / 100).toLocaleString("en-US", { style: "currency", currency: "USD" })} total
-          </span>
-          <span className="text-brand-600">Show all</span>
-        </button>
-      )}
-      {docs.length > 0 && !collapseLabInvoices && !(titlePosition === "top" && docs.length === 1) && (
-        <div className="mt-1.5 space-y-2">
-          {kind === "lab_invoice" && docs.length > 1 && (
-            <button
-              type="button"
-              onClick={() => setLabInvoicesExpanded(false)}
-              className="text-xs text-brand-600 hover:underline"
-            >
-              Collapse
-            </button>
+      {/* The merged View/Download above can't show a per-invoice warning,
+          so any flag on a lab invoice still surfaces here as its own banner. */}
+      {mergedLabInvoices && (
+        <div className="mt-1.5 space-y-1">
+          {Array.from(new Set(docs.map((d) => d.lab_invoice_flag).filter((f): f is string => Boolean(f)))).map((flag) => (
+            <p key={flag} className="bg-amber-500 px-2 py-1 text-xs font-bold text-white">⚠ {flag}</p>
+          ))}
+          {docs.some((d) => d.invoice_mismatch) && (
+            <p className="bg-red-600 px-2 py-1 text-xs font-bold text-white">⚠ One of these doesn&apos;t look like a lab invoice — double-check it&apos;s the right file.</p>
           )}
+        </div>
+      )}
+      {docs.length > 0 && !mergedLabInvoices && !(titlePosition === "top" && docs.length === 1) && (
+        <div className="mt-1.5 space-y-2">
           {docs.map((doc, docIdx) => {
             const url = `/api/admin/jobs/${job.id}/documents/${doc.id}`;
             return (

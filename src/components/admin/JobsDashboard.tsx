@@ -1217,47 +1217,6 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
           an equal amount of spacing... it should be halfway between the
           table and the header" — mt-8 here again, now matching the
           table wrapper's own mt-8 exactly so both gaps are equal. */}
-      {/* Desktop only — per Tim, 2026-09-30: "actually, for the chain of
-          custody, this is perfect" (confirming the desktop layout as
-          shipped) — View/Download grouped on the left, the lab-send
-          button on the right, all in one row. See the sm:hidden
-          mobile-only version right below for mobile's own different
-          layout. Per Tim, 2026-09-30 (later same day) — "Create Draft"
-          replaced with "Send to Lab": "a button that actually sends it
-          straight to the lab in one click (with a quick confirm),
-          instead of creating a Gmail draft you have to go find and send
-          yourself" (same real-send pattern as the Schedule confirm, see
-          confirmingSend's own comment above) — he explicitly chose
-          replacing the draft button over keeping both. */}
-      <div className="hidden flex-wrap items-center justify-between gap-2 sm:flex">
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => viewOrDownloadCocPdf("view")}
-            disabled={viewingPdf !== null}
-            className="w-32 shrink-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-center text-sm hover:border-2 hover:border-brand-600 disabled:opacity-50"
-          >
-            {viewingPdf === "view" ? "Opening…" : "View"}
-          </button>
-          <button
-            type="button"
-            onClick={() => viewOrDownloadCocPdf("download")}
-            disabled={viewingPdf !== null}
-            className="w-32 shrink-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-center text-sm hover:border-2 hover:border-brand-600 disabled:opacity-50"
-          >
-            {viewingPdf === "download" ? "Downloading…" : "Download"}
-          </button>
-        </div>
-        <button
-          type="button"
-          onClick={() => setConfirmingSend(true)}
-          disabled={sending || realRowIndexes.length === 0}
-          className="w-32 shrink-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-center text-sm hover:border-2 hover:border-brand-600 disabled:opacity-50"
-        >
-          {sending ? "Sending…" : "Send to Lab"}
-        </button>
-      </div>
-
       {/* Per Tim, 2026-09-29 — sent-status checklist row (same format as
           EmailChecklistPanel's own Report/Invoice rows) removed from this
           page entirely, later the same night: "delete this on chain of
@@ -1641,6 +1600,20 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
               </button>
             ))}
           </div>
+          {/* Per Tim, 2026-10-02 — desktop: "moved down to the bottom right
+              where there's this open space... send to lab button above"
+              View/Download: Send to Lab sits at the right end of the
+              Turnaround line, View/Download at the right end of the
+              Relinquished line right below it. (Replaces the old top-of-panel
+              row; mobile keeps its own buttons at the bottom.) */}
+          <button
+            type="button"
+            onClick={() => setConfirmingSend(true)}
+            disabled={sending || realRowIndexes.length === 0}
+            className="ml-auto w-32 shrink-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-center text-sm hover:border-2 hover:border-brand-600 disabled:opacity-50"
+          >
+            {sending ? "Sending…" : "Send to Lab"}
+          </button>
         </div>
 
         {/* Date Needed removed entirely — desktop 2026-09-29, mobile (and the
@@ -1662,6 +1635,24 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
             onChange={(e) => { relinquishedTouchedRef.current = true; setRelinquishedTime(e.target.value); }}
             className="w-32 shrink-0 rounded-lg border border-slate-300 px-3 py-2 text-sm"
           />
+          <div className="ml-auto flex gap-3">
+            <button
+              type="button"
+              onClick={() => viewOrDownloadCocPdf("view")}
+              disabled={viewingPdf !== null}
+              className="w-32 shrink-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-center text-sm hover:border-2 hover:border-brand-600 disabled:opacity-50"
+            >
+              {viewingPdf === "view" ? "Opening…" : "View"}
+            </button>
+            <button
+              type="button"
+              onClick={() => viewOrDownloadCocPdf("download")}
+              disabled={viewingPdf !== null}
+              className="w-32 shrink-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-center text-sm hover:border-2 hover:border-brand-600 disabled:opacity-50"
+            >
+              {viewingPdf === "download" ? "Downloading…" : "Download"}
+            </button>
+          </div>
         </div>
 
         {/* Per Tim, 2026-10-02 — a small free-text note to the lab, same

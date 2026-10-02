@@ -1,5 +1,6 @@
 "use client";
 
+import { stripeDashboardInvoiceUrl } from "@/lib/stripe-dashboard";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import type { CocType, Company, Customer, InvoiceLineItem, JobDocument, JobWithCustomer, LabProfile, PricingZone, SampleItem, ServiceType } from "@/lib/types";
@@ -6654,6 +6655,16 @@ export function ProjectDetailDialog({
                       >
                         {copyLinkLoading ? "Loading…" : copyLinkDone ? "Copied!" : "Copy"}
                       </button>
+                      {job.stripe_invoice_id && (
+                        <a
+                          href={stripeDashboardInvoiceUrl(job.stripe_invoice_id)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className={`${ACTION_BUTTON_CLASS} whitespace-nowrap`}
+                        >
+                          Open in Stripe
+                        </a>
+                      )}
                     </div>
                   </div>
                   {payLinkError && <p className="mt-2 text-sm text-red-600">{payLinkError}</p>}

@@ -6,6 +6,8 @@ import type { JobWithCustomer } from "@/lib/types";
 import { formatCents } from "@/lib/pricing";
 import { formatDateMDY } from "@/lib/date-format";
 import { dueDateFor, localDateOnly } from "@/lib/invoice-due-date";
+import { NEWTON_FIRE_FLOOD_COMPANY_ID } from "@/lib/report-findings";
+import { stripeDashboardInvoiceUrl } from "@/lib/stripe-dashboard";
 import { isPastDue } from "@/components/admin/BillingView";
 
 // Per Tim, 2026-09-15 — "a full list of when I'm going to get paid or when
@@ -225,6 +227,21 @@ export default function PaymentCalendarView() {
                             date shown inline. */}
                         <span className="whitespace-nowrap text-xs text-slate-700">Due on {formatDateMDY(due)}</span>
                         {(() => {
+                          // Per Tim, 2026-10-02 — Newton Fire & Flood is charged by
+                          // hand in Stripe, so a reminder email is the wrong action
+                          // for them: this opens the invoice in the Stripe dashboard.
+                          if (job.customers?.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID && job.stripe_invoice_id) {
+                            return (
+                              <a
+                                href={stripeDashboardInvoiceUrl(job.stripe_invoice_id)}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="order-last col-span-4 justify-self-end whitespace-nowrap rounded border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:border-brand-600 sm:order-none sm:col-span-1"
+                              >
+                                Charge in Stripe
+                              </a>
+                            );
+                          }
                           if (reminderSentAtFor(job, due)) {
                             return <span className="order-last col-span-4 justify-self-end whitespace-nowrap px-2 py-1 text-xs font-medium text-slate-500 sm:order-none sm:col-span-1">Reminder sent</span>;
                           }
@@ -270,6 +287,16 @@ export default function PaymentCalendarView() {
                         </Link>
                         <div className="flex min-w-0 items-center gap-2">
                           <span className="truncate text-slate-700">{job.customers?.company || job.customers?.name}</span>
+                          {job.customers?.company_id === NEWTON_FIRE_FLOOD_COMPANY_ID && job.stripe_invoice_id && (
+                            <a
+                              href={stripeDashboardInvoiceUrl(job.stripe_invoice_id)}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="whitespace-nowrap rounded border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:border-brand-600"
+                            >
+                              Charge in Stripe
+                            </a>
+                          )}
                         </div>
                         <span className="whitespace-nowrap text-right font-medium text-slate-800">{formatCents(job.invoice_total_cents ?? 0)}</span>
                       </div>

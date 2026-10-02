@@ -1305,17 +1305,19 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
       <div className="mt-8">
         {/* Per Tim, 2026-10-02 — "at the very top, right above the first
             cell... a title in the same size as the turnaround and date
-            needed and relinquished titles... job number and then on a new
-            line address": same text-xs/bold/uppercase label style as those
-            titles, value beside it in the same size. */}
-        <div className="mb-4 space-y-1 text-xs">
-          <div className="flex gap-2">
-            <span className="w-24 shrink-0 whitespace-nowrap font-bold uppercase text-slate-700 sm:w-28">Job Number</span>
-            <span className="min-w-0 text-slate-700">{job.project_number}</span>
-          </div>
-          <div className="flex gap-2">
-            <span className="w-24 shrink-0 whitespace-nowrap font-bold uppercase text-slate-700 sm:w-28">Address</span>
+            needed and relinquished titles", then: both on one line, "job
+            number aligned right and address aligned left": same
+            text-xs/bold/uppercase label style as those titles, value beside
+            each label in the same size. The address wraps if it has to; the
+            job number never does. */}
+        <div className="mb-4 flex items-start justify-between gap-3 text-xs">
+          <div className="flex min-w-0 gap-2">
+            <span className="shrink-0 whitespace-nowrap font-bold uppercase text-slate-700">Address</span>
             <span className="min-w-0 text-slate-700">{expandAddress(job.service_address)}</span>
+          </div>
+          <div className="flex shrink-0 gap-2 whitespace-nowrap">
+            <span className="font-bold uppercase text-slate-700">Job Number</span>
+            <span className="text-slate-700">{job.project_number}</span>
           </div>
         </div>
 

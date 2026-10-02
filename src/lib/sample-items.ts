@@ -57,6 +57,20 @@ interface SampleResultInput {
   serviceType?: string;
 }
 
+// "HH:MM" in, "HH:MM" out, rolling over past midnight the same way a real
+// clock would (23:58 + 5 -> 00:03) rather than producing an invalid hour.
+// Shared by airOCellEndTime below (start -> its own end, +5) and
+// ChainOfCustodyPanel's own addRow (previous row's end -> next row's
+// start, +2 — see that call site's own comment).
+export function addMinutesToTime(time: string, minutes: number): string {
+  const match = time.match(/^(\d{2}):(\d{2})$/);
+  if (!match) return "";
+  const totalMinutes = (Number(match[1]) * 60 + Number(match[2]) + minutes) % (24 * 60);
+  const hours = Math.floor(totalMinutes / 60);
+  const mins = totalMinutes % 60;
+  return `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
+}
+
 // Per Tim, 2026-09-28 — "time for all of them is always 5 mins... it
 // needs a start time and end time for each sample" (Mold Air-O-Cell
 // only — the pump runs a fixed 5-minute sample), then a follow-up:
@@ -66,16 +80,9 @@ interface SampleResultInput {
 // just computes its STARTING default whenever start_time changes (see
 // ChainOfCustodyPanel.tsx's own updateRow for the "only overwrite while
 // it hasn't already diverged" rule, same pattern as every other
-// auto-filled default in this feature). "HH:MM" in, "HH:MM" out,
-// rolling over past midnight the same way a real clock would
-// (23:58 -> 00:03) rather than producing an invalid hour.
+// auto-filled default in this feature).
 export function airOCellEndTime(startTime: string): string {
-  const match = startTime.match(/^(\d{2}):(\d{2})$/);
-  if (!match) return "";
-  const totalMinutes = (Number(match[1]) * 60 + Number(match[2]) + 5) % (24 * 60);
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+  return addMinutesToTime(startTime, 5);
 }
 
 // Per Tim, 2026-09-28 — first pass at this derived the number from which

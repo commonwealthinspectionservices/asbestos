@@ -4,7 +4,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import type { CocType, Company, Customer, InvoiceLineItem, JobDocument, JobWithCustomer, LabProfile, PricingZone, SampleItem, ServiceType } from "@/lib/types";
 import { defaultInvoiceLineItems, sampleDescriptionForServiceType } from "@/lib/invoice-defaults";
-import { defaultSampleCode, airOCellEndTime } from "@/lib/sample-items";
+import { defaultSampleCode, airOCellEndTime, addMinutesToTime } from "@/lib/sample-items";
 import { ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK, jobReportDomains, jobCocTypes, domainForServiceTypeLabel, isFullInspectionAsbestosJob, NEWTON_FIRE_FLOOD_COMPANY_ID, BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID, FLI_ENVIRONMENTAL_COMPANY_ID, type ReportDomain } from "@/lib/report-findings";
 import { splitAddress, parseAddressToFields, buildBillingAddress, wazeUrl, expandAddress } from "@/lib/address";
 import { joinName, splitFullName, toTitleCase } from "@/lib/name";
@@ -1103,7 +1103,17 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
     refreshRelinquishedIfUntouched();
     setRows((prev) => {
       if (!pairsSamples) {
-        return [...prev, { sample_number: defaultSampleCode(prev.length, false), material: "", location: "", start_time: "", end_time: "" }];
+        // Per Tim, 2026-10-01 — "when I click add sample, the new time
+        // should default to just being two minutes after the end time
+        // before it": Air-O-Cell only (hasTime) — picks up right where
+        // the last sample's own pump run ended, plus the time it takes
+        // to reset the pump for the next one, instead of starting blank
+        // every time. Only when the previous row actually has an end
+        // time to anchor off of; still blank otherwise, same as before.
+        const prevRow = prev[prev.length - 1];
+        const startTime = hasTime && prevRow?.end_time ? addMinutesToTime(prevRow.end_time, 2) : "";
+        const endTime = startTime ? airOCellEndTime(startTime) : "";
+        return [...prev, { sample_number: defaultSampleCode(prev.length, false), material: "", location: "", start_time: startTime, end_time: endTime }];
       }
       return [
         ...prev,

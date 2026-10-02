@@ -132,6 +132,22 @@ export default function PaymentCalendarView() {
         .catch(() => {});
     }
   }, [overdueJobs]);
+  // Per Tim, 2026-10-02 — drafts still to send on top, already-reminded jobs
+  // at the bottom; each half keeps the due date, then project number, order.
+  function reminderSentAtFor(job: JobWithCustomer, due: string): string | null {
+    const sentAt = job.payment_reminder_sent_at ?? reminderSentAt[job.id];
+    return sentAt && localDateOnly(sentAt) >= due ? sentAt : null;
+  }
+  const sortedOverdueJobs = useMemo(
+    () =>
+      [...overdueJobs].sort((a, b) => {
+        const aSent = reminderSentAtFor(a.job, a.due) ? 1 : 0;
+        const bSent = reminderSentAtFor(b.job, b.due) ? 1 : 0;
+        return aSent - bSent;
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [overdueJobs, reminderSentAt]
+  );
   const overdueTotalCents = useMemo(() => overdueJobs.reduce((sum, { job }) => sum + (job.invoice_total_cents ?? 0), 0), [overdueJobs]);
 
   const groups = useMemo(() => {
@@ -188,7 +204,7 @@ export default function PaymentCalendarView() {
                   <span className="text-sm text-slate-500">{formatCents(overdueTotalCents)}</span>
                 </div>
                 <div className="mt-2 space-y-1.5">
-                  {overdueJobs.map(({ job, due }) => {
+                  {sortedOverdueJobs.map(({ job, due }) => {
                     return (
                       <div
                         key={job.id}
@@ -209,8 +225,7 @@ export default function PaymentCalendarView() {
                             date shown inline. */}
                         <span className="whitespace-nowrap text-xs text-slate-700">Due on {formatDateMDY(due)}</span>
                         {(() => {
-                          const sentAt = job.payment_reminder_sent_at ?? reminderSentAt[job.id];
-                          if (sentAt && localDateOnly(sentAt) >= due) {
+                          if (reminderSentAtFor(job, due)) {
                             return <span className="order-last col-span-4 justify-self-end whitespace-nowrap px-2 py-1 text-xs font-medium text-slate-500 sm:order-none sm:col-span-1">Reminder sent</span>;
                           }
                           return (

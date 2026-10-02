@@ -3382,7 +3382,7 @@ function JobRow({
               Ready for Review card (41.2): no longer gated on
               useCocRowFormat — every status reserves this row now, not
               just Scheduled/Pending Lab Results. */}
-          <div className="hidden min-h-5 sm:block">{job.status === "scheduled" ? siteContactNode : null}</div>
+          <div className="hidden min-h-5 sm:block">{job.status === "scheduled" || job.status === "needs_scheduling" ? siteContactNode : null}</div>
           {locationName && <div className="truncate whitespace-nowrap text-sm text-slate-500">{locationName}</div>}
           {/* Mobile: tapping the address text itself (street through zip)
               opens Waze directly instead of the job detail dialog — a
@@ -3646,7 +3646,7 @@ function JobRow({
               address's own single mt-2. */}
           {!useCocRowFormat && (
             <div className="hidden min-h-5 sm:block">
-              {job.status !== "report_invoice_sent" && job.status !== "pending_lab_results" && job.status !== "scheduled" && job.status !== "ready_to_send" && siteContactNode}
+              {job.status !== "report_invoice_sent" && job.status !== "pending_lab_results" && job.status !== "scheduled" && job.status !== "needs_scheduling" && job.status !== "ready_to_send" && siteContactNode}
             </div>
           )}
           {/* Per Tim, 2026-09-29 (yet later) — mobile's own copy of this

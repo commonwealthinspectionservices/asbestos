@@ -820,19 +820,11 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
     if (existing.length > 0) {
       return existing.map((s) => ({ sample_number: s.sample_number, material: s.material, location: s.location, start_time: s.start_time ?? "", end_time: s.end_time ?? "" }));
     }
-    // Per Tim, 2026-09-28 — "the default standard for the starting point
-    // should be 01A and 01B... not just 01A like it is now": a fresh
-    // panel starts with the first material's whole A+B pair already
-    // there, same as what "+ Add material" appends from then on. Only
-    // asbestos_bulk pairs (see COC_PAIRS_SAMPLES) — mold is "always just
-    // plain one, two, three" even though mold_bulk/mold_swab still have
-    // their own Material/Surface Swabbed field (hasMaterial).
-    return pairsSamples
-      ? [
-          { sample_number: defaultSampleCode(0, true), material: "", location: "", start_time: "", end_time: "" },
-          { sample_number: defaultSampleCode(1, true), material: "", location: "", start_time: "", end_time: "" },
-        ]
-      : [{ sample_number: defaultSampleCode(0, false), material: "", location: "", start_time: "", end_time: "" }];
+    // Per Tim, 2026-10-02 — "I just want to start out with 01A": a fresh
+    // panel starts with a single row for every coc_type (it used to start
+    // asbestos with the whole 01A+01B pair, per his 2026-09-28 ask). More
+    // rows come one per "+ Add sample" click.
+    return [{ sample_number: defaultSampleCode(0, pairsSamples), material: "", location: "", start_time: "", end_time: "" }];
   });
 
   // Per Tim, 2026-09-28 (a follow-up the same day to the Location

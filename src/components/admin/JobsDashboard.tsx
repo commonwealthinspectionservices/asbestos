@@ -1315,14 +1315,18 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
             labels start 9px in (the sample card's own 1px border + px-2
             label padding) and the values 93px in (border + 80px w-20 label
             column + px-3 input padding), exactly where the cards below put
-            theirs. */}
+            theirs. Desktop (measured at 1280px): the table's SAMPLE # header
+            text starts 13px in, and the Material column's data text sits 80px
+            after that (the w-20 first column) — so labels 13px in with a w-20
+            label column put the values on the same edge as the Material
+            cells' text. */}
         <div className="mb-4 space-y-1 text-xs">
-          <div className="flex pl-[9px] sm:pl-0">
-            <span className="w-[84px] shrink-0 whitespace-nowrap font-bold uppercase text-slate-700 sm:w-28">Job Number</span>
+          <div className="flex pl-[9px] sm:pl-[13px]">
+            <span className="w-[84px] shrink-0 whitespace-nowrap font-bold uppercase text-slate-700 sm:w-20">Job Number</span>
             <span className="min-w-0 text-slate-700">{job.project_number}</span>
           </div>
-          <div className="flex pl-[9px] sm:pl-0">
-            <span className="w-[84px] shrink-0 whitespace-nowrap font-bold uppercase text-slate-700 sm:w-28">Address</span>
+          <div className="flex pl-[9px] sm:pl-[13px]">
+            <span className="w-[84px] shrink-0 whitespace-nowrap font-bold uppercase text-slate-700 sm:w-20">Address</span>
             <span className="min-w-0 text-slate-700">{expandAddress(job.service_address)}</span>
           </div>
         </div>

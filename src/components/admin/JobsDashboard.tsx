@@ -1303,6 +1303,21 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
           original mt-5 (see above); the extra room belongs here instead,
           below them. */}
       <div className="mt-8">
+        {/* Per Tim, 2026-10-02 — "at the very top, right above the first
+            cell... a title in the same size as the turnaround and date
+            needed and relinquished titles... job number and then on a new
+            line address": same text-xs/bold/uppercase label style as those
+            titles, value beside it in the same size. */}
+        <div className="mb-4 space-y-1 text-xs">
+          <div className="flex gap-2">
+            <span className="w-24 shrink-0 whitespace-nowrap font-bold uppercase text-slate-700 sm:w-28">Job Number</span>
+            <span className="min-w-0 text-slate-700">{job.project_number}</span>
+          </div>
+          <div className="flex gap-2">
+            <span className="w-24 shrink-0 whitespace-nowrap font-bold uppercase text-slate-700 sm:w-28">Address</span>
+            <span className="min-w-0 text-slate-700">{expandAddress(job.service_address)}</span>
+          </div>
+        </div>
 
         <div className="hidden overflow-x-auto rounded-lg border border-slate-400 sm:block">
           <table className="w-full border-collapse text-sm">

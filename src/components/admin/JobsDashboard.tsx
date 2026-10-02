@@ -855,6 +855,8 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
 
   const [turnaround, setTurnaround] = useState<"Rush" | "24-Hr" | null>(job.lab_turnaround === "Rush" ? "Rush" : job.lab_turnaround === "24-Hr" ? "24-Hr" : null);
   const [dateNeeded, setDateNeeded] = useState(job.lab_date_needed ?? "");
+  // Per Tim, 2026-10-02 — a small free-text note to the lab, sent in the email body. Per-send only, never saved on the job.
+  const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
   // Per Tim, 2026-09-30 — "a button that actually sends it straight to
   // the lab in one click (with a quick confirm), instead of creating a
@@ -1096,7 +1098,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
       const res = await fetch(`/api/admin/jobs/${job.id}/coc-send`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cocType, sampleItems, turnaround, dateNeeded: dateNeeded || null, relinquishedDate, relinquishedTime }),
+        body: JSON.stringify({ cocType, sampleItems, turnaround, dateNeeded: dateNeeded || null, relinquishedDate, relinquishedTime, note: note.trim() || null }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to send to lab");
@@ -1255,37 +1257,6 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
           className="w-32 shrink-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-center text-sm hover:border-2 hover:border-brand-600 disabled:opacity-50"
         >
           {sending ? "Sending…" : "Send to Lab"}
-        </button>
-      </div>
-
-      {/* Mobile only — per Tim, 2026-09-30: "the view and download
-          button should stay on top... view button aligned left and the
-          download button aligned right... create draft button should
-          be all the way at the bottom": View/Download share one full-
-          width row. Create Draft itself moved out of here entirely —
-          see the sm:hidden block at the very bottom of this panel,
-          after Turnaround/Relinquished. Per Tim, same day, refined
-          twice more: "meet in the middle" then "I mean... should have
-          more width" — flex-1 (was w-32 shrink-0 with justify-between)
-          so the two buttons fill the row and their inner edges meet
-          near its middle, instead of a fixed w-32 each leaving a big
-          gap between them. */}
-      <div className="flex items-center gap-2 sm:hidden">
-        <button
-          type="button"
-          onClick={() => viewOrDownloadCocPdf("view")}
-          disabled={viewingPdf !== null}
-          className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-center text-sm hover:border-2 hover:border-brand-600 disabled:opacity-50"
-        >
-          {viewingPdf === "view" ? "Opening…" : "View"}
-        </button>
-        <button
-          type="button"
-          onClick={() => viewOrDownloadCocPdf("download")}
-          disabled={viewingPdf !== null}
-          className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-center text-sm hover:border-2 hover:border-brand-600 disabled:opacity-50"
-        >
-          {viewingPdf === "download" ? "Downloading…" : "Download"}
         </button>
       </div>
 
@@ -1662,6 +1633,20 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
             className="w-32 shrink-0 rounded-lg border border-slate-300 px-3 py-2 text-sm"
           />
         </div>
+
+        {/* Per Tim, 2026-10-02 — a small free-text note to the lab, same
+            label/cell format as Relinquished above (width = its date + time
+            cells and the gap between them). */}
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="w-28 shrink-0 whitespace-nowrap text-xs font-bold uppercase text-slate-700">Note</span>
+          <input
+            type="text"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            maxLength={500}
+            className="w-[16.75rem] shrink-0 rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          />
+        </div>
       </div>
 
       {/* Mobile only — per Tim, 2026-09-28: first "everything needs to be
@@ -1740,6 +1725,17 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
             />
           </div>
         </div>
+
+        <div className="flex flex-nowrap items-center gap-2">
+          <span className="w-24 shrink-0 whitespace-nowrap text-xs font-bold uppercase text-slate-700">Note</span>
+          <input
+            type="text"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            maxLength={500}
+            className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs"
+          />
+        </div>
       </div>
 
       {/* Mobile only — per Tim, 2026-09-30: "create draft button should
@@ -1750,11 +1746,35 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
           consistent" with every other section gap in this panel. Per
           Tim, 2026-09-30 (later same day) — "Create Draft" replaced
           with "Send to Lab" here too, same as the desktop row above. */}
+      {/* Mobile only — per Tim, 2026-10-02: "instead of being at the top, the
+          view and download button should be directly above the send to lab
+          button": View/Download share one full-width row (flex-1 each, inner
+          edges meeting in the middle, per his earlier 2026-09-30 asks) sitting
+          immediately above Send to Lab. Desktop's own row (top of the panel)
+          is unchanged — he confirmed that layout as perfect. */}
+      <div className="mt-8 flex items-center gap-2 sm:hidden">
+        <button
+          type="button"
+          onClick={() => viewOrDownloadCocPdf("view")}
+          disabled={viewingPdf !== null}
+          className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-center text-sm hover:border-2 hover:border-brand-600 disabled:opacity-50"
+        >
+          {viewingPdf === "view" ? "Opening…" : "View"}
+        </button>
+        <button
+          type="button"
+          onClick={() => viewOrDownloadCocPdf("download")}
+          disabled={viewingPdf !== null}
+          className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-center text-sm hover:border-2 hover:border-brand-600 disabled:opacity-50"
+        >
+          {viewingPdf === "download" ? "Downloading…" : "Download"}
+        </button>
+      </div>
       <button
         type="button"
         onClick={() => setConfirmingSend(true)}
         disabled={sending || realRowIndexes.length === 0}
-        className="mt-8 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-center text-sm hover:border-2 hover:border-brand-600 disabled:opacity-50 sm:hidden"
+        className="mt-3 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-center text-sm hover:border-2 hover:border-brand-600 disabled:opacity-50 sm:hidden"
       >
         {sending ? "Sending…" : "Send to Lab"}
       </button>

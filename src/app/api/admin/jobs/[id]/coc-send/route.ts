@@ -41,6 +41,8 @@ export const POST = withApiErrors(async (
   const relinquishedDate = typeof body?.relinquishedDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.relinquishedDate) ? body.relinquishedDate : null;
   const relinquishedTime = typeof body?.relinquishedTime === "string" && /^\d{2}:\d{2}$/.test(body.relinquishedTime) ? body.relinquishedTime : null;
 
-  const { messageId } = await sendCocEmailToLab(params.id, { cocType, sampleItems, turnaround, dateNeeded, relinquishedDate, relinquishedTime });
+  const note = typeof body?.note === "string" && body.note.trim() ? body.note.trim().slice(0, 500) : null;
+
+  const { messageId } = await sendCocEmailToLab(params.id, { cocType, sampleItems, turnaround, dateNeeded, relinquishedDate, relinquishedTime, note });
   return NextResponse.json({ ok: true, messageId });
 });

@@ -3466,7 +3466,7 @@ export async function renderCocPdfBuffer({
     sendCocEmailForJob on its own in case a draft-first path is ever wanted
     again. */
 async function buildCocEmailContent({
-  job, settings, cocType, sampleItems, turnaround, relinquishedDate, relinquishedTime,
+  job, settings, cocType, sampleItems, turnaround, relinquishedDate, relinquishedTime, note,
 }: {
   job: Job & { customers: Customer & { companies: Company | null } };
   settings: Settings;
@@ -3475,6 +3475,7 @@ async function buildCocEmailContent({
   turnaround: "Rush" | "24-Hr" | null;
   relinquishedDate: string | null;
   relinquishedTime: string | null;
+  note?: string | null;
 }): Promise<{ mergedItems: SampleItem[]; subject: string; bodyHtml: string; attachmentFilename: string; pdfBuffer: Buffer }> {
   if (sampleItems.length === 0) {
     throw new Error("Add at least one sample before creating a Chain of Custody draft");
@@ -3522,6 +3523,8 @@ async function buildCocEmailContent({
     ...projectNumberLine(job, true),
     `<strong>Address:</strong> ${escapeHtml(address)}`,
     ...(sampledDate ? [`<strong>Date of Sampling:</strong> ${escapeHtml(formatDateLongOrdinal(new Date(`${sampledDate}T00:00:00`)))}`] : []),
+    // Per Tim, 2026-10-02 — an optional free-text note to the lab from the Chain of Custody tab's Note cell.
+    ...(note ? [`<strong>Note:</strong> ${escapeHtml(note)}`] : []),
     "",
     `If you have any questions, please call Tim at <span style="white-space:nowrap;">${escapeHtml(settings.business_phone)}</span>`,
   ].join("<br>");
@@ -3553,7 +3556,7 @@ async function buildCocEmailContent({
  * there's no draft state to poll — it already went out.
  */
 async function sendCocEmailForJob({
-  job, settings, accessToken, cocType, sampleItems, turnaround, dateNeeded, relinquishedDate, relinquishedTime,
+  job, settings, accessToken, cocType, sampleItems, turnaround, dateNeeded, relinquishedDate, relinquishedTime, note,
 }: {
   job: Job & { customers: Customer & { companies: Company | null } };
   settings: Settings;
@@ -3564,8 +3567,9 @@ async function sendCocEmailForJob({
   dateNeeded: string | null;
   relinquishedDate: string | null;
   relinquishedTime: string | null;
+  note?: string | null;
 }): Promise<{ messageId: string }> {
-  const { mergedItems, subject, bodyHtml, attachmentFilename, pdfBuffer } = await buildCocEmailContent({ job, settings, cocType, sampleItems, turnaround, relinquishedDate, relinquishedTime });
+  const { mergedItems, subject, bodyHtml, attachmentFilename, pdfBuffer } = await buildCocEmailContent({ job, settings, cocType, sampleItems, turnaround, relinquishedDate, relinquishedTime, note });
 
   const sent = await sendMessage(accessToken, {
     to: "samples@crystalanalytical.com",
@@ -3600,6 +3604,7 @@ export async function sendCocEmailToLab(
     dateNeeded: string | null;
     relinquishedDate: string | null;
     relinquishedTime: string | null;
+    note?: string | null;
   }
 ): Promise<{ messageId: string }> {
   return sendCocEmailForJob({ ...(await loadJobForDraft(jobId)), ...selection });

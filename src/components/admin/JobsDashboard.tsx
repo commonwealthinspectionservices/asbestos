@@ -747,32 +747,18 @@ const COC_TAB_LABEL: Record<CocType, string> = {
   mold_swab: "Mold Swab COC",
 };
 
-// Common materials the admin can pick from instead of typing one out every
-// time. Per Tim, 2026-09-28 — asbestos_bulk moved to a real source (Ray's
-// Library, see fetchMaterialOptions in ChainOfCustodyPanel) instead of
-// this curated guess-list, since "stuff that I've written in in the
-// past" beats anything made up; mold has no equivalent library built,
-// so those two keep this static list. No list for Air-O-Cell — that
-// form has no Material column at all (see mold-coc-pdf.tsx's own
-// thirdColumnLabel: null).
-const MATERIAL_MIN_CHARS = 2;
-const COC_MATERIAL_PRESETS: Record<CocType, string[]> = {
-  asbestos_bulk: [],
-  mold_air_o_cell: [],
-  mold_bulk: ["Drywall", "Plaster", "Wood framing", "Subfloor", "Carpet", "Insulation", "Ceiling tile", "Baseboard"],
-  mold_swab: ["Drywall surface", "Wood surface", "HVAC duct surface", "Wall surface", "Window sill", "Baseboard"],
-};
-
-// Per Tim, 2026-09-30 — "drywall is [always] base and skim coat, plaster
-// is plaster and skim coat," then "there could be drywall ceilings or
-// drywall walls or textured walls... maybe I should just have a
-// dropdown" (a separate "+ Common Material" menu button), then "I don't
-// love the common material dropdown... the material cell should just be
-// a dropdown itself" (a per-cell category list on focus, replacing that
-// button) — then, later the same day, reversed again: "let's delete the
-// drop-down feature entirely for material, I don't think we need it."
-// Back to plain Ray's Library search only (see fetchMaterialOptions
-// below), no curated category shortcut of any kind.
+// Per Tim, 2026-09-28/30 — asbestos_bulk went from a curated guess-list,
+// to Ray's Library (a reference catalog of past materials), and finally
+// to plain free text with zero suggestions ("I don't even want the Ray's
+// Library search for the material dropdown... I don't use it"). Mold
+// (mold_bulk/mold_swab) kept its own curated preset list until Tim
+// noticed a suggestion ("drywall") show up while filling out a real CoC
+// on 2026-10-02 and didn't want that either — "let's default to not
+// having anything... pre-filled... I don't want that to ever happen."
+// Every coc_type's Material field is plain free text now, no suggestions
+// of any kind. No list for Air-O-Cell either way — that form has no
+// Material column at all (see mold-coc-pdf.tsx's own thirdColumnLabel:
+// null).
 
 // Electronic Chain of Custody — per Tim, 2026-09-28: "right now everything
 // is written out by hand... I should just be able to fill in what I need
@@ -799,28 +785,12 @@ const COC_MATERIAL_PRESETS: Record<CocType, string[]> = {
 function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer; cocType: CocType; onChanged: () => void }) {
   const hasMaterial = COC_HAS_MATERIAL[cocType];
   const pairsSamples = COC_PAIRS_SAMPLES[cocType];
-  // Per Tim, 2026-09-28 — "I only want it to suggest something based off
-  // of what I'm typing... too many different options to just have one
-  // drop-down list... it should sense what I'm writing in and then
-  // suggest autofills... it should probably require me to type at least
-  // [two or three] letters before it makes a suggestion": swapped the
-  // native <datalist> (always shows every option the moment you click
-  // in, no way to suppress that) for ComboboxInput's fetchOptions path,
-  // which only ever calls this once there's real text — MATERIAL_MIN_CHARS
-  // adds the "and at least 2 of them" gate on top of that. Per Tim,
-  // 2026-09-30 — tried Ray's Library (a reference catalog of materials
-  // seen across his own past full-inspection reports) as the asbestos
-  // source, then: "I don't even want the Ray's Library search for the
-  // material dropdown" — asbestos_bulk's Material field is plain free
-  // text now, no suggestions at all. Mold still uses the curated
-  // COC_MATERIAL_PRESETS list, unaffected by this.
-  const fetchMaterialOptions = useCallback(async (query: string): Promise<string[]> => {
-    if (cocType === "asbestos_bulk") return [];
-    const q = query.trim();
-    if (q.length < MATERIAL_MIN_CHARS) return [];
-    const lower = q.toLowerCase();
-    return COC_MATERIAL_PRESETS[cocType].filter((m) => m.toLowerCase().includes(lower));
-  }, [cocType]);
+  // Per Tim — every coc_type's Material field is plain free text, no
+  // suggestions of any kind (see this component's own header comment for
+  // the full history of why). Kept as a no-op fetchOptions rather than
+  // swapping the field to a plain <input> so ChainOfCustodyPanel has
+  // exactly one Material-field code path either way.
+  const fetchMaterialOptions = useCallback(async (): Promise<string[]> => [], []);
 
   // Seeded from whatever this coc_type's rows already hold on the job
   // (e.g. reopening the tab after an earlier draft) — every other

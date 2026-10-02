@@ -2366,10 +2366,34 @@ async function processMatchedLabEmail(params: {
     // comment above — not necessarily every label the job has).
     const sendLabResultsLandedEmail = () => {
       const clientName = updatedJob.customers?.company || updatedJob.customers?.name || "";
+      // Per Tim, 2026-10-01 — "I want the results to be in the email as
+      // well", not just the project#/address/labels summary. Mold results
+      // are tagged per label (mold_sample_results' own serviceType), so
+      // this is filtered to reportLabels the same way the merge further up
+      // this function is (a combined report email shouldn't claim a label
+      // it didn't actually cover); asbestos has only one domain, so every
+      // row in sample_results belongs here. "one line of spacing between
+      // each line" — reuses this file's established array-with-blank-
+      // string-elements idiom (see reportDraftBodyHtml) rather than a
+      // flat <br><br>, so every line (header and result rows alike) gets
+      // its own blank line before it.
+      const resultLines = isMold
+        ? (updatedJob.mold_sample_results ?? [])
+            .filter((r) => !r.serviceType || reportLabels.includes(r.serviceType))
+            .map((r) => `${r.fieldCode}: ${r.result}`)
+        : (updatedJob.sample_results ?? []).map((r) => `${r.fieldCode}${r.material ? ` — ${r.material}` : ""}: ${r.result}`);
+      const lines: string[] = [`${updatedJob.project_number ?? updatedJob.id} — ${clientName}`, expandAddress(updatedJob.service_address), reportLabels.join(", ")];
+      if (resultLines.length > 0) lines.push(...resultLines);
+      const html = lines.map((line, i) => (i === 0 ? escapeHtml(line) : `<br><br>${escapeHtml(line)}`)).join("");
       return sendEmail({
         to: process.env.OWNER_EMAIL!,
         subject: `Lab results landed — ${updatedJob.project_number ?? updatedJob.id}`,
-        html: emailShell(`<p style="font-size:15px;">${escapeHtml(updatedJob.project_number ?? updatedJob.id)} — ${escapeHtml(clientName)}<br>${escapeHtml(expandAddress(updatedJob.service_address))}<br>${escapeHtml(reportLabels.join(", "))}</p>`),
+        html: emailShell(`<p style="font-size:15px;">${html}</p>`),
+        // reportBuffer, not the raw pdfBuffer — the trailing scanned CoC
+        // page(s) are already split off (see splitTrailingCocPages above),
+        // so this is exactly the lab's own results PDF, same file just
+        // filed as this job's lab_report document.
+        attachments: [{ filename: `${updatedJob.project_number ?? updatedJob.id}-lab-report.pdf`, content: reportBuffer }],
       }).catch(() => {});
     };
 

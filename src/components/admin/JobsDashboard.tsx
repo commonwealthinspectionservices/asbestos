@@ -5,7 +5,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import type { CocType, Company, Customer, InvoiceLineItem, JobDocument, JobWithCustomer, LabProfile, PricingZone, SampleItem, ServiceType } from "@/lib/types";
 import { defaultInvoiceLineItems, sampleDescriptionForServiceType } from "@/lib/invoice-defaults";
-import { defaultSampleCode, airOCellEndTime, addMinutesToTime } from "@/lib/sample-items";
+import { defaultSampleCode, nextSampleCode, airOCellEndTime, addMinutesToTime } from "@/lib/sample-items";
 import { ASBESTOS_NEGATIVE_REMARK, ASBESTOS_POSITIVE_REMARK, LEAD_NEGATIVE_REMARK, LEAD_POSITIVE_REMARK, jobReportDomains, jobCocTypes, domainForServiceTypeLabel, isFullInspectionAsbestosJob, NEWTON_FIRE_FLOOD_COMPANY_ID, BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID, FLI_ENVIRONMENTAL_COMPANY_ID, type ReportDomain } from "@/lib/report-findings";
 import { splitAddress, parseAddressToFields, buildBillingAddress, wazeUrl, expandAddress } from "@/lib/address";
 import { joinName, splitFullName, toTitleCase } from "@/lib/name";
@@ -1067,26 +1067,19 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
         const prevRow = prev[prev.length - 1];
         const startTime = hasTime && prevRow?.end_time ? addMinutesToTime(prevRow.end_time, 2) : "";
         const endTime = startTime ? airOCellEndTime(startTime) : "";
-        return [...prev, { sample_number: defaultSampleCode(prev.length, false), material: "", location: "", start_time: startTime, end_time: endTime }];
+        return [...prev, { sample_number: nextSampleCode(prevRow?.sample_number, prev.length, false), material: "", location: "", start_time: startTime, end_time: endTime }];
       }
-      // Per Tim, 2026-10-02 — after trying one-row-at-a-time, he explained how
-      // sampling really works: the number is the material (01 drywall base, 02
-      // drywall skim coat...), the letter is which spot it came from — 01A and
-      // 02A come from one spot and go in one bag, 01B and 02B from the second.
-      // Not every spot has two layers (a wall is base + skim coat, but floor
-      // tile, a ceiling panel, mastic are just one) — so "+ Add material" adds
-      // ONE material's A and B, nothing assumes two materials per location; a
-      // wall is simply two clicks. Each new row starts with the Location of the
-      // previous row with the same letter (same spot as the layer above it) —
-      // only a default, freely editable, since a new material is often
-      // somewhere else entirely.
-      const lastA = prev.length >= 2 ? prev[prev.length - 2] : undefined;
-      const lastB = prev.length >= 1 ? prev[prev.length - 1] : undefined;
-      return [
-        ...prev,
-        { sample_number: defaultSampleCode(prev.length, true), material: "", location: lastA?.location ?? "", start_time: "", end_time: "" },
-        { sample_number: defaultSampleCode(prev.length + 1, true), material: "", location: lastB?.location ?? "", start_time: "", end_time: "" },
-      ];
+      // Per Tim, 2026-10-02 — settled after a few rounds: ONE row per "+ Add
+      // sample" click, in order 01A, 01B, 02A, 02B, 03A... The number is the
+      // material, the letter the spot (01A and 02A share a bag/spot; 01B and
+      // 02B the second one); not every spot has two layers, so nothing here
+      // assumes pairs of materials. The code comes from the last row's actual
+      // code (nextSampleCode), not its position. A new row's Location defaults
+      // to the row two above it — the previous same-letter row, i.e. the same
+      // spot as the layer before it — only a default, freely editable.
+      const last = prev[prev.length - 1];
+      const sameLetterRow = prev.length >= 2 ? prev[prev.length - 2] : undefined;
+      return [...prev, { sample_number: nextSampleCode(last?.sample_number, prev.length, true), material: "", location: sameLetterRow?.location ?? "", start_time: "", end_time: "" }];
     });
   }
   function removeRow(i: number) {
@@ -1597,7 +1590,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
       </div>
 
       <div className="mt-3 flex flex-wrap items-start justify-end gap-x-4 gap-y-1">
-        <button type="button" onClick={addRow} className="shrink-0 text-sm font-medium text-brand-600 hover:underline">{pairsSamples ? "+ Add material" : "+ Add sample"}</button>
+        <button type="button" onClick={addRow} className="shrink-0 text-sm font-medium text-brand-600 hover:underline">+ Add sample</button>
       </div>
 
       {/* Per Tim, 2026-09-28 — "turnaround[,] date needed[,] and then

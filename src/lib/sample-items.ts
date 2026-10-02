@@ -114,6 +114,30 @@ export function defaultSampleCode(index: number, pairsSamples: boolean): string 
   return `${String(pairIndex + 1).padStart(2, "0")}${letter}`;
 }
 
+// Per Tim, 2026-10-02 — "at 04A... somehow it went to 06A": defaultSampleCode
+// is purely positional (the row's index in the list), so anything that
+// leaves the list's length out of step with its real numbering (a deleted
+// or hand-edited row, a rows array that shifted) skips or repeats numbers.
+// The next code a "+ Add" click produces is derived from the last row's
+// ACTUAL code instead: asbestos goes 01A -> 01B -> 02A -> 02B (any letter
+// after the first rolls to the next number's A); mold's plain numbers just
+// add one. Falls back to the positional default only when the last code
+// isn't in a recognizable shape (blank, hand-typed free text).
+export function nextSampleCode(lastCode: string | undefined, index: number, pairsSamples: boolean): string {
+  const code = (lastCode ?? "").trim();
+  if (pairsSamples) {
+    const m = code.match(/^(\d+)([A-Za-z])$/);
+    if (m) {
+      const num = Number(m[1]);
+      if (m[2].toUpperCase() === "A") return `${m[1]}B`;
+      return `${String(num + 1).padStart(Math.max(2, m[1].length), "0")}A`;
+    }
+  } else if (/^\d+$/.test(code)) {
+    return String(Number(code) + 1);
+  }
+  return defaultSampleCode(index, pairsSamples);
+}
+
 /**
  * Validates a raw { [serviceTypeLabel]: count } payload — the per-service-type
  * sample counts shown on the Samples tab (one cell per service type on the

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { deriveFullInspectionMaterials, defaultSampleCode, airOCellEndTime } from "@/lib/sample-items";
+import { deriveFullInspectionMaterials, defaultSampleCode, nextSampleCode, airOCellEndTime } from "@/lib/sample-items";
 import type { FullInspectionMaterial } from "@/lib/types";
 
 describe("deriveFullInspectionMaterials", () => {
@@ -125,5 +125,29 @@ describe("airOCellEndTime", () => {
   it("returns an empty string for a blank or malformed start time", () => {
     expect(airOCellEndTime("")).toBe("");
     expect(airOCellEndTime("not a time")).toBe("");
+  });
+});
+
+describe("nextSampleCode", () => {
+  it("walks 01A, 01B, 02A, 02B, 03A from the last row's actual code", () => {
+    expect(nextSampleCode("01A", 1, true)).toBe("01B");
+    expect(nextSampleCode("01B", 2, true)).toBe("02A");
+    expect(nextSampleCode("04A", 6, true)).toBe("04B");
+    expect(nextSampleCode("04B", 7, true)).toBe("05A");
+    expect(nextSampleCode("09B", 17, true)).toBe("10A");
+  });
+
+  it("follows the last code, not the row count, after a deletion or edit", () => {
+    expect(nextSampleCode("03B", 2, true)).toBe("04A");
+  });
+
+  it("falls back to the positional default for blank or free-typed codes", () => {
+    expect(nextSampleCode("", 2, true)).toBe(defaultSampleCode(2, true));
+    expect(nextSampleCode("kitchen", 3, true)).toBe(defaultSampleCode(3, true));
+  });
+
+  it("adds one to mold's plain numbers", () => {
+    expect(nextSampleCode("3", 3, false)).toBe("4");
+    expect(nextSampleCode(undefined, 0, false)).toBe("1");
   });
 });

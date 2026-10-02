@@ -6660,13 +6660,23 @@ export function ProjectDetailDialog({
                           href={stripeDashboardInvoiceUrl(job.stripe_invoice_id)}
                           target="_blank"
                           rel="noreferrer"
-                          className={`${ACTION_BUTTON_CLASS} whitespace-nowrap`}
+                          className={`${ACTION_BUTTON_CLASS} hidden whitespace-nowrap sm:inline-flex`}
                         >
                           Open in Stripe
                         </a>
                       )}
                     </div>
                   </div>
+                  {job.stripe_invoice_id && (
+                    <a
+                      href={stripeDashboardInvoiceUrl(job.stripe_invoice_id)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className={`${ACTION_BUTTON_CLASS} mt-2 whitespace-nowrap sm:hidden`}
+                    >
+                      Open in Stripe
+                    </a>
+                  )}
                   {payLinkError && <p className="mt-2 text-sm text-red-600">{payLinkError}</p>}
                 </div>
               )}

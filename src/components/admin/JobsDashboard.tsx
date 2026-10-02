@@ -1610,7 +1610,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
             type="button"
             onClick={() => setConfirmingSend(true)}
             disabled={sending || realRowIndexes.length === 0}
-            className="ml-auto w-32 shrink-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-center text-sm hover:border-2 hover:border-brand-600 disabled:opacity-50"
+            className="ml-auto w-[16.75rem] shrink-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-center text-sm hover:border-2 hover:border-brand-600 disabled:opacity-50"
           >
             {sending ? "Sending…" : "Send to Lab"}
           </button>

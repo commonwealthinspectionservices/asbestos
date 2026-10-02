@@ -9,6 +9,7 @@ import { renderBlankCocPdf } from "@/lib/blank-coc-pdf";
 import { renderMoldCocPdf, type MoldSampleType } from "@/lib/mold-coc-pdf";
 import { withCompanyBillingAddress } from "@/lib/customer-billing";
 import { formatDateMDY, formatDateLongOrdinal, formatRequestedTime } from "@/lib/date-format";
+import { dueDateFor, localDateOnly } from "@/lib/invoice-due-date";
 import { threadSubject, threadHeaders } from "@/lib/email-thread";
 import {
   addLabelToMessage,
@@ -3239,6 +3240,74 @@ export async function createReportDraftForJob(jobId: string): Promise<{ messageI
 /** Manual "Send Payment Reminder" button on the Email tab (individual/homeowner jobs only) — same draft-creation path the automatic lab-results-landing path uses, callable on demand any time results are ready but payment isn't in yet. Returns the new draft's own Gmail message id so a caller can jump straight to it, same as the other create*DraftForJob functions. */
 export async function createPaymentReminderDraftForJob(jobId: string): Promise<{ messageId: string }> {
   return draftPaymentReminderForIndividual(await loadJobForDraft(jobId));
+}
+
+/**
+ * Per Tim, 2026-10-02 — "I just want to be able to send a reminder email for
+ * each overdue job that states when the job was done, and when the payment
+ * was due, and all the info": the Outstanding Payments page's per-row "Draft
+ * reminder" button. A different email from createPaymentReminderDraftForJob
+ * above (that one is "your report is ready, pay to receive it" for an
+ * individual job before anything's been delivered) — this is a past-due
+ * invoice nudge. Draft only, like every other client email: same recipient
+ * rule as the invoice (invoice_emails is the sole list), same thread wiring,
+ * the existing invoice PDF re-attached unchanged (stored line items, never
+ * repriced — a reminder must quote what was actually invoiced).
+ */
+export async function createOverdueReminderDraftForJob(jobId: string): Promise<{ messageId: string }> {
+  const { job, settings, accessToken } = await loadJobForDraft(jobId);
+  if (job.paid_date) throw new Error("This project is already paid");
+  if (job.invoice_total_cents == null || !job.invoice_sent_at) throw new Error("No invoice has been sent for this project yet");
+
+  const customer = withCompanyBillingAddress(job.customers, job.customers.companies);
+  const { renderInvoicePdf } = await import("@/lib/invoice-pdf");
+  const invoicePdf = await renderInvoicePdf({ job, customer, company: job.customers.companies, settings });
+
+  const toAddresses = (job.invoice_emails ?? "").split(",").map((e) => e.trim()).filter(Boolean);
+  const to = (toAddresses.length > 0 ? toAddresses : [customer.email]).join(", ");
+
+  let payNowUrl: string | null = null;
+  if (job.payment_type !== "check" && job.customers.company_id !== NEWTON_FIRE_FLOOD_COMPANY_ID) {
+    try {
+      payNowUrl = (await createStripeInvoiceForJob(job, customer)).hostedInvoiceUrl;
+    } catch (e) {
+      console.error(`Failed to get Stripe payment link for overdue reminder on job ${job.id}:`, e);
+    }
+  }
+
+  const due = dueDateFor(job as JobWithCustomer);
+  const jobDate = job.confirmed_date ?? job.requested_date;
+  const { street, cityStateZip } = splitAddress(job.service_address);
+  const existingThreadIds: string[] = Array.isArray(job.email_thread_message_ids) ? job.email_thread_message_ids : [];
+  const draft = await createDraft(accessToken, {
+    to,
+    subject: job.email_thread_subject ?? `Payment Reminder - ${expandAddress(job.service_address)}`,
+    headers: threadHeaders(existingThreadIds),
+    threadId: job.email_gmail_thread_id ?? undefined,
+    bodyHtml: [
+      "Hi,",
+      "",
+      "This is a friendly reminder that payment for the invoice below is now past due.",
+      "",
+      ...projectNumberLine(job),
+      `Address: ${escapeHtml(expandAddress(street))}, ${escapeHtml(expandAddress(cityStateZip))}`,
+      ...(jobDate ? [`Date of inspection: ${escapeHtml(formatDateMDY(jobDate) ?? jobDate)}`] : []),
+      `Invoice sent: ${escapeHtml(formatDateMDY(localDateOnly(job.invoice_sent_at)) ?? "")}`,
+      ...(due ? [`Payment due: ${escapeHtml(formatDateMDY(due) ?? due)}`] : []),
+      `Amount due: ${escapeHtml(formatCents(job.invoice_total_cents))}`,
+      "",
+      "The invoice is attached again for your reference.",
+      ...(payNowUrl ? ["", `Pay online by bank transfer: <a href="${escapeHtml(payNowUrl)}">Link to pay</a>`] : []),
+      "",
+      "If you've already sent payment, thank you — please disregard this note.",
+      "",
+      `If you have any questions, please call me at <span style="white-space:nowrap;">${escapeHtml(settings.business_phone)}</span>`,
+      "",
+      ...SIGNATURE_LINES,
+    ].join("<br>"),
+    attachments: [{ filename: `${job.project_number ?? job.id} Invoice.pdf`, mimeType: "application/pdf", content: invoicePdf }],
+  });
+  return { messageId: draft.messageId };
 }
 
 /** The Email tab's one "View Draft" button — final report + invoice as two attachments on a single Gmail draft, with a payment link. Returns the new draft's own Gmail message id so the caller can jump straight to it. */

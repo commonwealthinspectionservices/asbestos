@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApi } from "@/lib/admin-api";
 import { withApiErrors } from "@/lib/api-handler";
 import { getSupabaseAdmin } from "@/lib/supabase";
-import { createCombinedDraftForJob, createInvoiceDraftForJob, createReportDraftForJob, createSelectedDraftForJob, createPaymentReminderDraftForJob } from "@/lib/lab-email";
+import { createCombinedDraftForJob, createInvoiceDraftForJob, createReportDraftForJob, createSelectedDraftForJob, createPaymentReminderDraftForJob, createOverdueReminderDraftForJob } from "@/lib/lab-email";
 import { BOSTON_HARBOR_WATER_RESTORATION_COMPANY_ID, type ReportDomain } from "@/lib/report-findings";
 
 // Backing the Email tab's "View Draft" buttons — same draft-creation
@@ -40,6 +40,10 @@ export const POST = withApiErrors(async (
   // lab-results-landing path for an unpaid individual job uses it) but had
   // no manual trigger anywhere — this is that trigger, same "kind" query
   // param pattern as invoice/report above.
+  if (kind === "overdue_reminder") {
+    const { messageId } = await createOverdueReminderDraftForJob(params.id);
+    return NextResponse.json({ ok: true, messageId });
+  }
   if (kind === "payment_reminder") {
     const { messageId } = await createPaymentReminderDraftForJob(params.id);
     return NextResponse.json({ ok: true, messageId });

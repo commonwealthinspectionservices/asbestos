@@ -21,6 +21,32 @@ export default function PaymentCalendarView() {
   const [jobs, setJobs] = useState<JobWithCustomer[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [draftingId, setDraftingId] = useState<string | null>(null);
+  const [draftError, setDraftError] = useState<string | null>(null);
+
+  // Per Tim, 2026-10-02 — "I just want to be able to send a reminder email
+  // for each overdue job": creates a Gmail draft (never sends) and jumps
+  // straight to it, same flow as the Email tab's "View Draft" buttons. The
+  // tab has to open synchronously inside the click — after the await the
+  // click's user gesture is gone and the popup gets blocked.
+  async function draftReminder(jobId: string) {
+    const newTab = window.open("", "_blank");
+    setDraftingId(jobId);
+    setDraftError(null);
+    try {
+      const res = await fetch(`/api/admin/jobs/${jobId}/create-draft?kind=overdue_reminder`, { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Failed to create reminder draft");
+      const url = `https://mail.google.com/mail/u/0/#drafts/${data.messageId}`;
+      if (newTab) newTab.location.href = url;
+      else window.open(url, "_blank");
+    } catch (e) {
+      newTab?.close();
+      setDraftError(e instanceof Error ? e.message : "Failed to create reminder draft");
+    } finally {
+      setDraftingId(null);
+    }
+  }
 
   // Per Tim, 2026-09-28 — "this should be updated as many of them were
   // paid this page needs to auto update": a job gets marked paid from
@@ -128,6 +154,7 @@ export default function PaymentCalendarView() {
       </div>
 
       {error && <div className="mt-4 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>}
+      {draftError && <div className="mt-4 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">{draftError}</div>}
 
       {!loaded && !error && <p className="mt-6 text-sm text-slate-500">Loading…</p>}
 
@@ -150,7 +177,7 @@ export default function PaymentCalendarView() {
                     return (
                       <div
                         key={job.id}
-                        className="grid grid-cols-[5rem_minmax(0,1fr)_6rem_5rem] items-center gap-2 text-sm"
+                        className="grid grid-cols-[5rem_minmax(0,1fr)_6rem_5rem] items-center sm:grid-cols-[5rem_minmax(0,1fr)_6rem_5rem_7rem] gap-2 text-sm"
                       >
                         <Link
                           href={`/admin/dashboard?jobId=${job.id}`}
@@ -172,6 +199,14 @@ export default function PaymentCalendarView() {
                             date shown inline. */}
                         <span className="whitespace-nowrap text-xs text-red-600">Due on {formatDateMDY(due)}</span>
                         <span className="whitespace-nowrap text-right font-medium text-slate-800">{formatCents(job.invoice_total_cents ?? 0)}</span>
+                        <button
+                          type="button"
+                          onClick={() => draftReminder(job.id)}
+                          disabled={draftingId === job.id}
+                          className="col-span-4 justify-self-end whitespace-nowrap rounded border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:border-brand-600 disabled:opacity-50 sm:col-span-1"
+                        >
+                          {draftingId === job.id ? "Drafting…" : "Draft reminder"}
+                        </button>
                       </div>
                     );
                   })}

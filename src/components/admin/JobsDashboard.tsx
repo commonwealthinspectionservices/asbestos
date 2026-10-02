@@ -1320,14 +1320,23 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
             after that (the w-20 first column) — so labels 13px in with a w-20
             label column put the values on the same edge as the Material
             cells' text. */}
-        <div className="mb-4 space-y-1 text-xs">
-          <div className="flex pl-[9px] sm:pl-[13px]">
-            <span className="w-[84px] shrink-0 whitespace-nowrap font-bold uppercase text-slate-700 sm:w-20">Job Number</span>
-            <span className="min-w-0 text-slate-700">{job.project_number}</span>
+        {/* Desktop only — per Tim, 2026-10-02: "just one line across... job
+            number lined all the way right, address... just where it is right
+            now": Address stays put (left, first), Job Number sits at the
+            right end of the same line, inset 13px like the left side. Mobile
+            keeps the two stacked lines (Job Number first). Per Tim, same
+            night: "this text should be the same size as the table below it" —
+            on desktop the values use the table cells' text-sm (labels stay
+            text-xs like the table's own column titles); mobile's cards are
+            text-xs throughout, so it stays as is. */}
+        <div className="mb-4 space-y-1 text-xs sm:flex sm:items-start sm:justify-between sm:space-y-0 sm:gap-4">
+          <div className="flex pl-[9px] sm:order-last sm:shrink-0 sm:whitespace-nowrap sm:pl-0 sm:pr-[13px]">
+            <span className="w-[84px] shrink-0 whitespace-nowrap font-bold uppercase text-slate-700 sm:w-auto sm:pr-2">Job Number</span>
+            <span className="min-w-0 text-slate-700 sm:text-sm">{job.project_number}</span>
           </div>
-          <div className="flex pl-[9px] sm:pl-[13px]">
+          <div className="flex pl-[9px] sm:min-w-0 sm:pl-[13px]">
             <span className="w-[84px] shrink-0 whitespace-nowrap font-bold uppercase text-slate-700 sm:w-20">Address</span>
-            <span className="min-w-0 text-slate-700">{expandAddress(job.service_address)}</span>
+            <span className="min-w-0 text-slate-700 sm:text-sm">{expandAddress(job.service_address)}</span>
           </div>
         </div>
 

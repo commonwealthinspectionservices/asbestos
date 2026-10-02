@@ -1989,6 +1989,28 @@ export function isMoldLabReport(subject: string, pdfText: string): boolean {
 // processMatchedLabEmail's own comment on reportLabels for why), isMold
 // picks mold_sample_results (tagged per label) vs. sample_results
 // (asbestos has only one domain, so every row belongs here).
+// Mold has no single stored positive/negative field the way asbestos_result
+// is (see detectAsbestosResult) — a mold job's own Discussion of Results
+// field(s) are the closest equivalent, pre-filled per label right above in
+// processMatchedLabEmail from summarizeMoldSporeTrapFindings/
+// summarizeMoldDirectAnalysisFindings, both of which use the word
+// "elevated" for exactly (and only) a positive finding (Crystal's own
+// Moderate-or-above Direct Analysis cutoff, or a spore-trap sample reading
+// above the outdoor baseline) — "No significant mold amplification..."
+// (negative) never contains it. Reading that word back out of the
+// already-persisted discussion text is simpler than re-deriving the
+// finding from the raw PDF a second time, and can't disagree with what the
+// report itself says.
+function moldOverallResult(job: Job, reportLabels: string[]): "Positive" | "Negative" | null {
+  const texts = reportLabels
+    .map((label) => moldDiscussionFieldForLabel(label))
+    .filter((field): field is NonNullable<ReturnType<typeof moldDiscussionFieldForLabel>> => Boolean(field))
+    .map((field) => job[field] ?? "")
+    .filter(Boolean);
+  if (texts.length === 0) return null;
+  return texts.some((t) => /elevated/i.test(t)) ? "Positive" : "Negative";
+}
+
 export function buildLabResultsLandedEmailHtml(params: {
   job: Job & { customers: Customer & { companies: Company | null } };
   reportLabels: string[];
@@ -1996,13 +2018,17 @@ export function buildLabResultsLandedEmailHtml(params: {
 }): string {
   const { job, reportLabels, isMold } = params;
   const clientName = job.customers?.company || job.customers?.name || "";
-  const resultLines = isMold
-    ? (job.mold_sample_results ?? [])
-        .filter((r) => !r.serviceType || reportLabels.includes(r.serviceType))
-        .map((r) => `${r.fieldCode}: ${r.result}`)
-    : (job.sample_results ?? []).map((r) => `${r.fieldCode}${r.material ? ` — ${r.material}` : ""}: ${r.result}`);
+  // Per Tim, 2026-10-01 — "I just need the overall result... either just
+  // positive or negative," not a line per sample.
+  const overallResult = isMold
+    ? moldOverallResult(job, reportLabels)
+    : job.asbestos_result === "positive"
+      ? "Positive"
+      : job.asbestos_result === "negative"
+        ? "Negative"
+        : null;
   const lines: string[] = [`${job.project_number ?? job.id} — ${clientName}`, expandAddress(job.service_address), reportLabels.join(", ")];
-  if (resultLines.length > 0) lines.push(...resultLines);
+  if (overallResult) lines.push(`Result: ${overallResult}`);
   const body = lines.map((line, i) => (i === 0 ? escapeHtml(line) : `<br><br>${escapeHtml(line)}`)).join("");
   return emailShell(`<p style="font-size:15px;">${body}</p>`);
 }

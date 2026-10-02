@@ -44,7 +44,13 @@ export const POST = withApiErrors(async (req: NextRequest) => {
   const positionOrderedText = await extractPositionOrderedText(labBuffer);
   const parsed = extractSampleResults(text, positionOrderedText);
   const materials = positionOrderedText ? extractCrystalAnalyticalMaterialDescriptions(positionOrderedText) : {};
-  const newResults = parsed.map((s) => (materials[s.fieldCode] ? { ...s, material: materials[s.fieldCode] } : s));
+  const parsedWithMaterial = parsed.map((s) => (materials[s.fieldCode] ? { ...s, material: materials[s.fieldCode] } : s));
+  // Crystal's single-sample layout isn't recognized by extractSampleResults
+  // (26-0067 returned nothing) — the caller supplies the result read off the
+  // report by hand in that case.
+  const body = await req.json().catch(() => null);
+  const manual = Array.isArray(body?.results) ? (body.results as { fieldCode: string; result: string; material?: string }[]) : [];
+  const newResults = parsedWithMaterial.length > 0 ? parsedWithMaterial : manual;
   const sourceResult = detectAsbestosResult(text, positionOrderedText);
 
   const existing = into.sample_results ?? [];

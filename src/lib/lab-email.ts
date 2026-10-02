@@ -1981,6 +1981,32 @@ export function isMoldLabReport(subject: string, pdfText: string): boolean {
   return /fungal/i.test(subject) || /fungal/i.test(pdfText);
 }
 
+// Split out of sendLabResultsLandedEmail (inside processMatchedLabEmail)
+// so a preview route can render the exact markup a real send would
+// produce — same split as buildJobPaidEmailHtml/sendJobPaidNotification in
+// booking-notify.ts. reportLabels is which label(s) this specific lab
+// report actually covers (not necessarily every label the job has — see
+// processMatchedLabEmail's own comment on reportLabels for why), isMold
+// picks mold_sample_results (tagged per label) vs. sample_results
+// (asbestos has only one domain, so every row belongs here).
+export function buildLabResultsLandedEmailHtml(params: {
+  job: Job & { customers: Customer & { companies: Company | null } };
+  reportLabels: string[];
+  isMold: boolean;
+}): string {
+  const { job, reportLabels, isMold } = params;
+  const clientName = job.customers?.company || job.customers?.name || "";
+  const resultLines = isMold
+    ? (job.mold_sample_results ?? [])
+        .filter((r) => !r.serviceType || reportLabels.includes(r.serviceType))
+        .map((r) => `${r.fieldCode}: ${r.result}`)
+    : (job.sample_results ?? []).map((r) => `${r.fieldCode}${r.material ? ` — ${r.material}` : ""}: ${r.result}`);
+  const lines: string[] = [`${job.project_number ?? job.id} — ${clientName}`, expandAddress(job.service_address), reportLabels.join(", ")];
+  if (resultLines.length > 0) lines.push(...resultLines);
+  const body = lines.map((line, i) => (i === 0 ? escapeHtml(line) : `<br><br>${escapeHtml(line)}`)).join("");
+  return emailShell(`<p style="font-size:15px;">${body}</p>`);
+}
+
 async function processMatchedLabEmail(params: {
   accessToken: string;
   messageId: string;
@@ -2365,30 +2391,10 @@ async function processMatchedLabEmail(params: {
     // label(s) this specific report just reported data for (see its own
     // comment above — not necessarily every label the job has).
     const sendLabResultsLandedEmail = () => {
-      const clientName = updatedJob.customers?.company || updatedJob.customers?.name || "";
-      // Per Tim, 2026-10-01 — "I want the results to be in the email as
-      // well", not just the project#/address/labels summary. Mold results
-      // are tagged per label (mold_sample_results' own serviceType), so
-      // this is filtered to reportLabels the same way the merge further up
-      // this function is (a combined report email shouldn't claim a label
-      // it didn't actually cover); asbestos has only one domain, so every
-      // row in sample_results belongs here. "one line of spacing between
-      // each line" — reuses this file's established array-with-blank-
-      // string-elements idiom (see reportDraftBodyHtml) rather than a
-      // flat <br><br>, so every line (header and result rows alike) gets
-      // its own blank line before it.
-      const resultLines = isMold
-        ? (updatedJob.mold_sample_results ?? [])
-            .filter((r) => !r.serviceType || reportLabels.includes(r.serviceType))
-            .map((r) => `${r.fieldCode}: ${r.result}`)
-        : (updatedJob.sample_results ?? []).map((r) => `${r.fieldCode}${r.material ? ` — ${r.material}` : ""}: ${r.result}`);
-      const lines: string[] = [`${updatedJob.project_number ?? updatedJob.id} — ${clientName}`, expandAddress(updatedJob.service_address), reportLabels.join(", ")];
-      if (resultLines.length > 0) lines.push(...resultLines);
-      const html = lines.map((line, i) => (i === 0 ? escapeHtml(line) : `<br><br>${escapeHtml(line)}`)).join("");
       return sendEmail({
         to: process.env.OWNER_EMAIL!,
         subject: `Lab results landed — ${updatedJob.project_number ?? updatedJob.id}`,
-        html: emailShell(`<p style="font-size:15px;">${html}</p>`),
+        html: buildLabResultsLandedEmailHtml({ job: updatedJob, reportLabels, isMold }),
         // reportBuffer, not the raw pdfBuffer — the trailing scanned CoC
         // page(s) are already split off (see splitTrailingCocPages above),
         // so this is exactly the lab's own results PDF, same file just

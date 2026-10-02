@@ -1784,10 +1784,7 @@ function ChainOfCustodyPanel({ job, cocType, onChanged }: { job: JobWithCustomer
           onClick={() => !sending && setConfirmingSend(false)}
         >
           <div className="w-full max-w-sm rounded-xl bg-white p-5" onClick={(e) => e.stopPropagation()}>
-            <h3 className="font-semibold text-slate-800">Send Chain of Custody to the lab?</h3>
-            <p className="mt-2 text-sm text-slate-600">
-              {realRowIndexes.length} sample{realRowIndexes.length === 1 ? "" : "s"} — sent straight to Crystal Analytical, not a Gmail draft.
-            </p>
+            <h3 className="font-semibold text-slate-800">Send Chain of Custody to Crystal Analytical?</h3>
             <div className="mt-4 flex gap-2">
               <button
                 type="button"

@@ -365,6 +365,49 @@ TOTAL72.00`;
   });
 });
 
+// Per Tim, 2026-10-03 — Crystal's own column wraps a long address line right
+// in the middle of the project number ("... MA - 26-\n0056.1"). The extracted
+// text keeps the line break, which used to stop the project number matching
+// at all (#6983 / #6986 for 26-0056.1 / 26-0056.2, #6876's 26-0041 and
+// 26-0043 lines).
+describe("extractWeeklyLabSummaryTransactions with a project number split across lines", () => {
+  const SPLIT = [
+    "09/30/2026Sales Receipt6983",
+    "Analytical Services:Asbestos ",
+    "Analysis:PLM - Bulk CVE, Per-Layer ",
+    "- 24 Hr TAT",
+    "2601004186 - 390 Commonwealth ",
+    "Avenue, Unit 610, Boston, MA - 26-",
+    "0056.1",
+    "4.0012.0048.00560.00",
+    "09/30/2026Sales Receipt6986",
+    "Analytical Services:Asbestos ",
+    "Analysis:PLM - Bulk CVE, Per-Layer ",
+    "- 24 Hr TAT",
+    "2601004191 - 390 Commonwealth ",
+    "Ave., Unit 610, Boston, MA - 26-",
+    "0056.2",
+    "8.0012.0096.00686.00",
+    "Total for Commonwealth Inspection ",
+    "Services, LLC",
+    "12.00$686.00",
+  ].join("\n");
+  const rows = extractWeeklyLabSummaryTransactions(SPLIT);
+
+  it("reads the project number across the line break, revisit suffix included", () => {
+    expect(rows.map((r) => r.projectNumber)).toEqual(["26-0056.1", "26-0056.2"]);
+  });
+
+  it("keeps the project number out of the address", () => {
+    expect(rows[0].address).toBe("390 Commonwealth Avenue, Unit 610, Boston, MA");
+    expect(rows[1].address).toBe("390 Commonwealth Ave., Unit 610, Boston, MA");
+  });
+
+  it("still reads each line's own amount", () => {
+    expect(rows.map((r) => r.amountCents)).toEqual([4800, 9600]);
+  });
+});
+
 describe("extractWeeklySummaryTotalCents", () => {
   it("reads the report's own printed grand total ($1,108.00)", () => {
     expect(extractWeeklySummaryTotalCents(WEEKLY_SUMMARY)).toBe(110_800);

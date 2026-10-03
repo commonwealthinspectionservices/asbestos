@@ -15,6 +15,17 @@ describe("matchTransactionToJobGlobally", () => {
     expect(matchTransactionToJobGlobally("58 Parker Rd., Wellesley, MA", jobs)).toBe("26-0026");
   });
 
+  // Per Tim, 2026-10-03 (Sales Receipt #6948) — the lab prints a unit as its
+  // own comma segment ("60 Woolson St., #1, Boston, MA") while the job's own
+  // address folds it into the street line ("60 Woolson St #1, Boston").
+  it("matches a lab address whose unit is a separate segment to a job whose street line includes the unit", () => {
+    const withUnit = [
+      ...jobs,
+      { projectNumber: "26-0050", serviceAddress: "60 Woolson St #1, Boston, MA 02126, USA", company: "Studio 24 Restoration Group", status: "report_invoice_sent" },
+    ];
+    expect(matchTransactionToJobGlobally("60 Woolson St., #1, Boston, MA", withUnit)).toBe("26-0050");
+  });
+
   it("matches a company-name-only billing line to that company's one job", () => {
     expect(matchTransactionToJobGlobally("Restore to New", jobs)).toBe("26-0019");
   });

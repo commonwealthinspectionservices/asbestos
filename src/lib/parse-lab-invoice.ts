@@ -150,11 +150,20 @@ const AMOUNT_TOKEN_PATTERN = /-?[\d,]+\.\d{2}/g;
 // to the parent job instead of the revisit. \.\d+ requires an actual
 // digit after the dot, so a sentence-ending period right after a plain
 // project number (no revisit) still isn't swallowed.
-const PROJECT_NUMBER_PATTERN = /(?<!\d)(2\d-\d{3,6}(?:\.\d+)?)(?!\d)/;
+// \s* after the hyphen — Crystal's own column wraps a long address line
+// mid-project-number ("... Boston, MA - 26-\n0056.1"), and the extracted
+// text keeps that line break. Confirmed live 2026-10-03: five real charges
+// (#6876's 26-0041 and 26-0043 lines, #6983 26-0056.1, #6986 26-0056.2)
+// went unmatched for exactly this reason. Callers strip the whitespace
+// back out (see normalizeProjectNumber).
+const PROJECT_NUMBER_PATTERN = /(?<!\d)(2\d-\s*\d{3,6}(?:\.\d+)?)(?!\d)/;
+function normalizeProjectNumber(raw: string): string {
+  return raw.replace(/\s+/g, "");
+}
 // The Description cell's own lab-order id — an 8+ digit run with no
 // decimal point — anchors where the address starts; an optional trailing
 // " - <project number>" (not every line has one) marks where it ends.
-const LAB_ORDER_ADDRESS_PATTERN = /\d{8,}\s*-\s*([\s\S]*?)(?:\s*-\s*2\d-\d{3,6})?\s*$/;
+const LAB_ORDER_ADDRESS_PATTERN = /\d{8,}\s*-\s*([\s\S]*?)(?:\s*-\s*2\d-\s*\d{3,6}(?:\.\d+)?)?\s*$/;
 // Same lab-order-id anchor, but capturing everything BEFORE it instead —
 // the "Product/Service full name" + description cell text (e.g.
 // "Analytical Services:Asbestos Analysis:PLM - Bulk CVE, Per-Layer - 6Hr
@@ -178,7 +187,7 @@ export function extractWeeklyLabSummaryTransactions(pdfText: string): WeeklyLabS
       num,
       transactionType: transactionType as WeeklyLabSummaryTransaction["transactionType"],
       date,
-      projectNumber: projectMatch ? projectMatch[1] : null,
+      projectNumber: projectMatch ? normalizeProjectNumber(projectMatch[1]) : null,
       address: addressMatch ? addressMatch[1].replace(/\s+/g, " ").trim() : null,
       amountCents: amounts[2] ?? 0,
       // amounts[0]/[1] are cents-scaled (×100) since AMOUNT_TOKEN_PATTERN
@@ -304,7 +313,7 @@ export function extractLabSalesReceiptLines(pdfText: string): LabSalesReceiptLin
     lines.push({
       date,
       testDescription,
-      projectNumber: projectMatch ? projectMatch[1] : null,
+      projectNumber: projectMatch ? normalizeProjectNumber(projectMatch[1]) : null,
       address: addressMatch ? addressMatch[1].replace(/\s+/g, " ").trim() : null,
       ...split,
     });

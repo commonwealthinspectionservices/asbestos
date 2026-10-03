@@ -1525,7 +1525,13 @@ async function loadJobsForTransactionMatching(supabase: ReturnType<typeof getSup
 // so a misspelled or missing town/zip can't stop two spellings of the same
 // street address matching.
 function streetKey(address: string): string {
-  return normalizeAddressForMatch(address.split(",")[0]);
+  // Unit designators are dropped from the street line — the lab prints
+  // "60 Woolson St., #1, Boston" (unit in its own comma segment) while a
+  // job's own address reads "60 Woolson St #1, Boston", so the two street
+  // lines never matched until the unit was stripped (Sales Receipt #6948,
+  // 2026-10-03).
+  const street = address.split(",")[0].replace(/\s*(?:#|\bunit\b|\bapt\b|\bste\b|\bsuite\b)\s*[\w-]*\s*$/i, "");
+  return normalizeAddressForMatch(street);
 }
 
 export function matchTransactionToJobGlobally(address: string | null, jobs: JobForTransactionMatching[]): string | null {

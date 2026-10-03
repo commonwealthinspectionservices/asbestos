@@ -3748,9 +3748,21 @@ export async function markJobPaid(jobId: string, source = "unknown"): Promise<vo
     if (!r.saved) console.log(`markJobPaid: paid invoice PDF not saved for job ${jobId} — ${r.reason}`);
   }).catch((e) => console.error(`markJobPaid: failed to save paid invoice PDF for job ${jobId}:`, e));
   await autoDraftReportIfJustPaid(jobId);
-  await sendJobPaidNotification(jobId).catch((e) =>
-    console.error(`markJobPaid: failed to send paid notification for job ${jobId}:`, e)
-  );
+  // Per Tim, 2026-10-03 — "I got a ton of notifications saying payment made
+  // but no new money came in... I only want notis when someone actually sits
+  // down and pays, I don't care when it lands": a bank-transfer (ACH)
+  // payment is marked paid the moment it's initiated (payment_intent.
+  // processing — see the Stripe webhook), then Stripe fires invoice.paid
+  // 3-5 days later when the money actually clears, which re-ran this whole
+  // function and re-sent "Payment received" for a job that had already been
+  // announced (16 of them in one morning, 10/2). Only the first call that
+  // actually marks the job paid notifies; the clearing event still files the
+  // paid-invoice PDF above, it just stays quiet.
+  if (!current?.paid_date) {
+    await sendJobPaidNotification(jobId).catch((e) =>
+      console.error(`markJobPaid: failed to send paid notification for job ${jobId}:`, e)
+    );
+  }
 }
 
 /**

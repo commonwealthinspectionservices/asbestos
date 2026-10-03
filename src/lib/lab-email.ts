@@ -1566,12 +1566,17 @@ async function processWeeklyLabSummaryEmail(params: {
   messageId: string;
   pdfBuffer: Buffer;
   pdfText: string;
+  // The owner's own say-so for a charge no matcher can resolve on its own
+  // (lab receipt number → project number). Per Tim, 2026-10-03: #6964 ($20,
+  // Newton Fire & Flood, 50 Broadway Unit 2) is genuinely ambiguous across
+  // that address's revisit family, and he confirmed which job it was.
+  overrides?: Record<string, string>;
 }): Promise<{
   recorded: { projectNumber: string; jobId: string; num: string }[];
   unmatched: UnmatchedWeeklySummaryTransaction[];
   flagged: SuspiciousLabInvoiceCharge[];
 }> {
-  const { accessToken, messageId, pdfBuffer, pdfText } = params;
+  const { accessToken, messageId, pdfBuffer, pdfText, overrides } = params;
   const supabase = getSupabaseAdmin();
 
   const transactions = extractWeeklyLabSummaryTransactions(pdfText);
@@ -1620,8 +1625,9 @@ async function processWeeklyLabSummaryEmail(params: {
   // zip happens to be spelled), or, when the "address" is really a company
   // name, by that company — and only accept a match that's unambiguous.
   const jobsForMatching = await loadJobsForTransactionMatching(supabase);
-  const resolveProjectNumber = (t: { projectNumber: string | null; address: string | null }): string | null =>
-    t.projectNumber
+  const resolveProjectNumber = (t: { num?: string; projectNumber: string | null; address: string | null }): string | null =>
+    (t.num ? overrides?.[t.num] ?? null : null)
+    ?? t.projectNumber
     ?? (t.address ? projectByNormalizedAddress.get(normalizeAddressForMatch(t.address)) ?? null : null)
     ?? matchTransactionToJobGlobally(t.address, jobsForMatching);
 
@@ -1837,7 +1843,7 @@ async function processWeeklyLabSummaryEmail(params: {
  * transaction already recorded on its job is left alone (see the
  * existingDocsForNum handling in processWeeklyLabSummaryEmail).
  */
-export async function reprocessLabSummaryMessage(messageId: string): Promise<{
+export async function reprocessLabSummaryMessage(messageId: string, overrides?: Record<string, string>): Promise<{
   recorded: { projectNumber: string; jobId: string; num: string }[];
   unmatched: UnmatchedWeeklySummaryTransaction[];
   flagged: SuspiciousLabInvoiceCharge[];
@@ -1849,7 +1855,7 @@ export async function reprocessLabSummaryMessage(messageId: string): Promise<{
     const data = await getAttachmentData(accessToken, messageId, part.attachmentId);
     const { text } = await parsePdfWithRetry(data, `${messageId}:${part.filename}`, 8);
     if (!isWeeklyLabSummaryText(text)) continue;
-    const outcome = await processWeeklyLabSummaryEmail({ accessToken, messageId, pdfBuffer: data, pdfText: text });
+    const outcome = await processWeeklyLabSummaryEmail({ accessToken, messageId, pdfBuffer: data, pdfText: text, overrides });
     const processedLabelId = await getOrCreateLabelId(accessToken, PROCESSED_LABEL);
     await addLabelToMessage(accessToken, messageId, processedLabelId);
     if (outcome.unmatched.length > 0) await alertUnmatchedWeeklySummaryTransactions(outcome.unmatched).catch(() => {});
